@@ -128,6 +128,12 @@ https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/kotoba
 
 After that, pushes to `main` rebuild the userscript and GreasyFork can pick up the new raw file through its sync/webhook flow.
 
+For the first manual publish, this helper opens a local page that posts the current built script to GreasyFork's official prefill form:
+
+```bash
+npm run prefill:greasyfork
+```
+
 ## Notes
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.

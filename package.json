@@ -26,6 +26,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "check": "npm run typecheck && npm run test && npm run build && npm run verify:userscript",
+    "prefill:greasyfork": "node scripts/open-greasyfork-prefill.cjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "verify:userscript": "node scripts/verify-userscript.cjs"
