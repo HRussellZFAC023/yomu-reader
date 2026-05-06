@@ -1,0 +1,6 @@
+node_modules/
+dist/*
+!dist/kotoba.user.js
+dist-reader/
+coverage/
+.DS_Store
