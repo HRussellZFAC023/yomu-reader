@@ -1,0 +1,45 @@
+{
+  "name": "kotoba-reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ことば: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HRussellZFAC023/kotoba-reader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HRussellZFAC023/kotoba-reader/issues"
+  },
+  "homepage": "https://github.com/HRussellZFAC023/kotoba-reader#readme",
+  "keywords": [
+    "userscript",
+    "jpdb",
+    "yomitan",
+    "japanese",
+    "ocr",
+    "subtitles",
+    "tampermonkey"
+  ],
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "check": "npm run typecheck && npm run test && npm run build && npm run verify:userscript",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify:userscript": "node scripts/verify-userscript.cjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^24.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "vite-plugin-monkey": "^3.5.1",
+    "vitest": "^1.3.1"
+  }
+}
