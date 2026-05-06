@@ -435,8 +435,20 @@ export const READER_CSS = `
   transform: translate(-50%, -50%);
   width: min(640px, calc(100vw - 20px));
   max-height: min(760px, calc(100vh - 20px));
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.jpdb-reader-settings-head {
+  flex: 0 0 auto;
+  padding: 18px 18px 0;
+}
+.jpdb-reader-settings-scroll {
+  min-height: 0;
   overflow: auto;
-  padding: 18px;
+  padding: 0 18px 16px;
+  -webkit-overflow-scrolling: touch;
 }
 .jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; }
 .jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; margin: 12px 0; padding: 12px; }
@@ -453,19 +465,67 @@ export const READER_CSS = `
   color: var(--jpdb-reader-text);
   padding: 8px;
 }
-.jpdb-reader-settings input[type="checkbox"] { width: auto; min-height: auto; }
-.jpdb-reader-settings .inline { display: flex; align-items: center; gap: 9px; }
+.jpdb-reader-settings input[type="checkbox"],
+.jpdb-reader-settings input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--jpdb-reader-border);
+  background: var(--jpdb-reader-surface-2);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+}
+.jpdb-reader-settings input[type="checkbox"] { border-radius: 7px; }
+.jpdb-reader-settings input[type="radio"] { border-radius: 999px; }
+.jpdb-reader-settings input[type="checkbox"]:checked,
+.jpdb-reader-settings input[type="radio"]:checked {
+  border-color: #70c000;
+  background: #70c000;
+  box-shadow: 0 0 0 3px rgba(112,192,0,.18);
+}
+.jpdb-reader-settings input[type="checkbox"]:checked::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  border-left: 2.5px solid #11161d;
+  border-bottom: 2.5px solid #11161d;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.jpdb-reader-settings input[type="radio"]:checked::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #11161d;
+}
+.jpdb-reader-settings input[type="checkbox"]:focus-visible,
+.jpdb-reader-settings input[type="radio"]:focus-visible {
+  outline: 2px solid #70c000;
+  outline-offset: 3px;
+}
+.jpdb-reader-settings .inline { display: flex; align-items: center; gap: 12px; min-height: 32px; }
 .jpdb-reader-settings .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .jpdb-reader-settings .footer {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  position: sticky;
-  bottom: 0;
-  margin: 12px -18px 0;
+  gap: 10px;
+  margin: 0;
   background: var(--jpdb-reader-bg);
   border-top: 1px solid var(--jpdb-reader-border);
   padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  box-shadow: 0 -10px 24px rgba(0,0,0,.18);
+}
+.jpdb-reader-settings .footer .jpdb-reader-btn {
+  min-width: 92px;
+  padding-inline: 18px;
+  font-size: 13px;
 }
 .jpdb-reader-settings a { color: var(--jpdb-reader-accent); }
 .jpdb-reader-settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
@@ -741,7 +801,18 @@ export const READER_CSS = `
   }
   .jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
-  .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 86vh; border-radius: 16px 16px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 88vh; max-height: 88svh; border-radius: 16px 16px 0 0; }
+  .jpdb-reader-settings-head { padding: 18px 20px 0; }
+  .jpdb-reader-settings-scroll { padding: 0 20px 16px; }
+  .jpdb-reader-settings .footer {
+    justify-content: stretch;
+    gap: 12px;
+    padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+  }
+  .jpdb-reader-settings .footer .jpdb-reader-btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
   .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
   .jpdb-reader-dictionary-head { display: none; }

@@ -550,7 +550,10 @@ class ReaderApp {
         form.setAttribute('aria-label', SETTINGS_TITLE);
         form.tabIndex = -1;
         form.innerHTML = `
-            <h2>${SETTINGS_TITLE}</h2>
+            <div class="jpdb-reader-settings-head">
+                <h2>${SETTINGS_TITLE}</h2>
+            </div>
+            <div class="jpdb-reader-settings-scroll">
             <fieldset>
                 <legend>JPDB</legend>
                 ${input('apiKey', 'API key', this.settings.apiKey, 'password')}
@@ -664,6 +667,7 @@ class ReaderApp {
                     ${input('shortcuts.toggleOcr', 'Toggle OCR', this.settings.shortcuts.toggleOcr)}
                 </div>
             </fieldset>
+            </div>
             <div class="footer">
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
