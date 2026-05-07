@@ -42,7 +42,10 @@
           audioTimeoutMs: 6000,
           audioSelectionMode: 'first',
           parseSelection: true,
+          popupActivationMode: 'click',
+          scanModifierKey: 'shift',
           autoScanJapanese: false,
+          scanVisiblePage: true,
           showFloatingButton: true,
           showFurigana: true,
           showPitchAccent: true,
@@ -74,7 +77,8 @@
             closePopup: 'Escape',
             previousSubtitle: 'Alt+ArrowLeft',
             nextSubtitle: 'Alt+ArrowRight',
-            copySubtitle: 'Alt+C'
+            copySubtitle: 'Alt+C',
+            toggleOcr: 'Alt+O'
           }
         }));
       }

@@ -224,4 +224,35 @@ describe('reader helpers', () => {
         expect(await store.lookupKanji('読む', 5)).toMatchObject([{ dictionary: 'KANJIDIC', meanings: ['read'] }]);
         expect(await store.lookupTermMeta('読む', 5)).toMatchObject([{ dictionary: 'JPDBv2', mode: 'freq' }]);
     });
+
+    it('imports direct Dexie rows from current Yomitan dictionary exports', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const file = new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [
+                    {
+                        tableName: 'dictionaries',
+                        inbound: true,
+                        rows: [
+                            { title: 'Jitendex.org [2025-12-02]', alias: 'Jitendex', enabled: true, priority: 0 },
+                        ],
+                    },
+                    {
+                        tableName: 'terms',
+                        inbound: true,
+                        rows: [
+                            { expression: '青空', reading: 'あおぞら', glossary: [{ tag: 'ul', content: [{ tag: 'li', content: 'blue sky' }] }], score: 10, dictionary: 'Jitendex.org [2025-12-02]' },
+                        ],
+                    },
+                ],
+            },
+        })], 'yomitan-direct-dictionaries.json', { type: 'application/json' });
+
+        await store.importFile(file);
+        const entries = await store.lookup('青空', 'あおぞら', 5);
+        expect(entries).toMatchObject([{ dictionary: 'Jitendex.org [2025-12-02]', expression: '青空' }]);
+        expect(glossaryToHtml(entries[0].glossary[0])).toContain('blue sky');
+    });
 });

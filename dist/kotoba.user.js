@@ -40,18 +40,21 @@
       __publicField(this, "current");
       __publicField(this, "utterance");
       __publicField(this, "lastBlobUrl");
+      __publicField(this, "playRequestId", 0);
       this.getSettings = getSettings;
     }
     async play(card) {
+      const requestId = ++this.playRequestId;
       const settings = this.getSettings();
       if (!settings.audioEnabled) throw new Error("Audio playback is disabled.");
       const sources = getOrderedAudioSources(settings);
       if (!sources.length) throw new Error("No audio sources configured.");
-      this.stop();
+      this.stopCurrent();
       const errors = [];
       for (const source of sources) {
+        if (requestId !== this.playRequestId) return;
         try {
-          if (await this.playFromSource(source, card, settings)) return;
+          if (await this.playFromSource(source, card, settings, requestId)) return;
         } catch (error) {
           errors.push(error instanceof Error ? error.message : String(error));
         }
@@ -59,6 +62,10 @@
       throw new Error(errors.length ? `No playable audio found. ${errors[0]}` : "No playable audio found.");
     }
     stop() {
+      this.playRequestId++;
+      this.stopCurrent();
+    }
+    stopCurrent() {
       var _a;
       (_a = this.current) == null ? void 0 : _a.pause();
       this.current = void 0;
@@ -71,8 +78,9 @@
         this.lastBlobUrl = void 0;
       }
     }
-    async playFromSource(source, card, settings) {
+    async playFromSource(source, card, settings, requestId) {
       if (source.type === "text-to-speech" || source.type === "text-to-speech-reading") {
+        if (requestId !== this.playRequestId) return true;
         await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
         return true;
       }
@@ -80,10 +88,12 @@
       for (const candidate of candidates) {
         try {
           const audioUrl = settings.audioViaBlob ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode) : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
+          if (requestId !== this.playRequestId) return true;
           const audio = new Audio(audioUrl);
           audio.preload = "auto";
           this.current = audio;
           await audio.play();
+          if (requestId !== this.playRequestId) audio.pause();
           return true;
         } catch {
         }
@@ -1289,8 +1299,10 @@
     audioTimeoutMs: 6e3,
     audioSelectionMode: "first",
     parseSelection: true,
+    popupActivationMode: "click",
+    scanModifierKey: "shift",
     autoScanJapanese: true,
-    scanVisiblePage: false,
+    scanVisiblePage: true,
     showFloatingButton: true,
     showFurigana: true,
     showPitchAccent: true,
@@ -1655,7 +1667,7 @@
 }
 
 .jpdb-reader-popover {
-  width: min(370px, calc(100vw - 16px));
+  width: min(430px, calc(100vw - 16px));
   max-height: min(540px, calc(100vh - 16px));
   overflow: auto;
   padding: 14px;
@@ -1688,6 +1700,14 @@
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.jpdb-reader-jpdb-link:hover,
+.jpdb-reader-jpdb-link:focus-visible {
+  text-decoration-color: currentColor;
 }
 .jpdb-reader-jpdb-link::after {
   content: "JPDB";
@@ -1708,9 +1728,9 @@
 }
 
 .jpdb-reader-reading { margin-top: 2px; font-size: 15px; }
-.jpdb-reader-pos { margin-top: 7px; font-size: 11px; text-transform: uppercase; }
-.jpdb-reader-meanings { margin: 10px 0; display: grid; gap: 6px; }
-.jpdb-reader-meaning { color: var(--jpdb-reader-text); }
+.jpdb-reader-pos { margin-top: 7px; font-size: 12px; line-height: 1.35; }
+.jpdb-reader-meanings { margin: 9px 0; display: grid; gap: 5px; }
+.jpdb-reader-meaning { color: var(--jpdb-reader-text); line-height: 1.35; }
 .jpdb-reader-meaning-pos { color: var(--jpdb-reader-faint); font-size: 11px; margin-right: 5px; font-style: italic; text-transform: none; }
 .jpdb-reader-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; }
 .jpdb-reader-inline-link { color: var(--jpdb-reader-accent); font-weight: 800; text-decoration: none; }
@@ -1813,9 +1833,13 @@
 .jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
 .jpdb-reader-grades .jpdb-reader-btn {
   min-width: 0;
-  padding-inline: 2px;
-  font-size: 10px;
+  min-height: 40px;
+  padding-inline: 3px;
+  font-size: 9.5px;
   letter-spacing: 0;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .jpdb-reader-btn {
   min-height: 36px;
@@ -5262,9 +5286,9 @@
     }
     async lookup(expression, reading, limit, preferences = []) {
       const db = await this.db();
-      const entries = await this.getByIndex(db, "terms", "expression", expression, Math.max(limit * 4, limit));
+      const entries = await this.getByIndex(db, "terms", "expression", expression, Math.max(limit * 40, 500));
       if (reading && reading !== expression) {
-        const byReading = await this.getByIndex(db, "terms", "reading", reading, limit);
+        const byReading = await this.getByIndex(db, "terms", "reading", reading, Math.max(limit * 20, 250));
         entries.push(...byReading);
       }
       const rank = dictionaryRank(preferences);
@@ -5582,6 +5606,20 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     }
     if (typeof (scanning == null ? void 0 : scanning.selectText) === "boolean") settings.parseSelection = scanning.selectText;
     if (typeof (scanning == null ? void 0 : scanning.scanWithoutMousemove) === "boolean") settings.autoScanJapanese = scanning.scanWithoutMousemove;
+    const scanInput = Array.isArray(scanning == null ? void 0 : scanning.inputs) ? scanning.inputs.find((input2) => input2 && typeof input2 === "object") : null;
+    if (scanInput) {
+      const include = String(scanInput.include ?? "").toLowerCase();
+      const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
+      if (modifier) {
+        settings.popupActivationMode = "modifier";
+        settings.scanModifierKey = modifier;
+      } else {
+        const options = scanInput.options;
+        if ((options == null ? void 0 : options.scanOnPenHover) === true || (options == null ? void 0 : options.scanOnTouchTap) === true || include === "") {
+          settings.popupActivationMode = "hover";
+        }
+      }
+    }
     if (typeof (general == null ? void 0 : general.maxResults) === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
     settings.yomitanSettingsBackup = value;
     const playAudio = (_b = inputs == null ? void 0 : inputs.hotkeys) == null ? void 0 : _b.find((hotkey) => hotkey.action === "playAudio" && hotkey.enabled !== false);
@@ -5635,7 +5673,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     if (["div", "span", "ol", "ul", "li", "table", "tbody", "thead", "tr", "td", "th", "ruby", "rt", "rp", "br"].includes(tag)) {
       return tag === "br" ? "<br>" : `<${tag}${attrs}>${content}</${tag}>`;
     }
-    return content || glossaryToText(value);
+    return content || escapeHtml(glossaryToText(value));
   }
   async function streamDexieTables(file, handlers, onTable) {
     if (typeof file.stream !== "function" || typeof TextDecoderStream === "undefined") {
@@ -6010,6 +6048,10 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       __publicField(this, "autoScanTimer");
       __publicField(this, "autoScanObserver");
       __publicField(this, "asbScanTimer");
+      __publicField(this, "hoverLookupTimer");
+      __publicField(this, "lastAutoAudioKey", "");
+      __publicField(this, "lastAutoAudioAt", 0);
+      __publicField(this, "cardRenderRequest", 0);
     }
     async init() {
       this.settings = await loadSettings();
@@ -6034,7 +6076,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         this.toast(`${APP_NAME} is installed. Add your JPDB API key to start.`);
         this.showSettings();
       } else if (this.settings.scanVisiblePage || this.settings.autoScanJapanese) {
-        void this.scanVisiblePage();
+        void this.scanVisiblePage({ silent: true });
       }
     }
     installStyles() {
@@ -6103,6 +6145,25 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
         void this.showWord(word);
       }, { capture: true });
+      document.addEventListener("pointerover", (event) => {
+        var _a, _b;
+        const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
+        if (!word || event.pointerType === "touch") return;
+        if (!this.shouldLookupOnHover(event)) return;
+        window.clearTimeout(this.hoverLookupTimer);
+        this.hoverLookupTimer = window.setTimeout(() => {
+          if (!word.isConnected || !word.matches(":hover")) return;
+          if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
+          void this.showWord(word);
+        }, 180);
+      }, { capture: true });
+      document.addEventListener("pointerout", (event) => {
+        var _a, _b;
+        const related = event.relatedTarget;
+        const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
+        if (!word || related && word.contains(related)) return;
+        window.clearTimeout(this.hoverLookupTimer);
+      }, { capture: true });
       document.addEventListener("keyup", () => {
         if (!this.settings.parseSelection) return;
         window.clearTimeout(this.selectionTimer);
@@ -6119,14 +6180,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), 180);
       }, { passive: true });
       document.addEventListener("keydown", (event) => {
-        if (matchesShortcut(event, this.settings.shortcuts.closePopup) && (this.activePopover || this.activeBackdrop)) {
+        if (matchesShortcut(event, this.settings.shortcuts.closePopup) && this.hasOpenReaderDialog()) {
           event.preventDefault();
           this.dismiss();
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
           event.preventDefault();
-          void this.scanVisiblePage();
+          void this.scanVisiblePage({ silent: true });
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
@@ -6147,6 +6208,17 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           void this.playAudio(this.lastCard);
         }
       });
+    }
+    shouldLookupOnHover(event) {
+      if (this.settings.popupActivationMode === "hover") return true;
+      if (this.settings.popupActivationMode !== "modifier") return false;
+      if (this.settings.scanModifierKey === "shift") return event.shiftKey;
+      if (this.settings.scanModifierKey === "alt") return event.altKey;
+      if (this.settings.scanModifierKey === "ctrl") return event.ctrlKey;
+      return event.metaKey;
+    }
+    hasOpenReaderDialog() {
+      return Boolean(this.activePopover || this.activeBackdrop || document.querySelector("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop"));
     }
     async lookupSelection() {
       var _a, _b;
@@ -6176,7 +6248,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       try {
         const targets = collectVisibleTextTargets();
         if (!targets.length) {
-          if (!options.silent) this.toast("No visible Japanese text found.");
+          if (!options.silent) this.toast("No unscanned Japanese text found.");
           return;
         }
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
@@ -6256,8 +6328,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 </div>
             </div>
             <div class="jpdb-reader-actions">
-                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 3">
-                    <button class="jpdb-reader-btn add" data-action="scan">Scan page</button>
+                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 2">
                     <button class="jpdb-reader-btn" data-action="ocr">Scan images</button>
                     <button class="jpdb-reader-btn" data-action="settings">Settings</button>
                 </div>
@@ -6266,24 +6337,21 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       popover.addEventListener("click", (event) => {
         var _a;
         const action = (_a = event.target.closest("[data-action]")) == null ? void 0 : _a.dataset.action;
-        if (action === "scan") void this.scanVisiblePage();
         if (action === "ocr") void this.ocr.scanVisible();
         if (action === "settings") this.showSettings();
+        event.stopPropagation();
       });
       this.mountPopover(popover, anchor);
     }
-    async showCard(card, sentence, anchor) {
+    async showCard(card, sentence, anchor, options = {}) {
+      const requestId = ++this.cardRenderRequest;
       this.lastCard = card;
       const state = card.cardState[0] ?? "not-in-deck";
       const popover = this.createPopover();
       const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
       const kanjiEntries = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? await this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
       const metaEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(() => []) : [];
-      const meanings = card.meanings.slice(0, 6).map((meaning) => {
-        const pos = formatPartOfSpeech(meaning.partOfSpeech);
-        const posDetails = formatPartOfSpeechDetails(meaning.partOfSpeech);
-        return `<div class="jpdb-reader-meaning">${pos ? `<span class="jpdb-reader-meaning-pos" title="${escapeHtml$1(posDetails)}">${escapeHtml$1(pos)}</span>` : ""}${escapeHtml$1(meaning.glosses.join("; "))}</div>`;
-      }).join("");
+      const meanings = card.meanings.slice(0, 6).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning.glosses.join("; "))}</div>`).join("");
       const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
       const cardPos = formatPartOfSpeech(card.partOfSpeech);
       const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
@@ -6301,7 +6369,6 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
             <div class="jpdb-reader-meta">
                 ${card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : ""}
                 <span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(state)}</span>
-                <a class="jpdb-reader-inline-link" href="${jpdbUrl}" target="_blank" rel="noopener">JPDB</a>
             </div>
             ${this.renderTermMeta(metaEntries)}
             ${this.renderLocalDefinitions(localEntries)}
@@ -6316,14 +6383,25 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 ${this.settings.enableReviews ? this.renderReviewButtons() : ""}
             </div>
         `;
+      if (requestId !== this.cardRenderRequest) return;
       popover.addEventListener("click", (event) => {
         const button = event.target.closest("[data-action]");
         if (!button) return;
         event.preventDefault();
+        event.stopPropagation();
         void this.handleCardAction(button, card, sentence);
       });
       this.mountPopover(popover, anchor);
-      if (this.settings.autoPlayAudio) void this.playAudio(card);
+      if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
+    }
+    shouldAutoPlay(card) {
+      if (!this.settings.autoPlayAudio) return false;
+      const key = `${card.vid}:${card.sid}`;
+      const now = Date.now();
+      if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+      this.lastAutoAudioKey = key;
+      this.lastAutoAudioAt = now;
+      return true;
     }
     renderLocalDefinitions(entries) {
       if (!entries.length) return "";
@@ -6409,6 +6487,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         `;
     }
     async handleCardAction(button, card, sentence) {
+      if (button.disabled) return;
       button.disabled = true;
       const action = button.dataset.action;
       try {
@@ -6424,7 +6503,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           await this.jpdb.reviewCard(card, button.dataset.grade);
           this.toast("Review sent.");
         }
-        if (action !== "audio") await this.showCard(card, sentence);
+        if (action !== "audio") await this.showCard(card, sentence, void 0, { autoPlay: false });
       } catch (error) {
         this.toast(error instanceof Error ? error.message : "Action failed.");
       } finally {
@@ -6479,7 +6558,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 ${checkbox("autoPlayAudio", "Auto-play search result audio", this.settings.autoPlayAudio)}
                 ${checkbox("audioEnableDefaultSources", "Enable Default Audio Sources", this.settings.audioEnableDefaultSources)}
                 <div class="grid">
-                    ${select("audioSelectionMode", "Audio source result selection", this.settings.audioSelectionMode, [["first", "First valid source"], ["random", "Random valid source"]])}
+                    ${select("audioSelectionMode", "Audio returned by source", this.settings.audioSelectionMode, [["first", "First audio"], ["random", "Random audio"]])}
                     ${checkbox("audioViaBlob", "Fetch as blob for iOS Tampermonkey", this.settings.audioViaBlob)}
                     ${input("audioTimeoutMs", "Audio timeout (ms)", String(this.settings.audioTimeoutMs), "number")}
                 </div>
@@ -6503,6 +6582,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${checkbox("showFurigana", "Enable furigana annotations", this.settings.showFurigana)}
                     ${checkbox("showPitchAccent", "Show pitch accent", this.settings.showPitchAccent)}
                     ${checkbox("hideKnownFurigana", "Hide furigana for known cards only", this.settings.hideKnownFurigana)}
+                    ${select("popupActivationMode", "Popup activation", this.settings.popupActivationMode, [["click", "Tap or click"], ["hover", "Hover"], ["modifier", "Hold key + hover"]])}
+                    ${select("scanModifierKey", "Hover lookup key", this.settings.scanModifierKey, [["shift", "Shift"], ["alt", "Alt"], ["ctrl", "Ctrl"], ["meta", "Command / Windows"]])}
                 </div>
                 <div class="grid">
                     ${select("theme", "Theme", this.settings.theme, [["auto", "Auto"], ["dark", "Dark"], ["light", "Light"]])}
@@ -6602,6 +6683,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         const action = (_a2 = event.target.closest("[data-action]")) == null ? void 0 : _a2.dataset.action;
         if (!action || action === "cancel") return;
         event.preventDefault();
+        event.stopPropagation();
         void this.handleSettingsAction(form, action);
       });
       this.dismiss();
@@ -6728,8 +6810,10 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     }
     dismiss() {
       var _a, _b;
+      this.cardRenderRequest++;
       (_a = this.activePopover) == null ? void 0 : _a.remove();
       (_b = this.activeBackdrop) == null ? void 0 : _b.remove();
+      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element) => element.remove());
       this.activePopover = void 0;
       this.activeBackdrop = void 0;
     }
@@ -6923,6 +7007,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       audioTimeoutMs: Math.max(1e3, number("audioTimeoutMs", current.audioTimeoutMs)),
       audioSelectionMode: get("audioSelectionMode") === "random" ? "random" : "first",
       parseSelection: has("parseSelection"),
+      popupActivationMode: ["click", "hover", "modifier"].includes(get("popupActivationMode")) ? get("popupActivationMode") : "click",
+      scanModifierKey: ["shift", "alt", "ctrl", "meta"].includes(get("scanModifierKey")) ? get("scanModifierKey") : "shift",
       autoScanJapanese: has("autoScanJapanese"),
       scanVisiblePage: has("scanVisiblePage"),
       showFloatingButton: has("showFloatingButton"),
