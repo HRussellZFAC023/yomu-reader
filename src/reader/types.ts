@@ -28,6 +28,10 @@ export type AudioSelectionMode = 'first' | 'random';
 
 export type OcrProvider = 'off' | 'yomininja-json' | 'custom-json';
 
+export type PopupActivationMode = 'click' | 'hover' | 'modifier';
+
+export type ScanModifierKey = 'shift' | 'alt' | 'ctrl' | 'meta';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -116,6 +120,8 @@ export interface ReaderSettings {
     audioTimeoutMs: number;
     audioSelectionMode: AudioSelectionMode;
     parseSelection: boolean;
+    popupActivationMode: PopupActivationMode;
+    scanModifierKey: ScanModifierKey;
     autoScanJapanese: boolean;
     scanVisiblePage: boolean;
     showFloatingButton: boolean;

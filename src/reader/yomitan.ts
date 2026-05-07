@@ -77,9 +77,9 @@ export class YomitanDictionaryStore {
 
     async lookup(expression: string, reading: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
         const db = await this.db();
-        const entries = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'expression', expression, Math.max(limit * 4, limit));
+        const entries = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'expression', expression, Math.max(limit * 40, 500));
         if (reading && reading !== expression) {
-            const byReading = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'reading', reading, limit);
+            const byReading = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'reading', reading, Math.max(limit * 20, 250));
             entries.push(...byReading);
         }
 
@@ -441,6 +441,22 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
     }
     if (typeof scanning?.selectText === 'boolean') settings.parseSelection = scanning.selectText;
     if (typeof scanning?.scanWithoutMousemove === 'boolean') settings.autoScanJapanese = scanning.scanWithoutMousemove;
+    const scanInput = Array.isArray(scanning?.inputs)
+        ? (scanning.inputs as Array<Record<string, unknown>>).find(input => input && typeof input === 'object')
+        : null;
+    if (scanInput) {
+        const include = String(scanInput.include ?? '').toLowerCase();
+        const modifier = ['shift', 'alt', 'ctrl', 'meta'].find(key => include.includes(key));
+        if (modifier) {
+            settings.popupActivationMode = 'modifier';
+            settings.scanModifierKey = modifier as ReaderSettings['scanModifierKey'];
+        } else {
+            const options = scanInput.options as Record<string, unknown> | undefined;
+            if (options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === '') {
+                settings.popupActivationMode = 'hover';
+            }
+        }
+    }
     if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
     settings.yomitanSettingsBackup = value;
 
@@ -505,7 +521,7 @@ export function glossaryToHtml(value: unknown): string {
     if (['div', 'span', 'ol', 'ul', 'li', 'table', 'tbody', 'thead', 'tr', 'td', 'th', 'ruby', 'rt', 'rp', 'br'].includes(tag)) {
         return tag === 'br' ? '<br>' : `<${tag}${attrs}>${content}</${tag}>`;
     }
-    return content || glossaryToText(value);
+    return content || escapeHtml(glossaryToText(value));
 }
 
 async function streamDexieTables(

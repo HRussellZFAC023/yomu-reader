@@ -11,21 +11,24 @@ export class AudioPlayer {
     private current?: HTMLAudioElement;
     private utterance?: SpeechSynthesisUtterance;
     private lastBlobUrl?: string;
+    private playRequestId = 0;
 
     constructor(private getSettings: () => ReaderSettings) {}
 
     async play(card: JPDBCard): Promise<void> {
+        const requestId = ++this.playRequestId;
         const settings = this.getSettings();
         if (!settings.audioEnabled) throw new Error('Audio playback is disabled.');
 
         const sources = getOrderedAudioSources(settings);
         if (!sources.length) throw new Error('No audio sources configured.');
 
-        this.stop();
+        this.stopCurrent();
         const errors: string[] = [];
         for (const source of sources) {
+            if (requestId !== this.playRequestId) return;
             try {
-                if (await this.playFromSource(source, card, settings)) return;
+                if (await this.playFromSource(source, card, settings, requestId)) return;
             } catch (error) {
                 errors.push(error instanceof Error ? error.message : String(error));
             }
@@ -35,6 +38,11 @@ export class AudioPlayer {
     }
 
     stop(): void {
+        this.playRequestId++;
+        this.stopCurrent();
+    }
+
+    private stopCurrent(): void {
         this.current?.pause();
         this.current = undefined;
         if (this.utterance) {
@@ -47,8 +55,9 @@ export class AudioPlayer {
         }
     }
 
-    private async playFromSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings): Promise<boolean> {
+    private async playFromSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number): Promise<boolean> {
         if (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') {
+            if (requestId !== this.playRequestId) return true;
             await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
             return true;
         }
@@ -59,10 +68,12 @@ export class AudioPlayer {
                 const audioUrl = settings.audioViaBlob
                     ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode)
                     : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
+                if (requestId !== this.playRequestId) return true;
                 const audio = new Audio(audioUrl);
                 audio.preload = 'auto';
                 this.current = audio;
                 await audio.play();
+                if (requestId !== this.playRequestId) audio.pause();
                 return true;
             } catch {
                 // Try the next source or candidate.

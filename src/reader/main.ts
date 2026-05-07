@@ -59,6 +59,10 @@ class ReaderApp {
     private autoScanTimer?: number;
     private autoScanObserver?: MutationObserver;
     private asbScanTimer?: number;
+    private hoverLookupTimer?: number;
+    private lastAutoAudioKey = '';
+    private lastAutoAudioAt = 0;
+    private cardRenderRequest = 0;
 
     async init(): Promise<void> {
         this.settings = await loadSettings();
@@ -85,7 +89,7 @@ class ReaderApp {
             this.toast(`${APP_NAME} is installed. Add your JPDB API key to start.`);
             this.showSettings();
         } else if (this.settings.scanVisiblePage || this.settings.autoScanJapanese) {
-            void this.scanVisiblePage();
+            void this.scanVisiblePage({ silent: true });
         }
     }
 
@@ -161,6 +165,25 @@ class ReaderApp {
             void this.showWord(word);
         }, { capture: true });
 
+        document.addEventListener('pointerover', event => {
+            const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+            if (!word || event.pointerType === 'touch') return;
+            if (!this.shouldLookupOnHover(event)) return;
+            window.clearTimeout(this.hoverLookupTimer);
+            this.hoverLookupTimer = window.setTimeout(() => {
+                if (!word.isConnected || !word.matches(':hover')) return;
+                if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
+                void this.showWord(word);
+            }, 180);
+        }, { capture: true });
+
+        document.addEventListener('pointerout', event => {
+            const related = event.relatedTarget as Node | null;
+            const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+            if (!word || (related && word.contains(related))) return;
+            window.clearTimeout(this.hoverLookupTimer);
+        }, { capture: true });
+
         document.addEventListener('keyup', () => {
             if (!this.settings.parseSelection) return;
             window.clearTimeout(this.selectionTimer);
@@ -180,14 +203,14 @@ class ReaderApp {
         }, { passive: true });
 
         document.addEventListener('keydown', event => {
-            if (matchesShortcut(event, this.settings.shortcuts.closePopup) && (this.activePopover || this.activeBackdrop)) {
+            if (matchesShortcut(event, this.settings.shortcuts.closePopup) && this.hasOpenReaderDialog()) {
                 event.preventDefault();
                 this.dismiss();
                 return;
             }
             if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
                 event.preventDefault();
-                void this.scanVisiblePage();
+                void this.scanVisiblePage({ silent: true });
                 return;
             }
             if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
@@ -208,6 +231,19 @@ class ReaderApp {
                 void this.playAudio(this.lastCard);
             }
         });
+    }
+
+    private shouldLookupOnHover(event: MouseEvent): boolean {
+        if (this.settings.popupActivationMode === 'hover') return true;
+        if (this.settings.popupActivationMode !== 'modifier') return false;
+        if (this.settings.scanModifierKey === 'shift') return event.shiftKey;
+        if (this.settings.scanModifierKey === 'alt') return event.altKey;
+        if (this.settings.scanModifierKey === 'ctrl') return event.ctrlKey;
+        return event.metaKey;
+    }
+
+    private hasOpenReaderDialog(): boolean {
+        return Boolean(this.activePopover || this.activeBackdrop || document.querySelector('[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop'));
     }
 
     private async lookupSelection(): Promise<void> {
@@ -241,7 +277,7 @@ class ReaderApp {
         try {
             const targets = collectVisibleTextTargets();
             if (!targets.length) {
-                if (!options.silent) this.toast('No visible Japanese text found.');
+                if (!options.silent) this.toast('No unscanned Japanese text found.');
                 return;
             }
 
@@ -329,8 +365,7 @@ class ReaderApp {
                 </div>
             </div>
             <div class="jpdb-reader-actions">
-                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 3">
-                    <button class="jpdb-reader-btn add" data-action="scan">Scan page</button>
+                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 2">
                     <button class="jpdb-reader-btn" data-action="ocr">Scan images</button>
                     <button class="jpdb-reader-btn" data-action="settings">Settings</button>
                 </div>
@@ -338,14 +373,15 @@ class ReaderApp {
         `;
         popover.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
-            if (action === 'scan') void this.scanVisiblePage();
             if (action === 'ocr') void this.ocr.scanVisible();
             if (action === 'settings') this.showSettings();
+            event.stopPropagation();
         });
         this.mountPopover(popover, anchor);
     }
 
-    private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement): Promise<void> {
+    private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: { autoPlay?: boolean } = {}): Promise<void> {
+        const requestId = ++this.cardRenderRequest;
         this.lastCard = card;
         const state = card.cardState[0] ?? 'not-in-deck';
         const popover = this.createPopover();
@@ -358,11 +394,9 @@ class ReaderApp {
         const metaEntries = this.settings.localDictionariesEnabled
             ? await this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(() => [])
             : [];
-        const meanings = card.meanings.slice(0, 6).map(meaning => {
-            const pos = formatPartOfSpeech(meaning.partOfSpeech);
-            const posDetails = formatPartOfSpeechDetails(meaning.partOfSpeech);
-            return `<div class="jpdb-reader-meaning">${pos ? `<span class="jpdb-reader-meaning-pos" title="${escapeHtml(posDetails)}">${escapeHtml(pos)}</span>` : ''}${escapeHtml(meaning.glosses.join('; '))}</div>`;
-        }).join('');
+        const meanings = card.meanings.slice(0, 6)
+            .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning.glosses.join('; '))}</div>`)
+            .join('');
         const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
         const cardPos = formatPartOfSpeech(card.partOfSpeech);
         const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
@@ -381,7 +415,6 @@ class ReaderApp {
             <div class="jpdb-reader-meta">
                 ${card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : ''}
                 <span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(state)}</span>
-                <a class="jpdb-reader-inline-link" href="${jpdbUrl}" target="_blank" rel="noopener">JPDB</a>
             </div>
             ${this.renderTermMeta(metaEntries)}
             ${this.renderLocalDefinitions(localEntries)}
@@ -397,15 +430,27 @@ class ReaderApp {
             </div>
         `;
 
+        if (requestId !== this.cardRenderRequest) return;
         popover.addEventListener('click', event => {
             const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             if (!button) return;
             event.preventDefault();
+            event.stopPropagation();
             void this.handleCardAction(button, card, sentence);
         });
 
         this.mountPopover(popover, anchor);
-        if (this.settings.autoPlayAudio) void this.playAudio(card);
+        if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
+    }
+
+    private shouldAutoPlay(card: JPDBCard): boolean {
+        if (!this.settings.autoPlayAudio) return false;
+        const key = `${card.vid}:${card.sid}`;
+        const now = Date.now();
+        if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+        this.lastAutoAudioKey = key;
+        this.lastAutoAudioAt = now;
+        return true;
     }
 
     private renderLocalDefinitions(entries: YomitanTermEntry[]): string {
@@ -500,6 +545,7 @@ class ReaderApp {
     }
 
     private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+        if (button.disabled) return;
         button.disabled = true;
         const action = button.dataset.action;
         try {
@@ -515,7 +561,7 @@ class ReaderApp {
                 await this.jpdb.reviewCard(card, button.dataset.grade as JPDBGrade);
                 this.toast('Review sent.');
             }
-            if (action !== 'audio') await this.showCard(card, sentence);
+            if (action !== 'audio') await this.showCard(card, sentence, undefined, { autoPlay: false });
         } catch (error) {
             this.toast(error instanceof Error ? error.message : 'Action failed.');
         } finally {
@@ -572,7 +618,7 @@ class ReaderApp {
                 ${checkbox('autoPlayAudio', 'Auto-play search result audio', this.settings.autoPlayAudio)}
                 ${checkbox('audioEnableDefaultSources', 'Enable Default Audio Sources', this.settings.audioEnableDefaultSources)}
                 <div class="grid">
-                    ${select('audioSelectionMode', 'Audio source result selection', this.settings.audioSelectionMode, [['first', 'First valid source'], ['random', 'Random valid source']])}
+                    ${select('audioSelectionMode', 'Audio returned by source', this.settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
                     ${checkbox('audioViaBlob', 'Fetch as blob for iOS Tampermonkey', this.settings.audioViaBlob)}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(this.settings.audioTimeoutMs), 'number')}
                 </div>
@@ -596,6 +642,8 @@ class ReaderApp {
                     ${checkbox('showFurigana', 'Enable furigana annotations', this.settings.showFurigana)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', this.settings.showPitchAccent)}
                     ${checkbox('hideKnownFurigana', 'Hide furigana for known cards only', this.settings.hideKnownFurigana)}
+                    ${select('popupActivationMode', 'Popup activation', this.settings.popupActivationMode, [['click', 'Tap or click'], ['hover', 'Hover'], ['modifier', 'Hold key + hover']])}
+                    ${select('scanModifierKey', 'Hover lookup key', this.settings.scanModifierKey, [['shift', 'Shift'], ['alt', 'Alt'], ['ctrl', 'Ctrl'], ['meta', 'Command / Windows']])}
                 </div>
                 <div class="grid">
                     ${select('theme', 'Theme', this.settings.theme, [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']])}
@@ -695,6 +743,7 @@ class ReaderApp {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
             if (!action || action === 'cancel') return;
             event.preventDefault();
+            event.stopPropagation();
             void this.handleSettingsAction(form, action);
         });
         this.dismiss();
@@ -834,8 +883,11 @@ class ReaderApp {
     }
 
     private dismiss(): void {
+        this.cardRenderRequest++;
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
+        document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop')
+            .forEach(element => element.remove());
         this.activePopover = undefined;
         this.activeBackdrop = undefined;
     }
@@ -1053,6 +1105,8 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
         audioSelectionMode: get('audioSelectionMode') === 'random' ? 'random' : 'first',
         parseSelection: has('parseSelection'),
+        popupActivationMode: ['click', 'hover', 'modifier'].includes(get('popupActivationMode')) ? get('popupActivationMode') as ReaderSettings['popupActivationMode'] : 'click',
+        scanModifierKey: ['shift', 'alt', 'ctrl', 'meta'].includes(get('scanModifierKey')) ? get('scanModifierKey') as ReaderSettings['scanModifierKey'] : 'shift',
         autoScanJapanese: has('autoScanJapanese'),
         scanVisiblePage: has('scanVisiblePage'),
         showFloatingButton: has('showFloatingButton'),
