@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import JSZip from 'jszip';
+import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio } from '../../src/reader/audio';
 import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { DEFAULT_SETTINGS, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
@@ -74,6 +76,19 @@ describe('reader helpers', () => {
         expect(normalizeOcrProvider('auto')).toBe('google-lens');
         expect(normalizeOcrProvider('fast')).toBe('page-text');
         expect(normalizeOcrProvider('custom-json')).toBe('local-service');
+    });
+
+    it('ships direct Japanese recommended dictionary downloads from Yomitan', () => {
+        expect(findRecommendedDictionary('jitendex')?.downloadUrl).toContain('jitendex-yomitan.zip');
+        expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
+        expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
+            'Jitendex',
+            'JMnedict',
+            'KANJIDIC',
+            'JPDBv2㋕',
+            'BCCWJ',
+            'Jiten',
+        ]);
     });
 
     it('sanitizes configurable accent colors', () => {
@@ -428,5 +443,57 @@ describe('reader helpers', () => {
         const entries = await store.lookup('青空', 'あおぞら', 5);
         expect(entries).toMatchObject([{ dictionary: 'Jitendex.org [2025-12-02]', expression: '青空' }]);
         expect(glossaryToHtml(entries[0].glossary[0])).toContain('blue sky');
+    });
+
+    it('sorts local frequency metadata with JPDB dictionaries first', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const file = new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [
+                    {
+                        tableName: 'termMeta',
+                        rows: [
+                            { $: [1, { expression: '読む', mode: 'freq', data: { frequency: 10 }, dictionary: 'BCCWJ' }] },
+                            { $: [2, { expression: '読む', mode: 'freq', data: { frequency: 400 }, dictionary: 'JPDBv2㋕' }] },
+                            { $: [3, { expression: '読む', mode: 'pitch', data: { pitches: [1] }, dictionary: 'Pitch' }] },
+                        ],
+                    },
+                ],
+            },
+        })], 'freq.json', { type: 'application/json' });
+
+        await store.importFile(file);
+        const entries = await store.lookupTermMeta('読む', 5, [
+            { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 0 },
+            { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 5 },
+            { name: 'Pitch', alias: 'Pitch', enabled: true, priority: 1 },
+        ]);
+        expect(entries.map(entry => entry.dictionary)).toEqual(['JPDBv2㋕', 'BCCWJ', 'Pitch']);
+    });
+
+    it('downloads and imports a recommended dictionary ZIP via userscript requests', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const zip = new JSZip();
+        zip.file('index.json', JSON.stringify({ title: 'Tiny Dictionary', format: 3, revision: 'test' }));
+        zip.file('term_bank_1.json', JSON.stringify([
+            ['読む', 'よむ', '', '', 1, ['to read'], 1, ''],
+        ]));
+        const blob = await zip.generateAsync({ type: 'blob' });
+        vi.stubGlobal('GM_xmlhttpRequest', (details: {
+            onload?: (response: { status: number; response: Blob }) => void;
+        }) => details.onload?.({ status: 200, response: blob }));
+
+        try {
+            const summary = await store.importFromUrl('https://example.test/tiny.zip', 'tiny.zip');
+            const dictionaries = (await store.summary()).dictionaries;
+
+            expect(summary).toMatchObject({ dictionaries: ['Tiny Dictionary'], terms: 1 });
+            expect(dictionaries[0]).toMatchObject({ title: 'Tiny Dictionary', revision: 'test', downloadUrl: 'https://example.test/tiny.zip' });
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });

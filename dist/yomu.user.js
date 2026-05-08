@@ -680,7 +680,7 @@
         rid,
         spelling,
         reading,
-        frequencyRank,
+        frequencyRank2,
         partOfSpeech,
         meaningsChunks,
         meaningsPartOfSpeech,
@@ -692,7 +692,7 @@
         rid,
         spelling,
         reading,
-        frequencyRank,
+        frequencyRank: frequencyRank2,
         partOfSpeech,
         meanings: meaningsChunks.map((glosses, index) => ({
           glosses,
@@ -1558,7 +1558,7 @@
     } catch {
       const url = image.currentSrc || image.src;
       if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-      const blob = await requestBlob(url);
+      const blob = await requestBlob$1(url);
       const objectUrl = URL.createObjectURL(blob);
       try {
         const loaded = await loadImage(objectUrl);
@@ -2140,7 +2140,7 @@
     }
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
-  function requestBlob(url) {
+  function requestBlob$1(url) {
     if (typeof GM_xmlhttpRequest === "function") {
       return new Promise((resolve, reject) => {
         GM_xmlhttpRequest({
@@ -2232,6 +2232,59 @@
   }
   function formatPartOfSpeechDetails(tags = []) {
     return tags.length ? tags.join(", ").toUpperCase() : "";
+  }
+  const RECOMMENDED_JAPANESE_DICTIONARIES = [
+    {
+      id: "jitendex",
+      category: "terms",
+      name: "Jitendex",
+      description: "Japanese to English dictionary with examples, usage notes, etymology, cross references, and definition notes.",
+      homepage: "https://jitendex.org",
+      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
+    },
+    {
+      id: "jmnedict",
+      category: "terms",
+      name: "JMnedict",
+      description: "Japanese proper names maintained by the Electronic Dictionary Research and Development Group.",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
+    },
+    {
+      id: "kanjidic",
+      category: "kanji",
+      name: "KANJIDIC",
+      description: "Kanji readings, meanings, stroke data, grade level, JLPT level, and frequency.",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdbv2-kana",
+      category: "frequency",
+      name: "JPDBv2㋕",
+      description: "Frequency data based on the JPDB corpus. よむ shows this first when sorting local frequency chips.",
+      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
+    },
+    {
+      id: "bccwj",
+      category: "frequency",
+      name: "BCCWJ",
+      description: "Frequency data from the Balanced Corpus of Contemporary Written Japanese.",
+      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
+    },
+    {
+      id: "jiten",
+      category: "frequency",
+      name: "Jiten",
+      description: "Frequency data from the media stats database at jiten.moe.",
+      homepage: "https://jiten.moe/other",
+      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+    }
+  ];
+  function findRecommendedDictionary(id) {
+    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
   const READER_CSS = `
 :root {
@@ -2931,6 +2984,50 @@
   font-size: 12px;
 }
 .jpdb-reader-dictionary-priorities { display: grid; gap: 7px; margin: 10px 0; }
+.jpdb-reader-recommended-dictionaries {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.jpdb-reader-recommended-title {
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+  font-size: 13px;
+}
+.jpdb-reader-recommended-group {
+  display: grid;
+  gap: 7px;
+}
+.jpdb-reader-recommended-group-title {
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.jpdb-reader-recommended-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 10px;
+}
+.jpdb-reader-recommended-name {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+  font-size: 13px;
+}
+.jpdb-reader-recommended-name a {
+  font-size: 12px;
+  font-weight: 700;
+}
 .jpdb-reader-dictionary-head,
 .jpdb-reader-dictionary-row {
   display: grid;
@@ -3265,6 +3362,7 @@
   }
   .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
+  .jpdb-reader-recommended-item { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding {
     inset: auto 0 0 0;
     transform: none;
@@ -6549,7 +6647,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     async lookupTermMeta(expression, limit, preferences = []) {
       const db = await this.db();
       const rank = dictionaryRank(preferences);
-      return (await this.getByIndex(db, "termMeta", "expression", expression, limit * 2)).filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)).slice(0, limit);
+      return (await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80))).filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
     }
     async summary() {
       const db = await this.db();
@@ -6566,11 +6664,17 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       const summary = await this.summary();
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
-    async importFile(file, onProgress) {
-      if (/\.zip$/i.test(file.name)) return this.importZip(file, onProgress);
+    async importFile(file, onProgress, sourceUrl = "") {
+      if (/\.zip$/i.test(file.name)) return this.importZip(file, onProgress, sourceUrl);
       return this.importJson(file, onProgress);
     }
-    async importZip(file, onProgress) {
+    async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
+      onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
+      const blob = await requestBlob(url, onProgress);
+      const file = new File([blob], filename, { type: blob.type || "application/zip" });
+      return this.importFile(file, onProgress, url);
+    }
+    async importZip(file, onProgress, sourceUrl = "") {
       var _a;
       onProgress == null ? void 0 : onProgress("Reading dictionary ZIP...");
       const zip = await JSZip.loadAsync(file);
@@ -6585,6 +6689,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         alias: dictionary,
         enabled: true,
         priority: 0,
+        revision: typeof index.revision === "string" ? index.revision : void 0,
+        downloadUrl: sourceUrl || void 0,
         importDate: Date.now()
       });
       const summary = { dictionaries: [dictionary], entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
@@ -7155,6 +7261,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       priority: Number.isFinite(Number(record.priority)) ? Number(record.priority) : 0,
       counts: record.counts,
       styles: typeof record.styles === "string" ? record.styles : "",
+      revision: typeof record.revision === "string" ? record.revision : void 0,
+      downloadUrl: typeof record.downloadUrl === "string" ? record.downloadUrl : void 0,
       importDate: typeof record.importDate === "number" ? record.importDate : void 0
     };
   }
@@ -7195,6 +7303,68 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function dictionaryPriority(dictionary, rank) {
     var _a;
     return ((_a = rank.get(dictionary)) == null ? void 0 : _a.priority) ?? 9999;
+  }
+  function compareMetaEntries(a, b, rank) {
+    if (a.mode === "freq" && b.mode !== "freq") return -1;
+    if (a.mode !== "freq" && b.mode === "freq") return 1;
+    if (a.mode === "freq" && b.mode === "freq") {
+      const aJpdb = isJpdbFrequencyDictionary(a.dictionary) ? 0 : 1;
+      const bJpdb = isJpdbFrequencyDictionary(b.dictionary) ? 0 : 1;
+      return aJpdb - bJpdb || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || frequencyRank(a.data) - frequencyRank(b.data) || a.dictionary.localeCompare(b.dictionary);
+    }
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || a.dictionary.localeCompare(b.dictionary);
+  }
+  function isJpdbFrequencyDictionary(dictionary) {
+    return /jpdb/i.test(dictionary);
+  }
+  function frequencyRank(value) {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
+    if (!value || typeof value !== "object") return Number.POSITIVE_INFINITY;
+    const record = value;
+    return frequencyRank(record.frequency ?? record.value ?? record.displayValue);
+  }
+  function filenameFromUrl(url) {
+    try {
+      const parsed = new URL(url);
+      const pathName = parsed.pathname.split("/").filter(Boolean).pop();
+      return pathName && /\.zip$/i.test(pathName) ? decodeURIComponent(pathName) : "dictionary.zip";
+    } catch {
+      return "dictionary.zip";
+    }
+  }
+  async function requestBlob(url, onProgress) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          responseType: "blob",
+          timeout: 12e4,
+          onprogress: (event) => {
+            if (event.lengthComputable && event.total > 0) {
+              onProgress == null ? void 0 : onProgress(`Downloading dictionary ${Math.round(event.loaded / event.total * 100)}%...`);
+            }
+          },
+          onload: (response2) => {
+            if (response2.status < 200 || response2.status >= 300) {
+              reject(new Error(`Dictionary download failed (${response2.status}).`));
+              return;
+            }
+            if (response2.response instanceof Blob) {
+              resolve(response2.response);
+              return;
+            }
+            reject(new Error("Dictionary download did not return a ZIP file."));
+          },
+          onerror: () => reject(new Error("Dictionary download failed.")),
+          ontimeout: () => reject(new Error("Dictionary download timed out."))
+        });
+      });
+    }
+    const response = await fetch(url, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
+    if (!response.ok) throw new Error(`Dictionary download failed (${response.status}).`);
+    return response.blob();
   }
   function splitTags(value) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
@@ -7933,6 +8103,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 <div class="jpdb-reader-dictionary-priorities">
                     ${renderDictionaryPreferenceRows(this.settings.dictionaryPreferences)}
                 </div>
+                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
+                    ${renderRecommendedDictionaries([])}
+                </div>
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
@@ -8001,12 +8174,12 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         sourceSelect.addEventListener("change", () => syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value));
       });
       form.addEventListener("click", (event) => {
-        var _a2;
-        const action = (_a2 = event.target.closest("[data-action]")) == null ? void 0 : _a2.dataset.action;
+        const control = event.target.closest("[data-action]");
+        const action = control == null ? void 0 : control.dataset.action;
         if (!action || action === "cancel") return;
         event.preventDefault();
         event.stopPropagation();
-        void this.handleSettingsAction(form, action);
+        void this.handleSettingsAction(form, action, control);
       });
       this.dismiss();
       this.settingsPreviewOriginalAccent = this.settings.accentColor;
@@ -8019,6 +8192,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     async refreshDictionaryStatus(form) {
       const status = form.querySelector("[data-dictionary-status]");
       const priorities = form.querySelector(".jpdb-reader-dictionary-priorities");
+      const recommended = form.querySelector("[data-recommended-dictionaries]");
       try {
         const summary = await this.dictionaries.summary();
         const names = summary.dictionaries.map((item) => item.title);
@@ -8031,11 +8205,12 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           status.textContent = summary.dictionaries.length ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.` : "No local dictionaries imported yet.";
         }
         if (priorities) setInnerHtml(priorities, renderDictionaryPreferenceRows(this.settings.dictionaryPreferences));
+        if (recommended) setInnerHtml(recommended, renderRecommendedDictionaries(summary.dictionaries));
       } catch (error) {
         if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
       }
     }
-    async handleSettingsAction(form, action) {
+    async handleSettingsAction(form, action, control) {
       const status = form.querySelector("[data-import-status]");
       const setStatus = (message) => {
         if (status) status.textContent = message;
@@ -8091,12 +8266,26 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.showSettings();
           return;
         }
+        if (action === "download-recommended-dictionary") {
+          const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
+          const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : void 0;
+          if (!dictionary) throw new Error("Recommended dictionary not found.");
+          control == null ? void 0 : control.setAttribute("disabled", "true");
+          setStatus(`Downloading ${dictionary.name}...`);
+          const summary = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
+          this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries);
+          await saveSettings(this.settings);
+          setStatus(`Downloaded ${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
+          await this.refreshDictionaryStatus(form);
+          return;
+        }
         if (action === "export-yomitan-dictionary") {
           const blob = await this.dictionaries.exportJson();
           downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
           setStatus("Dictionaries exported.");
         }
       } catch (error) {
+        if (action === "download-recommended-dictionary") control == null ? void 0 : control.removeAttribute("disabled");
         setStatus(error instanceof Error ? error.message : "Import failed.");
       }
     }
@@ -8392,6 +8581,59 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
             </div>
         `).join("")}
     `;
+  }
+  function renderRecommendedDictionaries(installed) {
+    const groups = [
+      ["terms", "Term dictionaries"],
+      ["kanji", "Kanji dictionaries"],
+      ["frequency", "Frequency dictionaries"]
+    ];
+    return `
+        <div class="jpdb-reader-recommended-title">Recommended dictionary downloads</div>
+        ${groups.map(([category, label]) => {
+    const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
+    if (!dictionaries.length) return "";
+    return `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title">${escapeHtml$1(label)}</div>
+                    ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+                </div>
+            `;
+  }).join("")}
+    `;
+  }
+  function renderRecommendedDictionary(dictionary, installed) {
+    const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
+    return `
+        <div class="jpdb-reader-recommended-item">
+            <div>
+                <div class="jpdb-reader-recommended-name">
+                    <span>${escapeHtml$1(dictionary.name)}</span>
+                    <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
+                </div>
+                <div class="jpdb-reader-help">${escapeHtml$1(dictionary.description)}</div>
+            </div>
+            <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" ${alreadyInstalled ? "disabled" : ""}>
+                ${alreadyInstalled ? "Installed" : "Download"}
+            </button>
+        </div>
+    `;
+  }
+  function isRecommendedDictionaryInstalled(dictionary, installed) {
+    const targetName = normalizedDictionaryName(dictionary.name);
+    return installed.some((item) => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
+  }
+  function normalizedDictionaryName(value) {
+    return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
+  }
+  function recommendedDictionaryFilename(dictionary) {
+    try {
+      const parsed = new URL(dictionary.downloadUrl);
+      const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
+      if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
+    } catch {
+    }
+    return `${dictionary.id}.zip`;
   }
   function readFormSettings(data, current) {
     var _a;

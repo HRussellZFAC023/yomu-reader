@@ -260,6 +260,7 @@ async function auditSettings(browser, server) {
             fiveRows,
             localOcrHidden: [...document.querySelectorAll('[data-local-ocr]')].every(el => el.hidden),
             cloudOcrHidden: [...document.querySelectorAll('[data-cloud-ocr]')].every(el => el.hidden),
+            recommendedDownloads: document.querySelectorAll('[data-action="download-recommended-dictionary"]').length,
         };
     });
     assertAudit(snapshot.title === 'よむ Settings', 'settings dialog title is wrong');
@@ -267,6 +268,7 @@ async function auditSettings(browser, server) {
     assertAudit(snapshot.saveBottom <= snapshot.viewportHeight, 'settings Save button is below the visible viewport');
     assertAudit(snapshot.fiveRows > 0 && snapshot.passFailRows === 0, 'five-grade and pass/fail shortcut settings are both visible');
     assertAudit(snapshot.localOcrHidden && snapshot.cloudOcrHidden, 'irrelevant OCR provider fields are visible by default');
+    assertAudit(snapshot.recommendedDownloads >= 6, 'recommended dictionary downloads are missing from settings');
     await page.screenshot({ path: path.join(ARTIFACTS, 'settings.png'), fullPage: false });
     await page.close();
     record('settings dialog', 'pass', 'actions visible, irrelevant provider fields hidden');

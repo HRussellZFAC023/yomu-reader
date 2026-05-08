@@ -18,7 +18,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB mining actions for add, Never Forget, blacklist, and review grades.
-- Yomitan dictionary imports: settings JSON, dictionary ZIPs, and Dexie exports.
+- Yomitan dictionary imports: recommended in-app downloads, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
@@ -149,6 +149,7 @@ npm run prefill:greasyfork
 ## Notes
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
+- Recommended dictionary downloads are available in settings for Jitendex, JMnedict, KANJIDIC, BCCWJ, JPDBv2㋕, and Jiten. JPDB frequency entries are shown first in local frequency chips.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed.

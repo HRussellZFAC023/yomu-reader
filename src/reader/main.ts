@@ -14,6 +14,7 @@ import { JpdbClient } from './jpdb';
 import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary, type RecommendedDictionary } from './recommended-dictionaries';
 import {
     AUDIO_GUIDE_URL,
     AUDIO_SOURCE_OPTIONS,
@@ -36,6 +37,7 @@ import {
     YomitanDictionaryStore,
     glossaryToHtml,
     parseYomitanSettingsExport,
+    type YomitanDictionaryInfo,
     type YomitanKanjiEntry,
     type YomitanMetaEntry,
     type YomitanTermEntry,
@@ -776,6 +778,9 @@ class ReaderApp {
                 <div class="jpdb-reader-dictionary-priorities">
                     ${renderDictionaryPreferenceRows(this.settings.dictionaryPreferences)}
                 </div>
+                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
+                    ${renderRecommendedDictionaries([])}
+                </div>
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
@@ -841,11 +846,12 @@ class ReaderApp {
             sourceSelect.addEventListener('change', () => syncAudioSourceRow(sourceSelect.closest('[data-audio-source-row]'), sourceSelect.value));
         });
         form.addEventListener('click', event => {
-            const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+            const control = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
+            const action = control?.dataset.action;
             if (!action || action === 'cancel') return;
             event.preventDefault();
             event.stopPropagation();
-            void this.handleSettingsAction(form, action);
+            void this.handleSettingsAction(form, action, control);
         });
         this.dismiss();
         this.settingsPreviewOriginalAccent = this.settings.accentColor;
@@ -859,6 +865,7 @@ class ReaderApp {
     private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
         const status = form.querySelector<HTMLElement>('[data-dictionary-status]');
         const priorities = form.querySelector<HTMLElement>('.jpdb-reader-dictionary-priorities');
+        const recommended = form.querySelector<HTMLElement>('[data-recommended-dictionaries]');
         try {
             const summary = await this.dictionaries.summary();
             const names = summary.dictionaries.map(item => item.title);
@@ -873,12 +880,13 @@ class ReaderApp {
                     : 'No local dictionaries imported yet.';
             }
             if (priorities) setInnerHtml(priorities, renderDictionaryPreferenceRows(this.settings.dictionaryPreferences));
+            if (recommended) setInnerHtml(recommended, renderRecommendedDictionaries(summary.dictionaries));
         } catch (error) {
             if (status) status.textContent = error instanceof Error ? error.message : 'Dictionary status unavailable.';
         }
     }
 
-    private async handleSettingsAction(form: HTMLFormElement, action: string): Promise<void> {
+    private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
         const status = form.querySelector<HTMLElement>('[data-import-status]');
         const setStatus = (message: string) => {
             if (status) status.textContent = message;
@@ -938,12 +946,27 @@ class ReaderApp {
                 return;
             }
 
+            if (action === 'download-recommended-dictionary') {
+                const dictionaryId = control?.dataset.dictionaryId;
+                const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : undefined;
+                if (!dictionary) throw new Error('Recommended dictionary not found.');
+                control?.setAttribute('disabled', 'true');
+                setStatus(`Downloading ${dictionary.name}...`);
+                const summary = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
+                this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries);
+                await saveSettings(this.settings);
+                setStatus(`Downloaded ${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
+                await this.refreshDictionaryStatus(form);
+                return;
+            }
+
             if (action === 'export-yomitan-dictionary') {
                 const blob = await this.dictionaries.exportJson();
                 downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
                 setStatus('Dictionaries exported.');
             }
         } catch (error) {
+            if (action === 'download-recommended-dictionary') control?.removeAttribute('disabled');
             setStatus(error instanceof Error ? error.message : 'Import failed.');
         }
     }
@@ -1268,6 +1291,66 @@ function renderDictionaryPreferenceRows(preferences: DictionaryPreference[]): st
             </div>
         `).join('')}
     `;
+}
+
+function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]): string {
+    const groups: Array<[RecommendedDictionary['category'], string]> = [
+        ['terms', 'Term dictionaries'],
+        ['kanji', 'Kanji dictionaries'],
+        ['frequency', 'Frequency dictionaries'],
+    ];
+
+    return `
+        <div class="jpdb-reader-recommended-title">Recommended dictionary downloads</div>
+        ${groups.map(([category, label]) => {
+            const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter(dictionary => dictionary.category === category);
+            if (!dictionaries.length) return '';
+            return `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title">${escapeHtml(label)}</div>
+                    ${dictionaries.map(dictionary => renderRecommendedDictionary(dictionary, installed)).join('')}
+                </div>
+            `;
+        }).join('')}
+    `;
+}
+
+function renderRecommendedDictionary(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): string {
+    const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
+    return `
+        <div class="jpdb-reader-recommended-item">
+            <div>
+                <div class="jpdb-reader-recommended-name">
+                    <span>${escapeHtml(dictionary.name)}</span>
+                    <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
+                </div>
+                <div class="jpdb-reader-help">${escapeHtml(dictionary.description)}</div>
+            </div>
+            <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" ${alreadyInstalled ? 'disabled' : ''}>
+                ${alreadyInstalled ? 'Installed' : 'Download'}
+            </button>
+        </div>
+    `;
+}
+
+function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
+    const targetName = normalizedDictionaryName(dictionary.name);
+    return installed.some(item => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
+}
+
+function normalizedDictionaryName(value: string): string {
+    return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, '');
+}
+
+function recommendedDictionaryFilename(dictionary: RecommendedDictionary): string {
+    try {
+        const parsed = new URL(dictionary.downloadUrl);
+        const lastPath = parsed.pathname.split('/').filter(Boolean).pop();
+        if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
+    } catch {
+        // Fall through to a readable fallback.
+    }
+    return `${dictionary.id}.zip`;
 }
 
 function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettings {

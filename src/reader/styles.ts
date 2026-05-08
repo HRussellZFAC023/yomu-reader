@@ -696,6 +696,50 @@ export const READER_CSS = `
   font-size: 12px;
 }
 .jpdb-reader-dictionary-priorities { display: grid; gap: 7px; margin: 10px 0; }
+.jpdb-reader-recommended-dictionaries {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.jpdb-reader-recommended-title {
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+  font-size: 13px;
+}
+.jpdb-reader-recommended-group {
+  display: grid;
+  gap: 7px;
+}
+.jpdb-reader-recommended-group-title {
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.jpdb-reader-recommended-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 10px;
+}
+.jpdb-reader-recommended-name {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+  font-size: 13px;
+}
+.jpdb-reader-recommended-name a {
+  font-size: 12px;
+  font-weight: 700;
+}
 .jpdb-reader-dictionary-head,
 .jpdb-reader-dictionary-row {
   display: grid;
@@ -1030,6 +1074,7 @@ export const READER_CSS = `
   }
   .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
+  .jpdb-reader-recommended-item { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding {
     inset: auto 0 0 0;
     transform: none;

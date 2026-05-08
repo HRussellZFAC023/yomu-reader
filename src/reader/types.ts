@@ -194,6 +194,7 @@ declare global {
         responseType?: 'blob' | 'json' | 'text' | 'arraybuffer';
         timeout?: number;
         onload?: (response: { status: number; response: unknown; responseText?: string; finalUrl?: string }) => void;
+        onprogress?: (event: { lengthComputable?: boolean; loaded: number; total: number }) => void;
         onerror?: (error: unknown) => void;
         ontimeout?: () => void;
     }) => void);
