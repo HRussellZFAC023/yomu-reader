@@ -1,4 +1,4 @@
-import { escapeHtml, renderTokensToHtml } from './dom';
+import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { matchesShortcut } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
@@ -86,7 +86,7 @@ export class SubtitlePlayerController {
         const root = document.createElement('div');
         root.className = 'jpdb-subtitle-player';
         root.dataset.jpdbReaderRoot = 'true';
-        root.innerHTML = `
+        setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
@@ -106,7 +106,7 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-list" hidden></div>
             <input hidden type="file" data-file="primary" accept=".srt,.vtt,text/vtt">
             <input hidden type="file" data-file="secondary" accept=".srt,.vtt,text/vtt">
-        `;
+        `);
         root.addEventListener('click', event => this.handleClick(event));
         this.subtitleEl = root.querySelector('.jpdb-subtitle-text') as HTMLElement;
         this.menuEl = root.querySelector('.jpdb-subtitle-menu') as HTMLElement;
@@ -269,14 +269,14 @@ export class SubtitlePlayerController {
         if (!this.subtitleEl) return;
         const text = this.currentCue?.text.trim() ?? '';
         if (!text) {
-            this.subtitleEl.innerHTML = this.secondaryCue?.text ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : '';
+            setInnerHtml(this.subtitleEl, this.secondaryCue?.text ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : '');
             return;
         }
 
         const secondary = this.options.getSettings().subtitleSecondaryVisible && this.secondaryCue?.text
             ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>`
             : '';
-        this.subtitleEl.innerHTML = `<div class="jpdb-subtitle-primary">${escapeWithBreaks(text)}</div>${secondary}`;
+        setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${escapeWithBreaks(text)}</div>${secondary}`);
         if (this.options.getSettings().apiKey) void this.renderParsedPrimary(text);
     }
 
@@ -304,7 +304,7 @@ export class SubtitlePlayerController {
     private replacePrimaryHtml(html: string, serial: number): void {
         if (serial !== this.renderSerial) return;
         const primary = this.subtitleEl?.querySelector('.jpdb-subtitle-primary');
-        if (primary) primary.innerHTML = html;
+        if (primary) setInnerHtml(primary, html);
     }
 
     private handleClick(event: MouseEvent): void {
@@ -531,13 +531,13 @@ export class SubtitlePlayerController {
     private renderTranscriptPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
         if (!this.cues.length) {
-            this.transcriptPanel.innerHTML = '<div class="jpdb-subtitle-list-empty">No loaded Japanese subtitle lines.</div>';
+            setInnerHtml(this.transcriptPanel, '<div class="jpdb-subtitle-list-empty">No loaded Japanese subtitle lines.</div>');
             return;
         }
         const currentIndex = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) : -1;
         const start = Math.max(0, currentIndex - 12);
         const visible = this.cues.slice(start, start + 28);
-        this.transcriptPanel.innerHTML = `
+        setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>${this.cues.length} lines</span>
                 <button type="button" data-action="list">Close</button>
@@ -553,13 +553,13 @@ export class SubtitlePlayerController {
                     `;
                 }).join('')}
             </div>
-        `;
+        `);
     }
 
     private renderTrackPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'tracks') return;
         const tracks = this.tracks;
-        this.transcriptPanel.innerHTML = `
+        setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>${tracks.length ? `${tracks.length} detected tracks` : 'No detected tracks'}</span>
                 <button type="button" data-action="tracks">Close</button>
@@ -576,7 +576,7 @@ export class SubtitlePlayerController {
                     </div>
                 `).join('') : '<div class="jpdb-subtitle-list-empty">Load SRT/VTT files or enable page captions, then choose tracks here.</div>'}
             </div>
-        `;
+        `);
     }
 
     private async choosePrimaryTrack(id?: string): Promise<void> {

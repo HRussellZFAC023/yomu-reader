@@ -130,14 +130,14 @@ export const READER_CSS = `
   overflow: hidden;
   min-width: 32px;
   min-height: 32px;
-  padding: 3px;
+  padding: 2px 4px;
   border: 1px solid rgba(255,255,255,.26);
   border-radius: 6px;
-  background: rgba(24,27,32,.18);
+  background: rgba(24,27,32,.32);
   color: #fff;
   text-shadow: 0 2px 2px #000, 0 0 8px rgba(0,0,0,.92);
-  font-weight: 900;
-  line-height: 1.08;
+  font-weight: 780;
+  line-height: 1.12;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.14);
@@ -217,6 +217,7 @@ export const READER_CSS = `
   border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0,0,0,.34);
   color: var(--jpdb-reader-text);
+  color-scheme: dark;
   font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -238,8 +239,46 @@ export const READER_CSS = `
 
 .jpdb-reader-header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px;
+}
+.jpdb-reader-heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.jpdb-reader-card-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: auto;
+}
+.jpdb-reader-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 50%;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-icon-btn:hover,
+.jpdb-reader-icon-btn:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}
+.jpdb-reader-icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .jpdb-reader-spelling {
@@ -462,10 +501,10 @@ export const READER_CSS = `
   padding: 0 18px 16px;
   -webkit-overflow-scrolling: touch;
 }
-.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; }
+.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; color: var(--jpdb-reader-text) !important; }
 .jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; margin: 12px 0; padding: 12px; }
 .jpdb-reader-settings legend { color: var(--jpdb-reader-muted); padding: 0 6px; }
-.jpdb-reader-settings label { display: grid; gap: 5px; margin: 10px 0; color: var(--jpdb-reader-muted); font-size: 12px; }
+.jpdb-reader-settings label { display: grid; gap: 5px; margin: 10px 0; color: var(--jpdb-reader-muted) !important; font-size: 12px; }
 .jpdb-reader-settings input,
 .jpdb-reader-settings select {
   width: 100%;
@@ -539,7 +578,7 @@ export const READER_CSS = `
   padding-inline: 18px;
   font-size: 13px;
 }
-.jpdb-reader-settings a { color: var(--jpdb-reader-accent); }
+.jpdb-reader-settings a { color: var(--jpdb-reader-accent) !important; text-decoration: underline; text-underline-offset: 3px; }
 .jpdb-reader-settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
 .jpdb-reader-dictionary-status {
   margin: 10px 0;
