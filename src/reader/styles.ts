@@ -78,6 +78,20 @@ export const READER_CSS = `
 .jpdb-reader-word.jpdb-redundant { text-decoration-color: #70c000; }
 .jpdb-reader-word.jpdb-not-in-deck { text-decoration-color: rgba(127,137,152,.55); }
 .jpdb-reader-furi { font-size: .55em; color: var(--jpdb-reader-muted); line-height: 1; user-select: none; }
+.jpdb-reader-word ruby {
+  position: relative;
+  display: inline-block;
+  line-height: inherit;
+}
+.jpdb-reader-word rp { display: none; }
+.jpdb-reader-word rt.jpdb-reader-furi {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
 .jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi { display: none; }
 
 .jpdb-ocr-layer {

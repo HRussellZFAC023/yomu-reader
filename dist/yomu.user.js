@@ -331,17 +331,32 @@
     "script",
     "style",
     "noscript",
+    "form",
+    "label",
+    "fieldset",
+    "legend",
+    "nav",
+    "header",
+    "footer",
     "textarea",
     "input",
     "select",
     "button",
+    "option",
+    "summary",
     "ruby",
     "rt",
     "rp",
     '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    '[aria-hidden="true"]',
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
   ].join(",");
+  const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
   function setInnerHtml(element2, html) {
     element2.innerHTML = trustedHtml(html);
   }
@@ -386,6 +401,7 @@
         const parent = node2.parentElement;
         if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
         if (visibleOnly && !isVisible(parent)) return NodeFilter.FILTER_REJECT;
+        if (isFragileUiText(parent, text)) return NodeFilter.FILTER_REJECT;
         if (parent.childNodes.length > 6) return NodeFilter.FILTER_SKIP;
         return NodeFilter.FILTER_ACCEPT;
       }
@@ -499,6 +515,24 @@
     if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
     const style = getComputedStyle(element2);
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
+  }
+  function isFragileUiText(element2, text) {
+    if (UI_CLASS_RE.test(element2.className || "")) return true;
+    if (text.length <= 4 && ancestorClassLooksLikeUi(element2)) return true;
+    const style = getComputedStyle(element2);
+    const display = style.display;
+    const rect = element2.getBoundingClientRect();
+    const hasUiBox = style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || Number(style.borderTopWidth.replace("px", "")) > 0 || Number(style.borderBottomWidth.replace("px", "")) > 0 || Number.parseFloat(style.borderRadius) > 0;
+    const inlineControlShape = display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
+    return text.length <= 6 && hasUiBox && inlineControlShape && rect.width < 180;
+  }
+  function ancestorClassLooksLikeUi(element2) {
+    let current = element2;
+    while (current && current !== document.body) {
+      if (UI_CLASS_RE.test(current.className || "")) return true;
+      current = current.parentElement;
+    }
+    return false;
   }
   const API_BASE = "https://jpdb.io/api/v1";
   const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
@@ -2227,6 +2261,20 @@
 .jpdb-reader-word.jpdb-redundant { text-decoration-color: #70c000; }
 .jpdb-reader-word.jpdb-not-in-deck { text-decoration-color: rgba(127,137,152,.55); }
 .jpdb-reader-furi { font-size: .55em; color: var(--jpdb-reader-muted); line-height: 1; user-select: none; }
+.jpdb-reader-word ruby {
+  position: relative;
+  display: inline-block;
+  line-height: inherit;
+}
+.jpdb-reader-word rp { display: none; }
+.jpdb-reader-word rt.jpdb-reader-furi {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
 .jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi { display: none; }
 
 .jpdb-ocr-layer {

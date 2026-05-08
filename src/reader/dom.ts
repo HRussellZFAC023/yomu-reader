@@ -12,17 +12,33 @@ const SKIP_SELECTOR = [
     'script',
     'style',
     'noscript',
+    'form',
+    'label',
+    'fieldset',
+    'legend',
+    'nav',
+    'header',
+    'footer',
     'textarea',
     'input',
     'select',
     'button',
+    'option',
+    'summary',
     'ruby',
     'rt',
     'rp',
     '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    '[aria-hidden="true"]',
     '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
 ].join(',');
+
+const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
 
 export function setInnerHtml(element: Element, html: string): void {
     element.innerHTML = trustedHtml(html) as string;
@@ -82,6 +98,7 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true)
             const parent = node.parentElement;
             if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
             if (visibleOnly && !isVisible(parent)) return NodeFilter.FILTER_REJECT;
+            if (isFragileUiText(parent, text)) return NodeFilter.FILTER_REJECT;
             if (parent.childNodes.length > 6) return NodeFilter.FILTER_SKIP;
             return NodeFilter.FILTER_ACCEPT;
         },
@@ -215,4 +232,29 @@ function isVisible(element: HTMLElement): boolean {
     if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
     const style = getComputedStyle(element);
     return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || '1') > 0;
+}
+
+function isFragileUiText(element: HTMLElement, text: string): boolean {
+    if (UI_CLASS_RE.test(element.className || '')) return true;
+    if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
+
+    const style = getComputedStyle(element);
+    const display = style.display;
+    const rect = element.getBoundingClientRect();
+    const hasUiBox = style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+        || style.borderTopStyle !== 'none'
+        || Number(style.borderTopWidth.replace('px', '')) > 0
+        || Number(style.borderBottomWidth.replace('px', '')) > 0
+        || Number.parseFloat(style.borderRadius) > 0;
+    const inlineControlShape = display === 'inline-flex' || display === 'inline-grid' || display === 'inline-block' || display === 'flex';
+    return text.length <= 6 && hasUiBox && inlineControlShape && rect.width < 180;
+}
+
+function ancestorClassLooksLikeUi(element: HTMLElement): boolean {
+    let current: HTMLElement | null = element;
+    while (current && current !== document.body) {
+        if (UI_CLASS_RE.test(current.className || '')) return true;
+        current = current.parentElement;
+    }
+    return false;
 }

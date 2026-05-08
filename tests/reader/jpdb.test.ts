@@ -194,6 +194,17 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['がありました。']);
     });
 
+    it('does not scan form labels, required badges, or compact UI chips', () => {
+        document.body.innerHTML = `
+            <form><label>パスワードの設定<span class="required">必須</span></label></form>
+            <span class="badge">予約</span>
+            <p>今日は本を読みます。</p>
+        `;
+
+        const targets = collectTextTargetsIn(document.body, 10, false);
+        expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
+    });
+
     it('detects Japanese page captions near a video without site-specific selectors', () => {
         document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
         const video = document.querySelector('video') as HTMLVideoElement;
