@@ -116,16 +116,24 @@ export const READER_CSS = `
   min-width: 32px;
   min-height: 32px;
   padding: 2px 4px;
-  border: 1px solid rgba(255,255,255,.26);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: rgba(24,27,32,.32);
+  background: transparent;
   color: #fff;
   text-shadow: 0 2px 2px #000, 0 0 8px rgba(0,0,0,.92);
   font-weight: 780;
   line-height: 1.12;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  box-shadow: none;
+  opacity: .02;
+  transition: opacity .12s ease, background .12s ease, border-color .12s ease;
+}
+.jpdb-ocr-line-visible {
+  border-color: rgba(255,255,255,.24);
+  background: rgba(24,27,32,.28);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.14);
+  opacity: 1;
 }
 .jpdb-ocr-line[data-vertical="true"] {
   align-items: center;
@@ -133,9 +141,17 @@ export const READER_CSS = `
 }
 .jpdb-ocr-line:hover,
 .jpdb-ocr-line:focus {
+  opacity: 1;
   background: rgba(94,167,128,.28);
   border-color: rgba(94,167,128,.9);
   outline: none;
+}
+.jpdb-ocr-line:not(.jpdb-ocr-line-visible):is(:hover,:focus)::after {
+  content: attr(data-ocr-text);
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
@@ -546,6 +562,9 @@ export const READER_CSS = `
 .jpdb-reader-settings input[type="radio"]:focus-visible {
   outline: 2px solid #70c000;
   outline-offset: 3px;
+}
+.jpdb-reader-settings input[type="file"][data-file] {
+  display: none !important;
 }
 .jpdb-reader-settings .inline { display: flex; align-items: center; gap: 12px; min-height: 32px; }
 .jpdb-reader-settings .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

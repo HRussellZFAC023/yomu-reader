@@ -37,7 +37,7 @@ describe('reader helpers', () => {
             .toEqual(['http://x.test/1.mp3', 'http://x.test/2.mp3']);
     });
 
-    it('rewrites localhost audio URLs returned by a Tailnet custom-json source', () => {
+    it('rewrites localhost audio URLs returned by a remote custom source', () => {
         expect(findAudioUrl(
             { audioSources: [{ url: 'http://localhost:8080/audio/nhk\\media\\x.mp3' }] },
             'http://tailnet-audio.example:8080/?term=青空&reading=あおぞら',
@@ -169,7 +169,7 @@ describe('reader helpers', () => {
         expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
     });
 
-    it('normalizes YomiNinja-shaped OCR responses for image overlays', () => {
+    it('normalizes structured OCR responses for image overlays', () => {
         const result = normalizeOcrResult({
             context_resolution: { width: 800, height: 1200 },
             results: [{
@@ -204,6 +204,15 @@ describe('reader helpers', () => {
             vertical: true,
             box: { left: 100, top: 280, width: 300, height: 560 },
         });
+    });
+
+    it('uses Japanese image alt text as instant no-setup OCR input', () => {
+        const image = document.createElement('img');
+        image.alt = '箱を開ける、お花の定期便';
+        Object.defineProperty(image, 'naturalWidth', { value: 1200 });
+        Object.defineProperty(image, 'naturalHeight', { value: 800 });
+
+        expect(readFallbackOcrResult(image)?.lines[0]?.text).toBe('箱を開ける、お花の定期便');
     });
 
     it('imports Yomitan Dexie exports with term, kanji, and metadata tables', async () => {

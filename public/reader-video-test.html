@@ -42,7 +42,7 @@
           audioTimeoutMs: 6000,
           audioSelectionMode: 'first',
           parseSelection: true,
-          popupActivationMode: 'click',
+          popupActivationMode: 'hover',
           scanModifierKey: 'shift',
           autoScanJapanese: false,
           scanVisiblePage: true,
@@ -50,6 +50,17 @@
           showFurigana: true,
           showPitchAccent: true,
           hideKnownFurigana: true,
+          ocrEnabled: true,
+          ocrAutoScanImages: true,
+          ocrShowTextOverlay: false,
+          ocrProvider: 'auto',
+          ocrEndpointUrl: '',
+          ocrEngine: 'MangaOCR',
+          ocrLanguage: 'ja-JP',
+          ocrMaxImagePixels: 1200000,
+          ocrMinImageArea: 45000,
+          ocrMaxImagesPerPage: 3,
+          ocrPrefetchMargin: 700,
           localDictionariesEnabled: true,
           localDictionaryMaxResults: 12,
           localDictionaryShowKanji: true,
@@ -78,7 +89,15 @@
             previousSubtitle: 'Alt+ArrowLeft',
             nextSubtitle: 'Alt+ArrowRight',
             copySubtitle: 'Alt+C',
-            toggleOcr: 'Alt+O'
+            toggleOcr: 'Alt+O',
+            scanImages: 'Alt+I',
+            gradeNothing: '1',
+            gradeSomething: '2',
+            gradeHard: '3',
+            gradeOkay: '4',
+            gradeEasy: '5',
+            gradeFail: '1',
+            gradePass: '2'
           }
         }));
       }

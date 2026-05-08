@@ -26,7 +26,7 @@ export type AudioSourceType =
 
 export type AudioSelectionMode = 'first' | 'random';
 
-export type OcrProvider = 'off' | 'yomininja-json' | 'custom-json';
+export type OcrProvider = 'auto' | 'fast' | 'custom-json' | 'off';
 
 export type PopupActivationMode = 'click' | 'hover' | 'modifier';
 
@@ -169,6 +169,14 @@ export interface ReaderSettings {
         nextSubtitle: string;
         copySubtitle: string;
         toggleOcr: string;
+        scanImages: string;
+        gradeNothing: string;
+        gradeSomething: string;
+        gradeHard: string;
+        gradeOkay: string;
+        gradeEasy: string;
+        gradeFail: string;
+        gradePass: string;
     };
 }
 

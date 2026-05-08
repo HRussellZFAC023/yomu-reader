@@ -206,6 +206,7 @@ class ReaderApp {
         }, { passive: true });
 
         document.addEventListener('keydown', event => {
+            if (isEditableTarget(event.target)) return;
             if (matchesShortcut(event, this.settings.shortcuts.closePopup) && this.hasOpenReaderDialog()) {
                 event.preventDefault();
                 this.dismiss();
@@ -229,11 +230,39 @@ class ReaderApp {
                 this.toast(this.settings.ocrEnabled ? 'OCR enabled.' : 'OCR hidden.');
                 return;
             }
+            if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
+                event.preventDefault();
+                void this.ocr.scanVisible();
+                return;
+            }
             if (this.lastCard && this.activePopover && matchesShortcut(event, this.settings.shortcuts.playAudio)) {
                 event.preventDefault();
                 void this.playAudio(this.lastCard);
+                return;
+            }
+            const grade = this.shortcutGrade(event);
+            if (this.lastCard && grade && this.activePopover?.classList.contains('jpdb-reader-popover')) {
+                event.preventDefault();
+                void this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast('Review sent.')).catch(error => {
+                    this.toast(error instanceof Error ? error.message : 'Review failed.');
+                });
             }
         });
+    }
+
+    private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {
+        if (!this.settings.enableReviews) return null;
+        if (this.settings.twoButtonReviews) {
+            if (matchesShortcut(event, this.settings.shortcuts.gradeFail)) return 'fail';
+            if (matchesShortcut(event, this.settings.shortcuts.gradePass)) return 'pass';
+            return null;
+        }
+        if (matchesShortcut(event, this.settings.shortcuts.gradeNothing)) return 'nothing';
+        if (matchesShortcut(event, this.settings.shortcuts.gradeSomething)) return 'something';
+        if (matchesShortcut(event, this.settings.shortcuts.gradeHard)) return 'hard';
+        if (matchesShortcut(event, this.settings.shortcuts.gradeOkay)) return 'okay';
+        if (matchesShortcut(event, this.settings.shortcuts.gradeEasy)) return 'easy';
+        return null;
     }
 
     private shouldLookupOnHover(event: MouseEvent): boolean {
@@ -358,6 +387,12 @@ class ReaderApp {
 
     private showQuickMenu(anchor: HTMLElement): void {
         const popover = this.createPopover();
+        const scanButton = this.settings.autoScanJapanese && this.settings.scanVisiblePage && this.settings.ocrAutoScanImages
+            ? ''
+            : '<button class="jpdb-reader-btn" data-action="scan">Scan page</button>';
+        const imageButton = this.settings.ocrAutoScanImages
+            ? ''
+            : '<button class="jpdb-reader-btn" data-action="ocr">Scan images</button>';
         setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
@@ -367,14 +402,16 @@ class ReaderApp {
                 </div>
             </div>
             <div class="jpdb-reader-actions">
-                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 2">
-                    <button class="jpdb-reader-btn" data-action="ocr">Scan images</button>
+                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: ${scanButton && imageButton ? 3 : scanButton || imageButton ? 2 : 1}">
+                    ${scanButton}
+                    ${imageButton}
                     <button class="jpdb-reader-btn" data-action="settings">Settings</button>
                 </div>
             </div>
         `);
         popover.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+            if (action === 'scan') void this.scanVisiblePage();
             if (action === 'ocr') void this.ocr.scanVisible();
             if (action === 'settings') this.showSettings();
             event.stopPropagation();
@@ -646,7 +683,7 @@ class ReaderApp {
                     ${checkbox('showFurigana', 'Enable furigana annotations', this.settings.showFurigana)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', this.settings.showPitchAccent)}
                     ${checkbox('hideKnownFurigana', 'Hide furigana for known cards only', this.settings.hideKnownFurigana)}
-                    ${select('popupActivationMode', 'Popup activation', this.settings.popupActivationMode, [['click', 'Tap or click'], ['hover', 'Hover'], ['modifier', 'Hold key + hover']])}
+                    ${select('popupActivationMode', 'Popup opens', this.settings.popupActivationMode, [['hover', 'On hover'], ['modifier', 'Only while holding a key'], ['click', 'On tap or click']])}
                     ${select('scanModifierKey', 'Hover lookup key', this.settings.scanModifierKey, [['shift', 'Shift'], ['alt', 'Alt'], ['ctrl', 'Ctrl'], ['meta', 'Command / Windows']])}
                 </div>
                 <div class="grid">
@@ -658,18 +695,18 @@ class ReaderApp {
                 <legend>OCR</legend>
                 <div class="grid">
                     ${checkbox('ocrEnabled', 'Enable image OCR', this.settings.ocrEnabled)}
-                    ${checkbox('ocrAutoScanImages', 'Auto-scan readable images near the viewport', this.settings.ocrAutoScanImages)}
-                    ${checkbox('ocrShowTextOverlay', 'Show tappable OCR text after manual image scans', this.settings.ocrShowTextOverlay)}
-                    ${select('ocrProvider', 'OCR endpoint type', this.settings.ocrProvider, [['custom-json', 'YomiNinja / custom JSON'], ['off', 'No endpoint']])}
-                    ${input('ocrEndpointUrl', 'OCR endpoint URL', this.settings.ocrEndpointUrl)}
-                    ${input('ocrEngine', 'OCR engine', this.settings.ocrEngine)}
-                    ${input('ocrLanguage', 'OCR language', this.settings.ocrLanguage)}
-                    ${input('ocrMaxImagePixels', 'Max image pixels sent', String(this.settings.ocrMaxImagePixels), 'number')}
-                    ${input('ocrMinImageArea', 'Minimum image area', String(this.settings.ocrMinImageArea), 'number')}
-                    ${input('ocrMaxImagesPerPage', 'Max images per page', String(this.settings.ocrMaxImagesPerPage), 'number')}
-                    ${input('ocrPrefetchMargin', 'Prefetch margin (px)', String(this.settings.ocrPrefetchMargin), 'number')}
+                    ${checkbox('ocrAutoScanImages', 'Read images automatically', this.settings.ocrAutoScanImages)}
+                    ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', this.settings.ocrShowTextOverlay)}
+                    ${select('ocrProvider', 'Image reading', this.settings.ocrProvider, [['auto', 'Automatic (recommended)'], ['fast', 'Fast page text only'], ['custom-json', 'Custom service'], ['off', 'Off']])}
+                    ${select('ocrMaxImagesPerPage', 'Images to read per page', String(this.settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
+                    ${select('ocrMinImageArea', 'Smallest image to read', String(this.settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
+                    ${select('ocrMaxImagePixels', 'Image detail', String(this.settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
+                    ${input('ocrEndpointUrl', 'Custom service URL', this.settings.ocrEndpointUrl)}
+                    <input type="hidden" name="ocrEngine" value="${escapeHtml(this.settings.ocrEngine)}">
+                    <input type="hidden" name="ocrLanguage" value="${escapeHtml(this.settings.ocrLanguage)}">
+                    <input type="hidden" name="ocrPrefetchMargin" value="${this.settings.ocrPrefetchMargin}">
                 </div>
-                <div class="jpdb-reader-help">For iPhone, use a desktop or server OCR endpoint over Tailnet. The request is YomiNinja-shaped JSON with base64_image, language_code, ocr_engine, and detection_only.</div>
+                <div class="jpdb-reader-help">Automatic uses page image text instantly and quietly reads nearby images in the background. Recognized areas are tappable without covering the image.</div>
             </fieldset>
             <fieldset>
                 <legend>Video</legend>
@@ -696,14 +733,14 @@ class ReaderApp {
                     ${renderDictionaryPreferenceRows(this.settings.dictionaryPreferences)}
                 </div>
                 <div class="jpdb-reader-settings-actions">
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">Import dictionaries</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">Export dictionaries</button>
                 </div>
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
-                <div class="jpdb-reader-help" data-import-status>Supports Yomitan settings JSON, Yomitan dictionary ZIPs, and Yomitan Dexie dictionary exports.</div>
+                <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
             <fieldset>
                 <legend>Shortcuts</legend>
@@ -716,6 +753,14 @@ class ReaderApp {
                     ${input('shortcuts.nextSubtitle', 'Next subtitle', this.settings.shortcuts.nextSubtitle)}
                     ${input('shortcuts.copySubtitle', 'Copy subtitle', this.settings.shortcuts.copySubtitle)}
                     ${input('shortcuts.toggleOcr', 'Toggle OCR', this.settings.shortcuts.toggleOcr)}
+                    ${input('shortcuts.scanImages', 'Scan images', this.settings.shortcuts.scanImages)}
+                    ${input('shortcuts.gradeNothing', 'Grade NOTHING', this.settings.shortcuts.gradeNothing)}
+                    ${input('shortcuts.gradeSomething', 'Grade SOMETHING', this.settings.shortcuts.gradeSomething)}
+                    ${input('shortcuts.gradeHard', 'Grade HARD', this.settings.shortcuts.gradeHard)}
+                    ${input('shortcuts.gradeOkay', 'Grade OKAY', this.settings.shortcuts.gradeOkay)}
+                    ${input('shortcuts.gradeEasy', 'Grade EASY', this.settings.shortcuts.gradeEasy)}
+                    ${input('shortcuts.gradeFail', 'Pass/fail: FAIL', this.settings.shortcuts.gradeFail)}
+                    ${input('shortcuts.gradePass', 'Pass/fail: PASS', this.settings.shortcuts.gradePass)}
                 </div>
             </fieldset>
             </div>
@@ -917,6 +962,11 @@ function pauseActiveVideo(): void {
             return Number(a.paused) - Number(b.paused) || bArea - aArea;
         });
     playable[0]?.pause();
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    const element = target instanceof Element ? target : null;
+    return Boolean(element?.closest('input, textarea, select, [contenteditable="true"]'));
 }
 
 function mutationTouchesAsbPlayer(mutation: MutationRecord): boolean {
@@ -1127,7 +1177,7 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
-        ocrProvider: ['off', 'yomininja-json', 'custom-json'].includes(get('ocrProvider')) ? get('ocrProvider') as ReaderSettings['ocrProvider'] : 'custom-json',
+        ocrProvider: ['auto', 'fast', 'custom-json', 'off'].includes(get('ocrProvider')) ? get('ocrProvider') as ReaderSettings['ocrProvider'] : 'auto',
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'MangaOCR',
         ocrLanguage: get('ocrLanguage').trim() || 'ja-JP',
@@ -1164,6 +1214,14 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
             nextSubtitle: get('shortcuts.nextSubtitle'),
             copySubtitle: get('shortcuts.copySubtitle'),
             toggleOcr: get('shortcuts.toggleOcr'),
+            scanImages: get('shortcuts.scanImages'),
+            gradeNothing: get('shortcuts.gradeNothing'),
+            gradeSomething: get('shortcuts.gradeSomething'),
+            gradeHard: get('shortcuts.gradeHard'),
+            gradeOkay: get('shortcuts.gradeOkay'),
+            gradeEasy: get('shortcuts.gradeEasy'),
+            gradeFail: get('shortcuts.gradeFail'),
+            gradePass: get('shortcuts.gradePass'),
         },
     };
 }

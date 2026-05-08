@@ -791,6 +791,12 @@
     card.wordWithReading = word.join("");
   }
   const MAX_CACHE_ITEMS = 36;
+  const TESSERACT_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js";
+  const TESSERACT_WORKER_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/worker.min.js";
+  const TESSERACT_CORE_URL = "https://cdn.jsdelivr.net/npm/tesseract.js-core@7/tesseract-core-simd.wasm.js";
+  const TESSERACT_LANG_URL = "https://tessdata.projectnaptha.com/4.0.0";
+  let tesseractLoader;
+  let tesseractWorker;
   class ImageOcrController {
     constructor(options) {
       __publicField(this, "states", /* @__PURE__ */ new Map());
@@ -828,12 +834,11 @@
       }
       this.pruneDisconnectedStates();
       this.ensureObserver(settings);
-      const hasEndpoint = settings.ocrProvider !== "off" && Boolean(settings.ocrEndpointUrl.trim());
       let count = 0;
       for (const image of Array.from(document.images)) {
         if (count >= settings.ocrMaxImagesPerPage) break;
         if (!isCandidateImage(image, settings)) continue;
-        if (!hasEndpoint && !readFallbackOcrResult(image)) continue;
+        if (!shouldObserveImage(image, settings)) continue;
         count++;
         this.ensureState(image);
         (_a = this.observer) == null ? void 0 : _a.observe(image);
@@ -850,9 +855,7 @@
       this.refresh();
       const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
       if (!images.length) {
-        const settings = this.options.getSettings();
-        const hasEndpoint = settings.ocrProvider !== "off" && Boolean(settings.ocrEndpointUrl.trim());
-        this.options.onToast(hasEndpoint ? "No readable images nearby." : "Add an OCR endpoint in settings to read images.");
+        this.options.onToast("No readable images nearby.");
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
@@ -869,8 +872,7 @@
           const image = entry.target;
           this.positionState(image);
           const current = this.options.getSettings();
-          const hasEndpoint = current.ocrProvider !== "off" && Boolean(current.ocrEndpointUrl.trim());
-          if (current.ocrAutoScanImages && (hasEndpoint || readFallbackOcrResult(image))) this.enqueue(image);
+          if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
         }
       }, { rootMargin });
     }
@@ -910,11 +912,14 @@
       this.drainQueue();
     }
     drainQueue() {
+      var _a;
       if (this.busy) return;
       const image = this.queue.shift();
       if (!image) return;
       this.busy = true;
-      void this.scanImage(image).finally(() => {
+      const hasFastText = Boolean(readFallbackOcrResult(image));
+      const delay = ((_a = this.states.get(image)) == null ? void 0 : _a.overlayRequested) || hasFastText ? 0 : 1800;
+      void waitForIdle(delay).then(() => this.scanImage(image)).finally(() => {
         this.busy = false;
         this.drainQueue();
       });
@@ -931,13 +936,13 @@
       }
       state.loading = true;
       state.status.hidden = !state.overlayRequested;
-      const canUseEndpoint = settings.ocrProvider !== "off" && settings.ocrEndpointUrl.trim();
-      state.status.textContent = canUseEndpoint ? "Reading image..." : "Tap to configure OCR";
+      const canUseEndpoint = settings.ocrProvider === "custom-json" && settings.ocrEndpointUrl.trim();
+      state.status.textContent = "Reading image...";
       try {
         const fallback = readFallbackOcrResult(image);
-        const result = canUseEndpoint ? await recognizeViaEndpoint(image, settings) : fallback;
+        const result = fallback ?? (canUseEndpoint ? await recognizeViaEndpoint(image, settings) : settings.ocrProvider === "auto" ? await recognizeViaBrowser(image, settings) : null);
         if (!(result == null ? void 0 : result.lines.length)) {
-          state.status.textContent = canUseEndpoint ? "No Japanese text found" : "Add an OCR endpoint in settings";
+          state.status.textContent = "No Japanese text found";
           state.status.hidden = !state.overlayRequested;
           return;
         }
@@ -960,12 +965,13 @@
       state.result = result;
       state.status.hidden = true;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      if (!this.options.getSettings().ocrShowTextOverlay || !state.overlayRequested && !forceOverlay) return;
+      const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
       const sentence = result.lines.map((line) => line.text).join("\n");
       for (const line of result.lines) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "jpdb-ocr-line";
+        if (showText) button.classList.add("jpdb-ocr-line-visible");
         button.dataset.ocrText = line.text;
         button.dataset.vertical = String(line.vertical);
         button.title = line.text;
@@ -975,7 +981,8 @@
         button.style.height = `${100 * line.box.height / result.height}%`;
         button.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
         button.style.fontSize = `clamp(12px, ${line.vertical ? 52 * line.box.width / result.width : 46 * line.box.height / result.height}vw, 24px)`;
-        button.textContent = line.text;
+        button.setAttribute("aria-label", line.text);
+        button.textContent = showText ? line.text : "";
         button.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1062,7 +1069,7 @@
     }
     if (Array.isArray(record.results)) {
       for (const item of record.results) {
-        lines.push(...normalizeYomiNinjaResult(item, width, height));
+        lines.push(...normalizeStructuredOcrResult(item, width, height));
       }
     }
     const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
@@ -1079,10 +1086,17 @@
       } catch {
       }
     }
-    return null;
+    return readAccessibleImageText(image, width, height);
+  }
+  async function recognizeViaBrowser(image, settings) {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const nativeResult = await recognizeViaTextDetector(canvas).catch(() => null);
+    if (nativeResult == null ? void 0 : nativeResult.lines.length) return nativeResult;
+    return recognizeViaTesseract(canvas);
   }
   async function recognizeViaEndpoint(image, settings) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const payload = await canvasToBase64Payload(canvas);
     const body = JSON.stringify({
       id: imageCacheKey(image),
       language_code: settings.ocrLanguage || "ja-JP",
@@ -1093,9 +1107,9 @@
     const response = await requestJson(settings.ocrEndpointUrl.trim(), body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
-  async function imageToBase64Payload(image, maxPixels) {
+  async function imageToCanvas(image, maxPixels) {
     try {
-      return await drawImageToBase64(image, maxPixels);
+      return drawImageToCanvas(image, maxPixels);
     } catch {
       const url = image.currentSrc || image.src;
       if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
@@ -1103,13 +1117,13 @@
       const objectUrl = URL.createObjectURL(blob);
       try {
         const loaded = await loadImage(objectUrl);
-        return await drawImageToBase64(loaded, maxPixels);
+        return drawImageToCanvas(loaded, maxPixels);
       } finally {
         URL.revokeObjectURL(objectUrl);
       }
     }
   }
-  async function drawImageToBase64(image, maxPixels) {
+  function drawImageToCanvas(image, maxPixels) {
     const width = image.naturalWidth || image.width;
     const height = image.naturalHeight || image.height;
     if (!width || !height) throw new Error("Image is not loaded yet.");
@@ -1120,10 +1134,62 @@
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Canvas unavailable.");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+  async function canvasToBase64Payload(canvas) {
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), "image/jpeg", 0.86);
     });
     return { base64: (await blobToDataUrl(blob)).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  }
+  async function recognizeViaTextDetector(canvas) {
+    if (!window.TextDetector) return null;
+    const detected = await new window.TextDetector().detect(canvas);
+    const lines = detected.map((item) => {
+      const text = (item.rawValue ?? "").trim();
+      const box = item.boundingBox ? clampBox({ left: item.boundingBox.x, top: item.boundingBox.y, width: item.boundingBox.width, height: item.boundingBox.height }, canvas.width, canvas.height) : null;
+      return text && box ? { text, box, vertical: box.height > box.width * 1.5 && text.length > 1 } : null;
+    }).filter((line) => Boolean(line && HAS_JAPANESE.test(line.text)));
+    return lines.length ? { width: canvas.width, height: canvas.height, lines } : null;
+  }
+  async function recognizeViaTesseract(canvas) {
+    var _a;
+    const worker = await getTesseractWorker();
+    const response = await worker.recognize(canvas);
+    const data = response.data ?? {};
+    const items = (((_a = data.lines) == null ? void 0 : _a.length) ? data.lines : data.words) ?? [];
+    const lines = items.map((item) => {
+      const text2 = (item.text ?? "").replace(/\s+/g, "").trim();
+      const bbox = item.bbox;
+      const box = bbox ? clampBox({ left: bbox.x0, top: bbox.y0, width: bbox.x1 - bbox.x0, height: bbox.y1 - bbox.y0 }, canvas.width, canvas.height) : null;
+      return text2 && box ? { text: text2, box, vertical: box.height > box.width * 1.5 && text2.length > 1 } : null;
+    }).filter((line) => Boolean(line && HAS_JAPANESE.test(line.text)));
+    if (lines.length) return { width: canvas.width, height: canvas.height, lines };
+    const text = (data.text ?? "").replace(/\s+/g, "").trim();
+    return HAS_JAPANESE.test(text) ? { width: canvas.width, height: canvas.height, lines: [{ text, box: { left: 0, top: canvas.height * 0.68, width: canvas.width, height: canvas.height * 0.28 }, vertical: false }] } : null;
+  }
+  async function getTesseractWorker() {
+    if (!tesseractWorker) {
+      tesseractWorker = loadTesseract().then((tesseract) => tesseract.createWorker("jpn", 1, {
+        workerPath: TESSERACT_WORKER_URL,
+        corePath: TESSERACT_CORE_URL,
+        langPath: TESSERACT_LANG_URL,
+        workerBlobURL: true
+      }));
+    }
+    return tesseractWorker;
+  }
+  async function loadTesseract() {
+    if (window.Tesseract) return window.Tesseract;
+    if (!tesseractLoader) {
+      tesseractLoader = requestText$1(TESSERACT_SCRIPT_URL).then((code) => {
+        (0, eval)(`${code}
+//# sourceURL=${TESSERACT_SCRIPT_URL}`);
+        if (!window.Tesseract) throw new Error("Browser OCR failed to load.");
+        return window.Tesseract;
+      });
+    }
+    return tesseractLoader;
   }
   function normalizeSimpleLine(value, width, height) {
     if (!value || typeof value !== "object") return null;
@@ -1133,7 +1199,7 @@
     if (!text || !box) return null;
     return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
   }
-  function normalizeYomiNinjaResult(value, width, height) {
+  function normalizeStructuredOcrResult(value, width, height) {
     if (!value || typeof value !== "object") return [];
     const record = value;
     const textLines = Array.isArray(record.text_lines) ? record.text_lines : [];
@@ -1194,6 +1260,34 @@
     const style = getComputedStyle(image);
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
   }
+  function shouldObserveImage(image, settings) {
+    if (settings.ocrProvider === "off") return false;
+    if (readFallbackOcrResult(image)) return true;
+    if (settings.ocrProvider === "fast") return false;
+    if (settings.ocrProvider === "custom-json") return Boolean(settings.ocrEndpointUrl.trim());
+    return true;
+  }
+  function readAccessibleImageText(image, width, height) {
+    var _a, _b;
+    const candidates = [
+      image.alt,
+      image.title,
+      image.getAttribute("aria-label"),
+      (_b = (_a = image.closest("figure")) == null ? void 0 : _a.querySelector("figcaption")) == null ? void 0 : _b.textContent
+    ].map((value) => (value ?? "").replace(/\s+/g, " ").trim()).filter((value) => value.length >= 2 && HAS_JAPANESE.test(value));
+    const text = candidates[0];
+    if (!text) return null;
+    const boxHeight = Math.max(44, height * 0.18);
+    return {
+      width,
+      height,
+      lines: [{
+        text,
+        box: { left: width * 0.04, top: height - boxHeight - height * 0.04, width: width * 0.92, height: boxHeight },
+        vertical: false
+      }]
+    };
+  }
   function isNearViewport(element, margin) {
     const rect = element.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
@@ -1222,6 +1316,20 @@
     }
     return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data }).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
   }
+  function requestText$1(url) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          responseType: "text",
+          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(String(response.responseText ?? response.response ?? "")) : reject(new Error(`Script fetch returned ${response.status}.`)),
+          onerror: reject
+        });
+      });
+    }
+    return fetch(url).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Script fetch returned ${response.status}.`)));
+  }
   function requestBlob(url) {
     if (typeof GM_xmlhttpRequest === "function") {
       return new Promise((resolve, reject) => {
@@ -1235,6 +1343,16 @@
       });
     }
     return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+  }
+  function waitForIdle(timeout) {
+    if (!timeout) return Promise.resolve();
+    return new Promise((resolve) => {
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(() => resolve(), { timeout });
+      } else {
+        globalThis.setTimeout(resolve, timeout);
+      }
+    });
   }
   function loadImage(url) {
     return new Promise((resolve, reject) => {
@@ -1312,10 +1430,14 @@
     "text-to-speech": "Text-to-speech",
     "text-to-speech-reading": "Text-to-speech (Kana reading)",
     custom: "Custom URL",
-    "custom-json": "Custom URL (JSON)"
+    "custom-json": "Custom URL (audio list)"
   };
   const AUDIO_SOURCE_OPTIONS = Object.entries(AUDIO_SOURCE_LABELS);
-  const DEFAULT_AUDIO_SOURCES = [];
+  const DEFAULT_AUDIO_SOURCES = [
+    { type: "jpod101", url: "", voice: "", enabled: true },
+    { type: "language-pod-101", url: "", voice: "", enabled: true },
+    { type: "jisho", url: "", voice: "", enabled: true }
+  ];
   const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
   const DEFAULT_SETTINGS = {
     apiKey: "",
@@ -1326,9 +1448,9 @@
     audioSourceUrl: DEFAULT_AUDIO_URL,
     audioViaBlob: true,
     audioTimeoutMs: 6e3,
-    audioSelectionMode: "first",
+    audioSelectionMode: "random",
     parseSelection: true,
-    popupActivationMode: "click",
+    popupActivationMode: "hover",
     scanModifierKey: "shift",
     autoScanJapanese: true,
     scanVisiblePage: true,
@@ -1338,14 +1460,14 @@
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
-    ocrShowTextOverlay: true,
-    ocrProvider: "custom-json",
+    ocrShowTextOverlay: false,
+    ocrProvider: "auto",
     ocrEndpointUrl: "",
     ocrEngine: "MangaOCR",
     ocrLanguage: "ja-JP",
     ocrMaxImagePixels: 12e5,
     ocrMinImageArea: 45e3,
-    ocrMaxImagesPerPage: 8,
+    ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -1375,12 +1497,21 @@
       previousSubtitle: "Alt+ArrowLeft",
       nextSubtitle: "Alt+ArrowRight",
       copySubtitle: "Alt+C",
-      toggleOcr: "Alt+O"
+      toggleOcr: "Alt+O",
+      scanImages: "Alt+I",
+      gradeNothing: "1",
+      gradeSomething: "2",
+      gradeHard: "3",
+      gradeOkay: "4",
+      gradeEasy: "5",
+      gradeFail: "1",
+      gradePass: "2"
     }
   };
   function mergeSettings(value) {
     var _a;
-    const audioSources = normalizeAudioSources(value == null ? void 0 : value.audioSources, value == null ? void 0 : value.audioSourceUrl);
+    const hasSavedAudioSources = value && Object.prototype.hasOwnProperty.call(value, "audioSources");
+    const audioSources = hasSavedAudioSources || (value == null ? void 0 : value.audioSourceUrl) ? normalizeAudioSources(value == null ? void 0 : value.audioSources, value == null ? void 0 : value.audioSourceUrl) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
     return {
       ...DEFAULT_SETTINGS,
       ...value ?? {},
@@ -1440,7 +1571,7 @@
     if (typeof legacyUrl === "string" && legacyUrl.trim()) {
       return [{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }];
     }
-    return [];
+    return DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
   }
   function normalizeDictionaryPreferences(value) {
     if (!Array.isArray(value)) return [];
@@ -1590,16 +1721,24 @@
   min-width: 32px;
   min-height: 32px;
   padding: 2px 4px;
-  border: 1px solid rgba(255,255,255,.26);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: rgba(24,27,32,.32);
+  background: transparent;
   color: #fff;
   text-shadow: 0 2px 2px #000, 0 0 8px rgba(0,0,0,.92);
   font-weight: 780;
   line-height: 1.12;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  box-shadow: none;
+  opacity: .02;
+  transition: opacity .12s ease, background .12s ease, border-color .12s ease;
+}
+.jpdb-ocr-line-visible {
+  border-color: rgba(255,255,255,.24);
+  background: rgba(24,27,32,.28);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.14);
+  opacity: 1;
 }
 .jpdb-ocr-line[data-vertical="true"] {
   align-items: center;
@@ -1607,9 +1746,17 @@
 }
 .jpdb-ocr-line:hover,
 .jpdb-ocr-line:focus {
+  opacity: 1;
   background: rgba(94,167,128,.28);
   border-color: rgba(94,167,128,.9);
   outline: none;
+}
+.jpdb-ocr-line:not(.jpdb-ocr-line-visible):is(:hover,:focus)::after {
+  content: attr(data-ocr-text);
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
@@ -2020,6 +2167,9 @@
 .jpdb-reader-settings input[type="radio"]:focus-visible {
   outline: 2px solid #70c000;
   outline-offset: 3px;
+}
+.jpdb-reader-settings input[type="file"][data-file] {
+  display: none !important;
 }
 .jpdb-reader-settings .inline { display: flex; align-items: center; gap: 12px; min-height: 32px; }
 .jpdb-reader-settings .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -6309,6 +6459,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), 180);
       }, { passive: true });
       document.addEventListener("keydown", (event) => {
+        var _a;
+        if (isEditableTarget(event.target)) return;
         if (matchesShortcut(event, this.settings.shortcuts.closePopup) && this.hasOpenReaderDialog()) {
           event.preventDefault();
           this.dismiss();
@@ -6332,11 +6484,38 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.toast(this.settings.ocrEnabled ? "OCR enabled." : "OCR hidden.");
           return;
         }
+        if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
+          event.preventDefault();
+          void this.ocr.scanVisible();
+          return;
+        }
         if (this.lastCard && this.activePopover && matchesShortcut(event, this.settings.shortcuts.playAudio)) {
           event.preventDefault();
           void this.playAudio(this.lastCard);
+          return;
+        }
+        const grade = this.shortcutGrade(event);
+        if (this.lastCard && grade && ((_a = this.activePopover) == null ? void 0 : _a.classList.contains("jpdb-reader-popover"))) {
+          event.preventDefault();
+          void this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast("Review sent.")).catch((error) => {
+            this.toast(error instanceof Error ? error.message : "Review failed.");
+          });
         }
       });
+    }
+    shortcutGrade(event) {
+      if (!this.settings.enableReviews) return null;
+      if (this.settings.twoButtonReviews) {
+        if (matchesShortcut(event, this.settings.shortcuts.gradeFail)) return "fail";
+        if (matchesShortcut(event, this.settings.shortcuts.gradePass)) return "pass";
+        return null;
+      }
+      if (matchesShortcut(event, this.settings.shortcuts.gradeNothing)) return "nothing";
+      if (matchesShortcut(event, this.settings.shortcuts.gradeSomething)) return "something";
+      if (matchesShortcut(event, this.settings.shortcuts.gradeHard)) return "hard";
+      if (matchesShortcut(event, this.settings.shortcuts.gradeOkay)) return "okay";
+      if (matchesShortcut(event, this.settings.shortcuts.gradeEasy)) return "easy";
+      return null;
     }
     shouldLookupOnHover(event) {
       if (this.settings.popupActivationMode === "hover") return true;
@@ -6447,6 +6626,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     }
     showQuickMenu(anchor) {
       const popover = this.createPopover();
+      const scanButton = this.settings.autoScanJapanese && this.settings.scanVisiblePage && this.settings.ocrAutoScanImages ? "" : '<button class="jpdb-reader-btn" data-action="scan">Scan page</button>';
+      const imageButton = this.settings.ocrAutoScanImages ? "" : '<button class="jpdb-reader-btn" data-action="ocr">Scan images</button>';
       setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
@@ -6456,8 +6637,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 </div>
             </div>
             <div class="jpdb-reader-actions">
-                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 2">
-                    <button class="jpdb-reader-btn" data-action="ocr">Scan images</button>
+                <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: ${scanButton && imageButton ? 3 : scanButton || imageButton ? 2 : 1}">
+                    ${scanButton}
+                    ${imageButton}
                     <button class="jpdb-reader-btn" data-action="settings">Settings</button>
                 </div>
             </div>
@@ -6465,6 +6647,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       popover.addEventListener("click", (event) => {
         var _a;
         const action = (_a = event.target.closest("[data-action]")) == null ? void 0 : _a.dataset.action;
+        if (action === "scan") void this.scanVisiblePage();
         if (action === "ocr") void this.ocr.scanVisible();
         if (action === "settings") this.showSettings();
         event.stopPropagation();
@@ -6712,7 +6895,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${checkbox("showFurigana", "Enable furigana annotations", this.settings.showFurigana)}
                     ${checkbox("showPitchAccent", "Show pitch accent", this.settings.showPitchAccent)}
                     ${checkbox("hideKnownFurigana", "Hide furigana for known cards only", this.settings.hideKnownFurigana)}
-                    ${select("popupActivationMode", "Popup activation", this.settings.popupActivationMode, [["click", "Tap or click"], ["hover", "Hover"], ["modifier", "Hold key + hover"]])}
+                    ${select("popupActivationMode", "Popup opens", this.settings.popupActivationMode, [["hover", "On hover"], ["modifier", "Only while holding a key"], ["click", "On tap or click"]])}
                     ${select("scanModifierKey", "Hover lookup key", this.settings.scanModifierKey, [["shift", "Shift"], ["alt", "Alt"], ["ctrl", "Ctrl"], ["meta", "Command / Windows"]])}
                 </div>
                 <div class="grid">
@@ -6724,18 +6907,18 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 <legend>OCR</legend>
                 <div class="grid">
                     ${checkbox("ocrEnabled", "Enable image OCR", this.settings.ocrEnabled)}
-                    ${checkbox("ocrAutoScanImages", "Auto-scan readable images near the viewport", this.settings.ocrAutoScanImages)}
-                    ${checkbox("ocrShowTextOverlay", "Show tappable OCR text after manual image scans", this.settings.ocrShowTextOverlay)}
-                    ${select("ocrProvider", "OCR endpoint type", this.settings.ocrProvider, [["custom-json", "YomiNinja / custom JSON"], ["off", "No endpoint"]])}
-                    ${input("ocrEndpointUrl", "OCR endpoint URL", this.settings.ocrEndpointUrl)}
-                    ${input("ocrEngine", "OCR engine", this.settings.ocrEngine)}
-                    ${input("ocrLanguage", "OCR language", this.settings.ocrLanguage)}
-                    ${input("ocrMaxImagePixels", "Max image pixels sent", String(this.settings.ocrMaxImagePixels), "number")}
-                    ${input("ocrMinImageArea", "Minimum image area", String(this.settings.ocrMinImageArea), "number")}
-                    ${input("ocrMaxImagesPerPage", "Max images per page", String(this.settings.ocrMaxImagesPerPage), "number")}
-                    ${input("ocrPrefetchMargin", "Prefetch margin (px)", String(this.settings.ocrPrefetchMargin), "number")}
+                    ${checkbox("ocrAutoScanImages", "Read images automatically", this.settings.ocrAutoScanImages)}
+                    ${checkbox("ocrShowTextOverlay", "Show recognized text on images", this.settings.ocrShowTextOverlay)}
+                    ${select("ocrProvider", "Image reading", this.settings.ocrProvider, [["auto", "Automatic (recommended)"], ["fast", "Fast page text only"], ["custom-json", "Custom service"], ["off", "Off"]])}
+                    ${select("ocrMaxImagesPerPage", "Images to read per page", String(this.settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
+                    ${select("ocrMinImageArea", "Smallest image to read", String(this.settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
+                    ${select("ocrMaxImagePixels", "Image detail", String(this.settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
+                    ${input("ocrEndpointUrl", "Custom service URL", this.settings.ocrEndpointUrl)}
+                    <input type="hidden" name="ocrEngine" value="${escapeHtml$1(this.settings.ocrEngine)}">
+                    <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(this.settings.ocrLanguage)}">
+                    <input type="hidden" name="ocrPrefetchMargin" value="${this.settings.ocrPrefetchMargin}">
                 </div>
-                <div class="jpdb-reader-help">For iPhone, use a desktop or server OCR endpoint over Tailnet. The request is YomiNinja-shaped JSON with base64_image, language_code, ocr_engine, and detection_only.</div>
+                <div class="jpdb-reader-help">Automatic uses page image text instantly and quietly reads nearby images in the background. Recognized areas are tappable without covering the image.</div>
             </fieldset>
             <fieldset>
                 <legend>Video</legend>
@@ -6762,14 +6945,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${renderDictionaryPreferenceRows(this.settings.dictionaryPreferences)}
                 </div>
                 <div class="jpdb-reader-settings-actions">
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">Import dictionaries</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">Export dictionaries</button>
                 </div>
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
-                <div class="jpdb-reader-help" data-import-status>Supports Yomitan settings JSON, Yomitan dictionary ZIPs, and Yomitan Dexie dictionary exports.</div>
+                <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
             <fieldset>
                 <legend>Shortcuts</legend>
@@ -6782,6 +6965,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${input("shortcuts.nextSubtitle", "Next subtitle", this.settings.shortcuts.nextSubtitle)}
                     ${input("shortcuts.copySubtitle", "Copy subtitle", this.settings.shortcuts.copySubtitle)}
                     ${input("shortcuts.toggleOcr", "Toggle OCR", this.settings.shortcuts.toggleOcr)}
+                    ${input("shortcuts.scanImages", "Scan images", this.settings.shortcuts.scanImages)}
+                    ${input("shortcuts.gradeNothing", "Grade NOTHING", this.settings.shortcuts.gradeNothing)}
+                    ${input("shortcuts.gradeSomething", "Grade SOMETHING", this.settings.shortcuts.gradeSomething)}
+                    ${input("shortcuts.gradeHard", "Grade HARD", this.settings.shortcuts.gradeHard)}
+                    ${input("shortcuts.gradeOkay", "Grade OKAY", this.settings.shortcuts.gradeOkay)}
+                    ${input("shortcuts.gradeEasy", "Grade EASY", this.settings.shortcuts.gradeEasy)}
+                    ${input("shortcuts.gradeFail", "Pass/fail: FAIL", this.settings.shortcuts.gradeFail)}
+                    ${input("shortcuts.gradePass", "Pass/fail: PASS", this.settings.shortcuts.gradePass)}
                 </div>
             </fieldset>
             </div>
@@ -6966,6 +7157,10 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       return Number(a.paused) - Number(b.paused) || bArea - aArea;
     });
     (_a = playable[0]) == null ? void 0 : _a.pause();
+  }
+  function isEditableTarget(target) {
+    const element = target instanceof Element ? target : null;
+    return Boolean(element == null ? void 0 : element.closest('input, textarea, select, [contenteditable="true"]'));
   }
   function mutationTouchesAsbPlayer(mutation) {
     const nodes = [
@@ -7154,7 +7349,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       ocrEnabled: has("ocrEnabled"),
       ocrAutoScanImages: has("ocrAutoScanImages"),
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
-      ocrProvider: ["off", "yomininja-json", "custom-json"].includes(get("ocrProvider")) ? get("ocrProvider") : "custom-json",
+      ocrProvider: ["auto", "fast", "custom-json", "off"].includes(get("ocrProvider")) ? get("ocrProvider") : "auto",
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "MangaOCR",
       ocrLanguage: get("ocrLanguage").trim() || "ja-JP",
@@ -7190,7 +7385,15 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         previousSubtitle: get("shortcuts.previousSubtitle"),
         nextSubtitle: get("shortcuts.nextSubtitle"),
         copySubtitle: get("shortcuts.copySubtitle"),
-        toggleOcr: get("shortcuts.toggleOcr")
+        toggleOcr: get("shortcuts.toggleOcr"),
+        scanImages: get("shortcuts.scanImages"),
+        gradeNothing: get("shortcuts.gradeNothing"),
+        gradeSomething: get("shortcuts.gradeSomething"),
+        gradeHard: get("shortcuts.gradeHard"),
+        gradeOkay: get("shortcuts.gradeOkay"),
+        gradeEasy: get("shortcuts.gradeEasy"),
+        gradeFail: get("shortcuts.gradeFail"),
+        gradePass: get("shortcuts.gradePass")
       }
     };
   }
