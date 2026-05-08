@@ -153,15 +153,7 @@ export class JpdbClient {
         if (!token) throw new Error('JPDB API key is not set.');
         if (Date.now() < this.retryAfter) throw new Error('JPDB is rate limited. Try again in a moment.');
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-                Accept: 'application/json',
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
+        const response = await postJson(url, token, body);
 
         if (response.status === 429) {
             this.retryAfter = Date.now() + 30_000;
@@ -170,7 +162,7 @@ export class JpdbClient {
         if (response.status === 403) throw new Error('JPDB rejected the API key.');
         if (!response.ok) throw new Error(`JPDB request failed (${response.status}).`);
 
-        const text = await response.text();
+        const text = response.text;
         if (!text) return undefined as T;
 
         const json = JSON.parse(text) as T | { error_message?: string };
@@ -281,6 +273,51 @@ export class JpdbClient {
     private cardKey(vid: number, sid: number): string {
         return `${vid}/${sid}`;
     }
+}
+
+interface JsonPostResponse {
+    status: number;
+    ok: boolean;
+    text: string;
+}
+
+function postJson(url: string, token: string, body?: Record<string, unknown>): Promise<JsonPostResponse> {
+    const data = body ? JSON.stringify(body) : undefined;
+    const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+    };
+
+    if (typeof GM_xmlhttpRequest === 'function') {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'POST',
+                url,
+                headers,
+                data,
+                responseType: 'text',
+                timeout: 30000,
+                onload: response => resolve({
+                    status: response.status,
+                    ok: response.status >= 200 && response.status < 300,
+                    text: String(response.responseText ?? response.response ?? ''),
+                }),
+                onerror: reject,
+                ontimeout: () => reject(new Error('JPDB request timed out.')),
+            });
+        });
+    }
+
+    return fetch(url, {
+        method: 'POST',
+        headers,
+        body: data,
+    }).then(async response => ({
+        status: response.status,
+        ok: response.ok,
+        text: await response.text(),
+    }));
 }
 
 export function splitJapaneseSentences(text: string): string[] {

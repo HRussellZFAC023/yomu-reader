@@ -92,12 +92,12 @@ export class ImageOcrController {
 
         this.pruneDisconnectedStates();
         this.ensureObserver(settings);
-        let count = 0;
-        for (const image of Array.from(document.images)) {
-            if (count >= settings.ocrMaxImagesPerPage) break;
-            if (!isCandidateImage(image, settings)) continue;
-            if (!shouldObserveImage(image, settings)) continue;
-            count++;
+        const images = Array.from(document.images)
+            .filter(image => isCandidateImage(image, settings) && shouldObserveImage(image, settings))
+            .sort((a, b) => imageViewportDistance(a) - imageViewportDistance(b))
+            .slice(0, settings.ocrMaxImagesPerPage);
+
+        for (const image of images) {
             this.ensureState(image);
             this.observer?.observe(image);
         }
@@ -217,15 +217,15 @@ export class ImageOcrController {
         state.status.textContent = 'Reading image...';
 
         try {
-            const fallback = readFallbackOcrResult(image, settings.ocrProvider === 'page-text');
-            const result = fallback
-                ?? (canUseLocalService
-                    ? await recognizeViaLocalService(image, settings)
-                    : canUseCloudVision
-                        ? await recognizeViaCloudVision(image, settings)
-                    : canUseGoogleLens
-                        ? await recognizeViaGoogleLens(image, settings)
-                        : null);
+            const inlineFallback = readFallbackOcrResult(image, false);
+            const providerResult = inlineFallback ? null : canUseLocalService
+                ? await recognizeViaLocalService(image, settings)
+                : canUseCloudVision
+                    ? await recognizeViaCloudVision(image, settings)
+                : canUseGoogleLens
+                    ? await recognizeViaGoogleLens(image, settings)
+                    : null;
+            const result = inlineFallback ?? mergeOcrResults(providerResult, readFallbackOcrResult(image, true));
 
             if (!result?.lines.length) {
                 state.autoSkipped = !manualRequested;
@@ -238,7 +238,7 @@ export class ImageOcrController {
             state.key = key;
             await this.renderResult(state, result);
         } catch (error) {
-            const fallback = settings.ocrProvider === 'page-text' ? readFallbackOcrResult(image, true) : readFallbackOcrResult(image, false);
+            const fallback = readFallbackOcrResult(image, true);
             if (fallback?.lines.length) {
                 await this.renderResult(state, fallback);
             } else {
@@ -257,7 +257,7 @@ export class ImageOcrController {
         state.status.hidden = true;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
-        const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
+        const showText = this.options.getSettings().ocrShowTextOverlay || forceOverlay;
 
         const sentence = result.lines.map(line => line.text).join('\n');
         for (const line of result.lines) {
@@ -819,6 +819,28 @@ function unionBoxes(boxes: OcrRect[]): OcrRect | null {
     return { left, top, width: right - left, height: bottom - top };
 }
 
+function mergeOcrResults(primary: OcrResult | null, fallback: OcrResult | null): OcrResult | null {
+    if (!primary) return fallback;
+    if (!fallback) return primary;
+    const extraLines = fallback.lines.filter(line => hasUsefulFallbackText(line, primary.lines));
+    return extraLines.length ? { ...primary, lines: [...primary.lines, ...extraLines] } : primary;
+}
+
+function hasUsefulFallbackText(line: OcrLine, existingLines: OcrLine[]): boolean {
+    let remaining = compareOcrText(line.text);
+    for (const existing of existingLines) {
+        const text = compareOcrText(existing.text);
+        if (!text) continue;
+        if (remaining === text) return false;
+        remaining = remaining.replaceAll(text, '');
+    }
+    return remaining.length >= 2 && HAS_JAPANESE.test(remaining);
+}
+
+function compareOcrText(text: string): string {
+    return text.replace(/[\s、。・･~〜（）()「」『』【】\[\]_-]+/g, '');
+}
+
 function cleanOcrText(value: unknown): string {
     const text = typeof value === 'string' ? value : String(value ?? '');
     const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? '' : ' ').trim();
@@ -870,6 +892,15 @@ function readAccessibleImageText(image: HTMLImageElement, width: number, height:
 function isNearViewport(element: Element, margin: number): boolean {
     const rect = element.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+}
+
+function imageViewportDistance(image: HTMLImageElement): number {
+    const rect = image.getBoundingClientRect();
+    if (rect.bottom < 0) return -rect.bottom;
+    if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
+    if (rect.right < 0) return -rect.right;
+    if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
+    return 0;
 }
 
 function nodeContainsImage(node: Node): boolean {

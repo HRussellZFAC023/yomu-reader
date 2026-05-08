@@ -658,22 +658,14 @@
       const token = this.getApiKey();
       if (!token) throw new Error("JPDB API key is not set.");
       if (Date.now() < this.retryAfter) throw new Error("JPDB is rate limited. Try again in a moment.");
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json"
-        },
-        body: body ? JSON.stringify(body) : void 0
-      });
+      const response = await postJson(url, token, body);
       if (response.status === 429) {
         this.retryAfter = Date.now() + 3e4;
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) throw new Error("JPDB rejected the API key.");
       if (!response.ok) throw new Error(`JPDB request failed (${response.status}).`);
-      const text = await response.text();
+      const text = response.text;
       if (!text) return void 0;
       const json = JSON.parse(text);
       if (json && typeof json === "object" && "error_message" in json && json.error_message) {
@@ -773,6 +765,42 @@
     cardKey(vid, sid) {
       return `${vid}/${sid}`;
     }
+  }
+  function postJson(url, token, body) {
+    const data = body ? JSON.stringify(body) : void 0;
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    };
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "POST",
+          url,
+          headers,
+          data,
+          responseType: "text",
+          timeout: 3e4,
+          onload: (response) => resolve({
+            status: response.status,
+            ok: response.status >= 200 && response.status < 300,
+            text: String(response.responseText ?? response.response ?? "")
+          }),
+          onerror: reject,
+          ontimeout: () => reject(new Error("JPDB request timed out."))
+        });
+      });
+    }
+    return fetch(url, {
+      method: "POST",
+      headers,
+      body: data
+    }).then(async (response) => ({
+      status: response.status,
+      ok: response.ok,
+      text: await response.text()
+    }));
   }
   function splitJapaneseSentences(text) {
     const sentences = [];
@@ -1192,12 +1220,8 @@
       }
       this.pruneDisconnectedStates();
       this.ensureObserver(settings);
-      let count = 0;
-      for (const image of Array.from(document.images)) {
-        if (count >= settings.ocrMaxImagesPerPage) break;
-        if (!isCandidateImage(image, settings)) continue;
-        if (!shouldObserveImage(image, settings)) continue;
-        count++;
+      const images = Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => imageViewportDistance(a) - imageViewportDistance(b)).slice(0, settings.ocrMaxImagesPerPage);
+      for (const image of images) {
         this.ensureState(image);
         (_a = this.observer) == null ? void 0 : _a.observe(image);
       }
@@ -1304,8 +1328,9 @@
       const canUseGoogleLens = settings.ocrProvider === "google-lens";
       state.status.textContent = "Reading image...";
       try {
-        const fallback = readFallbackOcrResult(image, settings.ocrProvider === "page-text");
-        const result = fallback ?? (canUseLocalService ? await recognizeViaLocalService(image, settings) : canUseCloudVision ? await recognizeViaCloudVision(image, settings) : canUseGoogleLens ? await recognizeViaGoogleLens(image, settings) : null);
+        const inlineFallback = readFallbackOcrResult(image, false);
+        const providerResult = inlineFallback ? null : canUseLocalService ? await recognizeViaLocalService(image, settings) : canUseCloudVision ? await recognizeViaCloudVision(image, settings) : canUseGoogleLens ? await recognizeViaGoogleLens(image, settings) : null;
+        const result = inlineFallback ?? mergeOcrResults(providerResult, readFallbackOcrResult(image, true));
         if (!(result == null ? void 0 : result.lines.length)) {
           state.autoSkipped = !manualRequested;
           state.status.textContent = "No Japanese text found";
@@ -1316,7 +1341,7 @@
         state.key = key;
         await this.renderResult(state, result);
       } catch (error) {
-        const fallback = settings.ocrProvider === "page-text" ? readFallbackOcrResult(image, true) : readFallbackOcrResult(image, false);
+        const fallback = readFallbackOcrResult(image, true);
         if (fallback == null ? void 0 : fallback.lines.length) {
           await this.renderResult(state, fallback);
         } else {
@@ -1333,7 +1358,7 @@
       state.result = result;
       state.status.hidden = true;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
+      const showText = this.options.getSettings().ocrShowTextOverlay || forceOverlay;
       const sentence = result.lines.map((line) => line.text).join("\n");
       for (const line of result.lines) {
         const button2 = document.createElement("button");
@@ -1850,6 +1875,25 @@
     const bottom = Math.max(...boxes.map((box) => box.top + box.height));
     return { left, top, width: right - left, height: bottom - top };
   }
+  function mergeOcrResults(primary, fallback) {
+    if (!primary) return fallback;
+    if (!fallback) return primary;
+    const extraLines = fallback.lines.filter((line) => hasUsefulFallbackText(line, primary.lines));
+    return extraLines.length ? { ...primary, lines: [...primary.lines, ...extraLines] } : primary;
+  }
+  function hasUsefulFallbackText(line, existingLines) {
+    let remaining = compareOcrText(line.text);
+    for (const existing of existingLines) {
+      const text = compareOcrText(existing.text);
+      if (!text) continue;
+      if (remaining === text) return false;
+      remaining = remaining.replaceAll(text, "");
+    }
+    return remaining.length >= 2 && HAS_JAPANESE.test(remaining);
+  }
+  function compareOcrText(text) {
+    return text.replace(/[\s、。・･~〜（）()「」『』【】\[\]_-]+/g, "");
+  }
   function cleanOcrText(value) {
     const text = typeof value === "string" ? value : String(value ?? "");
     const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? "" : " ").trim();
@@ -1896,6 +1940,14 @@
   function isNearViewport(element2, margin) {
     const rect = element2.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+  }
+  function imageViewportDistance(image) {
+    const rect = image.getBoundingClientRect();
+    if (rect.bottom < 0) return -rect.bottom;
+    if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
+    if (rect.right < 0) return -rect.right;
+    if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
+    return 0;
   }
   function nodeContainsImage(node) {
     return node instanceof HTMLImageElement || node instanceof Element && Boolean(node.querySelector("img"));
