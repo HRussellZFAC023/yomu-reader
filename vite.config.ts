@@ -4,7 +4,7 @@ import monkey from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 
 const repoUrl = 'https://github.com/HRussellZFAC023/kotoba-reader';
-const rawUserscriptUrl = 'https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/kotoba.user.js';
+const rawUserscriptUrl = 'https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js';
 
 export default defineConfig({
     plugins: [
@@ -69,7 +69,7 @@ export default defineConfig({
                 updateURL: rawUserscriptUrl,
             },
             build: {
-                fileName: 'kotoba.user.js',
+                fileName: 'yomu.user.js',
             },
         }),
     ],

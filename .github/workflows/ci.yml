@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths-ignore:
-      - dist/kotoba.user.js
+      - dist/yomu.user.js
 
 permissions:
   contents: read

@@ -10,8 +10,8 @@
 // @homepageURL  https://github.com/HRussellZFAC023/kotoba-reader
 // @source       https://github.com/HRussellZFAC023/kotoba-reader.git
 // @supportURL   https://github.com/HRussellZFAC023/kotoba-reader/issues
-// @downloadURL  https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/kotoba.user.js
-// @updateURL    https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/kotoba.user.js
+// @downloadURL  https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
+// @updateURL    https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
 // @match        *://*/*
 // @exclude      https://jpdb.io/*
 // @exclude      https://*.jpdb.io/*
