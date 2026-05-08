@@ -9,7 +9,7 @@ JPDB/Yomitan popup reader for Japanese text, audio, manga OCR, and video subtitl
 The built userscript is:
 
 ```text
-https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/kotoba.user.js
+https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
 ```
 
 After the GreasyFork page is live, install from GreasyFork so normal users get the friendlier install/update path.
@@ -110,7 +110,7 @@ http://127.0.0.1:5174/reader-ocr-test.html?apiKey=YOUR_JPDB_API_KEY
 The production userscript is written to:
 
 ```text
-dist/kotoba.user.js
+dist/yomu.user.js
 ```
 
 ## Deployment
@@ -118,12 +118,12 @@ dist/kotoba.user.js
 GitHub Actions does two things:
 
 - `CI` runs typecheck, tests, build, and userscript metadata verification.
-- `Build Userscript` builds `dist/kotoba.user.js` and commits it back to `main` when the bundle changes.
+- `Build Userscript` builds `dist/yomu.user.js` and commits it back to `main` when the bundle changes.
 
-GreasyFork does not provide a general write API for unattended publishing. Its supported update paths are the logged-in prefill form and GitHub/GitLab/Bitbucket webhook/update checks. For the initial GreasyFork publish, use the built code from `dist/kotoba.user.js`, then configure GreasyFork to sync from:
+GreasyFork does not provide a general write API for unattended publishing. Its supported update paths are the logged-in prefill form and GitHub/GitLab/Bitbucket webhook/update checks. For the initial GreasyFork publish, use the built code from `dist/yomu.user.js`, then configure GreasyFork to sync from:
 
 ```text
-https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/kotoba.user.js
+https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
 ```
 
 After that, pushes to `main` rebuild the userscript and GreasyFork can pick up the new raw file through its sync/webhook flow.

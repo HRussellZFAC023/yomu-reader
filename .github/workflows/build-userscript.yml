@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths-ignore:
-      - dist/kotoba.user.js
+      - dist/yomu.user.js
 
 permissions:
   contents: write
@@ -32,9 +32,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/kotoba.user.js
+          git add -f dist/yomu.user.js
           if git diff --cached --quiet; then
-            echo "dist/kotoba.user.js is already current."
+            echo "dist/yomu.user.js is already current."
           else
             git commit -m "build userscript [skip ci]"
             git push

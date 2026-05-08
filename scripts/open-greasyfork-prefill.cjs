@@ -3,7 +3,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 
-const codePath = path.join(__dirname, '..', 'dist', 'kotoba.user.js');
+const codePath = path.join(__dirname, '..', 'dist', 'yomu.user.js');
 const code = fs.readFileSync(codePath, 'utf8');
 const action = process.argv[2] || 'https://greasyfork.org/en/script_versions/prefill';
 
