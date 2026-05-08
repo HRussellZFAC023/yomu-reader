@@ -25,11 +25,11 @@ export interface OcrResult {
 interface ImageState {
     image: HTMLImageElement;
     overlay: HTMLElement;
-    chip: HTMLButtonElement;
     status: HTMLElement;
     key: string;
     result?: OcrResult;
     loading: boolean;
+    overlayRequested: boolean;
 }
 
 interface OcrControllerOptions {
@@ -107,7 +107,7 @@ export class ImageOcrController {
             this.options.onToast(hasEndpoint ? 'No readable images nearby.' : 'Add an OCR endpoint in settings to read images.');
             return;
         }
-        images.forEach(image => this.enqueue(image));
+        images.forEach(image => this.enqueue(image, true));
     }
 
     private ensureObserver(settings: ReaderSettings): void {
@@ -135,26 +135,14 @@ export class ImageOcrController {
         overlay.className = 'jpdb-ocr-layer';
         overlay.dataset.jpdbReaderRoot = 'true';
 
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'jpdb-ocr-chip';
-        chip.textContent = '読';
-        chip.hidden = true;
-        chip.title = 'Read text in this image';
-        chip.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.enqueue(image, true);
-        });
-
         const status = document.createElement('div');
         status.className = 'jpdb-ocr-status';
         status.hidden = true;
 
-        overlay.append(chip, status);
+        overlay.append(status);
         document.body.append(overlay);
 
-        const state = { image, overlay, chip, status, key: imageCacheKey(image), loading: false };
+        const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false };
         image.addEventListener('load', () => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -166,9 +154,17 @@ export class ImageOcrController {
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         const state = this.states.get(image) ?? this.ensureState(image);
-        if (state.loading || state.result) return;
+        state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image));
+        if (state.result) {
+            if (userRequested) void this.renderResult(state, state.result, true);
+            return;
+        }
+        if (state.loading) return;
         if (!this.queue.includes(image)) this.queue.push(image);
-        if (userRequested) state.status.textContent = 'Reading image...';
+        if (userRequested) {
+            state.status.hidden = false;
+            state.status.textContent = 'Reading image...';
+        }
         this.drainQueue();
     }
 
@@ -196,8 +192,7 @@ export class ImageOcrController {
         }
 
         state.loading = true;
-        state.chip.textContent = '...';
-        state.status.hidden = false;
+        state.status.hidden = !state.overlayRequested;
         const canUseEndpoint = settings.ocrProvider !== 'off' && settings.ocrEndpointUrl.trim();
         state.status.textContent = canUseEndpoint ? 'Reading image...' : 'Tap to configure OCR';
 
@@ -211,7 +206,7 @@ export class ImageOcrController {
                 state.status.textContent = canUseEndpoint
                     ? 'No Japanese text found'
                     : 'Add an OCR endpoint in settings';
-                state.chip.textContent = '読';
+                state.status.hidden = !state.overlayRequested;
                 return;
             }
 
@@ -224,20 +219,19 @@ export class ImageOcrController {
                 await this.renderResult(state, fallback);
             } else {
                 state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
-                state.chip.textContent = '読';
+                state.status.hidden = !state.overlayRequested;
             }
         } finally {
             state.loading = false;
         }
     }
 
-    private async renderResult(state: ImageState, result: OcrResult): Promise<void> {
+    private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
         state.result = result;
-        state.chip.textContent = '読';
         state.status.hidden = true;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
-        if (!this.options.getSettings().ocrShowTextOverlay) return;
+        if (!this.options.getSettings().ocrShowTextOverlay || (!state.overlayRequested && !forceOverlay)) return;
 
         const sentence = result.lines.map(line => line.text).join('\n');
         for (const line of result.lines) {
@@ -270,8 +264,8 @@ export class ImageOcrController {
         state.key = key;
         state.result = undefined;
         state.loading = false;
+        state.overlayRequested = false;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
-        state.chip.textContent = '読';
         state.status.hidden = true;
     }
 
@@ -300,9 +294,6 @@ export class ImageOcrController {
     private positionState(image: HTMLImageElement): void {
         const state = this.states.get(image);
         if (!state) return;
-        const settings = this.options.getSettings();
-        const hasEndpoint = settings.ocrProvider !== 'off' && Boolean(settings.ocrEndpointUrl.trim());
-        state.chip.hidden = !(settings.ocrTapToScan && hasEndpoint && !settings.ocrAutoScanImages);
         const rect = image.getBoundingClientRect();
         const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
         state.overlay.hidden = !visible;

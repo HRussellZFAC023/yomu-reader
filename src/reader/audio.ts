@@ -6,6 +6,8 @@ interface AudioCandidate {
 }
 
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho'];
+const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
+const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 
 export class AudioPlayer {
     private current?: HTMLAudioElement;
@@ -65,7 +67,7 @@ export class AudioPlayer {
         const candidates = pickCandidates(await getAudioCandidates(source, card, settings.audioTimeoutMs), settings.audioSelectionMode);
         for (const candidate of candidates) {
             try {
-                const audioUrl = settings.audioViaBlob
+                const audioUrl = settings.audioViaBlob || isJapanesePod101Url(candidate.sourceUrl)
                     ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode)
                     : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
                 if (requestId !== this.playRequestId) return true;
@@ -92,6 +94,9 @@ export class AudioPlayer {
         }
 
         if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
+        if (isJapanesePod101Url(sourceUrl) && await isUnavailableJapanesePod101Audio(response)) {
+            throw new Error('JapanesePod101 has no audio for this term.');
+        }
         this.lastBlobUrl = URL.createObjectURL(response);
         return this.lastBlobUrl;
     }
@@ -160,6 +165,19 @@ export function findAudioUrls(value: unknown, sourceUrl?: string): string[] {
     return [];
 }
 
+export async function isUnavailableJapanesePod101Audio(blob: Blob): Promise<boolean> {
+    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
+    try {
+        const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+        const hash = [...new Uint8Array(digest)]
+            .map(value => value.toString(16).padStart(2, '0'))
+            .join('');
+        return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
+    } catch {
+        return true;
+    }
+}
+
 function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] {
     const sources = settings.audioSources.filter(source => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
@@ -209,6 +227,15 @@ function getJapanesePod101Url(card: JPDBCard): string {
     if (card.spelling !== card.reading) params.set('kanji', card.spelling);
     params.set('kana', card.reading);
     return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
+}
+
+function isJapanesePod101Url(value: string): boolean {
+    try {
+        const url = new URL(value);
+        return url.hostname === 'assets.languagepod101.com' && url.pathname.endsWith('/audiomp3.php');
+    } catch {
+        return false;
+    }
 }
 
 async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number): Promise<string[]> {

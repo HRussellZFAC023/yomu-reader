@@ -131,7 +131,6 @@ export interface ReaderSettings {
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;
     ocrShowTextOverlay: boolean;
-    ocrTapToScan: boolean;
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;
     ocrEngine: string;

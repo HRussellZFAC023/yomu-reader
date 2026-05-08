@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
-import { findAudioUrl, findAudioUrls, formatAudioUrl } from '../../src/reader/audio';
+import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio } from '../../src/reader/audio';
 import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { DEFAULT_SETTINGS, matchesShortcut, normalizeAudioSources } from '../../src/reader/settings';
-import { parseSubtitleText } from '../../src/reader/subtitles';
+import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport } from '../../src/reader/yomitan';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
@@ -40,8 +40,12 @@ describe('reader helpers', () => {
     it('rewrites localhost audio URLs returned by a Tailnet custom-json source', () => {
         expect(findAudioUrl(
             { audioSources: [{ url: 'http://localhost:8080/audio/nhk\\media\\x.mp3' }] },
-            'http://desktop-vp4io57.tail099f7d.ts.net:8080/?term=青空&reading=あおぞら',
-        )).toBe('http://desktop-vp4io57.tail099f7d.ts.net:8080/audio/nhk/media/x.mp3');
+            'http://tailnet-audio.example:8080/?term=青空&reading=あおぞら',
+        )).toBe('http://tailnet-audio.example:8080/audio/nhk/media/x.mp3');
+    });
+
+    it('does not treat normal-sized JapanesePod101 audio as unavailable', async () => {
+        await expect(isUnavailableJapanesePod101Audio(new Blob([new Uint8Array(1512)]))).resolves.toBe(false);
     });
 
     it('keeps quoted Japanese sentences together', () => {
@@ -143,6 +147,26 @@ describe('reader helpers', () => {
 
         expect(document.querySelector('.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-known')?.textContent)
             .toBe('読む');
+    });
+
+    it('does not scan into existing ruby annotations', () => {
+        document.body.innerHTML = '<p><ruby>事故<rt>じこ</rt></ruby>がありました。</p>';
+        const targets = collectTextTargetsIn(document.body, 10, false);
+        expect(targets.map(target => target.text)).toEqual(['がありました。']);
+    });
+
+    it('detects Japanese page captions near a video without site-specific selectors', () => {
+        document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
+        });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
     });
 
     it('normalizes YomiNinja-shaped OCR responses for image overlays', () => {

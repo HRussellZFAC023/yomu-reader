@@ -47,7 +47,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: true,
-    ocrTapToScan: false,
     ocrProvider: 'custom-json',
     ocrEndpointUrl: '',
     ocrEngine: 'MangaOCR',
