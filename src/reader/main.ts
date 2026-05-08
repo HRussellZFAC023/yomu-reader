@@ -113,6 +113,7 @@ class ReaderApp {
     private installFab(): void {
         this.fab?.remove();
         this.fab = undefined;
+        document.querySelectorAll<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-fab').forEach(element => element.remove());
         if (!this.settings.showFloatingButton) return;
 
         const button = document.createElement('button');
@@ -285,7 +286,6 @@ class ReaderApp {
 
             const parsed = await this.jpdb.parse(targets.map(target => target.text));
             targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
-            if (!options.silent) this.toast(`Scanned ${targets.length} visible text ${targets.length === 1 ? 'block' : 'blocks'}.`);
         } catch (error) {
             if (!options.silent) this.toast(error instanceof Error ? error.message : 'JPDB scan failed.');
         }
@@ -659,8 +659,7 @@ class ReaderApp {
                 <div class="grid">
                     ${checkbox('ocrEnabled', 'Enable image OCR', this.settings.ocrEnabled)}
                     ${checkbox('ocrAutoScanImages', 'Auto-scan readable images near the viewport', this.settings.ocrAutoScanImages)}
-                    ${checkbox('ocrShowTextOverlay', 'Show tappable OCR text over images', this.settings.ocrShowTextOverlay)}
-                    ${checkbox('ocrTapToScan', 'Show per-image OCR buttons', this.settings.ocrTapToScan)}
+                    ${checkbox('ocrShowTextOverlay', 'Show tappable OCR text after manual image scans', this.settings.ocrShowTextOverlay)}
                     ${select('ocrProvider', 'OCR endpoint type', this.settings.ocrProvider, [['custom-json', 'YomiNinja / custom JSON'], ['off', 'No endpoint']])}
                     ${input('ocrEndpointUrl', 'OCR endpoint URL', this.settings.ocrEndpointUrl)}
                     ${input('ocrEngine', 'OCR engine', this.settings.ocrEngine)}
@@ -1128,7 +1127,6 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
-        ocrTapToScan: has('ocrTapToScan'),
         ocrProvider: ['off', 'yomininja-json', 'custom-json'].includes(get('ocrProvider')) ? get('ocrProvider') as ReaderSettings['ocrProvider'] : 'custom-json',
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'MangaOCR',
@@ -1268,4 +1266,13 @@ function dateStamp(): string {
     return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
-void new ReaderApp().init();
+const bootWindow = window as typeof window & {
+    __yomuReaderAppInitialized?: boolean;
+    __jpdbPopupReaderInitialized?: boolean;
+};
+
+if (!bootWindow.__yomuReaderAppInitialized) {
+    bootWindow.__yomuReaderAppInitialized = true;
+    bootWindow.__jpdbPopupReaderInitialized = true;
+    void new ReaderApp().init();
+}

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "yomu: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
+  "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
   "license": "MIT",
   "repository": {
     "type": "git",

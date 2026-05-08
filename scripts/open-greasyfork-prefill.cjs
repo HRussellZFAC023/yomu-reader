@@ -21,7 +21,7 @@ const server = http.createServer((_, response) => {
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Publish yomu to GreasyFork</title>
+<title>Publish よむ to GreasyFork</title>
 <style>
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #15191f; color: #eef2f6; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   main { width: min(560px, calc(100vw - 32px)); }
@@ -29,7 +29,7 @@ const server = http.createServer((_, response) => {
   p { color: #aab2c0; line-height: 1.55; }
 </style>
 <main>
-  <h1>Publish yomu</h1>
+  <h1>Publish よむ</h1>
   <p>This will send the built userscript to GreasyFork's official prefill form. Make sure you are logged into GreasyFork in this browser first.</p>
   <form method="post" action="${escapeHtml(action)}" enctype="multipart/form-data">
     <textarea hidden name="script_version[code]">${escapeHtml(code)}</textarea>

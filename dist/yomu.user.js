@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         yomu
+// @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/kotoba-reader
 // @version      0.1.0
 // @author       Henry
@@ -35,6 +35,8 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
   const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho"];
+  const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
+  const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
   class AudioPlayer {
     constructor(getSettings) {
       __publicField(this, "current");
@@ -87,7 +89,7 @@
       const candidates = pickCandidates(await getAudioCandidates(source, card, settings.audioTimeoutMs), settings.audioSelectionMode);
       for (const candidate of candidates) {
         try {
-          const audioUrl = settings.audioViaBlob ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode) : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
+          const audioUrl = settings.audioViaBlob || isJapanesePod101Url(candidate.sourceUrl) ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode) : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
           if (requestId !== this.playRequestId) return true;
           const audio = new Audio(audioUrl);
           audio.preload = "auto";
@@ -109,6 +111,9 @@
         return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
       }
       if (!(response instanceof Blob)) throw new Error("Audio source did not return audio.");
+      if (isJapanesePod101Url(sourceUrl) && await isUnavailableJapanesePod101Audio(response)) {
+        throw new Error("JapanesePod101 has no audio for this term.");
+      }
       this.lastBlobUrl = URL.createObjectURL(response);
       return this.lastBlobUrl;
     }
@@ -170,6 +175,16 @@
     }
     return [];
   }
+  async function isUnavailableJapanesePod101Audio(blob) {
+    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+      const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+      return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
+    } catch {
+      return true;
+    }
+  }
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
@@ -213,6 +228,14 @@
     if (card.spelling !== card.reading) params.set("kanji", card.spelling);
     params.set("kana", card.reading);
     return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
+  }
+  function isJapanesePod101Url(value) {
+    try {
+      const url = new URL(value);
+      return url.hostname === "assets.languagepod101.com" && url.pathname.endsWith("/audiomp3.php");
+    } catch {
+      return false;
+    }
   }
   async function getJishoAudioUrls(card, timeoutMs) {
     var _a;
@@ -296,8 +319,8 @@
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  const APP_NAME = "yomu";
-  const APP_PUCK = "読";
+  const APP_NAME = "よむ";
+  const APP_PUCK = "よむ";
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   let trustedHtmlPolicy;
@@ -309,6 +332,9 @@
     "input",
     "select",
     "button",
+    "ruby",
+    "rt",
+    "rp",
     '[contenteditable="true"]',
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
@@ -829,7 +855,7 @@
         this.options.onToast(hasEndpoint ? "No readable images nearby." : "Add an OCR endpoint in settings to read images.");
         return;
       }
-      images.forEach((image) => this.enqueue(image));
+      images.forEach((image) => this.enqueue(image, true));
     }
     ensureObserver(settings) {
       var _a;
@@ -854,23 +880,12 @@
       const overlay = document.createElement("div");
       overlay.className = "jpdb-ocr-layer";
       overlay.dataset.jpdbReaderRoot = "true";
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "jpdb-ocr-chip";
-      chip.textContent = "読";
-      chip.hidden = true;
-      chip.title = "Read text in this image";
-      chip.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.enqueue(image, true);
-      });
       const status = document.createElement("div");
       status.className = "jpdb-ocr-status";
       status.hidden = true;
-      overlay.append(chip, status);
+      overlay.append(status);
       document.body.append(overlay);
-      const state = { image, overlay, chip, status, key: imageCacheKey(image), loading: false };
+      const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false };
       image.addEventListener("load", () => {
         this.resetStateIfImageChanged(state);
         this.schedulePosition();
@@ -881,9 +896,17 @@
     }
     enqueue(image, userRequested = false) {
       const state = this.states.get(image) ?? this.ensureState(image);
-      if (state.loading || state.result) return;
+      state.overlayRequested || (state.overlayRequested = userRequested || Boolean(readFallbackOcrResult(image)));
+      if (state.result) {
+        if (userRequested) void this.renderResult(state, state.result, true);
+        return;
+      }
+      if (state.loading) return;
       if (!this.queue.includes(image)) this.queue.push(image);
-      if (userRequested) state.status.textContent = "Reading image...";
+      if (userRequested) {
+        state.status.hidden = false;
+        state.status.textContent = "Reading image...";
+      }
       this.drainQueue();
     }
     drainQueue() {
@@ -907,8 +930,7 @@
         return;
       }
       state.loading = true;
-      state.chip.textContent = "...";
-      state.status.hidden = false;
+      state.status.hidden = !state.overlayRequested;
       const canUseEndpoint = settings.ocrProvider !== "off" && settings.ocrEndpointUrl.trim();
       state.status.textContent = canUseEndpoint ? "Reading image..." : "Tap to configure OCR";
       try {
@@ -916,7 +938,7 @@
         const result = canUseEndpoint ? await recognizeViaEndpoint(image, settings) : fallback;
         if (!(result == null ? void 0 : result.lines.length)) {
           state.status.textContent = canUseEndpoint ? "No Japanese text found" : "Add an OCR endpoint in settings";
-          state.chip.textContent = "読";
+          state.status.hidden = !state.overlayRequested;
           return;
         }
         this.remember(key, result);
@@ -928,18 +950,17 @@
           await this.renderResult(state, fallback);
         } else {
           state.status.textContent = error instanceof Error ? error.message : "OCR failed";
-          state.chip.textContent = "読";
+          state.status.hidden = !state.overlayRequested;
         }
       } finally {
         state.loading = false;
       }
     }
-    async renderResult(state, result) {
+    async renderResult(state, result, forceOverlay = false) {
       state.result = result;
-      state.chip.textContent = "読";
       state.status.hidden = true;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      if (!this.options.getSettings().ocrShowTextOverlay) return;
+      if (!this.options.getSettings().ocrShowTextOverlay || !state.overlayRequested && !forceOverlay) return;
       const sentence = result.lines.map((line) => line.text).join("\n");
       for (const line of result.lines) {
         const button = document.createElement("button");
@@ -970,8 +991,8 @@
       state.key = key;
       state.result = void 0;
       state.loading = false;
+      state.overlayRequested = false;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      state.chip.textContent = "読";
       state.status.hidden = true;
     }
     remember(key, result) {
@@ -996,9 +1017,6 @@
     positionState(image) {
       const state = this.states.get(image);
       if (!state) return;
-      const settings = this.options.getSettings();
-      const hasEndpoint = settings.ocrProvider !== "off" && Boolean(settings.ocrEndpointUrl.trim());
-      state.chip.hidden = !(settings.ocrTapToScan && hasEndpoint && !settings.ocrAutoScanImages);
       const rect = image.getBoundingClientRect();
       const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
       state.overlay.hidden = !visible;
@@ -1321,7 +1339,6 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: true,
-    ocrTapToScan: false,
     ocrProvider: "custom-json",
     ocrEndpointUrl: "",
     ocrEngine: "MangaOCR",
@@ -1543,7 +1560,6 @@
   box-sizing: border-box;
   contain: layout style;
 }
-.jpdb-ocr-chip,
 .jpdb-ocr-status,
 .jpdb-ocr-line {
   pointer-events: auto;
@@ -1551,20 +1567,6 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
-.jpdb-ocr-chip {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  min-width: 44px;
-  min-height: 36px;
-  border: 1px solid rgba(255,255,255,.22);
-  border-radius: 999px;
-  background: rgba(24,27,32,.78);
-  color: #fff;
-  box-shadow: 0 8px 22px rgba(0,0,0,.26);
-  font: 800 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-.jpdb-ocr-chip[hidden] { display: none; }
 .jpdb-ocr-status {
   position: absolute;
   left: 8px;
@@ -1646,8 +1648,10 @@
   right: max(14px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 2147483645;
-  width: 52px;
+  min-width: 52px;
+  width: auto;
   height: 52px;
+  padding: 0 13px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 50%;
   background: var(--jpdb-reader-surface);
@@ -2099,15 +2103,24 @@
   bottom: var(--subtitle-bottom);
   color: #fff;
   text-align: center;
-  font: 800 var(--subtitle-font-size)/1.28 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  text-shadow: 0 2px 2px #000, 0 0 8px rgba(0,0,0,.9);
+  font: 850 var(--subtitle-font-size)/1.26 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-shadow:
+    0 2px 2px #000,
+    0 0 2px #000,
+    0 0 10px rgba(0,0,0,.96),
+    0 0 18px rgba(0,0,0,.78);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-subtitle-primary {
-  display: block;
+  display: inline;
+  padding: 2px 10px 5px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,.34) 12%, rgba(0,0,0,.34) 88%, transparent);
+  -webkit-text-stroke: .028em rgba(0,0,0,.72);
+  paint-order: stroke fill;
 }
 .jpdb-subtitle-secondary {
   display: block;
@@ -2122,7 +2135,13 @@
   background: transparent !important;
   color: #fff;
   text-decoration: none;
-  text-shadow: 0 2px 2px #000, 0 0 8px rgba(0,0,0,.9);
+  text-shadow:
+    0 2px 2px #000,
+    0 0 2px #000,
+    0 0 10px rgba(0,0,0,.96),
+    0 0 18px rgba(0,0,0,.78);
+  -webkit-text-stroke: .028em rgba(0,0,0,.72);
+  paint-order: stroke fill;
 }
 .jpdb-subtitle-primary .jpdb-reader-word:hover,
 .jpdb-subtitle-primary .jpdb-reader-word:focus {
@@ -2330,7 +2349,6 @@
   .jpdb-reader-audio-source-head { display: none; }
   .jpdb-reader-audio-source-row { grid-template-columns: 52px 1fr; }
   .jpdb-reader-audio-source-fields { grid-column: 1 / -1; }
-  .jpdb-ocr-chip { min-width: 48px; min-height: 42px; right: 6px; top: 6px; }
   .jpdb-ocr-line { min-width: 38px; min-height: 38px; border-radius: 8px; }
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
   .jpdb-subtitle-rail {
@@ -2347,12 +2365,18 @@
   }
 }
 `;
-  const CAPTION_SELECTORS = [
+  const CAPTION_SELECTOR_LIST = [
     ".ytp-caption-segment",
     ".caption-visual-line",
     ".captions-text span",
-    '[data-purpose="captions-text"]'
-  ].join(",");
+    '[data-purpose="captions-text"]',
+    ".asbplayer-subtitles-container-bottom span",
+    ".asbplayer-subtitle",
+    '[class*="subtitle"]',
+    '[class*="caption"]',
+    '[data-testid*="subtitle"]'
+  ];
+  const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
   class SubtitlePlayerController {
     constructor(options) {
       __publicField(this, "root");
@@ -2555,7 +2579,7 @@
     updateFromDomCaptions() {
       var _a;
       if (this.cues.length || this.selectedTrackId) return;
-      const text = [...document.querySelectorAll(CAPTION_SELECTORS)].map((node) => node.innerText || node.textContent || "").map((textContent) => textContent.trim()).filter(Boolean).join("\n").trim();
+      const text = readPageCaptionText(this.video, this.root);
       if (!text || text === this.lastDomCaption) return;
       this.lastDomCaption = text;
       const now = ((_a = this.video) == null ? void 0 : _a.currentTime) ?? 0;
@@ -2886,6 +2910,22 @@
     }
     return cues.sort((a, b) => a.start - b.start);
   }
+  function readPageCaptionText(video, readerRoot) {
+    const direct = collectCaptionTexts(
+      [...document.querySelectorAll(CAPTION_SELECTORS)],
+      video,
+      readerRoot,
+      false
+    );
+    if (direct) return direct;
+    if (!video) return "";
+    return collectCaptionTexts(
+      [...document.body.querySelectorAll("div, span, p")],
+      video,
+      readerRoot,
+      true
+    );
+  }
   function parseSubtitleTime(value) {
     const match = value.match(/(?:(\d+):)?(\d{2}):(\d{2})[,.](\d{3})/);
     if (!match) return Number.NaN;
@@ -2899,6 +2939,44 @@
   }
   function isJapaneseTrack(label = "", language = "") {
     return /(^|\b)(ja|jpn|japanese|日本語)(\b|$)/i.test(`${label} ${language}`);
+  }
+  function collectCaptionTexts(elements, video, readerRoot, nearVideoOnly = false) {
+    const lines = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const element of elements) {
+      if (!isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly)) continue;
+      const text = normalizeCaptionText(element.innerText || element.textContent || "");
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      lines.push(text);
+      if (lines.length >= 3) break;
+    }
+    return lines.join("\n").trim();
+  }
+  function isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly = false) {
+    if (!element.isConnected) return false;
+    if (readerRoot && (element === readerRoot || readerRoot.contains(element))) return false;
+    if (element.closest("[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button")) return false;
+    const text = normalizeCaptionText(element.innerText || element.textContent || "");
+    if (text.length < 2 || text.length > 180 || !/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) return false;
+    if (text.split("\n").length > 4) return false;
+    if ([...element.children].some((child) => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ""))) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 24 || rect.height < 10 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0) return false;
+    if (!video) return !nearVideoOnly;
+    const videoRect = video.getBoundingClientRect();
+    if (videoRect.width < 120 || videoRect.height < 80) return !nearVideoOnly;
+    const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
+    const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
+    const overlapsVideo = rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;
+    const belowVideo = rect.top >= videoRect.bottom && rect.top <= videoRect.bottom + 90 && overlapRatio > 0.25;
+    const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
+    return !tooLarge && (overlapsVideo || belowVideo);
+  }
+  function normalizeCaptionText(value) {
+    return value.replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
   }
   function escapeWithBreaks(value) {
     return withBreaks(escapeHtml$1(value));
@@ -6146,6 +6224,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       var _a;
       (_a = this.fab) == null ? void 0 : _a.remove();
       this.fab = void 0;
+      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element) => element.remove());
       if (!this.settings.showFloatingButton) return;
       const button = document.createElement("button");
       button.className = "jpdb-reader-fab";
@@ -6303,7 +6382,6 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         }
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
         targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
-        if (!options.silent) this.toast(`Scanned ${targets.length} visible text ${targets.length === 1 ? "block" : "blocks"}.`);
       } catch (error) {
         if (!options.silent) this.toast(error instanceof Error ? error.message : "JPDB scan failed.");
       }
@@ -6647,8 +6725,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 <div class="grid">
                     ${checkbox("ocrEnabled", "Enable image OCR", this.settings.ocrEnabled)}
                     ${checkbox("ocrAutoScanImages", "Auto-scan readable images near the viewport", this.settings.ocrAutoScanImages)}
-                    ${checkbox("ocrShowTextOverlay", "Show tappable OCR text over images", this.settings.ocrShowTextOverlay)}
-                    ${checkbox("ocrTapToScan", "Show per-image OCR buttons", this.settings.ocrTapToScan)}
+                    ${checkbox("ocrShowTextOverlay", "Show tappable OCR text after manual image scans", this.settings.ocrShowTextOverlay)}
                     ${select("ocrProvider", "OCR endpoint type", this.settings.ocrProvider, [["custom-json", "YomiNinja / custom JSON"], ["off", "No endpoint"]])}
                     ${input("ocrEndpointUrl", "OCR endpoint URL", this.settings.ocrEndpointUrl)}
                     ${input("ocrEngine", "OCR engine", this.settings.ocrEngine)}
@@ -7077,7 +7154,6 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       ocrEnabled: has("ocrEnabled"),
       ocrAutoScanImages: has("ocrAutoScanImages"),
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
-      ocrTapToScan: has("ocrTapToScan"),
       ocrProvider: ["off", "yomininja-json", "custom-json"].includes(get("ocrProvider")) ? get("ocrProvider") : "custom-json",
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "MangaOCR",
@@ -7196,6 +7272,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
-  void new ReaderApp().init();
+  const bootWindow = window;
+  if (!bootWindow.__yomuReaderAppInitialized) {
+    bootWindow.__yomuReaderAppInitialized = true;
+    bootWindow.__jpdbPopupReaderInitialized = true;
+    void new ReaderApp().init();
+  }
 
 })();

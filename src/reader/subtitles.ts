@@ -24,12 +24,19 @@ interface SubtitlePlayerOptions {
     onToast: (message: string) => void;
 }
 
-const CAPTION_SELECTORS = [
+const CAPTION_SELECTOR_LIST = [
     '.ytp-caption-segment',
     '.caption-visual-line',
     '.captions-text span',
     '[data-purpose="captions-text"]',
-].join(',');
+    '.asbplayer-subtitles-container-bottom span',
+    '.asbplayer-subtitle',
+    '[class*="subtitle"]',
+    '[class*="caption"]',
+    '[data-testid*="subtitle"]',
+];
+
+const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
 
 export class SubtitlePlayerController {
     private root?: HTMLElement;
@@ -250,12 +257,7 @@ export class SubtitlePlayerController {
 
     private updateFromDomCaptions(): void {
         if (this.cues.length || this.selectedTrackId) return;
-        const text = [...document.querySelectorAll(CAPTION_SELECTORS)]
-            .map(node => (node as HTMLElement).innerText || node.textContent || '')
-            .map(textContent => textContent.trim())
-            .filter(Boolean)
-            .join('\n')
-            .trim();
+        const text = readPageCaptionText(this.video, this.root);
         if (!text || text === this.lastDomCaption) return;
 
         this.lastDomCaption = text;
@@ -632,6 +634,24 @@ export function parseSubtitleText(text: string): SubtitleCue[] {
     return cues.sort((a, b) => a.start - b.start);
 }
 
+export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement): string {
+    const direct = collectCaptionTexts(
+        [...document.querySelectorAll<HTMLElement>(CAPTION_SELECTORS)],
+        video,
+        readerRoot,
+        false,
+    );
+    if (direct) return direct;
+
+    if (!video) return '';
+    return collectCaptionTexts(
+        [...document.body.querySelectorAll<HTMLElement>('div, span, p')],
+        video,
+        readerRoot,
+        true,
+    );
+}
+
 function parseSubtitleTime(value: string): number {
     const match = value.match(/(?:(\d+):)?(\d{2}):(\d{2})[,.](\d{3})/);
     if (!match) return Number.NaN;
@@ -647,6 +667,55 @@ function formatSubtitleTime(value: number): string {
 
 function isJapaneseTrack(label = '', language = ''): boolean {
     return /(^|\b)(ja|jpn|japanese|日本語)(\b|$)/i.test(`${label} ${language}`);
+}
+
+function collectCaptionTexts(elements: HTMLElement[], video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): string {
+    const lines: string[] = [];
+    const seen = new Set<string>();
+    for (const element of elements) {
+        if (!isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly)) continue;
+        const text = normalizeCaptionText(element.innerText || element.textContent || '');
+        if (!text || seen.has(text)) continue;
+        seen.add(text);
+        lines.push(text);
+        if (lines.length >= 3) break;
+    }
+    return lines.join('\n').trim();
+}
+
+function isLikelyCaptionElement(element: HTMLElement, video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): boolean {
+    if (!element.isConnected) return false;
+    if (readerRoot && (element === readerRoot || readerRoot.contains(element))) return false;
+    if (element.closest('[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button')) return false;
+
+    const text = normalizeCaptionText(element.innerText || element.textContent || '');
+    if (text.length < 2 || text.length > 180 || !/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) return false;
+    if (text.split('\n').length > 4) return false;
+    if ([...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ''))) return false;
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 24 || rect.height < 10 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    const style = getComputedStyle(element);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) return false;
+
+    if (!video) return !nearVideoOnly;
+    const videoRect = video.getBoundingClientRect();
+    if (videoRect.width < 120 || videoRect.height < 80) return !nearVideoOnly;
+    const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
+    const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
+    const overlapsVideo = rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;
+    const belowVideo = rect.top >= videoRect.bottom && rect.top <= videoRect.bottom + 90 && overlapRatio > 0.25;
+    const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
+    return !tooLarge && (overlapsVideo || belowVideo);
+}
+
+function normalizeCaptionText(value: string): string {
+    return value
+        .replace(/\u00a0/g, ' ')
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .join('\n');
 }
 
 function escapeWithBreaks(value: string): string {

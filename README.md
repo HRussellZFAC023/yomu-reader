@@ -1,4 +1,4 @@
-# yomu
+# よむ
 
 JPDB/Yomitan popup reader for Japanese text, audio, manga OCR, and video subtitles on any website.
 
@@ -28,7 +28,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## GreasyFork Summary
 
-**Name:** yomu
+**Name:** よむ
 
 **Description:** JPDB and Yomitan popup reader for Japanese text, with iOS-friendly audio playback, local dictionary import, manga/image OCR, and subtitle mining on videos.
 
@@ -47,7 +47,7 @@ Guide: https://yomitan.wiki/advanced/#audio
 Example Tailnet custom JSON source:
 
 ```text
-http://desktop-vp4io57.tail099f7d.ts.net:8080/?term={term}&reading={reading}
+http://your-desktop.tailnet-name.ts.net:8080/?term={term}&reading={reading}
 ```
 
 ## OCR
