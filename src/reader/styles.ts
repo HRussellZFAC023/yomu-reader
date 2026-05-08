@@ -666,8 +666,12 @@ export const READER_CSS = `
 .jpdb-reader-settings input[type="file"][data-file] {
   display: none !important;
 }
+.jpdb-reader-settings [hidden] {
+  display: none !important;
+}
 .jpdb-reader-settings .inline { display: flex; align-items: center; gap: 12px; min-height: 32px; }
 .jpdb-reader-settings .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.jpdb-reader-shortcut-group { display: contents; }
 .jpdb-reader-settings .footer {
   flex: 0 0 auto;
   display: flex;

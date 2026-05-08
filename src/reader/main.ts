@@ -672,10 +672,12 @@ class ReaderApp {
                     ${input('miningDeck', 'Mining deck', this.settings.miningDeck)}
                     ${input('neverForgetDeck', 'Never forget deck', this.settings.neverForgetDeck)}
                     ${input('blacklistDeck', 'Blacklist deck', this.settings.blacklistDeck)}
-                    ${select('twoButtonReviews', 'Review buttons', this.settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five grades'], ['true', 'Pass/fail']])}
+                    <div data-review-config ${this.settings.enableReviews ? '' : 'hidden'}>
+                        ${select('twoButtonReviews', 'Review rating scale', this.settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
+                    </div>
                 </div>
                 ${checkbox('addToForq', 'Also add mined cards to forq', this.settings.addToForq)}
-                ${checkbox('enableReviews', 'Show review buttons', this.settings.enableReviews)}
+                ${checkbox('enableReviews', 'Enable review actions', this.settings.enableReviews)}
             </fieldset>
             <fieldset>
                 <legend>Audio</legend>
@@ -789,13 +791,7 @@ class ReaderApp {
                     ${input('shortcuts.copySubtitle', 'Copy subtitle', this.settings.shortcuts.copySubtitle)}
                     ${input('shortcuts.toggleOcr', 'Toggle image reading', this.settings.shortcuts.toggleOcr)}
                     ${input('shortcuts.scanImages', 'Read images now', this.settings.shortcuts.scanImages)}
-                    ${input('shortcuts.gradeNothing', 'Grade NOTHING', this.settings.shortcuts.gradeNothing)}
-                    ${input('shortcuts.gradeSomething', 'Grade SOMETHING', this.settings.shortcuts.gradeSomething)}
-                    ${input('shortcuts.gradeHard', 'Grade HARD', this.settings.shortcuts.gradeHard)}
-                    ${input('shortcuts.gradeOkay', 'Grade OKAY', this.settings.shortcuts.gradeOkay)}
-                    ${input('shortcuts.gradeEasy', 'Grade EASY', this.settings.shortcuts.gradeEasy)}
-                    ${input('shortcuts.gradeFail', 'Pass/fail: FAIL', this.settings.shortcuts.gradeFail)}
-                    ${input('shortcuts.gradePass', 'Pass/fail: PASS', this.settings.shortcuts.gradePass)}
+                    ${renderReviewShortcutInputs(this.settings)}
                 </div>
             </fieldset>
             </div>
@@ -831,6 +827,11 @@ class ReaderApp {
             const value = (event.currentTarget as HTMLSelectElement).value;
             form.querySelectorAll<HTMLElement>('[data-local-ocr]').forEach(node => { node.hidden = value !== 'local-service'; });
             form.querySelectorAll<HTMLElement>('[data-cloud-ocr]').forEach(node => { node.hidden = value !== 'cloud-vision'; });
+        });
+        form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
+        form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
+        form.querySelectorAll<HTMLSelectElement>('select[name^="audioSources."][name$=".type"]').forEach(sourceSelect => {
+            sourceSelect.addEventListener('change', () => syncAudioSourceRow(sourceSelect.closest('[data-audio-source-row]'), sourceSelect.value));
         });
         form.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
@@ -1147,6 +1148,24 @@ function select(name: string, label: string, value: string, options: [string, st
     ).join('')}</select></label>`;
 }
 
+function renderReviewShortcutInputs(settings: ReaderSettings): string {
+    const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
+    const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
+    return `
+        <div class="jpdb-reader-shortcut-group" data-review-scale="five" ${fivePointHidden ? 'hidden' : ''}>
+            ${input('shortcuts.gradeNothing', 'Grade NOTHING', settings.shortcuts.gradeNothing)}
+            ${input('shortcuts.gradeSomething', 'Grade SOMETHING', settings.shortcuts.gradeSomething)}
+            ${input('shortcuts.gradeHard', 'Grade HARD', settings.shortcuts.gradeHard)}
+            ${input('shortcuts.gradeOkay', 'Grade OKAY', settings.shortcuts.gradeOkay)}
+            ${input('shortcuts.gradeEasy', 'Grade EASY', settings.shortcuts.gradeEasy)}
+        </div>
+        <div class="jpdb-reader-shortcut-group" data-review-scale="pass-fail" ${passFailHidden ? 'hidden' : ''}>
+            ${input('shortcuts.gradeFail', 'Pass/fail: FAIL', settings.shortcuts.gradeFail)}
+            ${input('shortcuts.gradePass', 'Pass/fail: PASS', settings.shortcuts.gradePass)}
+        </div>
+    `;
+}
+
 function renderAudioSourceRows(sources: AudioSourceSetting[]): string {
     const rows = audioSourceRowsForSettings(sources);
     const count = rows.length;
@@ -1154,7 +1173,7 @@ function renderAudioSourceRows(sources: AudioSourceSetting[]): string {
     return `
         <input type="hidden" name="audioSourceCount" value="${count}">
         ${rows.map((source, index) => `
-            <div class="jpdb-reader-audio-source-row">
+            <div class="jpdb-reader-audio-source-row" data-audio-source-row>
                 <label class="inline jpdb-reader-audio-index">
                     <input name="audioSources.${index}.enabled" type="checkbox" ${source.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
@@ -1165,8 +1184,8 @@ function renderAudioSourceRows(sources: AudioSourceSetting[]): string {
                     ).join('')}
                 </select>
                 <div class="jpdb-reader-audio-source-fields">
-                    <input name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}">
-                    <input name="audioSources.${index}.voice" type="text" value="${escapeHtml(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}">
+                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}" ${audioSourceUsesUrl(source.type) ? '' : 'hidden'}>
+                    <input data-audio-voice-field name="audioSources.${index}.voice" type="text" value="${escapeHtml(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
                 </div>
             </div>
         `).join('')}
@@ -1197,6 +1216,28 @@ function audioUrlPlaceholder(type: AudioSourceSetting['type']): string {
 function audioVoicePlaceholder(type: AudioSourceSetting['type']): string {
     if (type === 'text-to-speech' || type === 'text-to-speech-reading') return 'Voice name';
     return 'No voice needed';
+}
+
+function audioSourceUsesUrl(type: string): boolean {
+    return type === 'custom' || type === 'custom-json';
+}
+
+function audioSourceUsesVoice(type: string): boolean {
+    return type === 'text-to-speech' || type === 'text-to-speech-reading';
+}
+
+function syncAudioSourceRow(row: Element | null, type: string): void {
+    if (!row) return;
+    row.querySelectorAll<HTMLElement>('[data-audio-url-field]').forEach(node => { node.hidden = !audioSourceUsesUrl(type); });
+    row.querySelectorAll<HTMLElement>('[data-audio-voice-field]').forEach(node => { node.hidden = !audioSourceUsesVoice(type); });
+}
+
+function syncReviewSettingsVisibility(form: HTMLFormElement): void {
+    const reviewsEnabled = form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.checked ?? true;
+    const passFail = form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')?.value === 'true';
+    form.querySelectorAll<HTMLElement>('[data-review-config]').forEach(node => { node.hidden = !reviewsEnabled; });
+    form.querySelectorAll<HTMLElement>('[data-review-scale="five"]').forEach(node => { node.hidden = !reviewsEnabled || passFail; });
+    form.querySelectorAll<HTMLElement>('[data-review-scale="pass-fail"]').forEach(node => { node.hidden = !reviewsEnabled || !passFail; });
 }
 
 function renderDictionaryPreferenceRows(preferences: DictionaryPreference[]): string {

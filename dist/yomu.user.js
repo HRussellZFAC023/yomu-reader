@@ -2849,8 +2849,12 @@
 .jpdb-reader-settings input[type="file"][data-file] {
   display: none !important;
 }
+.jpdb-reader-settings [hidden] {
+  display: none !important;
+}
 .jpdb-reader-settings .inline { display: flex; align-items: center; gap: 12px; min-height: 32px; }
 .jpdb-reader-settings .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.jpdb-reader-shortcut-group { display: contents; }
 .jpdb-reader-settings .footer {
   flex: 0 0 auto;
   display: flex;
@@ -7754,7 +7758,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
     }
     showSettings() {
-      var _a, _b, _c;
+      var _a, _b, _c, _d, _e;
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
       form.dataset.jpdbReaderRoot = "true";
@@ -7774,10 +7778,12 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${input("miningDeck", "Mining deck", this.settings.miningDeck)}
                     ${input("neverForgetDeck", "Never forget deck", this.settings.neverForgetDeck)}
                     ${input("blacklistDeck", "Blacklist deck", this.settings.blacklistDeck)}
-                    ${select("twoButtonReviews", "Review buttons", this.settings.twoButtonReviews ? "true" : "false", [["false", "Five grades"], ["true", "Pass/fail"]])}
+                    <div data-review-config ${this.settings.enableReviews ? "" : "hidden"}>
+                        ${select("twoButtonReviews", "Review rating scale", this.settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
+                    </div>
                 </div>
                 ${checkbox("addToForq", "Also add mined cards to forq", this.settings.addToForq)}
-                ${checkbox("enableReviews", "Show review buttons", this.settings.enableReviews)}
+                ${checkbox("enableReviews", "Enable review actions", this.settings.enableReviews)}
             </fieldset>
             <fieldset>
                 <legend>Audio</legend>
@@ -7891,13 +7897,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${input("shortcuts.copySubtitle", "Copy subtitle", this.settings.shortcuts.copySubtitle)}
                     ${input("shortcuts.toggleOcr", "Toggle image reading", this.settings.shortcuts.toggleOcr)}
                     ${input("shortcuts.scanImages", "Read images now", this.settings.shortcuts.scanImages)}
-                    ${input("shortcuts.gradeNothing", "Grade NOTHING", this.settings.shortcuts.gradeNothing)}
-                    ${input("shortcuts.gradeSomething", "Grade SOMETHING", this.settings.shortcuts.gradeSomething)}
-                    ${input("shortcuts.gradeHard", "Grade HARD", this.settings.shortcuts.gradeHard)}
-                    ${input("shortcuts.gradeOkay", "Grade OKAY", this.settings.shortcuts.gradeOkay)}
-                    ${input("shortcuts.gradeEasy", "Grade EASY", this.settings.shortcuts.gradeEasy)}
-                    ${input("shortcuts.gradeFail", "Pass/fail: FAIL", this.settings.shortcuts.gradeFail)}
-                    ${input("shortcuts.gradePass", "Pass/fail: PASS", this.settings.shortcuts.gradePass)}
+                    ${renderReviewShortcutInputs(this.settings)}
                 </div>
             </fieldset>
             </div>
@@ -7936,6 +7936,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         form.querySelectorAll("[data-cloud-ocr]").forEach((node) => {
           node.hidden = value !== "cloud-vision";
         });
+      });
+      (_d = form.querySelector('input[name="enableReviews"]')) == null ? void 0 : _d.addEventListener("change", () => syncReviewSettingsVisibility(form));
+      (_e = form.querySelector('select[name="twoButtonReviews"]')) == null ? void 0 : _e.addEventListener("change", () => syncReviewSettingsVisibility(form));
+      form.querySelectorAll('select[name^="audioSources."][name$=".type"]').forEach((sourceSelect) => {
+        sourceSelect.addEventListener("change", () => syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value));
       });
       form.addEventListener("click", (event) => {
         var _a2;
@@ -8215,13 +8220,30 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     ([optionValue, text]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text)}</option>`
   ).join("")}</select></label>`;
   }
+  function renderReviewShortcutInputs(settings) {
+    const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
+    const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
+    return `
+        <div class="jpdb-reader-shortcut-group" data-review-scale="five" ${fivePointHidden ? "hidden" : ""}>
+            ${input("shortcuts.gradeNothing", "Grade NOTHING", settings.shortcuts.gradeNothing)}
+            ${input("shortcuts.gradeSomething", "Grade SOMETHING", settings.shortcuts.gradeSomething)}
+            ${input("shortcuts.gradeHard", "Grade HARD", settings.shortcuts.gradeHard)}
+            ${input("shortcuts.gradeOkay", "Grade OKAY", settings.shortcuts.gradeOkay)}
+            ${input("shortcuts.gradeEasy", "Grade EASY", settings.shortcuts.gradeEasy)}
+        </div>
+        <div class="jpdb-reader-shortcut-group" data-review-scale="pass-fail" ${passFailHidden ? "hidden" : ""}>
+            ${input("shortcuts.gradeFail", "Pass/fail: FAIL", settings.shortcuts.gradeFail)}
+            ${input("shortcuts.gradePass", "Pass/fail: PASS", settings.shortcuts.gradePass)}
+        </div>
+    `;
+  }
   function renderAudioSourceRows(sources) {
     const rows = audioSourceRowsForSettings(sources);
     const count = rows.length;
     return `
         <input type="hidden" name="audioSourceCount" value="${count}">
         ${rows.map((source, index) => `
-            <div class="jpdb-reader-audio-source-row">
+            <div class="jpdb-reader-audio-source-row" data-audio-source-row>
                 <label class="inline jpdb-reader-audio-index">
                     <input name="audioSources.${index}.enabled" type="checkbox" ${source.enabled ? "checked" : ""}>
                     <span>${index + 1}</span>
@@ -8232,8 +8254,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   ).join("")}
                 </select>
                 <div class="jpdb-reader-audio-source-fields">
-                    <input name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}">
-                    <input name="audioSources.${index}.voice" type="text" value="${escapeHtml$1(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}">
+                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
+                    <input data-audio-voice-field name="audioSources.${index}.voice" type="text" value="${escapeHtml$1(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
                 </div>
             </div>
         `).join("")}
@@ -8261,6 +8283,35 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function audioVoicePlaceholder(type) {
     if (type === "text-to-speech" || type === "text-to-speech-reading") return "Voice name";
     return "No voice needed";
+  }
+  function audioSourceUsesUrl(type) {
+    return type === "custom" || type === "custom-json";
+  }
+  function audioSourceUsesVoice(type) {
+    return type === "text-to-speech" || type === "text-to-speech-reading";
+  }
+  function syncAudioSourceRow(row, type) {
+    if (!row) return;
+    row.querySelectorAll("[data-audio-url-field]").forEach((node) => {
+      node.hidden = !audioSourceUsesUrl(type);
+    });
+    row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
+      node.hidden = !audioSourceUsesVoice(type);
+    });
+  }
+  function syncReviewSettingsVisibility(form) {
+    var _a, _b;
+    const reviewsEnabled = ((_a = form.querySelector('input[name="enableReviews"]')) == null ? void 0 : _a.checked) ?? true;
+    const passFail = ((_b = form.querySelector('select[name="twoButtonReviews"]')) == null ? void 0 : _b.value) === "true";
+    form.querySelectorAll("[data-review-config]").forEach((node) => {
+      node.hidden = !reviewsEnabled;
+    });
+    form.querySelectorAll('[data-review-scale="five"]').forEach((node) => {
+      node.hidden = !reviewsEnabled || passFail;
+    });
+    form.querySelectorAll('[data-review-scale="pass-fail"]').forEach((node) => {
+      node.hidden = !reviewsEnabled || !passFail;
+    });
   }
   function renderDictionaryPreferenceRows(preferences) {
     if (!preferences.length) return '<div class="jpdb-reader-help">Import Yomitan settings or dictionaries to manage dictionary priority.</div>';
