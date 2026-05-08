@@ -8,6 +8,7 @@ export const READER_CSS = `
   --jpdb-reader-faint: #6f7a89;
   --jpdb-reader-border: rgba(255,255,255,.12);
   --jpdb-reader-accent: #5ea780;
+  --jpdb-reader-accent-soft: rgba(94,167,128,.18);
   --jpdb-reader-hover: rgba(255,255,255,.08);
 }
 
@@ -202,6 +203,12 @@ export const READER_CSS = `
   font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
 }
+.jpdb-reader-fab:hover,
+.jpdb-reader-fab:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}
 
 .jpdb-reader-backdrop {
   position: fixed;
@@ -273,6 +280,81 @@ export const READER_CSS = `
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent);
   outline: none;
+}
+
+.jpdb-reader-onboarding {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 24px));
+  overflow: auto;
+  padding: 32px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 18% 0%, var(--jpdb-reader-accent-soft), transparent 34%),
+    var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-text);
+  box-shadow: 0 26px 70px rgba(0,0,0,.4);
+  color-scheme: dark;
+  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-reader-onboarding h2 {
+  margin: 4px 0 10px;
+  color: var(--jpdb-reader-text);
+  font-size: clamp(38px, 8vw, 72px);
+  line-height: .95;
+  letter-spacing: 0;
+}
+.jpdb-reader-onboarding p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-onboarding-eyebrow {
+  color: var(--jpdb-reader-accent);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.jpdb-reader-onboarding-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+.jpdb-reader-onboarding-grid div {
+  display: grid;
+  gap: 5px;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-onboarding-grid strong {
+  color: var(--jpdb-reader-text);
+  font-size: 16px;
+}
+.jpdb-reader-onboarding-grid span,
+.jpdb-reader-onboarding-note {
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+}
+.jpdb-reader-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.jpdb-reader-onboarding-actions .jpdb-reader-btn {
+  min-width: 150px;
+  min-height: 46px;
 }
 .jpdb-reader-icon-btn svg {
   width: 20px;
@@ -448,8 +530,8 @@ export const READER_CSS = `
 }
 .jpdb-reader-btn:hover { background: var(--jpdb-reader-hover); }
 .jpdb-reader-btn:disabled { opacity: .45; cursor: progress; }
-.jpdb-reader-btn.add { color: #70c000; border-color: #70c000; }
-.jpdb-reader-btn.nf { color: #5ea780; border-color: #5ea780; }
+.jpdb-reader-btn.add { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
+.jpdb-reader-btn.nf { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
 .jpdb-reader-btn.blacklist { color: #777; border-color: #777; }
 .jpdb-reader-btn.nothing, .jpdb-reader-btn.fail { color: #e74c3c; border-color: #e74c3c; }
 .jpdb-reader-btn.something { color: #f39c12; border-color: #f39c12; }
@@ -501,7 +583,7 @@ export const READER_CSS = `
 .jpdb-reader-settings-scroll {
   min-height: 0;
   overflow: auto;
-  padding: 0 18px 16px;
+  padding: 0 18px 96px;
   -webkit-overflow-scrolling: touch;
 }
 .jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; color: var(--jpdb-reader-text) !important; }
@@ -518,6 +600,10 @@ export const READER_CSS = `
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   padding: 8px;
+}
+.jpdb-reader-settings input[type="color"] {
+  padding: 3px;
+  cursor: pointer;
 }
 .jpdb-reader-settings input[type="checkbox"],
 .jpdb-reader-settings input[type="radio"] {
@@ -539,9 +625,9 @@ export const READER_CSS = `
 .jpdb-reader-settings input[type="radio"] { border-radius: 999px; }
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
-  border-color: #70c000;
-  background: #70c000;
-  box-shadow: 0 0 0 3px rgba(112,192,0,.18);
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent);
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked::after {
   content: "";
@@ -560,7 +646,7 @@ export const READER_CSS = `
 }
 .jpdb-reader-settings input[type="checkbox"]:focus-visible,
 .jpdb-reader-settings input[type="radio"]:focus-visible {
-  outline: 2px solid #70c000;
+  outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 3px;
 }
 .jpdb-reader-settings input[type="file"][data-file] {
@@ -860,6 +946,45 @@ export const READER_CSS = `
 }
 .jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
 
+.jpdb-youtube-filtered {
+  display: none !important;
+}
+.jpdb-youtube-filter-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-muted);
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
+  font: 750 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-youtube-filter-bar span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-youtube-filter-bar button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--jpdb-reader-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
 @media (max-width: 768px), (pointer: coarse) {
   .jpdb-reader-popover.jpdb-reader-sheet {
     left: 0 !important;
@@ -875,7 +1000,7 @@ export const READER_CSS = `
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
   .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 88vh; max-height: 88svh; border-radius: 16px 16px 0 0; }
   .jpdb-reader-settings-head { padding: 18px 20px 0; }
-  .jpdb-reader-settings-scroll { padding: 0 20px 16px; }
+  .jpdb-reader-settings-scroll { padding: 0 20px 106px; }
   .jpdb-reader-settings .footer {
     justify-content: stretch;
     gap: 12px;
@@ -887,6 +1012,21 @@ export const READER_CSS = `
   }
   .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding {
+    inset: auto 0 0 0;
+    transform: none;
+    width: 100%;
+    max-height: 88vh;
+    max-height: 88svh;
+    border-radius: 16px 16px 0 0;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
+  .jpdb-youtube-filter-bar {
+    bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
+    border-radius: 12px;
+  }
   .jpdb-reader-dictionary-head { display: none; }
   .jpdb-reader-dictionary-row { grid-template-columns: 52px 1fr; }
   .jpdb-reader-dictionary-row input[name$=".alias"],

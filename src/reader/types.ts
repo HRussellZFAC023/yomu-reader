@@ -26,7 +26,7 @@ export type AudioSourceType =
 
 export type AudioSelectionMode = 'first' | 'random';
 
-export type OcrProvider = 'auto' | 'fast' | 'custom-json' | 'off';
+export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
 
 export type PopupActivationMode = 'click' | 'hover' | 'modifier';
 
@@ -111,6 +111,8 @@ export interface JPDBParseResult {
 
 export interface ReaderSettings {
     apiKey: string;
+    onboardingSeen: boolean;
+    accentColor: string;
     audioEnabled: boolean;
     autoPlayAudio: boolean;
     audioSources: AudioSourceSetting[];
@@ -134,6 +136,7 @@ export interface ReaderSettings {
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;
     ocrEngine: string;
+    ocrCloudVisionApiKey: string;
     ocrLanguage: string;
     ocrMaxImagePixels: number;
     ocrMinImageArea: number;
@@ -152,6 +155,8 @@ export interface ReaderSettings {
     subtitleBottomOffset: number;
     subtitleMiningPause: boolean;
     subtitleSeekPadding: number;
+    youtubeImmersionEnabled: boolean;
+    youtubeShowFilterNotice: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     miningDeck: string;

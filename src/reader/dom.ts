@@ -101,10 +101,13 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     if (!tokens.length || !target.node.parentElement) return;
 
     const text = target.text;
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    if (!safeTokens.length) return;
+
     const fragment = document.createDocumentFragment();
     let offset = 0;
 
-    for (const token of tokens) {
+    for (const token of safeTokens) {
         if (token.start > offset) {
             fragment.append(document.createTextNode(text.slice(offset, token.start)));
         }
@@ -124,13 +127,25 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
 
     let html = '';
     let offset = 0;
-    for (const token of tokens) {
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    for (const token of safeTokens) {
         if (token.start > offset) html += escapeHtml(text.slice(offset, token.start));
         html += renderTokenHtml(text.slice(token.start, token.end), token, settings);
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
     return html;
+}
+
+function nonOverlappingTokens(tokens: JPDBToken[], textLength: number): JPDBToken[] {
+    const safe: JPDBToken[] = [];
+    let offset = 0;
+    for (const token of tokens) {
+        if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > textLength) continue;
+        safe.push(token);
+        offset = token.end;
+    }
+    return safe;
 }
 
 function renderToken(surface: string, token: JPDBToken, settings: ReaderSettings): HTMLElement {

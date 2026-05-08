@@ -16,6 +16,9 @@
 // @exclude      https://jpdb.io/*
 // @exclude      https://*.jpdb.io/*
 // @connect      jpdb.io
+// @connect      lensfrontend-pa.googleapis.com
+// @connect      lens.google.com
+// @connect      vision.googleapis.com
 // @connect      localhost
 // @connect      127.0.0.1
 // @connect      *.ts.net
@@ -339,8 +342,8 @@
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
   ].join(",");
-  function setInnerHtml(element, html) {
-    element.innerHTML = trustedHtml(html);
+  function setInnerHtml(element2, html) {
+    element2.innerHTML = trustedHtml(html);
   }
   function getSelectionText() {
     const selection = window.getSelection();
@@ -399,9 +402,11 @@
   function applyTokensToTextNode(target, tokens, settings) {
     if (!tokens.length || !target.node.parentElement) return;
     const text = target.text;
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    if (!safeTokens.length) return;
     const fragment = document.createDocumentFragment();
     let offset = 0;
-    for (const token of tokens) {
+    for (const token of safeTokens) {
       if (token.start > offset) {
         fragment.append(document.createTextNode(text.slice(offset, token.start)));
       }
@@ -417,13 +422,24 @@
     if (!tokens.length) return escapeHtml$1(text);
     let html = "";
     let offset = 0;
-    for (const token of tokens) {
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    for (const token of safeTokens) {
       if (token.start > offset) html += escapeHtml$1(text.slice(offset, token.start));
       html += renderTokenHtml(text.slice(token.start, token.end), token, settings);
       offset = token.end;
     }
     if (offset < text.length) html += escapeHtml$1(text.slice(offset));
     return html;
+  }
+  function nonOverlappingTokens(tokens, textLength) {
+    const safe = [];
+    let offset = 0;
+    for (const token of tokens) {
+      if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > textLength) continue;
+      safe.push(token);
+      offset = token.end;
+    }
+    return safe;
   }
   function renderToken(surface, token, settings) {
     const span = document.createElement("span");
@@ -477,11 +493,11 @@
     }
     return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
   }
-  function isVisible(element) {
-    const rect = element.getBoundingClientRect();
+  function isVisible(element2) {
+    const rect = element2.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return false;
     if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
-    const style = getComputedStyle(element);
+    const style = getComputedStyle(element2);
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
   }
   const API_BASE = "https://jpdb.io/api/v1";
@@ -790,636 +806,9 @@
     }
     card.wordWithReading = word.join("");
   }
-  const MAX_CACHE_ITEMS = 36;
-  const TESSERACT_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js";
-  const TESSERACT_WORKER_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/worker.min.js";
-  const TESSERACT_CORE_URL = "https://cdn.jsdelivr.net/npm/tesseract.js-core@7/tesseract-core-simd.wasm.js";
-  const TESSERACT_LANG_URL = "https://tessdata.projectnaptha.com/4.0.0";
-  let tesseractLoader;
-  let tesseractWorker;
-  class ImageOcrController {
-    constructor(options) {
-      __publicField(this, "states", /* @__PURE__ */ new Map());
-      __publicField(this, "cache", /* @__PURE__ */ new Map());
-      __publicField(this, "observer");
-      __publicField(this, "observerMargin", "");
-      __publicField(this, "mutationObserver");
-      __publicField(this, "queue", []);
-      __publicField(this, "busy", false);
-      __publicField(this, "positionFrame", 0);
-      __publicField(this, "refreshTimer", 0);
-      this.options = options;
-    }
-    init() {
-      this.refresh();
-      window.addEventListener("scroll", () => {
-        this.schedulePosition();
-        this.scheduleRefresh(240);
-      }, { passive: true });
-      window.addEventListener("resize", () => {
-        this.schedulePosition();
-        this.scheduleRefresh(300);
-      }, { passive: true });
-      this.mutationObserver = new MutationObserver((mutations) => {
-        if (mutations.some((mutation) => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
-      });
-      this.mutationObserver.observe(document.body, { childList: true, subtree: true });
-    }
-    refresh() {
-      var _a;
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
-        this.clear();
-        return;
-      }
-      this.pruneDisconnectedStates();
-      this.ensureObserver(settings);
-      let count = 0;
-      for (const image of Array.from(document.images)) {
-        if (count >= settings.ocrMaxImagesPerPage) break;
-        if (!isCandidateImage(image, settings)) continue;
-        if (!shouldObserveImage(image, settings)) continue;
-        count++;
-        this.ensureState(image);
-        (_a = this.observer) == null ? void 0 : _a.observe(image);
-      }
-      this.schedulePosition();
-    }
-    toggle() {
-      const settings = this.options.getSettings();
-      settings.ocrEnabled = !settings.ocrEnabled;
-      this.options.onToast(settings.ocrEnabled ? "OCR enabled." : "OCR hidden.");
-      this.refresh();
-    }
-    async scanVisible() {
-      this.refresh();
-      const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
-      if (!images.length) {
-        this.options.onToast("No readable images nearby.");
-        return;
-      }
-      images.forEach((image) => this.enqueue(image, true));
-    }
-    ensureObserver(settings) {
-      var _a;
-      const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
-      if (this.observer && this.observerMargin === rootMargin) return;
-      (_a = this.observer) == null ? void 0 : _a.disconnect();
-      this.observerMargin = rootMargin;
-      this.observer = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const image = entry.target;
-          this.positionState(image);
-          const current = this.options.getSettings();
-          if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
-        }
-      }, { rootMargin });
-    }
-    ensureState(image) {
-      const existing = this.states.get(image);
-      if (existing) return existing;
-      const overlay = document.createElement("div");
-      overlay.className = "jpdb-ocr-layer";
-      overlay.dataset.jpdbReaderRoot = "true";
-      const status = document.createElement("div");
-      status.className = "jpdb-ocr-status";
-      status.hidden = true;
-      overlay.append(status);
-      document.body.append(overlay);
-      const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false };
-      image.addEventListener("load", () => {
-        this.resetStateIfImageChanged(state);
-        this.schedulePosition();
-        this.scheduleRefresh(80);
-      });
-      this.states.set(image, state);
-      return state;
-    }
-    enqueue(image, userRequested = false) {
-      const state = this.states.get(image) ?? this.ensureState(image);
-      state.overlayRequested || (state.overlayRequested = userRequested || Boolean(readFallbackOcrResult(image)));
-      if (state.result) {
-        if (userRequested) void this.renderResult(state, state.result, true);
-        return;
-      }
-      if (state.loading) return;
-      if (!this.queue.includes(image)) this.queue.push(image);
-      if (userRequested) {
-        state.status.hidden = false;
-        state.status.textContent = "Reading image...";
-      }
-      this.drainQueue();
-    }
-    drainQueue() {
-      var _a;
-      if (this.busy) return;
-      const image = this.queue.shift();
-      if (!image) return;
-      this.busy = true;
-      const hasFastText = Boolean(readFallbackOcrResult(image));
-      const delay = ((_a = this.states.get(image)) == null ? void 0 : _a.overlayRequested) || hasFastText ? 0 : 1800;
-      void waitForIdle(delay).then(() => this.scanImage(image)).finally(() => {
-        this.busy = false;
-        this.drainQueue();
-      });
-    }
-    async scanImage(image) {
-      const state = this.states.get(image) ?? this.ensureState(image);
-      const settings = this.options.getSettings();
-      const key = imageCacheKey(image);
-      this.resetStateIfImageChanged(state);
-      const cached = this.cache.get(key);
-      if (cached) {
-        await this.renderResult(state, cached);
-        return;
-      }
-      state.loading = true;
-      state.status.hidden = !state.overlayRequested;
-      const canUseEndpoint = settings.ocrProvider === "custom-json" && settings.ocrEndpointUrl.trim();
-      state.status.textContent = "Reading image...";
-      try {
-        const fallback = readFallbackOcrResult(image);
-        const result = fallback ?? (canUseEndpoint ? await recognizeViaEndpoint(image, settings) : settings.ocrProvider === "auto" ? await recognizeViaBrowser(image, settings) : null);
-        if (!(result == null ? void 0 : result.lines.length)) {
-          state.status.textContent = "No Japanese text found";
-          state.status.hidden = !state.overlayRequested;
-          return;
-        }
-        this.remember(key, result);
-        state.key = key;
-        await this.renderResult(state, result);
-      } catch (error) {
-        const fallback = readFallbackOcrResult(image);
-        if (fallback == null ? void 0 : fallback.lines.length) {
-          await this.renderResult(state, fallback);
-        } else {
-          state.status.textContent = error instanceof Error ? error.message : "OCR failed";
-          state.status.hidden = !state.overlayRequested;
-        }
-      } finally {
-        state.loading = false;
-      }
-    }
-    async renderResult(state, result, forceOverlay = false) {
-      state.result = result;
-      state.status.hidden = true;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
-      const sentence = result.lines.map((line) => line.text).join("\n");
-      for (const line of result.lines) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "jpdb-ocr-line";
-        if (showText) button.classList.add("jpdb-ocr-line-visible");
-        button.dataset.ocrText = line.text;
-        button.dataset.vertical = String(line.vertical);
-        button.title = line.text;
-        button.style.left = `${100 * line.box.left / result.width}%`;
-        button.style.top = `${100 * line.box.top / result.height}%`;
-        button.style.width = `${100 * line.box.width / result.width}%`;
-        button.style.height = `${100 * line.box.height / result.height}%`;
-        button.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
-        button.style.fontSize = `clamp(12px, ${line.vertical ? 52 * line.box.width / result.width : 46 * line.box.height / result.height}vw, 24px)`;
-        button.setAttribute("aria-label", line.text);
-        button.textContent = showText ? line.text : "";
-        button.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          void this.options.onLookup(line.text, sentence);
-        });
-        state.overlay.append(button);
-      }
-      this.positionState(state.image);
-    }
-    resetStateIfImageChanged(state) {
-      const key = imageCacheKey(state.image);
-      if (key === state.key) return;
-      state.key = key;
-      state.result = void 0;
-      state.loading = false;
-      state.overlayRequested = false;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      state.status.hidden = true;
-    }
-    remember(key, result) {
-      this.cache.set(key, result);
-      while (this.cache.size > MAX_CACHE_ITEMS) {
-        const oldest = this.cache.keys().next().value;
-        if (!oldest) break;
-        this.cache.delete(oldest);
-      }
-    }
-    schedulePosition() {
-      if (this.positionFrame) return;
-      this.positionFrame = requestAnimationFrame(() => {
-        this.positionFrame = 0;
-        for (const image of this.states.keys()) this.positionState(image);
-      });
-    }
-    scheduleRefresh(delay) {
-      window.clearTimeout(this.refreshTimer);
-      this.refreshTimer = window.setTimeout(() => this.refresh(), delay);
-    }
-    positionState(image) {
-      const state = this.states.get(image);
-      if (!state) return;
-      const rect = image.getBoundingClientRect();
-      const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
-      state.overlay.hidden = !visible;
-      if (!visible) return;
-      state.overlay.style.left = `${rect.left}px`;
-      state.overlay.style.top = `${rect.top}px`;
-      state.overlay.style.width = `${rect.width}px`;
-      state.overlay.style.height = `${rect.height}px`;
-    }
-    clear() {
-      var _a;
-      (_a = this.observer) == null ? void 0 : _a.disconnect();
-      this.observer = void 0;
-      this.observerMargin = "";
-      window.clearTimeout(this.refreshTimer);
-      this.queue = [];
-      for (const state of this.states.values()) state.overlay.remove();
-      this.states.clear();
-    }
-    pruneDisconnectedStates() {
-      var _a;
-      for (const [image, state] of this.states) {
-        if (image.isConnected) continue;
-        (_a = this.observer) == null ? void 0 : _a.unobserve(image);
-        state.overlay.remove();
-        this.states.delete(image);
-      }
-    }
-  }
-  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const resolution = record.context_resolution;
-    const width = numberFrom(record.width) || numberFrom(resolution == null ? void 0 : resolution.width) || fallbackWidth;
-    const height = numberFrom(record.height) || numberFrom(resolution == null ? void 0 : resolution.height) || fallbackHeight;
-    const rawLines = Array.isArray(record.lines) ? record.lines : Array.isArray(record.regions) ? record.regions : void 0;
-    const lines = [];
-    if (rawLines) {
-      for (const item of rawLines) {
-        const line = normalizeSimpleLine(item, width, height);
-        if (line) lines.push(line);
-      }
-    }
-    if (Array.isArray(record.results)) {
-      for (const item of record.results) {
-        lines.push(...normalizeStructuredOcrResult(item, width, height));
-      }
-    }
-    const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
-    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
-  }
-  function readFallbackOcrResult(image) {
-    const width = image.naturalWidth || image.width || 1;
-    const height = image.naturalHeight || image.height || 1;
-    const data = image.dataset.ocrLines;
-    if (data) {
-      try {
-        const parsed = normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
-        if (parsed) return parsed;
-      } catch {
-      }
-    }
-    return readAccessibleImageText(image, width, height);
-  }
-  async function recognizeViaBrowser(image, settings) {
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const nativeResult = await recognizeViaTextDetector(canvas).catch(() => null);
-    if (nativeResult == null ? void 0 : nativeResult.lines.length) return nativeResult;
-    return recognizeViaTesseract(canvas);
-  }
-  async function recognizeViaEndpoint(image, settings) {
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const payload = await canvasToBase64Payload(canvas);
-    const body = JSON.stringify({
-      id: imageCacheKey(image),
-      language_code: settings.ocrLanguage || "ja-JP",
-      base64_image: payload.base64,
-      ocr_engine: settings.ocrEngine || "MangaOCR",
-      detection_only: false
-    });
-    const response = await requestJson(settings.ocrEndpointUrl.trim(), body, settings.audioTimeoutMs);
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function imageToCanvas(image, maxPixels) {
-    try {
-      return drawImageToCanvas(image, maxPixels);
-    } catch {
-      const url = image.currentSrc || image.src;
-      if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-      const blob = await requestBlob(url);
-      const objectUrl = URL.createObjectURL(blob);
-      try {
-        const loaded = await loadImage(objectUrl);
-        return drawImageToCanvas(loaded, maxPixels);
-      } finally {
-        URL.revokeObjectURL(objectUrl);
-      }
-    }
-  }
-  function drawImageToCanvas(image, maxPixels) {
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
-    if (!width || !height) throw new Error("Image is not loaded yet.");
-    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (width * height)));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas unavailable.");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
-  }
-  async function canvasToBase64Payload(canvas) {
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), "image/jpeg", 0.86);
-    });
-    return { base64: (await blobToDataUrl(blob)).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
-  }
-  async function recognizeViaTextDetector(canvas) {
-    if (!window.TextDetector) return null;
-    const detected = await new window.TextDetector().detect(canvas);
-    const lines = detected.map((item) => {
-      const text = (item.rawValue ?? "").trim();
-      const box = item.boundingBox ? clampBox({ left: item.boundingBox.x, top: item.boundingBox.y, width: item.boundingBox.width, height: item.boundingBox.height }, canvas.width, canvas.height) : null;
-      return text && box ? { text, box, vertical: box.height > box.width * 1.5 && text.length > 1 } : null;
-    }).filter((line) => Boolean(line && HAS_JAPANESE.test(line.text)));
-    return lines.length ? { width: canvas.width, height: canvas.height, lines } : null;
-  }
-  async function recognizeViaTesseract(canvas) {
-    var _a;
-    const worker = await getTesseractWorker();
-    const response = await worker.recognize(canvas);
-    const data = response.data ?? {};
-    const items = (((_a = data.lines) == null ? void 0 : _a.length) ? data.lines : data.words) ?? [];
-    const lines = items.map((item) => {
-      const text2 = (item.text ?? "").replace(/\s+/g, "").trim();
-      const bbox = item.bbox;
-      const box = bbox ? clampBox({ left: bbox.x0, top: bbox.y0, width: bbox.x1 - bbox.x0, height: bbox.y1 - bbox.y0 }, canvas.width, canvas.height) : null;
-      return text2 && box ? { text: text2, box, vertical: box.height > box.width * 1.5 && text2.length > 1 } : null;
-    }).filter((line) => Boolean(line && HAS_JAPANESE.test(line.text)));
-    if (lines.length) return { width: canvas.width, height: canvas.height, lines };
-    const text = (data.text ?? "").replace(/\s+/g, "").trim();
-    return HAS_JAPANESE.test(text) ? { width: canvas.width, height: canvas.height, lines: [{ text, box: { left: 0, top: canvas.height * 0.68, width: canvas.width, height: canvas.height * 0.28 }, vertical: false }] } : null;
-  }
-  async function getTesseractWorker() {
-    if (!tesseractWorker) {
-      tesseractWorker = loadTesseract().then((tesseract) => tesseract.createWorker("jpn", 1, {
-        workerPath: TESSERACT_WORKER_URL,
-        corePath: TESSERACT_CORE_URL,
-        langPath: TESSERACT_LANG_URL,
-        workerBlobURL: true
-      }));
-    }
-    return tesseractWorker;
-  }
-  async function loadTesseract() {
-    if (window.Tesseract) return window.Tesseract;
-    if (!tesseractLoader) {
-      tesseractLoader = requestText$1(TESSERACT_SCRIPT_URL).then((code) => {
-        (0, eval)(`${code}
-//# sourceURL=${TESSERACT_SCRIPT_URL}`);
-        if (!window.Tesseract) throw new Error("Browser OCR failed to load.");
-        return window.Tesseract;
-      });
-    }
-    return tesseractLoader;
-  }
-  function normalizeSimpleLine(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const text = stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
-    const box = normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
-  }
-  function normalizeStructuredOcrResult(value, width, height) {
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    const textLines = Array.isArray(record.text_lines) ? record.text_lines : [];
-    const vertical = Boolean(record.is_vertical);
-    const lines = textLines.map((item) => {
-      const lineRecord = item;
-      const text2 = stringFrom((lineRecord == null ? void 0 : lineRecord.content) ?? (lineRecord == null ? void 0 : lineRecord.text));
-      const box2 = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
-      return text2 && box2 ? { text: text2, box: box2, vertical: Boolean(lineRecord.is_vertical ?? vertical) } : null;
-    }).filter((line) => line !== null);
-    if (lines.length) return lines;
-    const text = textLines.map((item) => stringFrom(item == null ? void 0 : item.content)).filter(Boolean).join("");
-    const box = normalizeBox(record.box, width, height);
-    return text && box ? [{ text, box, vertical }] : [];
-  }
-  function normalizeBox(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const directLeft = numberFrom(record.left ?? record.x);
-    const directTop = numberFrom(record.top ?? record.y);
-    const directWidth = numberFrom(record.width ?? record.w);
-    const directHeight = numberFrom(record.height ?? record.h);
-    if (directLeft !== null && directTop !== null && directWidth !== null && directHeight !== null) {
-      const percent2 = directLeft <= 1 && directTop <= 1 && directWidth <= 1 && directHeight <= 1;
-      return clampBox({
-        left: percent2 ? directLeft * width : directLeft,
-        top: percent2 ? directTop * height : directTop,
-        width: percent2 ? directWidth * width : directWidth,
-        height: percent2 ? directHeight * height : directHeight
-      }, width, height);
-    }
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => record[key]).filter(Boolean);
-    if (points.length < 2) return null;
-    const xs = points.map((point) => numberFrom(point == null ? void 0 : point.x)).filter((item) => item !== null);
-    const ys = points.map((point) => numberFrom(point == null ? void 0 : point.y)).filter((item) => item !== null);
-    if (!xs.length || !ys.length) return null;
-    const percent = xs.every((value2) => value2 >= 0 && value2 <= 1) && ys.every((value2) => value2 >= 0 && value2 <= 1);
-    const scaledXs = percent ? xs.map((value2) => value2 * width) : xs;
-    const scaledYs = percent ? ys.map((value2) => value2 * height) : ys;
-    const left = Math.min(...scaledXs);
-    const top = Math.min(...scaledYs);
-    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
-  }
-  function clampBox(box, width, height) {
-    const left = Math.max(0, Math.min(width, box.left));
-    const top = Math.max(0, Math.min(height, box.top));
-    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-    if (right - left < 2 || bottom - top < 2) return null;
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function isCandidateImage(image, settings) {
-    if (image.closest("[data-jpdb-reader-root]")) return false;
-    const rect = image.getBoundingClientRect();
-    const area = rect.width * rect.height;
-    if (area < settings.ocrMinImageArea) return false;
-    if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
-    const style = getComputedStyle(image);
-    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
-  }
-  function shouldObserveImage(image, settings) {
-    if (settings.ocrProvider === "off") return false;
-    if (readFallbackOcrResult(image)) return true;
-    if (settings.ocrProvider === "fast") return false;
-    if (settings.ocrProvider === "custom-json") return Boolean(settings.ocrEndpointUrl.trim());
-    return true;
-  }
-  function readAccessibleImageText(image, width, height) {
-    var _a, _b;
-    const candidates = [
-      image.alt,
-      image.title,
-      image.getAttribute("aria-label"),
-      (_b = (_a = image.closest("figure")) == null ? void 0 : _a.querySelector("figcaption")) == null ? void 0 : _b.textContent
-    ].map((value) => (value ?? "").replace(/\s+/g, " ").trim()).filter((value) => value.length >= 2 && HAS_JAPANESE.test(value));
-    const text = candidates[0];
-    if (!text) return null;
-    const boxHeight = Math.max(44, height * 0.18);
-    return {
-      width,
-      height,
-      lines: [{
-        text,
-        box: { left: width * 0.04, top: height - boxHeight - height * 0.04, width: width * 0.92, height: boxHeight },
-        vertical: false
-      }]
-    };
-  }
-  function isNearViewport(element, margin) {
-    const rect = element.getBoundingClientRect();
-    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
-  }
-  function nodeContainsImage(node) {
-    return node instanceof HTMLImageElement || node instanceof Element && Boolean(node.querySelector("img"));
-  }
-  function imageCacheKey(image) {
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-  }
-  function requestJson(url, data, timeout) {
-    if (typeof GM_xmlhttpRequest === "function") {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: "POST",
-          url,
-          headers: { "content-type": "application/json" },
-          data,
-          responseType: "json",
-          timeout,
-          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(response.response ?? (response.responseText ? JSON.parse(response.responseText) : null)) : reject(new Error(`OCR endpoint returned ${response.status}.`)),
-          onerror: reject,
-          ontimeout: () => reject(new Error("OCR timed out."))
-        });
-      });
-    }
-    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data }).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
-  }
-  function requestText$1(url) {
-    if (typeof GM_xmlhttpRequest === "function") {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: "GET",
-          url,
-          responseType: "text",
-          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(String(response.responseText ?? response.response ?? "")) : reject(new Error(`Script fetch returned ${response.status}.`)),
-          onerror: reject
-        });
-      });
-    }
-    return fetch(url).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Script fetch returned ${response.status}.`)));
-  }
-  function requestBlob(url) {
-    if (typeof GM_xmlhttpRequest === "function") {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: "GET",
-          url,
-          responseType: "blob",
-          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(response.response) : reject(new Error(`Image fetch returned ${response.status}.`)),
-          onerror: reject
-        });
-      });
-    }
-    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
-  }
-  function waitForIdle(timeout) {
-    if (!timeout) return Promise.resolve();
-    return new Promise((resolve) => {
-      if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(() => resolve(), { timeout });
-      } else {
-        globalThis.setTimeout(resolve, timeout);
-      }
-    });
-  }
-  function loadImage(url) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Image decode failed."));
-      image.src = url;
-    });
-  }
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(reader.error ?? new Error("Blob read failed."));
-      reader.readAsDataURL(blob);
-    });
-  }
-  function stringFrom(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
-  }
-  function numberFrom(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-  const POS_LABELS = {
-    adj: "adjective",
-    adv: "adverb",
-    aux: "auxiliary",
-    conj: "conjunction",
-    cop: "copula",
-    ctr: "counter",
-    exp: "expression",
-    int: "interjection",
-    n: "noun",
-    num: "number",
-    pn: "pronoun",
-    pref: "prefix",
-    prt: "particle",
-    suf: "suffix",
-    unc: "unclassified",
-    vi: "intransitive verb",
-    vt: "transitive verb",
-    v1: "ichidan verb",
-    v5: "godan verb",
-    v5aru: "aru ending",
-    v5b: "bu ending",
-    v5g: "gu ending",
-    v5k: "ku ending",
-    v5m: "mu ending",
-    v5n: "nu ending",
-    v5r: "ru ending",
-    v5s: "su ending",
-    v5t: "tsu ending",
-    v5u: "u ending",
-    vk: "kuru verb",
-    vs: "suru verb",
-    vz: "zuru verb"
-  };
-  function formatPartOfSpeech(tags = []) {
-    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
-    return [...new Set(labels)].join(", ");
-  }
-  function formatPartOfSpeechDetails(tags = []) {
-    return tags.length ? tags.join(", ").toUpperCase() : "";
-  }
   const STORAGE_KEY = "jpdb-popup-reader-settings";
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
+  const DEFAULT_ACCENT_COLOR = "#5ea780";
   const AUDIO_GUIDE_URL = "https://yomitan.wiki/advanced/#audio";
   const AUDIO_SOURCE_LABELS = {
     jpod101: "JapanesePod101",
@@ -1441,6 +830,8 @@
   const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
   const DEFAULT_SETTINGS = {
     apiKey: "",
+    onboardingSeen: false,
+    accentColor: DEFAULT_ACCENT_COLOR,
     audioEnabled: true,
     autoPlayAudio: true,
     audioSources: DEFAULT_AUDIO_SOURCES,
@@ -1461,9 +852,10 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: false,
-    ocrProvider: "auto",
+    ocrProvider: "google-lens",
     ocrEndpointUrl: "",
-    ocrEngine: "MangaOCR",
+    ocrEngine: "auto",
+    ocrCloudVisionApiKey: "",
     ocrLanguage: "ja-JP",
     ocrMaxImagePixels: 12e5,
     ocrMinImageArea: 45e3,
@@ -1481,6 +873,8 @@
     subtitleBottomOffset: 12,
     subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
+    youtubeImmersionEnabled: false,
+    youtubeShowFilterNotice: true,
     theme: "auto",
     popupMode: "auto",
     miningDeck: "forq",
@@ -1515,14 +909,48 @@
     return {
       ...DEFAULT_SETTINGS,
       ...value ?? {},
+      accentColor: sanitizeAccentColor(value == null ? void 0 : value.accentColor),
       audioSources,
       audioSourceUrl: ((_a = audioSources.find((source) => source.url)) == null ? void 0 : _a.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL,
+      ocrProvider: normalizeOcrProvider(value == null ? void 0 : value.ocrProvider),
+      ocrEngine: normalizeOcrEngine(value == null ? void 0 : value.ocrEngine),
       dictionaryPreferences: normalizeDictionaryPreferences(value == null ? void 0 : value.dictionaryPreferences),
       shortcuts: {
         ...DEFAULT_SETTINGS.shortcuts,
         ...(value == null ? void 0 : value.shortcuts) ?? {}
       }
     };
+  }
+  function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    if (!shortHex) return fallback;
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+  }
+  function accentToRgba(color, alpha) {
+    const safe = sanitizeAccentColor(color);
+    const red = parseInt(safe.slice(1, 3), 16);
+    const green = parseInt(safe.slice(3, 5), 16);
+    const blue = parseInt(safe.slice(5, 7), 16);
+    return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+  }
+  function normalizeOcrProvider(value) {
+    if (value === "auto") return "google-lens";
+    if (value === "fast") return "page-text";
+    if (value === "custom-json") return "local-service";
+    if (value === "google-lens" || value === "cloud-vision" || value === "local-service" || value === "page-text" || value === "off") return value;
+    return DEFAULT_SETTINGS.ocrProvider;
+  }
+  function normalizeOcrEngine(value) {
+    if (typeof value !== "string" || !value.trim()) return DEFAULT_SETTINGS.ocrEngine;
+    const normalized = value.trim();
+    if (normalized === "MangaOcrAdapter") return "MangaOCR";
+    if (normalized === "PpOcrAdapter") return "PaddleOCR";
+    if (normalized === "AppleVisionAdapter") return "AppleVision";
+    if (normalized === "Google Lens") return "auto";
+    return normalized;
   }
   async function loadSettings() {
     if (typeof GM_getValue === "function") {
@@ -1603,6 +1031,1122 @@
     }
     return normalizeDictionaryPreferences([...merged.values()]);
   }
+  class OnboardingController {
+    constructor(options) {
+      __publicField(this, "panel");
+      __publicField(this, "backdrop");
+      this.options = options;
+    }
+    async showIfNeeded() {
+      if (this.options.getSettings().onboardingSeen) return false;
+      this.show();
+      return true;
+    }
+    show() {
+      this.close();
+      this.backdrop = document.createElement("div");
+      this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
+      this.backdrop.dataset.jpdbReaderRoot = "true";
+      this.panel = document.createElement("section");
+      this.panel.className = "jpdb-reader-onboarding";
+      this.panel.dataset.jpdbReaderRoot = "true";
+      this.panel.setAttribute("role", "dialog");
+      this.panel.setAttribute("aria-modal", "true");
+      this.panel.setAttribute("aria-label", `${APP_NAME} welcome`);
+      this.panel.tabIndex = -1;
+      const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", "Japanese, wherever it appears");
+      const title = element("h2", "", APP_NAME);
+      const copy = element(
+        "p",
+        "",
+        "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study."
+      );
+      const featureGrid = document.createElement("div");
+      featureGrid.className = "jpdb-reader-onboarding-grid";
+      [
+        ["Text", "Hover or tap Japanese words once a page is scanned."],
+        ["Images", "Readable image text can be detected quietly near the viewport."],
+        ["Video", "Subtitle words become tappable when subtitles are available."],
+        ["Control", "Open Settings any time to turn features off, change shortcuts, or tune the accent color."]
+      ].forEach(([heading, text]) => {
+        const card = document.createElement("div");
+        card.append(element("strong", "", heading), element("span", "", text));
+        featureGrid.append(card);
+      });
+      const actions = document.createElement("div");
+      actions.className = "jpdb-reader-onboarding-actions";
+      const setup = button("Add API key");
+      setup.className = "jpdb-reader-btn add";
+      setup.addEventListener("click", () => void this.complete(true));
+      const browse = button("Use defaults");
+      browse.className = "jpdb-reader-btn";
+      browse.addEventListener("click", () => void this.complete(false));
+      actions.append(setup, browse);
+      const note = element("p", "jpdb-reader-onboarding-note", "YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.");
+      this.panel.append(eyebrow, title, copy, featureGrid, actions, note);
+      document.body.append(this.backdrop, this.panel);
+      this.panel.focus();
+    }
+    async complete(openSettings) {
+      const settings = { ...this.options.getSettings(), onboardingSeen: true };
+      this.options.setSettings(settings);
+      await saveSettings(settings);
+      this.close();
+      if (openSettings) this.options.showSettings();
+    }
+    close() {
+      var _a, _b;
+      (_a = this.panel) == null ? void 0 : _a.remove();
+      (_b = this.backdrop) == null ? void 0 : _b.remove();
+      this.panel = void 0;
+      this.backdrop = void 0;
+    }
+  }
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    return node;
+  }
+  function button(text) {
+    const node = document.createElement("button");
+    node.type = "button";
+    node.textContent = text;
+    return node;
+  }
+  const MAX_CACHE_ITEMS = 36;
+  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
+  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
+  const LENS_PLATFORM_WEB = 3;
+  const LENS_SURFACE_CHROMIUM = 4;
+  const LENS_AUTO_FILTER = 7;
+  const LENS_WRITING_TOP_TO_BOTTOM = 2;
+  class ImageOcrController {
+    constructor(options) {
+      __publicField(this, "states", /* @__PURE__ */ new Map());
+      __publicField(this, "cache", /* @__PURE__ */ new Map());
+      __publicField(this, "observer");
+      __publicField(this, "observerMargin", "");
+      __publicField(this, "mutationObserver");
+      __publicField(this, "queue", []);
+      __publicField(this, "busy", false);
+      __publicField(this, "positionFrame", 0);
+      __publicField(this, "refreshTimer", 0);
+      this.options = options;
+    }
+    init() {
+      this.refresh();
+      window.addEventListener("scroll", () => {
+        this.schedulePosition();
+        this.scheduleRefresh(240);
+      }, { passive: true });
+      window.addEventListener("resize", () => {
+        this.schedulePosition();
+        this.scheduleRefresh(300);
+      }, { passive: true });
+      this.mutationObserver = new MutationObserver((mutations) => {
+        if (mutations.some((mutation) => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
+      });
+      this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    refresh() {
+      var _a;
+      const settings = this.options.getSettings();
+      if (!settings.ocrEnabled) {
+        this.clear();
+        return;
+      }
+      this.pruneDisconnectedStates();
+      this.ensureObserver(settings);
+      let count = 0;
+      for (const image of Array.from(document.images)) {
+        if (count >= settings.ocrMaxImagesPerPage) break;
+        if (!isCandidateImage(image, settings)) continue;
+        if (!shouldObserveImage(image, settings)) continue;
+        count++;
+        this.ensureState(image);
+        (_a = this.observer) == null ? void 0 : _a.observe(image);
+      }
+      this.schedulePosition();
+    }
+    toggle() {
+      const settings = this.options.getSettings();
+      settings.ocrEnabled = !settings.ocrEnabled;
+      this.options.onToast(settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
+      this.refresh();
+    }
+    async scanVisible() {
+      this.refresh();
+      const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
+      if (!images.length) {
+        this.options.onToast("No readable images nearby.");
+        return;
+      }
+      images.forEach((image) => this.enqueue(image, true));
+    }
+    ensureObserver(settings) {
+      var _a;
+      const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
+      if (this.observer && this.observerMargin === rootMargin) return;
+      (_a = this.observer) == null ? void 0 : _a.disconnect();
+      this.observerMargin = rootMargin;
+      this.observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const image = entry.target;
+          this.positionState(image);
+          const current = this.options.getSettings();
+          if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
+        }
+      }, { rootMargin });
+    }
+    ensureState(image) {
+      const existing = this.states.get(image);
+      if (existing) return existing;
+      const overlay = document.createElement("div");
+      overlay.className = "jpdb-ocr-layer";
+      overlay.dataset.jpdbReaderRoot = "true";
+      const status = document.createElement("div");
+      status.className = "jpdb-ocr-status";
+      status.hidden = true;
+      overlay.append(status);
+      document.body.append(overlay);
+      const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+      image.addEventListener("load", () => {
+        this.resetStateIfImageChanged(state);
+        this.schedulePosition();
+        this.scheduleRefresh(80);
+      });
+      this.states.set(image, state);
+      return state;
+    }
+    enqueue(image, userRequested = false) {
+      const state = this.states.get(image) ?? this.ensureState(image);
+      if (state.autoSkipped && !userRequested) return;
+      state.overlayRequested || (state.overlayRequested = userRequested || Boolean(readFallbackOcrResult(image, false)));
+      state.manualRequested || (state.manualRequested = userRequested);
+      if (userRequested) state.autoSkipped = false;
+      if (state.result) {
+        if (userRequested) void this.renderResult(state, state.result, true);
+        return;
+      }
+      if (state.loading) return;
+      if (!this.queue.includes(image)) this.queue.push(image);
+      if (userRequested) {
+        state.status.hidden = false;
+        state.status.textContent = "Reading image...";
+      }
+      this.drainQueue();
+    }
+    drainQueue() {
+      var _a;
+      if (this.busy) return;
+      const image = this.queue.shift();
+      if (!image) return;
+      this.busy = true;
+      const hasFastText = Boolean(readFallbackOcrResult(image, false));
+      const delay = ((_a = this.states.get(image)) == null ? void 0 : _a.overlayRequested) || hasFastText ? 0 : 900;
+      void waitForIdle(delay).then(() => this.scanImage(image)).finally(() => {
+        this.busy = false;
+        this.drainQueue();
+      });
+    }
+    async scanImage(image) {
+      const state = this.states.get(image) ?? this.ensureState(image);
+      const settings = this.options.getSettings();
+      const key = imageCacheKey(image);
+      const manualRequested = state.manualRequested;
+      this.resetStateIfImageChanged(state);
+      const cached = this.cache.get(key);
+      if (cached) {
+        await this.renderResult(state, cached);
+        state.manualRequested = false;
+        return;
+      }
+      state.loading = true;
+      state.status.hidden = !state.overlayRequested;
+      const canUseLocalService = settings.ocrProvider === "local-service" && settings.ocrEndpointUrl.trim();
+      const canUseCloudVision = settings.ocrProvider === "cloud-vision" && settings.ocrCloudVisionApiKey.trim();
+      const canUseGoogleLens = settings.ocrProvider === "google-lens";
+      state.status.textContent = "Reading image...";
+      try {
+        const fallback = readFallbackOcrResult(image, settings.ocrProvider === "page-text");
+        const result = fallback ?? (canUseLocalService ? await recognizeViaLocalService(image, settings) : canUseCloudVision ? await recognizeViaCloudVision(image, settings) : canUseGoogleLens ? await recognizeViaGoogleLens(image, settings) : null);
+        if (!(result == null ? void 0 : result.lines.length)) {
+          state.autoSkipped = !manualRequested;
+          state.status.textContent = "No Japanese text found";
+          state.status.hidden = !state.overlayRequested || state.autoSkipped;
+          return;
+        }
+        this.remember(key, result);
+        state.key = key;
+        await this.renderResult(state, result);
+      } catch (error) {
+        const fallback = settings.ocrProvider === "page-text" ? readFallbackOcrResult(image, true) : readFallbackOcrResult(image, false);
+        if (fallback == null ? void 0 : fallback.lines.length) {
+          await this.renderResult(state, fallback);
+        } else {
+          state.status.textContent = error instanceof Error ? error.message : "OCR failed";
+          state.autoSkipped = !manualRequested;
+          state.status.hidden = !state.overlayRequested || state.autoSkipped;
+        }
+      } finally {
+        state.loading = false;
+        state.manualRequested = false;
+      }
+    }
+    async renderResult(state, result, forceOverlay = false) {
+      state.result = result;
+      state.status.hidden = true;
+      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+      const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
+      const sentence = result.lines.map((line) => line.text).join("\n");
+      for (const line of result.lines) {
+        const button2 = document.createElement("button");
+        button2.type = "button";
+        button2.className = "jpdb-ocr-line";
+        if (showText) button2.classList.add("jpdb-ocr-line-visible");
+        button2.dataset.ocrText = line.text;
+        button2.dataset.vertical = String(line.vertical);
+        button2.title = line.text;
+        button2.style.left = `${100 * line.box.left / result.width}%`;
+        button2.style.top = `${100 * line.box.top / result.height}%`;
+        button2.style.width = `${100 * line.box.width / result.width}%`;
+        button2.style.height = `${100 * line.box.height / result.height}%`;
+        button2.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
+        button2.style.fontSize = line.vertical ? `clamp(11px, ${Math.max(10, Math.min(26, 100 * line.box.width / result.width))}px, 20px)` : `clamp(11px, ${Math.max(10, Math.min(26, 100 * line.box.height / result.height))}px, 20px)`;
+        button2.setAttribute("aria-label", line.text);
+        button2.textContent = showText ? line.text : "";
+        button2.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void this.options.onLookup(line.text, sentence);
+        });
+        state.overlay.append(button2);
+      }
+      this.positionState(state.image);
+    }
+    resetStateIfImageChanged(state) {
+      const key = imageCacheKey(state.image);
+      if (key === state.key) return;
+      state.key = key;
+      state.result = void 0;
+      state.loading = false;
+      state.overlayRequested = false;
+      state.manualRequested = false;
+      state.autoSkipped = false;
+      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+      state.status.hidden = true;
+    }
+    remember(key, result) {
+      this.cache.set(key, result);
+      while (this.cache.size > MAX_CACHE_ITEMS) {
+        const oldest = this.cache.keys().next().value;
+        if (!oldest) break;
+        this.cache.delete(oldest);
+      }
+    }
+    schedulePosition() {
+      if (this.positionFrame) return;
+      this.positionFrame = requestAnimationFrame(() => {
+        this.positionFrame = 0;
+        for (const image of this.states.keys()) this.positionState(image);
+      });
+    }
+    scheduleRefresh(delay) {
+      window.clearTimeout(this.refreshTimer);
+      this.refreshTimer = window.setTimeout(() => this.refresh(), delay);
+    }
+    positionState(image) {
+      const state = this.states.get(image);
+      if (!state) return;
+      const rect = image.getBoundingClientRect();
+      const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+      state.overlay.hidden = !visible;
+      if (!visible) return;
+      state.overlay.style.left = `${rect.left}px`;
+      state.overlay.style.top = `${rect.top}px`;
+      state.overlay.style.width = `${rect.width}px`;
+      state.overlay.style.height = `${rect.height}px`;
+    }
+    clear() {
+      var _a;
+      (_a = this.observer) == null ? void 0 : _a.disconnect();
+      this.observer = void 0;
+      this.observerMargin = "";
+      window.clearTimeout(this.refreshTimer);
+      this.queue = [];
+      for (const state of this.states.values()) state.overlay.remove();
+      this.states.clear();
+    }
+    pruneDisconnectedStates() {
+      var _a;
+      for (const [image, state] of this.states) {
+        if (image.isConnected) continue;
+        (_a = this.observer) == null ? void 0 : _a.unobserve(image);
+        state.overlay.remove();
+        this.states.delete(image);
+      }
+    }
+  }
+  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+    if (cloudVision) return cloudVision;
+    const resolution = record.context_resolution;
+    const width = numberFrom(record.width) || numberFrom(resolution == null ? void 0 : resolution.width) || fallbackWidth;
+    const height = numberFrom(record.height) || numberFrom(resolution == null ? void 0 : resolution.height) || fallbackHeight;
+    const rawLines = Array.isArray(record.lines) ? record.lines : Array.isArray(record.regions) ? record.regions : void 0;
+    const lines = [];
+    if (rawLines) {
+      for (const item of rawLines) {
+        const line = normalizeSimpleLine(item, width, height);
+        if (line) lines.push(line);
+      }
+    }
+    if (Array.isArray(record.results)) {
+      for (const item of record.results) {
+        lines.push(...normalizeStructuredOcrResult(item, width, height));
+      }
+    }
+    if (Array.isArray(record.ocr_regions)) {
+      for (const region of record.ocr_regions) {
+        const regionRecord = region;
+        const regionBox = normalizeOcrRegion(regionRecord, width, height);
+        const scaleWidth = (regionBox == null ? void 0 : regionBox.width) ?? width;
+        const scaleHeight = (regionBox == null ? void 0 : regionBox.height) ?? height;
+        if (Array.isArray(regionRecord.results)) {
+          for (const item of regionRecord.results) {
+            const regionLines = normalizeStructuredOcrResult(item, scaleWidth, scaleHeight);
+            lines.push(...regionBox ? regionLines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line)) : regionLines);
+          }
+        }
+      }
+    }
+    const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
+    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+  }
+  function readFallbackOcrResult(image, includeAccessibleText = true) {
+    const width = image.naturalWidth || image.width || 1;
+    const height = image.naturalHeight || image.height || 1;
+    const data = image.dataset.ocrLines;
+    if (data) {
+      try {
+        const parsed = normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
+        if (parsed) return parsed;
+      } catch {
+      }
+    }
+    return includeAccessibleText ? readAccessibleImageText(image, width, height) : null;
+  }
+  async function recognizeViaLocalService(image, settings) {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const payload = await canvasToBase64Payload(canvas);
+    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
+    const body = JSON.stringify({
+      id: imageCacheKey(image),
+      language_code: settings.ocrLanguage || "ja-JP",
+      language: {
+        bcp47_tag: settings.ocrLanguage || "ja-JP",
+        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
+      },
+      base64_image: payload.base64,
+      image: payload.base64,
+      image_bytes: payload.base64,
+      ocr_engine: engine,
+      ocr_adapter_name: engine,
+      detection_only: false
+    });
+    const response = await requestJson(settings.ocrEndpointUrl.trim(), body, settings.audioTimeoutMs);
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaCloudVision(image, settings) {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const payload = await canvasToBase64Payload(canvas);
+    const body = JSON.stringify({
+      requests: [{
+        image: { content: payload.base64 },
+        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
+        imageContext: { languageHints: ["ja"] }
+      }]
+    });
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(settings.ocrCloudVisionApiKey.trim())}`;
+    const response = await requestJson(url, body, settings.audioTimeoutMs);
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaGoogleLens(image, settings) {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const blob = await canvasToBlob(canvas, "image/jpeg", 0.88);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
+    try {
+      const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+      return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
+    } catch {
+      return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
+    }
+  }
+  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
+    const data = new FormData();
+    data.append("encoded_image", blob, "image.jpg");
+    const response = await requestTextForm("https://lens.google.com/v3/upload?stcs=" + Date.now().toString().slice(0, 10), data, timeout);
+    return parseGoogleLensUploadHtml(response, width, height);
+  }
+  async function imageToCanvas(image, maxPixels) {
+    try {
+      return drawImageToCanvas(image, maxPixels);
+    } catch {
+      const url = image.currentSrc || image.src;
+      if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
+      const blob = await requestBlob(url);
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const loaded = await loadImage(objectUrl);
+        return drawImageToCanvas(loaded, maxPixels);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+  }
+  function drawImageToCanvas(image, maxPixels) {
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    if (!width || !height) throw new Error("Image is not loaded yet.");
+    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (width * height)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas unavailable.");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+  async function canvasToBase64Payload(canvas) {
+    const blob = await canvasToBlob(canvas, "image/jpeg", 0.86);
+    return { base64: (await blobToDataUrl(blob)).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  }
+  function createGoogleLensRequest(imageBytes, width, height, locale) {
+    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const requestId = protoMessage(
+      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
+      protoVarintField(2, 1),
+      protoVarintField(3, 1),
+      protoBytesField(4, randomBytes(16))
+    );
+    const localeContext = protoMessage(
+      protoStringField(1, language || "ja"),
+      protoStringField(2, region || "US"),
+      protoStringField(3, timeZone)
+    );
+    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+    const clientContext = protoMessage(
+      protoVarintField(1, LENS_PLATFORM_WEB),
+      protoVarintField(2, LENS_SURFACE_CHROMIUM),
+      protoMessageField(4, localeContext),
+      protoMessageField(17, clientFilters)
+    );
+    const requestContext = protoMessage(
+      protoMessageField(3, requestId),
+      protoMessageField(4, clientContext)
+    );
+    const imageData = protoMessage(
+      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
+    );
+    return protoMessage(protoMessageField(1, protoMessage(
+      protoMessageField(1, requestContext),
+      protoMessageField(3, imageData)
+    )));
+  }
+  function parseGoogleLensResponse(bytes, width, height) {
+    const root = decodeProtoMessage(bytes);
+    const objectsResponse = protoFirstMessage(root, 2);
+    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    const layout = text ? protoFirstMessage(text, 1) : null;
+    if (!layout) return null;
+    const lines = [];
+    for (const paragraph of protoMessages(layout, 1)) {
+      const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+      const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+      for (const line of protoMessages(paragraph, 2)) {
+        const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+        const words = protoMessages(line, 1).map((word) => ({
+          text: protoString(word, 2),
+          separator: protoString(word, 3),
+          box: protoBox(protoFirstMessage(word, 4), width, height)
+        })).filter((word) => word.text);
+        const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => {
+          var _a, _b;
+          return (((_a = a.box) == null ? void 0 : _a.left) ?? 0) - (((_b = b.box) == null ? void 0 : _b.left) ?? 0);
+        });
+        const rawText = orderedWords.map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? " " : ""))).join("");
+        const textValue = cleanOcrText(rawText);
+        if (!textValue || !HAS_JAPANESE.test(textValue)) continue;
+        const box = lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
+        if (!box) continue;
+        lines.push({
+          text: textValue,
+          box,
+          vertical: paragraphVertical || box.height > box.width * 1.25 && textValue.length > 1
+        });
+      }
+    }
+    return lines.length ? { width, height, lines } : null;
+  }
+  function parseGoogleLensUploadHtml(html, width, height) {
+    var _a, _b, _c, _d, _e, _f;
+    const match = html.match(/AF_initDataCallback\((\{key:\s*['"]ds:1['"][\s\S]*?\})\);/);
+    if (!match) return null;
+    try {
+      const callback = Function(`"use strict";return (${match[1]});`)();
+      const blocks = ((_c = (_b = (_a = callback.data) == null ? void 0 : _a[2]) == null ? void 0 : _b[3]) == null ? void 0 : _c[0]) ?? [];
+      const lines = [];
+      for (const block of blocks) {
+        const blockData = block;
+        const rawLines = (_f = (_e = (_d = blockData[2]) == null ? void 0 : _d[0]) == null ? void 0 : _e[5]) == null ? void 0 : _f[3];
+        const lineItems = rawLines == null ? void 0 : rawLines[0];
+        if (!Array.isArray(lineItems)) continue;
+        for (const item of lineItems) {
+          const lineData = item;
+          const words = Array.isArray(lineData[0]) ? lineData[0] : [];
+          const boxData = Array.isArray(lineData[1]) ? lineData[1] : [];
+          const text = cleanOcrText(words.map((word) => {
+            const wordData = word;
+            return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
+          }).join(""));
+          const box = boxData.length >= 4 ? clampBox({
+            top: Number(boxData[0]) * height,
+            left: Number(boxData[1]) * width,
+            width: Number(boxData[2]) * width,
+            height: Number(boxData[3]) * height
+          }, width, height) : null;
+          if (text && box && HAS_JAPANESE.test(text)) {
+            lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+          }
+        }
+      }
+      return lines.length ? { width, height, lines } : null;
+    } catch {
+      return null;
+    }
+  }
+  function normalizeSimpleLine(value, width, height) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const text = stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+    const box = normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+    if (!text || !box) return null;
+    return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
+  }
+  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+    var _a;
+    const responses = Array.isArray(record.responses) ? record.responses : "fullTextAnnotation" in record ? [record] : [];
+    const lines = [];
+    let width = fallbackWidth;
+    let height = fallbackHeight;
+    for (const response of responses) {
+      const annotation = response == null ? void 0 : response.fullTextAnnotation;
+      const pages = Array.isArray(annotation == null ? void 0 : annotation.pages) ? annotation.pages : [];
+      for (const page of pages) {
+        const pageRecord = page;
+        width = numberFrom(pageRecord.width) || width;
+        height = numberFrom(pageRecord.height) || height;
+        const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
+        for (const block of blocks) {
+          const paragraphs = Array.isArray(block.paragraphs) ? block.paragraphs : [];
+          for (const paragraph of paragraphs) {
+            pushCloudVisionParagraphLines(paragraph, lines, width, height);
+          }
+        }
+      }
+      const annotations = Array.isArray(response == null ? void 0 : response.textAnnotations) ? response.textAnnotations : [];
+      if (!lines.length && annotations.length > 1) {
+        for (const annotationItem of annotations.slice(1)) {
+          const item = annotationItem;
+          const text = cleanOcrText(item.description);
+          const box = normalizeCloudVisionVertices((_a = item.boundingPoly) == null ? void 0 : _a.vertices, width, height);
+          if (text && box && HAS_JAPANESE.test(text)) lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+        }
+      }
+    }
+    return lines.length ? { width, height, lines } : null;
+  }
+  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
+    var _a, _b, _c;
+    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+    let text = "";
+    let boxes = [];
+    const pushLine = () => {
+      const value = cleanOcrText(text);
+      const box = unionBoxes(boxes);
+      if (value && box && HAS_JAPANESE.test(value)) {
+        lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
+      }
+      text = "";
+      boxes = [];
+    };
+    for (const word of words) {
+      const symbols = Array.isArray(word.symbols) ? word.symbols : [];
+      for (const symbol of symbols) {
+        const symbolRecord = symbol;
+        text += String(symbolRecord.text ?? "");
+        const box = normalizeCloudVisionVertices((_a = symbolRecord.boundingBox) == null ? void 0 : _a.vertices, width, height);
+        if (box) boxes.push(box);
+        const breakType = (_c = (_b = symbolRecord.property) == null ? void 0 : _b.detectedBreak) == null ? void 0 : _c.type;
+        if (breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN") text += " ";
+        if (breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN") pushLine();
+      }
+    }
+    pushLine();
+  }
+  function normalizeCloudVisionVertices(value, width, height) {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const xs = value.map((vertex) => numberFrom(vertex == null ? void 0 : vertex.x) ?? 0);
+    const ys = value.map((vertex) => numberFrom(vertex == null ? void 0 : vertex.y) ?? 0);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+  }
+  function normalizeStructuredOcrResult(value, width, height) {
+    var _a;
+    if (!value || typeof value !== "object") return [];
+    const record = value;
+    const textLines = Array.isArray(record.text_lines) ? record.text_lines : Array.isArray(record.text) ? record.text : [];
+    const vertical = Boolean(record.is_vertical ?? ((_a = record.box) == null ? void 0 : _a.isVertical));
+    const lines = textLines.map((item) => {
+      var _a2;
+      const lineRecord = item;
+      const text2 = stringFrom((lineRecord == null ? void 0 : lineRecord.content) ?? (lineRecord == null ? void 0 : lineRecord.text) ?? (lineRecord == null ? void 0 : lineRecord.word));
+      const box2 = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
+      return text2 && box2 ? { text: text2, box: box2, vertical: Boolean(lineRecord.is_vertical ?? ((_a2 = lineRecord.box) == null ? void 0 : _a2.isVertical) ?? vertical) } : null;
+    }).filter((line) => line !== null);
+    if (lines.length) return lines;
+    const text = textLines.map((item) => stringFrom(item == null ? void 0 : item.content)).filter(Boolean).join("");
+    const box = normalizeBox(record.box, width, height);
+    return text && box ? [{ text, box, vertical }] : [];
+  }
+  function normalizeOcrRegion(record, width, height) {
+    const position = record.position;
+    const size = record.size;
+    if (!position || !size) return null;
+    const left = numberFrom(position.left);
+    const top = numberFrom(position.top);
+    const regionWidth = numberFrom(size.width);
+    const regionHeight = numberFrom(size.height);
+    if (left === null || top === null || regionWidth === null || regionHeight === null) return null;
+    const fractional = Math.max(left, top, regionWidth, regionHeight) <= 1;
+    const box = clampBox({
+      left: (fractional ? left : left / 100) * width,
+      top: (fractional ? top : top / 100) * height,
+      width: (fractional ? regionWidth : regionWidth / 100) * width,
+      height: (fractional ? regionHeight : regionHeight / 100) * height
+    }, width, height);
+    if (!box) return null;
+    const isFullImage = box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+    return isFullImage ? null : box;
+  }
+  function offsetLineToRegion(line, region, width, height) {
+    const box = clampBox({
+      left: region.left + line.box.left,
+      top: region.top + line.box.top,
+      width: line.box.width,
+      height: line.box.height
+    }, width, height);
+    return box ? { ...line, box } : null;
+  }
+  function normalizeBox(value, width, height) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const position = record.position;
+    const dimensions = record.dimensions;
+    if (position && dimensions) {
+      const left2 = numberFrom(position.left);
+      const top2 = numberFrom(position.top);
+      const boxWidth = numberFrom(dimensions.width);
+      const boxHeight = numberFrom(dimensions.height);
+      if (left2 !== null && top2 !== null && boxWidth !== null && boxHeight !== null) {
+        return clampBox({
+          left: left2 / 100 * width,
+          top: top2 / 100 * height,
+          width: boxWidth / 100 * width,
+          height: boxHeight / 100 * height
+        }, width, height);
+      }
+    }
+    const directLeft = numberFrom(record.left ?? record.x);
+    const directTop = numberFrom(record.top ?? record.y);
+    const directWidth = numberFrom(record.width ?? record.w);
+    const directHeight = numberFrom(record.height ?? record.h);
+    if (directLeft !== null && directTop !== null && directWidth !== null && directHeight !== null) {
+      const percent2 = directLeft <= 1 && directTop <= 1 && directWidth <= 1 && directHeight <= 1;
+      return clampBox({
+        left: percent2 ? directLeft * width : directLeft,
+        top: percent2 ? directTop * height : directTop,
+        width: percent2 ? directWidth * width : directWidth,
+        height: percent2 ? directHeight * height : directHeight
+      }, width, height);
+    }
+    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => record[key]).filter(Boolean);
+    if (points.length < 2) return null;
+    const xs = points.map((point) => numberFrom(point == null ? void 0 : point.x)).filter((item) => item !== null);
+    const ys = points.map((point) => numberFrom(point == null ? void 0 : point.y)).filter((item) => item !== null);
+    if (!xs.length || !ys.length) return null;
+    const percent = xs.every((value2) => value2 >= 0 && value2 <= 1) && ys.every((value2) => value2 >= 0 && value2 <= 1);
+    const scaledXs = percent ? xs.map((value2) => value2 * width) : xs;
+    const scaledYs = percent ? ys.map((value2) => value2 * height) : ys;
+    const left = Math.min(...scaledXs);
+    const top = Math.min(...scaledYs);
+    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+  }
+  function clampBox(box, width, height) {
+    const left = Math.max(0, Math.min(width, box.left));
+    const top = Math.max(0, Math.min(height, box.top));
+    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  function unionBoxes(boxes) {
+    if (!boxes.length) return null;
+    const left = Math.min(...boxes.map((box) => box.left));
+    const top = Math.min(...boxes.map((box) => box.top));
+    const right = Math.max(...boxes.map((box) => box.left + box.width));
+    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  function cleanOcrText(value) {
+    const text = typeof value === "string" ? value : String(value ?? "");
+    const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? "" : " ").trim();
+    return normalized.replaceAll("．．．", "…");
+  }
+  function isCandidateImage(image, settings) {
+    if (image.closest("[data-jpdb-reader-root]")) return false;
+    const rect = image.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    if (area < settings.ocrMinImageArea) return false;
+    if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
+    const style = getComputedStyle(image);
+    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
+  }
+  function shouldObserveImage(image, settings) {
+    if (settings.ocrProvider === "off") return false;
+    if (readFallbackOcrResult(image, false)) return true;
+    if (settings.ocrProvider === "page-text") return Boolean(readFallbackOcrResult(image, true));
+    if (settings.ocrProvider === "local-service") return Boolean(settings.ocrEndpointUrl.trim());
+    if (settings.ocrProvider === "cloud-vision") return Boolean(settings.ocrCloudVisionApiKey.trim());
+    return settings.ocrProvider === "google-lens";
+  }
+  function readAccessibleImageText(image, width, height) {
+    var _a, _b;
+    const candidates = [
+      image.alt,
+      image.title,
+      image.getAttribute("aria-label"),
+      (_b = (_a = image.closest("figure")) == null ? void 0 : _a.querySelector("figcaption")) == null ? void 0 : _b.textContent
+    ].map((value) => (value ?? "").replace(/\s+/g, " ").trim()).filter((value) => value.length >= 2 && HAS_JAPANESE.test(value));
+    const text = candidates[0];
+    if (!text) return null;
+    const boxHeight = Math.max(44, height * 0.18);
+    return {
+      width,
+      height,
+      lines: [{
+        text,
+        box: { left: width * 0.04, top: height - boxHeight - height * 0.04, width: width * 0.92, height: boxHeight },
+        vertical: false
+      }]
+    };
+  }
+  function isNearViewport(element2, margin) {
+    const rect = element2.getBoundingClientRect();
+    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+  }
+  function nodeContainsImage(node) {
+    return node instanceof HTMLImageElement || node instanceof Element && Boolean(node.querySelector("img"));
+  }
+  function imageCacheKey(image) {
+    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+  }
+  function protoMessage(...parts) {
+    return concatBytes(parts);
+  }
+  function protoMessageField(field, value) {
+    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+  }
+  function protoBytesField(field, value) {
+    return protoMessageField(field, value);
+  }
+  function protoStringField(field, value) {
+    return protoBytesField(field, new TextEncoder().encode(value));
+  }
+  function protoVarintField(field, value) {
+    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+  }
+  function protoTag(field, wire) {
+    return encodeVarint(field << 3 | wire);
+  }
+  function encodeVarint(value) {
+    let item = BigInt(value);
+    const bytes = [];
+    do {
+      let byte = Number(item & 0x7fn);
+      item >>= 7n;
+      if (item) byte |= 128;
+      bytes.push(byte);
+    } while (item);
+    return new Uint8Array(bytes);
+  }
+  function decodeProtoMessage(bytes) {
+    const fields = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+      const [tag, nextOffset] = readVarint(bytes, offset);
+      offset = nextOffset;
+      const field = Number(tag >> 3n);
+      const wire = Number(tag & 7n);
+      if (!field) break;
+      if (wire === 0) {
+        const [value, afterValue] = readVarint(bytes, offset);
+        offset = afterValue;
+        fields.push({ field, wire, value });
+      } else if (wire === 1) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+        offset += 8;
+      } else if (wire === 2) {
+        const [length, afterLength] = readVarint(bytes, offset);
+        offset = afterLength;
+        const end = offset + Number(length);
+        fields.push({ field, wire, value: bytes.slice(offset, end) });
+        offset = end;
+      } else if (wire === 5) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+        offset += 4;
+      } else {
+        break;
+      }
+    }
+    return fields;
+  }
+  function readVarint(bytes, offset) {
+    let shift = 0n;
+    let result = 0n;
+    while (offset < bytes.length) {
+      const byte = bytes[offset++];
+      result |= BigInt(byte & 127) << shift;
+      if (!(byte & 128)) return [result, offset];
+      shift += 7n;
+    }
+    return [result, offset];
+  }
+  function protoMessages(fields, field) {
+    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
+  }
+  function protoFirstMessage(fields, field) {
+    return protoMessages(fields, field)[0] ?? null;
+  }
+  function protoString(fields, field) {
+    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+    return item ? new TextDecoder().decode(item.value) : "";
+  }
+  function protoNumber(fields, field) {
+    const item = fields.find((value) => value.field === field);
+    if (!item) return 0;
+    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
+  }
+  function protoBox(geometry, width, height) {
+    const box = geometry ? protoFirstMessage(geometry, 1) : null;
+    if (!box) return null;
+    const centerX = protoNumber(box, 1);
+    const centerY = protoNumber(box, 2);
+    const boxWidth = protoNumber(box, 3);
+    const boxHeight = protoNumber(box, 4);
+    if (!boxWidth || !boxHeight) return null;
+    const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
+    return clampBox({
+      left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
+      top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
+      width: normalized ? boxWidth * width : boxWidth,
+      height: normalized ? boxHeight * height : boxHeight
+    }, width, height);
+  }
+  function concatBytes(parts) {
+    const length = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const part of parts) {
+      result.set(part, offset);
+      offset += part.length;
+    }
+    return result;
+  }
+  function randomBytes(length) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
+  }
+  function requestJson(url, data, timeout) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "POST",
+          url,
+          headers: { "content-type": "application/json" },
+          data,
+          responseType: "json",
+          timeout,
+          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(response.response ?? (response.responseText ? JSON.parse(response.responseText) : null)) : reject(new Error(`OCR endpoint returned ${response.status}.`)),
+          onerror: reject,
+          ontimeout: () => reject(new Error("OCR timed out."))
+        });
+      });
+    }
+    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data }).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+  }
+  function requestArrayBuffer(url, data, timeout) {
+    const body = new Uint8Array(data);
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "POST",
+          url,
+          headers: {
+            "content-type": "application/x-protobuf",
+            "x-goog-api-key": GOOGLE_LENS_API_KEY,
+            accept: "*/*",
+            "accept-language": "ja,en-US;q=0.9,en;q=0.8"
+          },
+          data: body.buffer,
+          responseType: "arraybuffer",
+          timeout,
+          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(response.response) : reject(new Error(`Google Lens returned ${response.status}.`)),
+          onerror: reject,
+          ontimeout: () => reject(new Error("Google Lens timed out."))
+        });
+      });
+    }
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-protobuf",
+        "x-goog-api-key": GOOGLE_LENS_API_KEY,
+        accept: "*/*",
+        "accept-language": "ja,en-US;q=0.9,en;q=0.8"
+      },
+      body: body.buffer
+    }).then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+  }
+  function requestTextForm(url, data, timeout) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "POST",
+          url,
+          data,
+          responseType: "text",
+          timeout,
+          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(String(response.responseText ?? response.response ?? "")) : reject(new Error(`Google Lens upload returned ${response.status}.`)),
+          onerror: reject,
+          ontimeout: () => reject(new Error("Google Lens upload timed out."))
+        });
+      });
+    }
+    return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+  }
+  function requestBlob(url) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          responseType: "blob",
+          onload: (response) => response.status >= 200 && response.status < 300 ? resolve(response.response) : reject(new Error(`Image fetch returned ${response.status}.`)),
+          onerror: reject
+        });
+      });
+    }
+    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+  }
+  function waitForIdle(timeout) {
+    if (!timeout) return Promise.resolve();
+    return new Promise((resolve) => {
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(() => resolve(), { timeout });
+      } else {
+        globalThis.setTimeout(resolve, timeout);
+      }
+    });
+  }
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Image decode failed."));
+      image.src = url;
+    });
+  }
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
+    });
+  }
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Blob read failed."));
+      reader.readAsDataURL(blob);
+    });
+  }
+  function stringFrom(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
+  }
+  function numberFrom(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  const POS_LABELS = {
+    adj: "adjective",
+    adv: "adverb",
+    aux: "auxiliary",
+    conj: "conjunction",
+    cop: "copula",
+    ctr: "counter",
+    exp: "expression",
+    int: "interjection",
+    n: "noun",
+    num: "number",
+    pn: "pronoun",
+    pref: "prefix",
+    prt: "particle",
+    suf: "suffix",
+    unc: "unclassified",
+    vi: "intransitive verb",
+    vt: "transitive verb",
+    v1: "ichidan verb",
+    v5: "godan verb",
+    v5aru: "aru ending",
+    v5b: "bu ending",
+    v5g: "gu ending",
+    v5k: "ku ending",
+    v5m: "mu ending",
+    v5n: "nu ending",
+    v5r: "ru ending",
+    v5s: "su ending",
+    v5t: "tsu ending",
+    v5u: "u ending",
+    vk: "kuru verb",
+    vs: "suru verb",
+    vz: "zuru verb"
+  };
+  function formatPartOfSpeech(tags = []) {
+    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
+    return [...new Set(labels)].join(", ");
+  }
+  function formatPartOfSpeechDetails(tags = []) {
+    return tags.length ? tags.join(", ").toUpperCase() : "";
+  }
   const READER_CSS = `
 :root {
   --jpdb-reader-bg: #181b20;
@@ -1613,6 +2157,7 @@
   --jpdb-reader-faint: #6f7a89;
   --jpdb-reader-border: rgba(255,255,255,.12);
   --jpdb-reader-accent: #5ea780;
+  --jpdb-reader-accent-soft: rgba(94,167,128,.18);
   --jpdb-reader-hover: rgba(255,255,255,.08);
 }
 
@@ -1807,6 +2352,12 @@
   font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
 }
+.jpdb-reader-fab:hover,
+.jpdb-reader-fab:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}
 
 .jpdb-reader-backdrop {
   position: fixed;
@@ -1878,6 +2429,81 @@
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent);
   outline: none;
+}
+
+.jpdb-reader-onboarding {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 24px));
+  overflow: auto;
+  padding: 32px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 18% 0%, var(--jpdb-reader-accent-soft), transparent 34%),
+    var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-text);
+  box-shadow: 0 26px 70px rgba(0,0,0,.4);
+  color-scheme: dark;
+  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-reader-onboarding h2 {
+  margin: 4px 0 10px;
+  color: var(--jpdb-reader-text);
+  font-size: clamp(38px, 8vw, 72px);
+  line-height: .95;
+  letter-spacing: 0;
+}
+.jpdb-reader-onboarding p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-onboarding-eyebrow {
+  color: var(--jpdb-reader-accent);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.jpdb-reader-onboarding-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+.jpdb-reader-onboarding-grid div {
+  display: grid;
+  gap: 5px;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-onboarding-grid strong {
+  color: var(--jpdb-reader-text);
+  font-size: 16px;
+}
+.jpdb-reader-onboarding-grid span,
+.jpdb-reader-onboarding-note {
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+}
+.jpdb-reader-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.jpdb-reader-onboarding-actions .jpdb-reader-btn {
+  min-width: 150px;
+  min-height: 46px;
 }
 .jpdb-reader-icon-btn svg {
   width: 20px;
@@ -2053,8 +2679,8 @@
 }
 .jpdb-reader-btn:hover { background: var(--jpdb-reader-hover); }
 .jpdb-reader-btn:disabled { opacity: .45; cursor: progress; }
-.jpdb-reader-btn.add { color: #70c000; border-color: #70c000; }
-.jpdb-reader-btn.nf { color: #5ea780; border-color: #5ea780; }
+.jpdb-reader-btn.add { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
+.jpdb-reader-btn.nf { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
 .jpdb-reader-btn.blacklist { color: #777; border-color: #777; }
 .jpdb-reader-btn.nothing, .jpdb-reader-btn.fail { color: #e74c3c; border-color: #e74c3c; }
 .jpdb-reader-btn.something { color: #f39c12; border-color: #f39c12; }
@@ -2106,7 +2732,7 @@
 .jpdb-reader-settings-scroll {
   min-height: 0;
   overflow: auto;
-  padding: 0 18px 16px;
+  padding: 0 18px 96px;
   -webkit-overflow-scrolling: touch;
 }
 .jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; color: var(--jpdb-reader-text) !important; }
@@ -2123,6 +2749,10 @@
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   padding: 8px;
+}
+.jpdb-reader-settings input[type="color"] {
+  padding: 3px;
+  cursor: pointer;
 }
 .jpdb-reader-settings input[type="checkbox"],
 .jpdb-reader-settings input[type="radio"] {
@@ -2144,9 +2774,9 @@
 .jpdb-reader-settings input[type="radio"] { border-radius: 999px; }
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
-  border-color: #70c000;
-  background: #70c000;
-  box-shadow: 0 0 0 3px rgba(112,192,0,.18);
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent);
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked::after {
   content: "";
@@ -2165,7 +2795,7 @@
 }
 .jpdb-reader-settings input[type="checkbox"]:focus-visible,
 .jpdb-reader-settings input[type="radio"]:focus-visible {
-  outline: 2px solid #70c000;
+  outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 3px;
 }
 .jpdb-reader-settings input[type="file"][data-file] {
@@ -2465,6 +3095,45 @@
 }
 .jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
 
+.jpdb-youtube-filtered {
+  display: none !important;
+}
+.jpdb-youtube-filter-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-muted);
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
+  font: 750 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-youtube-filter-bar span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-youtube-filter-bar button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--jpdb-reader-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
 @media (max-width: 768px), (pointer: coarse) {
   .jpdb-reader-popover.jpdb-reader-sheet {
     left: 0 !important;
@@ -2480,7 +3149,7 @@
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
   .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 88vh; max-height: 88svh; border-radius: 16px 16px 0 0; }
   .jpdb-reader-settings-head { padding: 18px 20px 0; }
-  .jpdb-reader-settings-scroll { padding: 0 20px 16px; }
+  .jpdb-reader-settings-scroll { padding: 0 20px 106px; }
   .jpdb-reader-settings .footer {
     justify-content: stretch;
     gap: 12px;
@@ -2492,6 +3161,21 @@
   }
   .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding {
+    inset: auto 0 0 0;
+    transform: none;
+    width: 100%;
+    max-height: 88vh;
+    max-height: 88svh;
+    border-radius: 16px 16px 0 0;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
+  .jpdb-youtube-filter-bar {
+    bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
+    border-radius: 12px;
+  }
   .jpdb-reader-dictionary-head { display: none; }
   .jpdb-reader-dictionary-row { grid-template-columns: 52px 1fr; }
   .jpdb-reader-dictionary-row input[name$=".alias"],
@@ -2556,7 +3240,7 @@
     init() {
       this.install();
       this.observer = new MutationObserver((mutations) => {
-        if (mutations.every(mutationInsideReaderRoot$1)) return;
+        if (mutations.every(mutationInsideReaderRoot$2)) return;
         this.scheduleDiscoverVideo();
       });
       this.observer.observe(document.body, { childList: true, subtree: true });
@@ -3093,9 +3777,9 @@
   function collectCaptionTexts(elements, video, readerRoot, nearVideoOnly = false) {
     const lines = [];
     const seen = /* @__PURE__ */ new Set();
-    for (const element of elements) {
-      if (!isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly)) continue;
-      const text = normalizeCaptionText(element.innerText || element.textContent || "");
+    for (const element2 of elements) {
+      if (!isLikelyCaptionElement(element2, video, readerRoot, nearVideoOnly)) continue;
+      const text = normalizeCaptionText(element2.innerText || element2.textContent || "");
       if (!text || seen.has(text)) continue;
       seen.add(text);
       lines.push(text);
@@ -3103,17 +3787,17 @@
     }
     return lines.join("\n").trim();
   }
-  function isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly = false) {
-    if (!element.isConnected) return false;
-    if (readerRoot && (element === readerRoot || readerRoot.contains(element))) return false;
-    if (element.closest("[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button")) return false;
-    const text = normalizeCaptionText(element.innerText || element.textContent || "");
+  function isLikelyCaptionElement(element2, video, readerRoot, nearVideoOnly = false) {
+    if (!element2.isConnected) return false;
+    if (readerRoot && (element2 === readerRoot || readerRoot.contains(element2))) return false;
+    if (element2.closest("[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button")) return false;
+    const text = normalizeCaptionText(element2.innerText || element2.textContent || "");
     if (text.length < 2 || text.length > 180 || !/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) return false;
     if (text.split("\n").length > 4) return false;
-    if ([...element.children].some((child) => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ""))) return false;
-    const rect = element.getBoundingClientRect();
+    if ([...element2.children].some((child) => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ""))) return false;
+    const rect = element2.getBoundingClientRect();
     if (rect.width < 24 || rect.height < 10 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
-    const style = getComputedStyle(element);
+    const style = getComputedStyle(element2);
     if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0) return false;
     if (!video) return !nearVideoOnly;
     const videoRect = video.getBoundingClientRect();
@@ -3219,7 +3903,7 @@
       return response.text();
     });
   }
-  function mutationInsideReaderRoot$1(mutation) {
+  function mutationInsideReaderRoot$2(mutation) {
     const nodes = [
       mutation.target,
       ...Array.from(mutation.addedNodes),
@@ -3227,8 +3911,173 @@
     ];
     return nodes.every((node) => {
       var _a;
-      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean((_a = element == null ? void 0 : element.closest) == null ? void 0 : _a.call(element, "[data-jpdb-reader-root]"));
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
+    });
+  }
+  const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
+  const VIDEO_CARD_SELECTOR = [
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-reel-item-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-compact-video-renderer",
+    "ytm-video-card-renderer"
+  ].join(",");
+  const TITLE_SELECTOR = [
+    "#video-title",
+    "a#video-title",
+    "yt-formatted-string#video-title",
+    "h3 a",
+    "h3",
+    ".yt-lockup-metadata-view-model-wiz__title",
+    ".media-item-headline",
+    'a[href*="/watch"]',
+    'a[href*="/shorts"]'
+  ].join(",");
+  const JAPANESE_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff]/g;
+  const KANA_RE = /[\u3040-\u30ff]/g;
+  const LATIN_WORD_RE = /[a-z]{3,}/gi;
+  function isYouTubeHost(hostname = location.hostname) {
+    return YOUTUBE_HOST_RE.test(hostname);
+  }
+  function isProbablyJapaneseYouTubeText(text) {
+    var _a, _b, _c;
+    const compact = text.replace(/\s+/g, " ").trim();
+    if (!HAS_JAPANESE.test(compact)) return false;
+    const japaneseChars = ((_a = compact.match(JAPANESE_CHAR_RE)) == null ? void 0 : _a.length) ?? 0;
+    const kanaChars = ((_b = compact.match(KANA_RE)) == null ? void 0 : _b.length) ?? 0;
+    const latinWords = ((_c = compact.match(LATIN_WORD_RE)) == null ? void 0 : _c.length) ?? 0;
+    if (kanaChars >= 2) return true;
+    if (japaneseChars >= 4) return true;
+    return japaneseChars >= 2 && latinWords <= 2;
+  }
+  function collectYouTubeVideoCards(root = document) {
+    return Array.from(root.querySelectorAll(VIDEO_CARD_SELECTOR)).filter((card) => !card.closest("[data-jpdb-reader-root]"));
+  }
+  function readYouTubeCardText(card) {
+    var _a;
+    const title = card.querySelector(TITLE_SELECTOR);
+    const titleText = [
+      title == null ? void 0 : title.getAttribute("title"),
+      title == null ? void 0 : title.getAttribute("aria-label"),
+      title == null ? void 0 : title.textContent
+    ].find((value) => value == null ? void 0 : value.trim()) ?? "";
+    return titleText.trim() || ((_a = card.textContent) == null ? void 0 : _a.trim()) || "";
+  }
+  class YoutubeImmersionFilter {
+    constructor(options) {
+      __publicField(this, "observer");
+      __publicField(this, "timer");
+      __publicField(this, "bar");
+      __publicField(this, "revealed", false);
+      this.options = options;
+    }
+    init() {
+      var _a;
+      if (!isYouTubeHost()) return;
+      (_a = this.observer) == null ? void 0 : _a.disconnect();
+      this.observer = new MutationObserver((mutations) => {
+        if (mutations.some(mutationInsideReaderRoot$1)) return;
+        this.schedule(350);
+      });
+      this.observer.observe(document.body, { childList: true, subtree: true });
+      window.addEventListener("yt-navigate-finish", () => this.schedule(120));
+      window.addEventListener("popstate", () => this.schedule(120));
+      this.schedule(300);
+    }
+    refresh() {
+      if (!isYouTubeHost()) return;
+      if (!this.options.getSettings().youtubeImmersionEnabled) {
+        this.clear();
+        return;
+      }
+      this.schedule(80);
+    }
+    schedule(delay) {
+      window.clearTimeout(this.timer);
+      this.timer = window.setTimeout(() => this.scan(), delay);
+    }
+    scan() {
+      var _a;
+      const settings = this.options.getSettings();
+      if (!settings.youtubeImmersionEnabled) {
+        this.clear();
+        return;
+      }
+      let filteredCount = 0;
+      let shownCount = 0;
+      for (const card of collectYouTubeVideoCards()) {
+        const text = readYouTubeCardText(card);
+        if (!text) continue;
+        const isJapanese = isProbablyJapaneseYouTubeText(text);
+        if (!isJapanese) filteredCount += 1;
+        if (isJapanese || this.revealed) {
+          this.showCard(card);
+          shownCount += 1;
+        } else {
+          this.hideCard(card);
+        }
+      }
+      if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount);
+      else (_a = this.bar) == null ? void 0 : _a.remove();
+    }
+    hideCard(card) {
+      card.classList.add("jpdb-youtube-filtered");
+      card.dataset.yomuYoutubeFiltered = "true";
+    }
+    showCard(card) {
+      card.classList.remove("jpdb-youtube-filtered");
+      delete card.dataset.yomuYoutubeFiltered;
+    }
+    renderNotice(filteredCount, shownCount) {
+      var _a;
+      if (!filteredCount) {
+        (_a = this.bar) == null ? void 0 : _a.remove();
+        this.bar = void 0;
+        return;
+      }
+      if (!this.bar) {
+        this.bar = document.createElement("div");
+        this.bar.className = "jpdb-youtube-filter-bar";
+        this.bar.dataset.jpdbReaderRoot = "true";
+        const label = document.createElement("span");
+        label.dataset.role = "summary";
+        const button22 = document.createElement("button");
+        button22.type = "button";
+        button22.addEventListener("click", () => {
+          this.revealed = !this.revealed;
+          this.schedule(0);
+        });
+        this.bar.append(label, button22);
+        document.body.append(this.bar);
+      }
+      const summary = this.bar.querySelector('[data-role="summary"]');
+      const button2 = this.bar.querySelector("button");
+      if (summary) {
+        summary.textContent = this.revealed ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? "" : "s"}` : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? "" : "s"}`;
+        summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : "";
+      }
+      if (button2) button2.textContent = this.revealed ? "Filter again" : "Reveal";
+    }
+    clear() {
+      var _a;
+      window.clearTimeout(this.timer);
+      this.revealed = false;
+      collectYouTubeVideoCards().forEach((card) => this.showCard(card));
+      document.querySelectorAll('[data-yomu-youtube-filtered="true"]').forEach((card) => this.showCard(card));
+      (_a = this.bar) == null ? void 0 : _a.remove();
+      this.bar = void 0;
+    }
+  }
+  function mutationInsideReaderRoot$1(mutation) {
+    const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
+    return nodes.every((node) => {
+      var _a;
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
     });
   }
   var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : {};
@@ -6307,6 +7156,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       __publicField(this, "jpdb", new JpdbClient(() => this.settings.apiKey.trim()));
       __publicField(this, "audio", new AudioPlayer(() => this.settings));
       __publicField(this, "dictionaries", new YomitanDictionaryStore());
+      __publicField(this, "onboarding", new OnboardingController({
+        getSettings: () => this.settings,
+        setSettings: (settings) => {
+          this.settings = settings;
+          this.applyTheme();
+        },
+        showSettings: () => this.showSettings()
+      }));
       __publicField(this, "subtitles", new SubtitlePlayerController({
         getSettings: () => this.settings,
         parseJapanese: async (text) => (await this.jpdb.parse([text]))[0] ?? [],
@@ -6318,6 +7175,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         onLookup: (text, sentence) => this.lookupText(text, sentence),
         onToast: (message) => this.toast(message)
       }));
+      __publicField(this, "youtube", new YoutubeImmersionFilter({ getSettings: () => this.settings }));
       __publicField(this, "activePopover");
       __publicField(this, "activeBackdrop");
       __publicField(this, "fab");
@@ -6340,6 +7198,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       this.bindEvents();
       this.subtitles.init();
       this.ocr.init();
+      this.youtube.init();
       if (typeof GM_registerMenuCommand === "function") {
         GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
         GM_registerMenuCommand(`${APP_NAME} scan visible page`, () => this.scanVisiblePage());
@@ -6350,9 +7209,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         });
       }
       this.setupAutoScan();
+      const showedOnboarding = await this.onboarding.showIfNeeded();
       if (!this.settings.apiKey) {
-        this.toast(`${APP_NAME} is installed. Add your JPDB API key to start.`);
-        this.showSettings();
+        if (!showedOnboarding) this.showSettings();
       } else if (this.settings.scanVisiblePage || this.settings.autoScanJapanese) {
         void this.scanVisiblePage({ silent: true });
       }
@@ -6366,6 +7225,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
     }
     applyTheme() {
+      const accentColor = sanitizeAccentColor(this.settings.accentColor);
+      document.documentElement.style.setProperty("--jpdb-reader-accent", accentColor);
+      document.documentElement.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18));
       document.documentElement.classList.toggle("jpdb-reader-theme-dark", this.settings.theme === "dark");
       document.documentElement.classList.toggle("jpdb-reader-theme-light", this.settings.theme === "light");
       document.documentElement.classList.toggle("jpdb-reader-hide-known", this.settings.hideKnownFurigana);
@@ -6374,17 +7236,17 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       var _a;
       (_a = this.fab) == null ? void 0 : _a.remove();
       this.fab = void 0;
-      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element) => element.remove());
+      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => element2.remove());
       if (!this.settings.showFloatingButton) return;
-      const button = document.createElement("button");
-      button.className = "jpdb-reader-fab";
-      button.type = "button";
-      button.textContent = APP_PUCK;
-      button.title = APP_NAME;
-      button.dataset.jpdbReaderRoot = "true";
-      button.addEventListener("click", () => this.showQuickMenu(button));
-      document.body.appendChild(button);
-      this.fab = button;
+      const button2 = document.createElement("button");
+      button2.className = "jpdb-reader-fab";
+      button2.type = "button";
+      button2.textContent = APP_PUCK;
+      button2.title = APP_NAME;
+      button2.dataset.jpdbReaderRoot = "true";
+      button2.addEventListener("click", () => this.showQuickMenu(button2));
+      document.body.appendChild(button2);
+      this.fab = button2;
     }
     setupAutoScan() {
       var _a;
@@ -6481,7 +7343,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.settings.ocrEnabled = !this.settings.ocrEnabled;
           void saveSettings(this.settings);
           this.ocr.refresh();
-          this.toast(this.settings.ocrEnabled ? "OCR enabled." : "OCR hidden.");
+          this.toast(this.settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
@@ -6603,9 +7465,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         `);
       popover.addEventListener("click", (event) => {
         var _a;
-        const button = event.target.closest("button[data-vid]");
-        if (!button) return;
-        const card = this.jpdb.getCard(Number(button.dataset.vid), Number(button.dataset.sid));
+        const button2 = event.target.closest("button[data-vid]");
+        if (!button2) return;
+        const card = this.jpdb.getCard(Number(button2.dataset.vid), Number(button2.dataset.sid));
         if (card) void this.showCard(card, (_a = tokens.find((t) => t.card === card)) == null ? void 0 : _a.sentence);
       });
       this.mountPopover(popover);
@@ -6698,11 +7560,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         `);
       if (requestId !== this.cardRenderRequest) return;
       popover.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-action]");
-        if (!button) return;
+        const button2 = event.target.closest("[data-action]");
+        if (!button2) return;
         event.preventDefault();
         event.stopPropagation();
-        void this.handleCardAction(button, card, sentence);
+        void this.handleCardAction(button2, card, sentence);
       });
       this.mountPopover(popover, anchor);
       if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
@@ -6799,10 +7661,10 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
             </div>
         `;
     }
-    async handleCardAction(button, card, sentence) {
-      if (button.disabled) return;
-      button.disabled = true;
-      const action = button.dataset.action;
+    async handleCardAction(button2, card, sentence) {
+      if (button2.disabled) return;
+      button2.disabled = true;
+      const action = button2.dataset.action;
       try {
         if (action === "audio") await this.playAudio(card);
         if (action === "add") {
@@ -6813,14 +7675,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         if (action === "neverforget") await this.toggleDeck(card, "never-forget", this.settings.neverForgetDeck);
         if (action === "blacklist") await this.toggleDeck(card, "blacklisted", this.settings.blacklistDeck);
         if (action === "grade") {
-          await this.jpdb.reviewCard(card, button.dataset.grade);
+          await this.jpdb.reviewCard(card, button2.dataset.grade);
           this.toast("Review sent.");
         }
         if (action !== "audio") await this.showCard(card, sentence, void 0, { autoPlay: false });
       } catch (error) {
         this.toast(error instanceof Error ? error.message : "Action failed.");
       } finally {
-        button.disabled = false;
+        button2.disabled = false;
       }
     }
     async toggleDeck(card, state, deck) {
@@ -6840,7 +7702,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
     }
     showSettings() {
-      var _a;
+      var _a, _b;
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
       form.dataset.jpdbReaderRoot = "true";
@@ -6869,9 +7731,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 <legend>Audio</legend>
                 ${checkbox("audioEnabled", "Enable audio playback for terms", this.settings.audioEnabled)}
                 ${checkbox("autoPlayAudio", "Auto-play search result audio", this.settings.autoPlayAudio)}
-                ${checkbox("audioEnableDefaultSources", "Enable Default Audio Sources", this.settings.audioEnableDefaultSources)}
+                ${checkbox("audioEnableDefaultSources", "Use built-in audio sources", this.settings.audioEnableDefaultSources)}
                 <div class="grid">
-                    ${select("audioSelectionMode", "Audio returned by source", this.settings.audioSelectionMode, [["first", "First audio"], ["random", "Random audio"]])}
+                    ${select("audioSelectionMode", "When a source has several clips", this.settings.audioSelectionMode, [["first", "First audio"], ["random", "Random audio"]])}
                     ${checkbox("audioViaBlob", "Fetch as blob for iOS Tampermonkey", this.settings.audioViaBlob)}
                     ${input("audioTimeoutMs", "Audio timeout (ms)", String(this.settings.audioTimeoutMs), "number")}
                 </div>
@@ -6901,24 +7763,26 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 <div class="grid">
                     ${select("theme", "Theme", this.settings.theme, [["auto", "Auto"], ["dark", "Dark"], ["light", "Light"]])}
                     ${select("popupMode", "Popup mode", this.settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
+                    ${input("accentColor", "Accent color", sanitizeAccentColor(this.settings.accentColor), "color")}
                 </div>
             </fieldset>
             <fieldset>
-                <legend>OCR</legend>
+                <legend>Images</legend>
                 <div class="grid">
-                    ${checkbox("ocrEnabled", "Enable image OCR", this.settings.ocrEnabled)}
+                    ${checkbox("ocrEnabled", "Read text in images", this.settings.ocrEnabled)}
                     ${checkbox("ocrAutoScanImages", "Read images automatically", this.settings.ocrAutoScanImages)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", this.settings.ocrShowTextOverlay)}
-                    ${select("ocrProvider", "Image reading", this.settings.ocrProvider, [["auto", "Automatic (recommended)"], ["fast", "Fast page text only"], ["custom-json", "Custom service"], ["off", "Off"]])}
+                    ${select("ocrProvider", "Image reading", this.settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["local-service", "Local OCR app"], ["cloud-vision", "Google Cloud Vision"], ["page-text", "Page text only"], ["off", "Off"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(this.settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(this.settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
                     ${select("ocrMaxImagePixels", "Image detail", String(this.settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
-                    ${input("ocrEndpointUrl", "Custom service URL", this.settings.ocrEndpointUrl)}
-                    <input type="hidden" name="ocrEngine" value="${escapeHtml$1(this.settings.ocrEngine)}">
+                    <label data-local-ocr ${this.settings.ocrProvider === "local-service" ? "" : "hidden"}>Local OCR app URL<input name="ocrEndpointUrl" type="text" value="${escapeHtml$1(this.settings.ocrEndpointUrl)}" autocomplete="off"></label>
+                    <div data-local-ocr ${this.settings.ocrProvider === "local-service" ? "" : "hidden"}>${select("ocrEngine", "Local OCR engine", this.settings.ocrEngine, [["auto", "Automatic"], ["MangaOCR", "MangaOCR"], ["PaddleOCR", "PaddleOCR"], ["AppleVision", "Apple Vision"]])}</div>
+                    <label data-cloud-ocr ${this.settings.ocrProvider === "cloud-vision" ? "" : "hidden"}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml$1(this.settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(this.settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${this.settings.ocrPrefetchMargin}">
                 </div>
-                <div class="jpdb-reader-help">Automatic uses page image text instantly and quietly reads nearby images in the background. Recognized areas are tappable without covering the image.</div>
+                <div class="jpdb-reader-help">Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
             </fieldset>
             <fieldset>
                 <legend>Video</legend>
@@ -6932,6 +7796,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${input("subtitleBottomOffset", "Subtitle bottom offset (%)", String(this.settings.subtitleBottomOffset), "number")}
                     ${input("subtitleSeekPadding", "Subtitle seek padding (seconds)", String(this.settings.subtitleSeekPadding), "number")}
                 </div>
+            </fieldset>
+            <fieldset>
+                <legend>YouTube</legend>
+                <div class="grid">
+                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese-looking YouTube videos", this.settings.youtubeImmersionEnabled)}
+                    ${checkbox("youtubeShowFilterNotice", "Show reveal control for hidden videos", this.settings.youtubeShowFilterNotice)}
+                </div>
+                <div class="jpdb-reader-help">Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
             </fieldset>
             <fieldset>
                 <legend>Yomitan</legend>
@@ -6964,8 +7836,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${input("shortcuts.previousSubtitle", "Previous subtitle", this.settings.shortcuts.previousSubtitle)}
                     ${input("shortcuts.nextSubtitle", "Next subtitle", this.settings.shortcuts.nextSubtitle)}
                     ${input("shortcuts.copySubtitle", "Copy subtitle", this.settings.shortcuts.copySubtitle)}
-                    ${input("shortcuts.toggleOcr", "Toggle OCR", this.settings.shortcuts.toggleOcr)}
-                    ${input("shortcuts.scanImages", "Scan images", this.settings.shortcuts.scanImages)}
+                    ${input("shortcuts.toggleOcr", "Toggle image reading", this.settings.shortcuts.toggleOcr)}
+                    ${input("shortcuts.scanImages", "Read images now", this.settings.shortcuts.scanImages)}
                     ${input("shortcuts.gradeNothing", "Grade NOTHING", this.settings.shortcuts.gradeNothing)}
                     ${input("shortcuts.gradeSomething", "Grade SOMETHING", this.settings.shortcuts.gradeSomething)}
                     ${input("shortcuts.gradeHard", "Grade HARD", this.settings.shortcuts.gradeHard)}
@@ -6992,12 +7864,22 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.installFab();
           this.subtitles.refresh();
           this.ocr.refresh();
+          this.youtube.refresh();
           this.scheduleAutoScan(100);
           this.dismiss();
           this.toast("Settings saved.");
         });
       });
       (_a = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _a.addEventListener("click", () => this.dismiss());
+      (_b = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _b.addEventListener("change", (event) => {
+        const value = event.currentTarget.value;
+        form.querySelectorAll("[data-local-ocr]").forEach((node) => {
+          node.hidden = value !== "local-service";
+        });
+        form.querySelectorAll("[data-cloud-ocr]").forEach((node) => {
+          node.hidden = value !== "cloud-vision";
+        });
+      });
       form.addEventListener("click", (event) => {
         var _a2;
         const action = (_a2 = event.target.closest("[data-action]")) == null ? void 0 : _a2.dataset.action;
@@ -7063,6 +7945,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.applyTheme();
           this.installFab();
           this.subtitles.refresh();
+          this.youtube.refresh();
           this.showSettings();
           return;
         }
@@ -7133,7 +8016,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       this.cardRenderRequest++;
       (_a = this.activePopover) == null ? void 0 : _a.remove();
       (_b = this.activeBackdrop) == null ? void 0 : _b.remove();
-      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element) => element.remove());
+      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element2) => element2.remove());
       this.activePopover = void 0;
       this.activeBackdrop = void 0;
     }
@@ -7159,8 +8042,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     (_a = playable[0]) == null ? void 0 : _a.pause();
   }
   function isEditableTarget(target) {
-    const element = target instanceof Element ? target : null;
-    return Boolean(element == null ? void 0 : element.closest('input, textarea, select, [contenteditable="true"]'));
+    const element2 = target instanceof Element ? target : null;
+    return Boolean(element2 == null ? void 0 : element2.closest('input, textarea, select, [contenteditable="true"]'));
   }
   function mutationTouchesAsbPlayer(mutation) {
     const nodes = [
@@ -7169,8 +8052,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     ];
     return nodes.some((node) => {
       var _a;
-      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean((_a = element == null ? void 0 : element.closest) == null ? void 0 : _a.call(element, ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
     });
   }
   function mutationInsideReaderRoot(mutation) {
@@ -7181,8 +8064,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     ];
     return nodes.every((node) => {
       var _a;
-      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean((_a = element == null ? void 0 : element.closest) == null ? void 0 : _a.call(element, "[data-jpdb-reader-root]"));
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
     });
   }
   function pickTokenForSelection(tokens = [], selected) {
@@ -7334,6 +8217,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       audioSources,
       audioEnableDefaultSources: has("audioEnableDefaultSources"),
       audioSourceUrl: ((_a = audioSources.find((source) => source.url.trim())) == null ? void 0 : _a.url.trim()) ?? current.audioSourceUrl,
+      accentColor: sanitizeAccentColor(get("accentColor"), current.accentColor),
       audioViaBlob: has("audioViaBlob"),
       audioTimeoutMs: Math.max(1e3, number("audioTimeoutMs", current.audioTimeoutMs)),
       audioSelectionMode: get("audioSelectionMode") === "random" ? "random" : "first",
@@ -7349,9 +8233,10 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       ocrEnabled: has("ocrEnabled"),
       ocrAutoScanImages: has("ocrAutoScanImages"),
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
-      ocrProvider: ["auto", "fast", "custom-json", "off"].includes(get("ocrProvider")) ? get("ocrProvider") : "auto",
+      ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
-      ocrEngine: get("ocrEngine").trim() || "MangaOCR",
+      ocrEngine: get("ocrEngine").trim() || "auto",
+      ocrCloudVisionApiKey: get("ocrCloudVisionApiKey").trim(),
       ocrLanguage: get("ocrLanguage").trim() || "ja-JP",
       ocrMaxImagePixels: Math.max(16e4, Math.min(28e5, number("ocrMaxImagePixels", current.ocrMaxImagePixels))),
       ocrMinImageArea: Math.max(1e4, Math.min(8e5, number("ocrMinImageArea", current.ocrMinImageArea))),
@@ -7369,6 +8254,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       subtitleBottomOffset: Math.max(2, Math.min(40, number("subtitleBottomOffset", current.subtitleBottomOffset))),
       subtitleMiningPause: has("subtitleMiningPause"),
       subtitleSeekPadding: Math.max(-2, Math.min(2, number("subtitleSeekPadding", current.subtitleSeekPadding))),
+      youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
+      youtubeShowFilterNotice: has("youtubeShowFilterNotice"),
       theme: get("theme"),
       popupMode: get("popupMode"),
       miningDeck: get("miningDeck").trim() || "forq",

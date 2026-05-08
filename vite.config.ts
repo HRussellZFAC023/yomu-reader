@@ -48,6 +48,9 @@ export default defineConfig({
                 ],
                 connect: [
                     'jpdb.io',
+                    'lensfrontend-pa.googleapis.com',
+                    'lens.google.com',
+                    'vision.googleapis.com',
                     'localhost',
                     '127.0.0.1',
                     '*.ts.net',

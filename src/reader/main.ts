@@ -11,21 +11,26 @@ import {
     setInnerHtml,
 } from './dom';
 import { JpdbClient } from './jpdb';
+import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
 import {
     AUDIO_GUIDE_URL,
     AUDIO_SOURCE_OPTIONS,
     DEFAULT_SETTINGS,
+    accentToRgba,
     loadSettings,
     matchesShortcut,
     mergeDictionaryPreferences,
     normalizeAudioSource,
+    normalizeOcrProvider,
+    sanitizeAccentColor,
     saveSettings,
 } from './settings';
 import { READER_CSS } from './styles';
 import { SubtitlePlayerController } from './subtitles';
 import type { AudioSourceSetting, DictionaryPreference, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
+import { YoutubeImmersionFilter } from './youtube';
 import {
     YomitanDictionaryStore,
     glossaryToHtml,
@@ -42,6 +47,14 @@ class ReaderApp {
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
     private audio = new AudioPlayer(() => this.settings);
     private dictionaries = new YomitanDictionaryStore();
+    private onboarding = new OnboardingController({
+        getSettings: () => this.settings,
+        setSettings: settings => {
+            this.settings = settings;
+            this.applyTheme();
+        },
+        showSettings: () => this.showSettings(),
+    });
     private subtitles = new SubtitlePlayerController({
         getSettings: () => this.settings,
         parseJapanese: async text => (await this.jpdb.parse([text]))[0] ?? [],
@@ -53,6 +66,7 @@ class ReaderApp {
         onLookup: (text, sentence) => this.lookupText(text, sentence),
         onToast: message => this.toast(message),
     });
+    private youtube = new YoutubeImmersionFilter({ getSettings: () => this.settings });
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
     private fab?: HTMLButtonElement;
@@ -75,6 +89,7 @@ class ReaderApp {
         this.bindEvents();
         this.subtitles.init();
         this.ocr.init();
+        this.youtube.init();
 
         if (typeof GM_registerMenuCommand === 'function') {
             GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
@@ -87,9 +102,9 @@ class ReaderApp {
         }
 
         this.setupAutoScan();
+        const showedOnboarding = await this.onboarding.showIfNeeded();
         if (!this.settings.apiKey) {
-            this.toast(`${APP_NAME} is installed. Add your JPDB API key to start.`);
-            this.showSettings();
+            if (!showedOnboarding) this.showSettings();
         } else if (this.settings.scanVisiblePage || this.settings.autoScanJapanese) {
             void this.scanVisiblePage({ silent: true });
         }
@@ -105,6 +120,9 @@ class ReaderApp {
     }
 
     private applyTheme(): void {
+        const accentColor = sanitizeAccentColor(this.settings.accentColor);
+        document.documentElement.style.setProperty('--jpdb-reader-accent', accentColor);
+        document.documentElement.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18));
         document.documentElement.classList.toggle('jpdb-reader-theme-dark', this.settings.theme === 'dark');
         document.documentElement.classList.toggle('jpdb-reader-theme-light', this.settings.theme === 'light');
         document.documentElement.classList.toggle('jpdb-reader-hide-known', this.settings.hideKnownFurigana);
@@ -227,7 +245,7 @@ class ReaderApp {
                 this.settings.ocrEnabled = !this.settings.ocrEnabled;
                 void saveSettings(this.settings);
                 this.ocr.refresh();
-                this.toast(this.settings.ocrEnabled ? 'OCR enabled.' : 'OCR hidden.');
+                this.toast(this.settings.ocrEnabled ? 'Image reading enabled.' : 'Image reading hidden.');
                 return;
             }
             if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
@@ -657,9 +675,9 @@ class ReaderApp {
                 <legend>Audio</legend>
                 ${checkbox('audioEnabled', 'Enable audio playback for terms', this.settings.audioEnabled)}
                 ${checkbox('autoPlayAudio', 'Auto-play search result audio', this.settings.autoPlayAudio)}
-                ${checkbox('audioEnableDefaultSources', 'Enable Default Audio Sources', this.settings.audioEnableDefaultSources)}
+                ${checkbox('audioEnableDefaultSources', 'Use built-in audio sources', this.settings.audioEnableDefaultSources)}
                 <div class="grid">
-                    ${select('audioSelectionMode', 'Audio returned by source', this.settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
+                    ${select('audioSelectionMode', 'When a source has several clips', this.settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
                     ${checkbox('audioViaBlob', 'Fetch as blob for iOS Tampermonkey', this.settings.audioViaBlob)}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(this.settings.audioTimeoutMs), 'number')}
                 </div>
@@ -689,24 +707,26 @@ class ReaderApp {
                 <div class="grid">
                     ${select('theme', 'Theme', this.settings.theme, [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']])}
                     ${select('popupMode', 'Popup mode', this.settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
+                    ${input('accentColor', 'Accent color', sanitizeAccentColor(this.settings.accentColor), 'color')}
                 </div>
             </fieldset>
             <fieldset>
-                <legend>OCR</legend>
+                <legend>Images</legend>
                 <div class="grid">
-                    ${checkbox('ocrEnabled', 'Enable image OCR', this.settings.ocrEnabled)}
+                    ${checkbox('ocrEnabled', 'Read text in images', this.settings.ocrEnabled)}
                     ${checkbox('ocrAutoScanImages', 'Read images automatically', this.settings.ocrAutoScanImages)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', this.settings.ocrShowTextOverlay)}
-                    ${select('ocrProvider', 'Image reading', this.settings.ocrProvider, [['auto', 'Automatic (recommended)'], ['fast', 'Fast page text only'], ['custom-json', 'Custom service'], ['off', 'Off']])}
+                    ${select('ocrProvider', 'Image reading', this.settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['local-service', 'Local OCR app'], ['cloud-vision', 'Google Cloud Vision'], ['page-text', 'Page text only'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(this.settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(this.settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(this.settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
-                    ${input('ocrEndpointUrl', 'Custom service URL', this.settings.ocrEndpointUrl)}
-                    <input type="hidden" name="ocrEngine" value="${escapeHtml(this.settings.ocrEngine)}">
+                    <label data-local-ocr ${this.settings.ocrProvider === 'local-service' ? '' : 'hidden'}>Local OCR app URL<input name="ocrEndpointUrl" type="text" value="${escapeHtml(this.settings.ocrEndpointUrl)}" autocomplete="off"></label>
+                    <div data-local-ocr ${this.settings.ocrProvider === 'local-service' ? '' : 'hidden'}>${select('ocrEngine', 'Local OCR engine', this.settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision']])}</div>
+                    <label data-cloud-ocr ${this.settings.ocrProvider === 'cloud-vision' ? '' : 'hidden'}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml(this.settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(this.settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${this.settings.ocrPrefetchMargin}">
                 </div>
-                <div class="jpdb-reader-help">Automatic uses page image text instantly and quietly reads nearby images in the background. Recognized areas are tappable without covering the image.</div>
+                <div class="jpdb-reader-help">Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
             </fieldset>
             <fieldset>
                 <legend>Video</legend>
@@ -720,6 +740,14 @@ class ReaderApp {
                     ${input('subtitleBottomOffset', 'Subtitle bottom offset (%)', String(this.settings.subtitleBottomOffset), 'number')}
                     ${input('subtitleSeekPadding', 'Subtitle seek padding (seconds)', String(this.settings.subtitleSeekPadding), 'number')}
                 </div>
+            </fieldset>
+            <fieldset>
+                <legend>YouTube</legend>
+                <div class="grid">
+                    ${checkbox('youtubeImmersionEnabled', 'Only show Japanese-looking YouTube videos', this.settings.youtubeImmersionEnabled)}
+                    ${checkbox('youtubeShowFilterNotice', 'Show reveal control for hidden videos', this.settings.youtubeShowFilterNotice)}
+                </div>
+                <div class="jpdb-reader-help">Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
             </fieldset>
             <fieldset>
                 <legend>Yomitan</legend>
@@ -752,8 +780,8 @@ class ReaderApp {
                     ${input('shortcuts.previousSubtitle', 'Previous subtitle', this.settings.shortcuts.previousSubtitle)}
                     ${input('shortcuts.nextSubtitle', 'Next subtitle', this.settings.shortcuts.nextSubtitle)}
                     ${input('shortcuts.copySubtitle', 'Copy subtitle', this.settings.shortcuts.copySubtitle)}
-                    ${input('shortcuts.toggleOcr', 'Toggle OCR', this.settings.shortcuts.toggleOcr)}
-                    ${input('shortcuts.scanImages', 'Scan images', this.settings.shortcuts.scanImages)}
+                    ${input('shortcuts.toggleOcr', 'Toggle image reading', this.settings.shortcuts.toggleOcr)}
+                    ${input('shortcuts.scanImages', 'Read images now', this.settings.shortcuts.scanImages)}
                     ${input('shortcuts.gradeNothing', 'Grade NOTHING', this.settings.shortcuts.gradeNothing)}
                     ${input('shortcuts.gradeSomething', 'Grade SOMETHING', this.settings.shortcuts.gradeSomething)}
                     ${input('shortcuts.gradeHard', 'Grade HARD', this.settings.shortcuts.gradeHard)}
@@ -781,12 +809,18 @@ class ReaderApp {
                 this.installFab();
                 this.subtitles.refresh();
                 this.ocr.refresh();
+                this.youtube.refresh();
                 this.scheduleAutoScan(100);
                 this.dismiss();
                 this.toast('Settings saved.');
             });
         });
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismiss());
+        form.querySelector<HTMLSelectElement>('select[name="ocrProvider"]')?.addEventListener('change', event => {
+            const value = (event.currentTarget as HTMLSelectElement).value;
+            form.querySelectorAll<HTMLElement>('[data-local-ocr]').forEach(node => { node.hidden = value !== 'local-service'; });
+            form.querySelectorAll<HTMLElement>('[data-cloud-ocr]').forEach(node => { node.hidden = value !== 'cloud-vision'; });
+        });
         form.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
             if (!action || action === 'cancel') return;
@@ -856,6 +890,7 @@ class ReaderApp {
                 this.applyTheme();
                 this.installFab();
                 this.subtitles.refresh();
+                this.youtube.refresh();
                 this.showSettings();
                 return;
             }
@@ -1162,6 +1197,7 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         audioSources,
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
+        accentColor: sanitizeAccentColor(get('accentColor'), current.accentColor),
         audioViaBlob: has('audioViaBlob'),
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
         audioSelectionMode: get('audioSelectionMode') === 'random' ? 'random' : 'first',
@@ -1177,9 +1213,10 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
-        ocrProvider: ['auto', 'fast', 'custom-json', 'off'].includes(get('ocrProvider')) ? get('ocrProvider') as ReaderSettings['ocrProvider'] : 'auto',
+        ocrProvider: normalizeOcrProvider(get('ocrProvider')),
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
-        ocrEngine: get('ocrEngine').trim() || 'MangaOCR',
+        ocrEngine: get('ocrEngine').trim() || 'auto',
+        ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
         ocrLanguage: get('ocrLanguage').trim() || 'ja-JP',
         ocrMaxImagePixels: Math.max(160000, Math.min(2800000, number('ocrMaxImagePixels', current.ocrMaxImagePixels))),
         ocrMinImageArea: Math.max(10000, Math.min(800000, number('ocrMinImageArea', current.ocrMinImageArea))),
@@ -1197,6 +1234,8 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         subtitleBottomOffset: Math.max(2, Math.min(40, number('subtitleBottomOffset', current.subtitleBottomOffset))),
         subtitleMiningPause: has('subtitleMiningPause'),
         subtitleSeekPadding: Math.max(-2, Math.min(2, number('subtitleSeekPadding', current.subtitleSeekPadding))),
+        youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
+        youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
         theme: get('theme') as ReaderSettings['theme'],
         popupMode: get('popupMode') as ReaderSettings['popupMode'],
         miningDeck: get('miningDeck').trim() || 'forq',

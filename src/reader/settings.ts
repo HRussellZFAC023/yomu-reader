@@ -1,9 +1,11 @@
-import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, ReaderSettings } from './types';
+import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, OcrProvider, ReaderSettings } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
 
 export const DEFAULT_AUDIO_URL =
     'http://localhost:9090/?term={term}&reading={reading}';
+
+export const DEFAULT_ACCENT_COLOR = '#5ea780';
 
 export const AUDIO_GUIDE_URL = 'https://yomitan.wiki/advanced/#audio';
 
@@ -31,6 +33,8 @@ const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([v
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
+    onboardingSeen: false,
+    accentColor: DEFAULT_ACCENT_COLOR,
     audioEnabled: true,
     autoPlayAudio: true,
     audioSources: DEFAULT_AUDIO_SOURCES,
@@ -51,9 +55,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: false,
-    ocrProvider: 'auto',
+    ocrProvider: 'google-lens',
     ocrEndpointUrl: '',
-    ocrEngine: 'MangaOCR',
+    ocrEngine: 'auto',
+    ocrCloudVisionApiKey: '',
     ocrLanguage: 'ja-JP',
     ocrMaxImagePixels: 1200000,
     ocrMinImageArea: 45000,
@@ -71,6 +76,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleBottomOffset: 12,
     subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
+    youtubeImmersionEnabled: false,
+    youtubeShowFilterNotice: true,
     theme: 'auto',
     popupMode: 'auto',
     miningDeck: 'forq',
@@ -107,14 +114,52 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
     return {
         ...DEFAULT_SETTINGS,
         ...(value ?? {}),
+        accentColor: sanitizeAccentColor(value?.accentColor),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
+        ocrProvider: normalizeOcrProvider(value?.ocrProvider),
+        ocrEngine: normalizeOcrEngine(value?.ocrEngine),
         dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
         shortcuts: {
             ...DEFAULT_SETTINGS.shortcuts,
             ...(value?.shortcuts ?? {}),
         },
     };
+}
+
+export function sanitizeAccentColor(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
+    if (typeof value !== 'string') return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    if (!shortHex) return fallback;
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+}
+
+export function accentToRgba(color: string, alpha: number): string {
+    const safe = sanitizeAccentColor(color);
+    const red = parseInt(safe.slice(1, 3), 16);
+    const green = parseInt(safe.slice(3, 5), 16);
+    const blue = parseInt(safe.slice(5, 7), 16);
+    return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+}
+
+export function normalizeOcrProvider(value: unknown): OcrProvider {
+    if (value === 'auto') return 'google-lens';
+    if (value === 'fast') return 'page-text';
+    if (value === 'custom-json') return 'local-service';
+    if (value === 'google-lens' || value === 'cloud-vision' || value === 'local-service' || value === 'page-text' || value === 'off') return value;
+    return DEFAULT_SETTINGS.ocrProvider;
+}
+
+export function normalizeOcrEngine(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) return DEFAULT_SETTINGS.ocrEngine;
+    const normalized = value.trim();
+    if (normalized === 'MangaOcrAdapter') return 'MangaOCR';
+    if (normalized === 'PpOcrAdapter') return 'PaddleOCR';
+    if (normalized === 'AppleVisionAdapter') return 'AppleVision';
+    if (normalized === 'Google Lens') return 'auto';
+    return normalized;
 }
 
 export async function loadSettings(): Promise<ReaderSettings> {

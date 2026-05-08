@@ -5,8 +5,9 @@ import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from 
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
-import { DEFAULT_SETTINGS, matchesShortcut, normalizeAudioSources } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
+import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport } from '../../src/reader/yomitan';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
@@ -67,6 +68,18 @@ describe('reader helpers', () => {
         expect(normalizeAudioSources(undefined, 'http://localhost:9090/?term={term}')).toMatchObject([
             { type: 'custom-json', url: 'http://localhost:9090/?term={term}', enabled: true },
         ]);
+    });
+
+    it('migrates older OCR provider names to the current readable options', () => {
+        expect(normalizeOcrProvider('auto')).toBe('google-lens');
+        expect(normalizeOcrProvider('fast')).toBe('page-text');
+        expect(normalizeOcrProvider('custom-json')).toBe('local-service');
+    });
+
+    it('sanitizes configurable accent colors', () => {
+        expect(sanitizeAccentColor('#7c3aed')).toBe('#7c3aed');
+        expect(sanitizeAccentColor('#abc')).toBe('#aabbcc');
+        expect(sanitizeAccentColor('lime')).toBe(DEFAULT_SETTINGS.accentColor);
     });
 
     it('imports useful settings from a Yomitan backup', () => {
@@ -130,6 +143,32 @@ describe('reader helpers', () => {
             .toContain('jpdb-reader-word jpdb-never-forget');
     });
 
+    it('ignores overlapping token ranges instead of duplicating text', () => {
+        const tokens: JPDBToken[] = [
+            {
+                card: { ...card, spelling: '日本語', reading: 'にほんご', cardState: ['learning'] },
+                start: 0,
+                end: 3,
+                length: 3,
+                rubies: [],
+                pitchClass: '',
+                sentence: '日本語',
+            },
+            {
+                card: { ...card, spelling: '本', reading: 'ほん', cardState: ['known'] },
+                start: 1,
+                end: 2,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+                sentence: '日本語',
+            },
+        ];
+
+        expect(renderTokensToHtml('日本語', tokens, DEFAULT_SETTINGS).replace(/<[^>]+>/g, ''))
+            .toBe('日本語');
+    });
+
     it('can parse asbplayer-style subtitle DOM nodes', () => {
         document.body.innerHTML = '<div class="asbplayer-subtitles-container-bottom"><span>今日は読む</span></div>';
         const [target] = collectTextTargetsIn(document.querySelector('.asbplayer-subtitles-container-bottom')!, 12, false);
@@ -169,6 +208,20 @@ describe('reader helpers', () => {
         expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
     });
 
+    it('identifies Japanese-looking YouTube cards without showing English-only cards', () => {
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer><a id="video-title" aria-label="今日は花を見ます">今日は花を見ます</a></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer><a id="video-title" aria-label="10 habits for learning Japanese">10 habits for learning Japanese</a></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer><a id="video-title" aria-label="study with me">study with me</a><div id="channel-name">日本語チャンネル</div></ytd-rich-item-renderer>
+        `;
+        const cards = collectYouTubeVideoCards(document);
+
+        expect(cards).toHaveLength(3);
+        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(true);
+        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(false);
+        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[2]))).toBe(false);
+    });
+
     it('normalizes structured OCR responses for image overlays', () => {
         const result = normalizeOcrResult({
             context_resolution: { width: 800, height: 1200 },
@@ -191,7 +244,83 @@ describe('reader helpers', () => {
         });
     });
 
-    it('uses image OCR metadata as a no-endpoint fallback for fixtures and accessible manga pages', () => {
+    it('normalizes YomiNinja scalable OCR regions from native engines', () => {
+        const result = normalizeOcrResult({
+            context_resolution: { width: 1000, height: 1200 },
+            ocr_regions: [{
+                id: '0',
+                position: { left: 0, top: 0 },
+                size: { width: 100, height: 100 },
+                results: [{
+                    id: 'line',
+                    box: { position: { left: 20, top: 10 }, dimensions: { width: 30, height: 8 }, isVertical: false },
+                    text: [{
+                        content: '花が咲く',
+                        box: { position: { left: 20, top: 10 }, dimensions: { width: 30, height: 8 }, isVertical: false },
+                    }],
+                }],
+            }],
+        }, 1000, 1200);
+
+        expect(result?.lines[0]).toMatchObject({
+            text: '花が咲く',
+            box: { left: 200, top: 120, width: 300, height: 96 },
+        });
+    });
+
+    it('positions YomiNinja OCR template regions relative to the source image', () => {
+        const result = normalizeOcrResult({
+            context_resolution: { width: 1000, height: 1200 },
+            ocr_regions: [{
+                id: 'manga-panel',
+                position: { left: 0.25, top: 0.1 },
+                size: { width: 0.5, height: 0.5 },
+                results: [{
+                    id: 'line',
+                    box: { position: { left: 20, top: 10 }, dimensions: { width: 30, height: 8 }, isVertical: false },
+                    text: [{
+                        content: '花が咲く',
+                        box: { position: { left: 20, top: 10 }, dimensions: { width: 30, height: 8 }, isVertical: false },
+                    }],
+                }],
+            }],
+        }, 1000, 1200);
+
+        expect(result?.lines[0]).toMatchObject({
+            text: '花が咲く',
+            box: { left: 350, top: 180, width: 150, height: 48 },
+        });
+    });
+
+    it('normalizes Google Cloud Vision OCR responses', () => {
+        const result = normalizeOcrResult({
+            responses: [{
+                fullTextAnnotation: {
+                    pages: [{
+                        width: 800,
+                        height: 600,
+                        blocks: [{
+                            paragraphs: [{
+                                words: [{
+                                    symbols: [
+                                        { text: '花', boundingBox: { vertices: [{ x: 100, y: 50 }, { x: 130, y: 50 }, { x: 130, y: 90 }, { x: 100, y: 90 }] } },
+                                        { text: '火', property: { detectedBreak: { type: 'LINE_BREAK' } }, boundingBox: { vertices: [{ x: 132, y: 50 }, { x: 160, y: 50 }, { x: 160, y: 90 }, { x: 132, y: 90 }] } },
+                                    ],
+                                }],
+                            }],
+                        }],
+                    }],
+                },
+            }],
+        }, 800, 600);
+
+        expect(result?.lines[0]).toMatchObject({
+            text: '花火',
+            box: { left: 100, top: 50, width: 60, height: 40 },
+        });
+    });
+
+    it('uses image OCR metadata as an instant no-endpoint fallback for fixtures', () => {
         const image = document.createElement('img');
         Object.defineProperty(image, 'naturalWidth', { value: 1000 });
         Object.defineProperty(image, 'naturalHeight', { value: 1400 });
@@ -206,13 +335,14 @@ describe('reader helpers', () => {
         });
     });
 
-    it('uses Japanese image alt text as instant no-setup OCR input', () => {
+    it('only uses Japanese image alt text in page-text mode', () => {
         const image = document.createElement('img');
         image.alt = '箱を開ける、お花の定期便';
         Object.defineProperty(image, 'naturalWidth', { value: 1200 });
         Object.defineProperty(image, 'naturalHeight', { value: 800 });
 
-        expect(readFallbackOcrResult(image)?.lines[0]?.text).toBe('箱を開ける、お花の定期便');
+        expect(readFallbackOcrResult(image, false)).toBeNull();
+        expect(readFallbackOcrResult(image, true)?.lines[0]?.text).toBe('箱を開ける、お花の定期便');
     });
 
     it('imports Yomitan Dexie exports with term, kanji, and metadata tables', async () => {
