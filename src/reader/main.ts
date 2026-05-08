@@ -74,6 +74,7 @@ class ReaderApp {
     private lastCard?: JPDBCard;
     private selectionTimer?: number;
     private autoScanTimer?: number;
+    private autoScanDeadline = 0;
     private autoScanObserver?: MutationObserver;
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;
@@ -166,8 +167,14 @@ class ReaderApp {
 
     private scheduleAutoScan(delay: number): void {
         if (!this.settings.autoScanJapanese || !this.settings.apiKey.trim()) return;
+        const deadline = Date.now() + delay;
+        if (this.autoScanTimer && this.autoScanDeadline <= deadline) return;
+
         window.clearTimeout(this.autoScanTimer);
+        this.autoScanDeadline = deadline;
         this.autoScanTimer = window.setTimeout(() => {
+            this.autoScanTimer = undefined;
+            this.autoScanDeadline = 0;
             void this.scanAsbPlayerSubtitles();
             if (collectVisibleTextTargets(1).length > 0) {
                 void this.scanVisiblePage({ silent: true });

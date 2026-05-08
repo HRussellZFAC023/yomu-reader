@@ -7286,6 +7286,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       __publicField(this, "lastCard");
       __publicField(this, "selectionTimer");
       __publicField(this, "autoScanTimer");
+      __publicField(this, "autoScanDeadline", 0);
       __publicField(this, "autoScanObserver");
       __publicField(this, "asbScanTimer");
       __publicField(this, "hoverLookupTimer");
@@ -7371,8 +7372,13 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     }
     scheduleAutoScan(delay) {
       if (!this.settings.autoScanJapanese || !this.settings.apiKey.trim()) return;
+      const deadline = Date.now() + delay;
+      if (this.autoScanTimer && this.autoScanDeadline <= deadline) return;
       window.clearTimeout(this.autoScanTimer);
+      this.autoScanDeadline = deadline;
       this.autoScanTimer = window.setTimeout(() => {
+        this.autoScanTimer = void 0;
+        this.autoScanDeadline = 0;
         void this.scanAsbPlayerSubtitles();
         if (collectVisibleTextTargets(1).length > 0) {
           void this.scanVisiblePage({ silent: true });

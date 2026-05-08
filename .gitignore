@@ -1,6 +1,7 @@
 node_modules/
 dist/*
-!dist/kotoba.user.js
+!dist/yomu.user.js
 dist-reader/
 coverage/
+qa-artifacts/
 .DS_Store

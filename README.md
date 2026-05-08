@@ -97,6 +97,14 @@ npm install
 npm run check
 ```
 
+Run the reproducible browser QA audit:
+
+```bash
+YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY npm run qa:audit
+```
+
+This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`.
+
 Run the local fixtures:
 
 ```bash
