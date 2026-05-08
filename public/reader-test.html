@@ -27,19 +27,25 @@
     <script>
       const params = new URLSearchParams(location.search);
       const apiKey = params.get('apiKey');
-      const audioSourceUrl = params.get('audio') || 'http://localhost:9090/?term={term}&reading={reading}';
+      const audioSourceUrl = params.get('audio');
       if (apiKey) {
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
           apiKey,
           audioEnabled: true,
-          audioSources: [{ type: 'custom-json', url: audioSourceUrl, voice: '', enabled: true }],
+          audioSources: audioSourceUrl
+            ? [{ type: 'custom-json', url: audioSourceUrl, voice: '', enabled: true }]
+            : [
+              { type: 'jpod101', url: '', voice: '', enabled: true },
+              { type: 'language-pod-101', url: '', voice: '', enabled: true },
+              { type: 'jisho', url: '', voice: '', enabled: true }
+            ],
           audioEnableDefaultSources: true,
           audioSourceUrl,
           autoPlayAudio: true,
           audioViaBlob: true,
-          audioSelectionMode: 'first',
+          audioSelectionMode: 'random',
           parseSelection: true,
-          popupActivationMode: 'click',
+          popupActivationMode: 'hover',
           scanModifierKey: 'shift',
           autoScanJapanese: true,
           scanVisiblePage: true,
@@ -47,6 +53,17 @@
           showFurigana: true,
           showPitchAccent: true,
           hideKnownFurigana: true,
+          ocrEnabled: true,
+          ocrAutoScanImages: true,
+          ocrShowTextOverlay: false,
+          ocrProvider: 'auto',
+          ocrEndpointUrl: '',
+          ocrEngine: 'MangaOCR',
+          ocrLanguage: 'ja-JP',
+          ocrMaxImagePixels: 1200000,
+          ocrMinImageArea: 45000,
+          ocrMaxImagesPerPage: 3,
+          ocrPrefetchMargin: 700,
           localDictionariesEnabled: true,
           localDictionaryMaxResults: 12,
           localDictionaryShowKanji: true,
@@ -75,7 +92,15 @@
             previousSubtitle: 'Alt+ArrowLeft',
             nextSubtitle: 'Alt+ArrowRight',
             copySubtitle: 'Alt+C',
-            toggleOcr: 'Alt+O'
+            toggleOcr: 'Alt+O',
+            scanImages: 'Alt+I',
+            gradeNothing: '1',
+            gradeSomething: '2',
+            gradeHard: '3',
+            gradeOkay: '4',
+            gradeEasy: '5',
+            gradeFail: '1',
+            gradePass: '2'
           }
         }));
       }

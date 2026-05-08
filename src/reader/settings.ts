@@ -16,12 +16,16 @@ export const AUDIO_SOURCE_LABELS: Record<AudioSourceType, string> = {
     'text-to-speech': 'Text-to-speech',
     'text-to-speech-reading': 'Text-to-speech (Kana reading)',
     custom: 'Custom URL',
-    'custom-json': 'Custom URL (JSON)',
+    'custom-json': 'Custom URL (audio list)',
 };
 
 export const AUDIO_SOURCE_OPTIONS = Object.entries(AUDIO_SOURCE_LABELS) as [AudioSourceType, string][];
 
-export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [];
+export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
+    { type: 'jpod101', url: '', voice: '', enabled: true },
+    { type: 'language-pod-101', url: '', voice: '', enabled: true },
+    { type: 'jisho', url: '', voice: '', enabled: true },
+];
 
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
 
@@ -34,9 +38,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioSourceUrl: DEFAULT_AUDIO_URL,
     audioViaBlob: true,
     audioTimeoutMs: 6000,
-    audioSelectionMode: 'first',
+    audioSelectionMode: 'random',
     parseSelection: true,
-    popupActivationMode: 'click',
+    popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     autoScanJapanese: true,
     scanVisiblePage: true,
@@ -46,14 +50,14 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
-    ocrShowTextOverlay: true,
-    ocrProvider: 'custom-json',
+    ocrShowTextOverlay: false,
+    ocrProvider: 'auto',
     ocrEndpointUrl: '',
     ocrEngine: 'MangaOCR',
     ocrLanguage: 'ja-JP',
     ocrMaxImagePixels: 1200000,
     ocrMinImageArea: 45000,
-    ocrMaxImagesPerPage: 8,
+    ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -84,11 +88,22 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         nextSubtitle: 'Alt+ArrowRight',
         copySubtitle: 'Alt+C',
         toggleOcr: 'Alt+O',
+        scanImages: 'Alt+I',
+        gradeNothing: '1',
+        gradeSomething: '2',
+        gradeHard: '3',
+        gradeOkay: '4',
+        gradeEasy: '5',
+        gradeFail: '1',
+        gradePass: '2',
     },
 };
 
 function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
-    const audioSources = normalizeAudioSources(value?.audioSources, value?.audioSourceUrl);
+    const hasSavedAudioSources = value && Object.prototype.hasOwnProperty.call(value, 'audioSources');
+    const audioSources = hasSavedAudioSources || value?.audioSourceUrl
+        ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
+        : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
     return {
         ...DEFAULT_SETTINGS,
         ...(value ?? {}),
@@ -165,7 +180,7 @@ export function normalizeAudioSources(value: unknown, legacyUrl?: string): Audio
     if (typeof legacyUrl === 'string' && legacyUrl.trim()) {
         return [{ type: 'custom-json', url: legacyUrl.trim(), voice: '', enabled: true }];
     }
-    return [];
+    return DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
 }
 
 export function normalizeDictionaryPreferences(value: unknown): DictionaryPreference[] {

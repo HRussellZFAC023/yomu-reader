@@ -20,9 +20,9 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - JPDB mining actions for add, Never Forget, blacklist, and review grades.
 - Yomitan dictionary imports: settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
-- Yomitan-compatible audio sources, including Custom URL and Custom URL JSON.
+- Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
-- Manga/image OCR through a configurable YomiNinja-shaped JSON endpoint.
+- Manga/image OCR that works without setup, with an optional custom service for heavier OCR.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
 
@@ -36,7 +36,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, or mining. Custom audio sources receive the term, reading, and language placeholders you configure. OCR sends visible image data only to the OCR endpoint you configure, and caches the result in memory for the current page. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage.
+Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, or mining. Custom audio sources receive the term, reading, and language placeholders you configure. Image text is read locally when possible; if you choose a custom OCR service, visible image data is sent to that service. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage.
 
 ## Audio
 
@@ -44,23 +44,20 @@ Audio sources follow Yomitan’s source model and fallback order. Custom JSON so
 
 Guide: https://yomitan.wiki/advanced/#audio
 
-Example Tailnet custom JSON source:
-
-```text
-http://your-desktop.tailnet-name.ts.net:8080/?term={term}&reading={reading}
-```
+The default sources are JapanesePod101, LanguagePod101, and Jisho.org. Add a custom URL only if you already use a local audio server.
 
 ## OCR
 
 OCR is designed for manga and image-heavy pages on iPhone/iPad:
 
 - Images near the viewport are detected and queued quietly when auto-scan is enabled.
+- Japanese image `alt`/caption text is available instantly when the site provides it.
+- Browser OCR is loaded lazily only for nearby images that need deeper recognition.
 - OCR results are cached per image for the current page.
-- Recognized Japanese lines are placed back over the image as large touch targets.
-- Tapping OCR text opens the normal JPDB/Yomitan popup and mining flow.
-- Without an OCR endpoint, OCR overlays only appear for explicit test fixture data.
+- Recognized Japanese lines become transparent touch targets, so the image is not covered.
+- Tapping or hovering recognized text opens the normal JPDB/Yomitan popup and mining flow.
 
-The endpoint receives a YomiNinja-style JSON request:
+A custom OCR service can be selected in settings for users who want server-side OCR. It receives JSON like:
 
 ```json
 {
@@ -84,7 +81,7 @@ The response can use either a simple line format:
 }
 ```
 
-or a YomiNinja/protobuf-like result shape with `context_resolution`, `results`, `text_lines`, `box`, and `is_vertical`.
+or a structured result shape with `context_resolution`, `results`, `text_lines`, `box`, and `is_vertical`.
 
 ## Development
 
@@ -137,5 +134,5 @@ npm run prefill:greasyfork
 ## Notes
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
-- OCR support follows YomiNinja’s fast path concept: pre-read image regions near the viewport, cache results, and make lookup a tap on already-visible text.
+- OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed.

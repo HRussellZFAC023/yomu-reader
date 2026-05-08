@@ -39,6 +39,43 @@ interface OcrControllerOptions {
 }
 
 const MAX_CACHE_ITEMS = 36;
+const TESSERACT_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js';
+const TESSERACT_WORKER_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/worker.min.js';
+const TESSERACT_CORE_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7/tesseract-core-simd.wasm.js';
+const TESSERACT_LANG_URL = 'https://tessdata.projectnaptha.com/4.0.0';
+
+let tesseractLoader: Promise<TesseractLike> | undefined;
+let tesseractWorker: Promise<TesseractWorkerLike> | undefined;
+
+interface BrowserDetectedText {
+    rawValue?: string;
+    boundingBox?: DOMRectReadOnly;
+}
+
+interface TextDetectorLike {
+    detect(source: CanvasImageSource): Promise<BrowserDetectedText[]>;
+}
+
+interface TesseractLike {
+    createWorker(language: string, oem?: number, options?: Record<string, unknown>): Promise<TesseractWorkerLike>;
+}
+
+interface TesseractWorkerLike {
+    recognize(source: CanvasImageSource): Promise<{
+        data?: {
+            lines?: Array<{ text?: string; bbox?: { x0: number; y0: number; x1: number; y1: number } }>;
+            words?: Array<{ text?: string; bbox?: { x0: number; y0: number; x1: number; y1: number } }>;
+            text?: string;
+        };
+    }>;
+}
+
+declare global {
+    interface Window {
+        TextDetector?: { new(): TextDetectorLike };
+        Tesseract?: TesseractLike;
+    }
+}
 
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
@@ -78,12 +115,11 @@ export class ImageOcrController {
 
         this.pruneDisconnectedStates();
         this.ensureObserver(settings);
-        const hasEndpoint = settings.ocrProvider !== 'off' && Boolean(settings.ocrEndpointUrl.trim());
         let count = 0;
         for (const image of Array.from(document.images)) {
             if (count >= settings.ocrMaxImagesPerPage) break;
             if (!isCandidateImage(image, settings)) continue;
-            if (!hasEndpoint && !readFallbackOcrResult(image)) continue;
+            if (!shouldObserveImage(image, settings)) continue;
             count++;
             this.ensureState(image);
             this.observer?.observe(image);
@@ -102,9 +138,7 @@ export class ImageOcrController {
         this.refresh();
         const images = [...this.states.keys()].filter(image => isNearViewport(image, 120));
         if (!images.length) {
-            const settings = this.options.getSettings();
-            const hasEndpoint = settings.ocrProvider !== 'off' && Boolean(settings.ocrEndpointUrl.trim());
-            this.options.onToast(hasEndpoint ? 'No readable images nearby.' : 'Add an OCR endpoint in settings to read images.');
+            this.options.onToast('No readable images nearby.');
             return;
         }
         images.forEach(image => this.enqueue(image, true));
@@ -121,8 +155,7 @@ export class ImageOcrController {
                 const image = entry.target as HTMLImageElement;
                 this.positionState(image);
                 const current = this.options.getSettings();
-                const hasEndpoint = current.ocrProvider !== 'off' && Boolean(current.ocrEndpointUrl.trim());
-                if (current.ocrAutoScanImages && (hasEndpoint || readFallbackOcrResult(image))) this.enqueue(image);
+                if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
             }
         }, { rootMargin });
     }
@@ -173,7 +206,10 @@ export class ImageOcrController {
         const image = this.queue.shift();
         if (!image) return;
         this.busy = true;
-        void this.scanImage(image)
+        const hasFastText = Boolean(readFallbackOcrResult(image));
+        const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 1800;
+        void waitForIdle(delay)
+            .then(() => this.scanImage(image))
             .finally(() => {
                 this.busy = false;
                 this.drainQueue();
@@ -193,19 +229,20 @@ export class ImageOcrController {
 
         state.loading = true;
         state.status.hidden = !state.overlayRequested;
-        const canUseEndpoint = settings.ocrProvider !== 'off' && settings.ocrEndpointUrl.trim();
-        state.status.textContent = canUseEndpoint ? 'Reading image...' : 'Tap to configure OCR';
+        const canUseEndpoint = settings.ocrProvider === 'custom-json' && settings.ocrEndpointUrl.trim();
+        state.status.textContent = 'Reading image...';
 
         try {
             const fallback = readFallbackOcrResult(image);
-            const result = canUseEndpoint
-                ? await recognizeViaEndpoint(image, settings)
-                : fallback;
+            const result = fallback
+                ?? (canUseEndpoint
+                    ? await recognizeViaEndpoint(image, settings)
+                    : settings.ocrProvider === 'auto'
+                        ? await recognizeViaBrowser(image, settings)
+                        : null);
 
             if (!result?.lines.length) {
-                state.status.textContent = canUseEndpoint
-                    ? 'No Japanese text found'
-                    : 'Add an OCR endpoint in settings';
+                state.status.textContent = 'No Japanese text found';
                 state.status.hidden = !state.overlayRequested;
                 return;
             }
@@ -231,13 +268,14 @@ export class ImageOcrController {
         state.status.hidden = true;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
-        if (!this.options.getSettings().ocrShowTextOverlay || (!state.overlayRequested && !forceOverlay)) return;
+        const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
 
         const sentence = result.lines.map(line => line.text).join('\n');
         for (const line of result.lines) {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'jpdb-ocr-line';
+            if (showText) button.classList.add('jpdb-ocr-line-visible');
             button.dataset.ocrText = line.text;
             button.dataset.vertical = String(line.vertical);
             button.title = line.text;
@@ -247,7 +285,8 @@ export class ImageOcrController {
             button.style.height = `${100 * line.box.height / result.height}%`;
             button.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
             button.style.fontSize = `clamp(12px, ${line.vertical ? 52 * line.box.width / result.width : 46 * line.box.height / result.height}vw, 24px)`;
-            button.textContent = line.text;
+            button.setAttribute('aria-label', line.text);
+            button.textContent = showText ? line.text : '';
             button.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -342,7 +381,7 @@ export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHe
 
     if (Array.isArray(record.results)) {
         for (const item of record.results) {
-            lines.push(...normalizeYomiNinjaResult(item, width, height));
+            lines.push(...normalizeStructuredOcrResult(item, width, height));
         }
     }
 
@@ -363,11 +402,19 @@ export function readFallbackOcrResult(image: HTMLImageElement): OcrResult | null
         }
     }
 
-    return null;
+    return readAccessibleImageText(image, width, height);
+}
+
+async function recognizeViaBrowser(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const nativeResult = await recognizeViaTextDetector(canvas).catch(() => null);
+    if (nativeResult?.lines.length) return nativeResult;
+    return recognizeViaTesseract(canvas);
 }
 
 async function recognizeViaEndpoint(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const payload = await canvasToBase64Payload(canvas);
     const body = JSON.stringify({
         id: imageCacheKey(image),
         language_code: settings.ocrLanguage || 'ja-JP',
@@ -379,9 +426,9 @@ async function recognizeViaEndpoint(image: HTMLImageElement, settings: ReaderSet
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
-async function imageToBase64Payload(image: HTMLImageElement, maxPixels: number): Promise<{ base64: string; width: number; height: number }> {
+async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
     try {
-        return await drawImageToBase64(image, maxPixels);
+        return drawImageToCanvas(image, maxPixels);
     } catch {
         const url = image.currentSrc || image.src;
         if (!url || url.startsWith('data:')) throw new Error('Image cannot be read by OCR.');
@@ -389,14 +436,14 @@ async function imageToBase64Payload(image: HTMLImageElement, maxPixels: number):
         const objectUrl = URL.createObjectURL(blob);
         try {
             const loaded = await loadImage(objectUrl);
-            return await drawImageToBase64(loaded, maxPixels);
+            return drawImageToCanvas(loaded, maxPixels);
         } finally {
             URL.revokeObjectURL(objectUrl);
         }
     }
 }
 
-async function drawImageToBase64(image: HTMLImageElement, maxPixels: number): Promise<{ base64: string; width: number; height: number }> {
+function drawImageToCanvas(image: HTMLImageElement, maxPixels: number): HTMLCanvasElement {
     const width = image.naturalWidth || image.width;
     const height = image.naturalHeight || image.height;
     if (!width || !height) throw new Error('Image is not loaded yet.');
@@ -407,10 +454,74 @@ async function drawImageToBase64(image: HTMLImageElement, maxPixels: number): Pr
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas unavailable.');
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+async function canvasToBase64Payload(canvas: HTMLCanvasElement): Promise<{ base64: string; width: number; height: number }> {
     const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(result => result ? resolve(result) : reject(new Error('Image encoding failed.')), 'image/jpeg', 0.86);
     });
     return { base64: (await blobToDataUrl(blob)).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
+}
+
+async function recognizeViaTextDetector(canvas: HTMLCanvasElement): Promise<OcrResult | null> {
+    if (!window.TextDetector) return null;
+    const detected = await new window.TextDetector().detect(canvas);
+    const lines = detected
+        .map(item => {
+            const text = (item.rawValue ?? '').trim();
+            const box = item.boundingBox
+                ? clampBox({ left: item.boundingBox.x, top: item.boundingBox.y, width: item.boundingBox.width, height: item.boundingBox.height }, canvas.width, canvas.height)
+                : null;
+            return text && box ? { text, box, vertical: box.height > box.width * 1.5 && text.length > 1 } : null;
+        })
+        .filter((line): line is OcrLine => Boolean(line && HAS_JAPANESE.test(line.text)));
+    return lines.length ? { width: canvas.width, height: canvas.height, lines } : null;
+}
+
+async function recognizeViaTesseract(canvas: HTMLCanvasElement): Promise<OcrResult | null> {
+    const worker = await getTesseractWorker();
+    const response = await worker.recognize(canvas);
+    const data = response.data ?? {};
+    const items = (data.lines?.length ? data.lines : data.words) ?? [];
+    const lines = items
+        .map(item => {
+            const text = (item.text ?? '').replace(/\s+/g, '').trim();
+            const bbox = item.bbox;
+            const box = bbox ? clampBox({ left: bbox.x0, top: bbox.y0, width: bbox.x1 - bbox.x0, height: bbox.y1 - bbox.y0 }, canvas.width, canvas.height) : null;
+            return text && box ? { text, box, vertical: box.height > box.width * 1.5 && text.length > 1 } : null;
+        })
+        .filter((line): line is OcrLine => Boolean(line && HAS_JAPANESE.test(line.text)));
+    if (lines.length) return { width: canvas.width, height: canvas.height, lines };
+
+    const text = (data.text ?? '').replace(/\s+/g, '').trim();
+    return HAS_JAPANESE.test(text)
+        ? { width: canvas.width, height: canvas.height, lines: [{ text, box: { left: 0, top: canvas.height * 0.68, width: canvas.width, height: canvas.height * 0.28 }, vertical: false }] }
+        : null;
+}
+
+async function getTesseractWorker(): Promise<TesseractWorkerLike> {
+    if (!tesseractWorker) {
+        tesseractWorker = loadTesseract().then(tesseract => tesseract.createWorker('jpn', 1, {
+            workerPath: TESSERACT_WORKER_URL,
+            corePath: TESSERACT_CORE_URL,
+            langPath: TESSERACT_LANG_URL,
+            workerBlobURL: true,
+        }));
+    }
+    return tesseractWorker;
+}
+
+async function loadTesseract(): Promise<TesseractLike> {
+    if (window.Tesseract) return window.Tesseract;
+    if (!tesseractLoader) {
+        tesseractLoader = requestText(TESSERACT_SCRIPT_URL).then(code => {
+            (0, eval)(`${code}\n//# sourceURL=${TESSERACT_SCRIPT_URL}`);
+            if (!window.Tesseract) throw new Error('Browser OCR failed to load.');
+            return window.Tesseract;
+        });
+    }
+    return tesseractLoader;
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
@@ -422,7 +533,7 @@ function normalizeSimpleLine(value: unknown, width: number, height: number): Ocr
     return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
 }
 
-function normalizeYomiNinjaResult(value: unknown, width: number, height: number): OcrLine[] {
+function normalizeStructuredOcrResult(value: unknown, width: number, height: number): OcrLine[] {
     if (!value || typeof value !== 'object') return [];
     const record = value as Record<string, unknown>;
     const textLines = Array.isArray(record.text_lines) ? record.text_lines : [];
@@ -493,6 +604,37 @@ function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): bo
     return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || '1') > 0;
 }
 
+function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
+    if (settings.ocrProvider === 'off') return false;
+    if (readFallbackOcrResult(image)) return true;
+    if (settings.ocrProvider === 'fast') return false;
+    if (settings.ocrProvider === 'custom-json') return Boolean(settings.ocrEndpointUrl.trim());
+    return true;
+}
+
+function readAccessibleImageText(image: HTMLImageElement, width: number, height: number): OcrResult | null {
+    const candidates = [
+        image.alt,
+        image.title,
+        image.getAttribute('aria-label'),
+        image.closest('figure')?.querySelector('figcaption')?.textContent,
+    ]
+        .map(value => (value ?? '').replace(/\s+/g, ' ').trim())
+        .filter(value => value.length >= 2 && HAS_JAPANESE.test(value));
+    const text = candidates[0];
+    if (!text) return null;
+    const boxHeight = Math.max(44, height * 0.18);
+    return {
+        width,
+        height,
+        lines: [{
+            text,
+            box: { left: width * 0.04, top: height - boxHeight - height * 0.04, width: width * 0.92, height: boxHeight },
+            vertical: false,
+        }],
+    };
+}
+
 function isNearViewport(element: Element, margin: number): boolean {
     const rect = element.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
@@ -528,6 +670,23 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
 }
 
+function requestText(url: string): Promise<string> {
+    if (typeof GM_xmlhttpRequest === 'function') {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                responseType: 'text',
+                onload: response => response.status >= 200 && response.status < 300
+                    ? resolve(String(response.responseText ?? response.response ?? ''))
+                    : reject(new Error(`Script fetch returned ${response.status}.`)),
+                onerror: reject,
+            });
+        });
+    }
+    return fetch(url).then(response => response.ok ? response.text() : Promise.reject(new Error(`Script fetch returned ${response.status}.`)));
+}
+
 function requestBlob(url: string): Promise<Blob> {
     if (typeof GM_xmlhttpRequest === 'function') {
         return new Promise((resolve, reject) => {
@@ -543,6 +702,17 @@ function requestBlob(url: string): Promise<Blob> {
         });
     }
     return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+}
+
+function waitForIdle(timeout: number): Promise<void> {
+    if (!timeout) return Promise.resolve();
+    return new Promise(resolve => {
+        if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(() => resolve(), { timeout });
+        } else {
+            globalThis.setTimeout(resolve, timeout);
+        }
+    });
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
