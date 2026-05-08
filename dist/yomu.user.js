@@ -191,7 +191,7 @@
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
-    const configuredTypes = new Set(sources.map((source) => source.type));
+    const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
     return [
       ...sources,
       ...REQUIRED_JA_AUDIO_SOURCES.filter((type) => !configuredTypes.has(type)).map((type) => ({ type, url: "", voice: "", enabled: true }))
@@ -7185,6 +7185,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       __publicField(this, "autoScanObserver");
       __publicField(this, "asbScanTimer");
       __publicField(this, "hoverLookupTimer");
+      __publicField(this, "settingsPreviewOriginalAccent");
       __publicField(this, "lastAutoAudioKey", "");
       __publicField(this, "lastAutoAudioAt", 0);
       __publicField(this, "cardRenderRequest", 0);
@@ -7225,12 +7226,15 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
     }
     applyTheme() {
-      const accentColor = sanitizeAccentColor(this.settings.accentColor);
-      document.documentElement.style.setProperty("--jpdb-reader-accent", accentColor);
-      document.documentElement.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18));
+      this.applyAccentColor(this.settings.accentColor);
       document.documentElement.classList.toggle("jpdb-reader-theme-dark", this.settings.theme === "dark");
       document.documentElement.classList.toggle("jpdb-reader-theme-light", this.settings.theme === "light");
       document.documentElement.classList.toggle("jpdb-reader-hide-known", this.settings.hideKnownFurigana);
+    }
+    applyAccentColor(color) {
+      const accentColor = sanitizeAccentColor(color);
+      document.documentElement.style.setProperty("--jpdb-reader-accent", accentColor);
+      document.documentElement.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18));
     }
     installFab() {
       var _a;
@@ -7702,7 +7706,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
     }
     showSettings() {
-      var _a, _b;
+      var _a, _b, _c;
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
       form.dataset.jpdbReaderRoot = "true";
@@ -7757,14 +7761,15 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${checkbox("showFurigana", "Enable furigana annotations", this.settings.showFurigana)}
                     ${checkbox("showPitchAccent", "Show pitch accent", this.settings.showPitchAccent)}
                     ${checkbox("hideKnownFurigana", "Hide furigana for known cards only", this.settings.hideKnownFurigana)}
-                    ${select("popupActivationMode", "Popup opens", this.settings.popupActivationMode, [["hover", "On hover"], ["modifier", "Only while holding a key"], ["click", "On tap or click"]])}
-                    ${select("scanModifierKey", "Hover lookup key", this.settings.scanModifierKey, [["shift", "Shift"], ["alt", "Alt"], ["ctrl", "Ctrl"], ["meta", "Command / Windows"]])}
+                    ${select("popupActivationMode", "Lookup trigger", this.settings.popupActivationMode, [["hover", "Hover over scanned words"], ["modifier", "Hold a key while hovering"], ["click", "Tap or click words"]])}
+                    ${select("scanModifierKey", "Hold-to-scan key", this.settings.scanModifierKey, [["shift", "Shift"], ["alt", "Alt"], ["ctrl", "Ctrl"], ["meta", "Command / Windows"]])}
                 </div>
                 <div class="grid">
                     ${select("theme", "Theme", this.settings.theme, [["auto", "Auto"], ["dark", "Dark"], ["light", "Light"]])}
                     ${select("popupMode", "Popup mode", this.settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
                     ${input("accentColor", "Accent color", sanitizeAccentColor(this.settings.accentColor), "color")}
                 </div>
+                <div class="jpdb-reader-help">For the scan-key style, choose “Hold a key while hovering”, then hold the selected key over scanned words. Auto-scan prepares Japanese text in the background.</div>
             </fieldset>
             <fieldset>
                 <legend>Images</legend>
@@ -7866,12 +7871,16 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.ocr.refresh();
           this.youtube.refresh();
           this.scheduleAutoScan(100);
+          this.settingsPreviewOriginalAccent = void 0;
           this.dismiss();
           this.toast("Settings saved.");
         });
       });
       (_a = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _a.addEventListener("click", () => this.dismiss());
-      (_b = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _b.addEventListener("change", (event) => {
+      (_b = form.querySelector('input[name="accentColor"]')) == null ? void 0 : _b.addEventListener("input", (event) => {
+        this.applyAccentColor(event.currentTarget.value);
+      });
+      (_c = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _c.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
         form.querySelectorAll("[data-local-ocr]").forEach((node) => {
           node.hidden = value !== "local-service";
@@ -7889,6 +7898,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         void this.handleSettingsAction(form, action);
       });
       this.dismiss();
+      this.settingsPreviewOriginalAccent = this.settings.accentColor;
       document.body.append(backdrop, form);
       this.activeBackdrop = backdrop;
       this.activePopover = form;
@@ -7946,6 +7956,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           this.installFab();
           this.subtitles.refresh();
           this.youtube.refresh();
+          this.settingsPreviewOriginalAccent = void 0;
           this.showSettings();
           return;
         }
@@ -8012,10 +8023,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       return window.innerWidth <= 768 || matchMedia("(pointer: coarse)").matches;
     }
     dismiss() {
-      var _a, _b;
+      var _a, _b, _c;
       this.cardRenderRequest++;
-      (_a = this.activePopover) == null ? void 0 : _a.remove();
-      (_b = this.activeBackdrop) == null ? void 0 : _b.remove();
+      if (this.settingsPreviewOriginalAccent !== void 0 && ((_a = this.activePopover) == null ? void 0 : _a.classList.contains("jpdb-reader-settings"))) {
+        this.applyAccentColor(this.settingsPreviewOriginalAccent);
+      }
+      this.settingsPreviewOriginalAccent = void 0;
+      (_b = this.activePopover) == null ? void 0 : _b.remove();
+      (_c = this.activeBackdrop) == null ? void 0 : _c.remove();
       document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element2) => element2.remove());
       this.activePopover = void 0;
       this.activeBackdrop = void 0;
@@ -8153,13 +8168,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   ).join("")}</select></label>`;
   }
   function renderAudioSourceRows(sources) {
-    const count = Math.max(sources.length + 1, 3);
-    const rows = Array.from({ length: count }, (_, index) => sources[index] ?? {
-      type: index === 0 ? "custom-json" : "jpod101",
-      url: "",
-      voice: "",
-      enabled: false
-    });
+    const rows = audioSourceRowsForSettings(sources);
+    const count = rows.length;
     return `
         <input type="hidden" name="audioSourceCount" value="${count}">
         ${rows.map((source, index) => `
@@ -8174,12 +8184,35 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   ).join("")}
                 </select>
                 <div class="jpdb-reader-audio-source-fields">
-                    <input name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="URL for Custom URL sources">
-                    <input name="audioSources.${index}.voice" type="text" value="${escapeHtml$1(source.voice)}" placeholder="Voice for text-to-speech">
+                    <input name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}">
+                    <input name="audioSources.${index}.voice" type="text" value="${escapeHtml$1(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}">
                 </div>
             </div>
         `).join("")}
     `;
+  }
+  function audioSourceRowsForSettings(sources) {
+    const rows = sources.map((source) => ({ ...source }));
+    for (const defaultSource of DEFAULT_AUDIO_SOURCES) {
+      if (!rows.some((source) => source.type === defaultSource.type)) {
+        rows.push({ ...defaultSource });
+      }
+    }
+    rows.push({
+      type: "custom-json",
+      url: "",
+      voice: "",
+      enabled: false
+    });
+    return rows;
+  }
+  function audioUrlPlaceholder(type) {
+    if (type === "custom" || type === "custom-json") return "URL for this custom source";
+    return "Built-in source, no URL needed";
+  }
+  function audioVoicePlaceholder(type) {
+    if (type === "text-to-speech" || type === "text-to-speech-reading") return "Voice name";
+    return "No voice needed";
   }
   function renderDictionaryPreferenceRows(preferences) {
     if (!preferences.length) return '<div class="jpdb-reader-help">Import Yomitan settings or dictionaries to manage dictionary priority.</div>';
@@ -8320,6 +8353,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Number(get("audioSourceCount")) || 0);
     const sources = [];
+    const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
     for (let index = 0; index < count; index++) {
       const source = normalizeAudioSource({
         type: get(`audioSources.${index}.type`),
@@ -8328,7 +8362,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         enabled: data.has(`audioSources.${index}.enabled`)
       });
       if (!source) continue;
-      if (!source.enabled && !source.url && !source.voice) continue;
+      if (!source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type)) continue;
       sources.push(source);
     }
     return sources;
