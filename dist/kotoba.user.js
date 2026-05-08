@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ことば
+// @name         yomu
 // @namespace    https://github.com/HRussellZFAC023/kotoba-reader
 // @version      0.1.0
 // @author       Henry
@@ -296,10 +296,11 @@
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  const APP_NAME = "ことば";
-  const APP_PUCK = "語";
+  const APP_NAME = "yomu";
+  const APP_PUCK = "読";
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+  let trustedHtmlPolicy;
   const SKIP_SELECTOR = [
     "script",
     "style",
@@ -312,6 +313,9 @@
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
   ].join(",");
+  function setInnerHtml(element, html) {
+    element.innerHTML = trustedHtml(html);
+  }
   function getSelectionText() {
     const selection = window.getSelection();
     return (selection == null ? void 0 : selection.toString().replace(/\s+/g, " ").trim()) ?? "";
@@ -404,7 +408,7 @@
     span.dataset.sentence = token.sentence ?? "";
     span.tabIndex = 0;
     if (settings.showFurigana && token.rubies.length) {
-      span.innerHTML = renderRuby(surface, token);
+      setInnerHtml(span, renderRuby(surface, token));
     } else {
       span.textContent = surface;
     }
@@ -430,6 +434,22 @@
   }
   function escapeHtml$1(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function trustedHtml(value) {
+    var _a, _b;
+    const factory = globalThis.trustedTypes;
+    if (!factory) return value;
+    if (trustedHtmlPolicy === void 0) {
+      trustedHtmlPolicy = ((_a = factory.getPolicy) == null ? void 0 : _a.call(factory, "yomu-reader")) ?? null;
+      if (!trustedHtmlPolicy) {
+        try {
+          trustedHtmlPolicy = ((_b = factory.createPolicy) == null ? void 0 : _b.call(factory, "yomu-reader", { createHTML: (html) => html })) ?? null;
+        } catch {
+          trustedHtmlPolicy = null;
+        }
+      }
+    }
+    return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
   }
   function isVisible(element) {
     const rect = element.getBoundingClientRect();
@@ -837,7 +857,8 @@
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "jpdb-ocr-chip";
-      chip.textContent = "OCR";
+      chip.textContent = "読";
+      chip.hidden = true;
       chip.title = "Read text in this image";
       chip.addEventListener("click", (event) => {
         event.preventDefault();
@@ -849,7 +870,7 @@
       status.hidden = true;
       overlay.append(chip, status);
       document.body.append(overlay);
-      const state = { image, overlay, chip, status, key: imageCacheKey(image), loading: false, parsed: /* @__PURE__ */ new Map() };
+      const state = { image, overlay, chip, status, key: imageCacheKey(image), loading: false };
       image.addEventListener("load", () => {
         this.resetStateIfImageChanged(state);
         this.schedulePosition();
@@ -895,7 +916,7 @@
         const result = canUseEndpoint ? await recognizeViaEndpoint(image, settings) : fallback;
         if (!(result == null ? void 0 : result.lines.length)) {
           state.status.textContent = canUseEndpoint ? "No Japanese text found" : "Add an OCR endpoint in settings";
-          state.chip.textContent = "OCR";
+          state.chip.textContent = "読";
           return;
         }
         this.remember(key, result);
@@ -907,7 +928,7 @@
           await this.renderResult(state, fallback);
         } else {
           state.status.textContent = error instanceof Error ? error.message : "OCR failed";
-          state.chip.textContent = "OCR";
+          state.chip.textContent = "読";
         }
       } finally {
         state.loading = false;
@@ -920,10 +941,7 @@
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       if (!this.options.getSettings().ocrShowTextOverlay) return;
       const sentence = result.lines.map((line) => line.text).join("\n");
-      let searchOffset = 0;
       for (const line of result.lines) {
-        const lineStart = Math.max(0, sentence.indexOf(line.text, searchOffset));
-        searchOffset = lineStart + line.text.length + 1;
         const button = document.createElement("button");
         button.type = "button";
         button.className = "jpdb-ocr-line";
@@ -935,8 +953,8 @@
         button.style.width = `${100 * line.box.width / result.width}%`;
         button.style.height = `${100 * line.box.height / result.height}%`;
         button.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
-        button.style.fontSize = `clamp(13px, ${line.vertical ? 70 * line.box.width / result.width : 80 * line.box.height / result.height}vw, 34px)`;
-        button.innerHTML = await this.renderLineText(line.text, sentence, state, lineStart);
+        button.style.fontSize = `clamp(12px, ${line.vertical ? 52 * line.box.width / result.width : 46 * line.box.height / result.height}vw, 24px)`;
+        button.textContent = line.text;
         button.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -952,24 +970,9 @@
       state.key = key;
       state.result = void 0;
       state.loading = false;
-      state.parsed.clear();
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      state.chip.textContent = "OCR";
+      state.chip.textContent = "読";
       state.status.hidden = true;
-    }
-    async renderLineText(text, sentence, state, lineStart) {
-      const cached = state.parsed.get(text);
-      if (cached) return cached;
-      try {
-        const tokens = await this.options.parseJapanese(sentence);
-        const lineEnd = lineStart + text.length;
-        const lineTokens = tokens.filter((token) => token.start >= lineStart && token.end <= lineEnd).map((token) => ({ ...token, start: token.start - lineStart, end: token.end - lineStart, sentence }));
-        const html = renderTokensToHtml(text, lineTokens, this.options.getSettings());
-        state.parsed.set(text, html);
-        return html;
-      } catch {
-        return escapeHtml$1(text);
-      }
     }
     remember(key, result) {
       this.cache.set(key, result);
@@ -993,11 +996,13 @@
     positionState(image) {
       const state = this.states.get(image);
       if (!state) return;
+      const settings = this.options.getSettings();
+      const hasEndpoint = settings.ocrProvider !== "off" && Boolean(settings.ocrEndpointUrl.trim());
+      state.chip.hidden = !(settings.ocrTapToScan && hasEndpoint && !settings.ocrAutoScanImages);
       const rect = image.getBoundingClientRect();
       const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
       state.overlay.hidden = !visible;
       if (!visible) return;
-      state.chip.hidden = !this.options.getSettings().ocrTapToScan;
       state.overlay.style.left = `${rect.left}px`;
       state.overlay.style.top = `${rect.top}px`;
       state.overlay.style.width = `${rect.width}px`;
@@ -1039,15 +1044,13 @@
     }
     if (Array.isArray(record.results)) {
       for (const item of record.results) {
-        const line = normalizeYomiNinjaResult(item, width, height);
-        if (line) lines.push(line);
+        lines.push(...normalizeYomiNinjaResult(item, width, height));
       }
     }
     const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
   }
   function readFallbackOcrResult(image) {
-    var _a;
     const width = image.naturalWidth || image.width || 1;
     const height = image.naturalHeight || image.height || 1;
     const data = image.dataset.ocrLines;
@@ -1058,17 +1061,7 @@
       } catch {
       }
     }
-    const alt = (_a = image.alt) == null ? void 0 : _a.replace(/\s+/g, " ").trim();
-    if (!alt || !HAS_JAPANESE.test(alt)) return null;
-    return {
-      width,
-      height,
-      lines: [{
-        text: alt,
-        vertical: false,
-        box: { left: width * 0.08, top: height * 0.76, width: width * 0.84, height: height * 0.16 }
-      }]
-    };
+    return null;
   }
   async function recognizeViaEndpoint(image, settings) {
     const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
@@ -1123,13 +1116,20 @@
     return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
   }
   function normalizeYomiNinjaResult(value, width, height) {
-    if (!value || typeof value !== "object") return null;
+    if (!value || typeof value !== "object") return [];
     const record = value;
     const textLines = Array.isArray(record.text_lines) ? record.text_lines : [];
+    const vertical = Boolean(record.is_vertical);
+    const lines = textLines.map((item) => {
+      const lineRecord = item;
+      const text2 = stringFrom((lineRecord == null ? void 0 : lineRecord.content) ?? (lineRecord == null ? void 0 : lineRecord.text));
+      const box2 = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
+      return text2 && box2 ? { text: text2, box: box2, vertical: Boolean(lineRecord.is_vertical ?? vertical) } : null;
+    }).filter((line) => line !== null);
+    if (lines.length) return lines;
     const text = textLines.map((item) => stringFrom(item == null ? void 0 : item.content)).filter(Boolean).join("");
     const box = normalizeBox(record.box, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: Boolean(record.is_vertical) };
+    return text && box ? [{ text, box, vertical }] : [];
   }
   function normalizeBox(value, width, height) {
     if (!value || typeof value !== "object") return null;
@@ -1139,22 +1139,33 @@
     const directWidth = numberFrom(record.width ?? record.w);
     const directHeight = numberFrom(record.height ?? record.h);
     if (directLeft !== null && directTop !== null && directWidth !== null && directHeight !== null) {
-      const percent = directLeft <= 1 && directTop <= 1 && directWidth <= 1 && directHeight <= 1;
-      return {
-        left: percent ? directLeft * width : directLeft,
-        top: percent ? directTop * height : directTop,
-        width: percent ? directWidth * width : directWidth,
-        height: percent ? directHeight * height : directHeight
-      };
+      const percent2 = directLeft <= 1 && directTop <= 1 && directWidth <= 1 && directHeight <= 1;
+      return clampBox({
+        left: percent2 ? directLeft * width : directLeft,
+        top: percent2 ? directTop * height : directTop,
+        width: percent2 ? directWidth * width : directWidth,
+        height: percent2 ? directHeight * height : directHeight
+      }, width, height);
     }
     const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => record[key]).filter(Boolean);
     if (points.length < 2) return null;
     const xs = points.map((point) => numberFrom(point == null ? void 0 : point.x)).filter((item) => item !== null);
     const ys = points.map((point) => numberFrom(point == null ? void 0 : point.y)).filter((item) => item !== null);
     if (!xs.length || !ys.length) return null;
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+    const percent = xs.every((value2) => value2 >= 0 && value2 <= 1) && ys.every((value2) => value2 >= 0 && value2 <= 1);
+    const scaledXs = percent ? xs.map((value2) => value2 * width) : xs;
+    const scaledYs = percent ? ys.map((value2) => value2 * height) : ys;
+    const left = Math.min(...scaledXs);
+    const top = Math.min(...scaledYs);
+    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+  }
+  function clampBox(box, width, height) {
+    const left = Math.max(0, Math.min(width, box.left));
+    const top = Math.max(0, Math.min(height, box.top));
+    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, top, width: right - left, height: bottom - top };
   }
   function isCandidateImage(image, settings) {
     if (image.closest("[data-jpdb-reader-root]")) return false;
@@ -1310,7 +1321,7 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: true,
-    ocrTapToScan: true,
+    ocrTapToScan: false,
     ocrProvider: "custom-json",
     ocrEndpointUrl: "",
     ocrEngine: "MangaOCR",
@@ -1576,14 +1587,14 @@
   overflow: hidden;
   min-width: 32px;
   min-height: 32px;
-  padding: 3px;
+  padding: 2px 4px;
   border: 1px solid rgba(255,255,255,.26);
   border-radius: 6px;
-  background: rgba(24,27,32,.18);
+  background: rgba(24,27,32,.32);
   color: #fff;
   text-shadow: 0 2px 2px #000, 0 0 8px rgba(0,0,0,.92);
-  font-weight: 900;
-  line-height: 1.08;
+  font-weight: 780;
+  line-height: 1.12;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.14);
@@ -1663,6 +1674,7 @@
   border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0,0,0,.34);
   color: var(--jpdb-reader-text);
+  color-scheme: dark;
   font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -1684,8 +1696,46 @@
 
 .jpdb-reader-header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px;
+}
+.jpdb-reader-heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.jpdb-reader-card-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: auto;
+}
+.jpdb-reader-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 50%;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-icon-btn:hover,
+.jpdb-reader-icon-btn:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}
+.jpdb-reader-icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .jpdb-reader-spelling {
@@ -1908,10 +1958,10 @@
   padding: 0 18px 16px;
   -webkit-overflow-scrolling: touch;
 }
-.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; }
+.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; color: var(--jpdb-reader-text) !important; }
 .jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; margin: 12px 0; padding: 12px; }
 .jpdb-reader-settings legend { color: var(--jpdb-reader-muted); padding: 0 6px; }
-.jpdb-reader-settings label { display: grid; gap: 5px; margin: 10px 0; color: var(--jpdb-reader-muted); font-size: 12px; }
+.jpdb-reader-settings label { display: grid; gap: 5px; margin: 10px 0; color: var(--jpdb-reader-muted) !important; font-size: 12px; }
 .jpdb-reader-settings input,
 .jpdb-reader-settings select {
   width: 100%;
@@ -1985,7 +2035,7 @@
   padding-inline: 18px;
   font-size: 13px;
 }
-.jpdb-reader-settings a { color: var(--jpdb-reader-accent); }
+.jpdb-reader-settings a { color: var(--jpdb-reader-accent) !important; text-decoration: underline; text-underline-offset: 3px; }
 .jpdb-reader-settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
 .jpdb-reader-dictionary-status {
   margin: 10px 0;
@@ -2355,7 +2405,7 @@
       const root = document.createElement("div");
       root.className = "jpdb-subtitle-player";
       root.dataset.jpdbReaderRoot = "true";
-      root.innerHTML = `
+      setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
@@ -2375,7 +2425,7 @@
             <div class="jpdb-subtitle-list" hidden></div>
             <input hidden type="file" data-file="primary" accept=".srt,.vtt,text/vtt">
             <input hidden type="file" data-file="secondary" accept=".srt,.vtt,text/vtt">
-        `;
+        `);
       root.addEventListener("click", (event) => this.handleClick(event));
       this.subtitleEl = root.querySelector(".jpdb-subtitle-text");
       this.menuEl = root.querySelector(".jpdb-subtitle-menu");
@@ -2518,11 +2568,11 @@
       if (!this.subtitleEl) return;
       const text = ((_a = this.currentCue) == null ? void 0 : _a.text.trim()) ?? "";
       if (!text) {
-        this.subtitleEl.innerHTML = ((_b = this.secondaryCue) == null ? void 0 : _b.text) ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : "";
+        setInnerHtml(this.subtitleEl, ((_b = this.secondaryCue) == null ? void 0 : _b.text) ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : "");
         return;
       }
       const secondary = this.options.getSettings().subtitleSecondaryVisible && ((_c = this.secondaryCue) == null ? void 0 : _c.text) ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : "";
-      this.subtitleEl.innerHTML = `<div class="jpdb-subtitle-primary">${escapeWithBreaks(text)}</div>${secondary}`;
+      setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${escapeWithBreaks(text)}</div>${secondary}`);
       if (this.options.getSettings().apiKey) void this.renderParsedPrimary(text);
     }
     async renderParsedPrimary(text) {
@@ -2547,7 +2597,7 @@
       var _a;
       if (serial !== this.renderSerial) return;
       const primary = (_a = this.subtitleEl) == null ? void 0 : _a.querySelector(".jpdb-subtitle-primary");
-      if (primary) primary.innerHTML = html;
+      if (primary) setInnerHtml(primary, html);
     }
     handleClick(event) {
       var _a, _b, _c, _d, _e, _f;
@@ -2752,13 +2802,13 @@
     renderTranscriptPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
       if (!this.cues.length) {
-        this.transcriptPanel.innerHTML = '<div class="jpdb-subtitle-list-empty">No loaded Japanese subtitle lines.</div>';
+        setInnerHtml(this.transcriptPanel, '<div class="jpdb-subtitle-list-empty">No loaded Japanese subtitle lines.</div>');
         return;
       }
       const currentIndex = this.currentCue ? this.cues.findIndex((cue) => cue === this.currentCue) : -1;
       const start = Math.max(0, currentIndex - 12);
       const visible = this.cues.slice(start, start + 28);
-      this.transcriptPanel.innerHTML = `
+      setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>${this.cues.length} lines</span>
                 <button type="button" data-action="list">Close</button>
@@ -2774,12 +2824,12 @@
                     `;
     }).join("")}
             </div>
-        `;
+        `);
     }
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "tracks") return;
       const tracks = this.tracks;
-      this.transcriptPanel.innerHTML = `
+      setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>${tracks.length ? `${tracks.length} detected tracks` : "No detected tracks"}</span>
                 <button type="button" data-action="tracks">Close</button>
@@ -2796,7 +2846,7 @@
                     </div>
                 `).join("") : '<div class="jpdb-subtitle-list-empty">Load SRT/VTT files or enable page captions, then choose tracks here.</div>'}
             </div>
-        `;
+        `);
     }
     async choosePrimaryTrack(id) {
       if (!id) return;
@@ -5464,7 +5514,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         this.getAllFromStore(db, "kanjiMeta")
       ]);
       return new Blob([JSON.stringify({
-        formatName: "kotoba-yomitan-dictionaries",
+        formatName: "yomu-yomitan-dictionaries",
         formatVersion: 2,
         exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
         dictionaries,
@@ -5935,7 +5985,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     return row;
   }
   function isReaderDictionaryExport(value) {
-    return !!value && typeof value === "object" && ["kotoba-yomitan-dictionaries", "jpdb-reader-yomitan-dictionaries"].includes(value.formatName ?? "") && (Array.isArray(value.entries) || Array.isArray(value.terms) || Array.isArray(value.kanji));
+    return !!value && typeof value === "object" && ["yomu-yomitan-dictionaries", "kotoba-yomitan-dictionaries", "jpdb-reader-yomitan-dictionaries"].includes(value.formatName ?? "") && (Array.isArray(value.entries) || Array.isArray(value.terms) || Array.isArray(value.kanji));
   }
   function getYomitanProfileOptions(value) {
     var _a, _b;
@@ -6022,6 +6072,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function capitalize(value) {
     return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
   }
+  const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   class ReaderApp {
     constructor() {
       __publicField(this, "settings", DEFAULT_SETTINGS);
@@ -6036,7 +6087,6 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }));
       __publicField(this, "ocr", new ImageOcrController({
         getSettings: () => this.settings,
-        parseJapanese: async (text) => (await this.jpdb.parse([text]))[0] ?? [],
         onLookup: (text, sentence) => this.lookupText(text, sentence),
         onToast: (message) => this.toast(message)
       }));
@@ -6282,7 +6332,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     showTokenList(tokens, selected) {
       if (!tokens.length) return;
       const popover = this.createPopover();
-      popover.innerHTML = `
+      setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-pos">Selection</div>
             <div class="jpdb-reader-meanings">
@@ -6293,7 +6343,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 `).join("")}
             </div>
             <div class="jpdb-reader-help">Parsed from: ${escapeHtml$1(selected)}</div>
-        `;
+        `);
       popover.addEventListener("click", (event) => {
         var _a;
         const button = event.target.closest("button[data-vid]");
@@ -6305,7 +6355,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     }
     showLocalDictionaryPopup(term, entries) {
       const popover = this.createPopover();
-      popover.innerHTML = `
+      setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
                 <div>
@@ -6314,12 +6364,12 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 </div>
             </div>
             ${this.renderLocalDefinitions(entries)}
-        `;
+        `);
       this.mountPopover(popover);
     }
     showQuickMenu(anchor) {
       const popover = this.createPopover();
-      popover.innerHTML = `
+      setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
                 <div>
@@ -6333,7 +6383,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     <button class="jpdb-reader-btn" data-action="settings">Settings</button>
                 </div>
             </div>
-        `;
+        `);
       popover.addEventListener("click", (event) => {
         var _a;
         const action = (_a = event.target.closest("[data-action]")) == null ? void 0 : _a.dataset.action;
@@ -6355,14 +6405,17 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
       const cardPos = formatPartOfSpeech(card.partOfSpeech);
       const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
-      popover.innerHTML = `
+      setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
-                <div>
+                <div class="jpdb-reader-heading">
                     <a class="jpdb-reader-spelling jpdb-reader-jpdb-link jpdb-${state}" href="${jpdbUrl}" target="_blank" rel="noopener" title="Open on JPDB">${escapeHtml$1(card.spelling)}</a>
                     ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml$1(card.reading)}</div>` : ""}
                 </div>
-                ${this.settings.showPitchAccent ? renderPitch(card) : ""}
+                <div class="jpdb-reader-card-tools">
+                    ${this.settings.showPitchAccent ? renderPitch(card) : ""}
+                    <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="Play audio" title="Play audio">${speakerIcon()}</button>
+                </div>
             </div>
             ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(cardPosDetails)}">${escapeHtml$1(cardPos)}</div>` : ""}
             <div class="jpdb-reader-meanings">${meanings || '<div class="jpdb-reader-help">No meanings returned.</div>'}</div>
@@ -6374,15 +6427,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
             ${this.renderLocalDefinitions(localEntries)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
             <div class="jpdb-reader-actions">
-                <div class="jpdb-reader-row" style="--cols: 4">
+                <div class="jpdb-reader-row" style="--cols: 3">
                     <button class="jpdb-reader-btn add" data-action="add">Add</button>
                     <button class="jpdb-reader-btn nf" data-action="neverforget">${card.cardState.includes("never-forget") ? "Forget" : "Never"}</button>
                     <button class="jpdb-reader-btn blacklist" data-action="blacklist">${card.cardState.includes("blacklisted") ? "Unlist" : "Blacklist"}</button>
-                    <button class="jpdb-reader-btn" data-action="audio">Audio</button>
                 </div>
                 ${this.settings.enableReviews ? this.renderReviewButtons() : ""}
             </div>
-        `;
+        `);
       if (requestId !== this.cardRenderRequest) return;
       popover.addEventListener("click", (event) => {
         const button = event.target.closest("[data-action]");
@@ -6535,14 +6587,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       form.setAttribute("aria-modal", "true");
       form.setAttribute("aria-label", SETTINGS_TITLE);
       form.tabIndex = -1;
-      form.innerHTML = `
+      setInnerHtml(form, `
             <div class="jpdb-reader-settings-head">
                 <h2>${SETTINGS_TITLE}</h2>
             </div>
             <div class="jpdb-reader-settings-scroll">
             <fieldset>
                 <legend>JPDB</legend>
-                ${input("apiKey", "API key", this.settings.apiKey, "password")}
+                ${input("apiKey", `API key <a href="${JPDB_SETTINGS_URL}" target="_blank" rel="noopener">JPDB settings</a>`, this.settings.apiKey, "password")}
                 <div class="grid">
                     ${input("miningDeck", "Mining deck", this.settings.miningDeck)}
                     ${input("neverForgetDeck", "Never forget deck", this.settings.neverForgetDeck)}
@@ -6596,7 +6648,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                     ${checkbox("ocrEnabled", "Enable image OCR", this.settings.ocrEnabled)}
                     ${checkbox("ocrAutoScanImages", "Auto-scan readable images near the viewport", this.settings.ocrAutoScanImages)}
                     ${checkbox("ocrShowTextOverlay", "Show tappable OCR text over images", this.settings.ocrShowTextOverlay)}
-                    ${checkbox("ocrTapToScan", "Show OCR button on images", this.settings.ocrTapToScan)}
+                    ${checkbox("ocrTapToScan", "Show per-image OCR buttons", this.settings.ocrTapToScan)}
                     ${select("ocrProvider", "OCR endpoint type", this.settings.ocrProvider, [["custom-json", "YomiNinja / custom JSON"], ["off", "No endpoint"]])}
                     ${input("ocrEndpointUrl", "OCR endpoint URL", this.settings.ocrEndpointUrl)}
                     ${input("ocrEngine", "OCR engine", this.settings.ocrEngine)}
@@ -6660,7 +6712,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
             </div>
-        `;
+        `);
       const backdrop = this.createBackdrop();
       form.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -6707,7 +6759,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         if (status) {
           status.textContent = summary.dictionaries.length ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.` : "No local dictionaries imported yet.";
         }
-        if (priorities) priorities.innerHTML = renderDictionaryPreferenceRows(this.settings.dictionaryPreferences);
+        if (priorities) setInnerHtml(priorities, renderDictionaryPreferenceRows(this.settings.dictionaryPreferences));
       } catch (error) {
         if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
       }
@@ -6748,11 +6800,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         }
         if (action === "export-reader-settings") {
           downloadBlob(new Blob([JSON.stringify({
-            formatName: "kotoba-reader-settings",
+            formatName: "yomu-reader-settings",
             formatVersion: 1,
             exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
             settings: this.settings
-          }, null, 2)], { type: "application/json" }), `kotoba-settings-${dateStamp()}.json`);
+          }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
           setStatus("Settings exported.");
           return;
         }
@@ -6768,7 +6820,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         }
         if (action === "export-yomitan-dictionary") {
           const blob = await this.dictionaries.exportJson();
-          downloadBlob(blob, `kotoba-dictionaries-${dateStamp()}.json`);
+          downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
           setStatus("Dictionaries exported.");
         }
       } catch (error) {
@@ -6896,6 +6948,13 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg></div>`;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
   }
   function splitMorae(reading) {
     const small = new Set("ゃゅょャュョァィゥェォ");
@@ -7111,7 +7170,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function getReaderSettingsExport(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
-    return (record.formatName === "kotoba-reader-settings" || record.formatName === "jpdb-popup-reader-settings") && record.settings && typeof record.settings === "object" ? record.settings : null;
+    return (record.formatName === "yomu-reader-settings" || record.formatName === "kotoba-reader-settings" || record.formatName === "jpdb-popup-reader-settings") && record.settings && typeof record.settings === "object" ? record.settings : null;
   }
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);

@@ -36,7 +36,7 @@ export default defineConfig({
         monkey({
             entry: 'src/reader/main.ts',
             userscript: {
-                name: 'ことば',
+                name: 'yomu',
                 namespace: repoUrl,
                 version: pkg.version,
                 description: 'JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.',

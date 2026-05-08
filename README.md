@@ -1,4 +1,4 @@
-# ことば
+# yomu
 
 JPDB/Yomitan popup reader for Japanese text, audio, manga OCR, and video subtitles on any website.
 
@@ -28,7 +28,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## GreasyFork Summary
 
-**Name:** ことば
+**Name:** yomu
 
 **Description:** JPDB and Yomitan popup reader for Japanese text, with iOS-friendly audio playback, local dictionary import, manga/image OCR, and subtitle mining on videos.
 
@@ -58,7 +58,7 @@ OCR is designed for manga and image-heavy pages on iPhone/iPad:
 - OCR results are cached per image for the current page.
 - Recognized Japanese lines are placed back over the image as large touch targets.
 - Tapping OCR text opens the normal JPDB/Yomitan popup and mining flow.
-- Without an OCR endpoint, the OCR UI only appears for images with accessible Japanese metadata or test fixture data.
+- Without an OCR endpoint, OCR overlays only appear for explicit test fixture data.
 
 The endpoint receives a YomiNinja-style JSON request:
 

@@ -1,7 +1,6 @@
-import { HAS_JAPANESE, escapeHtml, renderTokensToHtml } from './dom';
-import type { JPDBToken, ReaderSettings } from './types';
+import { HAS_JAPANESE } from './dom';
+import type { ReaderSettings } from './types';
 
-type ParseJapanese = (text: string) => Promise<JPDBToken[]>;
 type LookupText = (text: string, sentence?: string) => Promise<void> | void;
 
 export interface OcrRect {
@@ -31,12 +30,10 @@ interface ImageState {
     key: string;
     result?: OcrResult;
     loading: boolean;
-    parsed: Map<string, string>;
 }
 
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
-    parseJapanese: ParseJapanese;
     onLookup: LookupText;
     onToast: (message: string) => void;
 }
@@ -141,7 +138,8 @@ export class ImageOcrController {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'jpdb-ocr-chip';
-        chip.textContent = 'OCR';
+        chip.textContent = '読';
+        chip.hidden = true;
         chip.title = 'Read text in this image';
         chip.addEventListener('click', event => {
             event.preventDefault();
@@ -156,7 +154,7 @@ export class ImageOcrController {
         overlay.append(chip, status);
         document.body.append(overlay);
 
-        const state = { image, overlay, chip, status, key: imageCacheKey(image), loading: false, parsed: new Map<string, string>() };
+        const state = { image, overlay, chip, status, key: imageCacheKey(image), loading: false };
         image.addEventListener('load', () => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -213,7 +211,7 @@ export class ImageOcrController {
                 state.status.textContent = canUseEndpoint
                     ? 'No Japanese text found'
                     : 'Add an OCR endpoint in settings';
-                state.chip.textContent = 'OCR';
+                state.chip.textContent = '読';
                 return;
             }
 
@@ -226,7 +224,7 @@ export class ImageOcrController {
                 await this.renderResult(state, fallback);
             } else {
                 state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
-                state.chip.textContent = 'OCR';
+                state.chip.textContent = '読';
             }
         } finally {
             state.loading = false;
@@ -242,10 +240,7 @@ export class ImageOcrController {
         if (!this.options.getSettings().ocrShowTextOverlay) return;
 
         const sentence = result.lines.map(line => line.text).join('\n');
-        let searchOffset = 0;
         for (const line of result.lines) {
-            const lineStart = Math.max(0, sentence.indexOf(line.text, searchOffset));
-            searchOffset = lineStart + line.text.length + 1;
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'jpdb-ocr-line';
@@ -257,8 +252,8 @@ export class ImageOcrController {
             button.style.width = `${100 * line.box.width / result.width}%`;
             button.style.height = `${100 * line.box.height / result.height}%`;
             button.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
-            button.style.fontSize = `clamp(13px, ${line.vertical ? 70 * line.box.width / result.width : 80 * line.box.height / result.height}vw, 34px)`;
-            button.innerHTML = await this.renderLineText(line.text, sentence, state, lineStart);
+            button.style.fontSize = `clamp(12px, ${line.vertical ? 52 * line.box.width / result.width : 46 * line.box.height / result.height}vw, 24px)`;
+            button.textContent = line.text;
             button.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -275,27 +270,9 @@ export class ImageOcrController {
         state.key = key;
         state.result = undefined;
         state.loading = false;
-        state.parsed.clear();
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
-        state.chip.textContent = 'OCR';
+        state.chip.textContent = '読';
         state.status.hidden = true;
-    }
-
-    private async renderLineText(text: string, sentence: string, state: ImageState, lineStart: number): Promise<string> {
-        const cached = state.parsed.get(text);
-        if (cached) return cached;
-        try {
-            const tokens = await this.options.parseJapanese(sentence);
-            const lineEnd = lineStart + text.length;
-            const lineTokens = tokens
-                .filter(token => token.start >= lineStart && token.end <= lineEnd)
-                .map(token => ({ ...token, start: token.start - lineStart, end: token.end - lineStart, sentence }));
-            const html = renderTokensToHtml(text, lineTokens, this.options.getSettings());
-            state.parsed.set(text, html);
-            return html;
-        } catch {
-            return escapeHtml(text);
-        }
     }
 
     private remember(key: string, result: OcrResult): void {
@@ -323,11 +300,13 @@ export class ImageOcrController {
     private positionState(image: HTMLImageElement): void {
         const state = this.states.get(image);
         if (!state) return;
+        const settings = this.options.getSettings();
+        const hasEndpoint = settings.ocrProvider !== 'off' && Boolean(settings.ocrEndpointUrl.trim());
+        state.chip.hidden = !(settings.ocrTapToScan && hasEndpoint && !settings.ocrAutoScanImages);
         const rect = image.getBoundingClientRect();
         const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
         state.overlay.hidden = !visible;
         if (!visible) return;
-        state.chip.hidden = !this.options.getSettings().ocrTapToScan;
         state.overlay.style.left = `${rect.left}px`;
         state.overlay.style.top = `${rect.top}px`;
         state.overlay.style.width = `${rect.width}px`;
@@ -372,8 +351,7 @@ export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHe
 
     if (Array.isArray(record.results)) {
         for (const item of record.results) {
-            const line = normalizeYomiNinjaResult(item, width, height);
-            if (line) lines.push(line);
+            lines.push(...normalizeYomiNinjaResult(item, width, height));
         }
     }
 
@@ -394,17 +372,7 @@ export function readFallbackOcrResult(image: HTMLImageElement): OcrResult | null
         }
     }
 
-    const alt = image.alt?.replace(/\s+/g, ' ').trim();
-    if (!alt || !HAS_JAPANESE.test(alt)) return null;
-    return {
-        width,
-        height,
-        lines: [{
-            text: alt,
-            vertical: false,
-            box: { left: width * 0.08, top: height * 0.76, width: width * 0.84, height: height * 0.16 },
-        }],
-    };
+    return null;
 }
 
 async function recognizeViaEndpoint(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
@@ -463,17 +431,24 @@ function normalizeSimpleLine(value: unknown, width: number, height: number): Ocr
     return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
 }
 
-function normalizeYomiNinjaResult(value: unknown, width: number, height: number): OcrLine | null {
-    if (!value || typeof value !== 'object') return null;
+function normalizeYomiNinjaResult(value: unknown, width: number, height: number): OcrLine[] {
+    if (!value || typeof value !== 'object') return [];
     const record = value as Record<string, unknown>;
     const textLines = Array.isArray(record.text_lines) ? record.text_lines : [];
-    const text = textLines
-        .map(item => stringFrom((item as Record<string, unknown>)?.content))
-        .filter(Boolean)
-        .join('');
+    const vertical = Boolean(record.is_vertical);
+    const lines = textLines
+        .map(item => {
+            const lineRecord = item as Record<string, unknown>;
+            const text = stringFrom(lineRecord?.content ?? lineRecord?.text);
+            const box = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
+            return text && box ? { text, box, vertical: Boolean(lineRecord.is_vertical ?? vertical) } : null;
+        })
+        .filter((line): line is OcrLine => line !== null);
+    if (lines.length) return lines;
+
+    const text = textLines.map(item => stringFrom((item as Record<string, unknown>)?.content)).filter(Boolean).join('');
     const box = normalizeBox(record.box, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: Boolean(record.is_vertical) };
+    return text && box ? [{ text, box, vertical }] : [];
 }
 
 function normalizeBox(value: unknown, width: number, height: number): OcrRect | null {
@@ -485,12 +460,12 @@ function normalizeBox(value: unknown, width: number, height: number): OcrRect | 
     const directHeight = numberFrom(record.height ?? record.h);
     if (directLeft !== null && directTop !== null && directWidth !== null && directHeight !== null) {
         const percent = directLeft <= 1 && directTop <= 1 && directWidth <= 1 && directHeight <= 1;
-        return {
+        return clampBox({
             left: percent ? directLeft * width : directLeft,
             top: percent ? directTop * height : directTop,
             width: percent ? directWidth * width : directWidth,
             height: percent ? directHeight * height : directHeight,
-        };
+        }, width, height);
     }
 
     const points = ['top_left', 'top_right', 'bottom_right', 'bottom_left']
@@ -500,9 +475,21 @@ function normalizeBox(value: unknown, width: number, height: number): OcrRect | 
     const xs = points.map(point => numberFrom(point?.x)).filter((item): item is number => item !== null);
     const ys = points.map(point => numberFrom(point?.y)).filter((item): item is number => item !== null);
     if (!xs.length || !ys.length) return null;
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+    const percent = xs.every(value => value >= 0 && value <= 1) && ys.every(value => value >= 0 && value <= 1);
+    const scaledXs = percent ? xs.map(value => value * width) : xs;
+    const scaledYs = percent ? ys.map(value => value * height) : ys;
+    const left = Math.min(...scaledXs);
+    const top = Math.min(...scaledYs);
+    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+}
+
+function clampBox(box: OcrRect, width: number, height: number): OcrRect | null {
+    const left = Math.max(0, Math.min(width, box.left));
+    const top = Math.max(0, Math.min(height, box.top));
+    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, top, width: right - left, height: bottom - top };
 }
 
 function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): boolean {

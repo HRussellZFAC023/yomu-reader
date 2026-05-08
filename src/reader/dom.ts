@@ -1,6 +1,13 @@
 import type { JPDBToken, ReaderSettings } from './types';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+type TrustedTypesFactory = {
+    createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
+    getPolicy?: (name: string) => { createHTML: (value: string) => unknown } | null;
+};
+
+let trustedHtmlPolicy: { createHTML: (value: string) => unknown } | null | undefined;
+
 const SKIP_SELECTOR = [
     'script',
     'style',
@@ -13,6 +20,10 @@ const SKIP_SELECTOR = [
     '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
 ].join(',');
+
+export function setInnerHtml(element: Element, html: string): void {
+    element.innerHTML = trustedHtml(html) as string;
+}
 
 export interface TextTarget {
     node: Text;
@@ -129,7 +140,7 @@ function renderToken(surface: string, token: JPDBToken, settings: ReaderSettings
     span.tabIndex = 0;
 
     if (settings.showFurigana && token.rubies.length) {
-        span.innerHTML = renderRuby(surface, token);
+        setInnerHtml(span, renderRuby(surface, token));
     } else {
         span.textContent = surface;
     }
@@ -162,6 +173,22 @@ export function escapeHtml(value: string): string {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+function trustedHtml(value: string): string | unknown {
+    const factory = (globalThis as unknown as { trustedTypes?: TrustedTypesFactory }).trustedTypes;
+    if (!factory) return value;
+    if (trustedHtmlPolicy === undefined) {
+        trustedHtmlPolicy = factory.getPolicy?.('yomu-reader') ?? null;
+        if (!trustedHtmlPolicy) {
+            try {
+                trustedHtmlPolicy = factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
+            } catch {
+                trustedHtmlPolicy = null;
+            }
+        }
+    }
+    return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
 }
 
 function isVisible(element: HTMLElement): boolean {

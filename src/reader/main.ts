@@ -8,6 +8,7 @@ import {
     escapeHtml,
     getSelectionSentence,
     getSelectionText,
+    setInnerHtml,
 } from './dom';
 import { JpdbClient } from './jpdb';
 import { ImageOcrController } from './ocr';
@@ -34,6 +35,8 @@ import {
     type YomitanTermEntry,
 } from './yomitan';
 
+const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
+
 class ReaderApp {
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
@@ -47,7 +50,6 @@ class ReaderApp {
     });
     private ocr = new ImageOcrController({
         getSettings: () => this.settings,
-        parseJapanese: async text => (await this.jpdb.parse([text]))[0] ?? [],
         onLookup: (text, sentence) => this.lookupText(text, sentence),
         onToast: message => this.toast(message),
     });
@@ -318,7 +320,7 @@ class ReaderApp {
     private showTokenList(tokens: JPDBToken[], selected: string): void {
         if (!tokens.length) return;
         const popover = this.createPopover();
-        popover.innerHTML = `
+        setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-pos">Selection</div>
             <div class="jpdb-reader-meanings">
@@ -329,7 +331,7 @@ class ReaderApp {
                 `).join('')}
             </div>
             <div class="jpdb-reader-help">Parsed from: ${escapeHtml(selected)}</div>
-        `;
+        `);
         popover.addEventListener('click', event => {
             const button = (event.target as HTMLElement).closest('button[data-vid]') as HTMLButtonElement | null;
             if (!button) return;
@@ -341,7 +343,7 @@ class ReaderApp {
 
     private showLocalDictionaryPopup(term: string, entries: YomitanTermEntry[]): void {
         const popover = this.createPopover();
-        popover.innerHTML = `
+        setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
                 <div>
@@ -350,13 +352,13 @@ class ReaderApp {
                 </div>
             </div>
             ${this.renderLocalDefinitions(entries)}
-        `;
+        `);
         this.mountPopover(popover);
     }
 
     private showQuickMenu(anchor: HTMLElement): void {
         const popover = this.createPopover();
-        popover.innerHTML = `
+        setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
                 <div>
@@ -370,7 +372,7 @@ class ReaderApp {
                     <button class="jpdb-reader-btn" data-action="settings">Settings</button>
                 </div>
             </div>
-        `;
+        `);
         popover.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
             if (action === 'ocr') void this.ocr.scanVisible();
@@ -401,14 +403,17 @@ class ReaderApp {
         const cardPos = formatPartOfSpeech(card.partOfSpeech);
         const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
 
-        popover.innerHTML = `
+        setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-header">
-                <div>
+                <div class="jpdb-reader-heading">
                     <a class="jpdb-reader-spelling jpdb-reader-jpdb-link jpdb-${state}" href="${jpdbUrl}" target="_blank" rel="noopener" title="Open on JPDB">${escapeHtml(card.spelling)}</a>
                     ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
                 </div>
-                ${this.settings.showPitchAccent ? renderPitch(card) : ''}
+                <div class="jpdb-reader-card-tools">
+                    ${this.settings.showPitchAccent ? renderPitch(card) : ''}
+                    <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="Play audio" title="Play audio">${speakerIcon()}</button>
+                </div>
             </div>
             ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(cardPosDetails)}">${escapeHtml(cardPos)}</div>` : ''}
             <div class="jpdb-reader-meanings">${meanings || '<div class="jpdb-reader-help">No meanings returned.</div>'}</div>
@@ -420,15 +425,14 @@ class ReaderApp {
             ${this.renderLocalDefinitions(localEntries)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
             <div class="jpdb-reader-actions">
-                <div class="jpdb-reader-row" style="--cols: 4">
+                <div class="jpdb-reader-row" style="--cols: 3">
                     <button class="jpdb-reader-btn add" data-action="add">Add</button>
                     <button class="jpdb-reader-btn nf" data-action="neverforget">${card.cardState.includes('never-forget') ? 'Forget' : 'Never'}</button>
                     <button class="jpdb-reader-btn blacklist" data-action="blacklist">${card.cardState.includes('blacklisted') ? 'Unlist' : 'Blacklist'}</button>
-                    <button class="jpdb-reader-btn" data-action="audio">Audio</button>
                 </div>
                 ${this.settings.enableReviews ? this.renderReviewButtons() : ''}
             </div>
-        `;
+        `);
 
         if (requestId !== this.cardRenderRequest) return;
         popover.addEventListener('click', event => {
@@ -595,14 +599,14 @@ class ReaderApp {
         form.setAttribute('aria-modal', 'true');
         form.setAttribute('aria-label', SETTINGS_TITLE);
         form.tabIndex = -1;
-        form.innerHTML = `
+        setInnerHtml(form, `
             <div class="jpdb-reader-settings-head">
                 <h2>${SETTINGS_TITLE}</h2>
             </div>
             <div class="jpdb-reader-settings-scroll">
             <fieldset>
                 <legend>JPDB</legend>
-                ${input('apiKey', 'API key', this.settings.apiKey, 'password')}
+                ${input('apiKey', `API key <a href="${JPDB_SETTINGS_URL}" target="_blank" rel="noopener">JPDB settings</a>`, this.settings.apiKey, 'password')}
                 <div class="grid">
                     ${input('miningDeck', 'Mining deck', this.settings.miningDeck)}
                     ${input('neverForgetDeck', 'Never forget deck', this.settings.neverForgetDeck)}
@@ -656,7 +660,7 @@ class ReaderApp {
                     ${checkbox('ocrEnabled', 'Enable image OCR', this.settings.ocrEnabled)}
                     ${checkbox('ocrAutoScanImages', 'Auto-scan readable images near the viewport', this.settings.ocrAutoScanImages)}
                     ${checkbox('ocrShowTextOverlay', 'Show tappable OCR text over images', this.settings.ocrShowTextOverlay)}
-                    ${checkbox('ocrTapToScan', 'Show OCR button on images', this.settings.ocrTapToScan)}
+                    ${checkbox('ocrTapToScan', 'Show per-image OCR buttons', this.settings.ocrTapToScan)}
                     ${select('ocrProvider', 'OCR endpoint type', this.settings.ocrProvider, [['custom-json', 'YomiNinja / custom JSON'], ['off', 'No endpoint']])}
                     ${input('ocrEndpointUrl', 'OCR endpoint URL', this.settings.ocrEndpointUrl)}
                     ${input('ocrEngine', 'OCR engine', this.settings.ocrEngine)}
@@ -720,7 +724,7 @@ class ReaderApp {
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
             </div>
-        `;
+        `);
 
         const backdrop = this.createBackdrop();
         form.addEventListener('submit', event => {
@@ -770,7 +774,7 @@ class ReaderApp {
                     ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.`
                     : 'No local dictionaries imported yet.';
             }
-            if (priorities) priorities.innerHTML = renderDictionaryPreferenceRows(this.settings.dictionaryPreferences);
+            if (priorities) setInnerHtml(priorities, renderDictionaryPreferenceRows(this.settings.dictionaryPreferences));
         } catch (error) {
             if (status) status.textContent = error instanceof Error ? error.message : 'Dictionary status unavailable.';
         }
@@ -814,11 +818,11 @@ class ReaderApp {
 
             if (action === 'export-reader-settings') {
                 downloadBlob(new Blob([JSON.stringify({
-                    formatName: 'kotoba-reader-settings',
+                    formatName: 'yomu-reader-settings',
                     formatVersion: 1,
                     exportedAt: new Date().toISOString(),
                     settings: this.settings,
-                }, null, 2)], { type: 'application/json' }), `kotoba-settings-${dateStamp()}.json`);
+                }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
                 setStatus('Settings exported.');
                 return;
             }
@@ -836,7 +840,7 @@ class ReaderApp {
 
             if (action === 'export-yomitan-dictionary') {
                 const blob = await this.dictionaries.exportJson();
-                downloadBlob(blob, `kotoba-dictionaries-${dateStamp()}.json`);
+                downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
                 setStatus('Dictionaries exported.');
             }
         } catch (error) {
@@ -984,6 +988,14 @@ function renderPitch(card: JPDBCard): string {
         ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml(mora)}</text>`).join('')}
     </svg></div>`;
+}
+
+function speakerIcon(): string {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
 }
 
 function splitMorae(reading: string): string[] {
@@ -1222,7 +1234,7 @@ function readAudioSources(data: FormData): AudioSourceSetting[] {
 function getReaderSettingsExport(value: unknown): ReaderSettings | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as { formatName?: string; settings?: unknown };
-    return (record.formatName === 'kotoba-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
+    return (record.formatName === 'yomu-reader-settings' || record.formatName === 'kotoba-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
         && record.settings
         && typeof record.settings === 'object'
         ? record.settings as ReaderSettings

@@ -282,7 +282,7 @@ export class YomitanDictionaryStore {
             this.getAllFromStore<YomitanMetaEntry>(db, 'kanjiMeta'),
         ]);
         return new Blob([JSON.stringify({
-            formatName: 'kotoba-yomitan-dictionaries',
+            formatName: 'yomu-yomitan-dictionaries',
             formatVersion: 2,
             exportedAt: new Date().toISOString(),
             dictionaries,
@@ -825,7 +825,7 @@ function isReaderDictionaryExport(value: unknown): value is {
 } {
     return !!value
         && typeof value === 'object'
-        && ['kotoba-yomitan-dictionaries', 'jpdb-reader-yomitan-dictionaries'].includes((value as { formatName?: string }).formatName ?? '')
+        && ['yomu-yomitan-dictionaries', 'kotoba-yomitan-dictionaries', 'jpdb-reader-yomitan-dictionaries'].includes((value as { formatName?: string }).formatName ?? '')
         && (
             Array.isArray((value as { entries?: unknown }).entries)
             || Array.isArray((value as { terms?: unknown }).terms)
