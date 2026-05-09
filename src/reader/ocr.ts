@@ -1,5 +1,6 @@
-import { HAS_JAPANESE } from './dom';
-import type { ReaderSettings } from './types';
+import { HAS_JAPANESE, escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { accentToRgba } from './settings';
+import type { JPDBToken, ReaderSettings } from './types';
 
 type LookupText = (text: string, sentence?: string) => Promise<void> | void;
 
@@ -30,51 +31,29 @@ interface ImageState {
     result?: OcrResult;
     loading: boolean;
     overlayRequested: boolean;
+    manualRequested: boolean;
+    autoSkipped: boolean;
 }
 
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
+    parseJapanese: (text: string) => Promise<JPDBToken[]>;
     onLookup: LookupText;
     onToast: (message: string) => void;
 }
 
 const MAX_CACHE_ITEMS = 36;
-const TESSERACT_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js';
-const TESSERACT_WORKER_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/worker.min.js';
-const TESSERACT_CORE_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7/tesseract-core-simd.wasm.js';
-const TESSERACT_LANG_URL = 'https://tessdata.projectnaptha.com/4.0.0';
+const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
+const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
+const LENS_PLATFORM_WEB = 3;
+const LENS_SURFACE_CHROMIUM = 4;
+const LENS_AUTO_FILTER = 7;
+const LENS_WRITING_TOP_TO_BOTTOM = 2;
 
-let tesseractLoader: Promise<TesseractLike> | undefined;
-let tesseractWorker: Promise<TesseractWorkerLike> | undefined;
-
-interface BrowserDetectedText {
-    rawValue?: string;
-    boundingBox?: DOMRectReadOnly;
-}
-
-interface TextDetectorLike {
-    detect(source: CanvasImageSource): Promise<BrowserDetectedText[]>;
-}
-
-interface TesseractLike {
-    createWorker(language: string, oem?: number, options?: Record<string, unknown>): Promise<TesseractWorkerLike>;
-}
-
-interface TesseractWorkerLike {
-    recognize(source: CanvasImageSource): Promise<{
-        data?: {
-            lines?: Array<{ text?: string; bbox?: { x0: number; y0: number; x1: number; y1: number } }>;
-            words?: Array<{ text?: string; bbox?: { x0: number; y0: number; x1: number; y1: number } }>;
-            text?: string;
-        };
-    }>;
-}
-
-declare global {
-    interface Window {
-        TextDetector?: { new(): TextDetectorLike };
-        Tesseract?: TesseractLike;
-    }
+interface ProtoField {
+    field: number;
+    wire: number;
+    value: bigint | number | string | Uint8Array;
 }
 
 export class ImageOcrController {
@@ -115,12 +94,12 @@ export class ImageOcrController {
 
         this.pruneDisconnectedStates();
         this.ensureObserver(settings);
-        let count = 0;
-        for (const image of Array.from(document.images)) {
-            if (count >= settings.ocrMaxImagesPerPage) break;
-            if (!isCandidateImage(image, settings)) continue;
-            if (!shouldObserveImage(image, settings)) continue;
-            count++;
+        const images = Array.from(document.images)
+            .filter(image => isCandidateImage(image, settings) && shouldObserveImage(image, settings))
+            .sort((a, b) => imageViewportDistance(a) - imageViewportDistance(b))
+            .slice(0, settings.ocrMaxImagesPerPage);
+
+        for (const image of images) {
             this.ensureState(image);
             this.observer?.observe(image);
         }
@@ -130,7 +109,7 @@ export class ImageOcrController {
     toggle(): void {
         const settings = this.options.getSettings();
         settings.ocrEnabled = !settings.ocrEnabled;
-        this.options.onToast(settings.ocrEnabled ? 'OCR enabled.' : 'OCR hidden.');
+        this.options.onToast(settings.ocrEnabled ? 'Image reading enabled.' : 'Image reading hidden.');
         this.refresh();
     }
 
@@ -175,7 +154,7 @@ export class ImageOcrController {
         overlay.append(status);
         document.body.append(overlay);
 
-        const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false };
+        const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
         image.addEventListener('load', () => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -187,7 +166,10 @@ export class ImageOcrController {
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         const state = this.states.get(image) ?? this.ensureState(image);
-        state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image));
+        if (state.autoSkipped && !userRequested) return;
+        state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
+        state.manualRequested ||= userRequested;
+        if (userRequested) state.autoSkipped = false;
         if (state.result) {
             if (userRequested) void this.renderResult(state, state.result, true);
             return;
@@ -206,8 +188,8 @@ export class ImageOcrController {
         const image = this.queue.shift();
         if (!image) return;
         this.busy = true;
-        const hasFastText = Boolean(readFallbackOcrResult(image));
-        const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 1800;
+        const hasFastText = Boolean(readFallbackOcrResult(image, false));
+        const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
         void waitForIdle(delay)
             .then(() => this.scanImage(image))
             .finally(() => {
@@ -220,30 +202,37 @@ export class ImageOcrController {
         const state = this.states.get(image) ?? this.ensureState(image);
         const settings = this.options.getSettings();
         const key = imageCacheKey(image);
+        const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
         const cached = this.cache.get(key);
         if (cached) {
             await this.renderResult(state, cached);
+            state.manualRequested = false;
             return;
         }
 
         state.loading = true;
         state.status.hidden = !state.overlayRequested;
-        const canUseEndpoint = settings.ocrProvider === 'custom-json' && settings.ocrEndpointUrl.trim();
+        const canUseLocalService = settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim();
+        const canUseCloudVision = settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim();
+        const canUseGoogleLens = settings.ocrProvider === 'google-lens';
         state.status.textContent = 'Reading image...';
 
         try {
-            const fallback = readFallbackOcrResult(image);
-            const result = fallback
-                ?? (canUseEndpoint
-                    ? await recognizeViaEndpoint(image, settings)
-                    : settings.ocrProvider === 'auto'
-                        ? await recognizeViaBrowser(image, settings)
-                        : null);
+            const inlineFallback = readFallbackOcrResult(image, false);
+            const providerResult = inlineFallback ? null : canUseLocalService
+                ? await recognizeViaLocalService(image, settings)
+                : canUseCloudVision
+                    ? await recognizeViaCloudVision(image, settings)
+                : canUseGoogleLens
+                    ? await recognizeViaGoogleLens(image, settings)
+                    : null;
+            const result = inlineFallback ?? providerResult;
 
             if (!result?.lines.length) {
+                state.autoSkipped = !manualRequested;
                 state.status.textContent = 'No Japanese text found';
-                state.status.hidden = !state.overlayRequested;
+                state.status.hidden = !state.overlayRequested || state.autoSkipped;
                 return;
             }
 
@@ -251,15 +240,17 @@ export class ImageOcrController {
             state.key = key;
             await this.renderResult(state, result);
         } catch (error) {
-            const fallback = readFallbackOcrResult(image);
+            const fallback = readFallbackOcrResult(image, false);
             if (fallback?.lines.length) {
                 await this.renderResult(state, fallback);
             } else {
                 state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
-                state.status.hidden = !state.overlayRequested;
+                state.autoSkipped = !manualRequested;
+                state.status.hidden = !state.overlayRequested || state.autoSkipped;
             }
         } finally {
             state.loading = false;
+            state.manualRequested = false;
         }
     }
 
@@ -268,31 +259,45 @@ export class ImageOcrController {
         state.status.hidden = true;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
-        const showText = this.options.getSettings().ocrShowTextOverlay && (state.overlayRequested || forceOverlay);
+        const settings = this.options.getSettings();
+        const showText = settings.ocrShowTextOverlay || forceOverlay;
 
         const sentence = result.lines.map(line => line.text).join('\n');
-        for (const line of result.lines) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'jpdb-ocr-line';
-            if (showText) button.classList.add('jpdb-ocr-line-visible');
-            button.dataset.ocrText = line.text;
-            button.dataset.vertical = String(line.vertical);
-            button.title = line.text;
-            button.style.left = `${100 * line.box.left / result.width}%`;
-            button.style.top = `${100 * line.box.top / result.height}%`;
-            button.style.width = `${100 * line.box.width / result.width}%`;
-            button.style.height = `${100 * line.box.height / result.height}%`;
-            button.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
-            button.style.fontSize = `clamp(12px, ${line.vertical ? 52 * line.box.width / result.width : 46 * line.box.height / result.height}vw, 24px)`;
-            button.setAttribute('aria-label', line.text);
-            button.textContent = showText ? line.text : '';
-            button.addEventListener('click', event => {
+        const parsed = settings.apiKey.trim()
+            ? await Promise.all(result.lines.map(line => this.options.parseJapanese(line.text).catch(() => [])))
+            : result.lines.map(() => []);
+        state.overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
+        state.overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
+        state.overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
+        state.overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+
+        for (const [index, line] of result.lines.entries()) {
+            const element = document.createElement('div');
+            element.className = 'jpdb-ocr-line';
+            if (showText) element.classList.add('jpdb-ocr-line-visible');
+            element.dataset.ocrText = line.text;
+            element.dataset.vertical = String(line.vertical);
+            element.dataset.boxWidth = String(line.box.width / result.width);
+            element.dataset.boxHeight = String(line.box.height / result.height);
+            element.dataset.sentence = sentence;
+            element.title = line.text;
+            element.tabIndex = 0;
+            element.style.left = `${100 * line.box.left / result.width}%`;
+            element.style.top = `${100 * line.box.top / result.height}%`;
+            element.style.width = `${100 * line.box.width / result.width}%`;
+            element.style.height = `${100 * line.box.height / result.height}%`;
+            element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
+            element.setAttribute('aria-label', line.text);
+            setInnerHtml(element, parsed[index]?.length
+                ? renderTokensToHtml(line.text, parsed[index], settings)
+                : escapeHtml(line.text));
+            element.addEventListener('click', event => {
+                if ((event.target as HTMLElement).closest('.jpdb-reader-word')) return;
                 event.preventDefault();
                 event.stopPropagation();
-                void this.options.onLookup(line.text, sentence);
+                state.overlay.classList.toggle('jpdb-ocr-layer-expanded');
             });
-            state.overlay.append(button);
+            state.overlay.append(element);
         }
         this.positionState(state.image);
     }
@@ -304,6 +309,8 @@ export class ImageOcrController {
         state.result = undefined;
         state.loading = false;
         state.overlayRequested = false;
+        state.manualRequested = false;
+        state.autoSkipped = false;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
         state.status.hidden = true;
     }
@@ -341,6 +348,19 @@ export class ImageOcrController {
         state.overlay.style.top = `${rect.top}px`;
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
+        this.fitLineFonts(state, rect.width, rect.height);
+    }
+
+    private fitLineFonts(state: ImageState, imageWidth: number, imageHeight: number): void {
+        const scale = this.options.getSettings().ocrFontScale;
+        state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line').forEach(element => {
+            const boxWidth = Number(element.dataset.boxWidth) * imageWidth;
+            const boxHeight = Number(element.dataset.boxHeight) * imageHeight;
+            if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
+            const text = element.dataset.ocrText ?? '';
+            const vertical = element.dataset.vertical === 'true';
+            element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
+        });
     }
 
     private clear(): void {
@@ -366,6 +386,9 @@ export class ImageOcrController {
 export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHeight = 1): OcrResult | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
+    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+    if (cloudVision) return cloudVision;
+
     const resolution = record.context_resolution as Record<string, unknown> | undefined;
     const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
     const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
@@ -385,11 +408,26 @@ export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHe
         }
     }
 
+    if (Array.isArray(record.ocr_regions)) {
+        for (const region of record.ocr_regions) {
+            const regionRecord = region as Record<string, unknown>;
+            const regionBox = normalizeOcrRegion(regionRecord, width, height);
+            const scaleWidth = regionBox?.width ?? width;
+            const scaleHeight = regionBox?.height ?? height;
+            if (Array.isArray(regionRecord.results)) {
+                for (const item of regionRecord.results) {
+                    const regionLines = normalizeStructuredOcrResult(item, scaleWidth, scaleHeight);
+                    lines.push(...(regionBox ? regionLines.map(line => offsetLineToRegion(line, regionBox, width, height)).filter((line): line is OcrLine => Boolean(line)) : regionLines));
+                }
+            }
+        }
+    }
+
     const japaneseLines = lines.filter(line => line.text.length > 0 && HAS_JAPANESE.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
 }
 
-export function readFallbackOcrResult(image: HTMLImageElement): OcrResult | null {
+export function readFallbackOcrResult(image: HTMLImageElement, _includeAccessibleText = false): OcrResult | null {
     const width = image.naturalWidth || image.width || 1;
     const height = image.naturalHeight || image.height || 1;
     const data = image.dataset.ocrLines;
@@ -402,28 +440,81 @@ export function readFallbackOcrResult(image: HTMLImageElement): OcrResult | null
         }
     }
 
-    return readAccessibleImageText(image, width, height);
+    return null;
 }
 
-async function recognizeViaBrowser(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const nativeResult = await recognizeViaTextDetector(canvas).catch(() => null);
-    if (nativeResult?.lines.length) return nativeResult;
-    return recognizeViaTesseract(canvas);
+function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
+    const safeScale = Math.max(0.7, Math.min(1.8, scale));
+    const length = Math.max(1, visualTextLength(text));
+    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
+    const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
+    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
+    return Math.max(11, Math.min(38, fitted));
 }
 
-async function recognizeViaEndpoint(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+function visualTextLength(text: string): number {
+    return [...text.trim()].reduce((total, char) => {
+        if (/\s/.test(char)) return total + 0.35;
+        if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
+        return total + 1;
+    }, 0);
+}
+
+async function recognizeViaLocalService(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const payload = await canvasToBase64Payload(canvas);
+    const engine = settings.ocrEngine === 'auto' ? '' : settings.ocrEngine;
     const body = JSON.stringify({
         id: imageCacheKey(image),
         language_code: settings.ocrLanguage || 'ja-JP',
+        language: {
+            bcp47_tag: settings.ocrLanguage || 'ja-JP',
+            two_letter_code: (settings.ocrLanguage || 'ja').slice(0, 2),
+        },
         base64_image: payload.base64,
-        ocr_engine: settings.ocrEngine || 'MangaOCR',
+        image: payload.base64,
+        image_bytes: payload.base64,
+        ocr_engine: engine,
+        ocr_adapter_name: engine,
         detection_only: false,
     });
     const response = await requestJson(settings.ocrEndpointUrl.trim(), body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
+}
+
+async function recognizeViaCloudVision(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const payload = await canvasToBase64Payload(canvas);
+    const body = JSON.stringify({
+        requests: [{
+            image: { content: payload.base64 },
+            features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
+            imageContext: { languageHints: ['ja'] },
+        }],
+    });
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(settings.ocrCloudVisionApiKey.trim())}`;
+    const response = await requestJson(url, body, settings.audioTimeoutMs);
+    return normalizeOcrResult(response, payload.width, payload.height);
+}
+
+async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
+    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.88);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
+    try {
+        const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+        return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
+    } catch {
+        return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
+    }
+}
+
+async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: number, timeout: number): Promise<OcrResult | null> {
+    const data = new FormData();
+    data.append('encoded_image', blob, 'image.jpg');
+    const response = await requestTextForm('https://lens.google.com/v3/upload?stcs=' + Date.now().toString().slice(0, 10), data, timeout);
+    return parseGoogleLensUploadHtml(response, width, height);
 }
 
 async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
@@ -458,70 +549,117 @@ function drawImageToCanvas(image: HTMLImageElement, maxPixels: number): HTMLCanv
 }
 
 async function canvasToBase64Payload(canvas: HTMLCanvasElement): Promise<{ base64: string; width: number; height: number }> {
-    const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(result => result ? resolve(result) : reject(new Error('Image encoding failed.')), 'image/jpeg', 0.86);
-    });
+    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.86);
     return { base64: (await blobToDataUrl(blob)).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
 }
 
-async function recognizeViaTextDetector(canvas: HTMLCanvasElement): Promise<OcrResult | null> {
-    if (!window.TextDetector) return null;
-    const detected = await new window.TextDetector().detect(canvas);
-    const lines = detected
-        .map(item => {
-            const text = (item.rawValue ?? '').trim();
-            const box = item.boundingBox
-                ? clampBox({ left: item.boundingBox.x, top: item.boundingBox.y, width: item.boundingBox.width, height: item.boundingBox.height }, canvas.width, canvas.height)
-                : null;
-            return text && box ? { text, box, vertical: box.height > box.width * 1.5 && text.length > 1 } : null;
-        })
-        .filter((line): line is OcrLine => Boolean(line && HAS_JAPANESE.test(line.text)));
-    return lines.length ? { width: canvas.width, height: canvas.height, lines } : null;
+function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
+    const [language = 'ja', region = 'US'] = (locale || 'ja-JP').split(/[-_]/);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const requestId = protoMessage(
+        protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1000000))),
+        protoVarintField(2, 1),
+        protoVarintField(3, 1),
+        protoBytesField(4, randomBytes(16)),
+    );
+    const localeContext = protoMessage(
+        protoStringField(1, language || 'ja'),
+        protoStringField(2, region || 'US'),
+        protoStringField(3, timeZone),
+    );
+    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+    const clientContext = protoMessage(
+        protoVarintField(1, LENS_PLATFORM_WEB),
+        protoVarintField(2, LENS_SURFACE_CHROMIUM),
+        protoMessageField(4, localeContext),
+        protoMessageField(17, clientFilters),
+    );
+    const requestContext = protoMessage(
+        protoMessageField(3, requestId),
+        protoMessageField(4, clientContext),
+    );
+    const imageData = protoMessage(
+        protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+        protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height))),
+    );
+    return protoMessage(protoMessageField(1, protoMessage(
+        protoMessageField(1, requestContext),
+        protoMessageField(3, imageData),
+    )));
 }
 
-async function recognizeViaTesseract(canvas: HTMLCanvasElement): Promise<OcrResult | null> {
-    const worker = await getTesseractWorker();
-    const response = await worker.recognize(canvas);
-    const data = response.data ?? {};
-    const items = (data.lines?.length ? data.lines : data.words) ?? [];
-    const lines = items
-        .map(item => {
-            const text = (item.text ?? '').replace(/\s+/g, '').trim();
-            const bbox = item.bbox;
-            const box = bbox ? clampBox({ left: bbox.x0, top: bbox.y0, width: bbox.x1 - bbox.x0, height: bbox.y1 - bbox.y0 }, canvas.width, canvas.height) : null;
-            return text && box ? { text, box, vertical: box.height > box.width * 1.5 && text.length > 1 } : null;
-        })
-        .filter((line): line is OcrLine => Boolean(line && HAS_JAPANESE.test(line.text)));
-    if (lines.length) return { width: canvas.width, height: canvas.height, lines };
+function parseGoogleLensResponse(bytes: Uint8Array, width: number, height: number): OcrResult | null {
+    const root = decodeProtoMessage(bytes);
+    const objectsResponse = protoFirstMessage(root, 2);
+    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    const layout = text ? protoFirstMessage(text, 1) : null;
+    if (!layout) return null;
 
-    const text = (data.text ?? '').replace(/\s+/g, '').trim();
-    return HAS_JAPANESE.test(text)
-        ? { width: canvas.width, height: canvas.height, lines: [{ text, box: { left: 0, top: canvas.height * 0.68, width: canvas.width, height: canvas.height * 0.28 }, vertical: false }] }
-        : null;
-}
+    const lines: OcrLine[] = [];
+    for (const paragraph of protoMessages(layout, 1)) {
+        const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+        const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+        for (const line of protoMessages(paragraph, 2)) {
+            const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+            const words = protoMessages(line, 1).map(word => ({
+                text: protoString(word, 2),
+                separator: protoString(word, 3),
+                box: protoBox(protoFirstMessage(word, 4), width, height),
+            })).filter(word => word.text);
+            const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+            const rawText = orderedWords
+                .map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? ' ' : '')))
+                .join('');
+            const textValue = cleanOcrText(rawText);
+            if (!textValue || !HAS_JAPANESE.test(textValue)) continue;
 
-async function getTesseractWorker(): Promise<TesseractWorkerLike> {
-    if (!tesseractWorker) {
-        tesseractWorker = loadTesseract().then(tesseract => tesseract.createWorker('jpn', 1, {
-            workerPath: TESSERACT_WORKER_URL,
-            corePath: TESSERACT_CORE_URL,
-            langPath: TESSERACT_LANG_URL,
-            workerBlobURL: true,
-        }));
+            const box = lineBox ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item))) ?? paragraphBox;
+            if (!box) continue;
+            lines.push({
+                text: textValue,
+                box,
+                vertical: paragraphVertical || (box.height > box.width * 1.25 && textValue.length > 1),
+            });
+        }
     }
-    return tesseractWorker;
+    return lines.length ? { width, height, lines } : null;
 }
 
-async function loadTesseract(): Promise<TesseractLike> {
-    if (window.Tesseract) return window.Tesseract;
-    if (!tesseractLoader) {
-        tesseractLoader = requestText(TESSERACT_SCRIPT_URL).then(code => {
-            (0, eval)(`${code}\n//# sourceURL=${TESSERACT_SCRIPT_URL}`);
-            if (!window.Tesseract) throw new Error('Browser OCR failed to load.');
-            return window.Tesseract;
-        });
+function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
+    const match = html.match(/AF_initDataCallback\((\{key:\s*['"]ds:1['"][\s\S]*?\})\);/);
+    if (!match) return null;
+    try {
+        const callback = Function(`"use strict";return (${match[1]});`)() as { data?: unknown[] };
+        const blocks = (((callback.data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
+        const lines: OcrLine[] = [];
+        for (const block of blocks) {
+            const blockData = block as unknown[];
+            const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
+            const lineItems = rawLines?.[0] as unknown[] | undefined;
+            if (!Array.isArray(lineItems)) continue;
+            for (const item of lineItems) {
+                const lineData = item as unknown[];
+                const words = Array.isArray(lineData[0]) ? lineData[0] as unknown[] : [];
+                const boxData = Array.isArray(lineData[1]) ? lineData[1] as number[] : [];
+                const text = cleanOcrText(words.map(word => {
+                    const wordData = word as unknown[];
+                    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
+                }).join(''));
+                const box = boxData.length >= 4 ? clampBox({
+                    top: Number(boxData[0]) * height,
+                    left: Number(boxData[1]) * width,
+                    width: Number(boxData[2]) * width,
+                    height: Number(boxData[3]) * height,
+                }, width, height) : null;
+                if (text && box && HAS_JAPANESE.test(text)) {
+                    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+                }
+            }
+        }
+        return lines.length ? { width, height, lines } : null;
+    } catch {
+        return null;
     }
-    return tesseractLoader;
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
@@ -533,17 +671,88 @@ function normalizeSimpleLine(value: unknown, width: number, height: number): Ocr
     return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
 }
 
+function normalizeCloudVisionResponse(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): OcrResult | null {
+    const responses = Array.isArray(record.responses) ? record.responses : ('fullTextAnnotation' in record ? [record] : []);
+    const lines: OcrLine[] = [];
+    let width = fallbackWidth;
+    let height = fallbackHeight;
+    for (const response of responses) {
+        const annotation = (response as Record<string, unknown>)?.fullTextAnnotation as Record<string, unknown> | undefined;
+        const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+        for (const page of pages) {
+            const pageRecord = page as Record<string, unknown>;
+            width = numberFrom(pageRecord.width) || width;
+            height = numberFrom(pageRecord.height) || height;
+            const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
+            for (const block of blocks) {
+                const paragraphs = Array.isArray((block as Record<string, unknown>).paragraphs) ? (block as Record<string, unknown>).paragraphs as unknown[] : [];
+                for (const paragraph of paragraphs) {
+                    pushCloudVisionParagraphLines(paragraph as Record<string, unknown>, lines, width, height);
+                }
+            }
+        }
+        const annotations = Array.isArray((response as Record<string, unknown>)?.textAnnotations) ? (response as Record<string, unknown>).textAnnotations as unknown[] : [];
+        if (!lines.length && annotations.length > 1) {
+            for (const annotationItem of annotations.slice(1)) {
+                const item = annotationItem as Record<string, unknown>;
+                const text = cleanOcrText(item.description);
+                const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
+                if (text && box && HAS_JAPANESE.test(text)) lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+            }
+        }
+    }
+    return lines.length ? { width, height, lines } : null;
+}
+
+function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
+    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+    let text = '';
+    let boxes: OcrRect[] = [];
+    const pushLine = () => {
+        const value = cleanOcrText(text);
+        const box = unionBoxes(boxes);
+        if (value && box && HAS_JAPANESE.test(value)) {
+            lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
+        }
+        text = '';
+        boxes = [];
+    };
+
+    for (const word of words) {
+        const symbols = Array.isArray((word as Record<string, unknown>).symbols) ? (word as Record<string, unknown>).symbols as unknown[] : [];
+        for (const symbol of symbols) {
+            const symbolRecord = symbol as Record<string, unknown>;
+            text += String(symbolRecord.text ?? '');
+            const box = normalizeCloudVisionVertices((symbolRecord.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
+            if (box) boxes.push(box);
+            const breakType = ((symbolRecord.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
+            if (breakType === 'SPACE' || breakType === 'SURE_SPACE' || breakType === 'UNKNOWN') text += ' ';
+            if (breakType === 'LINE_BREAK' || breakType === 'EOL_SURE_SPACE' || breakType === 'HYPHEN') pushLine();
+        }
+    }
+    pushLine();
+}
+
+function normalizeCloudVisionVertices(value: unknown, width: number, height: number): OcrRect | null {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const xs = value.map(vertex => numberFrom((vertex as Record<string, unknown>)?.x) ?? 0);
+    const ys = value.map(vertex => numberFrom((vertex as Record<string, unknown>)?.y) ?? 0);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+}
+
 function normalizeStructuredOcrResult(value: unknown, width: number, height: number): OcrLine[] {
     if (!value || typeof value !== 'object') return [];
     const record = value as Record<string, unknown>;
-    const textLines = Array.isArray(record.text_lines) ? record.text_lines : [];
-    const vertical = Boolean(record.is_vertical);
+    const textLines = Array.isArray(record.text_lines) ? record.text_lines : Array.isArray(record.text) ? record.text : [];
+    const vertical = Boolean(record.is_vertical ?? (record.box as Record<string, unknown> | undefined)?.isVertical);
     const lines = textLines
         .map(item => {
             const lineRecord = item as Record<string, unknown>;
-            const text = stringFrom(lineRecord?.content ?? lineRecord?.text);
+            const text = stringFrom(lineRecord?.content ?? lineRecord?.text ?? lineRecord?.word);
             const box = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
-            return text && box ? { text, box, vertical: Boolean(lineRecord.is_vertical ?? vertical) } : null;
+            return text && box ? { text, box, vertical: Boolean(lineRecord.is_vertical ?? (lineRecord.box as Record<string, unknown> | undefined)?.isVertical ?? vertical) } : null;
         })
         .filter((line): line is OcrLine => line !== null);
     if (lines.length) return lines;
@@ -553,9 +762,60 @@ function normalizeStructuredOcrResult(value: unknown, width: number, height: num
     return text && box ? [{ text, box, vertical }] : [];
 }
 
+function normalizeOcrRegion(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
+    const position = record.position as Record<string, unknown> | undefined;
+    const size = record.size as Record<string, unknown> | undefined;
+    if (!position || !size) return null;
+
+    const left = numberFrom(position.left);
+    const top = numberFrom(position.top);
+    const regionWidth = numberFrom(size.width);
+    const regionHeight = numberFrom(size.height);
+    if (left === null || top === null || regionWidth === null || regionHeight === null) return null;
+
+    const fractional = Math.max(left, top, regionWidth, regionHeight) <= 1;
+    const box = clampBox({
+        left: (fractional ? left : left / 100) * width,
+        top: (fractional ? top : top / 100) * height,
+        width: (fractional ? regionWidth : regionWidth / 100) * width,
+        height: (fractional ? regionHeight : regionHeight / 100) * height,
+    }, width, height);
+
+    if (!box) return null;
+    const isFullImage = box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+    return isFullImage ? null : box;
+}
+
+function offsetLineToRegion(line: OcrLine, region: OcrRect, width: number, height: number): OcrLine | null {
+    const box = clampBox({
+        left: region.left + line.box.left,
+        top: region.top + line.box.top,
+        width: line.box.width,
+        height: line.box.height,
+    }, width, height);
+    return box ? { ...line, box } : null;
+}
+
 function normalizeBox(value: unknown, width: number, height: number): OcrRect | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
+    const position = record.position as Record<string, unknown> | undefined;
+    const dimensions = record.dimensions as Record<string, unknown> | undefined;
+    if (position && dimensions) {
+        const left = numberFrom(position.left);
+        const top = numberFrom(position.top);
+        const boxWidth = numberFrom(dimensions.width);
+        const boxHeight = numberFrom(dimensions.height);
+        if (left !== null && top !== null && boxWidth !== null && boxHeight !== null) {
+            return clampBox({
+                left: left / 100 * width,
+                top: top / 100 * height,
+                width: boxWidth / 100 * width,
+                height: boxHeight / 100 * height,
+            }, width, height);
+        }
+    }
+
     const directLeft = numberFrom(record.left ?? record.x);
     const directTop = numberFrom(record.top ?? record.y);
     const directWidth = numberFrom(record.width ?? record.w);
@@ -594,6 +854,21 @@ function clampBox(box: OcrRect, width: number, height: number): OcrRect | null {
     return { left, top, width: right - left, height: bottom - top };
 }
 
+function unionBoxes(boxes: OcrRect[]): OcrRect | null {
+    if (!boxes.length) return null;
+    const left = Math.min(...boxes.map(box => box.left));
+    const top = Math.min(...boxes.map(box => box.top));
+    const right = Math.max(...boxes.map(box => box.left + box.width));
+    const bottom = Math.max(...boxes.map(box => box.top + box.height));
+    return { left, top, width: right - left, height: bottom - top };
+}
+
+function cleanOcrText(value: unknown): string {
+    const text = typeof value === 'string' ? value : String(value ?? '');
+    const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? '' : ' ').trim();
+    return normalized.replaceAll('．．．', '…');
+}
+
 function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (image.closest('[data-jpdb-reader-root]')) return false;
     const rect = image.getBoundingClientRect();
@@ -606,38 +881,24 @@ function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): bo
 
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (settings.ocrProvider === 'off') return false;
-    if (readFallbackOcrResult(image)) return true;
-    if (settings.ocrProvider === 'fast') return false;
-    if (settings.ocrProvider === 'custom-json') return Boolean(settings.ocrEndpointUrl.trim());
-    return true;
-}
-
-function readAccessibleImageText(image: HTMLImageElement, width: number, height: number): OcrResult | null {
-    const candidates = [
-        image.alt,
-        image.title,
-        image.getAttribute('aria-label'),
-        image.closest('figure')?.querySelector('figcaption')?.textContent,
-    ]
-        .map(value => (value ?? '').replace(/\s+/g, ' ').trim())
-        .filter(value => value.length >= 2 && HAS_JAPANESE.test(value));
-    const text = candidates[0];
-    if (!text) return null;
-    const boxHeight = Math.max(44, height * 0.18);
-    return {
-        width,
-        height,
-        lines: [{
-            text,
-            box: { left: width * 0.04, top: height - boxHeight - height * 0.04, width: width * 0.92, height: boxHeight },
-            vertical: false,
-        }],
-    };
+    if (readFallbackOcrResult(image, false)) return true;
+    if (settings.ocrProvider === 'local-service') return Boolean(settings.ocrEndpointUrl.trim());
+    if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
+    return settings.ocrProvider === 'google-lens';
 }
 
 function isNearViewport(element: Element, margin: number): boolean {
     const rect = element.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+}
+
+function imageViewportDistance(image: HTMLImageElement): number {
+    const rect = image.getBoundingClientRect();
+    if (rect.bottom < 0) return -rect.bottom;
+    if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
+    if (rect.right < 0) return -rect.right;
+    if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
+    return 0;
 }
 
 function nodeContainsImage(node: Node): boolean {
@@ -646,6 +907,141 @@ function nodeContainsImage(node: Node): boolean {
 
 function imageCacheKey(image: HTMLImageElement): string {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+}
+
+function protoMessage(...parts: Uint8Array[]): Uint8Array {
+    return concatBytes(parts);
+}
+
+function protoMessageField(field: number, value: Uint8Array): Uint8Array {
+    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+}
+
+function protoBytesField(field: number, value: Uint8Array): Uint8Array {
+    return protoMessageField(field, value);
+}
+
+function protoStringField(field: number, value: string): Uint8Array {
+    return protoBytesField(field, new TextEncoder().encode(value));
+}
+
+function protoVarintField(field: number, value: number | bigint): Uint8Array {
+    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+}
+
+function protoTag(field: number, wire: number): Uint8Array {
+    return encodeVarint((field << 3) | wire);
+}
+
+function encodeVarint(value: number | bigint): Uint8Array {
+    let item = BigInt(value);
+    const bytes: number[] = [];
+    do {
+        let byte = Number(item & 0x7fn);
+        item >>= 7n;
+        if (item) byte |= 0x80;
+        bytes.push(byte);
+    } while (item);
+    return new Uint8Array(bytes);
+}
+
+function decodeProtoMessage(bytes: Uint8Array): ProtoField[] {
+    const fields: ProtoField[] = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+        const [tag, nextOffset] = readVarint(bytes, offset);
+        offset = nextOffset;
+        const field = Number(tag >> 3n);
+        const wire = Number(tag & 7n);
+        if (!field) break;
+        if (wire === 0) {
+            const [value, afterValue] = readVarint(bytes, offset);
+            offset = afterValue;
+            fields.push({ field, wire, value });
+        } else if (wire === 1) {
+            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+            offset += 8;
+        } else if (wire === 2) {
+            const [length, afterLength] = readVarint(bytes, offset);
+            offset = afterLength;
+            const end = offset + Number(length);
+            fields.push({ field, wire, value: bytes.slice(offset, end) });
+            offset = end;
+        } else if (wire === 5) {
+            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+            offset += 4;
+        } else {
+            break;
+        }
+    }
+    return fields;
+}
+
+function readVarint(bytes: Uint8Array, offset: number): [bigint, number] {
+    let shift = 0n;
+    let result = 0n;
+    while (offset < bytes.length) {
+        const byte = bytes[offset++];
+        result |= BigInt(byte & 0x7f) << shift;
+        if (!(byte & 0x80)) return [result, offset];
+        shift += 7n;
+    }
+    return [result, offset];
+}
+
+function protoMessages(fields: ProtoField[], field: number): ProtoField[][] {
+    return fields
+        .filter(item => item.field === field && item.wire === 2 && item.value instanceof Uint8Array)
+        .map(item => decodeProtoMessage(item.value as Uint8Array));
+}
+
+function protoFirstMessage(fields: ProtoField[], field: number): ProtoField[] | null {
+    return protoMessages(fields, field)[0] ?? null;
+}
+
+function protoString(fields: ProtoField[], field: number): string {
+    const item = fields.find(value => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+    return item ? new TextDecoder().decode(item.value as Uint8Array) : '';
+}
+
+function protoNumber(fields: ProtoField[], field: number): number {
+    const item = fields.find(value => value.field === field);
+    if (!item) return 0;
+    return typeof item.value === 'bigint' ? Number(item.value) : typeof item.value === 'number' ? item.value : 0;
+}
+
+function protoBox(geometry: ProtoField[] | null, width: number, height: number): OcrRect | null {
+    const box = geometry ? protoFirstMessage(geometry, 1) : null;
+    if (!box) return null;
+    const centerX = protoNumber(box, 1);
+    const centerY = protoNumber(box, 2);
+    const boxWidth = protoNumber(box, 3);
+    const boxHeight = protoNumber(box, 4);
+    if (!boxWidth || !boxHeight) return null;
+    const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
+    return clampBox({
+        left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
+        top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
+        width: normalized ? boxWidth * width : boxWidth,
+        height: normalized ? boxHeight * height : boxHeight,
+    }, width, height);
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+    const length = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const part of parts) {
+        result.set(part, offset);
+        offset += part.length;
+    }
+    return result;
+}
+
+function randomBytes(length: number): Uint8Array {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
 }
 
 function requestJson(url: string, data: string, timeout: number): Promise<unknown> {
@@ -670,21 +1066,60 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
 }
 
-function requestText(url: string): Promise<string> {
+function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
+    const body = new Uint8Array(data);
     if (typeof GM_xmlhttpRequest === 'function') {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
-                method: 'GET',
+                method: 'POST',
                 url,
-                responseType: 'text',
+                headers: {
+                    'content-type': 'application/x-protobuf',
+                    'x-goog-api-key': GOOGLE_LENS_API_KEY,
+                    accept: '*/*',
+                    'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
+                },
+                data: body.buffer,
+                responseType: 'arraybuffer',
+                timeout,
                 onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(String(response.responseText ?? response.response ?? ''))
-                    : reject(new Error(`Script fetch returned ${response.status}.`)),
+                    ? resolve(response.response as ArrayBuffer)
+                    : reject(new Error(`Google Lens returned ${response.status}.`)),
                 onerror: reject,
+                ontimeout: () => reject(new Error('Google Lens timed out.')),
             });
         });
     }
-    return fetch(url).then(response => response.ok ? response.text() : Promise.reject(new Error(`Script fetch returned ${response.status}.`)));
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/x-protobuf',
+            'x-goog-api-key': GOOGLE_LENS_API_KEY,
+            accept: '*/*',
+            'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
+        },
+        body: body.buffer,
+    }).then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+}
+
+function requestTextForm(url: string, data: FormData, timeout: number): Promise<string> {
+    if (typeof GM_xmlhttpRequest === 'function') {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'POST',
+                url,
+                data,
+                responseType: 'text',
+                timeout,
+                onload: response => response.status >= 200 && response.status < 300
+                    ? resolve(String(response.responseText ?? response.response ?? ''))
+                    : reject(new Error(`Google Lens upload returned ${response.status}.`)),
+                onerror: reject,
+                ontimeout: () => reject(new Error('Google Lens upload timed out.')),
+            });
+        });
+    }
+    return fetch(url, { method: 'POST', body: data }).then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
 }
 
 function requestBlob(url: string): Promise<Blob> {
@@ -721,6 +1156,12 @@ function loadImage(url: string): Promise<HTMLImageElement> {
         image.onload = () => resolve(image);
         image.onerror = () => reject(new Error('Image decode failed.'));
         image.src = url;
+    });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(result => result ? resolve(result) : reject(new Error('Image encoding failed.')), type, quality);
     });
 }
 
