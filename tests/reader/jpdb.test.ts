@@ -1,9 +1,12 @@
 import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
+import { buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
 import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio } from '../../src/reader/audio';
 import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
+import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
+import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
@@ -74,7 +77,7 @@ describe('reader helpers', () => {
 
     it('migrates older OCR provider names to the current readable options', () => {
         expect(normalizeOcrProvider('auto')).toBe('google-lens');
-        expect(normalizeOcrProvider('fast')).toBe('page-text');
+        expect(normalizeOcrProvider('fast')).toBe('google-lens');
         expect(normalizeOcrProvider('custom-json')).toBe('local-service');
     });
 
@@ -131,8 +134,103 @@ describe('reader helpers', () => {
             .toContain('<ul>');
     });
 
+    it('builds rich Anki fields from JPDB and imported dictionary context', () => {
+        const fields = buildYomuAnkiFields({
+            ...card,
+            vid: 1456360,
+            spelling: '読む',
+            reading: 'よむ',
+            frequencyRank: 400,
+            meanings: [{ glosses: ['to read'], partOfSpeech: ['vt', 'v5', 'v5m'] }],
+            pitchAccent: ['LHH'],
+            cardState: ['known'],
+        }, '今日は本を読む。', {
+            sourceUrl: 'https://example.test/article',
+            sourceTitle: 'Example article',
+            dictionaryPreferences: [{ name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 }],
+            localEntries: [{
+                expression: '読む',
+                reading: 'よむ',
+                glossary: [{ tag: 'ul', content: [{ tag: 'li', content: 'to read aloud' }] }],
+                dictionary: 'Jitendex',
+                definitionTags: 'common',
+            }],
+            kanjiEntries: [{
+                character: '読',
+                onyomi: ['ドク'],
+                kunyomi: ['よ.む'],
+                tags: ['grade 2'],
+                meanings: ['read'],
+                dictionary: 'KANJIDIC',
+            }],
+            metaEntries: [
+                { expression: '読む', mode: 'freq', data: { displayValue: 123 }, dictionary: 'JPDBv2' },
+                { expression: '読む', mode: 'pitch', data: { pitches: [1] }, dictionary: 'Pitch' },
+            ],
+        });
+
+        expect(YOMU_MODEL_FIELDS).toContain('DictionaryDefinitions');
+        expect(fields.Meaning).toContain('to read');
+        expect(fields.Meaning).toContain('transitive verb');
+        expect(fields.Sentence).toContain('yomu-highlight');
+        expect(fields.DictionaryDefinitions).toContain('Jitendex');
+        expect(fields.DictionaryDefinitions).toContain('to read aloud');
+        expect(fields.Kanji).toContain('読');
+        expect(fields.Kanji).toContain('read');
+        expect(fields.Frequency).toContain('JPDB #400');
+        expect(fields.Frequency).toContain('JPDBv2 #123');
+        expect(fields.Pitch).toContain('LHH');
+        expect(fields.Source).toContain('Example article');
+    });
+
     it('renders JPDB part-of-speech codes as readable labels', () => {
         expect(formatPartOfSpeech(['vt', 'v5', 'v5m'])).toBe('transitive verb, godan verb, mu ending');
+    });
+
+    it('extracts compact kanji details from a JPDB kanji page', () => {
+        const info = parseJpdbKanjiHtml(`
+            <meta name="description" content="Dictionary definition of kanji 読 (よ) — read">
+            <h6 class="subsection-label">Keyword</h6><div class="subsection">read</div>
+            <table class="cross-table">
+                <tr><td>Frequency</td><td>Top 400-500</td></tr>
+                <tr><td>Heisig</td><td>372</td></tr>
+                <tr><td>Readings</td><td class="kanji-reading-list-common"><div><a href="/kanji-reading/読/よ">よ</a><div>(82%)</div></div></td></tr>
+            </table>
+            <div class="subsection-composed-of-kanji"><h6 class="subsection-label">Composed of</h6><div class="subsection">
+                <div><div class="spelling"><a href="/kanji/言">言</a></div><div class="description">say</div></div>
+            </div></div>
+            <div class="subsection-used-in"><div class="used-in">
+                <div class="jp"><a href="/vocabulary/1456360/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80#a"><ruby>読<rt>よ</rt></ruby>む</a></div>
+                <div class="en">to read</div>
+            </div></div>
+        `, '読');
+
+        expect(info).toMatchObject({
+            keyword: 'read',
+            frequency: 'Top 400-500',
+            heisig: '372',
+            readings: [{ reading: 'よ', share: '(82%)', common: true }],
+            components: [{ kanji: '言', keyword: 'say' }],
+            vocabulary: [{ expression: '読む', reading: 'よむ', meaning: 'to read' }],
+        });
+    });
+
+    it('sanitizes stroke-order SVGs before embedding them', () => {
+        const info = parseKanjiVGSvg(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
+                <path d="M10,10 C20,20 30,20 40,10" onclick="alert(1)" />
+                <path d="bad url(javascript:alert(1))" />
+                <text transform="matrix(1 0 0 1 8 12)">1</text>
+                <script>alert(1)</script>
+            </svg>
+        `, '読');
+
+        expect(info?.strokeCount).toBe(1);
+        expect(info?.svg).toContain('jpdb-reader-kanjivg-svg');
+        expect(info?.svg).toContain('<text transform=');
+        expect(info?.svg).not.toContain('onclick');
+        expect(info?.svg).not.toContain('script');
+        expect(info?.svg).not.toContain('javascript');
     });
 
     it('parses primary and native VTT subtitle files', () => {
@@ -218,6 +316,16 @@ describe('reader helpers', () => {
 
         const targets = collectTextTargetsIn(document.body, 10, false);
         expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
+    });
+
+    it('does not rewrite short centered display headings that can break page layout', () => {
+        document.body.innerHTML = `
+            <h2 style="text-align:center;font-size:22px;line-height:1.1">ポストに届いて、受取ラクラク</h2>
+            <p>食卓やリビングなど、おうちのちょっとしたところに飾れる。</p>
+        `;
+
+        const targets = collectTextTargetsIn(document.body, 10, false);
+        expect(targets.map(target => target.text)).toEqual(['食卓やリビングなど、おうちのちょっとしたところに飾れる。']);
     });
 
     it('detects Japanese page captions near a video without site-specific selectors', () => {
@@ -361,14 +469,14 @@ describe('reader helpers', () => {
         });
     });
 
-    it('only uses Japanese image alt text in page-text mode', () => {
+    it('does not treat image alt text as OCR output', () => {
         const image = document.createElement('img');
         image.alt = '箱を開ける、お花の定期便';
         Object.defineProperty(image, 'naturalWidth', { value: 1200 });
         Object.defineProperty(image, 'naturalHeight', { value: 800 });
 
         expect(readFallbackOcrResult(image, false)).toBeNull();
-        expect(readFallbackOcrResult(image, true)?.lines[0]?.text).toBe('箱を開ける、お花の定期便');
+        expect(readFallbackOcrResult(image, true)).toBeNull();
     });
 
     it('imports Yomitan Dexie exports with term, kanji, and metadata tables', async () => {

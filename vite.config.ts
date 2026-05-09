@@ -51,6 +51,7 @@ export default defineConfig({
                     'lensfrontend-pa.googleapis.com',
                     'lens.google.com',
                     'vision.googleapis.com',
+                    'raw.githubusercontent.com',
                     'localhost',
                     '127.0.0.1',
                     '*.ts.net',

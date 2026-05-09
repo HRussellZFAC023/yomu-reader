@@ -1,5 +1,6 @@
 import { APP_NAME } from './constants';
 import { HAS_JAPANESE } from './dom';
+import { uiText } from './i18n';
 import type { ReaderSettings } from './types';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
@@ -68,7 +69,10 @@ export class YoutubeImmersionFilter {
     private bar?: HTMLElement;
     private revealed = false;
 
-    constructor(private readonly options: { getSettings: () => ReaderSettings }) {}
+    constructor(private readonly options: {
+        getSettings: () => ReaderSettings;
+        setEnabled?: (enabled: boolean) => void;
+    }) {}
 
     init(): void {
         if (!isYouTubeHost()) return;
@@ -120,7 +124,7 @@ export class YoutubeImmersionFilter {
             }
         }
 
-        if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount);
+        if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount, settings);
         else this.bar?.remove();
     }
 
@@ -134,7 +138,7 @@ export class YoutubeImmersionFilter {
         delete card.dataset.yomuYoutubeFiltered;
     }
 
-    private renderNotice(filteredCount: number, shownCount: number): void {
+    private renderNotice(filteredCount: number, shownCount: number, settings: ReaderSettings): void {
         if (!filteredCount) {
             this.bar?.remove();
             this.bar = undefined;
@@ -147,25 +151,41 @@ export class YoutubeImmersionFilter {
             this.bar.dataset.jpdbReaderRoot = 'true';
             const label = document.createElement('span');
             label.dataset.role = 'summary';
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.addEventListener('click', () => {
-                this.revealed = !this.revealed;
-                this.schedule(0);
+            const actions = document.createElement('div');
+            actions.className = 'jpdb-youtube-filter-actions';
+            const showAnyway = document.createElement('button');
+            showAnyway.type = 'button';
+            showAnyway.dataset.action = 'show-anyway';
+            const turnOff = document.createElement('button');
+            turnOff.type = 'button';
+            turnOff.dataset.action = 'turn-off';
+            actions.append(showAnyway, turnOff);
+            this.bar.addEventListener('click', event => {
+                const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+                if (action === 'show-anyway') {
+                    this.revealed = !this.revealed;
+                    this.schedule(0);
+                }
+                if (action === 'turn-off') {
+                    this.options.setEnabled?.(false);
+                    if (!this.options.setEnabled) this.clear();
+                }
             });
-            this.bar.append(label, button);
+            this.bar.append(label, actions);
             document.body.append(this.bar);
         }
 
         const summary = this.bar.querySelector<HTMLElement>('[data-role="summary"]');
-        const button = this.bar.querySelector<HTMLButtonElement>('button');
+        const showAnyway = this.bar.querySelector<HTMLButtonElement>('[data-action="show-anyway"]');
+        const turnOff = this.bar.querySelector<HTMLButtonElement>('[data-action="turn-off"]');
         if (summary) {
             summary.textContent = this.revealed
                 ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? '' : 's'}`
                 : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? '' : 's'}`;
             summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : '';
         }
-        if (button) button.textContent = this.revealed ? 'Filter again' : 'Reveal';
+        if (showAnyway) showAnyway.textContent = this.revealed ? uiText(settings.interfaceLanguage, 'youtubeFilterAgain') : uiText(settings.interfaceLanguage, 'youtubeShowAnyway');
+        if (turnOff) turnOff.textContent = uiText(settings.interfaceLanguage, 'youtubeTurnOff');
     }
 
     private clear(): void {

@@ -1,5 +1,6 @@
-import { HAS_JAPANESE } from './dom';
-import type { ReaderSettings } from './types';
+import { HAS_JAPANESE, escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { accentToRgba } from './settings';
+import type { JPDBToken, ReaderSettings } from './types';
 
 type LookupText = (text: string, sentence?: string) => Promise<void> | void;
 
@@ -36,6 +37,7 @@ interface ImageState {
 
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
+    parseJapanese: (text: string) => Promise<JPDBToken[]>;
     onLookup: LookupText;
     onToast: (message: string) => void;
 }
@@ -225,7 +227,7 @@ export class ImageOcrController {
                 : canUseGoogleLens
                     ? await recognizeViaGoogleLens(image, settings)
                     : null;
-            const result = inlineFallback ?? mergeOcrResults(providerResult, readFallbackOcrResult(image, true));
+            const result = inlineFallback ?? providerResult;
 
             if (!result?.lines.length) {
                 state.autoSkipped = !manualRequested;
@@ -238,7 +240,7 @@ export class ImageOcrController {
             state.key = key;
             await this.renderResult(state, result);
         } catch (error) {
-            const fallback = readFallbackOcrResult(image, true);
+            const fallback = readFallbackOcrResult(image, false);
             if (fallback?.lines.length) {
                 await this.renderResult(state, fallback);
             } else {
@@ -257,33 +259,45 @@ export class ImageOcrController {
         state.status.hidden = true;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
-        const showText = this.options.getSettings().ocrShowTextOverlay || forceOverlay;
+        const settings = this.options.getSettings();
+        const showText = settings.ocrShowTextOverlay || forceOverlay;
 
         const sentence = result.lines.map(line => line.text).join('\n');
-        for (const line of result.lines) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'jpdb-ocr-line';
-            if (showText) button.classList.add('jpdb-ocr-line-visible');
-            button.dataset.ocrText = line.text;
-            button.dataset.vertical = String(line.vertical);
-            button.title = line.text;
-            button.style.left = `${100 * line.box.left / result.width}%`;
-            button.style.top = `${100 * line.box.top / result.height}%`;
-            button.style.width = `${100 * line.box.width / result.width}%`;
-            button.style.height = `${100 * line.box.height / result.height}%`;
-            button.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
-            button.style.fontSize = line.vertical
-                ? `clamp(11px, ${Math.max(10, Math.min(26, 100 * line.box.width / result.width))}px, 20px)`
-                : `clamp(11px, ${Math.max(10, Math.min(26, 100 * line.box.height / result.height))}px, 20px)`;
-            button.setAttribute('aria-label', line.text);
-            button.textContent = showText ? line.text : '';
-            button.addEventListener('click', event => {
+        const parsed = settings.apiKey.trim()
+            ? await Promise.all(result.lines.map(line => this.options.parseJapanese(line.text).catch(() => [])))
+            : result.lines.map(() => []);
+        state.overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
+        state.overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
+        state.overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
+        state.overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+
+        for (const [index, line] of result.lines.entries()) {
+            const element = document.createElement('div');
+            element.className = 'jpdb-ocr-line';
+            if (showText) element.classList.add('jpdb-ocr-line-visible');
+            element.dataset.ocrText = line.text;
+            element.dataset.vertical = String(line.vertical);
+            element.dataset.boxWidth = String(line.box.width / result.width);
+            element.dataset.boxHeight = String(line.box.height / result.height);
+            element.dataset.sentence = sentence;
+            element.title = line.text;
+            element.tabIndex = 0;
+            element.style.left = `${100 * line.box.left / result.width}%`;
+            element.style.top = `${100 * line.box.top / result.height}%`;
+            element.style.width = `${100 * line.box.width / result.width}%`;
+            element.style.height = `${100 * line.box.height / result.height}%`;
+            element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
+            element.setAttribute('aria-label', line.text);
+            setInnerHtml(element, parsed[index]?.length
+                ? renderTokensToHtml(line.text, parsed[index], settings)
+                : escapeHtml(line.text));
+            element.addEventListener('click', event => {
+                if ((event.target as HTMLElement).closest('.jpdb-reader-word')) return;
                 event.preventDefault();
                 event.stopPropagation();
-                void this.options.onLookup(line.text, sentence);
+                state.overlay.classList.toggle('jpdb-ocr-layer-expanded');
             });
-            state.overlay.append(button);
+            state.overlay.append(element);
         }
         this.positionState(state.image);
     }
@@ -334,6 +348,19 @@ export class ImageOcrController {
         state.overlay.style.top = `${rect.top}px`;
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
+        this.fitLineFonts(state, rect.width, rect.height);
+    }
+
+    private fitLineFonts(state: ImageState, imageWidth: number, imageHeight: number): void {
+        const scale = this.options.getSettings().ocrFontScale;
+        state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line').forEach(element => {
+            const boxWidth = Number(element.dataset.boxWidth) * imageWidth;
+            const boxHeight = Number(element.dataset.boxHeight) * imageHeight;
+            if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
+            const text = element.dataset.ocrText ?? '';
+            const vertical = element.dataset.vertical === 'true';
+            element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
+        });
     }
 
     private clear(): void {
@@ -400,7 +427,7 @@ export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHe
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
 }
 
-export function readFallbackOcrResult(image: HTMLImageElement, includeAccessibleText = true): OcrResult | null {
+export function readFallbackOcrResult(image: HTMLImageElement, _includeAccessibleText = false): OcrResult | null {
     const width = image.naturalWidth || image.width || 1;
     const height = image.naturalHeight || image.height || 1;
     const data = image.dataset.ocrLines;
@@ -413,7 +440,24 @@ export function readFallbackOcrResult(image: HTMLImageElement, includeAccessible
         }
     }
 
-    return includeAccessibleText ? readAccessibleImageText(image, width, height) : null;
+    return null;
+}
+
+function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
+    const safeScale = Math.max(0.7, Math.min(1.8, scale));
+    const length = Math.max(1, visualTextLength(text));
+    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
+    const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
+    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
+    return Math.max(11, Math.min(38, fitted));
+}
+
+function visualTextLength(text: string): number {
+    return [...text.trim()].reduce((total, char) => {
+        if (/\s/.test(char)) return total + 0.35;
+        if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
+        return total + 1;
+    }, 0);
 }
 
 async function recognizeViaLocalService(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
@@ -819,28 +863,6 @@ function unionBoxes(boxes: OcrRect[]): OcrRect | null {
     return { left, top, width: right - left, height: bottom - top };
 }
 
-function mergeOcrResults(primary: OcrResult | null, fallback: OcrResult | null): OcrResult | null {
-    if (!primary) return fallback;
-    if (!fallback) return primary;
-    const extraLines = fallback.lines.filter(line => hasUsefulFallbackText(line, primary.lines));
-    return extraLines.length ? { ...primary, lines: [...primary.lines, ...extraLines] } : primary;
-}
-
-function hasUsefulFallbackText(line: OcrLine, existingLines: OcrLine[]): boolean {
-    let remaining = compareOcrText(line.text);
-    for (const existing of existingLines) {
-        const text = compareOcrText(existing.text);
-        if (!text) continue;
-        if (remaining === text) return false;
-        remaining = remaining.replaceAll(text, '');
-    }
-    return remaining.length >= 2 && HAS_JAPANESE.test(remaining);
-}
-
-function compareOcrText(text: string): string {
-    return text.replace(/[\s、。・･~〜（）()「」『』【】\[\]_-]+/g, '');
-}
-
 function cleanOcrText(value: unknown): string {
     const text = typeof value === 'string' ? value : String(value ?? '');
     const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? '' : ' ').trim();
@@ -860,33 +882,9 @@ function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): bo
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (settings.ocrProvider === 'off') return false;
     if (readFallbackOcrResult(image, false)) return true;
-    if (settings.ocrProvider === 'page-text') return Boolean(readFallbackOcrResult(image, true));
     if (settings.ocrProvider === 'local-service') return Boolean(settings.ocrEndpointUrl.trim());
     if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
     return settings.ocrProvider === 'google-lens';
-}
-
-function readAccessibleImageText(image: HTMLImageElement, width: number, height: number): OcrResult | null {
-    const candidates = [
-        image.alt,
-        image.title,
-        image.getAttribute('aria-label'),
-        image.closest('figure')?.querySelector('figcaption')?.textContent,
-    ]
-        .map(value => (value ?? '').replace(/\s+/g, ' ').trim())
-        .filter(value => value.length >= 2 && HAS_JAPANESE.test(value));
-    const text = candidates[0];
-    if (!text) return null;
-    const boxHeight = Math.max(44, height * 0.18);
-    return {
-        width,
-        height,
-        lines: [{
-            text,
-            box: { left: width * 0.04, top: height - boxHeight - height * 0.04, width: width * 0.92, height: boxHeight },
-            vertical: false,
-        }],
-    };
 }
 
 function isNearViewport(element: Element, margin: number): boolean {

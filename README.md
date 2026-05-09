@@ -18,14 +18,17 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB mining actions for add, Never Forget, blacklist, and review grades.
+- JPDB kanji drilldown from popup headwords, with stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
+- Optional Anki mining through AnkiConnect, with a よむ note type created automatically and best-effort video-frame capture for subtitle cards.
 - Yomitan dictionary imports: recommended in-app downloads, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
+- Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR that works without setup through Google Lens, with Cloud Vision and local OCR app support for MangaOCR, PaddleOCR, and Apple Vision style results.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
-- Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default.
+- Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
 - First-run welcome screen explains the core workflow once, then stays out of the way.
 - Configurable accent color for the reader controls.
 
@@ -39,7 +42,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, or mining. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage.
+Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. RTK details are fetched from the configured static RTK data source when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 
@@ -48,6 +51,16 @@ Audio sources follow Yomitan’s source model and fallback order. Custom JSON so
 Guide: https://yomitan.wiki/advanced/#audio
 
 The default sources are JapanesePod101, LanguagePod101, and Jisho.org. Add a custom URL only if you already use a local audio server.
+
+## Mining
+
+JPDB mining is the default path. The JPDB pill in a popup opens the matching JPDB page; clicking kanji inside the headword opens kanji details with JPDB data, RTK information, local kanji dictionaries, components, and words that use the same kanji.
+
+Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes JPDB meaning/status, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, and optional video screenshots. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
+
+Subtitle and video cards can include a best-effort still image from the active video. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin video the way a full browser extension can.
+
+Anki mobile note: AnkiConnect is an Anki desktop add-on, so direct one-tap Anki mining is designed around desktop Anki reachable at a local or LAN/Tailscale URL. On iPad or Android, Yomu can still copy/look up/mine to JPDB; direct AnkiMobile/AnkiDroid card creation needs a desktop bridge or another reachable service.
 
 ## OCR
 
@@ -103,7 +116,7 @@ Run the reproducible browser QA audit:
 YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY npm run qa:audit
 ```
 
-This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`.
+This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, tests YouTube immersion filtering and its escape hatches, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`.
 
 Run the local fixtures:
 
@@ -150,9 +163,20 @@ npm run prefill:greasyfork
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
 - Recommended dictionary downloads are available in settings for Jitendex, JMnedict, KANJIDIC, BCCWJ, JPDBv2㋕, and Jiten. JPDB frequency entries are shown first in local frequency chips.
+- Definition sources can be reordered in settings. JPDB can be disabled as a definition source while still using JPDB for parsing, mining, audio context, and kanji pages.
+- RTK information is enabled by default and can be turned off in settings.
+- Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
+- The userscript intentionally excludes `jpdb.io` by default. That avoids breaking JPDB's own review UI and avoids making active flashcard review too easy by injecting answers onto JPDB pages.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed.
+- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable.
+
+## Support
+
+- Issues and source: https://github.com/HRussellZFAC023/kotoba-reader/issues
+- Discord: `henry281199`
+- Donate: https://paypal.me/HenryRussell163
 
 ## Credits and References
 
@@ -163,5 +187,8 @@ npm run prefill:greasyfork
 - [Yomitan](https://github.com/yomidevs/yomitan) for dictionary import formats, structured glossary handling, audio-source conventions, and scanning UX references.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
 - [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
+- [KanjiVG](https://github.com/KanjiVG/kanjivg) for kanji stroke-order SVG data.
 - [NihongoTube](https://nihongotube.app) for the Japanese-only YouTube immersion idea and page-filtering behavior.
+- [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter) for the RTK data source and presentation cues.
+- [AnkiConnect](https://foosoft.net/projects/anki-connect/) for local Anki card creation.
 - [JPDB](https://jpdb.io), [Google Lens](https://lens.google.com), and [Google Cloud Vision](https://cloud.google.com/vision) for the external services users can connect to or use through the reader.

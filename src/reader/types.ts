@@ -32,6 +32,10 @@ export type PopupActivationMode = 'click' | 'hover' | 'modifier';
 
 export type ScanModifierKey = 'shift' | 'alt' | 'ctrl' | 'meta';
 
+export type SubtitleControlsMode = 'auto' | 'always' | 'hidden';
+
+export type InterfaceLanguage = 'auto' | 'en' | 'ja';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -64,6 +68,11 @@ export interface JPDBCard {
     cardState: CardState[];
     pitchAccent: string[];
     wordWithReading: string | null;
+}
+
+export interface JPDBDeck {
+    id: string;
+    name: string;
 }
 
 export interface JPDBRuby {
@@ -112,7 +121,14 @@ export interface JPDBParseResult {
 export interface ReaderSettings {
     apiKey: string;
     onboardingSeen: boolean;
+    interfaceLanguage: InterfaceLanguage;
     accentColor: string;
+    jpdbDefinitionsEnabled: boolean;
+    jpdbDefinitionsPriority: number;
+    rtkEnabled: boolean;
+    kanjivgEnabled: boolean;
+    similarKanjiWords: boolean;
+    similarKanjiWordLimit: number;
     audioEnabled: boolean;
     autoPlayAudio: boolean;
     audioSources: AudioSourceSetting[];
@@ -122,6 +138,8 @@ export interface ReaderSettings {
     audioTimeoutMs: number;
     audioSelectionMode: AudioSelectionMode;
     parseSelection: boolean;
+    lookupOnClick: boolean;
+    lookupOnHover: boolean;
     popupActivationMode: PopupActivationMode;
     scanModifierKey: ScanModifierKey;
     autoScanJapanese: boolean;
@@ -142,6 +160,11 @@ export interface ReaderSettings {
     ocrMinImageArea: number;
     ocrMaxImagesPerPage: number;
     ocrPrefetchMargin: number;
+    ocrTextColor: string;
+    ocrOutlineColor: string;
+    ocrBackgroundColor: string;
+    ocrBackgroundOpacity: number;
+    ocrFontScale: number;
     localDictionariesEnabled: boolean;
     localDictionaryMaxResults: number;
     localDictionaryShowKanji: boolean;
@@ -151,12 +174,26 @@ export interface ReaderSettings {
     subtitleAutoDetect: boolean;
     subtitleOverlayVisible: boolean;
     subtitleSecondaryVisible: boolean;
+    subtitleControlsMode: SubtitleControlsMode;
     subtitleFontSize: number;
     subtitleBottomOffset: number;
+    subtitleTextColor: string;
+    subtitleOutlineColor: string;
+    subtitleBackgroundColor: string;
+    subtitleBackgroundOpacity: number;
+    subtitleFontFamily: string;
+    subtitleFontWeight: number;
     subtitleMiningPause: boolean;
     subtitleSeekPadding: number;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
+    ankiEnabled: boolean;
+    ankiConnectUrl: string;
+    ankiDeck: string;
+    ankiModel: string;
+    ankiTags: string;
+    ankiMineWithJpdb: boolean;
+    ankiCaptureScreenshot: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     miningDeck: string;
@@ -167,6 +204,7 @@ export interface ReaderSettings {
     twoButtonReviews: boolean;
     shortcuts: {
         scanPage: string;
+        hoverLookup: string;
         openSettings: string;
         playAudio: string;
         closePopup: string;
@@ -174,6 +212,7 @@ export interface ReaderSettings {
         nextSubtitle: string;
         copySubtitle: string;
         toggleOcr: string;
+        toggleYoutubeImmersion: string;
         scanImages: string;
         gradeNothing: string;
         gradeSomething: string;

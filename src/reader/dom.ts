@@ -39,6 +39,8 @@ const SKIP_SELECTOR = [
 ].join(',');
 
 const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
+const DISPLAY_HEADING_RE = /^H[1-6]$/;
+const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 
 export function setInnerHtml(element: Element, html: string): void {
     element.innerHTML = trustedHtml(html) as string;
@@ -241,6 +243,17 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
     const style = getComputedStyle(element);
     const display = style.display;
     const rect = element.getBoundingClientRect();
+    const compactLength = Array.from(text.replace(/\s+/g, '')).length;
+    const fontSize = cssPixels(style.fontSize);
+    const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
+    const centered = style.textAlign === 'center';
+    const heading = DISPLAY_HEADING_RE.test(element.tagName);
+    const prose = isLikelyProseElement(element);
+
+    if (heading && compactLength <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35)) return true;
+    if (!prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600)) return true;
+
+    if (rect.width > 0 && text.length <= 12 && rect.width < 180 && (style.textAlign === 'center' || style.whiteSpace !== 'normal')) return true;
     const hasUiBox = style.backgroundColor !== 'rgba(0, 0, 0, 0)'
         || style.borderTopStyle !== 'none'
         || Number(style.borderTopWidth.replace('px', '')) > 0
@@ -248,6 +261,16 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
         || Number.parseFloat(style.borderRadius) > 0;
     const inlineControlShape = display === 'inline-flex' || display === 'inline-grid' || display === 'inline-block' || display === 'flex';
     return text.length <= 6 && hasUiBox && inlineControlShape && rect.width < 180;
+}
+
+function isLikelyProseElement(element: HTMLElement): boolean {
+    if (PROSE_TAGS.has(element.tagName)) return true;
+    return /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i.test(element.className || '');
+}
+
+function cssPixels(value: string): number {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function ancestorClassLooksLikeUi(element: HTMLElement): boolean {

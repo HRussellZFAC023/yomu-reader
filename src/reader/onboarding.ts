@@ -1,6 +1,7 @@
 import { APP_NAME } from './constants';
+import { uiText, type UiCopyKey } from './i18n';
 import { saveSettings } from './settings';
-import type { ReaderSettings } from './types';
+import type { InterfaceLanguage, ReaderSettings } from './types';
 
 interface OnboardingOptions {
     getSettings: () => ReaderSettings;
@@ -11,6 +12,7 @@ interface OnboardingOptions {
 export class OnboardingController {
     private panel?: HTMLElement;
     private backdrop?: HTMLElement;
+    private languageSelect?: HTMLSelectElement;
 
     constructor(private readonly options: OnboardingOptions) {}
 
@@ -31,47 +33,116 @@ export class OnboardingController {
         this.panel.dataset.jpdbReaderRoot = 'true';
         this.panel.setAttribute('role', 'dialog');
         this.panel.setAttribute('aria-modal', 'true');
-        this.panel.setAttribute('aria-label', `${APP_NAME} welcome`);
+        this.panel.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'welcomeLabel'));
         this.panel.tabIndex = -1;
 
-        const eyebrow = element('div', 'jpdb-reader-onboarding-eyebrow', 'Japanese, wherever it appears');
+        const eyebrow = element('div', 'jpdb-reader-onboarding-eyebrow', uiText(this.options.getSettings().interfaceLanguage, 'onboardingEyebrow'));
         const title = element('h2', '', APP_NAME);
         const copy = element(
             'p',
             '',
-            'Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.',
+            uiText(this.options.getSettings().interfaceLanguage, 'onboardingCopy'),
         );
         const featureGrid = document.createElement('div');
         featureGrid.className = 'jpdb-reader-onboarding-grid';
-        [
-            ['Text', 'Hover or tap Japanese words once a page is scanned.'],
-            ['Images', 'Readable image text can be detected quietly near the viewport.'],
-            ['Video', 'Subtitle words become tappable when subtitles are available.'],
-            ['Control', 'Open Settings any time to turn features off, change shortcuts, or tune the accent color.'],
-        ].forEach(([heading, text]) => {
+        const featureKeys: Array<[UiCopyKey, UiCopyKey]> = [
+            ['featureText', 'featureTextBody'],
+            ['featureImages', 'featureImagesBody'],
+            ['featureVideo', 'featureVideoBody'],
+            ['featureControl', 'featureControlBody'],
+        ];
+        featureKeys.forEach(([headingKey, textKey]) => {
             const card = document.createElement('div');
-            card.append(element('strong', '', heading), element('span', '', text));
+            card.append(
+                element('strong', '', uiText(this.options.getSettings().interfaceLanguage, headingKey)),
+                element('span', '', uiText(this.options.getSettings().interfaceLanguage, textKey)),
+            );
             featureGrid.append(card);
         });
 
+        const language = document.createElement('label');
+        language.className = 'jpdb-reader-onboarding-language';
+        const languageText = element('span', '', uiText(this.options.getSettings().interfaceLanguage, 'onboardingLanguage'));
+        this.languageSelect = document.createElement('select');
+        this.languageSelect.name = 'interfaceLanguage';
+        [
+            ['auto', uiText(this.options.getSettings().interfaceLanguage, 'automatic')],
+            ['en', uiText(this.options.getSettings().interfaceLanguage, 'english')],
+            ['ja', uiText(this.options.getSettings().interfaceLanguage, 'japanese')],
+        ].forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            option.selected = value === this.options.getSettings().interfaceLanguage;
+            this.languageSelect?.append(option);
+        });
+        language.append(languageText, this.languageSelect);
+
         const actions = document.createElement('div');
         actions.className = 'jpdb-reader-onboarding-actions';
-        const setup = button('Add API key');
+        const setup = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingAddApiKey'));
         setup.className = 'jpdb-reader-btn add';
         setup.addEventListener('click', () => void this.complete(true));
-        const browse = button('Use defaults');
+        const browse = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingUseWithoutApiKey'));
         browse.className = 'jpdb-reader-btn';
         browse.addEventListener('click', () => void this.complete(false));
         actions.append(setup, browse);
 
-        const note = element('p', 'jpdb-reader-onboarding-note', 'YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.');
-        this.panel.append(eyebrow, title, copy, featureGrid, actions, note);
+        this.languageSelect.addEventListener('change', () => {
+            const language = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
+            this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language });
+            this.localize(language);
+        });
+
+        const note = element('p', 'jpdb-reader-onboarding-note', uiText(this.options.getSettings().interfaceLanguage, 'onboardingNote'));
+        this.panel.append(eyebrow, title, copy, language, actions, featureGrid, note);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
     }
 
+    private localize(language: InterfaceLanguage): void {
+        const panel = this.panel;
+        if (!panel) return;
+        panel.setAttribute('aria-label', uiText(language, 'welcomeLabel'));
+        panel.querySelector('.jpdb-reader-onboarding-eyebrow')?.replaceChildren(uiText(language, 'onboardingEyebrow'));
+        const copy = panel.querySelector('p:not(.jpdb-reader-onboarding-note)');
+        copy?.replaceChildren(uiText(language, 'onboardingCopy'));
+        panel.querySelector('.jpdb-reader-onboarding-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
+        const options: Array<[string, string]> = [
+            ['auto', uiText(language, 'automatic')],
+            ['en', uiText(language, 'english')],
+            ['ja', uiText(language, 'japanese')],
+        ];
+        options.forEach(([value, text]) => {
+            const option = this.languageSelect?.querySelector<HTMLOptionElement>(`option[value="${value}"]`);
+            if (option) option.textContent = text;
+        });
+        const cards = Array.from(panel.querySelectorAll('.jpdb-reader-onboarding-grid > div'));
+        const cardKeys = [
+            ['featureText', 'featureTextBody'],
+            ['featureImages', 'featureImagesBody'],
+            ['featureVideo', 'featureVideoBody'],
+            ['featureControl', 'featureControlBody'],
+        ] as const;
+        cards.forEach((card, index) => {
+            const [headingKey, bodyKey] = cardKeys[index] ?? cardKeys[0];
+            card.querySelector('strong')?.replaceChildren(uiText(language, headingKey));
+            card.querySelector('span')?.replaceChildren(uiText(language, bodyKey));
+        });
+        panel.querySelector('.jpdb-reader-onboarding-actions .jpdb-reader-btn.add')?.replaceChildren(uiText(language, 'onboardingAddApiKey'));
+        panel.querySelector('.jpdb-reader-onboarding-actions .jpdb-reader-btn:not(.add)')?.replaceChildren(uiText(language, 'onboardingUseWithoutApiKey'));
+        panel.querySelector('.jpdb-reader-onboarding-note')?.replaceChildren(uiText(language, 'onboardingNote'));
+    }
+
     private async complete(openSettings: boolean): Promise<void> {
-        const settings = { ...this.options.getSettings(), onboardingSeen: true };
+        const language = this.languageSelect?.value;
+        const settings = {
+            ...this.options.getSettings(),
+            onboardingSeen: true,
+            interfaceLanguage: language === 'en' || language === 'ja' || language === 'auto'
+                ? language
+                : this.options.getSettings().interfaceLanguage,
+        };
         this.options.setSettings(settings);
         await saveSettings(settings);
         this.close();
@@ -83,7 +154,12 @@ export class OnboardingController {
         this.backdrop?.remove();
         this.panel = undefined;
         this.backdrop = undefined;
+        this.languageSelect = undefined;
     }
+}
+
+function normalizeLanguage(value: unknown, fallback: InterfaceLanguage): InterfaceLanguage {
+    return value === 'en' || value === 'ja' || value === 'auto' ? value : fallback;
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text: string): HTMLElementTagNameMap[K] {

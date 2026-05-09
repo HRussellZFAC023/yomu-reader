@@ -1,6 +1,7 @@
 import type {
     CardState,
     JPDBCard,
+    JPDBDeck,
     JPDBGrade,
     JPDBParseResult,
     JPDBRawToken,
@@ -24,6 +25,7 @@ const VOCABULARY_FIELDS = [
     'card_state',
     'pitch_accent',
 ];
+const DECK_FIELDS = ['id', 'name'];
 
 const SMALL_KANA = new Set('ゃゅょァィゥェォッャュョ');
 
@@ -116,6 +118,13 @@ export class JpdbClient {
         }
 
         await this.refreshCard(card);
+    }
+
+    async listDecks(): Promise<JPDBDeck[]> {
+        const response = await this.request<{ decks?: unknown[] }>('list-user-decks', { fields: DECK_FIELDS });
+        return Array.isArray(response.decks)
+            ? response.decks.map(normalizeDeck).filter((deck): deck is JPDBDeck => deck !== null)
+            : [];
     }
 
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
@@ -273,6 +282,24 @@ export class JpdbClient {
     private cardKey(vid: number, sid: number): string {
         return `${vid}/${sid}`;
     }
+}
+
+function normalizeDeck(value: unknown): JPDBDeck | null {
+    if (Array.isArray(value)) {
+        const [id, name] = value;
+        if ((typeof id === 'number' || typeof id === 'string') && typeof name === 'string') {
+            return { id: String(id), name };
+        }
+    }
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        const id = record.id;
+        const name = record.name ?? record.title;
+        if ((typeof id === 'number' || typeof id === 'string') && typeof name === 'string') {
+            return { id: String(id), name };
+        }
+    }
+    return null;
 }
 
 interface JsonPostResponse {

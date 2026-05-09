@@ -1,4 +1,4 @@
-import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, OcrProvider, ReaderSettings } from './types';
+import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
 
@@ -34,7 +34,14 @@ const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([v
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     onboardingSeen: false,
+    interfaceLanguage: 'auto',
     accentColor: DEFAULT_ACCENT_COLOR,
+    jpdbDefinitionsEnabled: true,
+    jpdbDefinitionsPriority: 0,
+    rtkEnabled: true,
+    kanjivgEnabled: true,
+    similarKanjiWords: true,
+    similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
     audioSources: DEFAULT_AUDIO_SOURCES,
@@ -44,6 +51,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioTimeoutMs: 6000,
     audioSelectionMode: 'random',
     parseSelection: true,
+    lookupOnClick: true,
+    lookupOnHover: true,
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     autoScanJapanese: true,
@@ -64,6 +73,11 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrMinImageArea: 45000,
     ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
+    ocrTextColor: '#ffffff',
+    ocrOutlineColor: '#000000',
+    ocrBackgroundColor: '#181b20',
+    ocrBackgroundOpacity: 0.36,
+    ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
@@ -72,12 +86,26 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
     subtitleSecondaryVisible: true,
-    subtitleFontSize: 28,
+    subtitleControlsMode: 'auto',
+    subtitleFontSize: 32,
     subtitleBottomOffset: 12,
+    subtitleTextColor: '#ffffff',
+    subtitleOutlineColor: '#000000',
+    subtitleBackgroundColor: '#181b20',
+    subtitleBackgroundOpacity: 0.32,
+    subtitleFontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    subtitleFontWeight: 850,
     subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: false,
     youtubeShowFilterNotice: true,
+    ankiEnabled: false,
+    ankiConnectUrl: 'http://127.0.0.1:8765',
+    ankiDeck: 'よむ',
+    ankiModel: 'よむ Japanese',
+    ankiTags: 'yomu',
+    ankiMineWithJpdb: false,
+    ankiCaptureScreenshot: true,
     theme: 'auto',
     popupMode: 'auto',
     miningDeck: 'forq',
@@ -88,6 +116,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     twoButtonReviews: false,
     shortcuts: {
         scanPage: 'Alt+J',
+        hoverLookup: '',
         openSettings: 'Alt+Shift+J',
         playAudio: 'A',
         closePopup: 'Escape',
@@ -95,6 +124,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         nextSubtitle: 'Alt+ArrowRight',
         copySubtitle: 'Alt+C',
         toggleOcr: 'Alt+O',
+        toggleYoutubeImmersion: 'Alt+Y',
         scanImages: 'Alt+I',
         gradeNothing: '1',
         gradeSomething: '2',
@@ -111,20 +141,81 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
     const audioSources = hasSavedAudioSources || value?.audioSourceUrl
         ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
+    const shortcuts = {
+        ...DEFAULT_SETTINGS.shortcuts,
+        ...(value?.shortcuts ?? {}),
+    };
+    if (value && value.shortcuts && !Object.prototype.hasOwnProperty.call(value.shortcuts, 'hoverLookup')) {
+        shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
+    }
     return {
         ...DEFAULT_SETTINGS,
         ...(value ?? {}),
+        interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
+        jpdbDefinitionsPriority: clampNumber(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+        lookupOnClick: typeof value?.lookupOnClick === 'boolean' ? value.lookupOnClick : true,
+        lookupOnHover: typeof value?.lookupOnHover === 'boolean' ? value.lookupOnHover : value?.popupActivationMode !== 'click',
         accentColor: sanitizeAccentColor(value?.accentColor),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
         ocrProvider: normalizeOcrProvider(value?.ocrProvider),
         ocrEngine: normalizeOcrEngine(value?.ocrEngine),
+        ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
+        ocrOutlineColor: sanitizeAccentColor(value?.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
+        ocrBackgroundColor: sanitizeAccentColor(value?.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
+        ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+        ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
+        subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
+        subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
+        subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
+        subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
+        subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+        subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
+        subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
+        similarKanjiWordLimit: clampNumber(value?.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit),
+        ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
+        ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
+        ankiModel: normalizeAnkiName(value?.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
+        ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
         dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
-        shortcuts: {
-            ...DEFAULT_SETTINGS.shortcuts,
-            ...(value?.shortcuts ?? {}),
-        },
+        shortcuts,
     };
+}
+
+function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string): string {
+    if (typeof value !== 'string') return fallback;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === oldDefault) return fallback;
+    return trimmed;
+}
+
+function normalizeInterfaceLanguage(value: unknown): InterfaceLanguage {
+    return value === 'en' || value === 'ja' || value === 'auto' ? value : DEFAULT_SETTINGS.interfaceLanguage;
+}
+
+function normalizeUrl(value: unknown, fallback: string): string {
+    if (typeof value !== 'string' || !value.trim()) return fallback;
+    try {
+        return new URL(value.trim()).toString().replace(/\/$/, '');
+    } catch {
+        return fallback;
+    }
+}
+
+function shortcutFromLegacyModifier(value: unknown): string {
+    if (value === 'alt') return 'Alt';
+    if (value === 'ctrl') return 'Ctrl';
+    if (value === 'meta') return 'Meta';
+    return value === 'shift' ? 'Shift' : '';
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+
+function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitleControlsMode'] {
+    return value === 'always' || value === 'hidden' || value === 'auto' ? value : DEFAULT_SETTINGS.subtitleControlsMode;
 }
 
 export function sanitizeAccentColor(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
@@ -146,9 +237,10 @@ export function accentToRgba(color: string, alpha: number): string {
 
 export function normalizeOcrProvider(value: unknown): OcrProvider {
     if (value === 'auto') return 'google-lens';
-    if (value === 'fast') return 'page-text';
+    if (value === 'fast') return 'google-lens';
+    if (value === 'page-text') return 'google-lens';
     if (value === 'custom-json') return 'local-service';
-    if (value === 'google-lens' || value === 'cloud-vision' || value === 'local-service' || value === 'page-text' || value === 'off') return value;
+    if (value === 'google-lens' || value === 'cloud-vision' || value === 'local-service' || value === 'off') return value;
     return DEFAULT_SETTINGS.ocrProvider;
 }
 
@@ -186,18 +278,74 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
 export function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
     if (!shortcut) return false;
 
-    const parts = shortcut.split('+').map(part => part.trim()).filter(Boolean);
-    const key = parts.at(-1)?.toLowerCase();
+    const parts = parseShortcut(shortcut);
+    const key = parts.key?.toLowerCase();
     if (!key) return false;
 
-    const wants = new Set(parts.slice(0, -1).map(part => part.toLowerCase()));
-    const eventKey = event.key.length === 1 ? event.key.toLowerCase() : event.key.toLowerCase();
+    const eventKey = normalizeEventKey(event.key).toLowerCase();
 
     return eventKey === key
-        && event.altKey === wants.has('alt')
-        && event.ctrlKey === wants.has('ctrl')
-        && event.metaKey === wants.has('meta')
-        && event.shiftKey === wants.has('shift');
+        && event.altKey === parts.modifiers.has('alt')
+        && event.ctrlKey === parts.modifiers.has('ctrl')
+        && event.metaKey === parts.modifiers.has('meta')
+        && event.shiftKey === parts.modifiers.has('shift');
+}
+
+export function formatShortcutEvent(event: KeyboardEvent): string {
+    const parts: string[] = [];
+    if (event.ctrlKey) parts.push('Ctrl');
+    if (event.altKey) parts.push('Alt');
+    if (event.shiftKey) parts.push('Shift');
+    if (event.metaKey) parts.push('Meta');
+    const key = normalizeEventKey(event.key);
+    if (!isModifierKey(key) || parts.length === 0) {
+        if (!isModifierKey(key)) parts.push(key);
+    }
+    return dedupeShortcutParts(parts).join('+');
+}
+
+export function shortcutIsPressed(shortcut: string, event: MouseEvent | KeyboardEvent, pressedKeys = new Set<string>()): boolean {
+    if (!shortcut.trim()) return true;
+    const parts = parseShortcut(shortcut);
+    if (parts.modifiers.has('alt') !== event.altKey) return false;
+    if (parts.modifiers.has('ctrl') !== event.ctrlKey) return false;
+    if (parts.modifiers.has('meta') !== event.metaKey) return false;
+    if (parts.modifiers.has('shift') !== event.shiftKey) return false;
+    if (!parts.key) return parts.modifiers.size > 0;
+    return pressedKeys.has(parts.key.toLowerCase()) || ('key' in event && normalizeEventKey(event.key).toLowerCase() === parts.key.toLowerCase());
+}
+
+function parseShortcut(shortcut: string): { key: string; modifiers: Set<string> } {
+    const parts = shortcut.split('+').map(part => normalizeShortcutPart(part)).filter(Boolean);
+    const modifiers = new Set(parts.filter(isModifierKey).map(part => part.toLowerCase()));
+    const key = [...parts].reverse().find(part => !isModifierKey(part)) ?? '';
+    return { key: key.toLowerCase(), modifiers };
+}
+
+function normalizeShortcutPart(part: string): string {
+    const value = part.trim();
+    if (!value) return '';
+    const lower = value.toLowerCase();
+    if (lower === 'control') return 'Ctrl';
+    if (lower === 'cmd' || lower === 'command' || lower === 'win' || lower === 'windows') return 'Meta';
+    if (lower === 'option') return 'Alt';
+    if (lower === 'esc') return 'Escape';
+    if (lower === 'spacebar' || lower === ' ') return 'Space';
+    if (value.length === 1) return value.toUpperCase();
+    return value[0]?.toUpperCase() + value.slice(1);
+}
+
+function normalizeEventKey(key: string): string {
+    if (key === ' ') return 'Space';
+    return normalizeShortcutPart(key);
+}
+
+function isModifierKey(key: string): boolean {
+    return key === 'Alt' || key === 'Ctrl' || key === 'Meta' || key === 'Shift';
+}
+
+function dedupeShortcutParts(parts: string[]): string[] {
+    return parts.filter((part, index) => parts.indexOf(part) === index);
 }
 
 export function isAudioSourceType(value: unknown): value is AudioSourceType {

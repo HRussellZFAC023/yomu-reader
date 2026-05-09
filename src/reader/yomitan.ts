@@ -18,6 +18,7 @@ export interface YomitanTermEntry {
     sequence?: number;
     termTags?: string;
     dictionary: string;
+    jpdbFrequency?: number;
 }
 
 export interface YomitanKanjiEntry {
@@ -126,6 +127,47 @@ export class YomitanDictionaryStore {
             .slice(0, limit);
     }
 
+    async lookupSimilarTermsByKanji(character: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const entries: YomitanTermEntry[] = [];
+        const seen = new Set<string>();
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction('terms', 'readonly');
+            const request = tx.objectStore('terms').openCursor();
+            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionaries.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor || entries.length >= Math.max(limit * 8, 80)) {
+                    resolve();
+                    return;
+                }
+                const entry = cursor.value as YomitanTermEntry;
+                if (entry.expression?.includes(character) && dictionaryEnabled(entry.dictionary, rank)) {
+                    const key = `${entry.expression}\n${entry.reading}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        entries.push(entry);
+                    }
+                }
+                cursor.continue();
+            };
+        });
+
+        const annotated = await Promise.all(entries.map(async entry => ({
+            ...entry,
+            jpdbFrequency: await this.frequencyForExpression(entry.expression, preferences),
+        })));
+        return annotated
+            .sort((a, b) =>
+                compareFrequency(a.jpdbFrequency, b.jpdbFrequency)
+                || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+                || (b.score ?? 0) - (a.score ?? 0)
+                || a.expression.length - b.expression.length,
+            )
+            .slice(0, limit);
+    }
+
     async summary(): Promise<DictionarySummary> {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -141,6 +183,16 @@ export class YomitanDictionaryStore {
     async countEntries(): Promise<number> {
         const summary = await this.summary();
         return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
+    }
+
+    private async frequencyForExpression(expression: string, preferences: DictionaryPreference[]): Promise<number | undefined> {
+        const metas = await this.lookupTermMeta(expression, 12, preferences).catch(() => []);
+        for (const meta of metas) {
+            if (meta.mode !== 'freq') continue;
+            const frequency = extractFrequency(meta.data);
+            if (frequency !== undefined) return frequency;
+        }
+        return undefined;
     }
 
     async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
@@ -459,12 +511,13 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
         const include = String(scanInput.include ?? '').toLowerCase();
         const modifier = ['shift', 'alt', 'ctrl', 'meta'].find(key => include.includes(key));
         if (modifier) {
-            settings.popupActivationMode = 'modifier';
-            settings.scanModifierKey = modifier as ReaderSettings['scanModifierKey'];
+            settings.lookupOnHover = true;
+            settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
         } else {
             const options = scanInput.options as Record<string, unknown> | undefined;
             if (options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === '') {
-                settings.popupActivationMode = 'hover';
+                settings.lookupOnHover = true;
+                settings.shortcuts = { ...settings.shortcuts, hoverLookup: '' };
             }
         }
     }
@@ -903,6 +956,18 @@ function frequencyRank(value: unknown): number {
     return frequencyRank(record.frequency ?? record.value ?? record.displayValue);
 }
 
+function extractFrequency(value: unknown): number | undefined {
+    const rank = frequencyRank(value);
+    return Number.isFinite(rank) ? rank : undefined;
+}
+
+function compareFrequency(a?: number, b?: number): number {
+    if (a === undefined && b === undefined) return 0;
+    if (a === undefined) return 1;
+    if (b === undefined) return -1;
+    return a - b;
+}
+
 function filenameFromUrl(url: string): string {
     try {
         const parsed = new URL(url);
@@ -919,6 +984,7 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
             GM_xmlhttpRequest({
                 method: 'GET',
                 url,
+                headers: { accept: 'application/zip,application/octet-stream,*/*' },
                 responseType: 'blob',
                 timeout: 120000,
                 onprogress: event => {
@@ -927,12 +993,12 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
                     }
                 },
                 onload: response => {
-                    if (response.status < 200 || response.status >= 300) {
-                        reject(new Error(`Dictionary download failed (${response.status}).`));
+                    if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
+                        resolve(response.response);
                         return;
                     }
-                    if (response.response instanceof Blob) {
-                        resolve(response.response);
+                    if (response.status < 200 || response.status >= 300) {
+                        reject(new Error(`Dictionary download failed (${response.status}).`));
                         return;
                     }
                     reject(new Error('Dictionary download did not return a ZIP file.'));
