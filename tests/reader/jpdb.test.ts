@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
-import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio } from '../../src/reader/audio';
+import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, ShuffledAudioDeck } from '../../src/reader/audio';
 import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
@@ -42,6 +42,22 @@ describe('reader helpers', () => {
             .toBe('http://x.test/audio.mp3');
         expect(findAudioUrls({ audioSources: [{ url: 'http://x.test/1.mp3' }, { url: 'http://x.test/2.mp3' }] }))
             .toEqual(['http://x.test/1.mp3', 'http://x.test/2.mp3']);
+    });
+
+    it('plays random audio like a shuffled deck before repeating clips', () => {
+        const deck = new ShuffledAudioDeck(() => 0);
+        const ids = ['a', 'b', 'c'];
+        const played: string[] = [];
+
+        for (let index = 0; index < ids.length; index++) {
+            const next = deck.order('読む', ids)[0];
+            played.push(next);
+            deck.markPlayed('読む', next);
+        }
+
+        expect(new Set(played)).toEqual(new Set(ids));
+        const afterReset = deck.order('読む', ids)[0];
+        expect(afterReset).not.toBe(played[played.length - 1]);
     });
 
     it('rewrites localhost audio URLs returned by a remote custom source', () => {
