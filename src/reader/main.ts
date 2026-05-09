@@ -13,7 +13,7 @@ import {
 } from './dom';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
-import { buildKanjiFacts, buildKanjiOriginGraph, type KanjiFact, type KanjiOriginGraph } from './kanji-origin';
+import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiFact, type KanjiOriginGraph, type KanjiSourceInfo } from './kanji-origin';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import { uiText } from './i18n';
 import { OnboardingController } from './onboarding';
@@ -60,6 +60,7 @@ class ReaderApp {
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
     private jpdbKanji = new JpdbKanjiClient();
     private kanjiVG = new KanjiVGClient();
+    private kanjiOrigin = new KanjiOriginClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
@@ -528,7 +529,7 @@ class ReaderApp {
             <div class="jpdb-reader-header">
                 <div class="jpdb-reader-heading">
                     <div class="jpdb-reader-title-row">
-                        <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling)}</div>
+                        <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling, language)}</div>
                         <a class="jpdb-reader-jpdb-pill" href="${jpdbUrl}" target="_blank" rel="noopener" title="${uiText(language, 'openOnJpdb')}" aria-label="${uiText(language, 'openOnJpdb')}: ${escapeHtml(card.spelling)}">JPDB ${externalLinkIcon()}</a>
                     </div>
                     ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
@@ -595,13 +596,14 @@ class ReaderApp {
         const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
         const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
         const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
-        const [jpdbInfo, kanjiEntries, rtkInfo, kanjiVGInfo, similarTerms] = await Promise.all([
+        const [jpdbInfo, kanjiEntries, rtkInfo, kanjiVGInfo, sourceInfo, similarTerms] = await Promise.all([
             this.jpdbKanji.lookup(kanji).catch(() => null),
             this.settings.localDictionariesEnabled
                 ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
                 : Promise.resolve([]),
             this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null),
             this.settings.kanjivgEnabled ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null),
+            this.settings.kanjiOriginsEnabled ? this.kanjiOrigin.lookup(kanji, this.settings).catch(() => null) : Promise.resolve(null),
             this.settings.similarKanjiWords && this.settings.localDictionariesEnabled
                 ? this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences).catch(() => [])
                 : Promise.resolve([]),
@@ -617,20 +619,21 @@ class ReaderApp {
             })))
             : [];
         const kanjiFacts = this.settings.kanjiOriginsEnabled
-            ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries)
+            ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo)
             : [];
         const originGraph = this.settings.kanjiOriginsEnabled
-            ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries)
+            ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo)
             : null;
+        const language = this.settings.interfaceLanguage;
 
         setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-kanji-nav">
-                <button class="jpdb-reader-icon-mini" type="button" data-action="word-back" title="Back to ${escapeHtml(card.spelling)}">←</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="word-back" title="${escapeHtml(`${uiText(language, 'backToWord')}: ${card.spelling}`)}">←</button>
                 <span>${escapeHtml(card.spelling)}</span>
                 ${kanjiCharacters.length > 1 ? `
-                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}" title="Previous kanji">‹</button>
-                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}" title="Next kanji">›</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}" title="${uiText(language, 'previousKanji')}">‹</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}" title="${uiText(language, 'nextKanji')}">›</button>
                 ` : ''}
             </div>
             <div class="jpdb-reader-header">
@@ -638,14 +641,14 @@ class ReaderApp {
                     <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
                         <div class="jpdb-reader-kanji-display">${escapeHtml(kanji)}</div>
                         ${renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries)}
-                        <a class="jpdb-reader-jpdb-pill" href="${jpdbUrl}" target="_blank" rel="noopener" title="Open kanji on JPDB">JPDB ${externalLinkIcon()}</a>
+                        <a class="jpdb-reader-jpdb-pill" href="${jpdbUrl}" target="_blank" rel="noopener" title="${uiText(language, 'openKanjiOnJpdb')}">JPDB ${externalLinkIcon()}</a>
                     </div>
                 </div>
             </div>
-            ${this.settings.kanjiOriginsEnabled ? renderKanjiOrigins(kanjiFacts, originGraph) : ''}
-            ${this.settings.kanjivgEnabled ? renderKanjiPractice(kanjiVGInfo, kanji) : ''}
-            ${renderJpdbKanjiInfo(jpdbInfo)}
-            ${renderRtkInfo(rtkInfo, componentSummaries)}
+            ${this.settings.kanjiOriginsEnabled ? renderKanjiOrigins(kanjiFacts, this.settings.kanjiOriginGraphEnabled ? originGraph : null, sourceInfo, this.settings, language) : ''}
+            ${this.settings.kanjivgEnabled ? renderKanjiPractice(kanjiVGInfo, kanji, language) : ''}
+            ${renderJpdbKanjiInfo(jpdbInfo, language)}
+            ${renderRtkInfo(rtkInfo, componentSummaries, language)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
             ${this.renderSimilarKanjiWords(similarTerms, jpdbInfo?.vocabulary ?? [], kanji, card)}
         `);
@@ -772,7 +775,7 @@ class ReaderApp {
             event.stopPropagation();
             traceVisible = !traceVisible;
             ghost.hidden = !traceVisible;
-            trace.textContent = traceVisible ? 'Hide trace' : 'Show trace';
+            trace.textContent = uiText(this.settings.interfaceLanguage, traceVisible ? 'hideTrace' : 'showTrace');
         });
         const resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(stage);
@@ -1097,6 +1100,10 @@ class ReaderApp {
                 <div class="grid">
                     ${checkbox('kanjivgEnabled', 'Show stroke order and drawing pad', this.settings.kanjivgEnabled)}
                     ${checkbox('kanjiOriginsEnabled', 'Show kanji facts and origins map', this.settings.kanjiOriginsEnabled)}
+                    ${checkbox('kanjiOriginKanjiMapEnabled', 'Use Kanji Alive and Kanji Map facts', this.settings.kanjiOriginKanjiMapEnabled)}
+                    ${checkbox('kanjiOriginWiktionaryEnabled', 'Use Wiktionary origin notes', this.settings.kanjiOriginWiktionaryEnabled)}
+                    ${checkbox('kanjiOriginGraphEnabled', 'Show component graph', this.settings.kanjiOriginGraphEnabled)}
+                    ${checkbox('kanjiOriginRadicalImagesEnabled', 'Show radical images', this.settings.kanjiOriginRadicalImagesEnabled)}
                     ${checkbox('rtkEnabled', 'Show RTK information', this.settings.rtkEnabled)}
                     ${checkbox('similarKanjiWords', 'Show words using the same kanji', this.settings.similarKanjiWords)}
                     ${input('similarKanjiWordLimit', 'Similar word limit', String(this.settings.similarKanjiWordLimit), 'number')}
@@ -1722,9 +1729,9 @@ function formatMetaPitch(value: unknown): string {
     return '';
 }
 
-function renderSpellingForKanjiNavigation(spelling: string): string {
+function renderSpellingForKanjiNavigation(spelling: string, language: InterfaceLanguage): string {
     return Array.from(spelling).map(character => isKanjiCharacter(character)
-        ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml(character)}" title="Show kanji information for ${escapeHtml(character)}">${escapeHtml(character)}</button>`
+        ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml(character)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${character}`)}">${escapeHtml(character)}</button>`
         : `<span>${escapeHtml(character)}</span>`,
     ).join('');
 }
@@ -1815,45 +1822,83 @@ function compareOptionalNumber(a?: number, b?: number): number {
     return a - b;
 }
 
-function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string): string {
+function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, language: InterfaceLanguage): string {
     const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml(kanji)}</div>`;
     return `
         <div class="jpdb-reader-local jpdb-reader-kanjivg">
-            <div class="jpdb-reader-local-title">Stroke order + practice</div>
+            <div class="jpdb-reader-local-title">${uiText(language, 'strokePractice')}</div>
             <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="Practice drawing ${escapeHtml(kanji)}"></canvas>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(language, 'practiceDrawing')} ${kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${info ? `${info.strokeCount} strokes` : 'text trace'}</span>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>Hide trace</button>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>Clear</button>
+                <span class="jpdb-reader-help">${info ? `${info.strokeCount} ${uiText(language, 'strokes')}` : uiText(language, 'textTrace')}</span>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, 'hideTrace')}</button>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, 'clear')}</button>
             </div>
         </div>
     `;
 }
 
-function renderKanjiOrigins(facts: KanjiFact[], graph: KanjiOriginGraph | null): string {
-    if (!facts.length && (!graph || graph.nodes.length <= 1)) return '';
+function renderKanjiOrigins(facts: KanjiFact[], graph: KanjiOriginGraph | null, sourceInfo: KanjiSourceInfo | null, settings: ReaderSettings, language: InterfaceLanguage): string {
+    if (!facts.length && (!graph || graph.nodes.length <= 1) && !sourceInfo?.kanjiMap && !sourceInfo?.wiktionary) return '';
     const graphNodes = graph?.nodes ?? [];
     const edges = graph?.edges ?? [];
+    const map = sourceInfo?.kanjiMap;
+    const wiktionary = sourceInfo?.wiktionary;
+    const radical = map?.radical;
+    const sourceLinks = [
+        map?.sourceUrl ? `<a href="${escapeHtml(map.sourceUrl)}" target="_blank" rel="noopener">${uiText(language, 'kanjiMapData')} ${externalLinkIcon()}</a>` : '',
+        map?.kanjiAliveUrl ? `<a href="${escapeHtml(map.kanjiAliveUrl)}" target="_blank" rel="noopener">${uiText(language, 'kanjiAlive')} ${externalLinkIcon()}</a>` : '',
+        wiktionary?.pageUrl ? `<a href="${escapeHtml(wiktionary.pageUrl)}" target="_blank" rel="noopener">${uiText(language, 'wiktionary')} ${externalLinkIcon()}</a>` : '',
+    ].filter(Boolean).join('');
     return `
         <div class="jpdb-reader-local jpdb-reader-origins">
-            <div class="jpdb-reader-local-title">Study facts and origins</div>
+            <div class="jpdb-reader-local-title">${uiText(language, 'originStructure')}</div>
             ${facts.length ? `<div class="jpdb-reader-kanji-facts">
                 ${facts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
             </div>` : ''}
-            ${graphNodes.length > 1 ? `<div class="jpdb-reader-origin-map" aria-label="2D kanji origin and component map">
-                ${graphNodes.map((node, index) => `
-                    <div class="jpdb-reader-origin-node ${node.kind}" style="--origin-index:${index}" title="${escapeHtml(node.detail)}">
+            ${graphNodes.length > 1 ? `<div class="jpdb-reader-origin-map" aria-label="${uiText(language, 'originMapLabel')}">
+                ${graphNodes.map(node => node.kind === 'related' ? `
+                    <div class="jpdb-reader-origin-node ${node.kind}" title="${escapeHtml(node.source)}">
                         <strong>${escapeHtml(node.label)}</strong>
                         ${node.detail ? `<small>${escapeHtml(node.detail)}</small>` : ''}
                     </div>
+                ` : `
+                    <button class="jpdb-reader-origin-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" title="${escapeHtml([node.detail, node.source].filter(Boolean).join(' · '))}">
+                        <strong>${escapeHtml(node.label)}</strong>
+                        ${node.detail ? `<small>${escapeHtml(node.detail)}</small>` : ''}
+                    </button>
                 `).join('')}
                 ${edges.length ? `<div class="jpdb-reader-origin-edges">
                     ${edges.map(edge => `<span>${escapeHtml(edge.from.replace(/^rtk:\d+:/, ''))} → ${escapeHtml(edge.to)} <small>${escapeHtml(edge.label)}</small></span>`).join('')}
                 </div>` : ''}
             </div>` : ''}
+            ${map ? `<div class="jpdb-reader-origin-detail">
+                ${map.meaning ? `<p><strong>${escapeHtml(map.meaning)}</strong>${map.kunyomi.length || map.onyomi.length ? ` <span>${escapeHtml([...map.kunyomi.slice(0, 3), ...map.onyomi.slice(0, 3)].join(' · '))}</span>` : ''}</p>` : ''}
+                ${radical ? `<div class="jpdb-reader-radical-card">
+                    ${settings.kanjiOriginRadicalImagesEnabled && radical.image ? `<img src="${escapeHtml(radical.image)}" alt="${escapeHtml(radical.meaning || radical.name || uiText(language, 'radical'))}" loading="lazy">` : ''}
+                    <div>
+                        <strong>${escapeHtml([radical.symbol, ...radical.forms].filter(Boolean).join(' / ') || uiText(language, 'radical'))}</strong>
+                        <span>${escapeHtml([radical.reading, radical.name, radical.meaning, radical.position, radical.strokes ? `${radical.strokes} ${uiText(language, 'strokes')}` : ''].filter(Boolean).join(' · '))}</span>
+                    </div>
+                </div>` : ''}
+                ${map.examples.length ? `<div class="jpdb-reader-origin-examples">
+                    ${map.examples.slice(0, 4).map(example => `<button type="button" data-action="similar-word" data-expression="${escapeHtml(example.expression)}" title="${escapeHtml(example.meaning)}">
+                        <strong>${escapeHtml(example.expression)}</strong>
+                        ${example.reading ? `<span>${escapeHtml(example.reading)}</span>` : ''}
+                        ${example.meaning ? `<small>${escapeHtml(example.meaning)}</small>` : ''}
+                    </button>`).join('')}
+                </div>` : ''}
+            </div>` : ''}
+            ${wiktionary ? `<details class="jpdb-reader-origin-wiktionary">
+                <summary>${uiText(language, 'historicalNotes')}</summary>
+                ${wiktionary.images.length ? `<div class="jpdb-reader-origin-images">
+                    ${wiktionary.images.map(image => `<img src="${escapeHtml(image.src)}" alt="${escapeHtml(image.alt)}" loading="lazy">`).join('')}
+                </div>` : ''}
+                ${[...wiktionary.glyphOrigin, ...wiktionary.etymology].slice(0, 4).map(text => `<p>${escapeHtml(text)}</p>`).join('')}
+            </details>` : ''}
+            ${sourceLinks ? `<div class="jpdb-reader-origin-sources">${sourceLinks}</div>` : ''}
         </div>
     `;
 }
@@ -1877,7 +1922,7 @@ function renderSupportPanel(): string {
     `;
 }
 
-function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null): string {
+function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage): string {
     if (!info) return '';
     const infoChips = [
         info.type,
@@ -1886,25 +1931,25 @@ function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null): string {
     ].filter(Boolean).map(item => `<span class="jpdb-reader-chip">${escapeHtml(item)}</span>`).join('');
     return `
         <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
-            <div class="jpdb-reader-local-title">Readings and components</div>
+            <div class="jpdb-reader-local-title">${uiText(language, 'readingsComponents')}</div>
             <div class="jpdb-reader-local-entry">
                 ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ''}
                 ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
                     ${info.readings.slice(0, 8).map(reading => `<span>${escapeHtml(reading.reading)}${reading.share ? ` ${escapeHtml(reading.share)}` : ''}</span>`).join('')}
                 </div>` : ''}
                 ${info.components.length ? `<div class="jpdb-reader-component-grid">
-                    ${info.components.map(component => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="Show ${escapeHtml(component.kanji)}">
+                    ${info.components.map(component => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
                         <strong>${escapeHtml(component.kanji)}</strong>
                         <span>${escapeHtml(component.keyword)}</span>
                     </button>`).join('')}
                 </div>` : ''}
-                ${info.mnemonic ? `<details><summary>JPDB mnemonic</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : ''}
+                ${info.mnemonic ? `<details><summary>${uiText(language, 'jpdbMnemonic')}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : ''}
             </div>
         </div>
     `;
 }
 
-function renderRtkInfo(info: RtkInfo | null, components: Array<{ kanji: string; rtk: RtkInfo | null; dictionary: YomitanKanjiEntry[] }>): string {
+function renderRtkInfo(info: RtkInfo | null, components: Array<{ kanji: string; rtk: RtkInfo | null; dictionary: YomitanKanjiEntry[] }>, language: InterfaceLanguage): string {
     if (!info) return '';
     const elementKeywords = splitRtkElements(info.elements);
     const componentByKeyword = new Map(
@@ -1921,30 +1966,30 @@ function renderRtkInfo(info: RtkInfo | null, components: Array<{ kanji: string; 
                     ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ''}
                 </div>
                 ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.onYomi ? `<span>On ${escapeHtml(info.onYomi)}</span>` : ''}
-                    ${info.kunYomi ? `<span>Kun ${escapeHtml(info.kunYomi)}</span>` : ''}
+                    ${info.onYomi ? `<span>${uiText(language, 'onReading')} ${escapeHtml(info.onYomi)}</span>` : ''}
+                    ${info.kunYomi ? `<span>${uiText(language, 'kunReading')} ${escapeHtml(info.kunYomi)}</span>` : ''}
                 </div>` : ''}
-                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="RTK component keywords">
+                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, 'rtkComponentKeywords')}">
                     ${elementKeywords.map(keyword => {
                         const componentKanji = componentByKeyword.get(keyword.toLowerCase());
                         return componentKanji
-                            ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(componentKanji)}" title="Show ${escapeHtml(componentKanji)}">${escapeHtml(keyword)}</button>`
+                            ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(componentKanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${componentKanji}`)}">${escapeHtml(keyword)}</button>`
                             : `<span>${escapeHtml(keyword)}</span>`;
                     }).join('')}
                 </div>` : ''}
                 ${components.length ? `<div class="jpdb-reader-component-grid">
                     ${components.map(component => {
                         const meanings = [...new Set(component.dictionary.flatMap(entry => entry.meanings))].slice(0, 6);
-                        return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="Show ${escapeHtml(component.kanji)}">
+                        return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
                             <strong>${escapeHtml(component.kanji)}</strong>
                             ${component.rtk?.keyword ? `<span>${escapeHtml(component.rtk.keyword)}</span>` : ''}
                             ${meanings.length ? `<small>${escapeHtml(meanings.join(', '))}</small>` : ''}
                         </button>`;
                     }).join('')}
                 </div>` : ''}
-                ${info.heisigStory ? `<details><summary>Heisig story</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : ''}
-                ${info.heisigComment ? `<details><summary>Heisig comment</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : ''}
-                ${info.koohiiStories.length ? `<details><summary>Koohii stories</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : ''}
+                ${info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : ''}
+                ${info.heisigComment ? `<details><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : ''}
+                ${info.koohiiStories.length ? `<details><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : ''}
             </div>
         </div>
     `;
@@ -2104,6 +2149,10 @@ function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage
         ['hideKnownFurigana', 'hideKnownFurigana'],
         ['kanjivgEnabled', 'kanjivgEnabled'],
         ['kanjiOriginsEnabled', 'kanjiOriginsEnabled'],
+        ['kanjiOriginKanjiMapEnabled', 'kanjiOriginKanjiMapEnabled'],
+        ['kanjiOriginWiktionaryEnabled', 'kanjiOriginWiktionaryEnabled'],
+        ['kanjiOriginGraphEnabled', 'kanjiOriginGraphEnabled'],
+        ['kanjiOriginRadicalImagesEnabled', 'kanjiOriginRadicalImagesEnabled'],
         ['rtkEnabled', 'rtkEnabled'],
         ['similarKanjiWords', 'similarKanjiWords'],
         ['similarKanjiWordLimit', 'similarKanjiWordLimit'],
@@ -2729,6 +2778,10 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         rtkEnabled: has('rtkEnabled'),
         kanjivgEnabled: has('kanjivgEnabled'),
         kanjiOriginsEnabled: has('kanjiOriginsEnabled'),
+        kanjiOriginKanjiMapEnabled: has('kanjiOriginKanjiMapEnabled'),
+        kanjiOriginWiktionaryEnabled: has('kanjiOriginWiktionaryEnabled'),
+        kanjiOriginGraphEnabled: has('kanjiOriginGraphEnabled'),
+        kanjiOriginRadicalImagesEnabled: has('kanjiOriginRadicalImagesEnabled'),
         similarKanjiWords: has('similarKanjiWords'),
         similarKanjiWordLimit: Math.max(2, Math.min(24, number('similarKanjiWordLimit', current.similarKanjiWordLimit))),
         audioEnabled: has('audioEnabled'),

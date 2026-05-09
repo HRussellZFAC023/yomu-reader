@@ -128,6 +128,10 @@ export interface ReaderSettings {
     rtkEnabled: boolean;
     kanjivgEnabled: boolean;
     kanjiOriginsEnabled: boolean;
+    kanjiOriginKanjiMapEnabled: boolean;
+    kanjiOriginWiktionaryEnabled: boolean;
+    kanjiOriginGraphEnabled: boolean;
+    kanjiOriginRadicalImagesEnabled: boolean;
     similarKanjiWords: boolean;
     similarKanjiWordLimit: number;
     audioEnabled: boolean;
