@@ -49,6 +49,7 @@
       __publicField(this, "utterance");
       __publicField(this, "lastBlobUrl");
       __publicField(this, "playRequestId", 0);
+      __publicField(this, "shuffledAudio", new ShuffledAudioDeck());
       this.getSettings = getSettings;
     }
     async play(card) {
@@ -92,8 +93,9 @@
         await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
         return true;
       }
-      const candidates = pickCandidates(await getAudioCandidates(source, card, settings.audioTimeoutMs), settings.audioSelectionMode);
-      for (const candidate of candidates) {
+      const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs);
+      const bagKey = getAudioBagKey(source, card);
+      for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
         try {
           const audioUrl = settings.audioViaBlob || isJapanesePod101Url(candidate.sourceUrl) ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode) : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
           if (requestId !== this.playRequestId) return true;
@@ -102,6 +104,7 @@
           this.current = audio;
           await audio.play();
           if (requestId !== this.playRequestId) audio.pause();
+          this.shuffledAudio.markPlayed(bagKey, id);
           return true;
         } catch {
         }
@@ -145,6 +148,42 @@
         this.utterance = utterance;
         speechSynthesis.speak(utterance);
       });
+    }
+  }
+  class ShuffledAudioDeck {
+    constructor(random = Math.random) {
+      __publicField(this, "bags", /* @__PURE__ */ new Map());
+      this.random = random;
+    }
+    order(key, ids) {
+      if (ids.length < 2) return ids;
+      const signature = ids.join("\0");
+      const current = this.bags.get(key);
+      if (!current || current.signature !== signature || !current.remaining.length) {
+        const next = this.shuffle(ids);
+        const lastPlayed = (current == null ? void 0 : current.signature) === signature ? current.lastPlayed : void 0;
+        if (lastPlayed && next.length > 1 && next[0] === lastPlayed) {
+          next.push(next.shift());
+        }
+        this.bags.set(key, { signature, remaining: next, lastPlayed });
+        return [...next];
+      }
+      return [...current.remaining];
+    }
+    markPlayed(key, id) {
+      const current = this.bags.get(key);
+      if (!current) return;
+      const index = current.remaining.indexOf(id);
+      if (index >= 0) current.remaining.splice(index, 1);
+      current.lastPlayed = id;
+    }
+    shuffle(values) {
+      const shuffled = [...values];
+      for (let index = shuffled.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(this.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      return shuffled;
     }
   }
   function formatAudioUrl(template, card) {
@@ -225,9 +264,23 @@
         return [];
     }
   }
-  function pickCandidates(candidates, mode) {
-    if (mode !== "random" || candidates.length < 2) return candidates;
-    return [...candidates].sort(() => Math.random() - 0.5);
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    const entries = candidates.map((candidate, index) => ({
+      candidate,
+      id: `${index}\0${candidate.url}\0${candidate.sourceUrl}`
+    }));
+    if (mode !== "random" || entries.length < 2) return entries;
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    return shuffledAudio.order(bagKey, entries.map((entry) => entry.id)).map((id) => byId.get(id)).filter((entry) => Boolean(entry));
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      card.spelling,
+      card.reading
+    ].join("");
   }
   function getJapanesePod101Url(card) {
     const params = new URLSearchParams();

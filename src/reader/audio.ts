@@ -14,6 +14,7 @@ export class AudioPlayer {
     private utterance?: SpeechSynthesisUtterance;
     private lastBlobUrl?: string;
     private playRequestId = 0;
+    private shuffledAudio = new ShuffledAudioDeck();
 
     constructor(private getSettings: () => ReaderSettings) {}
 
@@ -64,8 +65,9 @@ export class AudioPlayer {
             return true;
         }
 
-        const candidates = pickCandidates(await getAudioCandidates(source, card, settings.audioTimeoutMs), settings.audioSelectionMode);
-        for (const candidate of candidates) {
+        const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs);
+        const bagKey = getAudioBagKey(source, card);
+        for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
             try {
                 const audioUrl = settings.audioViaBlob || isJapanesePod101Url(candidate.sourceUrl)
                     ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode)
@@ -76,6 +78,7 @@ export class AudioPlayer {
                 this.current = audio;
                 await audio.play();
                 if (requestId !== this.playRequestId) audio.pause();
+                this.shuffledAudio.markPlayed(bagKey, id);
                 return true;
             } catch {
                 // Try the next source or candidate.
@@ -125,6 +128,48 @@ export class AudioPlayer {
             this.utterance = utterance;
             speechSynthesis.speak(utterance);
         });
+    }
+}
+
+export class ShuffledAudioDeck {
+    private bags = new Map<string, { signature: string; remaining: string[]; lastPlayed?: string }>();
+
+    constructor(private random: () => number = Math.random) {}
+
+    order(key: string, ids: string[]): string[] {
+        if (ids.length < 2) return ids;
+
+        const signature = ids.join('\u0000');
+        const current = this.bags.get(key);
+        if (!current || current.signature !== signature || !current.remaining.length) {
+            const next = this.shuffle(ids);
+            const lastPlayed = current?.signature === signature ? current.lastPlayed : undefined;
+            if (lastPlayed && next.length > 1 && next[0] === lastPlayed) {
+                next.push(next.shift()!);
+            }
+            this.bags.set(key, { signature, remaining: next, lastPlayed });
+            return [...next];
+        }
+
+        return [...current.remaining];
+    }
+
+    markPlayed(key: string, id: string): void {
+        const current = this.bags.get(key);
+        if (!current) return;
+
+        const index = current.remaining.indexOf(id);
+        if (index >= 0) current.remaining.splice(index, 1);
+        current.lastPlayed = id;
+    }
+
+    private shuffle(values: string[]): string[] {
+        const shuffled = [...values];
+        for (let index = shuffled.length - 1; index > 0; index--) {
+            const swapIndex = Math.floor(this.random() * (index + 1));
+            [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+        }
+        return shuffled;
     }
 }
 
@@ -217,9 +262,32 @@ async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, ti
     }
 }
 
-function pickCandidates(candidates: AudioCandidate[], mode: AudioSelectionMode): AudioCandidate[] {
-    if (mode !== 'random' || candidates.length < 2) return candidates;
-    return [...candidates].sort(() => Math.random() - 0.5);
+function orderAudioCandidates(
+    candidates: AudioCandidate[],
+    mode: AudioSelectionMode,
+    bagKey: string,
+    shuffledAudio: ShuffledAudioDeck,
+): Array<{ candidate: AudioCandidate; id: string }> {
+    const entries = candidates.map((candidate, index) => ({
+        candidate,
+        id: `${index}\u0000${candidate.url}\u0000${candidate.sourceUrl}`,
+    }));
+    if (mode !== 'random' || entries.length < 2) return entries;
+
+    const byId = new Map(entries.map(entry => [entry.id, entry]));
+    return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
+        .map(id => byId.get(id))
+        .filter((entry): entry is { candidate: AudioCandidate; id: string } => Boolean(entry));
+}
+
+function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): string {
+    return [
+        source.type,
+        source.url,
+        source.voice,
+        card.spelling,
+        card.reading,
+    ].join('\u0001');
 }
 
 function getJapanesePod101Url(card: JPDBCard): string {
