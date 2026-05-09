@@ -13,6 +13,7 @@ import {
 } from './dom';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
+import { buildKanjiFacts, buildKanjiOriginGraph, type KanjiFact, type KanjiOriginGraph } from './kanji-origin';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import { uiText } from './i18n';
 import { OnboardingController } from './onboarding';
@@ -615,6 +616,12 @@ class ReaderApp {
                     : [],
             })))
             : [];
+        const kanjiFacts = this.settings.kanjiOriginsEnabled
+            ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries)
+            : [];
+        const originGraph = this.settings.kanjiOriginsEnabled
+            ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries)
+            : null;
 
         setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
@@ -635,6 +642,7 @@ class ReaderApp {
                     </div>
                 </div>
             </div>
+            ${this.settings.kanjiOriginsEnabled ? renderKanjiOrigins(kanjiFacts, originGraph) : ''}
             ${this.settings.kanjivgEnabled ? renderKanjiPractice(kanjiVGInfo, kanji) : ''}
             ${renderJpdbKanjiInfo(jpdbInfo)}
             ${renderRtkInfo(rtkInfo, componentSummaries)}
@@ -1088,6 +1096,7 @@ class ReaderApp {
                 <legend>Kanji</legend>
                 <div class="grid">
                     ${checkbox('kanjivgEnabled', 'Show stroke order and drawing pad', this.settings.kanjivgEnabled)}
+                    ${checkbox('kanjiOriginsEnabled', 'Show kanji facts and origins map', this.settings.kanjiOriginsEnabled)}
                     ${checkbox('rtkEnabled', 'Show RTK information', this.settings.rtkEnabled)}
                     ${checkbox('similarKanjiWords', 'Show words using the same kanji', this.settings.similarKanjiWords)}
                     ${input('similarKanjiWordLimit', 'Similar word limit', String(this.settings.similarKanjiWordLimit), 'number')}
@@ -1824,6 +1833,31 @@ function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string): string {
     `;
 }
 
+function renderKanjiOrigins(facts: KanjiFact[], graph: KanjiOriginGraph | null): string {
+    if (!facts.length && (!graph || graph.nodes.length <= 1)) return '';
+    const graphNodes = graph?.nodes ?? [];
+    const edges = graph?.edges ?? [];
+    return `
+        <div class="jpdb-reader-local jpdb-reader-origins">
+            <div class="jpdb-reader-local-title">Study facts and origins</div>
+            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
+                ${facts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
+            </div>` : ''}
+            ${graphNodes.length > 1 ? `<div class="jpdb-reader-origin-map" aria-label="2D kanji origin and component map">
+                ${graphNodes.map((node, index) => `
+                    <div class="jpdb-reader-origin-node ${node.kind}" style="--origin-index:${index}" title="${escapeHtml(node.detail)}">
+                        <strong>${escapeHtml(node.label)}</strong>
+                        ${node.detail ? `<small>${escapeHtml(node.detail)}</small>` : ''}
+                    </div>
+                `).join('')}
+                ${edges.length ? `<div class="jpdb-reader-origin-edges">
+                    ${edges.map(edge => `<span>${escapeHtml(edge.from.replace(/^rtk:\d+:/, ''))} → ${escapeHtml(edge.to)} <small>${escapeHtml(edge.label)}</small></span>`).join('')}
+                </div>` : ''}
+            </div>` : ''}
+        </div>
+    `;
+}
+
 function renderSupportPanel(): string {
     return `
         <div class="jpdb-reader-support-card">
@@ -2069,6 +2103,7 @@ function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage
         ['showPitchAccent', 'showPitchAccent'],
         ['hideKnownFurigana', 'hideKnownFurigana'],
         ['kanjivgEnabled', 'kanjivgEnabled'],
+        ['kanjiOriginsEnabled', 'kanjiOriginsEnabled'],
         ['rtkEnabled', 'rtkEnabled'],
         ['similarKanjiWords', 'similarKanjiWords'],
         ['similarKanjiWordLimit', 'similarKanjiWordLimit'],
@@ -2693,6 +2728,7 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
         rtkEnabled: has('rtkEnabled'),
         kanjivgEnabled: has('kanjivgEnabled'),
+        kanjiOriginsEnabled: has('kanjiOriginsEnabled'),
         similarKanjiWords: has('similarKanjiWords'),
         similarKanjiWordLimit: Math.max(2, Math.min(24, number('similarKanjiWordLimit', current.similarKanjiWordLimit))),
         audioEnabled: has('audioEnabled'),

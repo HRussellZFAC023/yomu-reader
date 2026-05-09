@@ -6,6 +6,7 @@ import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod10
 import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
+import { buildKanjiFacts, buildKanjiOriginGraph } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
@@ -231,6 +232,83 @@ describe('reader helpers', () => {
         expect(info?.svg).not.toContain('onclick');
         expect(info?.svg).not.toContain('script');
         expect(info?.svg).not.toContain('javascript');
+    });
+
+    it('builds compact kanji facts from JPDB, stroke, and local dictionary data', () => {
+        const facts = buildKanjiFacts('読', {
+            kanji: '読',
+            keyword: 'read',
+            frequency: 'Top 400-500',
+            type: 'Jouyou grade 2',
+            kanken: 'Level 9',
+            heisig: '372',
+            oldForms: ['讀'],
+            readings: [],
+            components: [],
+            mnemonic: '',
+            vocabulary: [],
+        }, { kanji: '読', keyword: 'read', frameNumber: '372', onYomi: '', kunYomi: '', elements: '', componentKanji: [], heisigStory: '', heisigComment: '', koohiiStories: [] }, {
+            kanji: '読',
+            svg: '<svg></svg>',
+            strokeCount: 14,
+        }, [{
+            character: '読',
+            onyomi: ['ドク'],
+            kunyomi: ['よ.む'],
+            tags: ['jlpt n4', 'grade 2', 'freq 618'],
+            meanings: ['read'],
+            stats: { jlpt: 4, grade: 2, strokes: 14 },
+            dictionary: 'KANJIDIC',
+        }]);
+
+        expect(facts).toEqual(expect.arrayContaining([
+            { label: 'Type', value: 'Jōyō kanji', source: 'JPDB' },
+            { label: 'JLPT', value: 'N4', source: 'KANJIDIC' },
+            { label: 'Grade', value: 'Grade 2', source: 'KANJIDIC' },
+            { label: 'Strokes', value: '14', source: 'stroke trace' },
+            { label: 'RTK frame', value: '372', source: 'RTK' },
+            { label: 'Old forms', value: '讀', source: 'JPDB' },
+        ]));
+    });
+
+    it('builds a small 2D kanji origin graph from component sources', () => {
+        const graph = buildKanjiOriginGraph('読', {
+            kanji: '読',
+            keyword: 'read',
+            frequency: '',
+            type: '',
+            kanken: '',
+            heisig: '',
+            oldForms: [],
+            readings: [],
+            components: [{ kanji: '言', keyword: 'say' }],
+            mnemonic: '',
+            vocabulary: [],
+        }, {
+            kanji: '読',
+            keyword: 'read',
+            frameNumber: '372',
+            onYomi: '',
+            kunYomi: '',
+            elements: 'words + sell',
+            componentKanji: ['言', '売'],
+            heisigStory: '',
+            heisigComment: '',
+            koohiiStories: [],
+        }, [{
+            character: '読',
+            onyomi: ['ドク'],
+            kunyomi: ['よ.む'],
+            tags: [],
+            meanings: ['read'],
+            dictionary: 'KANJIDIC',
+        }]);
+
+        expect(graph.nodes.map(node => node.id)).toEqual(expect.arrayContaining(['読', '言', '売']));
+        expect(graph.edges).toEqual(expect.arrayContaining([
+            { from: '言', to: '読', label: 'JPDB component' },
+            { from: '売', to: '読', label: 'RTK element' },
+        ]));
     });
 
     it('parses primary and native VTT subtitle files', () => {

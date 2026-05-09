@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     jpdbDefinitionsPriority: 0,
     rtkEnabled: true,
     kanjivgEnabled: true,
+    kanjiOriginsEnabled: true,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: true,

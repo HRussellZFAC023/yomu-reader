@@ -21,6 +21,7 @@ const baseSettings = {
     jpdbDefinitionsPriority: 0,
     rtkEnabled: true,
     kanjivgEnabled: true,
+    kanjiOriginsEnabled: true,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: false,
@@ -344,7 +345,7 @@ async function seedLocalKanjiDictionaries(page) {
                 { character: '今', onyomi: ['コン'], kunyomi: ['いま'], tags: ['grade 2'], meanings: ['now', 'the present'], dictionary: 'KANJIDIC' },
                 { character: '日', onyomi: ['ニチ', 'ジツ'], kunyomi: ['ひ', 'か'], tags: ['grade 1'], meanings: ['day', 'sun'], dictionary: 'KANJIDIC' },
                 { character: '本', onyomi: ['ホン'], kunyomi: ['もと'], tags: ['grade 1'], meanings: ['book', 'origin'], dictionary: 'KANJIDIC' },
-                { character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], tags: ['grade 2'], meanings: ['read'], dictionary: 'KANJIDIC' },
+                { character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], tags: ['grade 2', 'jlpt n4'], meanings: ['read'], stats: { jlpt: 4, grade: 2, strokes: 14 }, dictionary: 'KANJIDIC' },
             ].forEach(entry => tx.objectStore('kanji').add(entry));
             [
                 { expression: '今日', reading: 'きょう', glossary: ['today'], score: 9, dictionary: 'Jitendex' },
@@ -624,6 +625,8 @@ async function auditHoverLookup(browser, server) {
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
         localKanjiText: document.querySelector('.jpdb-reader-kanji')?.textContent ?? '',
+        originsText: document.querySelector('.jpdb-reader-origins')?.textContent ?? '',
+        originNodes: document.querySelectorAll('.jpdb-reader-origin-node').length,
         kanjiVGPaths: document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length,
         doodleCanvas: Boolean(document.querySelector('.jpdb-reader-doodle-canvas')),
         componentButtons: document.querySelectorAll('.jpdb-reader-component-card[data-action="kanji"]').length,
@@ -633,6 +636,8 @@ async function auditHoverLookup(browser, server) {
     assertAudit(kanjiSnapshot.kanjiPill.includes('https://jpdb.io/kanji/'), 'kanji JPDB pill is not the kanji open link');
     assertAudit(kanjiSnapshot.backVisible, 'kanji drilldown is missing a back control');
     assertAudit(kanjiSnapshot.jpdbKanjiText.includes('Readings and components'), 'kanji details section is missing');
+    assertAudit(/Study facts and origins|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
+    assertAudit(kanjiSnapshot.originNodes > 1, 'kanji origins map did not render component nodes');
     assertAudit(kanjiSnapshot.kanjiVGPaths > 0, 'Stroke-order trace did not render');
     assertAudit(kanjiSnapshot.doodleCanvas, 'kanji drawing canvas did not render');
     assertAudit(kanjiSnapshot.componentButtons > 0, 'kanji components are not clickable');
@@ -724,6 +729,10 @@ async function auditYouTubeFilterFixture(browser) {
     assertAudit(hidden.channelOnlyHidden === true, 'Channel-only Japanese text should not keep an English title visible');
     assertAudit(/hid 2/.test(hidden.barText), 'YouTube filter notice did not report hidden cards');
     assertAudit(/Show anyway/.test(hidden.barText), 'YouTube filter notice is missing the Show anyway escape hatch');
+    if (await page.locator('.jpdb-reader-backdrop').count()) {
+        await page.keyboard.press('Escape');
+        await waitForAudit(page, () => !document.querySelector('.jpdb-reader-backdrop'), 2000, 'Escape did not clear reader backdrop before YouTube filter actions');
+    }
     await page.locator('.jpdb-youtube-filter-bar [data-action="show-anyway"]').click();
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 0, 4000, 'Show anyway did not reveal filtered YouTube cards');
     await page.locator('.jpdb-youtube-filter-bar [data-action="show-anyway"]').click();
@@ -829,7 +838,11 @@ async function auditVideoFixture(browser, server) {
     record('subtitle player fixture', 'pass', 'watched a cue with JPDB highlighting and readable subtitle backing');
 }
 
-async function runAudit(name, fn) {
+async function runAudit(name, fn, options = {}) {
+    if (options.requiresApiKey && !API_KEY) {
+        record(name, 'skip', 'YOMU_TEST_API_KEY is not set');
+        return;
+    }
     try {
         await fn();
     } catch (error) {
@@ -840,11 +853,6 @@ async function runAudit(name, fn) {
 async function main() {
     await mkdir(ARTIFACTS, { recursive: true });
     userscript = await readFile(SCRIPT_PATH, 'utf8');
-    if (!API_KEY) {
-        console.error('YOMU_TEST_API_KEY is required for the full QA audit.');
-        process.exitCode = 1;
-        return;
-    }
 
     const server = await startStaticServer(DIST);
     const browser = await chromium.launch({ headless: true });
@@ -853,12 +861,12 @@ async function main() {
         await runAudit('mobile onboarding', () => auditOnboardingMobile(browser, server));
         await runAudit('settings dialog', () => auditSettings(browser, server));
         await runAudit('mobile settings journey', () => auditSettingsMobile(browser, server));
-        await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser));
-        await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server));
-        await runAudit('OCR fixture', () => auditOcrFixture(browser));
+        await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
+        await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });
+        await runAudit('OCR fixture', () => auditOcrFixture(browser), { requiresApiKey: true });
         await runAudit('YouTube immersion filter fixture', () => auditYouTubeFilterFixture(browser));
         await runAudit('YouTube live smoke', () => auditYouTubeLiveSmoke(browser));
-        await runAudit('subtitle player fixture', () => auditVideoFixture(browser, server));
+        await runAudit('subtitle player fixture', () => auditVideoFixture(browser, server), { requiresApiKey: true });
     } finally {
         await browser.close();
         await server.close();

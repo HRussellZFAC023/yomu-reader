@@ -127,6 +127,7 @@ export interface ReaderSettings {
     jpdbDefinitionsPriority: number;
     rtkEnabled: boolean;
     kanjivgEnabled: boolean;
+    kanjiOriginsEnabled: boolean;
     similarKanjiWords: boolean;
     similarKanjiWordLimit: number;
     audioEnabled: boolean;

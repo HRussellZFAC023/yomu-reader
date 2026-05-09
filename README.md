@@ -18,7 +18,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB mining actions for add, Never Forget, blacklist, and review grades.
-- JPDB kanji drilldown from popup headwords, with stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
+- JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origins map, stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
 - Optional Anki mining through AnkiConnect, with a よむ note type created automatically and best-effort video-frame capture for subtitle cards.
 - Yomitan dictionary imports: recommended in-app downloads, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
@@ -55,6 +55,8 @@ The default sources are JapanesePod101, LanguagePod101, and Jisho.org. Add a cus
 ## Mining
 
 JPDB mining is the default path. The JPDB pill in a popup opens the matching JPDB page; clicking kanji inside the headword opens kanji details with JPDB data, RTK information, local kanji dictionaries, components, and words that use the same kanji.
+
+Kanji details are modular. The **Kanji facts and origins map** setting adds compact facts such as type, JLPT, school grade, stroke count, frequency, Kanken, RTK frame, and old forms when those values are available from JPDB, stroke data, RTK, or imported local dictionaries. The 2D map stays lightweight and uses existing component data instead of bundling a large etymology dataset. Source research and follow-up decisions live in [`docs/kanji-source-research.md`](docs/kanji-source-research.md).
 
 Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes JPDB meaning/status, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, and optional video screenshots. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
 
@@ -188,6 +190,7 @@ npm run prefill:greasyfork
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
 - [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg) for kanji stroke-order SVG data.
+- [Kanji Alive](https://github.com/kanjialive/kanji-data-media), [The Kanji Map](https://thekanjimap.com/about), [Wiktionary](https://en.wiktionary.org/wiki/Wiktionary:Copyrights), Genetic Kanji, Okjiten, and Outlier Dictionary informed the kanji source research; only license-safe existing/local sources are used in the bundled origins panel today.
 - [NihongoTube](https://nihongotube.app) for the Japanese-only YouTube immersion idea and page-filtering behavior.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter) for the RTK data source and presentation cues.
 - [AnkiConnect](https://foosoft.net/projects/anki-connect/) for local Anki card creation.

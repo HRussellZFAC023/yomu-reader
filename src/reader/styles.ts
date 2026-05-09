@@ -648,6 +648,80 @@ export const READER_CSS = `
   font-size: 12px;
   font-weight: 800;
 }
+.jpdb-reader-kanji-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 6px;
+}
+.jpdb-reader-kanji-facts span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 750;
+}
+.jpdb-reader-kanji-facts strong {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.jpdb-reader-origin-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.jpdb-reader-origin-node {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent), var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-text);
+  text-align: center;
+}
+.jpdb-reader-origin-node.current {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface-2));
+}
+.jpdb-reader-origin-node.related {
+  border-style: dashed;
+}
+.jpdb-reader-origin-node strong {
+  font-size: 20px;
+  line-height: 1;
+}
+.jpdb-reader-origin-node small,
+.jpdb-reader-origin-edges small {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+.jpdb-reader-origin-edges {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.jpdb-reader-origin-edges span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
 .jpdb-reader-rtk-head {
   display: flex;
   align-items: baseline;

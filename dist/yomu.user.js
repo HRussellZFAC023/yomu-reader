@@ -2948,6 +2948,7 @@
     jpdbDefinitionsPriority: 0,
     rtkEnabled: true,
     kanjivgEnabled: true,
+    kanjiOriginsEnabled: true,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: true,
@@ -4891,15 +4892,15 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (!pitchAccent.length) return "";
     const [pitch] = pitchAccent;
     const parts = pitch.split("");
-    const first = parts.shift();
+    const first2 = parts.shift();
     const last = parts.pop();
-    if (!first || !last) return "";
-    if (reading.length > 1 && SMALL_KANA.has(reading.charAt(1)) && first === parts[0]) {
+    if (!first2 || !last) return "";
+    if (reading.length > 1 && SMALL_KANA.has(reading.charAt(1)) && first2 === parts[0]) {
       parts.shift();
     }
     const rises = (pitch.match(/LH/g) ?? []).length;
     const drops = (pitch.match(/HL/g) ?? []).length;
-    const startsLow = first === "L";
+    const startsLow = first2 === "L";
     const startsHigh = !startsLow;
     const endsLow = last === "L";
     const endsHigh = !endsLow;
@@ -5084,6 +5085,146 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return response.text();
     });
   }
+  function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries) {
+    const facts = /* @__PURE__ */ new Map();
+    const add = (label, value, source) => {
+      const normalized = value == null ? void 0 : value.trim();
+      if (!normalized || facts.has(label)) return;
+      facts.set(label, { label, value: normalized, source: source || "source unknown" });
+    };
+    const local = extractLocalKanjiFacts(entries);
+    add("Type", normalizeKanjiType(jpdbInfo == null ? void 0 : jpdbInfo.type) ?? local.type, (jpdbInfo == null ? void 0 : jpdbInfo.type) ? "JPDB" : local.typeSource);
+    add("JLPT", local.jlpt, local.jlptSource);
+    add("Grade", local.grade, local.gradeSource);
+    add("Strokes", (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? String(kanjiVGInfo.strokeCount) : local.strokes, (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? "stroke trace" : local.strokesSource);
+    add("Frequency", (jpdbInfo == null ? void 0 : jpdbInfo.frequency) || local.frequency, (jpdbInfo == null ? void 0 : jpdbInfo.frequency) ? "JPDB" : local.frequencySource);
+    add("Kanken", jpdbInfo == null ? void 0 : jpdbInfo.kanken, "JPDB");
+    add("RTK frame", rtkInfo == null ? void 0 : rtkInfo.frameNumber, "RTK");
+    add("Old forms", jpdbInfo == null ? void 0 : jpdbInfo.oldForms.join("、"), "JPDB");
+    if (!facts.has("Character")) add("Character", kanji, "current lookup");
+    return Array.from(facts.values()).slice(0, 10);
+  }
+  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries) {
+    const nodes = /* @__PURE__ */ new Map();
+    const edges = [];
+    const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
+    nodes.set(kanji, {
+      id: kanji,
+      label: kanji,
+      kind: "current",
+      detail: first([jpdbInfo == null ? void 0 : jpdbInfo.keyword, rtkInfo == null ? void 0 : rtkInfo.keyword, meanings[0]]) ?? "current kanji"
+    });
+    const addComponent = (id, detail, label) => {
+      if (!id || id === kanji) return;
+      const existing = nodes.get(id);
+      if (!existing) {
+        nodes.set(id, { id, label: id, kind: "component", detail });
+      } else if (!existing.detail && detail) {
+        existing.detail = detail;
+      }
+      if (!edges.some((edge) => edge.from === id && edge.to === kanji && edge.label === label)) {
+        edges.push({ from: id, to: kanji, label });
+      }
+    };
+    jpdbInfo == null ? void 0 : jpdbInfo.components.forEach((component) => addComponent(component.kanji, component.keyword, "JPDB component"));
+    rtkInfo == null ? void 0 : rtkInfo.componentKanji.forEach((component) => addComponent(component, "RTK element", "RTK element"));
+    splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((element2) => !Array.from(element2).some((character) => character === kanji)).slice(0, 6).forEach((element2, index) => {
+      const id = `rtk:${index}:${element2}`;
+      nodes.set(id, { id, label: element2, kind: "related", detail: "RTK keyword" });
+      edges.push({ from: id, to: kanji, label: "memory cue" });
+    });
+    return { nodes: Array.from(nodes.values()).slice(0, 12), edges: edges.slice(0, 16) };
+  }
+  function extractLocalKanjiFacts(entries) {
+    const facts = {};
+    for (const entry of entries) {
+      const source = entry.dictionary || "local dictionary";
+      for (const tag of entry.tags) {
+        readTagFact(tag, facts, source);
+      }
+      readStatsFacts(entry.stats, facts, source);
+    }
+    return facts;
+  }
+  function readTagFact(tag, facts, source) {
+    const value = tag.trim();
+    const normalized = value.toLowerCase().replace(/[＿_]/g, " ");
+    if (!facts.type && /\b(jōyō|jouyou|joyo)\b/.test(normalized)) setFact(facts, "type", "Jōyō kanji", source);
+    if (!facts.type && /\b(jinmeiyō|jinmeiyou|jinmeiyo)\b/.test(normalized)) setFact(facts, "type", "Jinmeiyō kanji", source);
+    if (!facts.type && /\b(hyōgai|hyougai|hyogai|outside|neither)\b/.test(normalized)) setFact(facts, "type", "Outside jōyō/jinmeiyō", source);
+    const jlpt = normalized.match(/\b(?:jlpt\s*)?n?([1-5])\b/);
+    if (!facts.jlpt && jlpt && /jlpt|^n[1-5]$/.test(normalized)) setFact(facts, "jlpt", `N${jlpt[1]}`, source);
+    const grade = normalized.match(/\b(?:grade|gakunen|school)\s*([1-6])\b/);
+    if (!facts.grade && grade) setFact(facts, "grade", `Grade ${grade[1]}`, source);
+    const strokes = normalized.match(/\b(?:strokes?|画数)\s*:?\s*(\d{1,2})\b/) ?? normalized.match(/\b(\d{1,2})\s*strokes?\b/);
+    if (!facts.strokes && strokes) setFact(facts, "strokes", strokes[1], source);
+    const frequency = normalized.match(/\b(?:freq|frequency)\s*:?\s*(\d{1,5})\b/);
+    if (!facts.frequency && frequency) setFact(facts, "frequency", `#${frequency[1]}`, source);
+  }
+  function readStatsFacts(stats, facts, source) {
+    if (!stats || typeof stats !== "object") return;
+    const values = flattenStats(stats);
+    setFact(facts, "jlpt", normalizeJlpt(firstValue(values, ["jlpt", "jlptLevel", "jlpt_level"])), source);
+    setFact(facts, "grade", normalizeGrade(firstValue(values, ["grade", "schoolGrade", "gradeLevel", "jouyouGrade"])), source);
+    setFact(facts, "strokes", normalizeNumber(firstValue(values, ["strokes", "strokeCount", "stroke_count"])), source);
+    setFact(facts, "frequency", normalizeFrequency(firstValue(values, ["frequency", "freq", "frequencyRank"])), source);
+  }
+  function setFact(facts, key, value, source) {
+    if (!value || facts[key]) return;
+    facts[key] = value;
+    facts[`${key}Source`] = source;
+  }
+  function flattenStats(stats, prefix = "") {
+    const values = /* @__PURE__ */ new Map();
+    if (!stats || typeof stats !== "object") return values;
+    for (const [key, value] of Object.entries(stats)) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      values.set(key, value);
+      values.set(fullKey, value);
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        flattenStats(value, fullKey).forEach((nestedValue, nestedKey) => values.set(nestedKey, nestedValue));
+      }
+    }
+    return values;
+  }
+  function firstValue(values, keys) {
+    for (const key of keys) {
+      if (values.has(key)) return values.get(key);
+    }
+    return void 0;
+  }
+  function normalizeKanjiType(value) {
+    if (!value) return void 0;
+    if (/jinmeiy/i.test(value)) return "Jinmeiyō kanji";
+    if (/j[oō]y[oō]|grade/i.test(value)) return "Jōyō kanji";
+    return value;
+  }
+  function normalizeJlpt(value) {
+    if (value === void 0 || value === null || value === "") return void 0;
+    const match = String(value).match(/[nN]?([1-5])/);
+    return match ? `N${match[1]}` : void 0;
+  }
+  function normalizeGrade(value) {
+    if (value === void 0 || value === null || value === "") return void 0;
+    const match = String(value).match(/([1-6])/);
+    return match ? `Grade ${match[1]}` : void 0;
+  }
+  function normalizeNumber(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    const match = String(value ?? "").match(/\d{1,5}/);
+    return match == null ? void 0 : match[0];
+  }
+  function normalizeFrequency(value) {
+    const number = normalizeNumber(value);
+    return number ? `#${number}` : void 0;
+  }
+  function splitRtkElements$1(value) {
+    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  }
+  function first(values) {
+    var _a;
+    return (_a = values.find((value) => value == null ? void 0 : value.trim())) == null ? void 0 : _a.trim();
+  }
   const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
   class KanjiVGClient {
     constructor() {
@@ -5224,6 +5365,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.",
       kanjivgEnabled: "Show stroke order and drawing pad",
+      kanjiOriginsEnabled: "Show kanji facts and origins map",
       rtkEnabled: "Show RTK information",
       similarKanjiWords: "Show words using the same kanji",
       similarKanjiWordLimit: "Similar word limit",
@@ -5430,6 +5572,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       hideKnownFurigana: "既知カードだけふりがなを隠す",
       readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバー、クリックも使いたい場合はタップ/クリックをオンにしてください。",
       kanjivgEnabled: "筆順と手書き練習を表示",
+      kanjiOriginsEnabled: "漢字の基本情報と成り立ちマップを表示",
       rtkEnabled: "RTK情報を表示",
       similarKanjiWords: "同じ漢字を使う単語を表示",
       similarKanjiWordLimit: "関連単語の上限",
@@ -7542,6 +7685,80 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   color: var(--jpdb-reader-text);
   font-size: 12px;
   font-weight: 800;
+}
+.jpdb-reader-kanji-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 6px;
+}
+.jpdb-reader-kanji-facts span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 750;
+}
+.jpdb-reader-kanji-facts strong {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.jpdb-reader-origin-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.jpdb-reader-origin-node {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent), var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-text);
+  text-align: center;
+}
+.jpdb-reader-origin-node.current {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface-2));
+}
+.jpdb-reader-origin-node.related {
+  border-style: dashed;
+}
+.jpdb-reader-origin-node strong {
+  font-size: 20px;
+  line-height: 1;
+}
+.jpdb-reader-origin-node small,
+.jpdb-reader-origin-edges small {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+.jpdb-reader-origin-edges {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.jpdb-reader-origin-edges span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
 }
 .jpdb-reader-rtk-head {
   display: flex;
@@ -9883,6 +10100,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         rtk: this.settings.rtkEnabled ? await this.rtk.lookup(component).catch(() => null) : null,
         dictionary: this.settings.localDictionariesEnabled ? await this.dictionaries.lookupKanji(component, componentDictionaryLimit, this.settings.dictionaryPreferences).catch(() => []) : []
       }))) : [];
+      const kanjiFacts = this.settings.kanjiOriginsEnabled ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries) : [];
+      const originGraph = this.settings.kanjiOriginsEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries) : null;
       setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-kanji-nav">
@@ -9902,6 +10121,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                     </div>
                 </div>
             </div>
+            ${this.settings.kanjiOriginsEnabled ? renderKanjiOrigins(kanjiFacts, originGraph) : ""}
             ${this.settings.kanjivgEnabled ? renderKanjiPractice(kanjiVGInfo, kanji) : ""}
             ${renderJpdbKanjiInfo(jpdbInfo)}
             ${renderRtkInfo(rtkInfo, componentSummaries)}
@@ -10319,6 +10539,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                 <legend>Kanji</legend>
                 <div class="grid">
                     ${checkbox("kanjivgEnabled", "Show stroke order and drawing pad", this.settings.kanjivgEnabled)}
+                    ${checkbox("kanjiOriginsEnabled", "Show kanji facts and origins map", this.settings.kanjiOriginsEnabled)}
                     ${checkbox("rtkEnabled", "Show RTK information", this.settings.rtkEnabled)}
                     ${checkbox("similarKanjiWords", "Show words using the same kanji", this.settings.similarKanjiWords)}
                     ${input("similarKanjiWordLimit", "Similar word limit", String(this.settings.similarKanjiWordLimit), "number")}
@@ -11002,6 +11223,30 @@ ${entry.reading}`;
         </div>
     `;
   }
+  function renderKanjiOrigins(facts, graph) {
+    if (!facts.length && (!graph || graph.nodes.length <= 1)) return "";
+    const graphNodes = (graph == null ? void 0 : graph.nodes) ?? [];
+    const edges = (graph == null ? void 0 : graph.edges) ?? [];
+    return `
+        <div class="jpdb-reader-local jpdb-reader-origins">
+            <div class="jpdb-reader-local-title">Study facts and origins</div>
+            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
+                ${facts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
+            </div>` : ""}
+            ${graphNodes.length > 1 ? `<div class="jpdb-reader-origin-map" aria-label="2D kanji origin and component map">
+                ${graphNodes.map((node, index) => `
+                    <div class="jpdb-reader-origin-node ${node.kind}" style="--origin-index:${index}" title="${escapeHtml$1(node.detail)}">
+                        <strong>${escapeHtml$1(node.label)}</strong>
+                        ${node.detail ? `<small>${escapeHtml$1(node.detail)}</small>` : ""}
+                    </div>
+                `).join("")}
+                ${edges.length ? `<div class="jpdb-reader-origin-edges">
+                    ${edges.map((edge) => `<span>${escapeHtml$1(edge.from.replace(/^rtk:\d+:/, ""))} → ${escapeHtml$1(edge.to)} <small>${escapeHtml$1(edge.label)}</small></span>`).join("")}
+                </div>` : ""}
+            </div>` : ""}
+        </div>
+    `;
+  }
   function renderSupportPanel() {
     return `
         <div class="jpdb-reader-support-card">
@@ -11231,6 +11476,7 @@ ${entry.reading}`;
       ["showPitchAccent", "showPitchAccent"],
       ["hideKnownFurigana", "hideKnownFurigana"],
       ["kanjivgEnabled", "kanjivgEnabled"],
+      ["kanjiOriginsEnabled", "kanjiOriginsEnabled"],
       ["rtkEnabled", "rtkEnabled"],
       ["similarKanjiWords", "similarKanjiWords"],
       ["similarKanjiWordLimit", "similarKanjiWordLimit"],
@@ -11821,6 +12067,7 @@ ${entry.reading}`;
       jpdbDefinitionsPriority: Math.max(0, Math.min(999, number("jpdbDefinitions.priority", current.jpdbDefinitionsPriority))),
       rtkEnabled: has("rtkEnabled"),
       kanjivgEnabled: has("kanjivgEnabled"),
+      kanjiOriginsEnabled: has("kanjiOriginsEnabled"),
       similarKanjiWords: has("similarKanjiWords"),
       similarKanjiWordLimit: Math.max(2, Math.min(24, number("similarKanjiWordLimit", current.similarKanjiWordLimit))),
       audioEnabled: has("audioEnabled"),
