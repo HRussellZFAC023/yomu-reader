@@ -134,26 +134,22 @@ export const READER_CSS = `
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--jpdb-ocr-text-color, #fff);
-  text-shadow:
-    0 2px 2px var(--jpdb-ocr-outline-color, #000),
-    0 0 3px var(--jpdb-ocr-outline-color, #000),
-    0 0 10px var(--jpdb-ocr-outline-color, #000);
+  color: transparent;
+  text-shadow: none;
   font-weight: 800;
   line-height: 1.08;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: none;
-  opacity: .02;
+  opacity: 1;
   user-select: text;
   cursor: text;
   transition: opacity .12s ease, background .12s ease, border-color .12s ease;
 }
 .jpdb-ocr-line-visible {
-  border-color: rgba(255,255,255,.24);
-  background: var(--jpdb-ocr-background-rgba, rgba(24,27,32,.36));
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.14);
-  opacity: 1;
+  border-color: rgba(255,255,255,.16);
+  background: rgba(24,27,32,.08);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
 }
 .jpdb-ocr-line[data-vertical="true"] {
   align-items: center;
@@ -161,30 +157,41 @@ export const READER_CSS = `
 }
 .jpdb-ocr-line:hover,
 .jpdb-ocr-line:focus,
-.jpdb-ocr-layer-expanded .jpdb-ocr-line {
-  opacity: 1;
+.jpdb-ocr-line.jpdb-ocr-line-active {
+  color: var(--jpdb-ocr-text-color, #fff);
+  text-shadow:
+    0 2px 2px var(--jpdb-ocr-outline-color, #000),
+    0 0 3px var(--jpdb-ocr-outline-color, #000),
+    0 0 10px var(--jpdb-ocr-outline-color, #000);
   background: var(--jpdb-ocr-background-active-rgba, rgba(24,27,32,.48));
   border-color: rgba(94,167,128,.9);
   outline: none;
+  z-index: 2;
 }
 .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
   text-decoration: none;
   color: inherit;
+  pointer-events: none;
   cursor: pointer;
   line-height: 1.08;
+}
+.jpdb-ocr-line:hover .jpdb-reader-word,
+.jpdb-ocr-line:focus .jpdb-reader-word,
+.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word {
+  pointer-events: auto;
 }
 .jpdb-ocr-line .jpdb-reader-word ruby {
   line-height: 1;
 }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-new,
-.jpdb-ocr-line .jpdb-reader-word.jpdb-not-in-deck { color: #9bbcff; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-learning { color: #82d6a6; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-known,
-.jpdb-ocr-line .jpdb-reader-word.jpdb-never-forget,
-.jpdb-ocr-line .jpdb-reader-word.jpdb-redundant { color: #8ee04a; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-due { color: #ffb84d; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-failed { color: #ff6b4a; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck { color: #9bbcff; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning { color: #82d6a6; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant { color: #8ee04a; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due { color: #ffb84d; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed { color: #ff6b4a; }
 .jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi {
   bottom: calc(100% + 1px);
   color: currentColor;

@@ -41,7 +41,7 @@ export default defineConfig({
                 version: pkg.version,
                 description: 'JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.',
                 author: 'Henry',
-                match: ['*://*/*'],
+                match: ['*://*/*', 'file:///*'],
                 exclude: [
                     'https://jpdb.io/*',
                     'https://*.jpdb.io/*',

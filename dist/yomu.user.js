@@ -13,6 +13,7 @@
 // @downloadURL  https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
 // @updateURL    https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
 // @match        *://*/*
+// @match        file:///*
 // @exclude      https://jpdb.io/*
 // @exclude      https://*.jpdb.io/*
 // @connect      jpdb.io
@@ -409,9 +410,71 @@
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
   ].join(",");
+  const FRAGMENT_SKIP_SELECTOR = [
+    "script",
+    "style",
+    "noscript",
+    "form",
+    "label",
+    "fieldset",
+    "legend",
+    "nav",
+    "header",
+    "footer",
+    "textarea",
+    "input",
+    "select",
+    "button",
+    "option",
+    "summary",
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    '[aria-hidden="true"]',
+    "[data-jpdb-reader-root]",
+    ".jpdb-reader-word"
+  ].join(",");
   const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
+  const BLOCK_TAGS = /* @__PURE__ */ new Set([
+    "ADDRESS",
+    "ARTICLE",
+    "ASIDE",
+    "BLOCKQUOTE",
+    "BR",
+    "DD",
+    "DETAILS",
+    "DIALOG",
+    "DIV",
+    "DL",
+    "DT",
+    "FIGCAPTION",
+    "FIGURE",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HR",
+    "LI",
+    "MAIN",
+    "OL",
+    "P",
+    "PRE",
+    "SECTION",
+    "TABLE",
+    "TBODY",
+    "TD",
+    "TFOOT",
+    "TH",
+    "THEAD",
+    "TR",
+    "UL"
+  ]);
   function setInnerHtml(element2, html) {
     element2.innerHTML = trustedHtml(html);
   }
@@ -470,6 +533,67 @@
     }
     return targets;
   }
+  function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "") {
+    const targets = [];
+    const fragments = [];
+    function currentText() {
+      return fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
+    }
+    function flush() {
+      var _a;
+      if (!fragments.length || targets.length >= limit) {
+        fragments.length = 0;
+        return;
+      }
+      const text = currentText();
+      if (HAS_JAPANESE.test(text) && text.replace(/\s+/g, "").length >= 2) {
+        const parent = (_a = fragments[0]) == null ? void 0 : _a.node.parentElement;
+        if (parent) {
+          targets.push({ text, parent, fragments: fragments.map((fragment) => ({ ...fragment })) });
+        }
+      }
+      fragments.length = 0;
+    }
+    function visit(node, hasNativeRuby = false) {
+      if (targets.length >= limit) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent ?? "";
+        if (text) fragments.push({ node, start: 0, end: text.length, hasNativeRuby });
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const element2 = node;
+      const tagName = element2.tagName;
+      if (tagName === "RT" || tagName === "RP") return;
+      if (element2.closest("[data-jpdb-reader-root]")) return;
+      if (element2.matches(FRAGMENT_SKIP_SELECTOR) || excludeSelector && element2.matches(excludeSelector)) {
+        flush();
+        return;
+      }
+      if (visibleOnly && !isVisible(element2)) {
+        flush();
+        return;
+      }
+      const isBlock = isParagraphBoundary(element2);
+      if (isBlock) flush();
+      const nextHasNativeRuby = hasNativeRuby || tagName === "RUBY" || tagName === "RB";
+      for (const child of Array.from(element2.childNodes)) {
+        visit(child, nextHasNativeRuby);
+        if (targets.length >= limit) break;
+      }
+      if (isBlock) flush();
+    }
+    visit(root);
+    flush();
+    return targets;
+  }
+  function isFragmentTextTarget(target) {
+    return "fragments" in target;
+  }
+  function applyTokensToScanTarget(target, tokens, settings) {
+    if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
+    else applyTokensToTextNode(target, tokens, settings);
+  }
   function applyTokensToTextNode(target, tokens, settings) {
     if (!tokens.length || !target.node.parentElement) return;
     const text = target.text;
@@ -488,6 +612,43 @@
       fragment.append(document.createTextNode(text.slice(offset)));
     }
     target.node.replaceWith(fragment);
+  }
+  function applyTokensToFragmentTarget(target, tokens, settings) {
+    if (!tokens.length || !target.fragments.length) return;
+    const safeTokens = nonOverlappingTokens(tokens, target.text.length);
+    if (!safeTokens.length) return;
+    const sentence = target.text.replace(/\s+/g, " ").trim();
+    let globalOffset = 0;
+    for (const fragmentInfo of target.fragments) {
+      if (!fragmentInfo.node.parentElement) {
+        globalOffset += fragmentInfo.end - fragmentInfo.start;
+        continue;
+      }
+      const fragmentLength = fragmentInfo.end - fragmentInfo.start;
+      const fragmentStart = globalOffset;
+      const fragmentEnd = fragmentStart + fragmentLength;
+      const overlappingTokens = safeTokens.filter((token) => token.start < fragmentEnd && token.end > fragmentStart);
+      globalOffset = fragmentEnd;
+      if (!overlappingTokens.length) continue;
+      const nodeText = fragmentInfo.node.data;
+      const replacement = document.createDocumentFragment();
+      let localOffset = fragmentInfo.start;
+      for (const token of overlappingTokens) {
+        const overlapStart = Math.max(token.start, fragmentStart);
+        const overlapEnd = Math.min(token.end, fragmentEnd);
+        const localStart = fragmentInfo.start + overlapStart - fragmentStart;
+        const localEnd = fragmentInfo.start + overlapEnd - fragmentStart;
+        if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
+        const surface = nodeText.slice(localStart, localEnd);
+        const fullTokenInFragment = overlapStart === token.start && overlapEnd === token.end;
+        replacement.append(renderToken(surface, { ...token, sentence: token.sentence ?? sentence }, settings, {
+          allowRuby: fullTokenInFragment && !fragmentInfo.hasNativeRuby
+        }));
+        localOffset = localEnd;
+      }
+      if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
+      fragmentInfo.node.replaceWith(replacement);
+    }
   }
   function renderTokensToHtml(text, tokens, settings) {
     if (!tokens.length) return escapeHtml$1(text);
@@ -512,7 +673,7 @@
     }
     return safe;
   }
-  function renderToken(surface, token, settings) {
+  function renderToken(surface, token, settings, options = {}) {
     const span = document.createElement("span");
     const state = token.card.cardState[0] ?? "not-in-deck";
     span.className = `jpdb-reader-word jpdb-${state}`;
@@ -520,7 +681,7 @@
     span.dataset.sid = String(token.card.sid);
     span.dataset.sentence = token.sentence ?? "";
     span.tabIndex = 0;
-    if (settings.showFurigana && token.rubies.length) {
+    if (settings.showFurigana && token.rubies.length && options.allowRuby !== false) {
       setInnerHtml(span, renderRuby(surface, token));
     } else {
       span.textContent = surface;
@@ -571,6 +732,11 @@
     const style = getComputedStyle(element2);
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
   }
+  function isParagraphBoundary(element2) {
+    if (BLOCK_TAGS.has(element2.tagName)) return true;
+    const display = getComputedStyle(element2).display;
+    return display === "block" || display === "flow-root" || display === "grid" || display === "list-item" || display === "table" || display === "table-row" || display === "table-cell";
+  }
   function isFragileUiText(element2, text) {
     if (UI_CLASS_RE.test(element2.className || "")) return true;
     if (text.length <= 4 && ancestorClassLooksLikeUi(element2)) return true;
@@ -610,6 +776,7 @@
     adj: "adjective",
     adv: "adverb",
     aux: "auxiliary",
+    "aux-v": "auxiliary verb",
     conj: "conjunction",
     cop: "copula",
     ctr: "counter",
@@ -5728,7 +5895,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       addAudioSource: "Add audio source",
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
-      ocrShowTextOverlay: "Show recognized text on images",
+      ocrShowTextOverlay: "Show recognized image text areas",
       ocrProvider: "Image reading",
       googleLens: "Google Lens (recommended)",
       localOcr: "Local OCR app",
@@ -5966,7 +6133,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       addAudioSource: "音声ソースを追加",
       ocrEnabled: "画像内テキストを読む",
       ocrAutoScanImages: "画像を自動で読む",
-      ocrShowTextOverlay: "認識テキストを画像に表示",
+      ocrShowTextOverlay: "画像の認識範囲を表示",
       ocrProvider: "画像の読み取り",
       googleLens: "Google Lens (推奨)",
       localOcr: "ローカルOCRアプリ",
@@ -6488,15 +6655,47 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         element2.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
         element2.setAttribute("aria-label", line.text);
         setInnerHtml(element2, ((_a = parsed[index]) == null ? void 0 : _a.length) ? renderTokensToHtml(line.text, parsed[index], settings) : escapeHtml$1(line.text));
+        element2.addEventListener("pointerenter", (event) => {
+          if (event.pointerType === "touch") return;
+          this.activateLine(state, element2, false);
+        });
+        element2.addEventListener("pointerleave", (event) => {
+          if (event.pointerType === "touch" || element2.dataset.pinned === "true") return;
+          this.deactivateLine(element2);
+        });
+        element2.addEventListener("focus", () => {
+          if (element2.dataset.pinned !== "true") this.activateLine(state, element2, false);
+        });
+        element2.addEventListener("blur", () => {
+          if (element2.dataset.pinned !== "true") this.deactivateLine(element2);
+        });
         element2.addEventListener("click", (event) => {
           if (event.target.closest(".jpdb-reader-word")) return;
           event.preventDefault();
           event.stopPropagation();
-          state.overlay.classList.toggle("jpdb-ocr-layer-expanded");
+          const wasPinned = element2.classList.contains("jpdb-ocr-line-active") && element2.dataset.pinned === "true";
+          if (wasPinned) {
+            this.deactivateLine(element2);
+          } else {
+            element2.focus({ preventScroll: true });
+            this.activateLine(state, element2, true);
+          }
         });
         state.overlay.append(element2);
       }
       this.positionState(state.image);
+    }
+    activateLine(state, element2, pinned) {
+      state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
+        if (line === element2) return;
+        this.deactivateLine(line);
+      });
+      element2.classList.add("jpdb-ocr-line-active");
+      element2.dataset.pinned = pinned ? "true" : "false";
+    }
+    deactivateLine(element2) {
+      element2.classList.remove("jpdb-ocr-line-active");
+      element2.dataset.pinned = "false";
     }
     resetStateIfImageChanged(state) {
       const key = imageCacheKey(state.image);
@@ -7438,6 +7637,179 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return response.text();
     });
   }
+  const COMMON_EXCLUDE = [
+    "nav",
+    "header",
+    "footer",
+    "aside",
+    "button",
+    '[role="dialog"]',
+    '[aria-modal="true"]',
+    "[data-jpdb-reader-root]",
+    ".jpdb-reader-word"
+  ].join(",");
+  const SITE_PARSER_PROFILES = [
+    {
+      id: "luna-translator-parser",
+      name: "Luna Translator",
+      description: "Local LunaTranslator transcript windows.",
+      roots: [".lunatranslator_clickword", ".lunatranslator_text_all", ".origin"],
+      matches: (url) => url.protocol === "file:" && /LunaTranslator.*(?:mainui|transhist)\.html/i.test(decodeURIComponent(url.pathname))
+    },
+    {
+      id: "texthooker-parser",
+      name: "Texthooker",
+      description: "Hooked game text from common texthooker pages.",
+      roots: ["#textlog", "main", ".textline", ".line_box", ".my-2.cursor-pointer", "p"],
+      matches: (url) => /^(anacreondjt\.gitlab\.io|learnjapanese\.moe)$/.test(url.hostname) || url.hostname === "renji-xd.github.io" || /\/texthooker\/?$/.test(url.pathname)
+    },
+    {
+      id: "exstatic-parser",
+      name: "ExStatic",
+      description: "ExStatic sentence tracker entries.",
+      roots: [".sentence-entry", "#entry_holder"],
+      matches: (url) => url.hostname === "kamwithk.github.io" && url.pathname.endsWith("/exSTATic/tracker.html")
+    },
+    {
+      id: "readwok-parser",
+      name: "Readwok",
+      description: "Readwok reader paragraphs.",
+      roots: ['div[class*="styles_paragraph_"]', 'div[class*="styles_reader_"]'],
+      matches: (url) => url.hostname === "app.readwok.com"
+    },
+    {
+      id: "ttsu-parser",
+      name: "Ttsu",
+      description: "Ttsu book reader content.",
+      roots: ["div.book-content", "div.book-content-container", "#book-content"],
+      matches: (url) => url.hostname === "reader.ttsu.app"
+    },
+    {
+      id: "youtube-comments-parser",
+      name: "YouTube comments",
+      description: "Japanese comments in YouTube comment views.",
+      roots: ["ytd-comment-view-model", "#content-text"],
+      matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+    },
+    {
+      id: "mokuro-parser",
+      name: "Mokuro",
+      description: "Mokuro manga text boxes.",
+      roots: [".textBox", "#manga-panel .textBox", "#pagesContainer .textBox"],
+      matches: (url) => url.hostname === "reader.mokuro.app"
+    },
+    {
+      id: "mokuro-legacy-parser",
+      name: "Mokuro legacy",
+      description: "Local Mokuro HTML exports.",
+      roots: [".textBox", "#manga-panel .textBox", "#pagesContainer .textBox"],
+      matches: (url) => url.protocol === "file:" && /mokuro/i.test(decodeURIComponent(url.pathname))
+    },
+    {
+      id: "wikipedia-parser",
+      name: "Japanese Wikipedia",
+      description: "Japanese Wikipedia article text and previews.",
+      roots: ["#firstHeading", "#mw-content-text .mw-parser-output > *", ".mwe-popups-extract > *"],
+      exclude: [
+        COMMON_EXCLUDE,
+        ".p-lang-btn",
+        ".vector-menu-heading-label",
+        ".vector-toc-toggle",
+        ".vector-page-toolbar",
+        ".mw-editsection",
+        "sup.reference"
+      ].join(","),
+      matches: (url) => url.hostname === "ja.wikipedia.org" || url.hostname === "ja.m.wikipedia.org"
+    },
+    {
+      id: "satori-reader-parser",
+      name: "Satori Reader",
+      description: "Satori Reader article text.",
+      roots: ["#article-content"],
+      exclude: [COMMON_EXCLUDE, ".play-button-container", ".notes-button-container", ".fg", ".wpr"].join(","),
+      matches: (url) => url.hostname.endsWith(".satorireader.com") && url.pathname.includes("/articles/")
+    },
+    {
+      id: "nhk-parser",
+      name: "NHK",
+      description: "NHK and NHK Easy article text with native ruby.",
+      roots: [
+        "main",
+        "article",
+        "#main",
+        "#js-article-body",
+        "#js-article-date",
+        ".article-title",
+        '[data-testid*="article"]'
+      ],
+      exclude: COMMON_EXCLUDE,
+      matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && (/\/news\/(?:html|easy)\//.test(url.pathname) || /\/news\/easy\//.test(url.pathname))
+    },
+    {
+      id: "bunpro-parser",
+      name: "Bunpro",
+      description: "Bunpro graded reader and study sections.",
+      roots: ["article", "div.mx-auto", '[id^="study-question-"]'],
+      matches: (url) => url.hostname === "bunpro.jp" || url.hostname.endsWith(".bunpro.jp")
+    },
+    {
+      id: "asbplayer-parser",
+      name: "asbplayer",
+      description: "asbplayer subtitle overlays.",
+      roots: [".asbplayer-offscreen", ".asbplayer-subtitles-container-bottom"],
+      matches: () => true
+    }
+  ];
+  function getMatchingSiteParsers(href = window.location.href) {
+    const url = new URL(href, window.location.href);
+    return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
+  }
+  function collectSiteScanTargets(limit = 40, href = window.location.href) {
+    var _a;
+    const profiles = getMatchingSiteParsers(href);
+    if (!profiles.length) return null;
+    const targets = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const profile of profiles) {
+      const roots = queryParserRoots(profile);
+      if (!roots.length) continue;
+      for (const root of roots) {
+        const remaining = limit - targets.length;
+        if (remaining <= 0) break;
+        const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE);
+        for (const target of collected) {
+          const firstNode = (_a = target.fragments[0]) == null ? void 0 : _a.node;
+          if (!firstNode || seen.has(firstNode)) continue;
+          seen.add(firstNode);
+          targets.push({ ...target, parserId: profile.id });
+          if (targets.length >= limit) break;
+        }
+      }
+    }
+    if (targets.length) return targets;
+    return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
+  }
+  function collectScanTargets(limit = 40) {
+    const siteTargets = collectSiteScanTargets(limit);
+    if (siteTargets == null ? void 0 : siteTargets.length) return siteTargets;
+    return collectVisibleTextTargets(limit);
+  }
+  function queryParserRoots(profile) {
+    const roots = [];
+    for (const selector of profile.roots) {
+      roots.push(...Array.from(document.querySelectorAll(selector)));
+    }
+    if (!roots.length && profile.id === "nhk-parser") roots.push(document.body);
+    return uniqueVisibleRoots(roots);
+  }
+  function uniqueVisibleRoots(roots) {
+    const unique2 = [];
+    for (const root of roots) {
+      if (unique2.some((existing) => existing === root || existing.contains(root))) continue;
+      unique2.push(root);
+    }
+    return unique2;
+  }
   const READER_CSS = `
 :root {
   --jpdb-reader-bg: #181b20;
@@ -7574,26 +7946,22 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--jpdb-ocr-text-color, #fff);
-  text-shadow:
-    0 2px 2px var(--jpdb-ocr-outline-color, #000),
-    0 0 3px var(--jpdb-ocr-outline-color, #000),
-    0 0 10px var(--jpdb-ocr-outline-color, #000);
+  color: transparent;
+  text-shadow: none;
   font-weight: 800;
   line-height: 1.08;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: none;
-  opacity: .02;
+  opacity: 1;
   user-select: text;
   cursor: text;
   transition: opacity .12s ease, background .12s ease, border-color .12s ease;
 }
 .jpdb-ocr-line-visible {
-  border-color: rgba(255,255,255,.24);
-  background: var(--jpdb-ocr-background-rgba, rgba(24,27,32,.36));
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.14);
-  opacity: 1;
+  border-color: rgba(255,255,255,.16);
+  background: rgba(24,27,32,.08);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
 }
 .jpdb-ocr-line[data-vertical="true"] {
   align-items: center;
@@ -7601,30 +7969,41 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
 }
 .jpdb-ocr-line:hover,
 .jpdb-ocr-line:focus,
-.jpdb-ocr-layer-expanded .jpdb-ocr-line {
-  opacity: 1;
+.jpdb-ocr-line.jpdb-ocr-line-active {
+  color: var(--jpdb-ocr-text-color, #fff);
+  text-shadow:
+    0 2px 2px var(--jpdb-ocr-outline-color, #000),
+    0 0 3px var(--jpdb-ocr-outline-color, #000),
+    0 0 10px var(--jpdb-ocr-outline-color, #000);
   background: var(--jpdb-ocr-background-active-rgba, rgba(24,27,32,.48));
   border-color: rgba(94,167,128,.9);
   outline: none;
+  z-index: 2;
 }
 .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
   text-decoration: none;
   color: inherit;
+  pointer-events: none;
   cursor: pointer;
   line-height: 1.08;
+}
+.jpdb-ocr-line:hover .jpdb-reader-word,
+.jpdb-ocr-line:focus .jpdb-reader-word,
+.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word {
+  pointer-events: auto;
 }
 .jpdb-ocr-line .jpdb-reader-word ruby {
   line-height: 1;
 }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-new,
-.jpdb-ocr-line .jpdb-reader-word.jpdb-not-in-deck { color: #9bbcff; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-learning { color: #82d6a6; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-known,
-.jpdb-ocr-line .jpdb-reader-word.jpdb-never-forget,
-.jpdb-ocr-line .jpdb-reader-word.jpdb-redundant { color: #8ee04a; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-due { color: #ffb84d; }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-failed { color: #ff6b4a; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck { color: #9bbcff; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning { color: #82d6a6; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant { color: #8ee04a; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due { color: #ffb84d; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed { color: #ff6b4a; }
 .jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi {
   bottom: calc(100% + 1px);
   color: currentColor;
@@ -10258,10 +10637,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       window.clearTimeout(this.autoScanTimer);
       this.autoScanDeadline = deadline;
       this.autoScanTimer = window.setTimeout(() => {
+        var _a;
         this.autoScanTimer = void 0;
         this.autoScanDeadline = 0;
         void this.scanAsbPlayerSubtitles();
-        if (collectVisibleTextTargets(1).length > 0) {
+        if ((((_a = collectSiteScanTargets(1)) == null ? void 0 : _a.length) ?? 0) > 0 || collectVisibleTextTargets(1).length > 0) {
           void this.scanVisiblePage({ silent: true });
         }
       }, delay);
@@ -10428,13 +10808,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     async scanVisiblePage(options = {}) {
       try {
-        const targets = collectVisibleTextTargets();
+        const targets = collectScanTargets();
         if (!targets.length) {
           if (!options.silent) this.toast("No unscanned Japanese text found.");
           return;
         }
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
-        targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
+        targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
       } catch (error) {
         if (!options.silent) this.toast(error instanceof Error ? error.message : "JPDB scan failed.");
       }
@@ -10446,7 +10826,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!targets.length) return;
       try {
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
-        targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
+        targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
       } catch {
       }
     }

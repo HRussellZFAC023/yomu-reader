@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
 import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, ShuffledAudioDeck } from '../../src/reader/audio';
-import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
+import { applyTokensToScanTarget, applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
@@ -12,6 +12,7 @@ import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr'
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { DEFAULT_SETTINGS, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
+import { SITE_PARSER_PROFILES, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport } from '../../src/reader/yomitan';
@@ -492,6 +493,60 @@ describe('reader helpers', () => {
         document.body.innerHTML = '<p><ruby>事故<rt>じこ</rt></ruby>がありました。</p>';
         const targets = collectTextTargetsIn(document.body, 10, false);
         expect(targets.map(target => target.text)).toEqual(['がありました。']);
+    });
+
+    it('uses NHK-style ruby-aware site parsing without duplicating native furigana', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<main><p><ruby>東京<rt>とうきょう</rt></ruby>で高校生が本を読みました。</p></main>';
+        const targets = collectSiteScanTargets(10, 'https://news.web.nhk/news/easy/ne2026050812537/ne2026050812537.html') ?? [];
+        rectSpy.mockRestore();
+        expect(targets.map(target => target.text)).toEqual(['東京で高校生が本を読みました。']);
+
+        const token: JPDBToken = {
+            card: { ...card, cardState: ['known'], spelling: '東京', reading: 'とうきょう' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ start: 0, end: 2, length: 2, text: 'とうきょう' }],
+            pitchClass: '',
+            sentence: '東京で高校生が本を読みました。',
+        };
+
+        applyTokensToScanTarget(targets[0], [token], DEFAULT_SETTINGS);
+
+        expect(document.querySelector('rt')?.textContent).toBe('とうきょう');
+        expect(document.querySelectorAll('.jpdb-reader-word.jpdb-known')).toHaveLength(1);
+        expect(document.querySelector('.jpdb-reader-word')?.textContent).toBe('東京');
+    });
+
+    it('ports the supported site parser list from anki-jpdb.reader, including the newer NHK host', () => {
+        expect(SITE_PARSER_PROFILES.map(profile => profile.id)).toEqual(expect.arrayContaining([
+            'luna-translator-parser',
+            'texthooker-parser',
+            'exstatic-parser',
+            'readwok-parser',
+            'ttsu-parser',
+            'youtube-comments-parser',
+            'mokuro-parser',
+            'mokuro-legacy-parser',
+            'wikipedia-parser',
+            'satori-reader-parser',
+            'nhk-parser',
+            'bunpro-parser',
+            'asbplayer-parser',
+        ]));
+        expect(getMatchingSiteParsers('https://news.web.nhk/news/easy/ne2026050812537/ne2026050812537.html').map(profile => profile.id))
+            .toContain('nhk-parser');
     });
 
     it('does not scan form labels, required badges, or compact UI chips', () => {

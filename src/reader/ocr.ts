@@ -291,15 +291,49 @@ export class ImageOcrController {
             setInnerHtml(element, parsed[index]?.length
                 ? renderTokensToHtml(line.text, parsed[index], settings)
                 : escapeHtml(line.text));
+            element.addEventListener('pointerenter', event => {
+                if (event.pointerType === 'touch') return;
+                this.activateLine(state, element, false);
+            });
+            element.addEventListener('pointerleave', event => {
+                if (event.pointerType === 'touch' || element.dataset.pinned === 'true') return;
+                this.deactivateLine(element);
+            });
+            element.addEventListener('focus', () => {
+                if (element.dataset.pinned !== 'true') this.activateLine(state, element, false);
+            });
+            element.addEventListener('blur', () => {
+                if (element.dataset.pinned !== 'true') this.deactivateLine(element);
+            });
             element.addEventListener('click', event => {
                 if ((event.target as HTMLElement).closest('.jpdb-reader-word')) return;
                 event.preventDefault();
                 event.stopPropagation();
-                state.overlay.classList.toggle('jpdb-ocr-layer-expanded');
+                const wasPinned = element.classList.contains('jpdb-ocr-line-active') && element.dataset.pinned === 'true';
+                if (wasPinned) {
+                    this.deactivateLine(element);
+                } else {
+                    element.focus({ preventScroll: true });
+                    this.activateLine(state, element, true);
+                }
             });
             state.overlay.append(element);
         }
         this.positionState(state.image);
+    }
+
+    private activateLine(state: ImageState, element: HTMLElement, pinned: boolean): void {
+        state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => {
+            if (line === element) return;
+            this.deactivateLine(line);
+        });
+        element.classList.add('jpdb-ocr-line-active');
+        element.dataset.pinned = pinned ? 'true' : 'false';
+    }
+
+    private deactivateLine(element: HTMLElement): void {
+        element.classList.remove('jpdb-ocr-line-active');
+        element.dataset.pinned = 'false';
     }
 
     private resetStateIfImageChanged(state: ImageState): void {
