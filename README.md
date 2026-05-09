@@ -120,6 +120,8 @@ npm run qa:audit
 
 This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB and kanji source requests for deterministic fixture coverage, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, tests YouTube immersion filtering and its escape hatches, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you also want the secret-leak guard to confirm the key only came from the environment.
 
+The full product checklist and manual release scripts live in [`docs/verification-plan.md`](docs/verification-plan.md).
+
 Run the local fixtures:
 
 ```bash
