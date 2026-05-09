@@ -1,6 +1,7 @@
 import type {
     CardState,
     JPDBCard,
+    JPDBDeck,
     JPDBGrade,
     JPDBParseResult,
     JPDBRawToken,
@@ -24,6 +25,7 @@ const VOCABULARY_FIELDS = [
     'card_state',
     'pitch_accent',
 ];
+const DECK_FIELDS = ['id', 'name'];
 
 const SMALL_KANA = new Set('ゃゅょァィゥェォッャュョ');
 
@@ -118,6 +120,13 @@ export class JpdbClient {
         await this.refreshCard(card);
     }
 
+    async listDecks(): Promise<JPDBDeck[]> {
+        const response = await this.request<{ decks?: unknown[] }>('list-user-decks', { fields: DECK_FIELDS });
+        return Array.isArray(response.decks)
+            ? response.decks.map(normalizeDeck).filter((deck): deck is JPDBDeck => deck !== null)
+            : [];
+    }
+
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
         await this.request<void>('deck/remove-vocabulary', {
             id: deckId,
@@ -153,15 +162,7 @@ export class JpdbClient {
         if (!token) throw new Error('JPDB API key is not set.');
         if (Date.now() < this.retryAfter) throw new Error('JPDB is rate limited. Try again in a moment.');
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-                Accept: 'application/json',
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
+        const response = await postJson(url, token, body);
 
         if (response.status === 429) {
             this.retryAfter = Date.now() + 30_000;
@@ -170,7 +171,7 @@ export class JpdbClient {
         if (response.status === 403) throw new Error('JPDB rejected the API key.');
         if (!response.ok) throw new Error(`JPDB request failed (${response.status}).`);
 
-        const text = await response.text();
+        const text = response.text;
         if (!text) return undefined as T;
 
         const json = JSON.parse(text) as T | { error_message?: string };
@@ -281,6 +282,69 @@ export class JpdbClient {
     private cardKey(vid: number, sid: number): string {
         return `${vid}/${sid}`;
     }
+}
+
+function normalizeDeck(value: unknown): JPDBDeck | null {
+    if (Array.isArray(value)) {
+        const [id, name] = value;
+        if ((typeof id === 'number' || typeof id === 'string') && typeof name === 'string') {
+            return { id: String(id), name };
+        }
+    }
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        const id = record.id;
+        const name = record.name ?? record.title;
+        if ((typeof id === 'number' || typeof id === 'string') && typeof name === 'string') {
+            return { id: String(id), name };
+        }
+    }
+    return null;
+}
+
+interface JsonPostResponse {
+    status: number;
+    ok: boolean;
+    text: string;
+}
+
+function postJson(url: string, token: string, body?: Record<string, unknown>): Promise<JsonPostResponse> {
+    const data = body ? JSON.stringify(body) : undefined;
+    const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+    };
+
+    if (typeof GM_xmlhttpRequest === 'function') {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'POST',
+                url,
+                headers,
+                data,
+                responseType: 'text',
+                timeout: 30000,
+                onload: response => resolve({
+                    status: response.status,
+                    ok: response.status >= 200 && response.status < 300,
+                    text: String(response.responseText ?? response.response ?? ''),
+                }),
+                onerror: reject,
+                ontimeout: () => reject(new Error('JPDB request timed out.')),
+            });
+        });
+    }
+
+    return fetch(url, {
+        method: 'POST',
+        headers,
+        body: data,
+    }).then(async response => ({
+        status: response.status,
+        ok: response.ok,
+        text: await response.text(),
+    }));
 }
 
 export function splitJapaneseSentences(text: string): string[] {

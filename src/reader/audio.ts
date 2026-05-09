@@ -182,7 +182,7 @@ function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] 
     const sources = settings.audioSources.filter(source => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
 
-    const configuredTypes = new Set(sources.map(source => source.type));
+    const configuredTypes = new Set(settings.audioSources.map(source => source.type));
     return [
         ...sources,
         ...REQUIRED_JA_AUDIO_SOURCES

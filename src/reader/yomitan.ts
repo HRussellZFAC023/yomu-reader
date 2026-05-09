@@ -18,6 +18,7 @@ export interface YomitanTermEntry {
     sequence?: number;
     termTags?: string;
     dictionary: string;
+    jpdbFrequency?: number;
 }
 
 export interface YomitanKanjiEntry {
@@ -47,6 +48,8 @@ export interface YomitanDictionaryInfo {
     priority: number;
     counts?: Record<string, unknown>;
     styles?: string;
+    revision?: string;
+    downloadUrl?: string;
     importDate?: number;
 }
 
@@ -118,9 +121,50 @@ export class YomitanDictionaryStore {
     async lookupTermMeta(expression: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanMetaEntry[]> {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
-        return (await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'expression', expression, limit * 2))
+        return (await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'expression', expression, Math.max(limit * 8, 80)))
             .filter(entry => dictionaryEnabled(entry.dictionary, rank))
-            .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank))
+            .sort((a, b) => compareMetaEntries(a, b, rank))
+            .slice(0, limit);
+    }
+
+    async lookupSimilarTermsByKanji(character: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const entries: YomitanTermEntry[] = [];
+        const seen = new Set<string>();
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction('terms', 'readonly');
+            const request = tx.objectStore('terms').openCursor();
+            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionaries.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor || entries.length >= Math.max(limit * 8, 80)) {
+                    resolve();
+                    return;
+                }
+                const entry = cursor.value as YomitanTermEntry;
+                if (entry.expression?.includes(character) && dictionaryEnabled(entry.dictionary, rank)) {
+                    const key = `${entry.expression}\n${entry.reading}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        entries.push(entry);
+                    }
+                }
+                cursor.continue();
+            };
+        });
+
+        const annotated = await Promise.all(entries.map(async entry => ({
+            ...entry,
+            jpdbFrequency: await this.frequencyForExpression(entry.expression, preferences),
+        })));
+        return annotated
+            .sort((a, b) =>
+                compareFrequency(a.jpdbFrequency, b.jpdbFrequency)
+                || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+                || (b.score ?? 0) - (a.score ?? 0)
+                || a.expression.length - b.expression.length,
+            )
             .slice(0, limit);
     }
 
@@ -141,12 +185,29 @@ export class YomitanDictionaryStore {
         return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
 
-    async importFile(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
-        if (/\.zip$/i.test(file.name)) return this.importZip(file, onProgress);
+    private async frequencyForExpression(expression: string, preferences: DictionaryPreference[]): Promise<number | undefined> {
+        const metas = await this.lookupTermMeta(expression, 12, preferences).catch(() => []);
+        for (const meta of metas) {
+            if (meta.mode !== 'freq') continue;
+            const frequency = extractFrequency(meta.data);
+            if (frequency !== undefined) return frequency;
+        }
+        return undefined;
+    }
+
+    async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
+        if (/\.zip$/i.test(file.name)) return this.importZip(file, onProgress, sourceUrl);
         return this.importJson(file, onProgress);
     }
 
-    async importZip(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
+    async importFromUrl(url: string, filename = filenameFromUrl(url), onProgress?: (message: string) => void): Promise<ImportSummary> {
+        onProgress?.(`Downloading ${filename}...`);
+        const blob = await requestBlob(url, onProgress);
+        const file = new File([blob], filename, { type: blob.type || 'application/zip' });
+        return this.importFile(file, onProgress, url);
+    }
+
+    async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
         onProgress?.('Reading dictionary ZIP...');
         const zip = await JSZip.loadAsync(file);
         const indexFile = zip.file('index.json');
@@ -161,6 +222,8 @@ export class YomitanDictionaryStore {
             alias: dictionary,
             enabled: true,
             priority: 0,
+            revision: typeof index.revision === 'string' ? index.revision : undefined,
+            downloadUrl: sourceUrl || undefined,
             importDate: Date.now(),
         });
 
@@ -448,12 +511,13 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
         const include = String(scanInput.include ?? '').toLowerCase();
         const modifier = ['shift', 'alt', 'ctrl', 'meta'].find(key => include.includes(key));
         if (modifier) {
-            settings.popupActivationMode = 'modifier';
-            settings.scanModifierKey = modifier as ReaderSettings['scanModifierKey'];
+            settings.lookupOnHover = true;
+            settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
         } else {
             const options = scanInput.options as Record<string, unknown> | undefined;
             if (options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === '') {
-                settings.popupActivationMode = 'hover';
+                settings.lookupOnHover = true;
+                settings.shortcuts = { ...settings.shortcuts, hoverLookup: '' };
             }
         }
     }
@@ -803,6 +867,8 @@ function normalizeDexieDictionaryRow(row: unknown): YomitanDictionaryInfo | null
         priority: Number.isFinite(Number(record.priority)) ? Number(record.priority) : 0,
         counts: record.counts as Record<string, unknown> | undefined,
         styles: typeof record.styles === 'string' ? record.styles : '',
+        revision: typeof record.revision === 'string' ? record.revision : undefined,
+        downloadUrl: typeof record.downloadUrl === 'string' ? record.downloadUrl : undefined,
         importDate: typeof record.importDate === 'number' ? record.importDate : undefined,
     };
 }
@@ -861,6 +927,91 @@ function dictionaryEnabled(dictionary: string, rank: Map<string, DictionaryPrefe
 
 function dictionaryPriority(dictionary: string, rank: Map<string, DictionaryPreference>): number {
     return rank.get(dictionary)?.priority ?? 9999;
+}
+
+function compareMetaEntries(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
+    if (a.mode === 'freq' && b.mode !== 'freq') return -1;
+    if (a.mode !== 'freq' && b.mode === 'freq') return 1;
+    if (a.mode === 'freq' && b.mode === 'freq') {
+        const aJpdb = isJpdbFrequencyDictionary(a.dictionary) ? 0 : 1;
+        const bJpdb = isJpdbFrequencyDictionary(b.dictionary) ? 0 : 1;
+        return aJpdb - bJpdb
+            || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+            || frequencyRank(a.data) - frequencyRank(b.data)
+            || a.dictionary.localeCompare(b.dictionary);
+    }
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+        || a.dictionary.localeCompare(b.dictionary);
+}
+
+function isJpdbFrequencyDictionary(dictionary: string): boolean {
+    return /jpdb/i.test(dictionary);
+}
+
+function frequencyRank(value: unknown): number {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+    if (!value || typeof value !== 'object') return Number.POSITIVE_INFINITY;
+    const record = value as Record<string, unknown>;
+    return frequencyRank(record.frequency ?? record.value ?? record.displayValue);
+}
+
+function extractFrequency(value: unknown): number | undefined {
+    const rank = frequencyRank(value);
+    return Number.isFinite(rank) ? rank : undefined;
+}
+
+function compareFrequency(a?: number, b?: number): number {
+    if (a === undefined && b === undefined) return 0;
+    if (a === undefined) return 1;
+    if (b === undefined) return -1;
+    return a - b;
+}
+
+function filenameFromUrl(url: string): string {
+    try {
+        const parsed = new URL(url);
+        const pathName = parsed.pathname.split('/').filter(Boolean).pop();
+        return pathName && /\.zip$/i.test(pathName) ? decodeURIComponent(pathName) : 'dictionary.zip';
+    } catch {
+        return 'dictionary.zip';
+    }
+}
+
+async function requestBlob(url: string, onProgress?: (message: string) => void): Promise<Blob> {
+    if (typeof GM_xmlhttpRequest === 'function') {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                headers: { accept: 'application/zip,application/octet-stream,*/*' },
+                responseType: 'blob',
+                timeout: 120000,
+                onprogress: event => {
+                    if (event.lengthComputable && event.total > 0) {
+                        onProgress?.(`Downloading dictionary ${Math.round((event.loaded / event.total) * 100)}%...`);
+                    }
+                },
+                onload: response => {
+                    if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
+                        resolve(response.response);
+                        return;
+                    }
+                    if (response.status < 200 || response.status >= 300) {
+                        reject(new Error(`Dictionary download failed (${response.status}).`));
+                        return;
+                    }
+                    reject(new Error('Dictionary download did not return a ZIP file.'));
+                },
+                onerror: () => reject(new Error('Dictionary download failed.')),
+                ontimeout: () => reject(new Error('Dictionary download timed out.')),
+            });
+        });
+    }
+
+    const response = await fetch(url, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+    if (!response.ok) throw new Error(`Dictionary download failed (${response.status}).`);
+    return response.blob();
 }
 
 function splitTags(value: unknown): string[] {

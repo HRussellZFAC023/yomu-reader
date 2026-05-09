@@ -1,5 +1,5 @@
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
-import { matchesShortcut } from './settings';
+import { accentToRgba, matchesShortcut } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
 interface SubtitleCue {
@@ -81,8 +81,16 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         this.root.hidden = !settings.subtitlePlayerEnabled || (!this.video && !this.cues.length);
         this.root.classList.toggle('jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
+        this.root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
+        this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
+        this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
         this.root.style.setProperty('--subtitle-font-size', `${settings.subtitleFontSize}px`);
         this.root.style.setProperty('--subtitle-bottom', `${settings.subtitleBottomOffset}%`);
+        this.root.style.setProperty('--subtitle-color', settings.subtitleTextColor);
+        this.root.style.setProperty('--subtitle-outline', settings.subtitleOutlineColor);
+        this.root.style.setProperty('--subtitle-background-rgba', accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
+        this.root.style.setProperty('--subtitle-family', settings.subtitleFontFamily);
+        this.root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
         this.syncControls();
         this.render();
     }
