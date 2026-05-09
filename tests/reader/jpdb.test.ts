@@ -6,7 +6,7 @@ import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod10
 import { applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
-import { buildKanjiFacts, buildKanjiOriginGraph } from '../../src/reader/kanji-origin';
+import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
@@ -265,13 +265,34 @@ describe('reader helpers', () => {
             { label: 'Type', value: 'Jōyō kanji', source: 'JPDB' },
             { label: 'JLPT', value: 'N4', source: 'KANJIDIC' },
             { label: 'Grade', value: 'Grade 2', source: 'KANJIDIC' },
-            { label: 'Strokes', value: '14', source: 'stroke trace' },
+            { label: 'Strokes', value: '14', source: 'KanjiVG' },
             { label: 'RTK frame', value: '372', source: 'RTK' },
             { label: 'Old forms', value: '讀', source: 'JPDB' },
         ]));
     });
 
     it('builds a small 2D kanji origin graph from component sources', () => {
+        const sourceInfo = {
+            kanjiMap: parseKanjiMapInfo({
+                kanjialiveData: {
+                    radical: {
+                        character: '言',
+                        strokes: 7,
+                        image: 'https://media.kanjialive.com/radical_character/gonben.svg',
+                        name: { hiragana: 'ごんべん', romaji: 'gonben' },
+                        meaning: { english: 'words, to speak, say' },
+                    },
+                },
+                jishoData: {
+                    meaning: 'read',
+                    jlptLevel: 'N5',
+                    taughtIn: 'grade 2',
+                    strokeCount: 14,
+                    newspaperFrequencyRank: '618',
+                    parts: ['言', '売'],
+                },
+            }, '読', 'https://example.test/読.json'),
+        };
         const graph = buildKanjiOriginGraph('読', {
             kanji: '読',
             keyword: 'read',
@@ -302,13 +323,85 @@ describe('reader helpers', () => {
             tags: [],
             meanings: ['read'],
             dictionary: 'KANJIDIC',
-        }]);
+        }], sourceInfo);
 
         expect(graph.nodes.map(node => node.id)).toEqual(expect.arrayContaining(['読', '言', '売']));
         expect(graph.edges).toEqual(expect.arrayContaining([
+            { from: '言', to: '読', label: 'radical' },
+            { from: '売', to: '読', label: 'Kanji Map part' },
             { from: '言', to: '読', label: 'JPDB component' },
             { from: '売', to: '読', label: 'RTK element' },
         ]));
+    });
+
+    it('normalizes Kanji Alive and Kanji Map data for compact kanji cards', () => {
+        const info = parseKanjiMapInfo({
+            kanjialiveData: {
+                grade: 2,
+                kstroke: 14,
+                radical: {
+                    image: 'https://media.kanjialive.com/radical_character/gonben.svg',
+                    animation: ['https://media.kanjialive.com/rad_frames/gonben0.svg'],
+                    name: { hiragana: 'ごんべん', romaji: 'gonben' },
+                    meaning: { english: 'words, to speak, say' },
+                    position: { hiragana: 'へん' },
+                },
+                examples: [{ japanese: '読む（よむ）', meaning: { english: 'read' } }],
+            },
+            jishoData: {
+                meaning: 'read',
+                jlptLevel: 'N5',
+                taughtIn: 'grade 2',
+                strokeCount: 14,
+                newspaperFrequencyRank: '618',
+                kunyomi: ['よ.む'],
+                onyomi: ['ドク'],
+                parts: ['言', '売'],
+                radical: { symbol: '言', forms: ['訁'], meaning: 'speech' },
+                uri: 'https://jisho.org/search/%E8%AA%AD%23kanji',
+            },
+        }, '読', 'https://example.test/読.json');
+
+        expect(info).toMatchObject({
+            meaning: 'read',
+            jlpt: 'N5',
+            grade: 'Grade 2',
+            strokeCount: 14,
+            frequencyRank: '#618',
+            parts: ['言', '売'],
+            radical: {
+                symbol: '言',
+                forms: ['訁'],
+                reading: 'ごんべん',
+                name: 'gonben',
+                meaning: 'words, to speak, say',
+                image: 'https://media.kanjialive.com/radical_character/gonben.svg',
+            },
+        });
+    });
+
+    it('extracts Wiktionary origin notes and historical form images', () => {
+        const info = parseWiktionaryInfo({
+            parse: {
+                text: {
+                    '*': `
+                        <div class="mw-heading mw-heading3"><h3 id="Glyph_origin">Glyph origin</h3></div>
+                        <p>Pictogram of a thread spool. Compare ancient forms.</p>
+                        <table><tr><td><img src="//upload.wikimedia.org/wikipedia/commons/test.svg" width="80" height="80" alt="oracle form"></td></tr></table>
+                        <div class="mw-heading mw-heading3"><h3 id="Etymology">Etymology</h3></div>
+                        <p>Borrowed as a phonetic element in later compounds.</p>
+                        <div class="mw-heading mw-heading3"><h3 id="Definitions">Definitions</h3></div>
+                    `,
+                },
+            },
+        }, '己');
+
+        expect(info?.glyphOrigin).toEqual(['Pictogram of a thread spool. Compare ancient forms.']);
+        expect(info?.etymology).toEqual(['Borrowed as a phonetic element in later compounds.']);
+        expect(info?.images[0]).toMatchObject({
+            src: 'https://upload.wikimedia.org/wikipedia/commons/test.svg',
+            alt: 'oracle form',
+        });
     });
 
     it('parses primary and native VTT subtitle files', () => {

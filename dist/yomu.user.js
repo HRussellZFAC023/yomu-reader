@@ -20,6 +20,8 @@
 // @connect      lens.google.com
 // @connect      vision.googleapis.com
 // @connect      raw.githubusercontent.com
+// @connect      en.wiktionary.org
+// @connect      media.kanjialive.com
 // @connect      localhost
 // @connect      127.0.0.1
 // @connect      *.ts.net
@@ -2949,6 +2951,10 @@
     rtkEnabled: true,
     kanjivgEnabled: true,
     kanjiOriginsEnabled: true,
+    kanjiOriginKanjiMapEnabled: true,
+    kanjiOriginWiktionaryEnabled: true,
+    kanjiOriginGraphEnabled: true,
+    kanjiOriginRadicalImagesEnabled: true,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: true,
@@ -4924,7 +4930,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     card.wordWithReading = word.join("");
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   class JpdbKanjiClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -4940,7 +4946,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return promise;
     }
     async fetchInfo(kanji) {
-      const html = await requestText$3(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch(() => "");
+      const html = await requestText$4(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch(() => "");
       return html ? parseJpdbKanjiHtml(html, kanji) : null;
     }
   }
@@ -4965,17 +4971,17 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function sectionText(doc, label) {
     var _a;
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$1(element2.textContent ?? "") === label);
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$2(element2.textContent ?? "") === label);
     const section = (_a = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a.querySelector(".subsection");
-    return cleanText$1((section == null ? void 0 : section.textContent) ?? "");
+    return cleanText$2((section == null ? void 0 : section.textContent) ?? "");
   }
   function infoTableRows(doc) {
     const rows = /* @__PURE__ */ new Map();
     doc.querySelectorAll(".cross-table tr").forEach((row) => {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length < 2) return;
-      const key = cleanText$1(cells[0].textContent ?? "");
-      const value = cleanText$1(cells[1].textContent ?? "");
+      const key = cleanText$2(cells[0].textContent ?? "");
+      const value = cleanText$2(cells[1].textContent ?? "");
       if (value) rows.set(key, value);
     });
     return rows;
@@ -4983,21 +4989,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function oldForms(doc) {
     const row = Array.from(doc.querySelectorAll(".cross-table tr")).find((item) => {
       var _a;
-      return cleanText$1(((_a = item.querySelector("td")) == null ? void 0 : _a.textContent) ?? "") === "Old form";
+      return cleanText$2(((_a = item.querySelector("td")) == null ? void 0 : _a.textContent) ?? "") === "Old form";
     });
-    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$1(link.textContent ?? "")).filter(Boolean);
+    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$2(link.textContent ?? "")).filter(Boolean);
   }
   function readings(doc) {
     const seen = /* @__PURE__ */ new Set();
     const entries = [];
     doc.querySelectorAll(".kanji-reading-list-common > div, .kanji-reading-list > div").forEach((row) => {
       const link = row.querySelector("a");
-      const reading = cleanText$1((link == null ? void 0 : link.textContent) ?? "");
+      const reading = cleanText$2((link == null ? void 0 : link.textContent) ?? "");
       if (!reading || seen.has(reading)) return;
       seen.add(reading);
       entries.push({
         reading,
-        share: cleanText$1(row.textContent ?? "").replace(reading, "").trim(),
+        share: cleanText$2(row.textContent ?? "").replace(reading, "").trim(),
         common: row.closest(".kanji-reading-list-common") !== null
       });
     });
@@ -5007,8 +5013,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return Array.from(doc.querySelectorAll(".subsection-composed-of-kanji .subsection > div")).map((element2) => {
       var _a, _b;
       return {
-        kanji: cleanText$1(((_a = element2.querySelector(".spelling")) == null ? void 0 : _a.textContent) ?? ""),
-        keyword: cleanText$1(((_b = element2.querySelector(".description")) == null ? void 0 : _b.textContent) ?? "")
+        kanji: cleanText$2(((_a = element2.querySelector(".spelling")) == null ? void 0 : _a.textContent) ?? ""),
+        keyword: cleanText$2(((_b = element2.querySelector(".description")) == null ? void 0 : _b.textContent) ?? "")
       };
     }).filter((component) => component.kanji && component.keyword);
   }
@@ -5020,8 +5026,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!link) return;
       const { expression, reading } = vocabularyFromHref(link.getAttribute("href") ?? "");
       const fallbackExpression = expression || textWithoutRuby(link);
-      const meaning = cleanText$1(((_a = element2.querySelector(".en")) == null ? void 0 : _a.textContent) ?? "");
-      if (!JAPANESE_RE.test(fallbackExpression) || !meaning) return;
+      const meaning = cleanText$2(((_a = element2.querySelector(".en")) == null ? void 0 : _a.textContent) ?? "");
+      if (!JAPANESE_RE$1.test(fallbackExpression) || !meaning) return;
       entries.push({
         expression: fallbackExpression,
         reading,
@@ -5050,21 +5056,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function textWithoutRuby(element2) {
     const clone = element2.cloneNode(true);
     clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
-    return cleanText$1(clone.textContent ?? "");
+    return cleanText$2(clone.textContent ?? "");
   }
   function metaKeyword(doc, kanji) {
     var _a;
     const description = ((_a = doc.querySelector('meta[name="description"]')) == null ? void 0 : _a.content) ?? "";
     const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
-    return cleanText$1((match == null ? void 0 : match[1]) ?? "");
+    return cleanText$2((match == null ? void 0 : match[1]) ?? "");
   }
-  function cleanText$1(value) {
+  function cleanText$2(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function requestText$3(url) {
+  function requestText$4(url) {
     if (typeof GM_xmlhttpRequest === "function") {
       return new Promise((resolve, reject) => {
         GM_xmlhttpRequest({
@@ -5085,7 +5091,94 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return response.text();
     });
   }
-  function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries) {
+  const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
+  const WIKTIONARY_PARSE_URL = "https://en.wiktionary.org/w/api.php?action=parse&prop=text&format=json&origin=*&page=";
+  const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  class KanjiOriginClient {
+    constructor() {
+      __publicField(this, "cache", /* @__PURE__ */ new Map());
+    }
+    lookup(kanji, settings) {
+      const key = Array.from(kanji)[0] ?? kanji;
+      if (!key || !settings.kanjiOriginsEnabled) return Promise.resolve(null);
+      const cacheKey = [
+        key,
+        settings.kanjiOriginKanjiMapEnabled ? "map" : "",
+        settings.kanjiOriginWiktionaryEnabled ? "wikt" : ""
+      ].join(":");
+      let promise = this.cache.get(cacheKey);
+      if (!promise) {
+        promise = this.fetchInfo(key, settings);
+        this.cache.set(cacheKey, promise);
+      }
+      return promise;
+    }
+    async fetchInfo(kanji, settings) {
+      const [kanjiMap, wiktionary] = await Promise.all([
+        settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch(() => void 0) : Promise.resolve(void 0),
+        settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch(() => void 0) : Promise.resolve(void 0)
+      ]);
+      return kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
+    }
+  }
+  async function fetchKanjiMapInfo(kanji) {
+    const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
+    const raw = parseJson(await requestText$3(sourceUrl));
+    return raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
+  }
+  async function fetchWiktionaryInfo(kanji) {
+    const raw = parseJson(await requestText$3(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
+    return raw ? parseWiktionaryInfo(raw, kanji) : void 0;
+  }
+  function parseKanjiMapInfo(raw, kanji, sourceUrl) {
+    const record = asRecord(raw);
+    if (!record) return void 0;
+    const kanjiAlive = asRecord(record.kanjialiveData);
+    const jisho = asRecord(record.jishoData);
+    const radical = readKanjiMapRadical(kanjiAlive, jisho);
+    const examples = readKanjiMapExamples(kanjiAlive, jisho);
+    const references = readKanjiMapReferences(kanjiAlive, jisho);
+    const meaning = stringValue(jisho == null ? void 0 : jisho.meaning) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.meaning);
+    const grade = normalizeGrade(stringValue(jisho == null ? void 0 : jisho.taughtIn) || numberValue(kanjiAlive == null ? void 0 : kanjiAlive.grade)) ?? "";
+    const jlpt = normalizeJlpt(stringValue(jisho == null ? void 0 : jisho.jlptLevel)) ?? "";
+    const strokeCount = numberValue(jisho == null ? void 0 : jisho.strokeCount) ?? numberValue(kanjiAlive == null ? void 0 : kanjiAlive.kstroke);
+    const frequencyRank2 = normalizeFrequency(stringValue(jisho == null ? void 0 : jisho.newspaperFrequencyRank));
+    return {
+      kanji,
+      meaning,
+      grade,
+      jlpt,
+      strokeCount,
+      frequencyRank: frequencyRank2,
+      kunyomi: stringArray(jisho == null ? void 0 : jisho.kunyomi, stringValue(kanjiAlive == null ? void 0 : kanjiAlive.kunyomi_ja) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.kunyomi)),
+      onyomi: stringArray(jisho == null ? void 0 : jisho.onyomi, stringValue(kanjiAlive == null ? void 0 : kanjiAlive.onyomi_ja) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.onyomi)),
+      parts: stringArray(jisho == null ? void 0 : jisho.parts).filter((part) => part !== kanji && JAPANESE_RE.test(part)).slice(0, 10),
+      radical,
+      examples,
+      references,
+      sourceUrl,
+      kanjiAliveUrl: `https://app.kanjialive.com/${encodeURIComponent(kanji)}`,
+      jishoUrl: stringValue(jisho == null ? void 0 : jisho.uri)
+    };
+  }
+  function parseWiktionaryInfo(raw, kanji) {
+    const html = wiktionaryHtml(raw);
+    if (!html || typeof DOMParser === "undefined") return void 0;
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const glyphNodes = sectionNodes(doc, ["Glyph origin", "Glyph_origin"]);
+    const etymologyNodes = sectionNodes(doc, ["Etymology"]);
+    const glyphOrigin = extractSectionText(glyphNodes, 3);
+    const etymology = extractSectionText(etymologyNodes, 2);
+    const images = extractSectionImages(glyphNodes, 4);
+    if (!glyphOrigin.length && !etymology.length && !images.length) return void 0;
+    return {
+      pageUrl: `https://en.wiktionary.org/wiki/${encodeURIComponent(kanji)}`,
+      glyphOrigin,
+      etymology,
+      images
+    };
+  }
+  function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo = null) {
     const facts = /* @__PURE__ */ new Map();
     const add = (label, value, source) => {
       const normalized = value == null ? void 0 : value.trim();
@@ -5093,18 +5186,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       facts.set(label, { label, value: normalized, source: source || "source unknown" });
     };
     const local = extractLocalKanjiFacts(entries);
-    add("Type", normalizeKanjiType(jpdbInfo == null ? void 0 : jpdbInfo.type) ?? local.type, (jpdbInfo == null ? void 0 : jpdbInfo.type) ? "JPDB" : local.typeSource);
-    add("JLPT", local.jlpt, local.jlptSource);
-    add("Grade", local.grade, local.gradeSource);
-    add("Strokes", (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? String(kanjiVGInfo.strokeCount) : local.strokes, (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? "stroke trace" : local.strokesSource);
-    add("Frequency", (jpdbInfo == null ? void 0 : jpdbInfo.frequency) || local.frequency, (jpdbInfo == null ? void 0 : jpdbInfo.frequency) ? "JPDB" : local.frequencySource);
+    const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
+    add("Type", normalizeKanjiType(jpdbInfo == null ? void 0 : jpdbInfo.type) ?? local.type ?? typeFromGrade(map == null ? void 0 : map.grade), (jpdbInfo == null ? void 0 : jpdbInfo.type) ? "JPDB" : local.typeSource ?? "Kanji Alive / Jisho");
+    add("JLPT", local.jlpt ?? (map == null ? void 0 : map.jlpt), local.jlptSource ?? "Jisho via The Kanji Map");
+    add("Grade", local.grade ?? (map == null ? void 0 : map.grade), local.gradeSource ?? "Kanji Alive / Jisho");
+    add("Strokes", (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map == null ? void 0 : map.strokeCount), (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? "KanjiVG" : local.strokesSource ?? "Kanji Alive / Jisho");
+    add("Frequency", (jpdbInfo == null ? void 0 : jpdbInfo.frequency) || local.frequency || (map == null ? void 0 : map.frequencyRank), (jpdbInfo == null ? void 0 : jpdbInfo.frequency) ? "JPDB" : local.frequencySource ?? "Jisho via The Kanji Map");
     add("Kanken", jpdbInfo == null ? void 0 : jpdbInfo.kanken, "JPDB");
     add("RTK frame", rtkInfo == null ? void 0 : rtkInfo.frameNumber, "RTK");
     add("Old forms", jpdbInfo == null ? void 0 : jpdbInfo.oldForms.join("、"), "JPDB");
+    add("Radical", (map == null ? void 0 : map.radical) ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(" ") : void 0, "Kanji Alive / Jisho");
     if (!facts.has("Character")) add("Character", kanji, "current lookup");
     return Array.from(facts.values()).slice(0, 10);
   }
-  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries) {
+  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null) {
+    var _a, _b, _c, _d;
     const nodes = /* @__PURE__ */ new Map();
     const edges = [];
     const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
@@ -5112,13 +5208,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       id: kanji,
       label: kanji,
       kind: "current",
-      detail: first([jpdbInfo == null ? void 0 : jpdbInfo.keyword, rtkInfo == null ? void 0 : rtkInfo.keyword, meanings[0]]) ?? "current kanji"
+      detail: first([jpdbInfo == null ? void 0 : jpdbInfo.keyword, rtkInfo == null ? void 0 : rtkInfo.keyword, (_a = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _a.meaning, meanings[0]]) ?? "current kanji",
+      source: "current lookup"
     });
-    const addComponent = (id, detail, label) => {
+    const addComponent = (id, detail, label, source) => {
       if (!id || id === kanji) return;
       const existing = nodes.get(id);
       if (!existing) {
-        nodes.set(id, { id, label: id, kind: "component", detail });
+        nodes.set(id, { id, label: id, kind: "component", detail, source });
       } else if (!existing.detail && detail) {
         existing.detail = detail;
       }
@@ -5126,14 +5223,78 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         edges.push({ from: id, to: kanji, label });
       }
     };
-    jpdbInfo == null ? void 0 : jpdbInfo.components.forEach((component) => addComponent(component.kanji, component.keyword, "JPDB component"));
-    rtkInfo == null ? void 0 : rtkInfo.componentKanji.forEach((component) => addComponent(component, "RTK element", "RTK element"));
+    ((_c = (_b = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _b.radical) == null ? void 0 : _c.symbol) && addComponent(
+      sourceInfo.kanjiMap.radical.symbol,
+      first([sourceInfo.kanjiMap.radical.meaning, sourceInfo.kanjiMap.radical.name]) ?? "radical",
+      "radical",
+      "Kanji Alive / Jisho"
+    );
+    (_d = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _d.parts.forEach((part) => addComponent(part, "structural part", "Kanji Map part", "The Kanji Map / Jisho"));
+    jpdbInfo == null ? void 0 : jpdbInfo.components.forEach((component) => addComponent(component.kanji, component.keyword, "JPDB component", "JPDB"));
+    rtkInfo == null ? void 0 : rtkInfo.componentKanji.forEach((component) => addComponent(component, "RTK element", "RTK element", "RTK"));
     splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((element2) => !Array.from(element2).some((character) => character === kanji)).slice(0, 6).forEach((element2, index) => {
       const id = `rtk:${index}:${element2}`;
-      nodes.set(id, { id, label: element2, kind: "related", detail: "RTK keyword" });
+      nodes.set(id, { id, label: element2, kind: "related", detail: "RTK keyword", source: "RTK" });
       edges.push({ from: id, to: kanji, label: "memory cue" });
     });
-    return { nodes: Array.from(nodes.values()).slice(0, 12), edges: edges.slice(0, 16) };
+    return { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
+  }
+  function readKanjiMapRadical(kanjiAlive, jisho) {
+    var _a;
+    const aliveRadical = asRecord(kanjiAlive == null ? void 0 : kanjiAlive.radical);
+    const jishoRadical = asRecord(jisho == null ? void 0 : jisho.radical);
+    const symbol = stringValue(jishoRadical == null ? void 0 : jishoRadical.symbol) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.rad_utf) || stringValue(aliveRadical == null ? void 0 : aliveRadical.character);
+    const meaning = stringValue((_a = asRecord(aliveRadical == null ? void 0 : aliveRadical.meaning)) == null ? void 0 : _a.english) || stringValue(jishoRadical == null ? void 0 : jishoRadical.meaning) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.rad_meaning);
+    const image = safeMediaUrl(stringValue(aliveRadical == null ? void 0 : aliveRadical.image));
+    const animation = unknownArray(aliveRadical == null ? void 0 : aliveRadical.animation).map(stringValue).map(safeMediaUrl).filter(Boolean).slice(0, 4);
+    if (!symbol && !meaning && !image) return void 0;
+    const position = asRecord(aliveRadical == null ? void 0 : aliveRadical.position);
+    const name = asRecord(aliveRadical == null ? void 0 : aliveRadical.name);
+    return {
+      symbol,
+      forms: stringArray(jishoRadical == null ? void 0 : jishoRadical.forms),
+      name: stringValue(name == null ? void 0 : name.romaji) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.rad_name),
+      reading: stringValue(name == null ? void 0 : name.hiragana) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.rad_name_ja),
+      meaning,
+      strokes: normalizeNumber((aliveRadical == null ? void 0 : aliveRadical.strokes) ?? (kanjiAlive == null ? void 0 : kanjiAlive.rad_stroke)) ?? "",
+      position: stringValue(position == null ? void 0 : position.hiragana) || stringValue(kanjiAlive == null ? void 0 : kanjiAlive.rad_position_ja),
+      image,
+      animation
+    };
+  }
+  function readKanjiMapExamples(kanjiAlive, jisho) {
+    const examples = [];
+    const add = (expression, reading, meaning) => {
+      const item = {
+        expression: stringValue(expression),
+        reading: stringValue(reading),
+        meaning: stringValue(meaning)
+      };
+      if (!item.expression || examples.some((existing) => existing.expression === item.expression)) return;
+      examples.push(item);
+    };
+    unknownArray(kanjiAlive == null ? void 0 : kanjiAlive.examples).forEach((example) => {
+      var _a;
+      const record = asRecord(example);
+      add(record == null ? void 0 : record.japanese, "", (_a = asRecord(record == null ? void 0 : record.meaning)) == null ? void 0 : _a.english);
+    });
+    [...unknownArray(jisho == null ? void 0 : jisho.onyomiExamples), ...unknownArray(jisho == null ? void 0 : jisho.kunyomiExamples)].forEach((example) => {
+      const record = asRecord(example);
+      add(record == null ? void 0 : record.example, record == null ? void 0 : record.reading, record == null ? void 0 : record.meaning);
+    });
+    return examples.slice(0, 6);
+  }
+  function readKanjiMapReferences(kanjiAlive, jisho) {
+    const references = asRecord(kanjiAlive == null ? void 0 : kanjiAlive.references);
+    const facts = [];
+    const add = (label, value, source) => {
+      const text = stringValue(value);
+      if (text) facts.push({ label, value: text, source });
+    };
+    add("Kodansha", references == null ? void 0 : references.kodansha, "Kanji Alive");
+    add("Classic Nelson", references == null ? void 0 : references.classic_nelson, "Kanji Alive");
+    add("Jisho", jisho == null ? void 0 : jisho.uri, "Jisho via The Kanji Map");
+    return facts.slice(0, 4);
   }
   function extractLocalKanjiFacts(entries) {
     const facts = {};
@@ -5199,15 +5360,20 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (/j[oō]y[oō]|grade/i.test(value)) return "Jōyō kanji";
     return value;
   }
+  function typeFromGrade(value) {
+    if (!value) return void 0;
+    return /grade/i.test(value) ? "Jōyō kanji" : void 0;
+  }
   function normalizeJlpt(value) {
     if (value === void 0 || value === null || value === "") return void 0;
     const match = String(value).match(/[nN]?([1-5])/);
     return match ? `N${match[1]}` : void 0;
   }
   function normalizeGrade(value) {
-    if (value === void 0 || value === null || value === "") return void 0;
-    const match = String(value).match(/([1-6])/);
-    return match ? `Grade ${match[1]}` : void 0;
+    if (value === void 0 || value === null || value === "") return "";
+    const text = String(value).trim();
+    const match = text.match(/(?:grade\s*)?([1-6])/i);
+    return match ? `Grade ${match[1]}` : text;
   }
   function normalizeNumber(value) {
     if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -5216,10 +5382,131 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function normalizeFrequency(value) {
     const number = normalizeNumber(value);
-    return number ? `#${number}` : void 0;
+    return number ? `#${number}` : "";
   }
   function splitRtkElements$1(value) {
     return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  }
+  function wiktionaryHtml(raw) {
+    const record = asRecord(raw);
+    const parse = asRecord(record == null ? void 0 : record.parse);
+    const text = asRecord(parse == null ? void 0 : parse.text);
+    return stringValue(text == null ? void 0 : text["*"]);
+  }
+  function sectionNodes(doc, labels) {
+    var _a;
+    const normalizedLabels = labels.map((label) => normalizeHeading(label));
+    const heading = Array.from(doc.querySelectorAll("h2, h3, h4")).find((element2) => {
+      const id = normalizeHeading(element2.id);
+      const text = normalizeHeading(element2.textContent ?? "");
+      return normalizedLabels.includes(id) || normalizedLabels.includes(text);
+    });
+    if (!heading) return [];
+    const level = Number(heading.tagName.slice(1)) || 6;
+    const wrapper = ((_a = heading.parentElement) == null ? void 0 : _a.classList.contains("mw-heading")) ? heading.parentElement : heading;
+    const nodes = [];
+    let next = wrapper.nextElementSibling;
+    while (next) {
+      const nextHeading = next.classList.contains("mw-heading") ? next.querySelector("h2, h3, h4") : next.matches("h2, h3, h4") ? next : null;
+      const nextLevel = nextHeading ? Number(nextHeading.tagName.slice(1)) || 6 : 99;
+      if (nextHeading && nextLevel <= level) break;
+      nodes.push(next);
+      next = next.nextElementSibling;
+    }
+    return nodes;
+  }
+  function extractSectionText(nodes, limit) {
+    const candidates = [];
+    nodes.forEach((node) => {
+      const selectors = node.matches("p, li, dd") ? [node] : Array.from(node.querySelectorAll("p, li, dd"));
+      selectors.forEach((element2) => {
+        const text = cleanText$1(element2.textContent ?? "").replace(/\[(?:edit|citation needed)\]/gi, "").replace(/\s+/g, " ").trim();
+        if (text.length >= 12 && !/for pronunciation and definitions/i.test(text) && !candidates.includes(text)) {
+          candidates.push(truncateText(text, 260));
+        }
+      });
+    });
+    return candidates.slice(0, limit);
+  }
+  function extractSectionImages(nodes, limit) {
+    const images = [];
+    nodes.forEach((node) => {
+      node.querySelectorAll("img").forEach((image) => {
+        const src = normalizeImageUrl(image.getAttribute("src") ?? "");
+        const width = Number(image.getAttribute("width") ?? "0");
+        const height = Number(image.getAttribute("height") ?? "0");
+        if (!src || width < 20 || height < 20 || images.some((existing) => existing.src === src)) return;
+        images.push({ src, alt: image.getAttribute("alt") || "Historical form" });
+      });
+    });
+    return images.slice(0, limit);
+  }
+  function normalizeHeading(value) {
+    return value.replace(/_/g, " ").replace(/\[edit\]/gi, "").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  function normalizeImageUrl(value) {
+    if (!value) return "";
+    const url = value.startsWith("//") ? `https:${value}` : value;
+    if (!/^https:\/\/upload\.wikimedia\.org\//i.test(url)) return "";
+    return url;
+  }
+  function truncateText(value, limit) {
+    return value.length > limit ? `${value.slice(0, limit - 1).trim()}…` : value;
+  }
+  function cleanText$1(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function stringArray(value, fallback = "") {
+    const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
+    return values.map((item) => stringValue(item)).map((item) => item.trim()).filter(Boolean);
+  }
+  function unknownArray(value) {
+    return Array.isArray(value) ? value : [];
+  }
+  function stringValue(value) {
+    if (value === void 0 || value === null) return "";
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    return "";
+  }
+  function numberValue(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const match = String(value ?? "").match(/\d+/);
+    return match ? Number(match[0]) : void 0;
+  }
+  function safeMediaUrl(value) {
+    return /^https:\/\/media\.kanjialive\.com\//i.test(value) ? value : "";
+  }
+  function asRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
+  }
+  function parseJson(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  function requestText$3(url) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          timeout: 1e4,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ""));
+            else reject(new Error(`Kanji origin request failed (${response.status}).`));
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("Kanji origin request timed out."))
+        });
+      });
+    }
+    return fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`Kanji origin request failed (${response.status}).`);
+      return response.text();
+    });
   }
   function first(values) {
     var _a;
@@ -5366,6 +5653,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.",
       kanjivgEnabled: "Show stroke order and drawing pad",
       kanjiOriginsEnabled: "Show kanji facts and origins map",
+      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
+      kanjiOriginWiktionaryEnabled: "Use Wiktionary origin notes",
+      kanjiOriginGraphEnabled: "Show component graph",
+      kanjiOriginRadicalImagesEnabled: "Show radical images",
       rtkEnabled: "Show RTK information",
       similarKanjiWords: "Show words using the same kanji",
       similarKanjiWordLimit: "Similar word limit",
@@ -5495,6 +5786,33 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       github: "GitHub",
       copyDiscord: "Copy Discord",
       openOnJpdb: "Open on JPDB",
+      backToWord: "Back to word",
+      previousKanji: "Previous kanji",
+      nextKanji: "Next kanji",
+      openKanjiOnJpdb: "Open kanji on JPDB",
+      strokePractice: "Stroke order + practice",
+      practiceDrawing: "Practice drawing",
+      strokes: "strokes",
+      textTrace: "text trace",
+      hideTrace: "Hide trace",
+      showTrace: "Show trace",
+      clear: "Clear",
+      originStructure: "Origin and structure",
+      originMapLabel: "2D kanji origin and component map",
+      kanjiMapData: "Kanji Map data",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "Radical",
+      historicalNotes: "Historical notes",
+      readingsComponents: "Readings and components",
+      showKanji: "Show kanji",
+      jpdbMnemonic: "JPDB mnemonic",
+      rtkComponentKeywords: "RTK component keywords",
+      onReading: "On",
+      kunReading: "Kun",
+      heisigStory: "Heisig story",
+      heisigComment: "Heisig comment",
+      koohiiStories: "Koohii stories",
       add: "Add",
       forget: "Forget",
       never: "Never",
@@ -5573,6 +5891,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバー、クリックも使いたい場合はタップ/クリックをオンにしてください。",
       kanjivgEnabled: "筆順と手書き練習を表示",
       kanjiOriginsEnabled: "漢字の基本情報と成り立ちマップを表示",
+      kanjiOriginKanjiMapEnabled: "Kanji Alive / Kanji Mapの情報を使う",
+      kanjiOriginWiktionaryEnabled: "Wiktionaryの成り立ちメモを使う",
+      kanjiOriginGraphEnabled: "構成グラフを表示",
+      kanjiOriginRadicalImagesEnabled: "部首画像を表示",
       rtkEnabled: "RTK情報を表示",
       similarKanjiWords: "同じ漢字を使う単語を表示",
       similarKanjiWordLimit: "関連単語の上限",
@@ -5702,6 +6024,33 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       github: "GitHub",
       copyDiscord: "Discordをコピー",
       openOnJpdb: "JPDBで開く",
+      backToWord: "単語に戻る",
+      previousKanji: "前の漢字",
+      nextKanji: "次の漢字",
+      openKanjiOnJpdb: "JPDBで漢字を開く",
+      strokePractice: "筆順と手書き練習",
+      practiceDrawing: "手書き練習",
+      strokes: "画",
+      textTrace: "文字なぞり",
+      hideTrace: "なぞりを隠す",
+      showTrace: "なぞりを表示",
+      clear: "消す",
+      originStructure: "成り立ちと構成",
+      originMapLabel: "漢字の成り立ち・構成マップ",
+      kanjiMapData: "Kanji Mapデータ",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "部首",
+      historicalNotes: "字源メモ",
+      readingsComponents: "読みと構成要素",
+      showKanji: "漢字を表示",
+      jpdbMnemonic: "JPDBニーモニック",
+      rtkComponentKeywords: "RTK構成キーワード",
+      onReading: "音",
+      kunReading: "訓",
+      heisigStory: "Heisigストーリー",
+      heisigComment: "Heisigコメント",
+      koohiiStories: "Koohiiストーリー",
       add: "追加",
       forget: "解除",
       never: "Never",
@@ -7726,6 +8075,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   background: linear-gradient(180deg, color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent), var(--jpdb-reader-surface-2));
   color: var(--jpdb-reader-text);
   text-align: center;
+  font: inherit;
+  cursor: pointer;
 }
 .jpdb-reader-origin-node.current {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
@@ -7733,6 +8084,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
 }
 .jpdb-reader-origin-node.related {
   border-style: dashed;
+  cursor: default;
+}
+.jpdb-reader-origin-node:hover,
+.jpdb-reader-origin-node:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
 }
 .jpdb-reader-origin-node strong {
   font-size: 20px;
@@ -7759,6 +8116,123 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-muted);
   font-size: 11px;
+}
+.jpdb-reader-origin-detail {
+  display: grid;
+  gap: 8px;
+}
+.jpdb-reader-origin-detail p {
+  margin: 0;
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.jpdb-reader-origin-detail p span {
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-radical-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+}
+.jpdb-reader-radical-card img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--jpdb-reader-text) 92%, white);
+}
+.jpdb-reader-radical-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.jpdb-reader-radical-card strong {
+  color: var(--jpdb-reader-text);
+  font-size: 15px;
+}
+.jpdb-reader-radical-card span {
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.jpdb-reader-origin-examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 6px;
+}
+.jpdb-reader-origin-examples button {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.jpdb-reader-origin-examples button:hover,
+.jpdb-reader-origin-examples button:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
+}
+.jpdb-reader-origin-examples strong,
+.jpdb-reader-origin-examples span,
+.jpdb-reader-origin-examples small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-origin-examples span,
+.jpdb-reader-origin-examples small {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+.jpdb-reader-origin-wiktionary {
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+}
+.jpdb-reader-origin-wiktionary summary {
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+  font-weight: 800;
+}
+.jpdb-reader-origin-wiktionary p {
+  margin: 7px 0 0;
+  line-height: 1.4;
+}
+.jpdb-reader-origin-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.jpdb-reader-origin-images img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.jpdb-reader-origin-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+.jpdb-reader-origin-sources a {
+  color: var(--jpdb-reader-accent);
+  font-weight: 800;
+  text-decoration: none;
 }
 .jpdb-reader-rtk-head {
   display: flex;
@@ -9601,6 +10075,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       __publicField(this, "jpdb", new JpdbClient(() => this.settings.apiKey.trim()));
       __publicField(this, "jpdbKanji", new JpdbKanjiClient());
       __publicField(this, "kanjiVG", new KanjiVGClient());
+      __publicField(this, "kanjiOrigin", new KanjiOriginClient());
       __publicField(this, "audio", new AudioPlayer(() => this.settings));
       __publicField(this, "anki", new AnkiConnectClient(() => this.settings));
       __publicField(this, "rtk", new RtkClient());
@@ -10024,7 +10499,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
             <div class="jpdb-reader-header">
                 <div class="jpdb-reader-heading">
                     <div class="jpdb-reader-title-row">
-                        <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling)}</div>
+                        <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling, language)}</div>
                         <a class="jpdb-reader-jpdb-pill" href="${jpdbUrl}" target="_blank" rel="noopener" title="${uiText(language, "openOnJpdb")}" aria-label="${uiText(language, "openOnJpdb")}: ${escapeHtml$1(card.spelling)}">JPDB ${externalLinkIcon()}</a>
                     </div>
                     ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml$1(card.reading)}</div>` : ""}
@@ -10087,11 +10562,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
       const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
       const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
-      const [jpdbInfo, kanjiEntries, rtkInfo, kanjiVGInfo, similarTerms] = await Promise.all([
+      const [jpdbInfo, kanjiEntries, rtkInfo, kanjiVGInfo, sourceInfo, similarTerms] = await Promise.all([
         this.jpdbKanji.lookup(kanji).catch(() => null),
         this.settings.localDictionariesEnabled ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]),
         this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null),
         this.settings.kanjivgEnabled ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null),
+        this.settings.kanjiOriginsEnabled ? this.kanjiOrigin.lookup(kanji, this.settings).catch(() => null) : Promise.resolve(null),
         this.settings.similarKanjiWords && this.settings.localDictionariesEnabled ? this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([])
       ]);
       const componentDictionaryLimit = Math.max(4, Math.min(this.settings.localDictionaryMaxResults, 12));
@@ -10100,16 +10576,17 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         rtk: this.settings.rtkEnabled ? await this.rtk.lookup(component).catch(() => null) : null,
         dictionary: this.settings.localDictionariesEnabled ? await this.dictionaries.lookupKanji(component, componentDictionaryLimit, this.settings.dictionaryPreferences).catch(() => []) : []
       }))) : [];
-      const kanjiFacts = this.settings.kanjiOriginsEnabled ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries) : [];
-      const originGraph = this.settings.kanjiOriginsEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries) : null;
+      const kanjiFacts = this.settings.kanjiOriginsEnabled ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) : [];
+      const originGraph = this.settings.kanjiOriginsEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo) : null;
+      const language = this.settings.interfaceLanguage;
       setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-kanji-nav">
-                <button class="jpdb-reader-icon-mini" type="button" data-action="word-back" title="Back to ${escapeHtml$1(card.spelling)}">←</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="word-back" title="${escapeHtml$1(`${uiText(language, "backToWord")}: ${card.spelling}`)}">←</button>
                 <span>${escapeHtml$1(card.spelling)}</span>
                 ${kanjiCharacters.length > 1 ? `
-                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="Previous kanji">‹</button>
-                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="Next kanji">›</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${uiText(language, "previousKanji")}">‹</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${uiText(language, "nextKanji")}">›</button>
                 ` : ""}
             </div>
             <div class="jpdb-reader-header">
@@ -10117,14 +10594,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                     <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
                         <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
                         ${renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries)}
-                        <a class="jpdb-reader-jpdb-pill" href="${jpdbUrl}" target="_blank" rel="noopener" title="Open kanji on JPDB">JPDB ${externalLinkIcon()}</a>
+                        <a class="jpdb-reader-jpdb-pill" href="${jpdbUrl}" target="_blank" rel="noopener" title="${uiText(language, "openKanjiOnJpdb")}">JPDB ${externalLinkIcon()}</a>
                     </div>
                 </div>
             </div>
-            ${this.settings.kanjiOriginsEnabled ? renderKanjiOrigins(kanjiFacts, originGraph) : ""}
-            ${this.settings.kanjivgEnabled ? renderKanjiPractice(kanjiVGInfo, kanji) : ""}
-            ${renderJpdbKanjiInfo(jpdbInfo)}
-            ${renderRtkInfo(rtkInfo, componentSummaries)}
+            ${this.settings.kanjiOriginsEnabled ? renderKanjiOrigins(kanjiFacts, this.settings.kanjiOriginGraphEnabled ? originGraph : null, sourceInfo, this.settings, language) : ""}
+            ${this.settings.kanjivgEnabled ? renderKanjiPractice(kanjiVGInfo, kanji, language) : ""}
+            ${renderJpdbKanjiInfo(jpdbInfo, language)}
+            ${renderRtkInfo(rtkInfo, componentSummaries, language)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
             ${this.renderSimilarKanjiWords(similarTerms, (jpdbInfo == null ? void 0 : jpdbInfo.vocabulary) ?? [], kanji, card)}
         `);
@@ -10246,7 +10723,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         event.stopPropagation();
         traceVisible = !traceVisible;
         ghost.hidden = !traceVisible;
-        trace.textContent = traceVisible ? "Hide trace" : "Show trace";
+        trace.textContent = uiText(this.settings.interfaceLanguage, traceVisible ? "hideTrace" : "showTrace");
       });
       const resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(stage);
@@ -10540,6 +11017,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                 <div class="grid">
                     ${checkbox("kanjivgEnabled", "Show stroke order and drawing pad", this.settings.kanjivgEnabled)}
                     ${checkbox("kanjiOriginsEnabled", "Show kanji facts and origins map", this.settings.kanjiOriginsEnabled)}
+                    ${checkbox("kanjiOriginKanjiMapEnabled", "Use Kanji Alive and Kanji Map facts", this.settings.kanjiOriginKanjiMapEnabled)}
+                    ${checkbox("kanjiOriginWiktionaryEnabled", "Use Wiktionary origin notes", this.settings.kanjiOriginWiktionaryEnabled)}
+                    ${checkbox("kanjiOriginGraphEnabled", "Show component graph", this.settings.kanjiOriginGraphEnabled)}
+                    ${checkbox("kanjiOriginRadicalImagesEnabled", "Show radical images", this.settings.kanjiOriginRadicalImagesEnabled)}
                     ${checkbox("rtkEnabled", "Show RTK information", this.settings.rtkEnabled)}
                     ${checkbox("similarKanjiWords", "Show words using the same kanji", this.settings.similarKanjiWords)}
                     ${input("similarKanjiWordLimit", "Similar word limit", String(this.settings.similarKanjiWordLimit), "number")}
@@ -11132,9 +11613,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (typeof record.position === "number") return String(record.position);
     return "";
   }
-  function renderSpellingForKanjiNavigation(spelling) {
+  function renderSpellingForKanjiNavigation(spelling, language) {
     return Array.from(spelling).map(
-      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="Show kanji information for ${escapeHtml$1(character)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
+      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
     ).join("");
   }
   function groupTermEntriesByDictionary(entries) {
@@ -11206,44 +11687,82 @@ ${entry.reading}`;
     if (b === void 0) return -1;
     return a - b;
   }
-  function renderKanjiPractice(info, kanji) {
+  function renderKanjiPractice(info, kanji, language) {
     const ghost = (info == null ? void 0 : info.svg) || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;
     return `
         <div class="jpdb-reader-local jpdb-reader-kanjivg">
-            <div class="jpdb-reader-local-title">Stroke order + practice</div>
+            <div class="jpdb-reader-local-title">${uiText(language, "strokePractice")}</div>
             <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="Practice drawing ${escapeHtml$1(kanji)}"></canvas>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${info ? `${info.strokeCount} strokes` : "text trace"}</span>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>Hide trace</button>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>Clear</button>
+                <span class="jpdb-reader-help">${info ? `${info.strokeCount} ${uiText(language, "strokes")}` : uiText(language, "textTrace")}</span>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
             </div>
         </div>
     `;
   }
-  function renderKanjiOrigins(facts, graph) {
-    if (!facts.length && (!graph || graph.nodes.length <= 1)) return "";
+  function renderKanjiOrigins(facts, graph, sourceInfo, settings, language) {
+    if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap) && !(sourceInfo == null ? void 0 : sourceInfo.wiktionary)) return "";
     const graphNodes = (graph == null ? void 0 : graph.nodes) ?? [];
     const edges = (graph == null ? void 0 : graph.edges) ?? [];
+    const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
+    const wiktionary = sourceInfo == null ? void 0 : sourceInfo.wiktionary;
+    const radical = map == null ? void 0 : map.radical;
+    const sourceLinks = [
+      (map == null ? void 0 : map.sourceUrl) ? `<a href="${escapeHtml$1(map.sourceUrl)}" target="_blank" rel="noopener">${uiText(language, "kanjiMapData")} ${externalLinkIcon()}</a>` : "",
+      (map == null ? void 0 : map.kanjiAliveUrl) ? `<a href="${escapeHtml$1(map.kanjiAliveUrl)}" target="_blank" rel="noopener">${uiText(language, "kanjiAlive")} ${externalLinkIcon()}</a>` : "",
+      (wiktionary == null ? void 0 : wiktionary.pageUrl) ? `<a href="${escapeHtml$1(wiktionary.pageUrl)}" target="_blank" rel="noopener">${uiText(language, "wiktionary")} ${externalLinkIcon()}</a>` : ""
+    ].filter(Boolean).join("");
     return `
         <div class="jpdb-reader-local jpdb-reader-origins">
-            <div class="jpdb-reader-local-title">Study facts and origins</div>
+            <div class="jpdb-reader-local-title">${uiText(language, "originStructure")}</div>
             ${facts.length ? `<div class="jpdb-reader-kanji-facts">
                 ${facts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
             </div>` : ""}
-            ${graphNodes.length > 1 ? `<div class="jpdb-reader-origin-map" aria-label="2D kanji origin and component map">
-                ${graphNodes.map((node, index) => `
-                    <div class="jpdb-reader-origin-node ${node.kind}" style="--origin-index:${index}" title="${escapeHtml$1(node.detail)}">
+            ${graphNodes.length > 1 ? `<div class="jpdb-reader-origin-map" aria-label="${uiText(language, "originMapLabel")}">
+                ${graphNodes.map((node) => node.kind === "related" ? `
+                    <div class="jpdb-reader-origin-node ${node.kind}" title="${escapeHtml$1(node.source)}">
                         <strong>${escapeHtml$1(node.label)}</strong>
                         ${node.detail ? `<small>${escapeHtml$1(node.detail)}</small>` : ""}
                     </div>
+                ` : `
+                    <button class="jpdb-reader-origin-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">
+                        <strong>${escapeHtml$1(node.label)}</strong>
+                        ${node.detail ? `<small>${escapeHtml$1(node.detail)}</small>` : ""}
+                    </button>
                 `).join("")}
                 ${edges.length ? `<div class="jpdb-reader-origin-edges">
                     ${edges.map((edge) => `<span>${escapeHtml$1(edge.from.replace(/^rtk:\d+:/, ""))} → ${escapeHtml$1(edge.to)} <small>${escapeHtml$1(edge.label)}</small></span>`).join("")}
                 </div>` : ""}
             </div>` : ""}
+            ${map ? `<div class="jpdb-reader-origin-detail">
+                ${map.meaning ? `<p><strong>${escapeHtml$1(map.meaning)}</strong>${map.kunyomi.length || map.onyomi.length ? ` <span>${escapeHtml$1([...map.kunyomi.slice(0, 3), ...map.onyomi.slice(0, 3)].join(" · "))}</span>` : ""}</p>` : ""}
+                ${radical ? `<div class="jpdb-reader-radical-card">
+                    ${settings.kanjiOriginRadicalImagesEnabled && radical.image ? `<img src="${escapeHtml$1(radical.image)}" alt="${escapeHtml$1(radical.meaning || radical.name || uiText(language, "radical"))}" loading="lazy">` : ""}
+                    <div>
+                        <strong>${escapeHtml$1([radical.symbol, ...radical.forms].filter(Boolean).join(" / ") || uiText(language, "radical"))}</strong>
+                        <span>${escapeHtml$1([radical.reading, radical.name, radical.meaning, radical.position, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""].filter(Boolean).join(" · "))}</span>
+                    </div>
+                </div>` : ""}
+                ${map.examples.length ? `<div class="jpdb-reader-origin-examples">
+                    ${map.examples.slice(0, 4).map((example) => `<button type="button" data-action="similar-word" data-expression="${escapeHtml$1(example.expression)}" title="${escapeHtml$1(example.meaning)}">
+                        <strong>${escapeHtml$1(example.expression)}</strong>
+                        ${example.reading ? `<span>${escapeHtml$1(example.reading)}</span>` : ""}
+                        ${example.meaning ? `<small>${escapeHtml$1(example.meaning)}</small>` : ""}
+                    </button>`).join("")}
+                </div>` : ""}
+            </div>` : ""}
+            ${wiktionary ? `<details class="jpdb-reader-origin-wiktionary">
+                <summary>${uiText(language, "historicalNotes")}</summary>
+                ${wiktionary.images.length ? `<div class="jpdb-reader-origin-images">
+                    ${wiktionary.images.map((image) => `<img src="${escapeHtml$1(image.src)}" alt="${escapeHtml$1(image.alt)}" loading="lazy">`).join("")}
+                </div>` : ""}
+                ${[...wiktionary.glyphOrigin, ...wiktionary.etymology].slice(0, 4).map((text) => `<p>${escapeHtml$1(text)}</p>`).join("")}
+            </details>` : ""}
+            ${sourceLinks ? `<div class="jpdb-reader-origin-sources">${sourceLinks}</div>` : ""}
         </div>
     `;
   }
@@ -11265,7 +11784,7 @@ ${entry.reading}`;
         </div>
     `;
   }
-  function renderJpdbKanjiInfo(info) {
+  function renderJpdbKanjiInfo(info, language) {
     if (!info) return "";
     const infoChips = [
       info.type,
@@ -11274,24 +11793,24 @@ ${entry.reading}`;
     ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
     return `
         <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
-            <div class="jpdb-reader-local-title">Readings and components</div>
+            <div class="jpdb-reader-local-title">${uiText(language, "readingsComponents")}</div>
             <div class="jpdb-reader-local-entry">
                 ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ""}
                 ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
                     ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
                 </div>` : ""}
                 ${info.components.length ? `<div class="jpdb-reader-component-grid">
-                    ${info.components.map((component) => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="Show ${escapeHtml$1(component.kanji)}">
+                    ${info.components.map((component) => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
                         <strong>${escapeHtml$1(component.kanji)}</strong>
                         <span>${escapeHtml$1(component.keyword)}</span>
                     </button>`).join("")}
                 </div>` : ""}
-                ${info.mnemonic ? `<details><summary>JPDB mnemonic</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : ""}
+                ${info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : ""}
             </div>
         </div>
     `;
   }
-  function renderRtkInfo(info, components2) {
+  function renderRtkInfo(info, components2, language) {
     if (!info) return "";
     const elementKeywords = splitRtkElements(info.elements);
     const componentByKeyword = new Map(
@@ -11312,29 +11831,29 @@ ${entry.reading}`;
                     ${info.frameNumber ? `<span>${escapeHtml$1(info.frameNumber)}</span>` : ""}
                 </div>
                 ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.onYomi ? `<span>On ${escapeHtml$1(info.onYomi)}</span>` : ""}
-                    ${info.kunYomi ? `<span>Kun ${escapeHtml$1(info.kunYomi)}</span>` : ""}
+                    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
+                    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
                 </div>` : ""}
-                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="RTK component keywords">
+                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
                     ${elementKeywords.map((keyword) => {
     const componentKanji = componentByKeyword.get(keyword.toLowerCase());
-    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="Show ${escapeHtml$1(componentKanji)}">${escapeHtml$1(keyword)}</button>` : `<span>${escapeHtml$1(keyword)}</span>`;
+    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}">${escapeHtml$1(keyword)}</button>` : `<span>${escapeHtml$1(keyword)}</span>`;
   }).join("")}
                 </div>` : ""}
                 ${components2.length ? `<div class="jpdb-reader-component-grid">
                     ${components2.map((component) => {
     var _a;
     const meanings = [...new Set(component.dictionary.flatMap((entry) => entry.meanings))].slice(0, 6);
-    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="Show ${escapeHtml$1(component.kanji)}">
+    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
                             <strong>${escapeHtml$1(component.kanji)}</strong>
                             ${((_a = component.rtk) == null ? void 0 : _a.keyword) ? `<span>${escapeHtml$1(component.rtk.keyword)}</span>` : ""}
                             ${meanings.length ? `<small>${escapeHtml$1(meanings.join(", "))}</small>` : ""}
                         </button>`;
   }).join("")}
                 </div>` : ""}
-                ${info.heisigStory ? `<details><summary>Heisig story</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
-                ${info.heisigComment ? `<details><summary>Heisig comment</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : ""}
-                ${info.koohiiStories.length ? `<details><summary>Koohii stories</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""}
+                ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
+                ${info.heisigComment ? `<details><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : ""}
+                ${info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""}
             </div>
         </div>
     `;
@@ -11477,6 +11996,10 @@ ${entry.reading}`;
       ["hideKnownFurigana", "hideKnownFurigana"],
       ["kanjivgEnabled", "kanjivgEnabled"],
       ["kanjiOriginsEnabled", "kanjiOriginsEnabled"],
+      ["kanjiOriginKanjiMapEnabled", "kanjiOriginKanjiMapEnabled"],
+      ["kanjiOriginWiktionaryEnabled", "kanjiOriginWiktionaryEnabled"],
+      ["kanjiOriginGraphEnabled", "kanjiOriginGraphEnabled"],
+      ["kanjiOriginRadicalImagesEnabled", "kanjiOriginRadicalImagesEnabled"],
       ["rtkEnabled", "rtkEnabled"],
       ["similarKanjiWords", "similarKanjiWords"],
       ["similarKanjiWordLimit", "similarKanjiWordLimit"],
@@ -12068,6 +12591,10 @@ ${entry.reading}`;
       rtkEnabled: has("rtkEnabled"),
       kanjivgEnabled: has("kanjivgEnabled"),
       kanjiOriginsEnabled: has("kanjiOriginsEnabled"),
+      kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
+      kanjiOriginWiktionaryEnabled: has("kanjiOriginWiktionaryEnabled"),
+      kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
+      kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
       similarKanjiWords: has("similarKanjiWords"),
       similarKanjiWordLimit: Math.max(2, Math.min(24, number("similarKanjiWordLimit", current.similarKanjiWordLimit))),
       audioEnabled: has("audioEnabled"),

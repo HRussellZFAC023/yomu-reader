@@ -18,7 +18,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB mining actions for add, Never Forget, blacklist, and review grades.
-- JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origins map, stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
+- JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, short historical notes, stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
 - Optional Anki mining through AnkiConnect, with a よむ note type created automatically and best-effort video-frame capture for subtitle cards.
 - Yomitan dictionary imports: recommended in-app downloads, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
@@ -42,7 +42,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. RTK details are fetched from the configured static RTK data source when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
+Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub and short Wiktionary notes when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 
@@ -56,7 +56,7 @@ The default sources are JapanesePod101, LanguagePod101, and Jisho.org. Add a cus
 
 JPDB mining is the default path. The JPDB pill in a popup opens the matching JPDB page; clicking kanji inside the headword opens kanji details with JPDB data, RTK information, local kanji dictionaries, components, and words that use the same kanji.
 
-Kanji details are modular. The **Kanji facts and origins map** setting adds compact facts such as type, JLPT, school grade, stroke count, frequency, Kanken, RTK frame, and old forms when those values are available from JPDB, stroke data, RTK, or imported local dictionaries. The 2D map stays lightweight and uses existing component data instead of bundling a large etymology dataset. Source research and follow-up decisions live in [`docs/kanji-source-research.md`](docs/kanji-source-research.md).
+Kanji details are modular. The **Kanji facts and origins map** setting adds compact facts such as type, JLPT, school grade, stroke count, frequency, Kanken, RTK frame, old forms, and radical data when those values are available from JPDB, KanjiVG, RTK, imported local dictionaries, or optional public kanji sources. The 2D map stays lightweight and uses per-kanji components instead of bundling a large etymology dataset. The Kanji Alive / Kanji Map, Wiktionary, component graph, and radical-image sections can each be turned off. Source research and follow-up decisions live in [`docs/kanji-source-research.md`](docs/kanji-source-research.md).
 
 Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes JPDB meaning/status, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, and optional video screenshots. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
 
@@ -115,10 +115,10 @@ npm run check
 Run the reproducible browser QA audit:
 
 ```bash
-YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY npm run qa:audit
+npm run qa:audit
 ```
 
-This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, tests YouTube immersion filtering and its escape hatches, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`.
+This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB and kanji source requests for deterministic fixture coverage, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, tests YouTube immersion filtering and its escape hatches, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you also want the secret-leak guard to confirm the key only came from the environment.
 
 Run the local fixtures:
 
@@ -168,6 +168,7 @@ npm run prefill:greasyfork
 - Definition sources can be reordered in settings. JPDB can be disabled as a definition source while still using JPDB for parsing, mining, audio context, and kanji pages.
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
+- Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, Wiktionary notes, component graph, and radical images can be toggled separately.
 - The userscript intentionally excludes `jpdb.io` by default. That avoids breaking JPDB's own review UI and avoids making active flashcard review too easy by injecting answers onto JPDB pages.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
@@ -190,8 +191,22 @@ npm run prefill:greasyfork
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
 - [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg) for kanji stroke-order SVG data.
-- [Kanji Alive](https://github.com/kanjialive/kanji-data-media), [The Kanji Map](https://thekanjimap.com/about), [Wiktionary](https://en.wiktionary.org/wiki/Wiktionary:Copyrights), Genetic Kanji, Okjiten, and Outlier Dictionary informed the kanji source research; only license-safe existing/local sources are used in the bundled origins panel today.
+- [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) for radical images and structured kanji facts, used through runtime lookups and credited under CC BY 4.0.
+- [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) for the per-kanji JSON bridge and graph/presentation reference; its README credits KanjiVG, Kanji Alive, Jisho-derived data, animCJK, and other upstreams.
+- [Wiktionary](https://en.wiktionary.org/wiki/Wiktionary:Copyrights) for optional short historical notes and form images, under CC BY-SA 4.0 / GFDL terms with page links shown in the UI.
+- [Genetic Kanji](http://www.genetickanji.com/query.asp?id=c22235), [Okjiten](https://okjiten.jp/index.html), and Outlier Dictionary informed the kanji-source UX research. Their content is not bundled or scraped by default without a clear API/license path.
 - [NihongoTube](https://nihongotube.app) for the Japanese-only YouTube immersion idea and page-filtering behavior.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter) for the RTK data source and presentation cues.
 - [AnkiConnect](https://foosoft.net/projects/anki-connect/) for local Anki card creation.
 - [JPDB](https://jpdb.io), [Google Lens](https://lens.google.com), and [Google Cloud Vision](https://cloud.google.com/vision) for the external services users can connect to or use through the reader.
+
+## Source Licenses
+
+| Source | License / terms used by よむ |
+| --- | --- |
+| よむ source code | MIT |
+| KanjiVG | Creative Commons Attribution-ShareAlike 3.0 |
+| Kanji Alive data/media | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |
+| Wiktionary text | Creative Commons Attribution-ShareAlike 4.0 / GFDL; よむ fetches short attributed notes at runtime |
+| Yomitan, asbplayer, AnkiConnect, YomiNinja, NihongoTube references | See each upstream project for its license; used as implementation/UX references or interoperable formats |
+| Genetic Kanji, Okjiten, Outlier Dictionary | Reference/inspiration only unless the user supplies licensed data or a permissioned API |
