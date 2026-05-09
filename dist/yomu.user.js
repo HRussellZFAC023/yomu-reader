@@ -3188,6 +3188,8 @@
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
+    hoverOpenDelayMs: 120,
+    hoverCloseDelayMs: 260,
     popupActivationMode: "hover",
     scanModifierKey: "shift",
     autoScanJapanese: true,
@@ -3288,6 +3290,8 @@
       jpdbDefinitionsPriority: clampNumber(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
       lookupOnClick: typeof (value == null ? void 0 : value.lookupOnClick) === "boolean" ? value.lookupOnClick : true,
       lookupOnHover: typeof (value == null ? void 0 : value.lookupOnHover) === "boolean" ? value.lookupOnHover : (value == null ? void 0 : value.popupActivationMode) !== "click",
+      hoverOpenDelayMs: clampNumber(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+      hoverCloseDelayMs: clampNumber(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs),
       accentColor: sanitizeAccentColor(value == null ? void 0 : value.accentColor),
       audioSources,
       audioSourceUrl: ((_a = audioSources.find((source) => source.url)) == null ? void 0 : _a.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL,
@@ -5980,6 +5984,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
       addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
       holdWhileHovering: "Hold while hovering",
+      hoverOpenDelayMs: "Hover open delay (ms)",
+      hoverCloseDelayMs: "Hover close delay (ms)",
       pressKeys: "Press keys",
       blankPlainHover: "Blank means hover without a key",
       openSettings: "Open settings",
@@ -6218,6 +6224,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       decksUnavailable: "まだデッキを読み込めません。保存済みのデッキIDは維持されます。",
       addApiKeyChooseDecks: "JPDB APIキーを追加するとデッキを選べます。",
       holdWhileHovering: "ホバー中に押すキー",
+      hoverOpenDelayMs: "ホバー表示までの遅延 (ms)",
+      hoverCloseDelayMs: "ホバーを閉じる遅延 (ms)",
       pressKeys: "キーを押してください",
       blankPlainHover: "空欄ならキーなしホバー",
       openSettings: "設定を開く",
@@ -10546,6 +10554,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       __publicField(this, "autoScanObserver");
       __publicField(this, "asbScanTimer");
       __publicField(this, "hoverLookupTimer");
+      __publicField(this, "hoverCloseTimer");
+      __publicField(this, "hoverPendingWord");
+      __publicField(this, "activeHoverWord");
+      __publicField(this, "suppressedHoverWord");
+      __publicField(this, "activePopoverMode");
+      __publicField(this, "activePopoverAnchor");
+      __publicField(this, "lastPointerPosition");
       __publicField(this, "settingsPreviewOriginalAccent");
       __publicField(this, "settingsPreviewOriginalLanguage");
       __publicField(this, "lastAutoAudioKey", "");
@@ -10661,26 +10676,16 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         event.stopPropagation();
         this.suppressSelectionLookupUntil = Date.now() + 350;
         if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
-        void this.showWord(word);
+        void this.showWord(word, { trigger: "click" });
       }, { capture: true });
       document.addEventListener("pointerover", (event) => {
-        var _a, _b;
-        const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
-        if (!word || event.pointerType === "touch") return;
-        if (!this.shouldLookupOnHover(event)) return;
-        window.clearTimeout(this.hoverLookupTimer);
-        this.hoverLookupTimer = window.setTimeout(() => {
-          if (!word.isConnected || !word.matches(":hover")) return;
-          if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
-          void this.showWord(word);
-        }, 180);
+        this.handleHoverPointer(event);
+      }, { capture: true });
+      document.addEventListener("pointermove", (event) => {
+        this.handleHoverPointer(event);
       }, { capture: true });
       document.addEventListener("pointerout", (event) => {
-        var _a, _b;
-        const related = event.relatedTarget;
-        const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
-        if (!word || related && word.contains(related)) return;
-        window.clearTimeout(this.hoverLookupTimer);
+        this.handleHoverPointerOut(event);
       }, { capture: true });
       document.addEventListener("keyup", () => {
         if (!this.settings.parseSelection) return;
@@ -10701,11 +10706,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         var _a;
         this.pressedKeys.add(normalizePressedKey(event.key));
         if (isEditableTarget(event.target)) return;
-        if (matchesShortcut(event, this.settings.shortcuts.closePopup) && this.hasOpenReaderDialog()) {
+        const escapeClose = this.settings.shortcuts.closePopup.trim().toLowerCase() === "escape" && event.key === "Escape";
+        if ((escapeClose || matchesShortcut(event, this.settings.shortcuts.closePopup)) && this.hasOpenReaderDialog()) {
           event.preventDefault();
-          this.dismiss();
+          this.dismiss({ suppressHoverTarget: true });
           return;
         }
+        if (this.settings.shortcuts.hoverLookup.trim() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
         if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
           event.preventDefault();
           void this.scanVisiblePage({ silent: true });
@@ -10749,8 +10756,20 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       });
       document.addEventListener("keyup", (event) => {
         this.pressedKeys.delete(normalizePressedKey(event.key));
+        if (this.settings.shortcuts.hoverLookup.trim() && !this.shouldLookupOnHover(event)) {
+          window.clearTimeout(this.hoverLookupTimer);
+          this.hoverLookupTimer = void 0;
+          this.hoverPendingWord = void 0;
+          if (this.activePopoverMode === "hover") this.scheduleHoverClose(0);
+        }
       });
-      window.addEventListener("blur", () => this.pressedKeys.clear());
+      window.addEventListener("blur", () => {
+        this.pressedKeys.clear();
+        window.clearTimeout(this.hoverLookupTimer);
+        this.hoverLookupTimer = void 0;
+        this.hoverPendingWord = void 0;
+        if (this.activePopoverMode === "hover") this.scheduleHoverClose(0);
+      });
     }
     shortcutGrade(event) {
       if (!this.settings.enableReviews) return null;
@@ -10768,6 +10787,102 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     shouldLookupOnHover(event) {
       return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys);
+    }
+    handleHoverPointer(event) {
+      var _a, _b;
+      this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+      if (event.pointerType === "touch") return;
+      if (this.isInsideActivePopover(event.target)) {
+        this.cancelHoverClose();
+        return;
+      }
+      const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
+      if (!word || word.closest("[data-jpdb-reader-root]")) return;
+      if (this.activePopoverMode === "hover" && this.activeHoverWord === word) {
+        this.cancelHoverClose();
+        return;
+      }
+      if (!this.shouldLookupOnHover(event)) return;
+      this.scheduleHoverLookup(word, event);
+    }
+    handleHoverPointerOut(event) {
+      var _a, _b;
+      const related = event.relatedTarget;
+      if (this.isInsideActivePopover(event.target)) {
+        if (this.isInsideActivePopover(related) || this.activeHoverWord && this.isInsideNode(related, this.activeHoverWord)) return;
+        this.scheduleHoverClose();
+        return;
+      }
+      const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
+      if (!word || related && word.contains(related)) return;
+      window.clearTimeout(this.hoverLookupTimer);
+      if (this.hoverPendingWord === word) this.hoverPendingWord = void 0;
+      if (this.suppressedHoverWord === word) this.suppressedHoverWord = void 0;
+      if (this.activePopoverMode === "hover" && this.activeHoverWord === word) {
+        if (this.isInsideActivePopover(related)) {
+          this.cancelHoverClose();
+          return;
+        }
+        this.scheduleHoverClose();
+      }
+    }
+    scheduleHoverLookupAtPointer(event) {
+      var _a;
+      if (!this.lastPointerPosition) return;
+      const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+      const word = (_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, ".jpdb-reader-word");
+      if (!word || word.closest("[data-jpdb-reader-root]")) return;
+      this.scheduleHoverLookup(word, event);
+    }
+    scheduleHoverLookup(word, event) {
+      if (this.suppressedHoverWord === word) return;
+      if (this.activePopoverMode === "hover" && this.activeHoverWord === word) return;
+      if (this.hoverPendingWord === word && this.hoverLookupTimer) return;
+      this.cancelHoverClose();
+      window.clearTimeout(this.hoverLookupTimer);
+      this.hoverPendingWord = word;
+      this.hoverLookupTimer = window.setTimeout(() => {
+        this.hoverLookupTimer = void 0;
+        this.hoverPendingWord = void 0;
+        if (!word.isConnected || this.suppressedHoverWord === word) return;
+        if (!this.isWordHoverActive(word) || !this.settings.lookupOnHover) return;
+        if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys)) return;
+        if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
+        void this.showWord(word, { trigger: "hover" });
+      }, Math.max(0, this.settings.hoverOpenDelayMs));
+    }
+    cancelHoverClose() {
+      window.clearTimeout(this.hoverCloseTimer);
+      this.hoverCloseTimer = void 0;
+    }
+    scheduleHoverClose(delay = this.settings.hoverCloseDelayMs) {
+      if (this.activePopoverMode !== "hover") return;
+      this.cancelHoverClose();
+      this.hoverCloseTimer = window.setTimeout(() => {
+        this.hoverCloseTimer = void 0;
+        if (this.isHoverContextActive()) return;
+        this.dismiss({ suppressHoverTarget: false });
+      }, Math.max(0, delay));
+    }
+    isHoverContextActive() {
+      var _a;
+      if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord)) return true;
+      if ((_a = this.activePopover) == null ? void 0 : _a.matches(":hover")) return true;
+      if (!this.lastPointerPosition) return false;
+      const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+      return this.isInsideActivePopover(target) || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
+    }
+    isWordHoverActive(word) {
+      if (word.matches(":hover")) return true;
+      if (!this.lastPointerPosition) return false;
+      const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+      return this.isInsideNode(target, word);
+    }
+    isInsideActivePopover(node) {
+      return Boolean(this.activePopover && this.isInsideNode(node, this.activePopover));
+    }
+    isInsideNode(node, root) {
+      return Boolean(node && (node === root || root.contains(node)));
     }
     async toggleYoutubeImmersion() {
       await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
@@ -10830,7 +10945,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       } catch {
       }
     }
-    async showWord(word) {
+    async showWord(word, options = {}) {
       const vid = Number(word.dataset.vid);
       const sid = Number(word.dataset.sid);
       const card = this.jpdb.getCard(vid, sid);
@@ -10838,7 +10953,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         this.toast("That word is no longer in the local JPDB cache. Scan it again.");
         return;
       }
-      void this.showCard(card, word.dataset.sentence || void 0, word);
+      void this.showCard(card, word.dataset.sentence || void 0, word, { trigger: options.trigger === "hover" ? "hover" : "modal" });
     }
     showTokenList(tokens, selected) {
       if (!tokens.length) return;
@@ -10975,7 +11090,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         event.stopPropagation();
         void this.handleCardAction(button2, card, sentence);
       });
-      this.mountPopover(popover, anchor);
+      this.mountPopover(popover, anchor, { mode: options.trigger === "hover" ? "hover" : "modal" });
       if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
     }
     shouldAutoPlay(card) {
@@ -11556,6 +11671,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                 <legend>Shortcuts</legend>
                 <div class="grid">
                     ${shortcutInput("shortcuts.hoverLookup", "Hold while hovering", this.settings.shortcuts.hoverLookup, "Blank means hover without a key")}
+                    ${input("hoverOpenDelayMs", "Hover open delay (ms)", String(this.settings.hoverOpenDelayMs), "number")}
+                    ${input("hoverCloseDelayMs", "Hover close delay (ms)", String(this.settings.hoverCloseDelayMs), "number")}
                     ${shortcutInput("shortcuts.scanPage", "Scan page", this.settings.shortcuts.scanPage)}
                     ${shortcutInput("shortcuts.openSettings", "Open settings", this.settings.shortcuts.openSettings)}
                     ${shortcutInput("shortcuts.playAudio", "Play audio", this.settings.shortcuts.playAudio)}
@@ -11839,18 +11956,33 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (this.shouldUseSheet()) popover.classList.add("jpdb-reader-sheet");
       return popover;
     }
-    mountPopover(popover, anchor) {
-      const backdrop = this.createBackdrop();
-      this.dismiss();
-      document.body.append(backdrop, popover);
+    mountPopover(popover, anchor, options = {}) {
+      const mode = options.mode ?? "modal";
+      const useBackdrop = mode !== "hover";
+      const backdrop = useBackdrop ? this.createBackdrop() : void 0;
+      this.dismiss({ suppressHoverTarget: false });
+      popover.setAttribute("aria-modal", String(useBackdrop));
+      if (backdrop) document.body.append(backdrop, popover);
+      else document.body.append(popover);
       this.activeBackdrop = backdrop;
       this.activePopover = popover;
+      this.activePopoverMode = mode;
+      this.activePopoverAnchor = anchor;
+      this.activeHoverWord = mode === "hover" ? anchor : void 0;
       if (!popover.classList.contains("jpdb-reader-sheet")) {
         positionPopover(popover, anchor);
       } else {
         this.installSheetHandle(popover);
       }
+      if (mode === "hover") this.installHoverPopoverLifecycle(popover);
       popover.focus();
+    }
+    installHoverPopoverLifecycle(popover) {
+      popover.addEventListener("pointerenter", () => this.cancelHoverClose());
+      popover.addEventListener("pointerleave", (event) => {
+        if (this.activeHoverWord && this.isInsideNode(event.relatedTarget, this.activeHoverWord)) return;
+        this.scheduleHoverClose();
+      });
     }
     installSheetHandle(popover) {
       const handle = popover.querySelector(".jpdb-reader-sheet-handle");
@@ -11938,8 +12070,17 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (this.settings.popupMode === "popover") return false;
       return window.innerWidth <= 768 || matchMedia("(pointer: coarse)").matches;
     }
-    dismiss() {
+    dismiss(options = { suppressHoverTarget: true }) {
       var _a, _b, _c, _d;
+      window.clearTimeout(this.hoverLookupTimer);
+      window.clearTimeout(this.hoverCloseTimer);
+      this.hoverLookupTimer = void 0;
+      this.hoverCloseTimer = void 0;
+      this.hoverPendingWord = void 0;
+      const suppressTarget = this.activePopoverMode === "hover" ? this.activeHoverWord : this.activePopoverAnchor;
+      if (options.suppressHoverTarget && (suppressTarget == null ? void 0 : suppressTarget.isConnected) && suppressTarget.classList.contains("jpdb-reader-word")) {
+        this.suppressedHoverWord = suppressTarget;
+      }
       this.cardRenderRequest++;
       if (this.settingsPreviewOriginalAccent !== void 0 && ((_a = this.activePopover) == null ? void 0 : _a.classList.contains("jpdb-reader-settings"))) {
         this.applyAccentColor(this.settingsPreviewOriginalAccent);
@@ -11954,6 +12095,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element2) => element2.remove());
       this.activePopover = void 0;
       this.activeBackdrop = void 0;
+      this.activePopoverMode = void 0;
+      this.activePopoverAnchor = void 0;
+      this.activeHoverWord = void 0;
     }
     toast(message) {
       const toast = document.createElement("div");
@@ -12486,6 +12630,8 @@ ${entry.reading}`;
       ["localDictionaryShowKanji", "localDictionaryShowKanji"],
       ["localDictionaryMaxResults", "localDictionaryMaxResults"],
       ["shortcuts.hoverLookup", "holdWhileHovering"],
+      ["hoverOpenDelayMs", "hoverOpenDelayMs"],
+      ["hoverCloseDelayMs", "hoverCloseDelayMs"],
       ["shortcuts.scanPage", "scanPage"],
       ["shortcuts.openSettings", "openSettings"],
       ["shortcuts.playAudio", "playAudio"],
@@ -13042,6 +13188,8 @@ ${entry.reading}`;
       parseSelection: has("parseSelection"),
       lookupOnClick: has("lookupOnClick"),
       lookupOnHover: has("lookupOnHover"),
+      hoverOpenDelayMs: Math.max(0, Math.min(1500, number("hoverOpenDelayMs", current.hoverOpenDelayMs))),
+      hoverCloseDelayMs: Math.max(0, Math.min(3e3, number("hoverCloseDelayMs", current.hoverCloseDelayMs))),
       popupActivationMode: current.popupActivationMode,
       scanModifierKey: current.scanModifierKey,
       autoScanJapanese: has("autoScanJapanese"),

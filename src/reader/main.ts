@@ -100,6 +100,13 @@ class ReaderApp {
     private autoScanObserver?: MutationObserver;
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;
+    private hoverCloseTimer?: number;
+    private hoverPendingWord?: HTMLElement;
+    private activeHoverWord?: HTMLElement;
+    private suppressedHoverWord?: HTMLElement;
+    private activePopoverMode?: 'modal' | 'hover';
+    private activePopoverAnchor?: HTMLElement;
+    private lastPointerPosition?: { x: number; y: number };
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
     private lastAutoAudioKey = '';
@@ -224,26 +231,19 @@ class ReaderApp {
             event.stopPropagation();
             this.suppressSelectionLookupUntil = Date.now() + 350;
             if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
-            void this.showWord(word);
+            void this.showWord(word, { trigger: 'click' });
         }, { capture: true });
 
         document.addEventListener('pointerover', event => {
-            const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (!word || event.pointerType === 'touch') return;
-            if (!this.shouldLookupOnHover(event)) return;
-            window.clearTimeout(this.hoverLookupTimer);
-            this.hoverLookupTimer = window.setTimeout(() => {
-                if (!word.isConnected || !word.matches(':hover')) return;
-                if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
-                void this.showWord(word);
-            }, 180);
+            this.handleHoverPointer(event);
+        }, { capture: true });
+
+        document.addEventListener('pointermove', event => {
+            this.handleHoverPointer(event);
         }, { capture: true });
 
         document.addEventListener('pointerout', event => {
-            const related = event.relatedTarget as Node | null;
-            const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (!word || (related && word.contains(related))) return;
-            window.clearTimeout(this.hoverLookupTimer);
+            this.handleHoverPointerOut(event);
         }, { capture: true });
 
         document.addEventListener('keyup', () => {
@@ -267,11 +267,13 @@ class ReaderApp {
         document.addEventListener('keydown', event => {
             this.pressedKeys.add(normalizePressedKey(event.key));
             if (isEditableTarget(event.target)) return;
-            if (matchesShortcut(event, this.settings.shortcuts.closePopup) && this.hasOpenReaderDialog()) {
+            const escapeClose = this.settings.shortcuts.closePopup.trim().toLowerCase() === 'escape' && event.key === 'Escape';
+            if ((escapeClose || matchesShortcut(event, this.settings.shortcuts.closePopup)) && this.hasOpenReaderDialog()) {
                 event.preventDefault();
-                this.dismiss();
+                this.dismiss({ suppressHoverTarget: true });
                 return;
             }
+            if (this.settings.shortcuts.hoverLookup.trim() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
             if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
                 event.preventDefault();
                 void this.scanVisiblePage({ silent: true });
@@ -315,8 +317,20 @@ class ReaderApp {
         });
         document.addEventListener('keyup', event => {
             this.pressedKeys.delete(normalizePressedKey(event.key));
+            if (this.settings.shortcuts.hoverLookup.trim() && !this.shouldLookupOnHover(event)) {
+                window.clearTimeout(this.hoverLookupTimer);
+                this.hoverLookupTimer = undefined;
+                this.hoverPendingWord = undefined;
+                if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0);
+            }
         });
-        window.addEventListener('blur', () => this.pressedKeys.clear());
+        window.addEventListener('blur', () => {
+            this.pressedKeys.clear();
+            window.clearTimeout(this.hoverLookupTimer);
+            this.hoverLookupTimer = undefined;
+            this.hoverPendingWord = undefined;
+            if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0);
+        });
     }
 
     private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {
@@ -334,8 +348,114 @@ class ReaderApp {
         return null;
     }
 
-    private shouldLookupOnHover(event: MouseEvent): boolean {
+    private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {
         return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys);
+    }
+
+    private handleHoverPointer(event: PointerEvent): void {
+        this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+        if (event.pointerType === 'touch') return;
+        if (this.isInsideActivePopover(event.target as Node | null)) {
+            this.cancelHoverClose();
+            return;
+        }
+
+        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+        if (!word || word.closest('[data-jpdb-reader-root]')) return;
+        if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) {
+            this.cancelHoverClose();
+            return;
+        }
+        if (!this.shouldLookupOnHover(event)) return;
+        this.scheduleHoverLookup(word, event);
+    }
+
+    private handleHoverPointerOut(event: PointerEvent): void {
+        const related = event.relatedTarget as Node | null;
+        if (this.isInsideActivePopover(event.target as Node | null)) {
+            if (this.isInsideActivePopover(related) || (this.activeHoverWord && this.isInsideNode(related, this.activeHoverWord))) return;
+            this.scheduleHoverClose();
+            return;
+        }
+
+        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+        if (!word || (related && word.contains(related))) return;
+        window.clearTimeout(this.hoverLookupTimer);
+        if (this.hoverPendingWord === word) this.hoverPendingWord = undefined;
+        if (this.suppressedHoverWord === word) this.suppressedHoverWord = undefined;
+
+        if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) {
+            if (this.isInsideActivePopover(related)) {
+                this.cancelHoverClose();
+                return;
+            }
+            this.scheduleHoverClose();
+        }
+    }
+
+    private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
+        if (!this.lastPointerPosition) return;
+        const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) as HTMLElement | null;
+        const word = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
+        if (!word || word.closest('[data-jpdb-reader-root]')) return;
+        this.scheduleHoverLookup(word, event);
+    }
+
+    private scheduleHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent): void {
+        if (this.suppressedHoverWord === word) return;
+        if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) return;
+        if (this.hoverPendingWord === word && this.hoverLookupTimer) return;
+
+        this.cancelHoverClose();
+        window.clearTimeout(this.hoverLookupTimer);
+        this.hoverPendingWord = word;
+        this.hoverLookupTimer = window.setTimeout(() => {
+            this.hoverLookupTimer = undefined;
+            this.hoverPendingWord = undefined;
+            if (!word.isConnected || this.suppressedHoverWord === word) return;
+            if (!this.isWordHoverActive(word) || !this.settings.lookupOnHover) return;
+            if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys)) return;
+            if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
+            void this.showWord(word, { trigger: 'hover' });
+        }, Math.max(0, this.settings.hoverOpenDelayMs));
+    }
+
+    private cancelHoverClose(): void {
+        window.clearTimeout(this.hoverCloseTimer);
+        this.hoverCloseTimer = undefined;
+    }
+
+    private scheduleHoverClose(delay = this.settings.hoverCloseDelayMs): void {
+        if (this.activePopoverMode !== 'hover') return;
+        this.cancelHoverClose();
+        this.hoverCloseTimer = window.setTimeout(() => {
+            this.hoverCloseTimer = undefined;
+            if (this.isHoverContextActive()) return;
+            this.dismiss({ suppressHoverTarget: false });
+        }, Math.max(0, delay));
+    }
+
+    private isHoverContextActive(): boolean {
+        if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord)) return true;
+        if (this.activePopover?.matches(':hover')) return true;
+        if (!this.lastPointerPosition) return false;
+        const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+        return this.isInsideActivePopover(target) || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
+    }
+
+    private isWordHoverActive(word: HTMLElement): boolean {
+        if (word.matches(':hover')) return true;
+        if (!this.lastPointerPosition) return false;
+        const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+        return this.isInsideNode(target, word);
+    }
+
+    private isInsideActivePopover(node: Node | null): boolean {
+        return Boolean(this.activePopover && this.isInsideNode(node, this.activePopover));
+    }
+
+    private isInsideNode(node: Node | null, root: Node): boolean {
+        return Boolean(node && (node === root || root.contains(node)));
     }
 
     private async toggleYoutubeImmersion(): Promise<void> {
@@ -411,7 +531,7 @@ class ReaderApp {
         }
     }
 
-    private async showWord(word: HTMLElement): Promise<void> {
+    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' } = {}): Promise<void> {
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
         const card = this.jpdb.getCard(vid, sid);
@@ -419,7 +539,7 @@ class ReaderApp {
             this.toast('That word is no longer in the local JPDB cache. Scan it again.');
             return;
         }
-        void this.showCard(card, word.dataset.sentence || undefined, word);
+        void this.showCard(card, word.dataset.sentence || undefined, word, { trigger: options.trigger === 'hover' ? 'hover' : 'modal' });
     }
 
     private showTokenList(tokens: JPDBToken[], selected: string): void {
@@ -506,7 +626,7 @@ class ReaderApp {
         this.mountPopover(popover, anchor);
     }
 
-    private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: { autoPlay?: boolean } = {}): Promise<void> {
+    private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: { autoPlay?: boolean; trigger?: 'modal' | 'hover' } = {}): Promise<void> {
         const requestId = ++this.cardRenderRequest;
         this.lastCard = card;
         const state = card.cardState[0] ?? 'not-in-deck';
@@ -575,7 +695,7 @@ class ReaderApp {
             void this.handleCardAction(button, card, sentence);
         });
 
-        this.mountPopover(popover, anchor);
+        this.mountPopover(popover, anchor, { mode: options.trigger === 'hover' ? 'hover' : 'modal' });
         if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
     }
 
@@ -1207,6 +1327,8 @@ class ReaderApp {
                 <legend>Shortcuts</legend>
                 <div class="grid">
                     ${shortcutInput('shortcuts.hoverLookup', 'Hold while hovering', this.settings.shortcuts.hoverLookup, 'Blank means hover without a key')}
+                    ${input('hoverOpenDelayMs', 'Hover open delay (ms)', String(this.settings.hoverOpenDelayMs), 'number')}
+                    ${input('hoverCloseDelayMs', 'Hover close delay (ms)', String(this.settings.hoverCloseDelayMs), 'number')}
                     ${shortcutInput('shortcuts.scanPage', 'Scan page', this.settings.shortcuts.scanPage)}
                     ${shortcutInput('shortcuts.openSettings', 'Open settings', this.settings.shortcuts.openSettings)}
                     ${shortcutInput('shortcuts.playAudio', 'Play audio', this.settings.shortcuts.playAudio)}
@@ -1506,19 +1628,35 @@ class ReaderApp {
         return popover;
     }
 
-    private mountPopover(popover: HTMLElement, anchor?: HTMLElement): void {
-        const backdrop = this.createBackdrop();
-        this.dismiss();
-        document.body.append(backdrop, popover);
+    private mountPopover(popover: HTMLElement, anchor?: HTMLElement, options: { mode?: 'modal' | 'hover' } = {}): void {
+        const mode = options.mode ?? 'modal';
+        const useBackdrop = mode !== 'hover';
+        const backdrop = useBackdrop ? this.createBackdrop() : undefined;
+        this.dismiss({ suppressHoverTarget: false });
+        popover.setAttribute('aria-modal', String(useBackdrop));
+        if (backdrop) document.body.append(backdrop, popover);
+        else document.body.append(popover);
         this.activeBackdrop = backdrop;
         this.activePopover = popover;
+        this.activePopoverMode = mode;
+        this.activePopoverAnchor = anchor;
+        this.activeHoverWord = mode === 'hover' ? anchor : undefined;
 
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             positionPopover(popover, anchor);
         } else {
             this.installSheetHandle(popover);
         }
+        if (mode === 'hover') this.installHoverPopoverLifecycle(popover);
         popover.focus();
+    }
+
+    private installHoverPopoverLifecycle(popover: HTMLElement): void {
+        popover.addEventListener('pointerenter', () => this.cancelHoverClose());
+        popover.addEventListener('pointerleave', event => {
+            if (this.activeHoverWord && this.isInsideNode(event.relatedTarget as Node | null, this.activeHoverWord)) return;
+            this.scheduleHoverClose();
+        });
     }
 
     private installSheetHandle(popover: HTMLElement): void {
@@ -1607,7 +1745,16 @@ class ReaderApp {
         return window.innerWidth <= 768 || matchMedia('(pointer: coarse)').matches;
     }
 
-    private dismiss(): void {
+    private dismiss(options: { suppressHoverTarget?: boolean } = { suppressHoverTarget: true }): void {
+        window.clearTimeout(this.hoverLookupTimer);
+        window.clearTimeout(this.hoverCloseTimer);
+        this.hoverLookupTimer = undefined;
+        this.hoverCloseTimer = undefined;
+        this.hoverPendingWord = undefined;
+        const suppressTarget = this.activePopoverMode === 'hover' ? this.activeHoverWord : this.activePopoverAnchor;
+        if (options.suppressHoverTarget && suppressTarget?.isConnected && suppressTarget.classList.contains('jpdb-reader-word')) {
+            this.suppressedHoverWord = suppressTarget;
+        }
         this.cardRenderRequest++;
         if (this.settingsPreviewOriginalAccent !== undefined && this.activePopover?.classList.contains('jpdb-reader-settings')) {
             this.applyAccentColor(this.settingsPreviewOriginalAccent);
@@ -1623,6 +1770,9 @@ class ReaderApp {
             .forEach(element => element.remove());
         this.activePopover = undefined;
         this.activeBackdrop = undefined;
+        this.activePopoverMode = undefined;
+        this.activePopoverAnchor = undefined;
+        this.activeHoverWord = undefined;
     }
 
     private toast(message: string): void {
@@ -2207,6 +2357,8 @@ function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage
         ['localDictionaryShowKanji', 'localDictionaryShowKanji'],
         ['localDictionaryMaxResults', 'localDictionaryMaxResults'],
         ['shortcuts.hoverLookup', 'holdWhileHovering'],
+        ['hoverOpenDelayMs', 'hoverOpenDelayMs'],
+        ['hoverCloseDelayMs', 'hoverCloseDelayMs'],
         ['shortcuts.scanPage', 'scanPage'],
         ['shortcuts.openSettings', 'openSettings'],
         ['shortcuts.playAudio', 'playAudio'],
@@ -2797,6 +2949,8 @@ function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettin
         parseSelection: has('parseSelection'),
         lookupOnClick: has('lookupOnClick'),
         lookupOnHover: has('lookupOnHover'),
+        hoverOpenDelayMs: Math.max(0, Math.min(1500, number('hoverOpenDelayMs', current.hoverOpenDelayMs))),
+        hoverCloseDelayMs: Math.max(0, Math.min(3000, number('hoverCloseDelayMs', current.hoverCloseDelayMs))),
         popupActivationMode: current.popupActivationMode,
         scanModifierKey: current.scanModifierKey,
         autoScanJapanese: has('autoScanJapanese'),

@@ -145,6 +145,8 @@ export interface ReaderSettings {
     parseSelection: boolean;
     lookupOnClick: boolean;
     lookupOnHover: boolean;
+    hoverOpenDelayMs: number;
+    hoverCloseDelayMs: number;
     popupActivationMode: PopupActivationMode;
     scanModifierKey: ScanModifierKey;
     autoScanJapanese: boolean;
