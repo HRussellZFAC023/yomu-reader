@@ -11,13 +11,13 @@ npm ci
 npm run check
 ```
 
-Use the browser QA audit when a JPDB test key is available:
+Use the browser QA audit for fixture coverage:
 
 ```bash
-YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY npm run qa:audit
+npm run qa:audit
 ```
 
-If the key is unavailable, run the non-live checks and list the skipped live JPDB/browser checks explicitly.
+The audit mocks JPDB and kanji-source network calls for deterministic local runs. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you specifically need the secret-leak guard to check that key handling path.
 
 ## Constraints
 

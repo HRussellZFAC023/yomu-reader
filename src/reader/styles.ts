@@ -688,6 +688,8 @@ export const READER_CSS = `
   background: linear-gradient(180deg, color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent), var(--jpdb-reader-surface-2));
   color: var(--jpdb-reader-text);
   text-align: center;
+  font: inherit;
+  cursor: pointer;
 }
 .jpdb-reader-origin-node.current {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
@@ -695,6 +697,12 @@ export const READER_CSS = `
 }
 .jpdb-reader-origin-node.related {
   border-style: dashed;
+  cursor: default;
+}
+.jpdb-reader-origin-node:hover,
+.jpdb-reader-origin-node:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
 }
 .jpdb-reader-origin-node strong {
   font-size: 20px;
@@ -721,6 +729,123 @@ export const READER_CSS = `
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-muted);
   font-size: 11px;
+}
+.jpdb-reader-origin-detail {
+  display: grid;
+  gap: 8px;
+}
+.jpdb-reader-origin-detail p {
+  margin: 0;
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.jpdb-reader-origin-detail p span {
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-radical-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+}
+.jpdb-reader-radical-card img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--jpdb-reader-text) 92%, white);
+}
+.jpdb-reader-radical-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.jpdb-reader-radical-card strong {
+  color: var(--jpdb-reader-text);
+  font-size: 15px;
+}
+.jpdb-reader-radical-card span {
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.jpdb-reader-origin-examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 6px;
+}
+.jpdb-reader-origin-examples button {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.jpdb-reader-origin-examples button:hover,
+.jpdb-reader-origin-examples button:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
+}
+.jpdb-reader-origin-examples strong,
+.jpdb-reader-origin-examples span,
+.jpdb-reader-origin-examples small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-origin-examples span,
+.jpdb-reader-origin-examples small {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+.jpdb-reader-origin-wiktionary {
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+}
+.jpdb-reader-origin-wiktionary summary {
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+  font-weight: 800;
+}
+.jpdb-reader-origin-wiktionary p {
+  margin: 7px 0 0;
+  line-height: 1.4;
+}
+.jpdb-reader-origin-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.jpdb-reader-origin-images img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.jpdb-reader-origin-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+.jpdb-reader-origin-sources a {
+  color: var(--jpdb-reader-accent);
+  font-weight: 800;
+  text-decoration: none;
 }
 .jpdb-reader-rtk-head {
   display: flex;

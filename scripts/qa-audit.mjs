@@ -11,10 +11,12 @@ const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
 const API_KEY = process.env.YOMU_TEST_API_KEY?.trim() ?? '';
+const MOCK_API_KEY = 'yomu-qa-mock-key';
+const QA_API_KEY = API_KEY || MOCK_API_KEY;
 
 const baseSettings = {
     onboardingSeen: true,
-    apiKey: API_KEY,
+    apiKey: QA_API_KEY,
     interfaceLanguage: 'auto',
     accentColor: '#5ea780',
     jpdbDefinitionsEnabled: true,
@@ -22,6 +24,10 @@ const baseSettings = {
     rtkEnabled: true,
     kanjivgEnabled: true,
     kanjiOriginsEnabled: true,
+    kanjiOriginKanjiMapEnabled: true,
+    kanjiOriginWiktionaryEnabled: true,
+    kanjiOriginGraphEnabled: true,
+    kanjiOriginRadicalImagesEnabled: true,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: false,
@@ -176,6 +182,51 @@ function contentType(filePath) {
     return 'application/octet-stream';
 }
 
+function jsonQaResponse(value) {
+    const responseText = JSON.stringify(value);
+    return {
+        status: 200,
+        responseText,
+        bytes: [...Buffer.from(responseText, 'utf8')],
+        contentType: 'application/json; charset=utf-8',
+    };
+}
+
+function textQaResponse(responseText, contentTypeValue = 'text/html; charset=utf-8') {
+    return {
+        status: 200,
+        responseText,
+        bytes: [...Buffer.from(responseText, 'utf8')],
+        contentType: contentTypeValue,
+    };
+}
+
+function maybeMockQaRequest(request) {
+    const url = new URL(request.url);
+    if (url.hostname === 'jpdb.io' && url.pathname.startsWith('/api/v1/')) {
+        return mockJpdbApi(url.pathname.replace('/api/v1/', ''), request.data);
+    }
+    if (url.hostname === 'jpdb.io' && url.pathname.startsWith('/kanji/')) {
+        return textQaResponse(mockJpdbKanjiHtml(decodeURIComponent(url.pathname.split('/').pop() ?? '')));
+    }
+    if (url.hostname === 'hrussellzfac023.github.io' && url.pathname.startsWith('/rtk/')) {
+        const kanji = decodeURIComponent(url.pathname.split('/').filter(Boolean)[1] ?? '');
+        return textQaResponse(mockRtkHtml(kanji));
+    }
+    if (url.hostname === 'raw.githubusercontent.com' && url.pathname.includes('/KanjiVG/kanjivg/')) {
+        return textQaResponse(mockKanjiVgSvg(), 'image/svg+xml; charset=utf-8');
+    }
+    if (url.hostname === 'raw.githubusercontent.com' && url.pathname.includes('/gabor-kovacs/the-kanji-map/')) {
+        const kanji = decodeURIComponent((url.pathname.split('/').pop() ?? '').replace(/\.json$/i, ''));
+        return jsonQaResponse(mockKanjiMapData(kanji));
+    }
+    if (url.hostname === 'en.wiktionary.org' && url.pathname === '/w/api.php') {
+        const kanji = url.searchParams.get('page') ?? '字';
+        return jsonQaResponse(mockWiktionaryParse(kanji));
+    }
+    return null;
+}
+
 async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
     const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
     const requests = [];
@@ -194,6 +245,15 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
             }
             body = formData;
         }
+        const mocked = maybeMockQaRequest({ ...request, data: body });
+        if (mocked) {
+            requests.push({
+                method: request.method,
+                url: request.url.replace(QA_API_KEY, '[redacted]'),
+                status: mocked.status,
+            });
+            return mocked;
+        }
         const response = await fetch(request.url, {
             method: request.method,
             headers: request.headers,
@@ -202,7 +262,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
         const buffer = Buffer.from(await response.arrayBuffer());
         requests.push({
             method: request.method,
-            url: request.url.replace(API_KEY, '[redacted]'),
+            url: request.url.replace(QA_API_KEY, '[redacted]'),
             status: response.status,
         });
         return {
@@ -303,6 +363,205 @@ async function listFiles(dir, ignoredNames) {
         else files.push(full);
     }
     return files;
+}
+
+const qaVocabulary = [
+    ['今日', 'きょう', 'today', ['n'], 100],
+    ['今朝', 'けさ', 'this morning', ['n'], 900],
+    ['今週', 'こんしゅう', 'this week', ['n'], 1200],
+    ['静か', 'しずか', 'quiet', ['adj-na'], 1700],
+    ['喫茶店', 'きっさてん', 'coffee shop', ['n'], 2400],
+    ['新しい', 'あたらしい', 'new', ['adj-i'], 700],
+    ['本', 'ほん', 'book', ['n'], 350],
+    ['読む', 'よむ', 'to read', ['v5m'], 400],
+    ['読みました', 'よみました', 'read', ['v5m'], 401, '読む'],
+    ['学校', 'がっこう', 'school', ['n'], 500],
+    ['行きます', 'いきます', 'go', ['v5k'], 620, '行く'],
+    ['友だち', 'ともだち', 'friend', ['n'], 800],
+    ['花', 'はな', 'flower', ['n'], 1100],
+    ['食卓', 'しょくたく', 'dining table', ['n'], 1500],
+    ['リビング', 'りびんぐ', 'living room', ['n'], 2100],
+    ['暮らし', 'くらし', 'living', ['n'], 1900],
+    ['日本語', 'にほんご', 'Japanese language', ['n'], 250],
+].map(([surface, reading, gloss, partOfSpeech, frequency, spelling]) => ({
+    surface,
+    spelling: spelling ?? surface,
+    reading,
+    gloss,
+    partOfSpeech,
+    frequency,
+}));
+
+function mockJpdbApi(endpoint, body) {
+    if (endpoint === 'parse') return jsonQaResponse(mockJpdbParse(readJsonBody(body)));
+    if (endpoint === 'list-user-decks') return jsonQaResponse({ decks: [[1, 'Yomu'], [2, 'Mining']] });
+    if (endpoint === 'review' || endpoint === 'deck/add-vocabulary' || endpoint === 'deck/remove-vocabulary' || endpoint === 'set-card-sentence') {
+        return jsonQaResponse({});
+    }
+    return jsonQaResponse({});
+}
+
+function readJsonBody(body) {
+    if (!body) return {};
+    if (typeof body === 'string') {
+        try {
+            return JSON.parse(body);
+        } catch {
+            return {};
+        }
+    }
+    return {};
+}
+
+function mockJpdbParse(body) {
+    const paragraphs = Array.isArray(body.text) ? body.text.map(value => String(value)) : [];
+    const vocabulary = [];
+    const vocabIndexByKey = new Map();
+    const tokens = paragraphs.map(text => {
+        const paragraphTokens = [];
+        for (let index = 0; index < text.length;) {
+            const entry = qaVocabulary
+                .filter(item => text.startsWith(item.surface, index))
+                .sort((a, b) => b.surface.length - a.surface.length)[0];
+            if (!entry) {
+                index += 1;
+                continue;
+            }
+            let vocabIndex = vocabIndexByKey.get(entry.spelling);
+            if (vocabIndex === undefined) {
+                vocabIndex = vocabulary.length;
+                vocabIndexByKey.set(entry.spelling, vocabIndex);
+                vocabulary.push([
+                    100000 + vocabIndex,
+                    200000 + vocabIndex,
+                    0,
+                    entry.spelling,
+                    entry.reading,
+                    entry.frequency,
+                    entry.partOfSpeech,
+                    [[entry.gloss]],
+                    [entry.partOfSpeech],
+                    ['not-in-deck'],
+                    ['LHHL'],
+                ]);
+            }
+            paragraphTokens.push([
+                vocabIndex,
+                index,
+                entry.surface.length,
+                /[\u3400-\u9fff]/u.test(entry.surface) ? [[entry.surface, entry.reading]] : null,
+            ]);
+            index += entry.surface.length;
+        }
+        return paragraphTokens;
+    });
+    return { vocabulary, tokens };
+}
+
+function mockJpdbKanjiHtml(kanji) {
+    const records = {
+        今: { keyword: 'now', frequency: 'Top 100-200', type: 'Jouyou grade 2', reading: 'いま', component: '人', componentKeyword: 'person', usedIn: ['今日', 'きょう', 'today'] },
+        日: { keyword: 'day', frequency: 'Top 50-100', type: 'Jouyou grade 1', reading: 'ひ', component: '一', componentKeyword: 'one', usedIn: ['今日', 'きょう', 'today'] },
+        本: { keyword: 'book', frequency: 'Top 300-400', type: 'Jouyou grade 1', reading: 'ほん', component: '木', componentKeyword: 'tree', usedIn: ['本', 'ほん', 'book'] },
+        読: { keyword: 'read', frequency: 'Top 400-500', type: 'Jouyou grade 2', reading: 'よ', component: '言', componentKeyword: 'say', usedIn: ['読む', 'よむ', 'to read'] },
+    };
+    const record = records[kanji] ?? { keyword: 'kanji', frequency: 'Top 1000-2000', type: 'Jouyou', reading: kanji, component: '一', componentKeyword: 'one', usedIn: [kanji, kanji, 'example'] };
+    const [expression, reading, meaning] = record.usedIn;
+    return `<!doctype html><html><head><meta name="description" content="${htmlEscape(kanji)} - ${htmlEscape(record.keyword)}"></head><body>
+        <div><h6 class="subsection-label">Keyword</h6><div class="subsection">${htmlEscape(record.keyword)}</div></div>
+        <table class="cross-table">
+            <tr><td>Frequency</td><td>${htmlEscape(record.frequency)}</td></tr>
+            <tr><td>Type</td><td>${htmlEscape(record.type)}</td></tr>
+            <tr><td>Kanken</td><td>Level 9</td></tr>
+            <tr><td>Heisig</td><td>372</td></tr>
+            <tr><td>Old form</td><td><a href="/kanji/舊">舊</a></td></tr>
+            <tr><td>Readings</td><td class="kanji-reading-list-common"><div><a href="/kanji-reading/${encodeURIComponent(kanji)}/${encodeURIComponent(record.reading)}">${htmlEscape(record.reading)}</a><div>(80%)</div></div></td></tr>
+        </table>
+        <div class="subsection-composed-of-kanji"><h6 class="subsection-label">Composed of</h6><div class="subsection">
+            <div><div class="spelling"><a href="/kanji/${encodeURIComponent(record.component)}">${htmlEscape(record.component)}</a></div><div class="description">${htmlEscape(record.componentKeyword)}</div></div>
+        </div></div>
+        <div><h6 class="subsection-label">Mnemonic</h6><div class="subsection">Remember ${htmlEscape(kanji)} as ${htmlEscape(record.keyword)}.</div></div>
+        <div class="subsection-used-in"><div class="used-in">
+            <div class="jp"><a href="/vocabulary/1456360/${encodeURIComponent(expression)}/${encodeURIComponent(reading)}#a">${htmlEscape(expression)}</a></div>
+            <div class="en">${htmlEscape(meaning)}</div>
+        </div></div>
+    </body></html>`;
+}
+
+function mockRtkHtml(kanji) {
+    const keyword = kanji === '読' ? 'read' : kanji === '本' ? 'book' : kanji === '日' ? 'day' : 'now';
+    const elements = kanji === '読' ? '言、売' : '人、一';
+    return `<!doctype html><html><body>
+        <h2><code title="372">${htmlEscape(keyword)}</code></h2>
+        <h3>On-Yomi: ドク — Kun-Yomi: よ.む</h3>
+        <h2>Elements:</h2><p>${htmlEscape(elements)}</p>
+        <h2>Heisig story:</h2><p>QA story for ${htmlEscape(keyword)}.</p>
+        <h2>Heisig comment:</h2><p>QA comment for ${htmlEscape(keyword)}.</p>
+        <h2>Koohii stories:</h2><p>QA Koohii story.</p>
+    </body></html>`;
+}
+
+function mockKanjiVgSvg() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
+        <path d="M10,10 C25,30 45,30 60,10" />
+        <path d="M18,58 L82,58" />
+        <text transform="matrix(1 0 0 1 8 12)">1</text>
+    </svg>`;
+}
+
+function mockKanjiMapData(kanji) {
+    const partsByKanji = {
+        今: ['人', '一'],
+        日: ['口', '一'],
+        本: ['木', '一'],
+        読: ['言', '売'],
+    };
+    const meaningByKanji = { 今: 'now', 日: 'day', 本: 'book', 読: 'read' };
+    return {
+        kanjialiveData: {
+            grade: kanji === '日' || kanji === '本' ? 1 : 2,
+            kstroke: kanji === '読' ? 14 : 4,
+            radical: {
+                character: partsByKanji[kanji]?.[0] ?? '一',
+                strokes: 1,
+                image: 'https://media.kanjialive.com/radical_character/gonben.svg',
+                name: { hiragana: 'いち', romaji: 'ichi' },
+                meaning: { english: 'radical' },
+                position: { hiragana: 'へん' },
+            },
+            examples: [{ japanese: `${kanji}（${kanji}）`, meaning: { english: meaningByKanji[kanji] ?? 'kanji' } }],
+        },
+        jishoData: {
+            meaning: meaningByKanji[kanji] ?? 'kanji',
+            jlptLevel: 'N5',
+            taughtIn: kanji === '日' || kanji === '本' ? 'grade 1' : 'grade 2',
+            strokeCount: kanji === '読' ? 14 : 4,
+            newspaperFrequencyRank: '618',
+            kunyomi: ['よ.む'],
+            onyomi: ['ドク'],
+            parts: partsByKanji[kanji] ?? ['一'],
+            radical: { symbol: partsByKanji[kanji]?.[0] ?? '一', forms: [], meaning: 'radical' },
+            uri: `https://jisho.org/search/${encodeURIComponent(kanji)}%23kanji`,
+        },
+    };
+}
+
+function mockWiktionaryParse(kanji) {
+    return {
+        parse: {
+            text: {
+                '*': `<h2 id="Glyph_origin">Glyph origin</h2><p>${htmlEscape(kanji)} has historical forms documented in public dictionaries.</p><h2 id="Etymology">Etymology</h2><p>Short QA note for the kanji entry.</p>`,
+            },
+        },
+    };
+}
+
+function htmlEscape(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 async function seedLocalKanjiDictionaries(page) {
@@ -535,7 +794,6 @@ async function auditSettingsMobile(browser, server) {
 }
 
 async function auditBloomeeAutoScan(browser) {
-    assertAudit(API_KEY, 'YOMU_TEST_API_KEY is required for JPDB scan audit');
     const { page, requests } = await newAuditedPage(browser, { ...baseSettings, showFloatingButton: false, ocrEnabled: false });
     await page.goto('https://bloomeelife.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await injectUserscript(page);
@@ -581,7 +839,6 @@ async function auditBloomeeAutoScan(browser) {
 }
 
 async function auditHoverLookup(browser, server) {
-    assertAudit(API_KEY, 'YOMU_TEST_API_KEY is required for hover lookup audit');
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
     </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。</p></body></html>`;
@@ -627,6 +884,9 @@ async function auditHoverLookup(browser, server) {
         localKanjiText: document.querySelector('.jpdb-reader-kanji')?.textContent ?? '',
         originsText: document.querySelector('.jpdb-reader-origins')?.textContent ?? '',
         originNodes: document.querySelectorAll('.jpdb-reader-origin-node').length,
+        radicalCards: document.querySelectorAll('.jpdb-reader-radical-card').length,
+        sourceLinks: document.querySelectorAll('.jpdb-reader-origin-sources a').length,
+        historicalNotes: document.querySelector('.jpdb-reader-origin-wiktionary')?.textContent ?? '',
         kanjiVGPaths: document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length,
         doodleCanvas: Boolean(document.querySelector('.jpdb-reader-doodle-canvas')),
         componentButtons: document.querySelectorAll('.jpdb-reader-component-card[data-action="kanji"]').length,
@@ -636,8 +896,11 @@ async function auditHoverLookup(browser, server) {
     assertAudit(kanjiSnapshot.kanjiPill.includes('https://jpdb.io/kanji/'), 'kanji JPDB pill is not the kanji open link');
     assertAudit(kanjiSnapshot.backVisible, 'kanji drilldown is missing a back control');
     assertAudit(kanjiSnapshot.jpdbKanjiText.includes('Readings and components'), 'kanji details section is missing');
-    assertAudit(/Study facts and origins|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
+    assertAudit(/Origin and structure|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
     assertAudit(kanjiSnapshot.originNodes > 1, 'kanji origins map did not render component nodes');
+    assertAudit(kanjiSnapshot.radicalCards > 0, 'kanji radical card did not render');
+    assertAudit(kanjiSnapshot.sourceLinks >= 2, 'kanji source links did not render');
+    assertAudit(/historical forms|Short QA note/.test(kanjiSnapshot.historicalNotes), 'Wiktionary historical notes did not render');
     assertAudit(kanjiSnapshot.kanjiVGPaths > 0, 'Stroke-order trace did not render');
     assertAudit(kanjiSnapshot.doodleCanvas, 'kanji drawing canvas did not render');
     assertAudit(kanjiSnapshot.componentButtons > 0, 'kanji components are not clickable');
@@ -649,7 +912,6 @@ async function auditHoverLookup(browser, server) {
 }
 
 async function auditOcrFixture(browser) {
-    assertAudit(API_KEY, 'YOMU_TEST_API_KEY is required for OCR lookup audit');
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{margin:0;padding:32px;background:#15191f;color:white;font-family:system-ui}
         img{display:block;width:520px;height:360px;object-fit:cover;border:1px solid #333}
@@ -784,7 +1046,6 @@ async function auditYouTubeLiveSmoke(browser) {
 }
 
 async function auditVideoFixture(browser, server) {
-    assertAudit(API_KEY, 'YOMU_TEST_API_KEY is required for subtitle audit');
     const { page } = await newAuditedPage(browser, { ...baseSettings, subtitlePlayerEnabled: true, subtitleAutoDetect: true, showFloatingButton: false });
     await page.goto(`${server.origin}/reader-video-test.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
@@ -839,7 +1100,7 @@ async function auditVideoFixture(browser, server) {
 }
 
 async function runAudit(name, fn, options = {}) {
-    if (options.requiresApiKey && !API_KEY) {
+    if (options.requiresApiKey && !QA_API_KEY) {
         record(name, 'skip', 'YOMU_TEST_API_KEY is not set');
         return;
     }
