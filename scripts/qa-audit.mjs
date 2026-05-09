@@ -943,6 +943,9 @@ async function auditOcrFixture(browser) {
     assertAudit(overlay.wordCount >= 2, 'OCR text was not parsed into selectable words');
     assertAudit(overlay.visibleTextOverlays === 0, 'OCR text is visibly painted by default');
     assertAudit(overlay.lineTitle?.includes('学校'), 'OCR line text is missing');
+    await page.locator('.jpdb-ocr-line').first().click();
+    const activeLines = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line-active').length);
+    assertAudit(activeLines === 1, 'OCR should reveal only one text region at a time');
     await page.locator('.jpdb-ocr-line .jpdb-reader-word').first().click();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
     await page.screenshot({ path: path.join(ARTIFACTS, 'ocr-fixture.png'), fullPage: false });

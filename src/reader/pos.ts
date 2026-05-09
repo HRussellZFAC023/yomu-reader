@@ -2,6 +2,7 @@ const POS_LABELS: Record<string, string> = {
     adj: 'adjective',
     adv: 'adverb',
     aux: 'auxiliary',
+    "aux-v": 'auxiliary verb',
     conj: 'conjunction',
     cop: 'copula',
     ctr: 'counter',

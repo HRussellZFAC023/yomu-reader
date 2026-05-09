@@ -38,9 +38,72 @@ const SKIP_SELECTOR = [
     '.jpdb-reader-word',
 ].join(',');
 
+const FRAGMENT_SKIP_SELECTOR = [
+    'script',
+    'style',
+    'noscript',
+    'form',
+    'label',
+    'fieldset',
+    'legend',
+    'nav',
+    'header',
+    'footer',
+    'textarea',
+    'input',
+    'select',
+    'button',
+    'option',
+    'summary',
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    '[aria-hidden="true"]',
+    '[data-jpdb-reader-root]',
+    '.jpdb-reader-word',
+].join(',');
+
 const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
+const BLOCK_TAGS = new Set([
+    'ADDRESS',
+    'ARTICLE',
+    'ASIDE',
+    'BLOCKQUOTE',
+    'BR',
+    'DD',
+    'DETAILS',
+    'DIALOG',
+    'DIV',
+    'DL',
+    'DT',
+    'FIGCAPTION',
+    'FIGURE',
+    'H1',
+    'H2',
+    'H3',
+    'H4',
+    'H5',
+    'H6',
+    'HR',
+    'LI',
+    'MAIN',
+    'OL',
+    'P',
+    'PRE',
+    'SECTION',
+    'TABLE',
+    'TBODY',
+    'TD',
+    'TFOOT',
+    'TH',
+    'THEAD',
+    'TR',
+    'UL',
+]);
 
 export function setInnerHtml(element: Element, html: string): void {
     element.innerHTML = trustedHtml(html) as string;
@@ -51,6 +114,22 @@ export interface TextTarget {
     text: string;
     parent: HTMLElement;
 }
+
+export interface TextFragment {
+    node: Text;
+    start: number;
+    end: number;
+    hasNativeRuby: boolean;
+}
+
+export interface FragmentTextTarget {
+    text: string;
+    parent: HTMLElement;
+    fragments: TextFragment[];
+    parserId?: string;
+}
+
+export type ScanTextTarget = TextTarget | FragmentTextTarget;
 
 export function getSelectionText(): string {
     const selection = window.getSelection();
@@ -116,6 +195,84 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true)
     return targets;
 }
 
+export function collectFragmentTextTargetsIn(
+    root: Node,
+    limit = 40,
+    visibleOnly = true,
+    excludeSelector = '',
+): FragmentTextTarget[] {
+    const targets: FragmentTextTarget[] = [];
+    const fragments: TextFragment[] = [];
+
+    function currentText(): string {
+        return fragments.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
+    }
+
+    function flush(): void {
+        if (!fragments.length || targets.length >= limit) {
+            fragments.length = 0;
+            return;
+        }
+
+        const text = currentText();
+        if (HAS_JAPANESE.test(text) && text.replace(/\s+/g, '').length >= 2) {
+            const parent = fragments[0]?.node.parentElement;
+            if (parent) {
+                targets.push({ text, parent, fragments: fragments.map(fragment => ({ ...fragment })) });
+            }
+        }
+        fragments.length = 0;
+    }
+
+    function visit(node: Node, hasNativeRuby = false): void {
+        if (targets.length >= limit) return;
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent ?? '';
+            if (text) fragments.push({ node: node as Text, start: 0, end: text.length, hasNativeRuby });
+            return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const element = node as HTMLElement;
+        const tagName = element.tagName;
+        if (tagName === 'RT' || tagName === 'RP') return;
+        if (element.closest('[data-jpdb-reader-root]')) return;
+        if (element.matches(FRAGMENT_SKIP_SELECTOR) || (excludeSelector && element.matches(excludeSelector))) {
+            flush();
+            return;
+        }
+        if (visibleOnly && !isVisible(element)) {
+            flush();
+            return;
+        }
+
+        const isBlock = isParagraphBoundary(element);
+        if (isBlock) flush();
+
+        const nextHasNativeRuby = hasNativeRuby || tagName === 'RUBY' || tagName === 'RB';
+        for (const child of Array.from(element.childNodes)) {
+            visit(child, nextHasNativeRuby);
+            if (targets.length >= limit) break;
+        }
+
+        if (isBlock) flush();
+    }
+
+    visit(root);
+    flush();
+    return targets;
+}
+
+export function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {
+    return 'fragments' in target;
+}
+
+export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
+    else applyTokensToTextNode(target, tokens, settings);
+}
+
 export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (!tokens.length || !target.node.parentElement) return;
 
@@ -139,6 +296,52 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     }
 
     target.node.replaceWith(fragment);
+}
+
+export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    if (!tokens.length || !target.fragments.length) return;
+
+    const safeTokens = nonOverlappingTokens(tokens, target.text.length);
+    if (!safeTokens.length) return;
+
+    const sentence = target.text.replace(/\s+/g, ' ').trim();
+    let globalOffset = 0;
+
+    for (const fragmentInfo of target.fragments) {
+        if (!fragmentInfo.node.parentElement) {
+            globalOffset += fragmentInfo.end - fragmentInfo.start;
+            continue;
+        }
+
+        const fragmentLength = fragmentInfo.end - fragmentInfo.start;
+        const fragmentStart = globalOffset;
+        const fragmentEnd = fragmentStart + fragmentLength;
+        const overlappingTokens = safeTokens.filter(token => token.start < fragmentEnd && token.end > fragmentStart);
+        globalOffset = fragmentEnd;
+        if (!overlappingTokens.length) continue;
+
+        const nodeText = fragmentInfo.node.data;
+        const replacement = document.createDocumentFragment();
+        let localOffset = fragmentInfo.start;
+
+        for (const token of overlappingTokens) {
+            const overlapStart = Math.max(token.start, fragmentStart);
+            const overlapEnd = Math.min(token.end, fragmentEnd);
+            const localStart = fragmentInfo.start + overlapStart - fragmentStart;
+            const localEnd = fragmentInfo.start + overlapEnd - fragmentStart;
+            if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
+
+            const surface = nodeText.slice(localStart, localEnd);
+            const fullTokenInFragment = overlapStart === token.start && overlapEnd === token.end;
+            replacement.append(renderToken(surface, { ...token, sentence: token.sentence ?? sentence }, settings, {
+                allowRuby: fullTokenInFragment && !fragmentInfo.hasNativeRuby,
+            }));
+            localOffset = localEnd;
+        }
+
+        if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
+        fragmentInfo.node.replaceWith(replacement);
+    }
 }
 
 export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: ReaderSettings): string {
@@ -167,7 +370,12 @@ function nonOverlappingTokens(tokens: JPDBToken[], textLength: number): JPDBToke
     return safe;
 }
 
-function renderToken(surface: string, token: JPDBToken, settings: ReaderSettings): HTMLElement {
+function renderToken(
+    surface: string,
+    token: JPDBToken,
+    settings: ReaderSettings,
+    options: { allowRuby?: boolean } = {},
+): HTMLElement {
     const span = document.createElement('span');
     const state = token.card.cardState[0] ?? 'not-in-deck';
     span.className = `jpdb-reader-word jpdb-${state}`;
@@ -176,7 +384,7 @@ function renderToken(surface: string, token: JPDBToken, settings: ReaderSettings
     span.dataset.sentence = token.sentence ?? '';
     span.tabIndex = 0;
 
-    if (settings.showFurigana && token.rubies.length) {
+    if (settings.showFurigana && token.rubies.length && options.allowRuby !== false) {
         setInnerHtml(span, renderRuby(surface, token));
     } else {
         span.textContent = surface;
@@ -234,6 +442,18 @@ function isVisible(element: HTMLElement): boolean {
     if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
     const style = getComputedStyle(element);
     return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || '1') > 0;
+}
+
+function isParagraphBoundary(element: HTMLElement): boolean {
+    if (BLOCK_TAGS.has(element.tagName)) return true;
+    const display = getComputedStyle(element).display;
+    return display === 'block'
+        || display === 'flow-root'
+        || display === 'grid'
+        || display === 'list-item'
+        || display === 'table'
+        || display === 'table-row'
+        || display === 'table-cell';
 }
 
 function isFragileUiText(element: HTMLElement, text: string): boolean {

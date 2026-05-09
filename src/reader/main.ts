@@ -3,7 +3,7 @@ import { AnkiConnectClient, captureActiveVideoFrame } from './anki';
 import { APP_NAME, APP_PUCK, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
 import {
     HAS_JAPANESE,
-    applyTokensToTextNode,
+    applyTokensToScanTarget,
     collectTextTargetsIn,
     collectVisibleTextTargets,
     escapeHtml,
@@ -37,6 +37,7 @@ import {
     saveSettings,
     shortcutIsPressed,
 } from './settings';
+import { collectScanTargets, collectSiteScanTargets } from './site-parsers';
 import { READER_CSS } from './styles';
 import { SubtitlePlayerController } from './subtitles';
 import type { AudioSourceSetting, DictionaryPreference, InterfaceLanguage, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSettings } from './types';
@@ -201,7 +202,7 @@ class ReaderApp {
             this.autoScanTimer = undefined;
             this.autoScanDeadline = 0;
             void this.scanAsbPlayerSubtitles();
-            if (collectVisibleTextTargets(1).length > 0) {
+            if ((collectSiteScanTargets(1)?.length ?? 0) > 0 || collectVisibleTextTargets(1).length > 0) {
                 void this.scanVisiblePage({ silent: true });
             }
         }, delay);
@@ -382,14 +383,14 @@ class ReaderApp {
 
     private async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         try {
-            const targets = collectVisibleTextTargets();
+            const targets = collectScanTargets();
             if (!targets.length) {
                 if (!options.silent) this.toast('No unscanned Japanese text found.');
                 return;
             }
 
             const parsed = await this.jpdb.parse(targets.map(target => target.text));
-            targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
+            targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
         } catch (error) {
             if (!options.silent) this.toast(error instanceof Error ? error.message : 'JPDB scan failed.');
         }
@@ -404,7 +405,7 @@ class ReaderApp {
 
         try {
             const parsed = await this.jpdb.parse(targets.map(target => target.text));
-            targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
+            targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
         } catch {
             // External subtitle overlays update frequently; the regular popup path still reports API errors.
         }
