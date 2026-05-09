@@ -40,6 +40,8 @@ const baseSettings = {
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
+    hoverOpenDelayMs: 60,
+    hoverCloseDelayMs: 180,
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     autoScanJapanese: true,
@@ -841,11 +843,13 @@ async function auditBloomeeAutoScan(browser) {
 async function auditHoverLookup(browser, server) {
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
-    </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。</p></body></html>`;
+    </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。明日は学校で勉強します。</p></body></html>`;
     const { page } = await newAuditedPage(browser, {
         ...baseSettings,
         lookupOnClick: false,
         lookupOnHover: true,
+        hoverOpenDelayMs: 40,
+        hoverCloseDelayMs: 140,
         localDictionariesEnabled: true,
         localDictionaryShowKanji: true,
         dictionaryPreferences: [
@@ -865,14 +869,33 @@ async function auditHoverLookup(browser, server) {
     await injectUserscript(page);
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
     const firstWord = await page.locator('.jpdb-reader-word').first().boundingBox();
+    const secondWord = await page.locator('.jpdb-reader-word').nth(1).boundingBox();
     assertAudit(firstWord, 'no scanned word bounding box found');
+    assertAudit(secondWord, 'no second scanned word bounding box found');
     await page.keyboard.down('Shift');
     await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
-    await page.waitForTimeout(700);
-    await page.keyboard.up('Shift');
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    const hoverHasBackdrop = await page.locator('.jpdb-reader-backdrop').count();
+    assertAudit(hoverHasBackdrop === 0, 'hover lookup mounted a modal backdrop');
     const text = await page.locator('.jpdb-reader-popover').innerText();
     assertAudit(/JPDB|Add|Never|Blacklist/.test(text), 'hover popup did not render mining actions');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup');
+    await page.waitForTimeout(260);
+    const reopenedAfterEscape = await page.locator('.jpdb-reader-popover').count();
+    assertAudit(reopenedAfterEscape === 0, 'hover popup reopened immediately after Escape without pointer leaving the word');
+    await page.mouse.move(8, 8);
+    await page.mouse.move(secondWord.x + secondWord.width / 2, secondWord.y + secondWord.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    const popoverBox = await page.locator('.jpdb-reader-popover').boundingBox();
+    assertAudit(popoverBox, 'hover popup has no bounding box');
+    await page.mouse.move(popoverBox.x + Math.min(24, popoverBox.width / 2), popoverBox.y + Math.min(24, popoverBox.height / 2));
+    await page.waitForTimeout(260);
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'hover popup closed while pointer was inside the panel');
+    await page.mouse.move(8, 8);
+    await page.waitForTimeout(220);
+    await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
     const pillHref = await page.locator('.jpdb-reader-jpdb-pill').first().getAttribute('href');
     assertAudit(pillHref?.includes('https://jpdb.io/vocabulary/'), 'JPDB pill is not the vocabulary open link');
     const kanjiButton = page.locator('.jpdb-reader-kanji-inline').first();
@@ -907,8 +930,9 @@ async function auditHoverLookup(browser, server) {
     assertAudit(/KANJIDIC|now|day|sun|book|read/.test(kanjiSnapshot.localKanjiText), 'local kanji dictionary section is missing');
     assertAudit(kanjiSnapshot.similarWords > 0, 'kanji drilldown did not show JPDB used-in words');
     await page.screenshot({ path: path.join(ARTIFACTS, 'hover-lookup.png'), fullPage: false });
+    await page.keyboard.up('Shift');
     await page.close();
-    record('hold-key hover lookup', 'pass', 'Shift hover opens the mining popup');
+    record('hold-key hover lookup', 'pass', 'Shift hover opens, Escape suppresses reopen, and the panel stays alive under the pointer');
 }
 
 async function auditOcrFixture(browser) {
