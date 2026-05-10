@@ -1,6 +1,7 @@
 export const APP_NAME = 'よむ';
 export const APP_PUCK = 'よむ';
 export const SETTINGS_TITLE = `${APP_NAME} Settings`;
+export const JPDB_DEFINITION_SOURCE_ID = '__jpdb__';
 
 export const SUPPORT_LINKS = {
     discordUsername: 'henry281199',

@@ -11,7 +11,7 @@ import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
-import { DEFAULT_SETTINGS, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, applyUrlBootstrapSettings, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { SITE_PARSER_PROFILES, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
@@ -99,6 +99,19 @@ describe('reader helpers', () => {
         expect(normalizeAudioSources(undefined, 'http://localhost:9090/?term={term}')).toMatchObject([
             { type: 'custom-json', url: 'http://localhost:9090/?term={term}', enabled: true },
         ]);
+    });
+
+    it('applies test-page URL bootstrap settings without mutating defaults', () => {
+        const settings = applyUrlBootstrapSettings(DEFAULT_SETTINGS, '?apiKey=test-key&audio=http%3A%2F%2Faudio.test%2F%3Fterm%3D%7Bterm%7D&ocr=http%3A%2F%2Focr.test');
+
+        expect(settings.apiKey).toBe('test-key');
+        expect(settings.ocrEndpointUrl).toBe('http://ocr.test');
+        expect(settings.audioSources[0]).toMatchObject({
+            type: 'custom-json',
+            url: 'http://audio.test/?term={term}',
+            enabled: true,
+        });
+        expect(DEFAULT_SETTINGS.apiKey).toBe('');
     });
 
     it('migrates older OCR provider names to the current readable options', () => {

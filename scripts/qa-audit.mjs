@@ -942,6 +942,20 @@ async function auditHoverLookup(browser, server) {
     await page.mouse.move(popoverBox.x + Math.min(24, popoverBox.width / 2), popoverBox.y + Math.min(24, popoverBox.height / 2));
     await page.waitForTimeout(260);
     assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'hover popup closed while pointer was inside the panel');
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup before press-drag lookup');
+    await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(secondWord.x + secondWord.width / 2, secondWord.y + secondWord.height / 2, { steps: 10 });
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await page.mouse.up();
+    await page.waitForTimeout(220);
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'press-drag lookup did not leave exactly one popup open');
+    assertAudit(await page.locator('.jpdb-reader-backdrop').count() === 0, 'press-drag lookup opened a modal backdrop');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the press-drag popup');
+    await page.keyboard.down('Shift');
     await page.mouse.move(8, 8);
     await page.waitForTimeout(220);
     await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
@@ -987,7 +1001,7 @@ async function auditHoverLookup(browser, server) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'hover-lookup.png'), fullPage: false });
     await page.keyboard.up('Shift');
     await page.close();
-    record('hold-key hover lookup', 'pass', 'Shift hover opens, Escape suppresses reopen, and the panel stays alive under the pointer');
+    record('hold-key hover lookup', 'pass', 'Shift hover and press-drag lookup both open lightweight popups');
 }
 
 async function auditJpdbSearchCompatibility(browser) {
