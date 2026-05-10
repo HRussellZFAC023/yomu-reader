@@ -4,6 +4,7 @@ import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, posi
 import { APP_NAME, APP_PUCK, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
 import {
     HAS_JAPANESE,
+    appendToDocumentHead,
     applyTokensToTextNode,
     applyTokensToScanTarget,
     collectTextTargetsIn,
@@ -233,7 +234,7 @@ class ReaderApp {
         else {
             const style = document.createElement('style');
             style.textContent = READER_CSS;
-            document.head.appendChild(style);
+            appendToDocumentHead(style);
         }
     }
 
@@ -1699,7 +1700,7 @@ class ReaderApp {
                 </summary>
                 <div class="jpdb-reader-anki-card-preview">
                     ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml(sentence)}</span></div>` : ''}
-                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml(meaning).slice(0, 420)}</span></div>` : ''}
+                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml(meaning.slice(0, 420))}</span></div>` : ''}
                     ${source ? `<div><strong>Source</strong><span>${escapeHtml(source)}</span></div>` : ''}
                     ${lastContext}
                 </div>
@@ -1805,14 +1806,12 @@ class ReaderApp {
         const anchor = this.activePopoverAnchor;
         const ocrImage = this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined;
         if (ocrImage && sentence) {
-            const context = saveMiningContext(card.spelling, pageMiningContext(sentence, 'image'));
-            return { ...(context ?? pageMiningContext(sentence, 'image')), term: card.spelling, updatedAt: Date.now(), imageDataUrl: ocrImage };
+            return this.contextWithImage(card.spelling, sentence, 'image', ocrImage);
         }
 
         const videoImage = this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined;
         if (videoImage && sentence) {
-            const context = saveMiningContext(card.spelling, pageMiningContext(sentence, 'video'));
-            return { ...(context ?? pageMiningContext(sentence, 'video')), term: card.spelling, updatedAt: Date.now(), imageDataUrl: videoImage };
+            return this.contextWithImage(card.spelling, sentence, 'video', videoImage);
         }
 
         const chosen = activeContext ?? storedImmersionContext;
@@ -1826,6 +1825,16 @@ class ReaderApp {
         const fallback = saveMiningContext(card.spelling, pageMiningContext(sentence || card.spelling, location.hostname === 'jpdb.io' ? 'jpdb' : 'page'))
             ?? { ...pageMiningContext(sentence || card.spelling, 'page'), term: card.spelling, updatedAt: Date.now() };
         return fallback;
+    }
+
+    private contextWithImage(term: string, sentence: string, sourceKind: 'image' | 'video', imageDataUrl: string): MiningContext {
+        const context = saveMiningContext(term, pageMiningContext(sentence, sourceKind));
+        return {
+            ...(context ?? pageMiningContext(sentence, sourceKind)),
+            term,
+            updatedAt: Date.now(),
+            imageDataUrl,
+        };
     }
 
     private async toggleDeck(card: JPDBCard, state: 'never-forget' | 'blacklisted', deck: string): Promise<void> {

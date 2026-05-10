@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/kotoba-reader
-// @version      0.1.0
+// @version      0.2.0
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      MIT
@@ -500,6 +500,10 @@
   ]);
   function setInnerHtml(element2, html) {
     element2.innerHTML = trustedHtml(html);
+  }
+  function appendToDocumentHead(element2) {
+    const target = document.head || document.documentElement || document.body;
+    target.appendChild(element2);
   }
   function getSelectionText() {
     const selection = window.getSelection();
@@ -6008,7 +6012,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       youtubeToggleToastOff: "YouTube immersion filter disabled.",
       ankiEnabled: "Enable Anki mining",
       ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
-      ankiCaptureScreenshot: "Attach video screenshot when possible",
+      ankiCaptureScreenshot: "Attach context image when possible",
       ankiConnectUrl: "AnkiConnect URL",
       ankiDeck: "Anki deck",
       ankiModel: "Anki note type",
@@ -6016,7 +6020,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       testAnki: "Test Anki",
       ankiTesting: "Testing AnkiConnect...",
       ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
-      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional video images.",
+      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional context images from videos, OCR, or Immersion Kit.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       localDictionaryShowKanji: "Show kanji dictionary cards",
@@ -6286,7 +6290,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       youtubeToggleToastOff: "YouTube没入フィルターをオフにしました。",
       ankiEnabled: "Anki採掘を有効化",
       ankiMineWithJpdb: "JPDB追加時にAnkiにも追加",
-      ankiCaptureScreenshot: "可能なら動画スクリーンショットを添付",
+      ankiCaptureScreenshot: "可能なら文脈画像を添付",
       ankiConnectUrl: "AnkiConnect URL",
       ankiDeck: "Ankiデッキ",
       ankiModel: "Ankiノートタイプ",
@@ -6294,7 +6298,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       testAnki: "Ankiをテスト",
       ankiTesting: "AnkiConnectをテストしています...",
       ankiUnreachable: "AnkiConnectに接続できません。Ankiを開き、AnkiConnectアドオンが有効か確認してください。",
-      ankiHelp: "AnkiConnectを使います。よむノートタイプにはJPDBの意味・状態、インポート辞書、漢字カード、ピッチ・頻度、出典リンク、可能なら動画画像を入れます。",
+      ankiHelp: "AnkiConnectを使います。よむノートタイプにはJPDBの意味・状態、インポート辞書、漢字カード、ピッチ・頻度、出典リンク、可能なら動画・OCR・Immersion Kitの文脈画像を入れます。",
       jpdbDefinitionsEnabled: "JPDB定義を表示",
       localDictionariesEnabled: "インポート辞書の定義を表示",
       localDictionaryShowKanji: "漢字辞書カードを表示",
@@ -9907,7 +9911,7 @@ ${entry.reading}`;
                 <div class="grid">
                     ${checkbox("ankiEnabled", "Enable Anki mining", settings.ankiEnabled)}
                     ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding to JPDB", settings.ankiMineWithJpdb)}
-                    ${checkbox("ankiCaptureScreenshot", "Attach video screenshot when possible", settings.ankiCaptureScreenshot)}
+                    ${checkbox("ankiCaptureScreenshot", "Attach context image when possible", settings.ankiCaptureScreenshot)}
                     ${input("ankiConnectUrl", "AnkiConnect URL", settings.ankiConnectUrl)}
                     ${input("ankiDeck", "Anki deck", settings.ankiDeck)}
                     ${input("ankiModel", "Anki note type", settings.ankiModel)}
@@ -9916,7 +9920,7 @@ ${entry.reading}`;
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
                 </div>
-                <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
+                <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this device. The default creates a small Yomu note type automatically.</div>
             </fieldset>
             <fieldset data-settings-panel="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -14680,7 +14684,7 @@ ${entry.reading}`;
       else {
         const style = document.createElement("style");
         style.textContent = READER_CSS;
-        document.head.appendChild(style);
+        appendToDocumentHead(style);
       }
     }
     applyTheme() {
@@ -15994,7 +15998,7 @@ ${entry.reading}`;
                 </summary>
                 <div class="jpdb-reader-anki-card-preview">
                     ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml$1(sentence)}</span></div>` : ""}
-                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml$1(meaning).slice(0, 420)}</span></div>` : ""}
+                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml$1(meaning.slice(0, 420))}</span></div>` : ""}
                     ${source ? `<div><strong>Source</strong><span>${escapeHtml$1(source)}</span></div>` : ""}
                     ${lastContext}
                 </div>
@@ -16092,13 +16096,11 @@ ${entry.reading}`;
       const anchor = this.activePopoverAnchor;
       const ocrImage = this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : void 0;
       if (ocrImage && sentence) {
-        const context = saveMiningContext(card.spelling, pageMiningContext(sentence, "image"));
-        return { ...context ?? pageMiningContext(sentence, "image"), term: card.spelling, updatedAt: Date.now(), imageDataUrl: ocrImage };
+        return this.contextWithImage(card.spelling, sentence, "image", ocrImage);
       }
       const videoImage = this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : void 0;
       if (videoImage && sentence) {
-        const context = saveMiningContext(card.spelling, pageMiningContext(sentence, "video"));
-        return { ...context ?? pageMiningContext(sentence, "video"), term: card.spelling, updatedAt: Date.now(), imageDataUrl: videoImage };
+        return this.contextWithImage(card.spelling, sentence, "video", videoImage);
       }
       const chosen = activeContext ?? storedImmersionContext;
       if (shouldUseImmersionContext(this.settings, chosen ?? null) && chosen) {
@@ -16107,6 +16109,15 @@ ${entry.reading}`;
       }
       const fallback = saveMiningContext(card.spelling, pageMiningContext(sentence || card.spelling, location.hostname === "jpdb.io" ? "jpdb" : "page")) ?? { ...pageMiningContext(sentence || card.spelling, "page"), term: card.spelling, updatedAt: Date.now() };
       return fallback;
+    }
+    contextWithImage(term, sentence, sourceKind, imageDataUrl) {
+      const context = saveMiningContext(term, pageMiningContext(sentence, sourceKind));
+      return {
+        ...context ?? pageMiningContext(sentence, sourceKind),
+        term,
+        updatedAt: Date.now(),
+        imageDataUrl
+      };
     }
     async toggleDeck(card, state, deck) {
       if (card.cardState.includes(state)) {

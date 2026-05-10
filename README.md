@@ -19,7 +19,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB mining actions for add, Never Forget, blacklist, and review grades.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, short historical notes, stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
-- Optional Anki mining through AnkiConnect, with a よむ note type created automatically and best-effort video-frame capture for subtitle cards.
+- Optional Anki mining through AnkiConnect, with a よむ note type created automatically, existing-card detection, Anki grading, and best-effort context images from Immersion Kit, video, OCR, or image mining.
 - Yomitan dictionary imports: recommended in-app downloads, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
@@ -59,9 +59,9 @@ JPDB mining is the default path. The JPDB pill in a popup opens the matching JPD
 
 Kanji details are modular. The **Kanji facts and origins map** setting adds compact facts such as type, JLPT, school grade, stroke count, frequency, Kanken, RTK frame, old forms, and radical data when those values are available from JPDB, KanjiVG, RTK, imported local dictionaries, or optional public kanji sources. The 2D map stays lightweight and uses per-kanji components instead of bundling a large etymology dataset. The Kanji Alive / Kanji Map, Wiktionary, component graph, and radical-image sections can each be turned off. Source research and follow-up decisions live in [`docs/kanji-source-research.md`](docs/kanji-source-research.md).
 
-Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes JPDB meaning/status, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, and optional video screenshots. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
+Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes JPDB meaning/status, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, and optional context images. If a term already exists anywhere in your Anki collection, よむ hides **Add to Anki**, shows a compact **Edit in Anki** action, colors matching words with the Anki state, and sends popup review grades to Anki when a matching card is available. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
 
-Subtitle and video cards can include a best-effort still image from the active video. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin video the way a full browser extension can.
+Context selection is metadata-first: よむ remembers the last useful sentence/source for a term without storing image blobs in localStorage. Immersion Kit mining uses the exact example currently selected in the popup, including its sentence and thumbnail. Subtitle and video cards can include a best-effort still image from the active video, and OCR/image cards can include the source image when browser security allows it. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin media source the way a full browser extension can.
 
 Anki mobile note: AnkiConnect is an Anki desktop add-on, so direct one-tap Anki mining is designed around desktop Anki reachable at a local or LAN/Tailscale URL. On iPad or Android, Yomu can still copy/look up/mine to JPDB; direct AnkiMobile/AnkiDroid card creation needs a desktop bridge or another reachable service.
 
@@ -172,7 +172,7 @@ npm run prefill:greasyfork
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
 - Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, Wiktionary notes, component graph, and radical images can be toggled separately.
-- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles.
+- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles. JPDB page add-ons for Uchisen, RTK, Immersion Kit, local dictionaries, compact review navigation, auto-revealed review sentences, always-visible review examples, and kanji doodling can be toggled independently.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed.

@@ -130,6 +130,11 @@ export function setInnerHtml(element: Element, html: string): void {
     element.innerHTML = trustedHtml(html) as string;
 }
 
+export function appendToDocumentHead(element: Node): void {
+    const target = document.head || document.documentElement || document.body;
+    target.appendChild(element);
+}
+
 export interface TextTarget {
     node: Text;
     text: string;

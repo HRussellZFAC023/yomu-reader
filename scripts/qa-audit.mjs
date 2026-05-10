@@ -340,7 +340,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
         window.GM_addStyle = css => {
             const style = document.createElement('style');
             style.textContent = css;
-            document.head.append(style);
+            (document.head || document.documentElement || document.body).append(style);
             return style;
         };
         window.GM_registerMenuCommand = () => undefined;
