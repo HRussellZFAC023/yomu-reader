@@ -214,7 +214,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <div class="grid">
                     ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
                     ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB', settings.ankiMineWithJpdb)}
-                    ${checkbox('ankiCaptureScreenshot', 'Attach video screenshot when possible', settings.ankiCaptureScreenshot)}
+                    ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
                     ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}
                     ${input('ankiDeck', 'Anki deck', settings.ankiDeck)}
                     ${input('ankiModel', 'Anki note type', settings.ankiModel)}
@@ -223,7 +223,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
                 </div>
-                <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
+                <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this device. The default creates a small Yomu note type automatically.</div>
             </fieldset>
             <fieldset data-settings-panel="dictionaries" hidden>
                 <legend>Dictionaries</legend>
