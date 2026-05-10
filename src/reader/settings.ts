@@ -282,6 +282,26 @@ export function accentToRgba(color: string, alpha: number): string {
     return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
 }
 
+export function applyUrlBootstrapSettings(settings: ReaderSettings, search = location.search): ReaderSettings {
+    const params = new URLSearchParams(search);
+    const apiKey = params.get('apiKey')?.trim();
+    const audio = params.get('audio')?.trim();
+    const ocr = params.get('ocr')?.trim();
+    if (!apiKey && !audio && !ocr) return settings;
+
+    const audioSources = audio
+        ? [{ type: 'custom-json', url: audio, voice: '', enabled: true } satisfies AudioSourceSetting, ...settings.audioSources.filter(source => source.url !== audio)]
+        : settings.audioSources;
+
+    return {
+        ...settings,
+        apiKey: apiKey || settings.apiKey,
+        audioSources,
+        audioSourceUrl: audio || settings.audioSourceUrl,
+        ocrEndpointUrl: ocr || settings.ocrEndpointUrl,
+    };
+}
+
 export function normalizeOcrProvider(value: unknown): OcrProvider {
     if (value === 'auto') return 'google-lens';
     if (value === 'fast') return 'google-lens';

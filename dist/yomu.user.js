@@ -3399,6 +3399,22 @@
     const blue = parseInt(safe.slice(5, 7), 16);
     return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
   }
+  function applyUrlBootstrapSettings(settings, search = location.search) {
+    var _a, _b, _c;
+    const params = new URLSearchParams(search);
+    const apiKey = (_a = params.get("apiKey")) == null ? void 0 : _a.trim();
+    const audio = (_b = params.get("audio")) == null ? void 0 : _b.trim();
+    const ocr = (_c = params.get("ocr")) == null ? void 0 : _c.trim();
+    if (!apiKey && !audio && !ocr) return settings;
+    const audioSources = audio ? [{ type: "custom-json", url: audio, voice: "", enabled: true }, ...settings.audioSources.filter((source) => source.url !== audio)] : settings.audioSources;
+    return {
+      ...settings,
+      apiKey: apiKey || settings.apiKey,
+      audioSources,
+      audioSourceUrl: audio || settings.audioSourceUrl,
+      ocrEndpointUrl: ocr || settings.ocrEndpointUrl
+    };
+  }
   function normalizeOcrProvider(value) {
     if (value === "auto") return "google-lens";
     if (value === "fast") return "google-lens";
@@ -4823,9 +4839,58 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
+  function pauseActiveVideo() {
+    var _a;
+    const videos = Array.from(document.querySelectorAll("video"));
+    const playable = videos.filter((video) => video.readyState > 0).sort((a, b) => {
+      const aArea = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
+      const bArea = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
+      return Number(a.paused) - Number(b.paused) || bArea - aArea;
+    });
+    (_a = playable[0]) == null ? void 0 : _a.pause();
+  }
+  function isEditableTarget(target) {
+    const element2 = target instanceof Element ? target : null;
+    return Boolean(element2 == null ? void 0 : element2.closest('input, textarea, select, [contenteditable="true"]'));
+  }
+  async function copyText(text2) {
+    var _a;
+    if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+      try {
+        await navigator.clipboard.writeText(text2);
+        return;
+      } catch {
+      }
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text2;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  function normalizePressedKey(key) {
+    if (key === " ") return "space";
+    return key.toLowerCase();
+  }
+  function positionPopover(popover, anchor) {
+    const selection = window.getSelection();
+    const rect = (anchor == null ? void 0 : anchor.getBoundingClientRect()) ?? ((selection == null ? void 0 : selection.rangeCount) ? selection.getRangeAt(0).getBoundingClientRect() : void 0);
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+    const fallbackLeft = (window.innerWidth - width) / 2;
+    const fallbackTop = window.innerHeight * 0.18;
+    const left = rect ? rect.left + (rect.width - width) / 2 : fallbackLeft;
+    const top = rect && rect.top > height + 10 ? rect.top - height - 8 : rect ? rect.bottom + 8 : fallbackTop;
+    popover.style.left = `${Math.max(8, Math.min(left, window.innerWidth - width - 8))}px`;
+    popover.style.top = `${Math.max(8, Math.min(top, window.innerHeight - height - 8))}px`;
+  }
   const APP_NAME = "よむ";
   const APP_PUCK = "よむ";
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
+  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const SUPPORT_LINKS = {
     discordUsername: "henry281199",
     github: "https://github.com/HRussellZFAC023/kotoba-reader",
@@ -5959,76 +6024,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     var _a;
     return (_a = values.find((value) => value == null ? void 0 : value.trim())) == null ? void 0 : _a.trim();
   }
-  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
-  class KanjiVGClient {
-    constructor() {
-      __publicField(this, "cache", /* @__PURE__ */ new Map());
-    }
-    lookup(kanji) {
-      const character = Array.from(kanji)[0] ?? "";
-      if (!character) return Promise.resolve(null);
-      let promise = this.cache.get(character);
-      if (!promise) {
-        promise = this.fetchSvg(character);
-        this.cache.set(character, promise);
-      }
-      return promise;
-    }
-    async fetchSvg(kanji) {
-      const url = kanjiVGUrl(kanji);
-      const svgText = await requestText$2(url).catch(() => "");
-      if (!svgText) return null;
-      return parseKanjiVGSvg(svgText, kanji);
-    }
-  }
-  function kanjiVGUrl(kanji) {
-    const codePoint = kanji.codePointAt(0) ?? 0;
-    return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
-  }
-  function parseKanjiVGSvg(svgText, kanji) {
-    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
-    const sourceSvg = doc.querySelector("svg");
-    if (!sourceSvg) return null;
-    const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
-    const paths = Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => {
-      const d = path.getAttribute("d");
-      if (!d || !/^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/.test(d)) return "";
-      return `<path d="${escapeHtml$1(d)}" style="--stroke-index:${index}" />`;
-    }).filter(Boolean);
-    if (!paths.length) return null;
-    const numbers = Array.from(sourceSvg.querySelectorAll("text")).map((text2) => {
-      const transform = text2.getAttribute("transform") ?? "";
-      const label = (text2.textContent ?? "").trim();
-      if (!/^[\d]+$/.test(label) || !/^matrix\([0-9,.\-\s]+\)$/.test(transform)) return "";
-      return `<text transform="${escapeHtml$1(transform)}">${escapeHtml$1(label)}</text>`;
-    }).filter(Boolean);
-    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml$1(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml$1(kanji)}">
-        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
-        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
-    </svg>`;
-    return { kanji, svg, strokeCount: paths.length };
-  }
-  function requestText$2(url) {
-    if (typeof GM_xmlhttpRequest === "function") {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: "GET",
-          url,
-          timeout: 8e3,
-          onload: (response) => {
-            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ""));
-            else reject(new Error(`Stroke-order request failed (${response.status}).`));
-          },
-          onerror: reject,
-          ontimeout: () => reject(new Error("Stroke-order request timed out."))
-        });
-      });
-    }
-    return fetch(url).then((response) => {
-      if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
-      return response.text();
-    });
-  }
   const COPY = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -6568,6 +6563,195 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function uiText(language, key) {
     return COPY[resolveUiLanguage(language)][key] ?? COPY.en[key];
+  }
+  function installKanjiDoodle(popover, getLanguage) {
+    const stage = popover.querySelector(".jpdb-reader-doodle-stage");
+    const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
+    const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
+    const clear = popover.querySelector("[data-doodle-clear]");
+    const trace = popover.querySelector("[data-doodle-trace]");
+    if (!stage || !canvas || !ghost) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    let dpr = 1;
+    let drawing = false;
+    let pointerId = -1;
+    let traceVisible = true;
+    let points = [];
+    let strokes = [];
+    const resize = () => {
+      const rect = stage.getBoundingClientRect();
+      dpr = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      redraw();
+    };
+    const toPoint = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(rect.width, 1))),
+        y: Math.max(0, Math.min(1, (event.clientY - rect.top) / Math.max(rect.height, 1))),
+        pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
+      };
+    };
+    const drawStroke = (stroke) => {
+      if (!stroke.length) return;
+      context.save();
+      context.strokeStyle = "#141820";
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.beginPath();
+      stroke.forEach((point, index) => {
+        const x = point.x * canvas.width;
+        const y = point.y * canvas.height;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      });
+      const lastPoint = stroke[stroke.length - 1];
+      const width = Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + ((lastPoint == null ? void 0 : lastPoint.pressure) ?? 0.55) * 0.42);
+      context.lineWidth = width;
+      context.stroke();
+      context.restore();
+    };
+    const redraw = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      for (const stroke of strokes) drawStroke(stroke);
+      drawStroke(points);
+    };
+    const start = (event) => {
+      var _a;
+      event.preventDefault();
+      event.stopPropagation();
+      drawing = true;
+      pointerId = event.pointerId;
+      points = [toPoint(event)];
+      (_a = canvas.setPointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
+      redraw();
+    };
+    const move = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const point = toPoint(event);
+      const last = points.at(-1);
+      const minDistance = event.pointerType === "pen" ? 15e-4 : 35e-4;
+      if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= minDistance) {
+        points.push(point);
+        redraw();
+      }
+    };
+    const end = (event) => {
+      var _a;
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (points.length) strokes = [...strokes, points];
+      points = [];
+      drawing = false;
+      pointerId = -1;
+      (_a = canvas.releasePointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
+      redraw();
+    };
+    canvas.addEventListener("pointerdown", start, { passive: false });
+    canvas.addEventListener("pointermove", move, { passive: false });
+    canvas.addEventListener("pointerup", end, { passive: false });
+    canvas.addEventListener("pointercancel", end, { passive: false });
+    clear == null ? void 0 : clear.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      strokes = [];
+      points = [];
+      redraw();
+    });
+    trace == null ? void 0 : trace.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      traceVisible = !traceVisible;
+      ghost.hidden = !traceVisible;
+      stage.classList.toggle("trace-hidden", !traceVisible);
+      trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
+    });
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(stage);
+    const disconnectWhenDetached = () => {
+      if (!popover.isConnected) {
+        resizeObserver.disconnect();
+        return;
+      }
+      requestAnimationFrame(disconnectWhenDetached);
+    };
+    requestAnimationFrame(resize);
+    requestAnimationFrame(disconnectWhenDetached);
+  }
+  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
+  class KanjiVGClient {
+    constructor() {
+      __publicField(this, "cache", /* @__PURE__ */ new Map());
+    }
+    lookup(kanji) {
+      const character = Array.from(kanji)[0] ?? "";
+      if (!character) return Promise.resolve(null);
+      let promise = this.cache.get(character);
+      if (!promise) {
+        promise = this.fetchSvg(character);
+        this.cache.set(character, promise);
+      }
+      return promise;
+    }
+    async fetchSvg(kanji) {
+      const url = kanjiVGUrl(kanji);
+      const svgText = await requestText$2(url).catch(() => "");
+      if (!svgText) return null;
+      return parseKanjiVGSvg(svgText, kanji);
+    }
+  }
+  function kanjiVGUrl(kanji) {
+    const codePoint = kanji.codePointAt(0) ?? 0;
+    return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
+  }
+  function parseKanjiVGSvg(svgText, kanji) {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const sourceSvg = doc.querySelector("svg");
+    if (!sourceSvg) return null;
+    const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
+    const paths = Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => {
+      const d = path.getAttribute("d");
+      if (!d || !/^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/.test(d)) return "";
+      return `<path d="${escapeHtml$1(d)}" style="--stroke-index:${index}" />`;
+    }).filter(Boolean);
+    if (!paths.length) return null;
+    const numbers = Array.from(sourceSvg.querySelectorAll("text")).map((text2) => {
+      const transform = text2.getAttribute("transform") ?? "";
+      const label = (text2.textContent ?? "").trim();
+      if (!/^[\d]+$/.test(label) || !/^matrix\([0-9,.\-\s]+\)$/.test(transform)) return "";
+      return `<text transform="${escapeHtml$1(transform)}">${escapeHtml$1(label)}</text>`;
+    }).filter(Boolean);
+    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml$1(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml$1(kanji)}">
+        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
+        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
+    </svg>`;
+    return { kanji, svg, strokeCount: paths.length };
+  }
+  function requestText$2(url) {
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          timeout: 8e3,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ""));
+            else reject(new Error(`Stroke-order request failed (${response.status}).`));
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("Stroke-order request timed out."))
+        });
+      });
+    }
+    return fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
+      return response.text();
+    });
   }
   class OnboardingController {
     constructor(options) {
@@ -7771,6 +7955,311 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
   }
+  function pickTokenForSelection(tokens = [], selected) {
+    const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
+    if (exact) return exact;
+    return tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
+  }
+  function formatMetaFrequency(value) {
+    if (typeof value === "number" || typeof value === "string") return `#${value}`;
+    if (!value || typeof value !== "object") return "";
+    const record = value;
+    const display = record.displayValue ?? record.frequency ?? record.value;
+    if (display == null) return "";
+    return `#${String(display)}`;
+  }
+  function formatMetaPitch(value) {
+    if (!value || typeof value !== "object") return "";
+    const record = value;
+    const positions = Array.isArray(record.pitches) ? record.pitches : Array.isArray(record.positions) ? record.positions : [];
+    if (positions.length) return positions.slice(0, 4).map(String).join(", ");
+    if (typeof record.position === "number") return String(record.position);
+    return "";
+  }
+  function renderSpellingForKanjiNavigation(spelling, language) {
+    return Array.from(spelling).map(
+      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
+    ).join("");
+  }
+  function groupTermEntriesByDictionary(entries) {
+    const grouped = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const group = grouped.get(entry.dictionary) ?? [];
+      group.push(entry);
+      grouped.set(entry.dictionary, group);
+    }
+    return grouped;
+  }
+  function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
+    const elementKeywords = splitRtkElements((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "");
+    const jpdbByKanji = new Map(((jpdbInfo == null ? void 0 : jpdbInfo.components) ?? []).map((component) => [component.kanji, component.keyword]));
+    const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
+    return [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter).map((kanji, index) => ({
+      kanji,
+      keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
+      meaning: localByKanji.get(kanji) || ""
+    }));
+  }
+  function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
+    const currentKeys = /* @__PURE__ */ new Set([`${currentCard.spelling}
+${currentCard.reading}`, `${currentCard.spelling}
+`]);
+    const words = /* @__PURE__ */ new Map();
+    const add = (entry) => {
+      const key = `${entry.expression}
+${entry.reading}`;
+      if (currentKeys.has(key) || entry.expression === currentCard.spelling) return;
+      const existing = words.get(key);
+      if (existing) {
+        existing.meaning || (existing.meaning = entry.meaning);
+        existing.frequency ?? (existing.frequency = entry.frequency);
+        if (!existing.source.includes(entry.source)) existing.source = `${existing.source} · ${entry.source}`;
+        return;
+      }
+      words.set(key, entry);
+    };
+    jpdbVocabulary.forEach((entry) => add({
+      expression: entry.expression,
+      reading: entry.reading,
+      meaning: entry.meaning,
+      source: "JPDB"
+    }));
+    localEntries.forEach((entry) => add({
+      expression: entry.expression,
+      reading: entry.reading,
+      meaning: entry.glossary.map(glossaryToText).filter(Boolean).join("; ").slice(0, 140),
+      frequency: entry.jpdbFrequency,
+      source: dictionaryLabel2(entry.dictionary)
+    }));
+    return Array.from(words.values()).sort(
+      (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
+    );
+  }
+  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries) {
+    const keywords = /* @__PURE__ */ new Map();
+    const addKeyword = (text2, source) => {
+      const normalized = text2 == null ? void 0 : text2.trim();
+      if (!normalized) return;
+      const key = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
+      if (!existing.sources.includes(source)) existing.sources.push(source);
+      keywords.set(key, existing);
+    };
+    addKeyword(jpdbInfo == null ? void 0 : jpdbInfo.keyword, "JPDB");
+    addKeyword(rtkInfo == null ? void 0 : rtkInfo.keyword, "RTK");
+    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, "dict"));
+    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small>${escapeHtml$1(keyword.text)}</span>`).join("");
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
+  }
+  function splitRtkElements(value) {
+    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  }
+  function compareOptionalNumber(a, b) {
+    if (a === void 0 && b === void 0) return 0;
+    if (a === void 0) return 1;
+    if (b === void 0) return -1;
+    return a - b;
+  }
+  function renderKanjiPractice(info, kanji, language) {
+    const ghost = `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;
+    return `
+        <div class="jpdb-reader-local jpdb-reader-kanjivg">
+            <div class="jpdb-reader-local-title">${uiText(language, "strokePractice")}</div>
+            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
+            </div>
+            <div class="jpdb-reader-doodle-tools">
+                <span class="jpdb-reader-help">${uiText(language, "textTrace")}</span>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
+            </div>
+        </div>
+    `;
+  }
+  function renderKanjiOrigins(facts, graph, sourceInfo, settings, language) {
+    if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) return "";
+    const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
+    const radical = map == null ? void 0 : map.radical;
+    const kanjiMapUrl = map ? `https://thekanjimap.com/${encodeURIComponent(map.kanji)}` : "";
+    const sourceLinks = kanjiMapUrl ? `<a href="${escapeHtml$1(kanjiMapUrl)}" target="_blank" rel="noopener">The Kanji Map ${externalLinkIcon()}</a>` : "";
+    return `
+        <div class="jpdb-reader-local jpdb-reader-origins">
+            <div class="jpdb-reader-local-title">${uiText(language, "originStructure")}</div>
+            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
+                ${facts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
+            </div>` : ""}
+            ${map ? `<div class="jpdb-reader-origin-detail">
+                ${radical || map.hint ? `<div class="jpdb-reader-radical-card">
+                    ${radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$1(radical.symbol || uiText(language, "radical"))}</strong>` : ""}
+                    <div>
+                        ${radical ? `<strong>${escapeHtml$1([radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""].filter(Boolean).join(" · "))}</strong>` : ""}
+                        ${map.hint ? `<span>${escapeHtml$1(map.hint)}</span>` : ""}
+                    </div>
+                </div>` : ""}
+            </div>` : ""}
+            ${sourceLinks ? `<div class="jpdb-reader-origin-sources">${sourceLinks}</div>` : ""}
+            ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
+        </div>
+    `;
+  }
+  function renderKanjiOriginGraph(graph, language) {
+    const nodes = (graph == null ? void 0 : graph.nodes.filter((node) => !node.id.startsWith("rtk:"))) ?? [];
+    const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodes.some((node) => node.id === edge.from) && nodes.some((node) => node.id === edge.to))) ?? [];
+    if (nodes.length <= 1 || !edges.length) return "";
+    const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
+    const components2 = nodes.filter((node) => node.kind === "component").slice(0, 8);
+    const related = nodes.filter((node) => node.kind === "related").slice(0, 4);
+    const positioned = [
+      ...components2.map((node, index) => ({
+        node,
+        x: 16,
+        y: components2.length === 1 ? 50 : 18 + 64 / Math.max(1, components2.length - 1) * index
+      })),
+      { node: current, x: 50, y: 50 },
+      ...related.map((node, index) => ({
+        node,
+        x: 84,
+        y: related.length === 1 ? 50 : 24 + 52 / Math.max(1, related.length - 1) * index
+      }))
+    ];
+    const coords = new Map(positioned.map((item) => [item.node.id, item]));
+    const lines = edges.map((edge) => {
+      const from = coords.get(edge.from);
+      const to = coords.get(edge.to);
+      if (!from || !to) return "";
+      return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" />`;
+    }).join("");
+    const nodeButtons = positioned.map(({ node, x, y }) => {
+      const style = `left:${x}%;top:${y}%`;
+      if (node.kind === "related") {
+        return `<span class="jpdb-reader-origin-graph-node ${node.kind}" style="${style}" title="${escapeHtml$1(node.detail)}">${escapeHtml$1(node.label)}</span>`;
+      }
+      return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" style="${style}" title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
+    }).join("");
+    return `
+        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, "originMapLabel")}">
+            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">${lines}</svg>
+            ${nodeButtons}
+        </div>
+    `;
+  }
+  function renderJpdbKanjiInfo(info, language) {
+    if (!info) return "";
+    const infoChips = [
+      info.type
+    ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
+    return `
+        <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
+            <div class="jpdb-reader-local-title">${uiText(language, "readingsComponents")}</div>
+            <div class="jpdb-reader-local-entry">
+                ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ""}
+                ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
+                    ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
+                </div>` : ""}
+                ${info.components.length ? `<div class="jpdb-reader-component-grid">
+                    ${info.components.map((component) => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
+                        <strong>${escapeHtml$1(component.kanji)}</strong>
+                        <span>${escapeHtml$1(component.keyword)}</span>
+                    </button>`).join("")}
+                </div>` : ""}
+                ${info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : ""}
+            </div>
+        </div>
+    `;
+  }
+  function renderRtkInfo(info, components2, language) {
+    if (!info) return "";
+    const elementKeywords = splitRtkElements(info.elements);
+    const componentByKeyword = new Map(components2.filter((component) => component.keyword).map((component) => [component.keyword.toLowerCase(), component.kanji]));
+    return `
+        <div class="jpdb-reader-local jpdb-reader-rtk">
+            <div class="jpdb-reader-local-title">RTK</div>
+            <div class="jpdb-reader-local-entry">
+                <div class="jpdb-reader-rtk-head">
+                    <strong>${escapeHtml$1(info.keyword)}</strong>
+                    ${info.frameNumber ? `<span>${escapeHtml$1(info.frameNumber)}</span>` : ""}
+                </div>
+                ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
+                    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
+                    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
+                </div>` : ""}
+                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
+                    ${elementKeywords.map((keyword, index) => {
+    var _a;
+    const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || ((_a = components2[index]) == null ? void 0 : _a.kanji);
+    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}"><strong>${escapeHtml$1(componentKanji)}</strong><span>${escapeHtml$1(keyword)}</span></button>` : `<span>${escapeHtml$1(keyword)}</span>`;
+  }).join("")}
+                </div>` : ""}
+                ${components2.length ? `<div class="jpdb-reader-component-grid">
+                    ${components2.map((component) => {
+    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
+                            <strong>${escapeHtml$1(component.kanji)}</strong>
+                            ${component.keyword ? `<span>${escapeHtml$1(component.keyword)}</span>` : ""}
+                            ${component.meaning && component.meaning !== component.keyword ? `<small>${escapeHtml$1(component.meaning)}</small>` : ""}
+                        </button>`;
+  }).join("")}
+                </div>` : ""}
+                ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
+                ${info.heisigComment ? `<details><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : ""}
+                ${info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""}
+            </div>
+        </div>
+    `;
+  }
+  function renderPitch(card) {
+    const [pitch] = card.pitchAccent;
+    if (!pitch) return "";
+    const morae = splitMorae(card.reading);
+    const highs = Array.from(pitch).filter((ch) => ch === "H" || ch === "L").slice(0, morae.length);
+    if (highs.length < 2) return "";
+    const width = morae.length * 24 + 18;
+    const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
+    const cls = getPitchClassName(pitch);
+    return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
+        <polyline class="${cls}" points="${points}"></polyline>
+        ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
+    </svg></div>`;
+  }
+  function externalLinkIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
+  }
+  function uniqueKanji(value) {
+    return [...new Set(Array.from(value).filter(isKanjiCharacter))];
+  }
+  function isKanjiCharacter(value) {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 13312 && code <= 40959;
+  }
+  function splitMorae(reading) {
+    const small = new Set("ゃゅょャュョァィゥェォ");
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && small.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function getPitchClassName(pitch) {
+    const drops = (pitch.match(/HL/g) ?? []).length;
+    const rises = (pitch.match(/LH/g) ?? []).length;
+    if (pitch.startsWith("H") && drops === 1) return "atamadaka";
+    if (pitch.startsWith("L") && rises === 1 && !pitch.endsWith("L")) return "heiban";
+    if (pitch.startsWith("L") && rises === 1 && pitch.endsWith("L")) return "nakadaka";
+    if (rises > 1 || drops > 1) return "kifuku";
+    return "odaka";
+  }
   const RECOMMENDED_JAPANESE_DICTIONARIES = [
     {
       id: "jitendex",
@@ -7917,6 +8406,1113 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!response.ok) throw new Error(`RTK request failed (${response.status}).`);
       return response.text();
     });
+  }
+  function renderSupportPanel() {
+    return `
+        <div class="jpdb-reader-support-card">
+            <div>
+                <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
+                <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
+                <p>Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.</p>
+            </div>
+            <div class="jpdb-reader-support-actions">
+                <a class="jpdb-reader-btn add" href="${SUPPORT_LINKS.paypal}" target="_blank" rel="noopener" data-support-link="paypal">Donate</a>
+                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.issues}" target="_blank" rel="noopener" data-support-link="issues">Report issue</a>
+                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.github}" target="_blank" rel="noopener" data-support-link="github">GitHub</a>
+                <button class="jpdb-reader-btn" type="button" data-action="copy-discord" data-support-link="discord">Copy Discord</button>
+            </div>
+            <div class="jpdb-reader-help">Discord: ${SUPPORT_LINKS.discordUsername}</div>
+        </div>
+    `;
+  }
+  function renderSettingsForm(settings, jpdbSettingsUrl) {
+    return `
+            <div class="jpdb-reader-settings-head">
+                <h2>${SETTINGS_TITLE}</h2>
+            </div>
+            <div class="jpdb-reader-settings-tabs" role="tablist" aria-label="Settings sections">
+                ${settingsTabButton("basics", "Basics", true)}
+                ${settingsTabButton("dictionaries", "Dictionaries")}
+                ${settingsTabButton("media", "Media")}
+                ${settingsTabButton("mining", "Mining")}
+                ${settingsTabButton("shortcuts", "Shortcuts")}
+                ${settingsTabButton("help", "Help")}
+            </div>
+            <div class="jpdb-reader-settings-scroll">
+            <fieldset data-settings-panel="basics">
+                <legend>JPDB</legend>
+                ${input("apiKey", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, settings.apiKey, "password")}
+                <div data-jpdb-decks>
+                    ${renderDeckControls(settings, [], Boolean(settings.apiKey.trim()))}
+                </div>
+                ${checkbox("addToForq", "Also add mined cards to forq", settings.addToForq)}
+                ${checkbox("enableReviews", "Enable review actions", settings.enableReviews)}
+                <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
+                    ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
+                </div>
+            </fieldset>
+            <fieldset data-settings-panel="basics">
+                <legend>Interface</legend>
+                <div class="grid">
+                    ${select("interfaceLanguage", "Settings language", settings.interfaceLanguage, [["auto", "Automatic"], ["en", "English"], ["ja", "日本語"]])}
+                    ${select("theme", "Theme", settings.theme, [["auto", "Auto"], ["dark", "Dark"], ["light", "Light"]])}
+                    ${select("popupMode", "Popup mode", settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
+                    ${input("accentColor", "Accent color", sanitizeAccentColor(settings.accentColor), "color")}
+                </div>
+                <div class="jpdb-reader-help">よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.</div>
+            </fieldset>
+            <fieldset data-settings-panel="media" hidden>
+                <legend>Audio</legend>
+                ${checkbox("audioEnabled", "Enable audio playback for terms", settings.audioEnabled)}
+                ${checkbox("autoPlayAudio", "Auto-play search result audio", settings.autoPlayAudio)}
+                ${checkbox("audioEnableDefaultSources", "Use built-in audio sources", settings.audioEnableDefaultSources)}
+                <div class="grid">
+                    ${select("audioSelectionMode", "When a source has several clips", settings.audioSelectionMode, [["first", "First audio"], ["random", "Random audio"]])}
+                    ${checkbox("audioViaBlob", "Fetch as blob for iOS Tampermonkey", settings.audioViaBlob)}
+                    ${input("audioTimeoutMs", "Audio timeout (ms)", String(settings.audioTimeoutMs), "number")}
+                </div>
+                <div class="jpdb-reader-audio-sources">
+                    ${renderAudioSourceEditor(settings.audioSources)}
+                </div>
+                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
+            </fieldset>
+            <fieldset data-settings-panel="media" hidden>
+                <legend>Immersion Kit</legend>
+                <div class="grid">
+                    ${checkbox("immersionKitEnabled", "Show Immersion Kit examples", settings.immersionKitEnabled)}
+                    ${checkbox("immersionKitShowTranslation", "Show example translations", settings.immersionKitShowTranslation)}
+                    ${checkbox("immersionKitShowImages", "Show example thumbnails", settings.immersionKitShowImages)}
+                    ${checkbox("immersionKitAutoPlayAudio", "Play example audio after next/previous", settings.immersionKitAutoPlayAudio)}
+                    ${select("immersionKitCategory", "Example source", settings.immersionKitCategory, [["all", "All"], ["anime", "Anime"], ["drama", "Drama"], ["games", "Games"]])}
+                    ${select("immersionKitSort", "Example order", settings.immersionKitSort, [["sentence_length:asc", "Shortest first"], ["sentence_length:desc", "Longest first"], ["random", "Random"]])}
+                    ${input("immersionKitLimit", "Examples per word", String(settings.immersionKitLimit), "number")}
+                    ${input("immersionKitMinLength", "Minimum sentence length", String(settings.immersionKitMinLength), "number")}
+                    ${input("immersionKitMaxLength", "Maximum sentence length", String(settings.immersionKitMaxLength), "number")}
+                    ${input("immersionKitPlaybackRate", "Example audio speed", String(settings.immersionKitPlaybackRate), "number")}
+                    ${checkbox("immersionKitExactMatch", "Prefer exact matches", settings.immersionKitExactMatch)}
+                </div>
+                <div class="jpdb-reader-help">Immersion examples appear inside word popups. Example text is tappable too, so translations can stay off unless you want them.</div>
+            </fieldset>
+            <fieldset data-settings-panel="basics">
+                <legend>Reader</legend>
+                <div class="grid">
+                    ${checkbox("parseSelection", "Lookup selected text", settings.parseSelection)}
+                    ${checkbox("lookupOnClick", "Tap or click scanned words", settings.lookupOnClick)}
+                    ${checkbox("lookupOnHover", "Hover scanned words", settings.lookupOnHover)}
+                    ${checkbox("autoScanJapanese", "Auto-scan when Japanese is detected", settings.autoScanJapanese)}
+                    ${checkbox("scanVisiblePage", "Scan visible page on load", settings.scanVisiblePage)}
+                    ${checkbox("showFloatingButton", "Toggle floating puck on pages", settings.showFloatingButton)}
+                    ${checkbox("showFurigana", "Enable furigana annotations", settings.showFurigana)}
+                    ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
+                    ${checkbox("hideKnownFurigana", "Hide furigana for known cards only", settings.hideKnownFurigana)}
+                </div>
+                <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
+            </fieldset>
+            <fieldset data-settings-panel="basics">
+                <legend>Kanji</legend>
+                <div class="grid">
+                    ${checkbox("kanjivgEnabled", "Show stroke order and drawing pad", settings.kanjivgEnabled)}
+                    ${checkbox("kanjiOriginsEnabled", "Show compact kanji facts and component map", settings.kanjiOriginsEnabled)}
+                    ${checkbox("kanjiOriginKanjiMapEnabled", "Use Kanji Alive and Kanji Map facts", settings.kanjiOriginKanjiMapEnabled)}
+                    ${checkbox("kanjiOriginGraphEnabled", "Show component graph", settings.kanjiOriginGraphEnabled)}
+                    ${checkbox("rtkEnabled", "Show RTK information", settings.rtkEnabled)}
+                    ${checkbox("similarKanjiWords", "Show words using the same kanji", settings.similarKanjiWords)}
+                    ${input("similarKanjiWordLimit", "Similar word limit", String(settings.similarKanjiWordLimit), "number")}
+                </div>
+                <div class="jpdb-reader-help">Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.</div>
+            </fieldset>
+            <fieldset data-settings-panel="media" hidden>
+                <legend>Images</legend>
+                <div class="grid">
+                    ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
+                    ${checkbox("ocrAutoScanImages", "Read images automatically", settings.ocrAutoScanImages)}
+                    ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
+                    ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["local-service", "Local OCR app"], ["cloud-vision", "Google Cloud Vision"], ["off", "Off"]])}
+                    ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
+                    ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
+                    ${select("ocrMaxImagePixels", "Image detail", String(settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
+                    ${input("ocrTextColor", "Image text color", settings.ocrTextColor, "color")}
+                    ${input("ocrOutlineColor", "Image text outline", settings.ocrOutlineColor, "color")}
+                    ${input("ocrBackgroundColor", "Image highlight background", settings.ocrBackgroundColor, "color")}
+                    ${input("ocrBackgroundOpacity", "Image highlight opacity", String(settings.ocrBackgroundOpacity), "number")}
+                    ${input("ocrFontScale", "Image text scale", String(settings.ocrFontScale), "number")}
+                    <label data-local-ocr ${settings.ocrProvider === "local-service" ? "" : "hidden"}>Local OCR app URL<input name="ocrEndpointUrl" type="text" value="${escapeHtml$1(settings.ocrEndpointUrl)}" autocomplete="off"></label>
+                    <div data-local-ocr ${settings.ocrProvider === "local-service" ? "" : "hidden"}>${select("ocrEngine", "Local OCR engine", settings.ocrEngine, [["auto", "Automatic"], ["MangaOCR", "MangaOCR"], ["PaddleOCR", "PaddleOCR"], ["AppleVision", "Apple Vision"]])}</div>
+                    <label data-cloud-ocr ${settings.ocrProvider === "cloud-vision" ? "" : "hidden"}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
+                    <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
+                    <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
+                </div>
+                <div class="jpdb-reader-help">Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
+            </fieldset>
+            <fieldset data-settings-panel="media" hidden>
+                <legend>Video</legend>
+                <div class="grid">
+                    ${checkbox("subtitlePlayerEnabled", "Enable video subtitle player", settings.subtitlePlayerEnabled)}
+                    ${checkbox("subtitleAutoDetect", "Auto-detect page subtitles", settings.subtitleAutoDetect)}
+                    ${checkbox("subtitleOverlayVisible", "Show subtitle overlay", settings.subtitleOverlayVisible)}
+                    ${checkbox("subtitleSecondaryVisible", "Show native subtitles when available", settings.subtitleSecondaryVisible)}
+                    ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
+                    ${select("subtitleControlsMode", "Subtitle controls", settings.subtitleControlsMode, [["auto", "Show when needed"], ["hidden", "Hide controls"], ["always", "Always visible"]])}
+                    ${input("subtitleFontSize", "Subtitle font size", String(settings.subtitleFontSize), "number")}
+                    ${input("subtitleBottomOffset", "Subtitle bottom offset (%)", String(settings.subtitleBottomOffset), "number")}
+                    ${input("subtitleTextColor", "Subtitle color", settings.subtitleTextColor, "color")}
+                    ${input("subtitleOutlineColor", "Subtitle outline", settings.subtitleOutlineColor, "color")}
+                    ${input("subtitleBackgroundColor", "Subtitle background", settings.subtitleBackgroundColor, "color")}
+                    ${input("subtitleBackgroundOpacity", "Subtitle background opacity", String(settings.subtitleBackgroundOpacity), "number")}
+                    ${input("subtitleFontFamily", "Subtitle font family", settings.subtitleFontFamily)}
+                    ${input("subtitleFontWeight", "Subtitle font weight", String(settings.subtitleFontWeight), "number")}
+                    ${input("subtitleSeekPadding", "Subtitle seek padding (seconds)", String(settings.subtitleSeekPadding), "number")}
+                </div>
+            </fieldset>
+            <fieldset data-settings-panel="media" hidden>
+                <legend>YouTube</legend>
+                <div class="grid">
+                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese-looking YouTube videos", settings.youtubeImmersionEnabled)}
+                    ${checkbox("youtubeShowFilterNotice", "Show reveal control for hidden videos", settings.youtubeShowFilterNotice)}
+                </div>
+                <div class="jpdb-reader-help">Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
+            </fieldset>
+            <fieldset data-settings-panel="mining" hidden>
+                <legend>Anki</legend>
+                <div class="grid">
+                    ${checkbox("ankiEnabled", "Enable Anki mining", settings.ankiEnabled)}
+                    ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding to JPDB", settings.ankiMineWithJpdb)}
+                    ${checkbox("ankiCaptureScreenshot", "Attach video screenshot when possible", settings.ankiCaptureScreenshot)}
+                    ${input("ankiConnectUrl", "AnkiConnect URL", settings.ankiConnectUrl)}
+                    ${input("ankiDeck", "Anki deck", settings.ankiDeck)}
+                    ${input("ankiModel", "Anki note type", settings.ankiModel)}
+                    ${input("ankiTags", "Tags", settings.ankiTags)}
+                </div>
+                <div class="jpdb-reader-settings-actions">
+                    <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
+                </div>
+                <div class="jpdb-reader-help" data-anki-status>Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
+            </fieldset>
+            <fieldset data-settings-panel="dictionaries" hidden>
+                <legend>Dictionaries</legend>
+                <div class="grid">
+                    ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
+                    ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
+                    ${checkbox("localDictionaryShowKanji", "Show kanji dictionary cards", settings.localDictionaryShowKanji)}
+                    ${input("localDictionaryMaxResults", "Dictionary result limit", String(settings.localDictionaryMaxResults), "number")}
+                </div>
+                <div class="jpdb-reader-dictionary-status" data-dictionary-status>Checking imported dictionaries...</div>
+                <div class="jpdb-reader-dictionary-priorities">
+                    ${renderDictionarySourceRows(settings)}
+                </div>
+                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
+                    ${renderRecommendedDictionaries([])}
+                </div>
+                <div class="jpdb-reader-settings-actions">
+                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">Import dictionaries</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">Export dictionaries</button>
+                </div>
+                <input hidden type="file" data-file="settings" accept="application/json,.json">
+                <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
+                <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
+            </fieldset>
+            <fieldset data-settings-panel="shortcuts" hidden>
+                <legend>Shortcuts</legend>
+                <div class="grid">
+                    ${shortcutInput("shortcuts.hoverLookup", "Hold while hovering", settings.shortcuts.hoverLookup, "Blank means hover without a key")}
+                    ${input("hoverOpenDelayMs", "Hover open delay (ms)", String(settings.hoverOpenDelayMs), "number")}
+                    ${input("hoverCloseDelayMs", "Hover close delay (ms)", String(settings.hoverCloseDelayMs), "number")}
+                    ${shortcutInput("shortcuts.scanPage", "Scan page", settings.shortcuts.scanPage)}
+                    ${shortcutInput("shortcuts.openSettings", "Open settings", settings.shortcuts.openSettings)}
+                    ${shortcutInput("shortcuts.playAudio", "Play audio", settings.shortcuts.playAudio)}
+                    ${shortcutInput("shortcuts.closePopup", "Close popup", settings.shortcuts.closePopup)}
+                    ${shortcutInput("shortcuts.previousSubtitle", "Previous subtitle", settings.shortcuts.previousSubtitle)}
+                    ${shortcutInput("shortcuts.nextSubtitle", "Next subtitle", settings.shortcuts.nextSubtitle)}
+                    ${shortcutInput("shortcuts.copySubtitle", "Copy subtitle", settings.shortcuts.copySubtitle)}
+                    ${shortcutInput("shortcuts.toggleOcr", "Toggle image reading", settings.shortcuts.toggleOcr)}
+                    ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", settings.shortcuts.toggleYoutubeImmersion)}
+                    ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
+                    ${renderReviewShortcutInputs(settings)}
+                </div>
+            </fieldset>
+            <fieldset data-settings-panel="help" hidden>
+                <legend>Support</legend>
+                ${renderSupportPanel()}
+            </fieldset>
+            </div>
+            <div class="footer">
+                <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
+                <button class="jpdb-reader-btn add" type="submit">Save</button>
+            </div>
+        `;
+  }
+  function input(name, label, value, type = "text") {
+    return `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"></label>`;
+  }
+  function shortcutInput(name, label, value, placeholder = "Press keys") {
+    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none"></label>`;
+  }
+  function checkbox(name, label, checked) {
+    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}>${label}</label>`;
+  }
+  function select(name, label, value, options) {
+    return `<label>${label}<select name="${name}">${options.map(
+    ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+  ).join("")}</select></label>`;
+  }
+  function getFormInterfaceLanguage(form, fallback) {
+    var _a;
+    const value = (_a = getNamedControl(form, "interfaceLanguage")) == null ? void 0 : _a.value;
+    return value === "auto" || value === "en" || value === "ja" ? value : fallback;
+  }
+  function localizeSettingsForm(form, language) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+    const text2 = (key) => uiText(language, key);
+    form.setAttribute("aria-label", text2("settingsTitle"));
+    (_a = form.querySelector("h2")) == null ? void 0 : _a.replaceChildren(text2("settingsTitle"));
+    const tabLabels = {
+      basics: "basics",
+      dictionaries: "dictionaries",
+      media: "media",
+      mining: "mining",
+      shortcuts: "shortcuts",
+      help: "help"
+    };
+    Object.entries(tabLabels).forEach(([panel, key]) => {
+      var _a2;
+      (_a2 = form.querySelector(`[data-action="settings-panel"][data-panel="${panel}"]`)) == null ? void 0 : _a2.replaceChildren(text2(key));
+    });
+    [
+      "JPDB",
+      text2("interface"),
+      text2("audio"),
+      text2("immersionKit"),
+      text2("reader"),
+      text2("kanji"),
+      text2("images"),
+      text2("video"),
+      text2("youtube"),
+      text2("anki"),
+      text2("dictionaries"),
+      text2("shortcuts"),
+      text2("support")
+    ].forEach((label, index) => {
+      const legend = form.querySelectorAll("fieldset > legend")[index];
+      legend == null ? void 0 : legend.replaceChildren(label);
+    });
+    const labelKeys = [
+      ["apiKey", "apiKey"],
+      ["addToForq", "addToForq"],
+      ["enableReviews", "enableReviews"],
+      ["twoButtonReviews", "reviewRatingScale"],
+      ["interfaceLanguage", "settingsLanguage"],
+      ["theme", "theme"],
+      ["popupMode", "popupMode"],
+      ["accentColor", "accentColor"],
+      ["parseSelection", "parseSelection"],
+      ["lookupOnClick", "lookupOnClick"],
+      ["lookupOnHover", "lookupOnHover"],
+      ["autoScanJapanese", "autoScanJapanese"],
+      ["scanVisiblePage", "scanVisiblePage"],
+      ["showFloatingButton", "showFloatingButton"],
+      ["showFurigana", "showFurigana"],
+      ["showPitchAccent", "showPitchAccent"],
+      ["hideKnownFurigana", "hideKnownFurigana"],
+      ["kanjivgEnabled", "kanjivgEnabled"],
+      ["kanjiOriginsEnabled", "kanjiOriginsEnabled"],
+      ["kanjiOriginKanjiMapEnabled", "kanjiOriginKanjiMapEnabled"],
+      ["kanjiOriginWiktionaryEnabled", "kanjiOriginWiktionaryEnabled"],
+      ["kanjiOriginGraphEnabled", "kanjiOriginGraphEnabled"],
+      ["kanjiOriginRadicalImagesEnabled", "kanjiOriginRadicalImagesEnabled"],
+      ["rtkEnabled", "rtkEnabled"],
+      ["similarKanjiWords", "similarKanjiWords"],
+      ["similarKanjiWordLimit", "similarKanjiWordLimit"],
+      ["audioEnabled", "audioEnabled"],
+      ["autoPlayAudio", "autoPlayAudio"],
+      ["audioEnableDefaultSources", "audioEnableDefaultSources"],
+      ["audioSelectionMode", "audioSelectionMode"],
+      ["audioViaBlob", "audioViaBlob"],
+      ["audioTimeoutMs", "audioTimeoutMs"],
+      ["immersionKitEnabled", "immersionKitEnabled"],
+      ["immersionKitShowTranslation", "immersionKitShowTranslation"],
+      ["immersionKitShowImages", "immersionKitShowImages"],
+      ["immersionKitAutoPlayAudio", "immersionKitAutoPlayAudio"],
+      ["immersionKitCategory", "immersionKitCategory"],
+      ["immersionKitSort", "immersionKitSort"],
+      ["immersionKitLimit", "immersionKitLimit"],
+      ["immersionKitMinLength", "immersionKitMinLength"],
+      ["immersionKitMaxLength", "immersionKitMaxLength"],
+      ["immersionKitPlaybackRate", "immersionKitPlaybackRate"],
+      ["immersionKitExactMatch", "immersionKitExactMatch"],
+      ["ocrEnabled", "ocrEnabled"],
+      ["ocrAutoScanImages", "ocrAutoScanImages"],
+      ["ocrShowTextOverlay", "ocrShowTextOverlay"],
+      ["ocrProvider", "ocrProvider"],
+      ["ocrMaxImagesPerPage", "ocrMaxImagesPerPage"],
+      ["ocrMinImageArea", "ocrMinImageArea"],
+      ["ocrMaxImagePixels", "ocrMaxImagePixels"],
+      ["ocrTextColor", "ocrTextColor"],
+      ["ocrOutlineColor", "ocrOutlineColor"],
+      ["ocrBackgroundColor", "ocrBackgroundColor"],
+      ["ocrBackgroundOpacity", "ocrBackgroundOpacity"],
+      ["ocrFontScale", "ocrFontScale"],
+      ["ocrEndpointUrl", "ocrEndpointUrl"],
+      ["ocrEngine", "ocrEngine"],
+      ["ocrCloudVisionApiKey", "cloudVisionApiKey"],
+      ["subtitlePlayerEnabled", "subtitlePlayerEnabled"],
+      ["subtitleAutoDetect", "subtitleAutoDetect"],
+      ["subtitleOverlayVisible", "subtitleOverlayVisible"],
+      ["subtitleSecondaryVisible", "subtitleSecondaryVisible"],
+      ["subtitleMiningPause", "subtitleMiningPause"],
+      ["subtitleControlsMode", "subtitleControlsMode"],
+      ["subtitleFontSize", "subtitleFontSize"],
+      ["subtitleBottomOffset", "subtitleBottomOffset"],
+      ["subtitleTextColor", "subtitleTextColor"],
+      ["subtitleOutlineColor", "subtitleOutlineColor"],
+      ["subtitleBackgroundColor", "subtitleBackgroundColor"],
+      ["subtitleBackgroundOpacity", "subtitleBackgroundOpacity"],
+      ["subtitleFontFamily", "subtitleFontFamily"],
+      ["subtitleFontWeight", "subtitleFontWeight"],
+      ["subtitleSeekPadding", "subtitleSeekPadding"],
+      ["youtubeImmersionEnabled", "youtubeImmersionEnabled"],
+      ["youtubeShowFilterNotice", "youtubeShowFilterNotice"],
+      ["ankiEnabled", "ankiEnabled"],
+      ["ankiMineWithJpdb", "ankiMineWithJpdb"],
+      ["ankiCaptureScreenshot", "ankiCaptureScreenshot"],
+      ["ankiConnectUrl", "ankiConnectUrl"],
+      ["ankiDeck", "ankiDeck"],
+      ["ankiModel", "ankiModel"],
+      ["ankiTags", "ankiTags"],
+      ["jpdbDefinitionsEnabled", "jpdbDefinitionsEnabled"],
+      ["localDictionariesEnabled", "localDictionariesEnabled"],
+      ["localDictionaryShowKanji", "localDictionaryShowKanji"],
+      ["localDictionaryMaxResults", "localDictionaryMaxResults"],
+      ["shortcuts.hoverLookup", "holdWhileHovering"],
+      ["hoverOpenDelayMs", "hoverOpenDelayMs"],
+      ["hoverCloseDelayMs", "hoverCloseDelayMs"],
+      ["shortcuts.scanPage", "scanPage"],
+      ["shortcuts.openSettings", "openSettings"],
+      ["shortcuts.playAudio", "playAudio"],
+      ["shortcuts.closePopup", "closePopup"],
+      ["shortcuts.previousSubtitle", "previousSubtitle"],
+      ["shortcuts.nextSubtitle", "nextSubtitle"],
+      ["shortcuts.copySubtitle", "copySubtitle"],
+      ["shortcuts.toggleOcr", "toggleImageReading"],
+      ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
+      ["shortcuts.scanImages", "readImagesNow"],
+      ["shortcuts.gradeNothing", "gradeNothing"],
+      ["shortcuts.gradeSomething", "gradeSomething"],
+      ["shortcuts.gradeHard", "gradeHard"],
+      ["shortcuts.gradeOkay", "gradeOkay"],
+      ["shortcuts.gradeEasy", "gradeEasy"],
+      ["shortcuts.gradeFail", "gradeFail"],
+      ["shortcuts.gradePass", "gradePass"]
+    ];
+    labelKeys.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
+    const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
+    if (jpdbSettings) jpdbSettings.textContent = text2("jpdbSettings");
+    setSelectOptionLabels(form, "interfaceLanguage", [
+      ["auto", text2("automatic")],
+      ["en", text2("english")],
+      ["ja", text2("japanese")]
+    ]);
+    setSelectOptionLabels(form, "theme", [
+      ["auto", text2("auto")],
+      ["dark", text2("dark")],
+      ["light", text2("light")]
+    ]);
+    setSelectOptionLabels(form, "popupMode", [
+      ["auto", text2("auto")],
+      ["sheet", text2("bottomSheet")],
+      ["popover", text2("popover")]
+    ]);
+    setSelectOptionLabels(form, "twoButtonReviews", [
+      ["false", text2("fivePoint")],
+      ["true", text2("twoPoint")]
+    ]);
+    setSelectOptionLabels(form, "audioSelectionMode", [
+      ["first", text2("firstAudio")],
+      ["random", text2("randomAudio")]
+    ]);
+    setSelectOptionLabels(form, "immersionKitCategory", [
+      ["all", text2("allCategories")],
+      ["anime", text2("anime")],
+      ["drama", text2("drama")],
+      ["games", text2("games")]
+    ]);
+    setSelectOptionLabels(form, "immersionKitSort", [
+      ["sentence_length:asc", text2("shortestFirst")],
+      ["sentence_length:desc", text2("longestFirst")],
+      ["random", text2("randomOrder")]
+    ]);
+    setSelectOptionLabels(form, "ocrProvider", [
+      ["google-lens", text2("googleLens")],
+      ["local-service", text2("localOcr")],
+      ["cloud-vision", text2("cloudVision")],
+      ["off", text2("off")]
+    ]);
+    setSelectOptionLabels(form, "ocrMaxImagesPerPage", [
+      ["3", text2("lightWork")],
+      ["8", text2("normal")],
+      ["16", text2("more")]
+    ]);
+    setSelectOptionLabels(form, "ocrMinImageArea", [
+      ["80000", text2("largeOnly")],
+      ["45000", text2("normal")],
+      ["15000", text2("includeSmall")]
+    ]);
+    setSelectOptionLabels(form, "ocrMaxImagePixels", [
+      ["640000", text2("faster")],
+      ["1200000", text2("balanced")],
+      ["2000000", text2("sharper")]
+    ]);
+    setSelectOptionLabels(form, "ocrEngine", [
+      ["auto", text2("automatic")],
+      ["MangaOCR", "MangaOCR"],
+      ["PaddleOCR", "PaddleOCR"],
+      ["AppleVision", "Apple Vision"]
+    ]);
+    setSelectOptionLabels(form, "subtitleControlsMode", [
+      ["auto", text2("showWhenNeeded")],
+      ["hidden", text2("hideControls")],
+      ["always", text2("alwaysVisible")]
+    ]);
+    setShortcutPlaceholder(form, "shortcuts.hoverLookup", text2("blankPlainHover"));
+    form.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
+      if (inputEl.name !== "shortcuts.hoverLookup") inputEl.placeholder = text2("pressKeys");
+    });
+    setFieldsetHelp(form, 1, text2("interfaceHelp"));
+    setFieldsetHelp(form, 3, text2("immersionKitHelp"));
+    setFieldsetHelp(form, 4, text2("readerHelp"));
+    setFieldsetHelp(form, 5, text2("kanjiHelp"));
+    setFieldsetHelp(form, 6, text2("ocrHelp"));
+    setFieldsetHelp(form, 8, text2("youtubeHelp"));
+    setFieldsetHelp(form, 9, text2("ankiHelp"));
+    const audioHelp = getFieldsetHelp(form, 2);
+    if (audioHelp) {
+      setInnerHtml(audioHelp, `${escapeHtml$1(text2("audioHelp").replace("Yomitan audio guide.", "").replace("Yomitan音声ガイドも参照できます。", ""))}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.`);
+    }
+    const importStatus = form.querySelector("[data-import-status]");
+    if (importStatus && /Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text2("dictionaryImportHelp");
+    const localOcrLabel = (_b = getNamedControl(form, "ocrEndpointUrl")) == null ? void 0 : _b.closest("label");
+    if (localOcrLabel) setBlockLabelText(localOcrLabel, text2("ocrEndpointUrl"));
+    const cloudOcrLabel = (_c = getNamedControl(form, "ocrCloudVisionApiKey")) == null ? void 0 : _c.closest("label");
+    if (cloudOcrLabel) setBlockLabelText(cloudOcrLabel, text2("cloudVisionApiKey"));
+    (_d = form.querySelector('[data-action="test-anki"]')) == null ? void 0 : _d.replaceChildren(text2("testAnki"));
+    (_e = form.querySelector('[data-action="import-yomitan-settings"]')) == null ? void 0 : _e.replaceChildren(text2("importSettings"));
+    (_f = form.querySelector('[data-action="export-reader-settings"]')) == null ? void 0 : _f.replaceChildren(text2("exportSettings"));
+    (_g = form.querySelector('[data-action="import-yomitan-dictionary"]')) == null ? void 0 : _g.replaceChildren(text2("importDictionaries"));
+    (_h = form.querySelector('[data-action="export-yomitan-dictionary"]')) == null ? void 0 : _h.replaceChildren(text2("exportDictionaries"));
+    (_i = form.querySelector('[data-action="audio-source-add"]')) == null ? void 0 : _i.replaceChildren(text2("addAudioSource"));
+    (_j = form.querySelector('[data-action="download-starter-dictionaries"]')) == null ? void 0 : _j.replaceChildren(text2("downloadMissingRecommended"));
+    (_k = form.querySelector('[data-action="refresh-dictionaries"]')) == null ? void 0 : _k.replaceChildren(text2("refreshInstalledList"));
+    (_l = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _l.replaceChildren(text2("cancel"));
+    (_m = form.querySelector('button[type="submit"]')) == null ? void 0 : _m.replaceChildren(text2("save"));
+    const audioHead = form.querySelectorAll(".jpdb-reader-audio-source-head span");
+    (_n = audioHead[1]) == null ? void 0 : _n.replaceChildren(text2("audioSource"));
+    (_o = audioHead[2]) == null ? void 0 : _o.replaceChildren(text2("urlVoice"));
+    const dictionaryTitle = form.querySelector(".jpdb-reader-recommended-title");
+    dictionaryTitle == null ? void 0 : dictionaryTitle.replaceChildren(text2("recommendedDownloads"));
+    form.querySelectorAll(".jpdb-reader-recommended-name a").forEach((link) => {
+      link.textContent = text2("homepage");
+    });
+    form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
+      button2.textContent = button2.dataset.installed === "true" ? text2("update") : text2("download");
+    });
+    const dictionaryStatus = form.querySelector("[data-dictionary-status]");
+    if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? "")) {
+      dictionaryStatus.textContent = text2("checkingDictionaries");
+    }
+    localizeSupportPanel(form, language);
+  }
+  function getNamedControl(form, name) {
+    return Array.from(form.elements).find(
+      (element2) => (element2 instanceof HTMLInputElement || element2 instanceof HTMLSelectElement || element2 instanceof HTMLTextAreaElement) && element2.name === name
+    ) ?? null;
+  }
+  function setControlLabel(form, name, label) {
+    const control = getNamedControl(form, name);
+    const labelElement = control == null ? void 0 : control.closest("label");
+    if (!labelElement) return;
+    if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
+    else setBlockLabelText(labelElement, label);
+  }
+  function setBlockLabelText(label, text2) {
+    const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
+    if (textNode) textNode.textContent = text2;
+    else label.insertBefore(document.createTextNode(text2), label.firstChild);
+  }
+  function setInlineLabelText(label, text2) {
+    const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim());
+    if (textNode) textNode.textContent = text2;
+    else label.append(document.createTextNode(text2));
+  }
+  function setSelectOptionLabels(form, name, options) {
+    const selectElement = getNamedControl(form, name);
+    if (!selectElement) return;
+    options.forEach(([value, label]) => {
+      const option = Array.from(selectElement.options).find((item) => item.value === value);
+      if (option) option.textContent = label;
+    });
+  }
+  function setShortcutPlaceholder(form, name, placeholder) {
+    const inputElement = getNamedControl(form, name);
+    if (inputElement) inputElement.placeholder = placeholder;
+  }
+  function getFieldsetHelp(form, index) {
+    const fieldset = form.querySelectorAll("fieldset")[index];
+    return Array.from((fieldset == null ? void 0 : fieldset.children) ?? []).find(
+      (child) => child instanceof HTMLElement && child.classList.contains("jpdb-reader-help")
+    ) ?? null;
+  }
+  function setFieldsetHelp(form, index, text2) {
+    const help = getFieldsetHelp(form, index);
+    if (help) help.textContent = text2;
+  }
+  function localizeSupportPanel(form, language) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const support = form.querySelector(".jpdb-reader-support-card");
+    if (!support) return;
+    const text2 = (key) => uiText(language, key);
+    (_a = support.querySelector(".jpdb-reader-support-title")) == null ? void 0 : _a.replaceChildren(text2("supportTitle"));
+    const paragraphs = support.querySelectorAll("p");
+    (_b = paragraphs[0]) == null ? void 0 : _b.replaceChildren(text2("supportCopy"));
+    (_c = paragraphs[1]) == null ? void 0 : _c.replaceChildren(text2("supportDonation"));
+    (_d = support.querySelector('[data-support-link="paypal"]')) == null ? void 0 : _d.replaceChildren(text2("donate"));
+    (_e = support.querySelector('[data-support-link="issues"]')) == null ? void 0 : _e.replaceChildren(text2("reportIssue"));
+    (_f = support.querySelector('[data-support-link="github"]')) == null ? void 0 : _f.replaceChildren(text2("github"));
+    (_g = support.querySelector('[data-support-link="discord"]')) == null ? void 0 : _g.replaceChildren(text2("copyDiscord"));
+  }
+  function renderReviewShortcutInputs(settings) {
+    const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
+    const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
+    return `
+        <div class="jpdb-reader-shortcut-group" data-review-scale="five" ${fivePointHidden ? "hidden" : ""}>
+            ${shortcutInput("shortcuts.gradeNothing", "Grade NOTHING", settings.shortcuts.gradeNothing)}
+            ${shortcutInput("shortcuts.gradeSomething", "Grade SOMETHING", settings.shortcuts.gradeSomething)}
+            ${shortcutInput("shortcuts.gradeHard", "Grade HARD", settings.shortcuts.gradeHard)}
+            ${shortcutInput("shortcuts.gradeOkay", "Grade OKAY", settings.shortcuts.gradeOkay)}
+            ${shortcutInput("shortcuts.gradeEasy", "Grade EASY", settings.shortcuts.gradeEasy)}
+        </div>
+        <div class="jpdb-reader-shortcut-group" data-review-scale="pass-fail" ${passFailHidden ? "hidden" : ""}>
+            ${shortcutInput("shortcuts.gradeFail", "Pass/fail: FAIL", settings.shortcuts.gradeFail)}
+            ${shortcutInput("shortcuts.gradePass", "Pass/fail: PASS", settings.shortcuts.gradePass)}
+        </div>
+    `;
+  }
+  function activateSettingsPanel(form, panel) {
+    form.querySelectorAll("[data-settings-panel]").forEach((section) => {
+      section.hidden = section.dataset.settingsPanel !== panel;
+    });
+    form.querySelectorAll('[data-action="settings-panel"]').forEach((button2) => {
+      const active = button2.dataset.panel === panel;
+      button2.setAttribute("aria-selected", String(active));
+    });
+  }
+  function renderAudioSourceEditor(sources) {
+    return `
+        <div class="jpdb-reader-audio-source-head">
+            <span>#</span>
+            <span>Audio source</span>
+            <span>URL / voice</span>
+            <span></span>
+        </div>
+        ${renderAudioSourceRows(audioSourceRowsForSettings(sources))}
+        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">Add audio source</button>
+    `;
+  }
+  function renderAudioSourceRows(rows) {
+    const count = rows.length;
+    return `
+        <input type="hidden" name="audioSourceCount" value="${count}">
+        ${rows.map((source, index) => `
+            <div class="jpdb-reader-audio-source-row" data-audio-source-row data-index="${index}">
+                <label class="inline jpdb-reader-audio-index">
+                    <input name="audioSources.${index}.enabled" type="checkbox" ${source.enabled ? "checked" : ""}>
+                    <span>${index + 1}</span>
+                </label>
+                <select name="audioSources.${index}.type" aria-label="Audio source ${index + 1}">
+                    ${AUDIO_SOURCE_OPTIONS.map(
+    ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+  ).join("")}
+                </select>
+                <div class="jpdb-reader-audio-source-fields">
+                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
+                    <input data-audio-voice-field name="audioSources.${index}.voice" type="text" value="${escapeHtml$1(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
+                </div>
+                <div class="jpdb-reader-row-tools" aria-label="Audio source order">
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up">↑</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down">↓</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="Remove">×</button>
+                </div>
+            </div>
+        `).join("")}
+    `;
+  }
+  function audioSourceRowsForSettings(sources) {
+    const rows = sources.map((source) => ({ ...source }));
+    return rows.length ? rows : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+  }
+  function audioUrlPlaceholder(type) {
+    if (type === "custom" || type === "custom-json") return "URL for this custom source";
+    return "Built-in source, no URL needed";
+  }
+  function audioVoicePlaceholder(type) {
+    if (type === "text-to-speech" || type === "text-to-speech-reading") return "Voice name";
+    return "No voice needed";
+  }
+  function audioSourceUsesUrl(type) {
+    return type === "custom" || type === "custom-json";
+  }
+  function audioSourceUsesVoice(type) {
+    return type === "text-to-speech" || type === "text-to-speech-reading";
+  }
+  function syncAudioSourceRow(row, type) {
+    if (!row) return;
+    row.querySelectorAll("[data-audio-url-field]").forEach((node) => {
+      node.hidden = !audioSourceUsesUrl(type);
+    });
+    row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
+      node.hidden = !audioSourceUsesVoice(type);
+    });
+  }
+  function updateAudioSourceEditor(form, action, control) {
+    const container = form.querySelector(".jpdb-reader-audio-sources");
+    if (!container) return;
+    const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
+    const row = control == null ? void 0 : control.closest("[data-audio-source-row]");
+    const index = row ? Array.from(container.querySelectorAll("[data-audio-source-row]")).indexOf(row) : -1;
+    if (action === "audio-source-add" && sources.length < 12) {
+      sources.push({ type: "custom-json", url: "", voice: "", enabled: true });
+    }
+    if (action === "audio-source-remove" && index >= 0 && sources.length > 1) {
+      sources.splice(index, 1);
+    }
+    if (action === "audio-source-up" && index > 0) {
+      const [source] = sources.splice(index, 1);
+      sources.splice(index - 1, 0, source);
+    }
+    if (action === "audio-source-down" && index >= 0 && index < sources.length - 1) {
+      const [source] = sources.splice(index, 1);
+      sources.splice(index + 1, 0, source);
+    }
+    setInnerHtml(container, renderAudioSourceEditor(sources));
+  }
+  function updateDictionarySourceEditor(form, action, control) {
+    const container = form.querySelector(".jpdb-reader-dictionary-priorities");
+    const row = control == null ? void 0 : control.closest("[data-dictionary-source-row]");
+    if (!container || !row) return;
+    const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
+    const index = rows.indexOf(row);
+    const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
+    moveDictionarySourceRow(container, index, targetIndex);
+  }
+  function installDictionarySourceDrag(form) {
+    let dragged = null;
+    form.addEventListener("dragstart", (event) => {
+      var _a, _b;
+      const row = event.target.closest("[data-dictionary-source-row]");
+      if (!row) return;
+      dragged = row;
+      row.classList.add("jpdb-reader-dragging");
+      (_a = event.dataTransfer) == null ? void 0 : _a.setData("text/plain", row.dataset.sourceId ?? "");
+      (_b = event.dataTransfer) == null ? void 0 : _b.setDragImage(row, 18, 18);
+    });
+    form.addEventListener("dragover", (event) => {
+      if (!dragged) return;
+      const row = event.target.closest("[data-dictionary-source-row]");
+      if (row && row !== dragged) event.preventDefault();
+    });
+    form.addEventListener("drop", (event) => {
+      if (!dragged) return;
+      const target = event.target.closest("[data-dictionary-source-row]");
+      const container = dragged.closest(".jpdb-reader-dictionary-priorities");
+      if (!target || !container || target === dragged) return;
+      event.preventDefault();
+      const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
+      moveDictionarySourceRow(container, rows.indexOf(dragged), rows.indexOf(target));
+    });
+    form.addEventListener("dragend", () => {
+      dragged == null ? void 0 : dragged.classList.remove("jpdb-reader-dragging");
+      dragged = null;
+    });
+  }
+  function moveDictionarySourceRow(container, index, targetIndex) {
+    const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
+    if (index < 0 || targetIndex < 0 || index >= rows.length || targetIndex >= rows.length || index === targetIndex) return;
+    const row = rows[index];
+    const target = rows[targetIndex];
+    if (targetIndex < index) container.insertBefore(row, target);
+    else container.insertBefore(row, target.nextSibling);
+    syncDictionarySourcePriorities(container);
+  }
+  function syncDictionarySourcePriorities(container) {
+    const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
+    rows.forEach((row, index) => {
+      const priority = row.querySelector('input[name$=".priority"]');
+      if (priority) priority.value = String(index);
+      const indexLabel = row.querySelector(".jpdb-reader-dictionary-toggle span");
+      if (indexLabel) indexLabel.textContent = String(index + 1);
+    });
+  }
+  function installShortcutCapture(root) {
+    root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
+      inputEl.addEventListener("keydown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.key === "Backspace" || event.key === "Delete") {
+          inputEl.value = "";
+          return;
+        }
+        inputEl.value = formatShortcutEvent(event);
+      });
+      inputEl.addEventListener("paste", (event) => event.preventDefault());
+    });
+  }
+  function syncReviewSettingsVisibility(form) {
+    var _a, _b;
+    const reviewsEnabled = ((_a = form.querySelector('input[name="enableReviews"]')) == null ? void 0 : _a.checked) ?? true;
+    const passFail = ((_b = form.querySelector('select[name="twoButtonReviews"]')) == null ? void 0 : _b.value) === "true";
+    form.querySelectorAll("[data-review-config]").forEach((node) => {
+      node.hidden = !reviewsEnabled;
+    });
+    form.querySelectorAll('[data-review-scale="five"]').forEach((node) => {
+      node.hidden = !reviewsEnabled || passFail;
+    });
+    form.querySelectorAll('[data-review-scale="pass-fail"]').forEach((node) => {
+      node.hidden = !reviewsEnabled || !passFail;
+    });
+  }
+  function renderDeckControls(settings, decks, hasApiKey) {
+    const disabled = !hasApiKey || !decks.length;
+    const deckOptions = decks.map((deck) => [deck.id, deck.name]);
+    const miningOptions = [["forq", "FORQ"], ...deckOptions];
+    return `
+        <div class="grid">
+            ${deckSelect("miningDeck", "Mining deck", settings.miningDeck, miningOptions, disabled)}
+            ${deckSelect("neverForgetDeck", "Never forget deck", settings.neverForgetDeck, deckOptions, disabled)}
+            ${deckSelect("blacklistDeck", "Blacklist deck", settings.blacklistDeck, deckOptions, disabled)}
+        </div>
+        <div class="jpdb-reader-help">${hasApiKey ? decks.length ? "Decks are loaded from your JPDB account." : "Could not load decks yet; saved deck IDs will be kept." : "Add your JPDB API key to choose decks."}</div>
+    `;
+  }
+  function deckSelect(name, label, value, options, disabled) {
+    const hasValue = options.some(([optionValue]) => optionValue === value);
+    const merged = hasValue || !value ? options : [[value, `Saved: ${value}`], ...options];
+    return `<label>${label}
+        <select name="${name}" ${disabled ? "disabled" : ""}>
+            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`).join("")}
+        </select>
+        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">` : ""}
+    </label>`;
+  }
+  function settingsTabButton(panel, label, active = false) {
+    return `<button class="jpdb-reader-settings-tab" type="button" data-action="settings-panel" data-panel="${escapeHtml$1(panel)}" role="tab" aria-selected="${active ? "true" : "false"}">${escapeHtml$1(label)}</button>`;
+  }
+  function renderDictionarySourceRows(settings) {
+    const preferences = settings.dictionaryPreferences;
+    const rows = [
+      {
+        id: JPDB_DEFINITION_SOURCE_ID,
+        name: "JPDB",
+        alias: "JPDB",
+        enabled: settings.jpdbDefinitionsEnabled,
+        priority: settings.jpdbDefinitionsPriority,
+        readonly: true,
+        help: "Built-in JPDB meanings from the parsed card."
+      },
+      ...preferences.map((preference) => ({
+        id: preference.name,
+        name: preference.name,
+        alias: preference.alias,
+        enabled: preference.enabled,
+        priority: preference.priority,
+        readonly: false,
+        help: ""
+      }))
+    ].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+    if (rows.length === 1) return `
+        <div class="jpdb-reader-help">JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.</div>
+        ${renderDictionarySourceRowsList(rows)}
+    `;
+    return renderDictionarySourceRowsList(rows);
+  }
+  function renderDictionarySourceRowsList(rows) {
+    return `
+        <div class="jpdb-reader-dictionary-head">
+            <span>On</span>
+            <span>Definition source</span>
+            <span>Alias</span>
+            <span>Order</span>
+        </div>
+        <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter((row) => row.id !== JPDB_DEFINITION_SOURCE_ID).length}">
+        ${rows.map((row, index) => {
+    const localIndex = rows.slice(0, index).filter((item) => item.id !== JPDB_DEFINITION_SOURCE_ID).length;
+    const prefix = row.id === JPDB_DEFINITION_SOURCE_ID ? "jpdbDefinitions" : `dictionaryPreferences.${localIndex}`;
+    return `
+            <div class="jpdb-reader-dictionary-row" draggable="true" data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
+                <label class="inline jpdb-reader-dictionary-toggle">
+                    <input name="${prefix}.enabled" type="checkbox" ${row.enabled ? "checked" : ""}>
+                    <span>${index + 1}</span>
+                </label>
+                <input name="${prefix}.name" type="text" value="${escapeHtml$1(row.name)}" readonly aria-label="Dictionary name">
+                <input name="${prefix}.alias" type="text" value="${escapeHtml$1(row.alias)}" ${row.readonly ? "readonly" : ""} aria-label="Dictionary alias">
+                <div class="jpdb-reader-row-tools">
+                    <input name="${prefix}.priority" type="hidden" value="${index}" aria-label="Dictionary priority">
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up">↑</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down">↓</button>
+                </div>
+                ${row.help ? `<div class="jpdb-reader-dictionary-row-help">${escapeHtml$1(row.help)}</div>` : ""}
+            </div>
+        `;
+  }).join("")}
+    `;
+  }
+  function renderRecommendedDictionaries(installed) {
+    const groups = [
+      ["terms", "Term dictionaries"],
+      ["kanji", "Kanji dictionaries"],
+      ["frequency", "Frequency dictionaries"]
+    ];
+    return `
+        <div class="jpdb-reader-recommended-title">Recommended dictionary downloads</div>
+        <div class="jpdb-reader-settings-actions">
+            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download missing recommended</button>
+            <button class="jpdb-reader-btn" type="button" data-action="refresh-dictionaries">Refresh installed list</button>
+        </div>
+        ${groups.map(([category, label]) => {
+    const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
+    if (!dictionaries.length) return "";
+    return `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title">${escapeHtml$1(label)}</div>
+                    ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+                </div>
+            `;
+  }).join("")}
+    `;
+  }
+  function renderRecommendedDictionary(dictionary, installed) {
+    const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
+    return `
+        <div class="jpdb-reader-recommended-item">
+            <div>
+                <div class="jpdb-reader-recommended-name">
+                    <span>${escapeHtml$1(dictionary.name)}</span>
+                    <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
+                </div>
+                <div class="jpdb-reader-help">${escapeHtml$1(dictionary.description)}</div>
+            </div>
+            <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
+                ${alreadyInstalled ? "Update" : "Download"}
+            </button>
+        </div>
+    `;
+  }
+  function isRecommendedDictionaryInstalled(dictionary, installed) {
+    const targetName = normalizedDictionaryName(dictionary.name);
+    return installed.some((item) => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
+  }
+  function normalizedDictionaryName(value) {
+    return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
+  }
+  function recommendedDictionaryFilename(dictionary) {
+    try {
+      const parsed = new URL(dictionary.downloadUrl);
+      const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
+      if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
+    } catch {
+    }
+    return `${dictionary.id}.zip`;
+  }
+  function readFormSettings(data, current) {
+    var _a;
+    const get = (key) => String(data.get(key) ?? "");
+    const has = (key) => data.has(key);
+    const number = (key, fallback) => readNumber(get(key), fallback);
+    const audioSources = readAudioSources(data);
+    return {
+      ...current,
+      apiKey: get("apiKey").trim(),
+      interfaceLanguage: ["auto", "en", "ja"].includes(get("interfaceLanguage")) ? get("interfaceLanguage") : current.interfaceLanguage,
+      jpdbDefinitionsEnabled: has("jpdbDefinitions.enabled"),
+      jpdbDefinitionsPriority: Math.max(0, Math.min(999, number("jpdbDefinitions.priority", current.jpdbDefinitionsPriority))),
+      rtkEnabled: has("rtkEnabled"),
+      kanjivgEnabled: has("kanjivgEnabled"),
+      kanjiOriginsEnabled: has("kanjiOriginsEnabled"),
+      kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
+      kanjiOriginWiktionaryEnabled: false,
+      kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
+      kanjiOriginRadicalImagesEnabled: false,
+      similarKanjiWords: has("similarKanjiWords"),
+      similarKanjiWordLimit: Math.max(2, Math.min(24, number("similarKanjiWordLimit", current.similarKanjiWordLimit))),
+      audioEnabled: has("audioEnabled"),
+      autoPlayAudio: has("autoPlayAudio"),
+      audioSources,
+      audioEnableDefaultSources: has("audioEnableDefaultSources"),
+      audioSourceUrl: ((_a = audioSources.find((source) => source.url.trim())) == null ? void 0 : _a.url.trim()) ?? current.audioSourceUrl,
+      accentColor: sanitizeAccentColor(get("accentColor"), current.accentColor),
+      audioViaBlob: has("audioViaBlob"),
+      audioTimeoutMs: Math.max(1e3, number("audioTimeoutMs", current.audioTimeoutMs)),
+      audioSelectionMode: get("audioSelectionMode") === "random" ? "random" : "first",
+      immersionKitEnabled: has("immersionKitEnabled"),
+      immersionKitLimit: Math.max(1, Math.min(12, number("immersionKitLimit", current.immersionKitLimit))),
+      immersionKitMinLength: Math.max(0, Math.min(120, number("immersionKitMinLength", current.immersionKitMinLength))),
+      immersionKitMaxLength: Math.max(0, Math.min(240, number("immersionKitMaxLength", current.immersionKitMaxLength))),
+      immersionKitCategory: ["all", "anime", "drama", "games"].includes(get("immersionKitCategory")) ? get("immersionKitCategory") : current.immersionKitCategory,
+      immersionKitSort: ["sentence_length:asc", "sentence_length:desc", "random"].includes(get("immersionKitSort")) ? get("immersionKitSort") : current.immersionKitSort,
+      immersionKitExactMatch: has("immersionKitExactMatch"),
+      immersionKitShowTranslation: has("immersionKitShowTranslation"),
+      immersionKitShowImages: has("immersionKitShowImages"),
+      immersionKitAutoPlayAudio: has("immersionKitAutoPlayAudio"),
+      immersionKitPlaybackRate: Math.max(0.5, Math.min(2, number("immersionKitPlaybackRate", current.immersionKitPlaybackRate))),
+      parseSelection: has("parseSelection"),
+      lookupOnClick: has("lookupOnClick"),
+      lookupOnHover: has("lookupOnHover"),
+      hoverOpenDelayMs: Math.max(0, Math.min(1500, number("hoverOpenDelayMs", current.hoverOpenDelayMs))),
+      hoverCloseDelayMs: Math.max(0, Math.min(3e3, number("hoverCloseDelayMs", current.hoverCloseDelayMs))),
+      popupActivationMode: current.popupActivationMode,
+      scanModifierKey: current.scanModifierKey,
+      autoScanJapanese: has("autoScanJapanese"),
+      scanVisiblePage: has("scanVisiblePage"),
+      showFloatingButton: has("showFloatingButton"),
+      showFurigana: has("showFurigana"),
+      showPitchAccent: has("showPitchAccent"),
+      hideKnownFurigana: has("hideKnownFurigana"),
+      ocrEnabled: has("ocrEnabled"),
+      ocrAutoScanImages: has("ocrAutoScanImages"),
+      ocrShowTextOverlay: has("ocrShowTextOverlay"),
+      ocrProvider: normalizeOcrProvider(get("ocrProvider")),
+      ocrEndpointUrl: get("ocrEndpointUrl").trim(),
+      ocrEngine: get("ocrEngine").trim() || "auto",
+      ocrCloudVisionApiKey: get("ocrCloudVisionApiKey").trim(),
+      ocrLanguage: get("ocrLanguage").trim() || "ja-JP",
+      ocrMaxImagePixels: Math.max(16e4, Math.min(28e5, number("ocrMaxImagePixels", current.ocrMaxImagePixels))),
+      ocrMinImageArea: Math.max(1e4, Math.min(8e5, number("ocrMinImageArea", current.ocrMinImageArea))),
+      ocrMaxImagesPerPage: Math.max(1, Math.min(30, number("ocrMaxImagesPerPage", current.ocrMaxImagesPerPage))),
+      ocrPrefetchMargin: Math.max(0, Math.min(3e3, number("ocrPrefetchMargin", current.ocrPrefetchMargin))),
+      ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
+      ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
+      ocrBackgroundColor: sanitizeAccentColor(get("ocrBackgroundColor"), current.ocrBackgroundColor),
+      ocrBackgroundOpacity: Math.max(0, Math.min(1, number("ocrBackgroundOpacity", current.ocrBackgroundOpacity))),
+      ocrFontScale: Math.max(0.7, Math.min(1.8, number("ocrFontScale", current.ocrFontScale))),
+      localDictionariesEnabled: has("localDictionariesEnabled"),
+      localDictionaryShowKanji: has("localDictionaryShowKanji"),
+      localDictionaryMaxResults: Math.max(1, Math.min(64, number("localDictionaryMaxResults", current.localDictionaryMaxResults))),
+      dictionaryPreferences: readDictionaryPreferences(data, current.dictionaryPreferences),
+      subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
+      subtitleAutoDetect: has("subtitleAutoDetect"),
+      subtitleOverlayVisible: has("subtitleOverlayVisible"),
+      subtitleSecondaryVisible: has("subtitleSecondaryVisible"),
+      subtitleControlsMode: ["auto", "always", "hidden"].includes(get("subtitleControlsMode")) ? get("subtitleControlsMode") : current.subtitleControlsMode,
+      subtitleFontSize: Math.max(16, Math.min(64, number("subtitleFontSize", current.subtitleFontSize))),
+      subtitleBottomOffset: Math.max(2, Math.min(40, number("subtitleBottomOffset", current.subtitleBottomOffset))),
+      subtitleTextColor: sanitizeAccentColor(get("subtitleTextColor"), current.subtitleTextColor),
+      subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
+      subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
+      subtitleBackgroundOpacity: Math.max(0, Math.min(1, number("subtitleBackgroundOpacity", current.subtitleBackgroundOpacity))),
+      subtitleFontFamily: get("subtitleFontFamily").trim() || current.subtitleFontFamily,
+      subtitleFontWeight: Math.max(100, Math.min(900, number("subtitleFontWeight", current.subtitleFontWeight))),
+      subtitleMiningPause: has("subtitleMiningPause"),
+      subtitleSeekPadding: Math.max(-2, Math.min(2, number("subtitleSeekPadding", current.subtitleSeekPadding))),
+      youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
+      youtubeShowFilterNotice: has("youtubeShowFilterNotice"),
+      ankiEnabled: has("ankiEnabled"),
+      ankiConnectUrl: get("ankiConnectUrl").trim() || current.ankiConnectUrl,
+      ankiDeck: get("ankiDeck").trim() || current.ankiDeck,
+      ankiModel: get("ankiModel").trim() || current.ankiModel,
+      ankiTags: get("ankiTags").trim(),
+      ankiMineWithJpdb: has("ankiMineWithJpdb"),
+      ankiCaptureScreenshot: has("ankiCaptureScreenshot"),
+      theme: get("theme"),
+      popupMode: get("popupMode"),
+      miningDeck: get("miningDeck").trim() || "forq",
+      neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
+      blacklistDeck: get("blacklistDeck").trim() || "blacklist",
+      addToForq: has("addToForq"),
+      enableReviews: has("enableReviews"),
+      twoButtonReviews: get("twoButtonReviews") === "true",
+      shortcuts: {
+        scanPage: get("shortcuts.scanPage"),
+        hoverLookup: get("shortcuts.hoverLookup"),
+        openSettings: get("shortcuts.openSettings"),
+        playAudio: get("shortcuts.playAudio"),
+        closePopup: get("shortcuts.closePopup"),
+        previousSubtitle: get("shortcuts.previousSubtitle"),
+        nextSubtitle: get("shortcuts.nextSubtitle"),
+        copySubtitle: get("shortcuts.copySubtitle"),
+        toggleOcr: get("shortcuts.toggleOcr"),
+        toggleYoutubeImmersion: get("shortcuts.toggleYoutubeImmersion"),
+        scanImages: get("shortcuts.scanImages"),
+        gradeNothing: get("shortcuts.gradeNothing"),
+        gradeSomething: get("shortcuts.gradeSomething"),
+        gradeHard: get("shortcuts.gradeHard"),
+        gradeOkay: get("shortcuts.gradeOkay"),
+        gradeEasy: get("shortcuts.gradeEasy"),
+        gradeFail: get("shortcuts.gradeFail"),
+        gradePass: get("shortcuts.gradePass")
+      }
+    };
+  }
+  function readNumber(value, fallback) {
+    if (!value.trim()) return fallback;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+  function readDictionaryPreferences(data, current) {
+    const get = (key) => String(data.get(key) ?? "");
+    const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
+    if (!count) return current;
+    return Array.from({ length: count }, (_, index) => ({
+      name: get(`dictionaryPreferences.${index}.name`).trim(),
+      alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
+      enabled: data.has(`dictionaryPreferences.${index}.enabled`),
+      priority: readNumber(get(`dictionaryPreferences.${index}.priority`), index)
+    })).filter((item) => item.name).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+  }
+  function readAudioSources(data) {
+    const get = (key) => String(data.get(key) ?? "");
+    const count = Math.max(0, Number(get("audioSourceCount")) || 0);
+    const sources = [];
+    const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
+    for (let index = 0; index < count; index++) {
+      const source = normalizeAudioSource({
+        type: get(`audioSources.${index}.type`),
+        url: get(`audioSources.${index}.url`).trim(),
+        voice: get(`audioSources.${index}.voice`).trim(),
+        enabled: data.has(`audioSources.${index}.enabled`)
+      });
+      if (!source) continue;
+      if (!source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type)) continue;
+      sources.push(source);
+    }
+    return sources;
+  }
+  function getReaderSettingsExport(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    return (record.formatName === "yomu-reader-settings" || record.formatName === "kotoba-reader-settings" || record.formatName === "jpdb-popup-reader-settings") && record.settings && typeof record.settings === "object" ? record.settings : null;
+  }
+  function pickFile(root, type) {
+    const inputEl = root.querySelector(`input[data-file="${type}"]`);
+    if (!inputEl) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      inputEl.onchange = () => {
+        var _a;
+        const file = ((_a = inputEl.files) == null ? void 0 : _a[0]) ?? null;
+        inputEl.value = "";
+        resolve(file);
+      };
+      inputEl.click();
+    });
+  }
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
+  }
+  function dateStamp() {
+    return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
   const COMMON_EXCLUDE = [
     "nav",
@@ -11053,7 +12649,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
   }
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
-  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   class ReaderApp {
     constructor() {
       __publicField(this, "settings", DEFAULT_SETTINGS);
@@ -11116,6 +12711,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       __publicField(this, "immersionKitAudioBlobUrl");
       __publicField(this, "pressedKeys", /* @__PURE__ */ new Set());
       __publicField(this, "suppressSelectionLookupUntil", 0);
+      __publicField(this, "suppressWordClickUntil", 0);
+      __publicField(this, "pressLookup");
     }
     async init() {
       this.settings = await loadSettings();
@@ -11286,12 +12883,29 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         var _a, _b;
         const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
         if (!word) return;
+        if (Date.now() < this.suppressWordClickUntil) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (!this.settings.lookupOnClick) return;
         event.preventDefault();
         event.stopPropagation();
         this.suppressSelectionLookupUntil = Date.now() + 350;
         if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
         void this.showWord(word, { trigger: "click" });
+      }, { capture: true });
+      document.addEventListener("pointerdown", (event) => {
+        this.beginPressLookup(event);
+      }, { capture: true, passive: false });
+      document.addEventListener("pointermove", (event) => {
+        this.updatePressLookup(event);
+      }, { capture: true, passive: false });
+      document.addEventListener("pointerup", (event) => {
+        this.endPressLookup(event);
+      }, { capture: true });
+      document.addEventListener("pointercancel", (event) => {
+        this.endPressLookup(event);
       }, { capture: true });
       document.addEventListener("pointerover", (event) => {
         this.handleHoverPointer(event);
@@ -11402,6 +13016,65 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     shouldLookupOnHover(event) {
       return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys);
+    }
+    beginPressLookup(event) {
+      if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (this.isInsideActivePopover(event.target)) return;
+      const word = this.wordFromEventTarget(event.target);
+      if (!word) return;
+      this.pressLookup = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        active: false
+      };
+    }
+    updatePressLookup(event) {
+      const pressLookup = this.pressLookup;
+      if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
+      this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+      if (!pressLookup.active) {
+        const distance = Math.hypot(event.clientX - pressLookup.startX, event.clientY - pressLookup.startY);
+        if (distance < 8) return;
+        pressLookup.active = true;
+        this.suppressWordClickUntil = Date.now() + 700;
+        this.suppressedHoverWord = void 0;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const word = this.wordFromPoint(event.clientX, event.clientY);
+      if (!word || word === pressLookup.lastWord) return;
+      pressLookup.lastWord = word;
+      this.cancelHoverClose();
+      window.clearTimeout(this.hoverLookupTimer);
+      this.hoverLookupTimer = void 0;
+      this.hoverPendingWord = void 0;
+      if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
+      void this.showWord(word, { trigger: "hover" });
+    }
+    endPressLookup(event) {
+      const pressLookup = this.pressLookup;
+      if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
+      if (pressLookup.active) {
+        this.suppressWordClickUntil = Date.now() + 700;
+        this.suppressSelectionLookupUntil = Date.now() + 350;
+      }
+      this.pressLookup = void 0;
+    }
+    wordFromEventTarget(target) {
+      var _a;
+      const element2 = target instanceof Element ? target : null;
+      const word = (_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, ".jpdb-reader-word");
+      return word && !word.closest("[data-jpdb-reader-root]") ? word : null;
+    }
+    wordFromPoint(x, y) {
+      var _a;
+      for (const element2 of document.elementsFromPoint(x, y)) {
+        const word = (_a = element2.closest) == null ? void 0 : _a.call(element2, ".jpdb-reader-word");
+        if (word && !word.closest("[data-jpdb-reader-root]")) return word;
+      }
+      return null;
     }
     handleHoverPointer(event) {
       var _a, _b;
@@ -11779,7 +13452,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         if (action === "similar-word") void this.lookupText(actionButton.dataset.expression ?? "", actionButton.dataset.expression ?? "");
       });
       this.mountPopover(popover, anchor);
-      this.installKanjiDoodle(popover);
+      installKanjiDoodle(popover, () => this.settings.interfaceLanguage);
       if (this.settings.kanjivgEnabled) {
         void this.renderKanjiVGInto(popover, kanjiVGPromise, kanji, language);
       }
@@ -11819,125 +13492,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const facts = buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
       const graph = this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo) : null;
       setInnerHtml(mount, renderKanjiOrigins(facts, graph, sourceInfo, this.settings, this.settings.interfaceLanguage));
-    }
-    installKanjiDoodle(popover) {
-      const stage = popover.querySelector(".jpdb-reader-doodle-stage");
-      const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
-      const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
-      const clear = popover.querySelector("[data-doodle-clear]");
-      const trace = popover.querySelector("[data-doodle-trace]");
-      if (!stage || !canvas || !ghost) return;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      let dpr = 1;
-      let drawing = false;
-      let pointerId = -1;
-      let traceVisible = true;
-      let points = [];
-      let strokes = [];
-      const resize = () => {
-        const rect = stage.getBoundingClientRect();
-        dpr = Math.max(window.devicePixelRatio || 1, 1);
-        canvas.width = Math.max(1, Math.round(rect.width * dpr));
-        canvas.height = Math.max(1, Math.round(rect.height * dpr));
-        redraw();
-      };
-      const toPoint = (event) => {
-        const rect = canvas.getBoundingClientRect();
-        return {
-          x: Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(rect.width, 1))),
-          y: Math.max(0, Math.min(1, (event.clientY - rect.top) / Math.max(rect.height, 1))),
-          pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
-        };
-      };
-      const drawStroke = (stroke) => {
-        if (!stroke.length) return;
-        context.save();
-        context.strokeStyle = "#141820";
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.beginPath();
-        stroke.forEach((point, index) => {
-          const x = point.x * canvas.width;
-          const y = point.y * canvas.height;
-          if (index === 0) context.moveTo(x, y);
-          else context.lineTo(x, y);
-        });
-        const lastPoint = stroke[stroke.length - 1];
-        const width = Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + ((lastPoint == null ? void 0 : lastPoint.pressure) ?? 0.55) * 0.42);
-        context.lineWidth = width;
-        context.stroke();
-        context.restore();
-      };
-      const redraw = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        for (const stroke of strokes) drawStroke(stroke);
-        drawStroke(points);
-      };
-      const start = (event) => {
-        var _a;
-        event.preventDefault();
-        event.stopPropagation();
-        drawing = true;
-        pointerId = event.pointerId;
-        points = [toPoint(event)];
-        (_a = canvas.setPointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
-        redraw();
-      };
-      const move = (event) => {
-        if (!drawing || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        const point = toPoint(event);
-        const last = points.at(-1);
-        const minDistance = event.pointerType === "pen" ? 15e-4 : 35e-4;
-        if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= minDistance) {
-          points.push(point);
-          redraw();
-        }
-      };
-      const end = (event) => {
-        var _a;
-        if (!drawing || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (points.length) strokes = [...strokes, points];
-        points = [];
-        drawing = false;
-        pointerId = -1;
-        (_a = canvas.releasePointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
-        redraw();
-      };
-      canvas.addEventListener("pointerdown", start, { passive: false });
-      canvas.addEventListener("pointermove", move, { passive: false });
-      canvas.addEventListener("pointerup", end, { passive: false });
-      canvas.addEventListener("pointercancel", end, { passive: false });
-      clear == null ? void 0 : clear.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        strokes = [];
-        points = [];
-        redraw();
-      });
-      trace == null ? void 0 : trace.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        traceVisible = !traceVisible;
-        ghost.hidden = !traceVisible;
-        stage.classList.toggle("trace-hidden", !traceVisible);
-        trace.textContent = uiText(this.settings.interfaceLanguage, traceVisible ? "hideTrace" : "showTrace");
-      });
-      const resizeObserver = new ResizeObserver(resize);
-      resizeObserver.observe(stage);
-      const disconnectWhenDetached = () => {
-        if (!popover.isConnected) {
-          resizeObserver.disconnect();
-          return;
-        }
-        requestAnimationFrame(disconnectWhenDetached);
-      };
-      requestAnimationFrame(resize);
-      requestAnimationFrame(disconnectWhenDetached);
     }
     renderDefinitionSources(card, entries) {
       const grouped = groupTermEntriesByDictionary(entries);
@@ -12260,222 +13814,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       form.setAttribute("aria-modal", "true");
       form.setAttribute("aria-label", SETTINGS_TITLE);
       form.tabIndex = -1;
-      setInnerHtml(form, `
-            <div class="jpdb-reader-settings-head">
-                <h2>${SETTINGS_TITLE}</h2>
-            </div>
-            <div class="jpdb-reader-settings-tabs" role="tablist" aria-label="Settings sections">
-                ${settingsTabButton("basics", "Basics", true)}
-                ${settingsTabButton("dictionaries", "Dictionaries")}
-                ${settingsTabButton("media", "Media")}
-                ${settingsTabButton("mining", "Mining")}
-                ${settingsTabButton("shortcuts", "Shortcuts")}
-                ${settingsTabButton("help", "Help")}
-            </div>
-            <div class="jpdb-reader-settings-scroll">
-            <fieldset data-settings-panel="basics">
-                <legend>JPDB</legend>
-                ${input("apiKey", `API key <a href="${JPDB_SETTINGS_URL}" target="_blank" rel="noopener">JPDB settings</a>`, this.settings.apiKey, "password")}
-                <div data-jpdb-decks>
-                    ${renderDeckControls(this.settings, [], Boolean(this.settings.apiKey.trim()))}
-                </div>
-                ${checkbox("addToForq", "Also add mined cards to forq", this.settings.addToForq)}
-                ${checkbox("enableReviews", "Enable review actions", this.settings.enableReviews)}
-                <div data-review-config ${this.settings.enableReviews ? "" : "hidden"}>
-                    ${select("twoButtonReviews", "Review rating scale", this.settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
-                </div>
-            </fieldset>
-            <fieldset data-settings-panel="basics">
-                <legend>Interface</legend>
-                <div class="grid">
-                    ${select("interfaceLanguage", "Settings language", this.settings.interfaceLanguage, [["auto", "Automatic"], ["en", "English"], ["ja", "日本語"]])}
-                    ${select("theme", "Theme", this.settings.theme, [["auto", "Auto"], ["dark", "Dark"], ["light", "Light"]])}
-                    ${select("popupMode", "Popup mode", this.settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
-                    ${input("accentColor", "Accent color", sanitizeAccentColor(this.settings.accentColor), "color")}
-                </div>
-                <div class="jpdb-reader-help">よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.</div>
-            </fieldset>
-            <fieldset data-settings-panel="media" hidden>
-                <legend>Audio</legend>
-                ${checkbox("audioEnabled", "Enable audio playback for terms", this.settings.audioEnabled)}
-                ${checkbox("autoPlayAudio", "Auto-play search result audio", this.settings.autoPlayAudio)}
-                ${checkbox("audioEnableDefaultSources", "Use built-in audio sources", this.settings.audioEnableDefaultSources)}
-                <div class="grid">
-                    ${select("audioSelectionMode", "When a source has several clips", this.settings.audioSelectionMode, [["first", "First audio"], ["random", "Random audio"]])}
-                    ${checkbox("audioViaBlob", "Fetch as blob for iOS Tampermonkey", this.settings.audioViaBlob)}
-                    ${input("audioTimeoutMs", "Audio timeout (ms)", String(this.settings.audioTimeoutMs), "number")}
-                </div>
-                <div class="jpdb-reader-audio-sources">
-                    ${renderAudioSourceEditor(this.settings.audioSources)}
-                </div>
-                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
-            </fieldset>
-            <fieldset data-settings-panel="media" hidden>
-                <legend>Immersion Kit</legend>
-                <div class="grid">
-                    ${checkbox("immersionKitEnabled", "Show Immersion Kit examples", this.settings.immersionKitEnabled)}
-                    ${checkbox("immersionKitShowTranslation", "Show example translations", this.settings.immersionKitShowTranslation)}
-                    ${checkbox("immersionKitShowImages", "Show example thumbnails", this.settings.immersionKitShowImages)}
-                    ${checkbox("immersionKitAutoPlayAudio", "Play example audio after next/previous", this.settings.immersionKitAutoPlayAudio)}
-                    ${select("immersionKitCategory", "Example source", this.settings.immersionKitCategory, [["all", "All"], ["anime", "Anime"], ["drama", "Drama"], ["games", "Games"]])}
-                    ${select("immersionKitSort", "Example order", this.settings.immersionKitSort, [["sentence_length:asc", "Shortest first"], ["sentence_length:desc", "Longest first"], ["random", "Random"]])}
-                    ${input("immersionKitLimit", "Examples per word", String(this.settings.immersionKitLimit), "number")}
-                    ${input("immersionKitMinLength", "Minimum sentence length", String(this.settings.immersionKitMinLength), "number")}
-                    ${input("immersionKitMaxLength", "Maximum sentence length", String(this.settings.immersionKitMaxLength), "number")}
-                    ${input("immersionKitPlaybackRate", "Example audio speed", String(this.settings.immersionKitPlaybackRate), "number")}
-                    ${checkbox("immersionKitExactMatch", "Prefer exact matches", this.settings.immersionKitExactMatch)}
-                </div>
-                <div class="jpdb-reader-help">Immersion examples appear inside word popups. Example text is tappable too, so translations can stay off unless you want them.</div>
-            </fieldset>
-            <fieldset data-settings-panel="basics">
-                <legend>Reader</legend>
-                <div class="grid">
-                    ${checkbox("parseSelection", "Lookup selected text", this.settings.parseSelection)}
-                    ${checkbox("lookupOnClick", "Tap or click scanned words", this.settings.lookupOnClick)}
-                    ${checkbox("lookupOnHover", "Hover scanned words", this.settings.lookupOnHover)}
-                    ${checkbox("autoScanJapanese", "Auto-scan when Japanese is detected", this.settings.autoScanJapanese)}
-                    ${checkbox("scanVisiblePage", "Scan visible page on load", this.settings.scanVisiblePage)}
-                    ${checkbox("showFloatingButton", "Toggle floating puck on pages", this.settings.showFloatingButton)}
-                    ${checkbox("showFurigana", "Enable furigana annotations", this.settings.showFurigana)}
-                    ${checkbox("showPitchAccent", "Show pitch accent", this.settings.showPitchAccent)}
-                    ${checkbox("hideKnownFurigana", "Hide furigana for known cards only", this.settings.hideKnownFurigana)}
-                </div>
-                <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
-            </fieldset>
-            <fieldset data-settings-panel="basics">
-                <legend>Kanji</legend>
-                <div class="grid">
-                    ${checkbox("kanjivgEnabled", "Show stroke order and drawing pad", this.settings.kanjivgEnabled)}
-                    ${checkbox("kanjiOriginsEnabled", "Show compact kanji facts and component map", this.settings.kanjiOriginsEnabled)}
-                    ${checkbox("kanjiOriginKanjiMapEnabled", "Use Kanji Alive and Kanji Map facts", this.settings.kanjiOriginKanjiMapEnabled)}
-                    ${checkbox("kanjiOriginGraphEnabled", "Show component graph", this.settings.kanjiOriginGraphEnabled)}
-                    ${checkbox("rtkEnabled", "Show RTK information", this.settings.rtkEnabled)}
-                    ${checkbox("similarKanjiWords", "Show words using the same kanji", this.settings.similarKanjiWords)}
-                    ${input("similarKanjiWordLimit", "Similar word limit", String(this.settings.similarKanjiWordLimit), "number")}
-                </div>
-                <div class="jpdb-reader-help">Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.</div>
-            </fieldset>
-            <fieldset data-settings-panel="media" hidden>
-                <legend>Images</legend>
-                <div class="grid">
-                    ${checkbox("ocrEnabled", "Read text in images", this.settings.ocrEnabled)}
-                    ${checkbox("ocrAutoScanImages", "Read images automatically", this.settings.ocrAutoScanImages)}
-                    ${checkbox("ocrShowTextOverlay", "Show recognized text on images", this.settings.ocrShowTextOverlay)}
-                    ${select("ocrProvider", "Image reading", this.settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["local-service", "Local OCR app"], ["cloud-vision", "Google Cloud Vision"], ["off", "Off"]])}
-                    ${select("ocrMaxImagesPerPage", "Images to read per page", String(this.settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
-                    ${select("ocrMinImageArea", "Smallest image to read", String(this.settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
-                    ${select("ocrMaxImagePixels", "Image detail", String(this.settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
-                    ${input("ocrTextColor", "Image text color", this.settings.ocrTextColor, "color")}
-                    ${input("ocrOutlineColor", "Image text outline", this.settings.ocrOutlineColor, "color")}
-                    ${input("ocrBackgroundColor", "Image highlight background", this.settings.ocrBackgroundColor, "color")}
-                    ${input("ocrBackgroundOpacity", "Image highlight opacity", String(this.settings.ocrBackgroundOpacity), "number")}
-                    ${input("ocrFontScale", "Image text scale", String(this.settings.ocrFontScale), "number")}
-                    <label data-local-ocr ${this.settings.ocrProvider === "local-service" ? "" : "hidden"}>Local OCR app URL<input name="ocrEndpointUrl" type="text" value="${escapeHtml$1(this.settings.ocrEndpointUrl)}" autocomplete="off"></label>
-                    <div data-local-ocr ${this.settings.ocrProvider === "local-service" ? "" : "hidden"}>${select("ocrEngine", "Local OCR engine", this.settings.ocrEngine, [["auto", "Automatic"], ["MangaOCR", "MangaOCR"], ["PaddleOCR", "PaddleOCR"], ["AppleVision", "Apple Vision"]])}</div>
-                    <label data-cloud-ocr ${this.settings.ocrProvider === "cloud-vision" ? "" : "hidden"}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml$1(this.settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
-                    <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(this.settings.ocrLanguage)}">
-                    <input type="hidden" name="ocrPrefetchMargin" value="${this.settings.ocrPrefetchMargin}">
-                </div>
-                <div class="jpdb-reader-help">Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
-            </fieldset>
-            <fieldset data-settings-panel="media" hidden>
-                <legend>Video</legend>
-                <div class="grid">
-                    ${checkbox("subtitlePlayerEnabled", "Enable video subtitle player", this.settings.subtitlePlayerEnabled)}
-                    ${checkbox("subtitleAutoDetect", "Auto-detect page subtitles", this.settings.subtitleAutoDetect)}
-                    ${checkbox("subtitleOverlayVisible", "Show subtitle overlay", this.settings.subtitleOverlayVisible)}
-                    ${checkbox("subtitleSecondaryVisible", "Show native subtitles when available", this.settings.subtitleSecondaryVisible)}
-                    ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", this.settings.subtitleMiningPause)}
-                    ${select("subtitleControlsMode", "Subtitle controls", this.settings.subtitleControlsMode, [["auto", "Show when needed"], ["hidden", "Hide controls"], ["always", "Always visible"]])}
-                    ${input("subtitleFontSize", "Subtitle font size", String(this.settings.subtitleFontSize), "number")}
-                    ${input("subtitleBottomOffset", "Subtitle bottom offset (%)", String(this.settings.subtitleBottomOffset), "number")}
-                    ${input("subtitleTextColor", "Subtitle color", this.settings.subtitleTextColor, "color")}
-                    ${input("subtitleOutlineColor", "Subtitle outline", this.settings.subtitleOutlineColor, "color")}
-                    ${input("subtitleBackgroundColor", "Subtitle background", this.settings.subtitleBackgroundColor, "color")}
-                    ${input("subtitleBackgroundOpacity", "Subtitle background opacity", String(this.settings.subtitleBackgroundOpacity), "number")}
-                    ${input("subtitleFontFamily", "Subtitle font family", this.settings.subtitleFontFamily)}
-                    ${input("subtitleFontWeight", "Subtitle font weight", String(this.settings.subtitleFontWeight), "number")}
-                    ${input("subtitleSeekPadding", "Subtitle seek padding (seconds)", String(this.settings.subtitleSeekPadding), "number")}
-                </div>
-            </fieldset>
-            <fieldset data-settings-panel="media" hidden>
-                <legend>YouTube</legend>
-                <div class="grid">
-                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese-looking YouTube videos", this.settings.youtubeImmersionEnabled)}
-                    ${checkbox("youtubeShowFilterNotice", "Show reveal control for hidden videos", this.settings.youtubeShowFilterNotice)}
-                </div>
-                <div class="jpdb-reader-help">Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
-            </fieldset>
-            <fieldset data-settings-panel="mining" hidden>
-                <legend>Anki</legend>
-                <div class="grid">
-                    ${checkbox("ankiEnabled", "Enable Anki mining", this.settings.ankiEnabled)}
-                    ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding to JPDB", this.settings.ankiMineWithJpdb)}
-                    ${checkbox("ankiCaptureScreenshot", "Attach video screenshot when possible", this.settings.ankiCaptureScreenshot)}
-                    ${input("ankiConnectUrl", "AnkiConnect URL", this.settings.ankiConnectUrl)}
-                    ${input("ankiDeck", "Anki deck", this.settings.ankiDeck)}
-                    ${input("ankiModel", "Anki note type", this.settings.ankiModel)}
-                    ${input("ankiTags", "Tags", this.settings.ankiTags)}
-                </div>
-                <div class="jpdb-reader-settings-actions">
-                    <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
-                </div>
-                <div class="jpdb-reader-help" data-anki-status>Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
-            </fieldset>
-            <fieldset data-settings-panel="dictionaries" hidden>
-                <legend>Dictionaries</legend>
-                <div class="grid">
-                    ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", this.settings.jpdbDefinitionsEnabled)}
-                    ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", this.settings.localDictionariesEnabled)}
-                    ${checkbox("localDictionaryShowKanji", "Show kanji dictionary cards", this.settings.localDictionaryShowKanji)}
-                    ${input("localDictionaryMaxResults", "Dictionary result limit", String(this.settings.localDictionaryMaxResults), "number")}
-                </div>
-                <div class="jpdb-reader-dictionary-status" data-dictionary-status>Checking imported dictionaries...</div>
-                <div class="jpdb-reader-dictionary-priorities">
-                    ${renderDictionarySourceRows(this.settings)}
-                </div>
-                <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([])}
-                </div>
-                <div class="jpdb-reader-settings-actions">
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">Import dictionaries</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">Export dictionaries</button>
-                </div>
-                <input hidden type="file" data-file="settings" accept="application/json,.json">
-                <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
-                <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
-            </fieldset>
-            <fieldset data-settings-panel="shortcuts" hidden>
-                <legend>Shortcuts</legend>
-                <div class="grid">
-                    ${shortcutInput("shortcuts.hoverLookup", "Hold while hovering", this.settings.shortcuts.hoverLookup, "Blank means hover without a key")}
-                    ${input("hoverOpenDelayMs", "Hover open delay (ms)", String(this.settings.hoverOpenDelayMs), "number")}
-                    ${input("hoverCloseDelayMs", "Hover close delay (ms)", String(this.settings.hoverCloseDelayMs), "number")}
-                    ${shortcutInput("shortcuts.scanPage", "Scan page", this.settings.shortcuts.scanPage)}
-                    ${shortcutInput("shortcuts.openSettings", "Open settings", this.settings.shortcuts.openSettings)}
-                    ${shortcutInput("shortcuts.playAudio", "Play audio", this.settings.shortcuts.playAudio)}
-                    ${shortcutInput("shortcuts.closePopup", "Close popup", this.settings.shortcuts.closePopup)}
-                    ${shortcutInput("shortcuts.previousSubtitle", "Previous subtitle", this.settings.shortcuts.previousSubtitle)}
-                    ${shortcutInput("shortcuts.nextSubtitle", "Next subtitle", this.settings.shortcuts.nextSubtitle)}
-                    ${shortcutInput("shortcuts.copySubtitle", "Copy subtitle", this.settings.shortcuts.copySubtitle)}
-                    ${shortcutInput("shortcuts.toggleOcr", "Toggle image reading", this.settings.shortcuts.toggleOcr)}
-                    ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", this.settings.shortcuts.toggleYoutubeImmersion)}
-                    ${shortcutInput("shortcuts.scanImages", "Read images now", this.settings.shortcuts.scanImages)}
-                    ${renderReviewShortcutInputs(this.settings)}
-                </div>
-            </fieldset>
-            <fieldset data-settings-panel="help" hidden>
-                <legend>Support</legend>
-                ${renderSupportPanel()}
-            </fieldset>
-            </div>
-            <div class="footer">
-                <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
-                <button class="jpdb-reader-btn add" type="submit">Save</button>
-            </div>
-        `);
+      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL));
       localizeSettingsForm(form, this.settings.interfaceLanguage);
       const backdrop = this.createBackdrop();
       form.addEventListener("submit", (event) => {
@@ -12890,42 +14229,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       window.setTimeout(() => toast.remove(), 3200);
     }
   }
-  function pauseActiveVideo() {
-    var _a;
-    const videos = Array.from(document.querySelectorAll("video"));
-    const playable = videos.filter((video) => video.readyState > 0).sort((a, b) => {
-      const aArea = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
-      const bArea = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
-      return Number(a.paused) - Number(b.paused) || bArea - aArea;
-    });
-    (_a = playable[0]) == null ? void 0 : _a.pause();
-  }
-  function isEditableTarget(target) {
-    const element2 = target instanceof Element ? target : null;
-    return Boolean(element2 == null ? void 0 : element2.closest('input, textarea, select, [contenteditable="true"]'));
-  }
-  async function copyText(text2) {
-    var _a;
-    if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
-      try {
-        await navigator.clipboard.writeText(text2);
-        return;
-      } catch {
-      }
-    }
-    const textarea = document.createElement("textarea");
-    textarea.value = text2;
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.append(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  }
-  function normalizePressedKey(key) {
-    if (key === " ") return "space";
-    return key.length === 1 ? key.toLowerCase() : key.toLowerCase();
-  }
   function mutationTouchesAsbPlayer(mutation) {
     const nodes = [
       mutation.target,
@@ -12948,1228 +14251,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
       return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
     });
-  }
-  function pickTokenForSelection(tokens = [], selected) {
-    const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
-    if (exact) return exact;
-    return tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
-  }
-  function formatMetaFrequency(value) {
-    if (typeof value === "number" || typeof value === "string") return `#${value}`;
-    if (!value || typeof value !== "object") return "";
-    const record = value;
-    const display = record.displayValue ?? record.frequency ?? record.value;
-    if (display == null) return "";
-    return `#${String(display)}`;
-  }
-  function formatMetaPitch(value) {
-    if (!value || typeof value !== "object") return "";
-    const record = value;
-    const positions = Array.isArray(record.pitches) ? record.pitches : Array.isArray(record.positions) ? record.positions : [];
-    if (positions.length) return positions.slice(0, 4).map(String).join(", ");
-    if (typeof record.position === "number") return String(record.position);
-    return "";
-  }
-  function renderSpellingForKanjiNavigation(spelling, language) {
-    return Array.from(spelling).map(
-      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
-    ).join("");
-  }
-  function groupTermEntriesByDictionary(entries) {
-    const grouped = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      const group = grouped.get(entry.dictionary) ?? [];
-      group.push(entry);
-      grouped.set(entry.dictionary, group);
-    }
-    return grouped;
-  }
-  function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
-    const elementKeywords = splitRtkElements((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "");
-    const jpdbByKanji = new Map(((jpdbInfo == null ? void 0 : jpdbInfo.components) ?? []).map((component) => [component.kanji, component.keyword]));
-    const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
-    return [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter).map((kanji, index) => ({
-      kanji,
-      keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
-      meaning: localByKanji.get(kanji) || ""
-    }));
-  }
-  function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
-    const currentKeys = /* @__PURE__ */ new Set([`${currentCard.spelling}
-${currentCard.reading}`, `${currentCard.spelling}
-`]);
-    const words = /* @__PURE__ */ new Map();
-    const add = (entry) => {
-      const key = `${entry.expression}
-${entry.reading}`;
-      if (currentKeys.has(key) || entry.expression === currentCard.spelling) return;
-      const existing = words.get(key);
-      if (existing) {
-        existing.meaning || (existing.meaning = entry.meaning);
-        existing.frequency ?? (existing.frequency = entry.frequency);
-        if (!existing.source.includes(entry.source)) existing.source = `${existing.source} · ${entry.source}`;
-        return;
-      }
-      words.set(key, entry);
-    };
-    jpdbVocabulary.forEach((entry) => add({
-      expression: entry.expression,
-      reading: entry.reading,
-      meaning: entry.meaning,
-      source: "JPDB"
-    }));
-    localEntries.forEach((entry) => add({
-      expression: entry.expression,
-      reading: entry.reading,
-      meaning: entry.glossary.map(glossaryToText).filter(Boolean).join("; ").slice(0, 140),
-      frequency: entry.jpdbFrequency,
-      source: dictionaryLabel2(entry.dictionary)
-    }));
-    return Array.from(words.values()).sort(
-      (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
-    );
-  }
-  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries) {
-    const keywords = /* @__PURE__ */ new Map();
-    const addKeyword = (text2, source) => {
-      const normalized = text2 == null ? void 0 : text2.trim();
-      if (!normalized) return;
-      const key = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-      if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key, existing);
-    };
-    addKeyword(jpdbInfo == null ? void 0 : jpdbInfo.keyword, "JPDB");
-    addKeyword(rtkInfo == null ? void 0 : rtkInfo.keyword, "RTK");
-    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, "dict"));
-    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small>${escapeHtml$1(keyword.text)}</span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
-  }
-  function splitRtkElements(value) {
-    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
-  }
-  function compareOptionalNumber(a, b) {
-    if (a === void 0 && b === void 0) return 0;
-    if (a === void 0) return 1;
-    if (b === void 0) return -1;
-    return a - b;
-  }
-  function renderKanjiPractice(info, kanji, language) {
-    const ghost = `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;
-    return `
-        <div class="jpdb-reader-local jpdb-reader-kanjivg">
-            <div class="jpdb-reader-local-title">${uiText(language, "strokePractice")}</div>
-            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
-            </div>
-            <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${uiText(language, "textTrace")}</span>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
-            </div>
-        </div>
-    `;
-  }
-  function renderKanjiOrigins(facts, graph, sourceInfo, settings, language) {
-    if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) return "";
-    const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
-    const radical = map == null ? void 0 : map.radical;
-    const kanjiMapUrl = map ? `https://thekanjimap.com/${encodeURIComponent(map.kanji)}` : "";
-    const sourceLinks = kanjiMapUrl ? `<a href="${escapeHtml$1(kanjiMapUrl)}" target="_blank" rel="noopener">The Kanji Map ${externalLinkIcon()}</a>` : "";
-    return `
-        <div class="jpdb-reader-local jpdb-reader-origins">
-            <div class="jpdb-reader-local-title">${uiText(language, "originStructure")}</div>
-            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
-                ${facts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
-            </div>` : ""}
-            ${map ? `<div class="jpdb-reader-origin-detail">
-                ${radical || map.hint ? `<div class="jpdb-reader-radical-card">
-                    ${radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$1(radical.symbol || uiText(language, "radical"))}</strong>` : ""}
-                    <div>
-                        ${radical ? `<strong>${escapeHtml$1([radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""].filter(Boolean).join(" · "))}</strong>` : ""}
-                        ${map.hint ? `<span>${escapeHtml$1(map.hint)}</span>` : ""}
-                    </div>
-                </div>` : ""}
-            </div>` : ""}
-            ${sourceLinks ? `<div class="jpdb-reader-origin-sources">${sourceLinks}</div>` : ""}
-            ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
-        </div>
-    `;
-  }
-  function renderKanjiOriginGraph(graph, language) {
-    const nodes = (graph == null ? void 0 : graph.nodes.filter((node) => !node.id.startsWith("rtk:"))) ?? [];
-    const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodes.some((node) => node.id === edge.from) && nodes.some((node) => node.id === edge.to))) ?? [];
-    if (nodes.length <= 1 || !edges.length) return "";
-    const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
-    const components2 = nodes.filter((node) => node.kind === "component").slice(0, 8);
-    const related = nodes.filter((node) => node.kind === "related").slice(0, 4);
-    const positioned = [
-      ...components2.map((node, index) => ({
-        node,
-        x: 16,
-        y: components2.length === 1 ? 50 : 18 + 64 / Math.max(1, components2.length - 1) * index
-      })),
-      { node: current, x: 50, y: 50 },
-      ...related.map((node, index) => ({
-        node,
-        x: 84,
-        y: related.length === 1 ? 50 : 24 + 52 / Math.max(1, related.length - 1) * index
-      }))
-    ];
-    const coords = new Map(positioned.map((item) => [item.node.id, item]));
-    const lines = edges.map((edge) => {
-      const from = coords.get(edge.from);
-      const to = coords.get(edge.to);
-      if (!from || !to) return "";
-      return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" />`;
-    }).join("");
-    const nodeButtons = positioned.map(({ node, x, y }) => {
-      const style = `left:${x}%;top:${y}%`;
-      if (node.kind === "related") {
-        return `<span class="jpdb-reader-origin-graph-node ${node.kind}" style="${style}" title="${escapeHtml$1(node.detail)}">${escapeHtml$1(node.label)}</span>`;
-      }
-      return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" style="${style}" title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
-    }).join("");
-    return `
-        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, "originMapLabel")}">
-            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">${lines}</svg>
-            ${nodeButtons}
-        </div>
-    `;
-  }
-  function renderSupportPanel() {
-    return `
-        <div class="jpdb-reader-support-card">
-            <div>
-                <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
-                <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                <p>Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.</p>
-            </div>
-            <div class="jpdb-reader-support-actions">
-                <a class="jpdb-reader-btn add" href="${SUPPORT_LINKS.paypal}" target="_blank" rel="noopener" data-support-link="paypal">Donate</a>
-                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.issues}" target="_blank" rel="noopener" data-support-link="issues">Report issue</a>
-                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.github}" target="_blank" rel="noopener" data-support-link="github">GitHub</a>
-                <button class="jpdb-reader-btn" type="button" data-action="copy-discord" data-support-link="discord">Copy Discord</button>
-            </div>
-            <div class="jpdb-reader-help">Discord: ${SUPPORT_LINKS.discordUsername}</div>
-        </div>
-    `;
-  }
-  function renderJpdbKanjiInfo(info, language) {
-    if (!info) return "";
-    const infoChips = [
-      info.type
-    ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
-    return `
-        <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
-            <div class="jpdb-reader-local-title">${uiText(language, "readingsComponents")}</div>
-            <div class="jpdb-reader-local-entry">
-                ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ""}
-                ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
-                </div>` : ""}
-                ${info.components.length ? `<div class="jpdb-reader-component-grid">
-                    ${info.components.map((component) => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
-                        <strong>${escapeHtml$1(component.kanji)}</strong>
-                        <span>${escapeHtml$1(component.keyword)}</span>
-                    </button>`).join("")}
-                </div>` : ""}
-                ${info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : ""}
-            </div>
-        </div>
-    `;
-  }
-  function renderRtkInfo(info, components2, language) {
-    if (!info) return "";
-    const elementKeywords = splitRtkElements(info.elements);
-    const componentByKeyword = new Map(components2.filter((component) => component.keyword).map((component) => [component.keyword.toLowerCase(), component.kanji]));
-    return `
-        <div class="jpdb-reader-local jpdb-reader-rtk">
-            <div class="jpdb-reader-local-title">RTK</div>
-            <div class="jpdb-reader-local-entry">
-                <div class="jpdb-reader-rtk-head">
-                    <strong>${escapeHtml$1(info.keyword)}</strong>
-                    ${info.frameNumber ? `<span>${escapeHtml$1(info.frameNumber)}</span>` : ""}
-                </div>
-                ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
-                    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
-                </div>` : ""}
-                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
-                    ${elementKeywords.map((keyword, index) => {
-    var _a;
-    const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || ((_a = components2[index]) == null ? void 0 : _a.kanji);
-    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}"><strong>${escapeHtml$1(componentKanji)}</strong><span>${escapeHtml$1(keyword)}</span></button>` : `<span>${escapeHtml$1(keyword)}</span>`;
-  }).join("")}
-                </div>` : ""}
-                ${components2.length ? `<div class="jpdb-reader-component-grid">
-                    ${components2.map((component) => {
-    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
-                            <strong>${escapeHtml$1(component.kanji)}</strong>
-                            ${component.keyword ? `<span>${escapeHtml$1(component.keyword)}</span>` : ""}
-                            ${component.meaning && component.meaning !== component.keyword ? `<small>${escapeHtml$1(component.meaning)}</small>` : ""}
-                        </button>`;
-  }).join("")}
-                </div>` : ""}
-                ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
-                ${info.heisigComment ? `<details><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : ""}
-                ${info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""}
-            </div>
-        </div>
-    `;
-  }
-  function renderPitch(card) {
-    const [pitch] = card.pitchAccent;
-    if (!pitch) return "";
-    const morae = splitMorae(card.reading);
-    const highs = Array.from(pitch).filter((ch) => ch === "H" || ch === "L").slice(0, morae.length);
-    if (highs.length < 2) return "";
-    const width = morae.length * 24 + 18;
-    const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
-    const cls = getPitchClassName(pitch);
-    return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
-        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
-    </svg></div>`;
-  }
-  function externalLinkIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7 17 17 7"></path>
-        <path d="M9 7h8v8"></path>
-    </svg>`;
-  }
-  function speakerIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
-  }
-  function uniqueKanji(value) {
-    return [...new Set(Array.from(value).filter(isKanjiCharacter))];
-  }
-  function isKanjiCharacter(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
-  }
-  function splitMorae(reading) {
-    const small = new Set("ゃゅょャュョァィゥェォ");
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && small.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function getPitchClassName(pitch) {
-    const drops = (pitch.match(/HL/g) ?? []).length;
-    const rises = (pitch.match(/LH/g) ?? []).length;
-    if (pitch.startsWith("H") && drops === 1) return "atamadaka";
-    if (pitch.startsWith("L") && rises === 1 && !pitch.endsWith("L")) return "heiban";
-    if (pitch.startsWith("L") && rises === 1 && pitch.endsWith("L")) return "nakadaka";
-    if (rises > 1 || drops > 1) return "kifuku";
-    return "odaka";
-  }
-  function positionPopover(popover, anchor) {
-    const selection = window.getSelection();
-    const rect = (anchor == null ? void 0 : anchor.getBoundingClientRect()) ?? ((selection == null ? void 0 : selection.rangeCount) ? selection.getRangeAt(0).getBoundingClientRect() : void 0);
-    const width = popover.offsetWidth;
-    const height = popover.offsetHeight;
-    const fallbackLeft = (window.innerWidth - width) / 2;
-    const fallbackTop = window.innerHeight * 0.18;
-    const left = rect ? rect.left + (rect.width - width) / 2 : fallbackLeft;
-    const top = rect && rect.top > height + 10 ? rect.top - height - 8 : rect ? rect.bottom + 8 : fallbackTop;
-    popover.style.left = `${Math.max(8, Math.min(left, window.innerWidth - width - 8))}px`;
-    popover.style.top = `${Math.max(8, Math.min(top, window.innerHeight - height - 8))}px`;
-  }
-  function input(name, label, value, type = "text") {
-    return `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"></label>`;
-  }
-  function shortcutInput(name, label, value, placeholder = "Press keys") {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none"></label>`;
-  }
-  function checkbox(name, label, checked) {
-    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}>${label}</label>`;
-  }
-  function select(name, label, value, options) {
-    return `<label>${label}<select name="${name}">${options.map(
-    ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
-  ).join("")}</select></label>`;
-  }
-  function getFormInterfaceLanguage(form, fallback) {
-    var _a;
-    const value = (_a = getNamedControl(form, "interfaceLanguage")) == null ? void 0 : _a.value;
-    return value === "auto" || value === "en" || value === "ja" ? value : fallback;
-  }
-  function localizeSettingsForm(form, language) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
-    const text2 = (key) => uiText(language, key);
-    form.setAttribute("aria-label", text2("settingsTitle"));
-    (_a = form.querySelector("h2")) == null ? void 0 : _a.replaceChildren(text2("settingsTitle"));
-    const tabLabels = {
-      basics: "basics",
-      dictionaries: "dictionaries",
-      media: "media",
-      mining: "mining",
-      shortcuts: "shortcuts",
-      help: "help"
-    };
-    Object.entries(tabLabels).forEach(([panel, key]) => {
-      var _a2;
-      (_a2 = form.querySelector(`[data-action="settings-panel"][data-panel="${panel}"]`)) == null ? void 0 : _a2.replaceChildren(text2(key));
-    });
-    [
-      "JPDB",
-      text2("interface"),
-      text2("audio"),
-      text2("immersionKit"),
-      text2("reader"),
-      text2("kanji"),
-      text2("images"),
-      text2("video"),
-      text2("youtube"),
-      text2("anki"),
-      text2("dictionaries"),
-      text2("shortcuts"),
-      text2("support")
-    ].forEach((label, index) => {
-      const legend = form.querySelectorAll("fieldset > legend")[index];
-      legend == null ? void 0 : legend.replaceChildren(label);
-    });
-    const labelKeys = [
-      ["apiKey", "apiKey"],
-      ["addToForq", "addToForq"],
-      ["enableReviews", "enableReviews"],
-      ["twoButtonReviews", "reviewRatingScale"],
-      ["interfaceLanguage", "settingsLanguage"],
-      ["theme", "theme"],
-      ["popupMode", "popupMode"],
-      ["accentColor", "accentColor"],
-      ["parseSelection", "parseSelection"],
-      ["lookupOnClick", "lookupOnClick"],
-      ["lookupOnHover", "lookupOnHover"],
-      ["autoScanJapanese", "autoScanJapanese"],
-      ["scanVisiblePage", "scanVisiblePage"],
-      ["showFloatingButton", "showFloatingButton"],
-      ["showFurigana", "showFurigana"],
-      ["showPitchAccent", "showPitchAccent"],
-      ["hideKnownFurigana", "hideKnownFurigana"],
-      ["kanjivgEnabled", "kanjivgEnabled"],
-      ["kanjiOriginsEnabled", "kanjiOriginsEnabled"],
-      ["kanjiOriginKanjiMapEnabled", "kanjiOriginKanjiMapEnabled"],
-      ["kanjiOriginWiktionaryEnabled", "kanjiOriginWiktionaryEnabled"],
-      ["kanjiOriginGraphEnabled", "kanjiOriginGraphEnabled"],
-      ["kanjiOriginRadicalImagesEnabled", "kanjiOriginRadicalImagesEnabled"],
-      ["rtkEnabled", "rtkEnabled"],
-      ["similarKanjiWords", "similarKanjiWords"],
-      ["similarKanjiWordLimit", "similarKanjiWordLimit"],
-      ["audioEnabled", "audioEnabled"],
-      ["autoPlayAudio", "autoPlayAudio"],
-      ["audioEnableDefaultSources", "audioEnableDefaultSources"],
-      ["audioSelectionMode", "audioSelectionMode"],
-      ["audioViaBlob", "audioViaBlob"],
-      ["audioTimeoutMs", "audioTimeoutMs"],
-      ["immersionKitEnabled", "immersionKitEnabled"],
-      ["immersionKitShowTranslation", "immersionKitShowTranslation"],
-      ["immersionKitShowImages", "immersionKitShowImages"],
-      ["immersionKitAutoPlayAudio", "immersionKitAutoPlayAudio"],
-      ["immersionKitCategory", "immersionKitCategory"],
-      ["immersionKitSort", "immersionKitSort"],
-      ["immersionKitLimit", "immersionKitLimit"],
-      ["immersionKitMinLength", "immersionKitMinLength"],
-      ["immersionKitMaxLength", "immersionKitMaxLength"],
-      ["immersionKitPlaybackRate", "immersionKitPlaybackRate"],
-      ["immersionKitExactMatch", "immersionKitExactMatch"],
-      ["ocrEnabled", "ocrEnabled"],
-      ["ocrAutoScanImages", "ocrAutoScanImages"],
-      ["ocrShowTextOverlay", "ocrShowTextOverlay"],
-      ["ocrProvider", "ocrProvider"],
-      ["ocrMaxImagesPerPage", "ocrMaxImagesPerPage"],
-      ["ocrMinImageArea", "ocrMinImageArea"],
-      ["ocrMaxImagePixels", "ocrMaxImagePixels"],
-      ["ocrTextColor", "ocrTextColor"],
-      ["ocrOutlineColor", "ocrOutlineColor"],
-      ["ocrBackgroundColor", "ocrBackgroundColor"],
-      ["ocrBackgroundOpacity", "ocrBackgroundOpacity"],
-      ["ocrFontScale", "ocrFontScale"],
-      ["ocrEndpointUrl", "ocrEndpointUrl"],
-      ["ocrEngine", "ocrEngine"],
-      ["ocrCloudVisionApiKey", "cloudVisionApiKey"],
-      ["subtitlePlayerEnabled", "subtitlePlayerEnabled"],
-      ["subtitleAutoDetect", "subtitleAutoDetect"],
-      ["subtitleOverlayVisible", "subtitleOverlayVisible"],
-      ["subtitleSecondaryVisible", "subtitleSecondaryVisible"],
-      ["subtitleMiningPause", "subtitleMiningPause"],
-      ["subtitleControlsMode", "subtitleControlsMode"],
-      ["subtitleFontSize", "subtitleFontSize"],
-      ["subtitleBottomOffset", "subtitleBottomOffset"],
-      ["subtitleTextColor", "subtitleTextColor"],
-      ["subtitleOutlineColor", "subtitleOutlineColor"],
-      ["subtitleBackgroundColor", "subtitleBackgroundColor"],
-      ["subtitleBackgroundOpacity", "subtitleBackgroundOpacity"],
-      ["subtitleFontFamily", "subtitleFontFamily"],
-      ["subtitleFontWeight", "subtitleFontWeight"],
-      ["subtitleSeekPadding", "subtitleSeekPadding"],
-      ["youtubeImmersionEnabled", "youtubeImmersionEnabled"],
-      ["youtubeShowFilterNotice", "youtubeShowFilterNotice"],
-      ["ankiEnabled", "ankiEnabled"],
-      ["ankiMineWithJpdb", "ankiMineWithJpdb"],
-      ["ankiCaptureScreenshot", "ankiCaptureScreenshot"],
-      ["ankiConnectUrl", "ankiConnectUrl"],
-      ["ankiDeck", "ankiDeck"],
-      ["ankiModel", "ankiModel"],
-      ["ankiTags", "ankiTags"],
-      ["jpdbDefinitionsEnabled", "jpdbDefinitionsEnabled"],
-      ["localDictionariesEnabled", "localDictionariesEnabled"],
-      ["localDictionaryShowKanji", "localDictionaryShowKanji"],
-      ["localDictionaryMaxResults", "localDictionaryMaxResults"],
-      ["shortcuts.hoverLookup", "holdWhileHovering"],
-      ["hoverOpenDelayMs", "hoverOpenDelayMs"],
-      ["hoverCloseDelayMs", "hoverCloseDelayMs"],
-      ["shortcuts.scanPage", "scanPage"],
-      ["shortcuts.openSettings", "openSettings"],
-      ["shortcuts.playAudio", "playAudio"],
-      ["shortcuts.closePopup", "closePopup"],
-      ["shortcuts.previousSubtitle", "previousSubtitle"],
-      ["shortcuts.nextSubtitle", "nextSubtitle"],
-      ["shortcuts.copySubtitle", "copySubtitle"],
-      ["shortcuts.toggleOcr", "toggleImageReading"],
-      ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
-      ["shortcuts.scanImages", "readImagesNow"],
-      ["shortcuts.gradeNothing", "gradeNothing"],
-      ["shortcuts.gradeSomething", "gradeSomething"],
-      ["shortcuts.gradeHard", "gradeHard"],
-      ["shortcuts.gradeOkay", "gradeOkay"],
-      ["shortcuts.gradeEasy", "gradeEasy"],
-      ["shortcuts.gradeFail", "gradeFail"],
-      ["shortcuts.gradePass", "gradePass"]
-    ];
-    labelKeys.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
-    const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
-    if (jpdbSettings) jpdbSettings.textContent = text2("jpdbSettings");
-    setSelectOptionLabels(form, "interfaceLanguage", [
-      ["auto", text2("automatic")],
-      ["en", text2("english")],
-      ["ja", text2("japanese")]
-    ]);
-    setSelectOptionLabels(form, "theme", [
-      ["auto", text2("auto")],
-      ["dark", text2("dark")],
-      ["light", text2("light")]
-    ]);
-    setSelectOptionLabels(form, "popupMode", [
-      ["auto", text2("auto")],
-      ["sheet", text2("bottomSheet")],
-      ["popover", text2("popover")]
-    ]);
-    setSelectOptionLabels(form, "twoButtonReviews", [
-      ["false", text2("fivePoint")],
-      ["true", text2("twoPoint")]
-    ]);
-    setSelectOptionLabels(form, "audioSelectionMode", [
-      ["first", text2("firstAudio")],
-      ["random", text2("randomAudio")]
-    ]);
-    setSelectOptionLabels(form, "immersionKitCategory", [
-      ["all", text2("allCategories")],
-      ["anime", text2("anime")],
-      ["drama", text2("drama")],
-      ["games", text2("games")]
-    ]);
-    setSelectOptionLabels(form, "immersionKitSort", [
-      ["sentence_length:asc", text2("shortestFirst")],
-      ["sentence_length:desc", text2("longestFirst")],
-      ["random", text2("randomOrder")]
-    ]);
-    setSelectOptionLabels(form, "ocrProvider", [
-      ["google-lens", text2("googleLens")],
-      ["local-service", text2("localOcr")],
-      ["cloud-vision", text2("cloudVision")],
-      ["off", text2("off")]
-    ]);
-    setSelectOptionLabels(form, "ocrMaxImagesPerPage", [
-      ["3", text2("lightWork")],
-      ["8", text2("normal")],
-      ["16", text2("more")]
-    ]);
-    setSelectOptionLabels(form, "ocrMinImageArea", [
-      ["80000", text2("largeOnly")],
-      ["45000", text2("normal")],
-      ["15000", text2("includeSmall")]
-    ]);
-    setSelectOptionLabels(form, "ocrMaxImagePixels", [
-      ["640000", text2("faster")],
-      ["1200000", text2("balanced")],
-      ["2000000", text2("sharper")]
-    ]);
-    setSelectOptionLabels(form, "ocrEngine", [
-      ["auto", text2("automatic")],
-      ["MangaOCR", "MangaOCR"],
-      ["PaddleOCR", "PaddleOCR"],
-      ["AppleVision", "Apple Vision"]
-    ]);
-    setSelectOptionLabels(form, "subtitleControlsMode", [
-      ["auto", text2("showWhenNeeded")],
-      ["hidden", text2("hideControls")],
-      ["always", text2("alwaysVisible")]
-    ]);
-    setShortcutPlaceholder(form, "shortcuts.hoverLookup", text2("blankPlainHover"));
-    form.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
-      if (inputEl.name !== "shortcuts.hoverLookup") inputEl.placeholder = text2("pressKeys");
-    });
-    setFieldsetHelp(form, 1, text2("interfaceHelp"));
-    setFieldsetHelp(form, 3, text2("immersionKitHelp"));
-    setFieldsetHelp(form, 4, text2("readerHelp"));
-    setFieldsetHelp(form, 5, text2("kanjiHelp"));
-    setFieldsetHelp(form, 6, text2("ocrHelp"));
-    setFieldsetHelp(form, 8, text2("youtubeHelp"));
-    setFieldsetHelp(form, 9, text2("ankiHelp"));
-    const audioHelp = getFieldsetHelp(form, 2);
-    if (audioHelp) {
-      setInnerHtml(audioHelp, `${escapeHtml$1(text2("audioHelp").replace("Yomitan audio guide.", "").replace("Yomitan音声ガイドも参照できます。", ""))}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.`);
-    }
-    const importStatus = form.querySelector("[data-import-status]");
-    if (importStatus && /Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text2("dictionaryImportHelp");
-    const localOcrLabel = (_b = getNamedControl(form, "ocrEndpointUrl")) == null ? void 0 : _b.closest("label");
-    if (localOcrLabel) setBlockLabelText(localOcrLabel, text2("ocrEndpointUrl"));
-    const cloudOcrLabel = (_c = getNamedControl(form, "ocrCloudVisionApiKey")) == null ? void 0 : _c.closest("label");
-    if (cloudOcrLabel) setBlockLabelText(cloudOcrLabel, text2("cloudVisionApiKey"));
-    (_d = form.querySelector('[data-action="test-anki"]')) == null ? void 0 : _d.replaceChildren(text2("testAnki"));
-    (_e = form.querySelector('[data-action="import-yomitan-settings"]')) == null ? void 0 : _e.replaceChildren(text2("importSettings"));
-    (_f = form.querySelector('[data-action="export-reader-settings"]')) == null ? void 0 : _f.replaceChildren(text2("exportSettings"));
-    (_g = form.querySelector('[data-action="import-yomitan-dictionary"]')) == null ? void 0 : _g.replaceChildren(text2("importDictionaries"));
-    (_h = form.querySelector('[data-action="export-yomitan-dictionary"]')) == null ? void 0 : _h.replaceChildren(text2("exportDictionaries"));
-    (_i = form.querySelector('[data-action="audio-source-add"]')) == null ? void 0 : _i.replaceChildren(text2("addAudioSource"));
-    (_j = form.querySelector('[data-action="download-starter-dictionaries"]')) == null ? void 0 : _j.replaceChildren(text2("downloadMissingRecommended"));
-    (_k = form.querySelector('[data-action="refresh-dictionaries"]')) == null ? void 0 : _k.replaceChildren(text2("refreshInstalledList"));
-    (_l = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _l.replaceChildren(text2("cancel"));
-    (_m = form.querySelector('button[type="submit"]')) == null ? void 0 : _m.replaceChildren(text2("save"));
-    const audioHead = form.querySelectorAll(".jpdb-reader-audio-source-head span");
-    (_n = audioHead[1]) == null ? void 0 : _n.replaceChildren(text2("audioSource"));
-    (_o = audioHead[2]) == null ? void 0 : _o.replaceChildren(text2("urlVoice"));
-    const dictionaryTitle = form.querySelector(".jpdb-reader-recommended-title");
-    dictionaryTitle == null ? void 0 : dictionaryTitle.replaceChildren(text2("recommendedDownloads"));
-    form.querySelectorAll(".jpdb-reader-recommended-name a").forEach((link) => {
-      link.textContent = text2("homepage");
-    });
-    form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
-      button2.textContent = button2.dataset.installed === "true" ? text2("update") : text2("download");
-    });
-    const dictionaryStatus = form.querySelector("[data-dictionary-status]");
-    if (dictionaryStatus && /Checking imported|インポート済み辞書を確認/.test(dictionaryStatus.textContent ?? "")) {
-      dictionaryStatus.textContent = text2("checkingDictionaries");
-    }
-    localizeSupportPanel(form, language);
-  }
-  function getNamedControl(form, name) {
-    return Array.from(form.elements).find(
-      (element2) => (element2 instanceof HTMLInputElement || element2 instanceof HTMLSelectElement || element2 instanceof HTMLTextAreaElement) && element2.name === name
-    ) ?? null;
-  }
-  function setControlLabel(form, name, label) {
-    const control = getNamedControl(form, name);
-    const labelElement = control == null ? void 0 : control.closest("label");
-    if (!labelElement) return;
-    if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
-    else setBlockLabelText(labelElement, label);
-  }
-  function setBlockLabelText(label, text2) {
-    const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
-    if (textNode) textNode.textContent = text2;
-    else label.insertBefore(document.createTextNode(text2), label.firstChild);
-  }
-  function setInlineLabelText(label, text2) {
-    const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim());
-    if (textNode) textNode.textContent = text2;
-    else label.append(document.createTextNode(text2));
-  }
-  function setSelectOptionLabels(form, name, options) {
-    const selectElement = getNamedControl(form, name);
-    if (!selectElement) return;
-    options.forEach(([value, label]) => {
-      const option = Array.from(selectElement.options).find((item) => item.value === value);
-      if (option) option.textContent = label;
-    });
-  }
-  function setShortcutPlaceholder(form, name, placeholder) {
-    const inputElement = getNamedControl(form, name);
-    if (inputElement) inputElement.placeholder = placeholder;
-  }
-  function getFieldsetHelp(form, index) {
-    const fieldset = form.querySelectorAll("fieldset")[index];
-    return Array.from((fieldset == null ? void 0 : fieldset.children) ?? []).find(
-      (child) => child instanceof HTMLElement && child.classList.contains("jpdb-reader-help")
-    ) ?? null;
-  }
-  function setFieldsetHelp(form, index, text2) {
-    const help = getFieldsetHelp(form, index);
-    if (help) help.textContent = text2;
-  }
-  function localizeSupportPanel(form, language) {
-    var _a, _b, _c, _d, _e, _f, _g;
-    const support = form.querySelector(".jpdb-reader-support-card");
-    if (!support) return;
-    const text2 = (key) => uiText(language, key);
-    (_a = support.querySelector(".jpdb-reader-support-title")) == null ? void 0 : _a.replaceChildren(text2("supportTitle"));
-    const paragraphs = support.querySelectorAll("p");
-    (_b = paragraphs[0]) == null ? void 0 : _b.replaceChildren(text2("supportCopy"));
-    (_c = paragraphs[1]) == null ? void 0 : _c.replaceChildren(text2("supportDonation"));
-    (_d = support.querySelector('[data-support-link="paypal"]')) == null ? void 0 : _d.replaceChildren(text2("donate"));
-    (_e = support.querySelector('[data-support-link="issues"]')) == null ? void 0 : _e.replaceChildren(text2("reportIssue"));
-    (_f = support.querySelector('[data-support-link="github"]')) == null ? void 0 : _f.replaceChildren(text2("github"));
-    (_g = support.querySelector('[data-support-link="discord"]')) == null ? void 0 : _g.replaceChildren(text2("copyDiscord"));
-  }
-  function renderReviewShortcutInputs(settings) {
-    const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
-    const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
-    return `
-        <div class="jpdb-reader-shortcut-group" data-review-scale="five" ${fivePointHidden ? "hidden" : ""}>
-            ${shortcutInput("shortcuts.gradeNothing", "Grade NOTHING", settings.shortcuts.gradeNothing)}
-            ${shortcutInput("shortcuts.gradeSomething", "Grade SOMETHING", settings.shortcuts.gradeSomething)}
-            ${shortcutInput("shortcuts.gradeHard", "Grade HARD", settings.shortcuts.gradeHard)}
-            ${shortcutInput("shortcuts.gradeOkay", "Grade OKAY", settings.shortcuts.gradeOkay)}
-            ${shortcutInput("shortcuts.gradeEasy", "Grade EASY", settings.shortcuts.gradeEasy)}
-        </div>
-        <div class="jpdb-reader-shortcut-group" data-review-scale="pass-fail" ${passFailHidden ? "hidden" : ""}>
-            ${shortcutInput("shortcuts.gradeFail", "Pass/fail: FAIL", settings.shortcuts.gradeFail)}
-            ${shortcutInput("shortcuts.gradePass", "Pass/fail: PASS", settings.shortcuts.gradePass)}
-        </div>
-    `;
-  }
-  function activateSettingsPanel(form, panel) {
-    form.querySelectorAll("[data-settings-panel]").forEach((section) => {
-      section.hidden = section.dataset.settingsPanel !== panel;
-    });
-    form.querySelectorAll('[data-action="settings-panel"]').forEach((button2) => {
-      const active = button2.dataset.panel === panel;
-      button2.setAttribute("aria-selected", String(active));
-    });
-  }
-  function renderAudioSourceEditor(sources) {
-    return `
-        <div class="jpdb-reader-audio-source-head">
-            <span>#</span>
-            <span>Audio source</span>
-            <span>URL / voice</span>
-            <span></span>
-        </div>
-        ${renderAudioSourceRows(audioSourceRowsForSettings(sources))}
-        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">Add audio source</button>
-    `;
-  }
-  function renderAudioSourceRows(rows) {
-    const count = rows.length;
-    return `
-        <input type="hidden" name="audioSourceCount" value="${count}">
-        ${rows.map((source, index) => `
-            <div class="jpdb-reader-audio-source-row" data-audio-source-row data-index="${index}">
-                <label class="inline jpdb-reader-audio-index">
-                    <input name="audioSources.${index}.enabled" type="checkbox" ${source.enabled ? "checked" : ""}>
-                    <span>${index + 1}</span>
-                </label>
-                <select name="audioSources.${index}.type" aria-label="Audio source ${index + 1}">
-                    ${AUDIO_SOURCE_OPTIONS.map(
-    ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
-  ).join("")}
-                </select>
-                <div class="jpdb-reader-audio-source-fields">
-                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
-                    <input data-audio-voice-field name="audioSources.${index}.voice" type="text" value="${escapeHtml$1(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
-                </div>
-                <div class="jpdb-reader-row-tools" aria-label="Audio source order">
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up">↑</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down">↓</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="Remove">×</button>
-                </div>
-            </div>
-        `).join("")}
-    `;
-  }
-  function audioSourceRowsForSettings(sources) {
-    const rows = sources.map((source) => ({ ...source }));
-    return rows.length ? rows : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
-  }
-  function audioUrlPlaceholder(type) {
-    if (type === "custom" || type === "custom-json") return "URL for this custom source";
-    return "Built-in source, no URL needed";
-  }
-  function audioVoicePlaceholder(type) {
-    if (type === "text-to-speech" || type === "text-to-speech-reading") return "Voice name";
-    return "No voice needed";
-  }
-  function audioSourceUsesUrl(type) {
-    return type === "custom" || type === "custom-json";
-  }
-  function audioSourceUsesVoice(type) {
-    return type === "text-to-speech" || type === "text-to-speech-reading";
-  }
-  function syncAudioSourceRow(row, type) {
-    if (!row) return;
-    row.querySelectorAll("[data-audio-url-field]").forEach((node) => {
-      node.hidden = !audioSourceUsesUrl(type);
-    });
-    row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
-      node.hidden = !audioSourceUsesVoice(type);
-    });
-  }
-  function updateAudioSourceEditor(form, action, control) {
-    const container = form.querySelector(".jpdb-reader-audio-sources");
-    if (!container) return;
-    const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
-    const row = control == null ? void 0 : control.closest("[data-audio-source-row]");
-    const index = row ? Array.from(container.querySelectorAll("[data-audio-source-row]")).indexOf(row) : -1;
-    if (action === "audio-source-add" && sources.length < 12) {
-      sources.push({ type: "custom-json", url: "", voice: "", enabled: true });
-    }
-    if (action === "audio-source-remove" && index >= 0 && sources.length > 1) {
-      sources.splice(index, 1);
-    }
-    if (action === "audio-source-up" && index > 0) {
-      const [source] = sources.splice(index, 1);
-      sources.splice(index - 1, 0, source);
-    }
-    if (action === "audio-source-down" && index >= 0 && index < sources.length - 1) {
-      const [source] = sources.splice(index, 1);
-      sources.splice(index + 1, 0, source);
-    }
-    setInnerHtml(container, renderAudioSourceEditor(sources));
-  }
-  function updateDictionarySourceEditor(form, action, control) {
-    const container = form.querySelector(".jpdb-reader-dictionary-priorities");
-    const row = control == null ? void 0 : control.closest("[data-dictionary-source-row]");
-    if (!container || !row) return;
-    const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
-    const index = rows.indexOf(row);
-    const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
-    moveDictionarySourceRow(container, index, targetIndex);
-  }
-  function installDictionarySourceDrag(form) {
-    let dragged = null;
-    form.addEventListener("dragstart", (event) => {
-      var _a, _b;
-      const row = event.target.closest("[data-dictionary-source-row]");
-      if (!row) return;
-      dragged = row;
-      row.classList.add("jpdb-reader-dragging");
-      (_a = event.dataTransfer) == null ? void 0 : _a.setData("text/plain", row.dataset.sourceId ?? "");
-      (_b = event.dataTransfer) == null ? void 0 : _b.setDragImage(row, 18, 18);
-    });
-    form.addEventListener("dragover", (event) => {
-      if (!dragged) return;
-      const row = event.target.closest("[data-dictionary-source-row]");
-      if (row && row !== dragged) event.preventDefault();
-    });
-    form.addEventListener("drop", (event) => {
-      if (!dragged) return;
-      const target = event.target.closest("[data-dictionary-source-row]");
-      const container = dragged.closest(".jpdb-reader-dictionary-priorities");
-      if (!target || !container || target === dragged) return;
-      event.preventDefault();
-      const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
-      moveDictionarySourceRow(container, rows.indexOf(dragged), rows.indexOf(target));
-    });
-    form.addEventListener("dragend", () => {
-      dragged == null ? void 0 : dragged.classList.remove("jpdb-reader-dragging");
-      dragged = null;
-    });
-  }
-  function moveDictionarySourceRow(container, index, targetIndex) {
-    const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
-    if (index < 0 || targetIndex < 0 || index >= rows.length || targetIndex >= rows.length || index === targetIndex) return;
-    const row = rows[index];
-    const target = rows[targetIndex];
-    if (targetIndex < index) container.insertBefore(row, target);
-    else container.insertBefore(row, target.nextSibling);
-    syncDictionarySourcePriorities(container);
-  }
-  function syncDictionarySourcePriorities(container) {
-    const rows = Array.from(container.querySelectorAll("[data-dictionary-source-row]"));
-    rows.forEach((row, index) => {
-      const priority = row.querySelector('input[name$=".priority"]');
-      if (priority) priority.value = String(index);
-      const indexLabel = row.querySelector(".jpdb-reader-dictionary-toggle span");
-      if (indexLabel) indexLabel.textContent = String(index + 1);
-    });
-  }
-  function installShortcutCapture(root) {
-    root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
-      inputEl.addEventListener("keydown", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.key === "Backspace" || event.key === "Delete") {
-          inputEl.value = "";
-          return;
-        }
-        inputEl.value = formatShortcutEvent(event);
-      });
-      inputEl.addEventListener("paste", (event) => event.preventDefault());
-    });
-  }
-  function syncReviewSettingsVisibility(form) {
-    var _a, _b;
-    const reviewsEnabled = ((_a = form.querySelector('input[name="enableReviews"]')) == null ? void 0 : _a.checked) ?? true;
-    const passFail = ((_b = form.querySelector('select[name="twoButtonReviews"]')) == null ? void 0 : _b.value) === "true";
-    form.querySelectorAll("[data-review-config]").forEach((node) => {
-      node.hidden = !reviewsEnabled;
-    });
-    form.querySelectorAll('[data-review-scale="five"]').forEach((node) => {
-      node.hidden = !reviewsEnabled || passFail;
-    });
-    form.querySelectorAll('[data-review-scale="pass-fail"]').forEach((node) => {
-      node.hidden = !reviewsEnabled || !passFail;
-    });
-  }
-  function renderDeckControls(settings, decks, hasApiKey) {
-    const disabled = !hasApiKey || !decks.length;
-    const deckOptions = decks.map((deck) => [deck.id, deck.name]);
-    const miningOptions = [["forq", "FORQ"], ...deckOptions];
-    return `
-        <div class="grid">
-            ${deckSelect("miningDeck", "Mining deck", settings.miningDeck, miningOptions, disabled)}
-            ${deckSelect("neverForgetDeck", "Never forget deck", settings.neverForgetDeck, deckOptions, disabled)}
-            ${deckSelect("blacklistDeck", "Blacklist deck", settings.blacklistDeck, deckOptions, disabled)}
-        </div>
-        <div class="jpdb-reader-help">${hasApiKey ? decks.length ? "Decks are loaded from your JPDB account." : "Could not load decks yet; saved deck IDs will be kept." : "Add your JPDB API key to choose decks."}</div>
-    `;
-  }
-  function deckSelect(name, label, value, options, disabled) {
-    const hasValue = options.some(([optionValue]) => optionValue === value);
-    const merged = hasValue || !value ? options : [[value, `Saved: ${value}`], ...options];
-    return `<label>${label}
-        <select name="${name}" ${disabled ? "disabled" : ""}>
-            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`).join("")}
-        </select>
-        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">` : ""}
-    </label>`;
-  }
-  function settingsTabButton(panel, label, active = false) {
-    return `<button class="jpdb-reader-settings-tab" type="button" data-action="settings-panel" data-panel="${escapeHtml$1(panel)}" role="tab" aria-selected="${active ? "true" : "false"}">${escapeHtml$1(label)}</button>`;
-  }
-  function renderDictionarySourceRows(settings) {
-    const preferences = settings.dictionaryPreferences;
-    const rows = [
-      {
-        id: JPDB_DEFINITION_SOURCE_ID,
-        name: "JPDB",
-        alias: "JPDB",
-        enabled: settings.jpdbDefinitionsEnabled,
-        priority: settings.jpdbDefinitionsPriority,
-        readonly: true,
-        help: "Built-in JPDB meanings from the parsed card."
-      },
-      ...preferences.map((preference) => ({
-        id: preference.name,
-        name: preference.name,
-        alias: preference.alias,
-        enabled: preference.enabled,
-        priority: preference.priority,
-        readonly: false,
-        help: ""
-      }))
-    ].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-    if (rows.length === 1) return `
-        <div class="jpdb-reader-help">JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.</div>
-        ${renderDictionarySourceRowsList(rows)}
-    `;
-    return renderDictionarySourceRowsList(rows);
-  }
-  function renderDictionarySourceRowsList(rows) {
-    return `
-        <div class="jpdb-reader-dictionary-head">
-            <span>On</span>
-            <span>Definition source</span>
-            <span>Alias</span>
-            <span>Order</span>
-        </div>
-        <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter((row) => row.id !== JPDB_DEFINITION_SOURCE_ID).length}">
-        ${rows.map((row, index) => {
-    const localIndex = rows.slice(0, index).filter((item) => item.id !== JPDB_DEFINITION_SOURCE_ID).length;
-    const prefix = row.id === JPDB_DEFINITION_SOURCE_ID ? "jpdbDefinitions" : `dictionaryPreferences.${localIndex}`;
-    return `
-            <div class="jpdb-reader-dictionary-row" draggable="true" data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
-                <label class="inline jpdb-reader-dictionary-toggle">
-                    <input name="${prefix}.enabled" type="checkbox" ${row.enabled ? "checked" : ""}>
-                    <span>${index + 1}</span>
-                </label>
-                <input name="${prefix}.name" type="text" value="${escapeHtml$1(row.name)}" readonly aria-label="Dictionary name">
-                <input name="${prefix}.alias" type="text" value="${escapeHtml$1(row.alias)}" ${row.readonly ? "readonly" : ""} aria-label="Dictionary alias">
-                <div class="jpdb-reader-row-tools">
-                    <input name="${prefix}.priority" type="hidden" value="${index}" aria-label="Dictionary priority">
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up">↑</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down">↓</button>
-                </div>
-                ${row.help ? `<div class="jpdb-reader-dictionary-row-help">${escapeHtml$1(row.help)}</div>` : ""}
-            </div>
-        `;
-  }).join("")}
-    `;
-  }
-  function renderRecommendedDictionaries(installed) {
-    const groups = [
-      ["terms", "Term dictionaries"],
-      ["kanji", "Kanji dictionaries"],
-      ["frequency", "Frequency dictionaries"]
-    ];
-    return `
-        <div class="jpdb-reader-recommended-title">Recommended dictionary downloads</div>
-        <div class="jpdb-reader-settings-actions">
-            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download missing recommended</button>
-            <button class="jpdb-reader-btn" type="button" data-action="refresh-dictionaries">Refresh installed list</button>
-        </div>
-        ${groups.map(([category, label]) => {
-    const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
-    if (!dictionaries.length) return "";
-    return `
-                <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title">${escapeHtml$1(label)}</div>
-                    ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
-                </div>
-            `;
-  }).join("")}
-    `;
-  }
-  function renderRecommendedDictionary(dictionary, installed) {
-    const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
-    return `
-        <div class="jpdb-reader-recommended-item">
-            <div>
-                <div class="jpdb-reader-recommended-name">
-                    <span>${escapeHtml$1(dictionary.name)}</span>
-                    <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
-                </div>
-                <div class="jpdb-reader-help">${escapeHtml$1(dictionary.description)}</div>
-            </div>
-            <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? "Update" : "Download"}
-            </button>
-        </div>
-    `;
-  }
-  function isRecommendedDictionaryInstalled(dictionary, installed) {
-    const targetName = normalizedDictionaryName(dictionary.name);
-    return installed.some((item) => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
-  }
-  function normalizedDictionaryName(value) {
-    return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
-  }
-  function recommendedDictionaryFilename(dictionary) {
-    try {
-      const parsed = new URL(dictionary.downloadUrl);
-      const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
-      if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
-    } catch {
-    }
-    return `${dictionary.id}.zip`;
-  }
-  function readFormSettings(data, current) {
-    var _a;
-    const get = (key) => String(data.get(key) ?? "");
-    const has = (key) => data.has(key);
-    const number = (key, fallback) => readNumber(get(key), fallback);
-    const audioSources = readAudioSources(data);
-    return {
-      ...current,
-      apiKey: get("apiKey").trim(),
-      interfaceLanguage: ["auto", "en", "ja"].includes(get("interfaceLanguage")) ? get("interfaceLanguage") : current.interfaceLanguage,
-      jpdbDefinitionsEnabled: has("jpdbDefinitions.enabled"),
-      jpdbDefinitionsPriority: Math.max(0, Math.min(999, number("jpdbDefinitions.priority", current.jpdbDefinitionsPriority))),
-      rtkEnabled: has("rtkEnabled"),
-      kanjivgEnabled: has("kanjivgEnabled"),
-      kanjiOriginsEnabled: has("kanjiOriginsEnabled"),
-      kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
-      kanjiOriginWiktionaryEnabled: false,
-      kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
-      kanjiOriginRadicalImagesEnabled: false,
-      similarKanjiWords: has("similarKanjiWords"),
-      similarKanjiWordLimit: Math.max(2, Math.min(24, number("similarKanjiWordLimit", current.similarKanjiWordLimit))),
-      audioEnabled: has("audioEnabled"),
-      autoPlayAudio: has("autoPlayAudio"),
-      audioSources,
-      audioEnableDefaultSources: has("audioEnableDefaultSources"),
-      audioSourceUrl: ((_a = audioSources.find((source) => source.url.trim())) == null ? void 0 : _a.url.trim()) ?? current.audioSourceUrl,
-      accentColor: sanitizeAccentColor(get("accentColor"), current.accentColor),
-      audioViaBlob: has("audioViaBlob"),
-      audioTimeoutMs: Math.max(1e3, number("audioTimeoutMs", current.audioTimeoutMs)),
-      audioSelectionMode: get("audioSelectionMode") === "random" ? "random" : "first",
-      immersionKitEnabled: has("immersionKitEnabled"),
-      immersionKitLimit: Math.max(1, Math.min(12, number("immersionKitLimit", current.immersionKitLimit))),
-      immersionKitMinLength: Math.max(0, Math.min(120, number("immersionKitMinLength", current.immersionKitMinLength))),
-      immersionKitMaxLength: Math.max(0, Math.min(240, number("immersionKitMaxLength", current.immersionKitMaxLength))),
-      immersionKitCategory: ["all", "anime", "drama", "games"].includes(get("immersionKitCategory")) ? get("immersionKitCategory") : current.immersionKitCategory,
-      immersionKitSort: ["sentence_length:asc", "sentence_length:desc", "random"].includes(get("immersionKitSort")) ? get("immersionKitSort") : current.immersionKitSort,
-      immersionKitExactMatch: has("immersionKitExactMatch"),
-      immersionKitShowTranslation: has("immersionKitShowTranslation"),
-      immersionKitShowImages: has("immersionKitShowImages"),
-      immersionKitAutoPlayAudio: has("immersionKitAutoPlayAudio"),
-      immersionKitPlaybackRate: Math.max(0.5, Math.min(2, number("immersionKitPlaybackRate", current.immersionKitPlaybackRate))),
-      parseSelection: has("parseSelection"),
-      lookupOnClick: has("lookupOnClick"),
-      lookupOnHover: has("lookupOnHover"),
-      hoverOpenDelayMs: Math.max(0, Math.min(1500, number("hoverOpenDelayMs", current.hoverOpenDelayMs))),
-      hoverCloseDelayMs: Math.max(0, Math.min(3e3, number("hoverCloseDelayMs", current.hoverCloseDelayMs))),
-      popupActivationMode: current.popupActivationMode,
-      scanModifierKey: current.scanModifierKey,
-      autoScanJapanese: has("autoScanJapanese"),
-      scanVisiblePage: has("scanVisiblePage"),
-      showFloatingButton: has("showFloatingButton"),
-      showFurigana: has("showFurigana"),
-      showPitchAccent: has("showPitchAccent"),
-      hideKnownFurigana: has("hideKnownFurigana"),
-      ocrEnabled: has("ocrEnabled"),
-      ocrAutoScanImages: has("ocrAutoScanImages"),
-      ocrShowTextOverlay: has("ocrShowTextOverlay"),
-      ocrProvider: normalizeOcrProvider(get("ocrProvider")),
-      ocrEndpointUrl: get("ocrEndpointUrl").trim(),
-      ocrEngine: get("ocrEngine").trim() || "auto",
-      ocrCloudVisionApiKey: get("ocrCloudVisionApiKey").trim(),
-      ocrLanguage: get("ocrLanguage").trim() || "ja-JP",
-      ocrMaxImagePixels: Math.max(16e4, Math.min(28e5, number("ocrMaxImagePixels", current.ocrMaxImagePixels))),
-      ocrMinImageArea: Math.max(1e4, Math.min(8e5, number("ocrMinImageArea", current.ocrMinImageArea))),
-      ocrMaxImagesPerPage: Math.max(1, Math.min(30, number("ocrMaxImagesPerPage", current.ocrMaxImagesPerPage))),
-      ocrPrefetchMargin: Math.max(0, Math.min(3e3, number("ocrPrefetchMargin", current.ocrPrefetchMargin))),
-      ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
-      ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
-      ocrBackgroundColor: sanitizeAccentColor(get("ocrBackgroundColor"), current.ocrBackgroundColor),
-      ocrBackgroundOpacity: Math.max(0, Math.min(1, number("ocrBackgroundOpacity", current.ocrBackgroundOpacity))),
-      ocrFontScale: Math.max(0.7, Math.min(1.8, number("ocrFontScale", current.ocrFontScale))),
-      localDictionariesEnabled: has("localDictionariesEnabled"),
-      localDictionaryShowKanji: has("localDictionaryShowKanji"),
-      localDictionaryMaxResults: Math.max(1, Math.min(64, number("localDictionaryMaxResults", current.localDictionaryMaxResults))),
-      dictionaryPreferences: readDictionaryPreferences(data, current.dictionaryPreferences),
-      subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
-      subtitleAutoDetect: has("subtitleAutoDetect"),
-      subtitleOverlayVisible: has("subtitleOverlayVisible"),
-      subtitleSecondaryVisible: has("subtitleSecondaryVisible"),
-      subtitleControlsMode: ["auto", "always", "hidden"].includes(get("subtitleControlsMode")) ? get("subtitleControlsMode") : current.subtitleControlsMode,
-      subtitleFontSize: Math.max(16, Math.min(64, number("subtitleFontSize", current.subtitleFontSize))),
-      subtitleBottomOffset: Math.max(2, Math.min(40, number("subtitleBottomOffset", current.subtitleBottomOffset))),
-      subtitleTextColor: sanitizeAccentColor(get("subtitleTextColor"), current.subtitleTextColor),
-      subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
-      subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
-      subtitleBackgroundOpacity: Math.max(0, Math.min(1, number("subtitleBackgroundOpacity", current.subtitleBackgroundOpacity))),
-      subtitleFontFamily: get("subtitleFontFamily").trim() || current.subtitleFontFamily,
-      subtitleFontWeight: Math.max(100, Math.min(900, number("subtitleFontWeight", current.subtitleFontWeight))),
-      subtitleMiningPause: has("subtitleMiningPause"),
-      subtitleSeekPadding: Math.max(-2, Math.min(2, number("subtitleSeekPadding", current.subtitleSeekPadding))),
-      youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
-      youtubeShowFilterNotice: has("youtubeShowFilterNotice"),
-      ankiEnabled: has("ankiEnabled"),
-      ankiConnectUrl: get("ankiConnectUrl").trim() || current.ankiConnectUrl,
-      ankiDeck: get("ankiDeck").trim() || current.ankiDeck,
-      ankiModel: get("ankiModel").trim() || current.ankiModel,
-      ankiTags: get("ankiTags").trim(),
-      ankiMineWithJpdb: has("ankiMineWithJpdb"),
-      ankiCaptureScreenshot: has("ankiCaptureScreenshot"),
-      theme: get("theme"),
-      popupMode: get("popupMode"),
-      miningDeck: get("miningDeck").trim() || "forq",
-      neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
-      blacklistDeck: get("blacklistDeck").trim() || "blacklist",
-      addToForq: has("addToForq"),
-      enableReviews: has("enableReviews"),
-      twoButtonReviews: get("twoButtonReviews") === "true",
-      shortcuts: {
-        scanPage: get("shortcuts.scanPage"),
-        hoverLookup: get("shortcuts.hoverLookup"),
-        openSettings: get("shortcuts.openSettings"),
-        playAudio: get("shortcuts.playAudio"),
-        closePopup: get("shortcuts.closePopup"),
-        previousSubtitle: get("shortcuts.previousSubtitle"),
-        nextSubtitle: get("shortcuts.nextSubtitle"),
-        copySubtitle: get("shortcuts.copySubtitle"),
-        toggleOcr: get("shortcuts.toggleOcr"),
-        toggleYoutubeImmersion: get("shortcuts.toggleYoutubeImmersion"),
-        scanImages: get("shortcuts.scanImages"),
-        gradeNothing: get("shortcuts.gradeNothing"),
-        gradeSomething: get("shortcuts.gradeSomething"),
-        gradeHard: get("shortcuts.gradeHard"),
-        gradeOkay: get("shortcuts.gradeOkay"),
-        gradeEasy: get("shortcuts.gradeEasy"),
-        gradeFail: get("shortcuts.gradeFail"),
-        gradePass: get("shortcuts.gradePass")
-      }
-    };
-  }
-  function readNumber(value, fallback) {
-    if (!value.trim()) return fallback;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
-  }
-  function applyUrlBootstrapSettings(settings) {
-    var _a, _b, _c;
-    const params = new URLSearchParams(location.search);
-    const apiKey = (_a = params.get("apiKey")) == null ? void 0 : _a.trim();
-    const audio = (_b = params.get("audio")) == null ? void 0 : _b.trim();
-    const ocr = (_c = params.get("ocr")) == null ? void 0 : _c.trim();
-    if (!apiKey && !audio && !ocr) return settings;
-    const audioSources = audio ? [{ type: "custom-json", url: audio, voice: "", enabled: true }, ...settings.audioSources.filter((source) => source.url !== audio)] : settings.audioSources;
-    return {
-      ...settings,
-      apiKey: apiKey || settings.apiKey,
-      audioSources,
-      audioSourceUrl: audio || settings.audioSourceUrl,
-      ocrEndpointUrl: ocr || settings.ocrEndpointUrl
-    };
-  }
-  function readDictionaryPreferences(data, current) {
-    const get = (key) => String(data.get(key) ?? "");
-    const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
-    if (!count) return current;
-    return Array.from({ length: count }, (_, index) => ({
-      name: get(`dictionaryPreferences.${index}.name`).trim(),
-      alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
-      enabled: data.has(`dictionaryPreferences.${index}.enabled`),
-      priority: readNumber(get(`dictionaryPreferences.${index}.priority`), index)
-    })).filter((item) => item.name).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-  }
-  function readAudioSources(data) {
-    const get = (key) => String(data.get(key) ?? "");
-    const count = Math.max(0, Number(get("audioSourceCount")) || 0);
-    const sources = [];
-    const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
-    for (let index = 0; index < count; index++) {
-      const source = normalizeAudioSource({
-        type: get(`audioSources.${index}.type`),
-        url: get(`audioSources.${index}.url`).trim(),
-        voice: get(`audioSources.${index}.voice`).trim(),
-        enabled: data.has(`audioSources.${index}.enabled`)
-      });
-      if (!source) continue;
-      if (!source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type)) continue;
-      sources.push(source);
-    }
-    return sources;
-  }
-  function getReaderSettingsExport(value) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return (record.formatName === "yomu-reader-settings" || record.formatName === "kotoba-reader-settings" || record.formatName === "jpdb-popup-reader-settings") && record.settings && typeof record.settings === "object" ? record.settings : null;
-  }
-  function pickFile(root, type) {
-    const inputEl = root.querySelector(`input[data-file="${type}"]`);
-    if (!inputEl) return Promise.resolve(null);
-    return new Promise((resolve) => {
-      inputEl.onchange = () => {
-        var _a;
-        const file = ((_a = inputEl.files) == null ? void 0 : _a[0]) ?? null;
-        inputEl.value = "";
-        resolve(file);
-      };
-      inputEl.click();
-    });
-  }
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-  }
-  function dateStamp() {
-    return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
   const bootWindow = window;
   if (!bootWindow.__yomuReaderAppInitialized) {
