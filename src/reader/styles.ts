@@ -47,6 +47,19 @@ export const READER_CSS = `
   --jpdb-reader-hover: rgba(20,30,45,.07);
 }
 
+[data-jpdb-reader-root],
+[data-jpdb-reader-root] * {
+  box-sizing: border-box;
+}
+[data-jpdb-reader-root] button,
+[data-jpdb-reader-root] input,
+[data-jpdb-reader-root] select,
+[data-jpdb-reader-root] textarea {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .jpdb-reader-word {
   position: relative;
   border-radius: 3px;
@@ -320,9 +333,14 @@ export const READER_CSS = `
 .jpdb-reader-icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
   flex: 0 0 auto;
+  padding: 0 !important;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 50%;
   background: var(--jpdb-reader-surface);
@@ -432,8 +450,10 @@ export const READER_CSS = `
   min-height: 46px;
 }
 .jpdb-reader-icon-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -1539,8 +1559,13 @@ export const READER_CSS = `
   justify-content: flex-end;
 }
 .jpdb-reader-icon-mini {
-  width: 28px;
-  height: 28px;
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 !important;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 7px;
   background: transparent;
@@ -1923,8 +1948,12 @@ export const READER_CSS = `
     justify-content: flex-start;
   }
   .jpdb-reader-icon-mini {
-    width: 34px;
-    height: 34px;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
   }
   .jpdb-ocr-line { min-width: 38px; min-height: 38px; border-radius: 8px; }
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }

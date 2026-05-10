@@ -795,15 +795,15 @@ class ReaderApp {
         const kanjiVGPromise = this.settings.kanjivgEnabled
             ? this.kanjiVG.lookup(kanji).catch(() => null)
             : Promise.resolve(null);
-        const [jpdbInfo, kanjiEntries, rtkInfo, similarTerms] = await Promise.all([
+        const similarTermsPromise = this.settings.similarKanjiWords && this.settings.localDictionariesEnabled
+            ? this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences).catch(() => [])
+            : Promise.resolve([]);
+        const [jpdbInfo, kanjiEntries, rtkInfo] = await Promise.all([
             this.jpdbKanji.lookup(kanji).catch(() => null),
             this.settings.localDictionariesEnabled
                 ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
                 : Promise.resolve([]),
             this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null),
-            this.settings.similarKanjiWords && this.settings.localDictionariesEnabled
-                ? this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences).catch(() => [])
-                : Promise.resolve([]),
         ]);
         const componentSummaries = buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries);
         const kanjiFacts = this.settings.kanjiOriginsEnabled
@@ -834,7 +834,9 @@ class ReaderApp {
             ${renderJpdbKanjiInfo(jpdbInfo, language)}
             ${renderRtkInfo(rtkInfo, componentSummaries, language)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
-            ${this.renderSimilarKanjiWords(similarTerms, jpdbInfo?.vocabulary ?? [], kanji, card)}
+            <div data-kanji-similar-mount>
+                ${this.settings.similarKanjiWords ? this.renderSimilarKanjiWords([], jpdbInfo?.vocabulary ?? [], kanji, card) : ''}
+            </div>
             <div data-kanji-origin-mount></div>
         `);
 
@@ -854,9 +856,20 @@ class ReaderApp {
         if (this.settings.kanjivgEnabled) {
             void this.renderKanjiVGInto(popover, kanjiVGPromise, kanji, language);
         }
+        if (this.settings.similarKanjiWords) {
+            void this.renderSimilarKanjiWordsInto(popover, similarTermsPromise, jpdbInfo?.vocabulary ?? [], kanji, card);
+        }
         if (this.settings.kanjiOriginsEnabled) {
             void this.renderKanjiOriginsInto(popover, kanji, jpdbInfo, rtkInfo, null, kanjiEntries);
         }
+    }
+
+    private async renderSimilarKanjiWordsInto(popover: HTMLElement, promise: Promise<YomitanTermEntry[]>, jpdbVocabulary: JpdbKanjiVocabulary[], kanji: string, card: JPDBCard): Promise<void> {
+        const mount = popover.querySelector<HTMLElement>('[data-kanji-similar-mount]');
+        if (!mount) return;
+        const entries = await promise;
+        if (!popover.isConnected || !mount.isConnected) return;
+        setInnerHtml(mount, this.renderSimilarKanjiWords(entries, jpdbVocabulary, kanji, card));
     }
 
     private async renderKanjiVGInto(popover: HTMLElement, kanjiVGPromise: Promise<KanjiVGInfo | null>, kanji: string, language: InterfaceLanguage): Promise<void> {
@@ -1465,7 +1478,7 @@ class ReaderApp {
                 <legend>Kanji</legend>
                 <div class="grid">
                     ${checkbox('kanjivgEnabled', 'Show stroke order and drawing pad', this.settings.kanjivgEnabled)}
-                    ${checkbox('kanjiOriginsEnabled', 'Show kanji facts and origins map', this.settings.kanjiOriginsEnabled)}
+                    ${checkbox('kanjiOriginsEnabled', 'Show compact kanji facts and component map', this.settings.kanjiOriginsEnabled)}
                     ${checkbox('kanjiOriginKanjiMapEnabled', 'Use Kanji Alive and Kanji Map facts', this.settings.kanjiOriginKanjiMapEnabled)}
                     ${checkbox('kanjiOriginGraphEnabled', 'Show component graph', this.settings.kanjiOriginGraphEnabled)}
                     ${checkbox('rtkEnabled', 'Show RTK information', this.settings.rtkEnabled)}
@@ -2349,8 +2362,6 @@ function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLang
     if (!info) return '';
     const infoChips = [
         info.type,
-        info.kanken ? `Kanken ${info.kanken.replace(/^Level\s*/i, '')}` : '',
-        info.oldForms.length ? `Old ${info.oldForms.join('、')}` : '',
     ].filter(Boolean).map(item => `<span class="jpdb-reader-chip">${escapeHtml(item)}</span>`).join('');
     return `
         <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
