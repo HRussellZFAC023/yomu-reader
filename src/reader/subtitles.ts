@@ -105,19 +105,12 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
-                <button type="button" data-action="list" title="Subtitle list">Lines</button>
-                <span class="jpdb-subtitle-status" data-role="status">No subtitles</span>
+                <button type="button" data-action="list" title="Subtitle lines">Subtitles</button>
+                <span class="jpdb-subtitle-status" data-role="status" hidden></span>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
                 <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">...</button>
             </div>
-            <div class="jpdb-subtitle-menu" hidden>
-                <button type="button" data-action="tracks">Choose subtitle tracks</button>
-                <button type="button" data-action="load">Load Japanese subtitles</button>
-                <button type="button" data-action="load-secondary">Load native subtitles</button>
-                <button type="button" data-action="copy">Copy current line</button>
-                <button type="button" data-action="toggle-secondary">Native subtitles on</button>
-                <button type="button" data-action="toggle">Hide subtitles</button>
-            </div>
+            <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
             <input hidden type="file" data-file="primary" accept=".srt,.vtt,text/vtt">
             <input hidden type="file" data-file="secondary" accept=".srt,.vtt,text/vtt">
@@ -423,7 +416,6 @@ export class SubtitlePlayerController {
             const text = await requestText(withYouTubeVttFormat(selected.url));
             this.cues = parseSubtitleText(text);
             selected.cues = this.cues;
-            this.options.onToast(`Loaded ${this.cues.length} YouTube subtitles.`);
         }
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
@@ -461,11 +453,21 @@ export class SubtitlePlayerController {
     private async discoverYouTubeTracks(): Promise<void> {
         if (!location.hostname.includes('youtube.com')) return;
         const videoId = getYouTubeVideoId();
-        if (!videoId || videoId === this.youtubeVideoId) return;
+        if (!videoId) return;
+
+        if (videoId !== this.youtubeVideoId) {
+            this.youtubeVideoId = videoId;
+            this.tracks = this.tracks.filter(track => track.kind !== 'youtube');
+            this.selectedTrackId = this.tracks.some(track => track.id === this.selectedTrackId) ? this.selectedTrackId : '';
+            this.secondaryTrackId = this.tracks.some(track => track.id === this.secondaryTrackId) ? this.secondaryTrackId : '';
+            this.cues = this.selectedTrackId ? this.cues : [];
+            this.secondaryCues = this.secondaryTrackId ? this.secondaryCues : [];
+            this.currentCue = undefined;
+            this.secondaryCue = undefined;
+        }
 
         const tracks = getYouTubeCaptionTracks();
         if (!tracks.length) return;
-        this.youtubeVideoId = videoId;
 
         for (const track of tracks) {
             if (this.tracks.some(existing => existing.kind === 'youtube' && existing.url === track.url)) continue;
@@ -483,26 +485,53 @@ export class SubtitlePlayerController {
     private syncControls(): void {
         const settings = this.options.getSettings();
         this.root?.classList.toggle('jpdb-subtitle-menu-open', !this.menuEl?.hidden);
+        this.renderMenu();
         const secondaryToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle-secondary"]');
         if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off';
         const subtitleToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle"]');
         if (subtitleToggle) subtitleToggle.textContent = settings.subtitleOverlayVisible ? 'Hide subtitles' : 'Show subtitles';
+        const previous = this.root?.querySelector<HTMLButtonElement>('[data-action="previous"]');
+        const next = this.root?.querySelector<HTMLButtonElement>('[data-action="next"]');
+        const list = this.root?.querySelector<HTMLButtonElement>('[data-action="list"]');
+        const hasLines = Boolean(this.cues.length || this.currentCue?.text);
+        if (previous) previous.disabled = !this.video;
+        if (next) next.disabled = !this.video;
+        if (list) {
+            list.hidden = !hasLines && !this.tracks.length;
+            list.textContent = hasLines ? 'Lines' : 'Tracks';
+        }
         if (!this.statusEl) return;
 
         if (this.cues.length) {
             const index = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) + 1 : 0;
-            this.statusEl.textContent = `${index > 0 ? `${index}/` : ''}${this.cues.length}`;
+            this.statusEl.textContent = index > 0 ? `${index}/${this.cues.length}` : `${this.cues.length}`;
+            this.statusEl.hidden = false;
         } else if (this.currentCue?.text) {
             this.statusEl.textContent = 'Page captions';
-        } else if (this.tracks.length) {
-            this.statusEl.textContent = `${this.tracks.length} tracks`;
+            this.statusEl.hidden = false;
         } else {
-            this.statusEl.textContent = 'No subs';
+            this.statusEl.textContent = '';
+            this.statusEl.hidden = true;
         }
+    }
+
+    private renderMenu(): void {
+        if (!this.menuEl) return;
+        const hasLines = Boolean(this.cues.length || this.currentCue?.text);
+        const hasSecondary = Boolean(this.secondaryTrackId || this.secondaryCues.length || this.secondaryCue?.text);
+        setInnerHtml(this.menuEl, `
+            <button type="button" data-action="tracks">Subtitle tracks</button>
+            <button type="button" data-action="load">Load Japanese subtitles</button>
+            <button type="button" data-action="load-secondary">Load native subtitles</button>
+            ${hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : ''}
+            ${hasSecondary ? `<button type="button" data-action="toggle-secondary">${this.options.getSettings().subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>` : ''}
+            ${hasLines ? `<button type="button" data-action="toggle">${this.options.getSettings().subtitleOverlayVisible ? 'Hide subtitles' : 'Show subtitles'}</button>` : ''}
+        `);
     }
 
     private toggleMenu(): void {
         if (!this.menuEl) return;
+        this.renderMenu();
         this.menuEl.hidden = !this.menuEl.hidden;
     }
 
@@ -523,6 +552,10 @@ export class SubtitlePlayerController {
 
     private toggleTranscriptPanel(): void {
         if (!this.transcriptPanel) return;
+        if (!this.cues.length) {
+            this.toggleTrackPanel();
+            return;
+        }
         const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== 'lines';
         this.panelMode = 'lines';
         this.transcriptPanel.hidden = !shouldOpen;
@@ -541,7 +574,8 @@ export class SubtitlePlayerController {
     private renderTranscriptPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
         if (!this.cues.length) {
-            setInnerHtml(this.transcriptPanel, '<div class="jpdb-subtitle-list-empty">No loaded Japanese subtitle lines.</div>');
+            this.panelMode = 'tracks';
+            this.renderTrackPanel();
             return;
         }
         const currentIndex = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) : -1;
@@ -549,7 +583,7 @@ export class SubtitlePlayerController {
         const visible = this.cues.slice(start, start + 28);
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
-                <span>${this.cues.length} lines</span>
+                <span>Subtitle lines</span>
                 <button type="button" data-action="list">Close</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
@@ -571,7 +605,7 @@ export class SubtitlePlayerController {
         const tracks = this.tracks;
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
-                <span>${tracks.length ? `${tracks.length} detected tracks` : 'No detected tracks'}</span>
+                <span>Subtitle tracks</span>
                 <button type="button" data-action="tracks">Close</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
@@ -592,13 +626,11 @@ export class SubtitlePlayerController {
     private async choosePrimaryTrack(id?: string): Promise<void> {
         if (!id) return;
         await this.selectTrack(id);
-        this.options.onToast('Japanese subtitle track selected.');
     }
 
     private async chooseSecondaryTrack(id?: string): Promise<void> {
         if (!id) return;
         await this.selectSecondaryTrack(id);
-        this.options.onToast('Native subtitle track selected.');
     }
 }
 
@@ -766,15 +798,24 @@ function getYouTubePlayerResponse(): { captions?: { playerCaptionsTracklistRende
 
     for (const script of Array.from(document.scripts)) {
         const text = script.textContent ?? '';
-        const marker = 'ytInitialPlayerResponse = ';
-        const start = text.indexOf(marker);
-        if (start < 0) continue;
-        const raw = extractJsonObject(text, start + marker.length);
-        if (!raw) continue;
-        try {
-            return JSON.parse(raw) as ReturnType<typeof getYouTubePlayerResponse>;
-        } catch {
-            continue;
+        for (const marker of ['ytInitialPlayerResponse = ', 'ytInitialPlayerResponse=', 'var ytInitialPlayerResponse = ']) {
+            const start = text.indexOf(marker);
+            if (start < 0) continue;
+            const raw = extractJsonObject(text, start + marker.length);
+            if (!raw) continue;
+            try {
+                return JSON.parse(raw) as ReturnType<typeof getYouTubePlayerResponse>;
+            } catch {
+                // Try the next known marker.
+            }
+        }
+        const escaped = text.match(/"playerResponse"\s*:\s*"((?:\\.|[^"\\])+)"/);
+        if (escaped?.[1]) {
+            try {
+                return JSON.parse(JSON.parse(`"${escaped[1]}"`)) as ReturnType<typeof getYouTubePlayerResponse>;
+            } catch {
+                // Keep looking through later scripts.
+            }
         }
     }
     return null;

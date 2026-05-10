@@ -61,6 +61,7 @@ export interface KanjiMapKanjiInfo {
     kunyomi: string[];
     onyomi: string[];
     parts: string[];
+    hint: string;
     radical?: KanjiMapRadicalInfo;
     examples: KanjiMapExample[];
     references: KanjiFact[];
@@ -145,6 +146,7 @@ export function parseKanjiMapInfo(raw: unknown, kanji: string, sourceUrl: string
         kunyomi: stringArray(jisho?.kunyomi, stringValue(kanjiAlive?.kunyomi_ja) || stringValue(kanjiAlive?.kunyomi)),
         onyomi: stringArray(jisho?.onyomi, stringValue(kanjiAlive?.onyomi_ja) || stringValue(kanjiAlive?.onyomi)),
         parts: stringArray(jisho?.parts).filter(part => part !== kanji && JAPANESE_RE.test(part)).slice(0, 10),
+        hint: stripHtml(stringValue(kanjiAlive?.mn_hint)),
         radical,
         examples,
         references,
@@ -152,6 +154,10 @@ export function parseKanjiMapInfo(raw: unknown, kanji: string, sourceUrl: string
         kanjiAliveUrl: `https://app.kanjialive.com/${encodeURIComponent(kanji)}`,
         jishoUrl: stringValue(jisho?.uri),
     };
+}
+
+function stripHtml(value: string): string {
+    return value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 }
 
 export function parseWiktionaryInfo(raw: unknown, kanji: string): WiktionaryKanjiInfo | undefined {
@@ -196,13 +202,10 @@ export function buildKanjiFacts(
     add('Grade', local.grade ?? map?.grade, local.gradeSource ?? 'Kanji Alive / Jisho');
     add('Strokes', kanjiVGInfo?.strokeCount ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map?.strokeCount), kanjiVGInfo?.strokeCount ? 'KanjiVG' : local.strokesSource ?? 'Kanji Alive / Jisho');
     add('Frequency', jpdbInfo?.frequency || local.frequency || map?.frequencyRank, jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho via The Kanji Map');
-    add('Kanken', jpdbInfo?.kanken, 'JPDB');
-    add('RTK frame', rtkInfo?.frameNumber, 'RTK');
-    add('Old forms', jpdbInfo?.oldForms.join('、'), 'JPDB');
     add('Radical', map?.radical ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(' ') : undefined, 'Kanji Alive / Jisho');
 
     if (!facts.has('Character')) add('Character', kanji, 'current lookup');
-    return Array.from(facts.values()).slice(0, 10);
+    return Array.from(facts.values()).filter(fact => fact.label !== 'Character').slice(0, 6);
 }
 
 export function buildKanjiOriginGraph(

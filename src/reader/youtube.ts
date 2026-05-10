@@ -6,13 +6,44 @@ import type { ReaderSettings } from './types';
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const VIDEO_CARD_SELECTOR = [
     'ytd-rich-item-renderer',
+    'ytd-rich-grid-media',
+    'ytd-rich-shelf-renderer',
     'ytd-video-renderer',
     'ytd-compact-video-renderer',
+    'ytd-compact-radio-renderer',
+    'ytd-compact-playlist-renderer',
     'ytd-grid-video-renderer',
     'ytd-reel-item-renderer',
+    'ytd-reel-video-renderer',
+    'ytd-playlist-renderer',
+    'ytd-radio-renderer',
+    'ytd-shelf-renderer',
+    'yt-lockup-view-model',
     'ytm-rich-item-renderer',
     'ytm-compact-video-renderer',
     'ytm-video-card-renderer',
+    'ytm-shorts-lockup-view-model',
+].join(',');
+
+const VIDEO_CARD_CLOSEST_SELECTOR = [
+    'ytd-rich-item-renderer',
+    'ytd-rich-grid-media',
+    'ytd-rich-shelf-renderer',
+    'ytd-video-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-compact-radio-renderer',
+    'ytd-compact-playlist-renderer',
+    'ytd-grid-video-renderer',
+    'ytd-reel-item-renderer',
+    'ytd-reel-video-renderer',
+    'ytd-playlist-renderer',
+    'ytd-radio-renderer',
+    'ytd-shelf-renderer',
+    'yt-lockup-view-model',
+    'ytm-rich-item-renderer',
+    'ytm-compact-video-renderer',
+    'ytm-video-card-renderer',
+    'ytm-shorts-lockup-view-model',
 ].join(',');
 
 const TITLE_SELECTOR = [
@@ -49,8 +80,15 @@ export function isProbablyJapaneseYouTubeText(text: string): boolean {
 }
 
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
-    return Array.from(root.querySelectorAll<HTMLElement>(VIDEO_CARD_SELECTOR))
-        .filter(card => !card.closest('[data-jpdb-reader-root]'));
+    const cards = new Set<HTMLElement>();
+    root.querySelectorAll<HTMLElement>(VIDEO_CARD_SELECTOR).forEach(card => {
+        if (!card.closest('[data-jpdb-reader-root]')) cards.add(card);
+    });
+    root.querySelectorAll<HTMLAnchorElement>('a[href*="/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]').forEach(link => {
+        const card = link.closest<HTMLElement>(VIDEO_CARD_CLOSEST_SELECTOR) ?? link.parentElement;
+        if (card && !card.closest('[data-jpdb-reader-root]')) cards.add(card);
+    });
+    return [...cards].filter(card => card.isConnected);
 }
 
 export function readYouTubeCardText(card: HTMLElement): string {
@@ -78,7 +116,7 @@ export class YoutubeImmersionFilter {
         if (!isYouTubeHost()) return;
         this.observer?.disconnect();
         this.observer = new MutationObserver(mutations => {
-            if (mutations.some(mutationInsideReaderRoot)) return;
+            if (mutations.every(mutationInsideReaderRoot)) return;
             this.schedule(350);
         });
         this.observer.observe(document.body, { childList: true, subtree: true });
@@ -93,7 +131,7 @@ export class YoutubeImmersionFilter {
             this.clear();
             return;
         }
-        this.schedule(80);
+        this.schedule(0);
     }
 
     private schedule(delay: number): void {

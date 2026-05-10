@@ -1,4 +1,4 @@
-import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
+import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
 
@@ -42,9 +42,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     kanjivgEnabled: true,
     kanjiOriginsEnabled: true,
     kanjiOriginKanjiMapEnabled: true,
-    kanjiOriginWiktionaryEnabled: true,
+    kanjiOriginWiktionaryEnabled: false,
     kanjiOriginGraphEnabled: true,
-    kanjiOriginRadicalImagesEnabled: true,
+    kanjiOriginRadicalImagesEnabled: false,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: true,
@@ -55,6 +55,17 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioViaBlob: true,
     audioTimeoutMs: 6000,
     audioSelectionMode: 'random',
+    immersionKitEnabled: true,
+    immersionKitLimit: 3,
+    immersionKitMinLength: 4,
+    immersionKitMaxLength: 80,
+    immersionKitCategory: 'all',
+    immersionKitSort: 'sentence_length:asc',
+    immersionKitExactMatch: false,
+    immersionKitShowTranslation: false,
+    immersionKitShowImages: true,
+    immersionKitAutoPlayAudio: true,
+    immersionKitPlaybackRate: 1,
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
@@ -65,6 +76,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     autoScanJapanese: true,
     scanVisiblePage: true,
     showFloatingButton: true,
+    puckPositionX: undefined,
+    puckPositionY: undefined,
     showFurigana: true,
     showPitchAccent: true,
     hideKnownFurigana: true,
@@ -165,8 +178,16 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
         accentColor: sanitizeAccentColor(value?.accentColor),
+        puckPositionX: normalizeOptionalCoordinate(value?.puckPositionX),
+        puckPositionY: normalizeOptionalCoordinate(value?.puckPositionY),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
+        immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+        immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+        immersionKitMaxLength: clampNumber(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+        immersionKitCategory: normalizeImmersionKitCategory(value?.immersionKitCategory),
+        immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
+        immersionKitPlaybackRate: clampNumber(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
         ocrProvider: normalizeOcrProvider(value?.ocrProvider),
         ocrEngine: normalizeOcrEngine(value?.ocrEngine),
         ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
@@ -191,6 +212,11 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
     };
 }
 
+function normalizeOptionalCoordinate(value: unknown): number | undefined {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : undefined;
+}
+
 function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string): string {
     if (typeof value !== 'string') return fallback;
     const trimmed = value.trim();
@@ -200,6 +226,18 @@ function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string)
 
 function normalizeInterfaceLanguage(value: unknown): InterfaceLanguage {
     return value === 'en' || value === 'ja' || value === 'auto' ? value : DEFAULT_SETTINGS.interfaceLanguage;
+}
+
+function normalizeImmersionKitCategory(value: unknown): ImmersionKitCategory {
+    return value === 'anime' || value === 'drama' || value === 'games' || value === 'all'
+        ? value
+        : DEFAULT_SETTINGS.immersionKitCategory;
+}
+
+function normalizeImmersionKitSort(value: unknown): ImmersionKitSort {
+    return value === 'sentence_length:desc' || value === 'random' || value === 'sentence_length:asc'
+        ? value
+        : DEFAULT_SETTINGS.immersionKitSort;
 }
 
 function normalizeUrl(value: unknown, fallback: string): string {

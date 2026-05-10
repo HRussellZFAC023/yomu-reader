@@ -42,10 +42,6 @@ export default defineConfig({
                 description: 'JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.',
                 author: 'Henry',
                 match: ['*://*/*', 'file:///*'],
-                exclude: [
-                    'https://jpdb.io/*',
-                    'https://*.jpdb.io/*',
-                ],
                 connect: [
                     'jpdb.io',
                     'lensfrontend-pa.googleapis.com',

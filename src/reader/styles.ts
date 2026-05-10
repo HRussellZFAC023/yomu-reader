@@ -233,13 +233,17 @@ export const READER_CSS = `
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  opacity: .78;
   font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
+  touch-action: none;
+  transition: opacity .15s ease, border-color .15s ease, color .15s ease;
 }
 .jpdb-reader-fab:hover,
 .jpdb-reader-fab:focus-visible {
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent);
+  opacity: 1;
   outline: none;
 }
 
@@ -590,6 +594,76 @@ export const READER_CSS = `
   border: 1px solid var(--jpdb-reader-border);
   padding: 4px 6px;
 }
+.jpdb-reader-immersion {
+  gap: 8px;
+}
+.jpdb-reader-example-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+  align-items: stretch;
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-example-card.has-image {
+  grid-template-columns: minmax(0, 86px) minmax(0, 1fr);
+}
+.jpdb-reader-example-image {
+  width: 86px;
+  height: 74px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--jpdb-reader-surface-2);
+}
+.jpdb-reader-example-body {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.jpdb-reader-example-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.jpdb-reader-example-meta span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-example-sentence {
+  color: var(--jpdb-reader-text);
+  font-size: 14px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+.jpdb-reader-example-translation {
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.jpdb-reader-example-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 2px;
+}
+.jpdb-reader-example-actions .jpdb-reader-icon-mini {
+  min-width: 34px;
+}
+.jpdb-reader-example-actions svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .jpdb-reader-media-note { color: var(--jpdb-reader-muted); font-style: italic; }
 .jpdb-reader-chip {
   display: inline-flex;
@@ -646,6 +720,7 @@ export const READER_CSS = `
 .jpdb-reader-kanji-keyword {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   min-height: 24px;
   padding: 2px 8px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
@@ -654,6 +729,12 @@ export const READER_CSS = `
   color: var(--jpdb-reader-text);
   font-size: 12px;
   font-weight: 800;
+}
+.jpdb-reader-kanji-keyword small {
+  color: var(--jpdb-reader-muted);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 .jpdb-reader-kanji-facts {
   display: grid;
@@ -760,6 +841,16 @@ export const READER_CSS = `
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2);
 }
+.jpdb-reader-radical-glyph {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--jpdb-reader-bg);
+  font-size: 28px !important;
+  line-height: 1;
+}
 .jpdb-reader-radical-card img {
   width: 44px;
   height: 44px;
@@ -854,6 +945,54 @@ export const READER_CSS = `
   font-weight: 800;
   text-decoration: none;
 }
+.jpdb-reader-origin-graph-wrap {
+  position: relative;
+  min-height: 150px;
+  margin-top: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent), transparent 56%), var(--jpdb-reader-surface-2);
+  overflow: hidden;
+}
+.jpdb-reader-origin-graph-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.jpdb-reader-origin-graph-lines line {
+  stroke: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
+  stroke-width: .8;
+}
+.jpdb-reader-origin-graph-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-text);
+  font: 850 19px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.jpdb-reader-origin-graph-node.current {
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-bg));
+}
+.jpdb-reader-origin-graph-node.related {
+  color: var(--jpdb-reader-muted);
+  cursor: default;
+}
+.jpdb-reader-origin-graph-node:hover,
+.jpdb-reader-origin-graph-node:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
+}
 .jpdb-reader-rtk-head {
   display: flex;
   align-items: baseline;
@@ -892,6 +1031,7 @@ export const READER_CSS = `
 .jpdb-reader-rtk-elements button {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   min-height: 24px;
   padding: 2px 8px;
   border: 1px solid transparent;
@@ -901,6 +1041,15 @@ export const READER_CSS = `
   font: inherit;
   font-size: 12px;
   font-weight: 750;
+}
+.jpdb-reader-rtk-elements button strong {
+  color: var(--jpdb-reader-text);
+  font-size: 14px;
+  line-height: 1;
+}
+.jpdb-reader-rtk-elements button span {
+  all: unset;
+  color: var(--jpdb-reader-muted);
 }
 .jpdb-reader-rtk-elements button {
   cursor: pointer;
@@ -992,6 +1141,10 @@ export const READER_CSS = `
   place-items: center;
   opacity: .3;
   pointer-events: none;
+}
+.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,
+.jpdb-reader-doodle-ghost[hidden] {
+  display: none !important;
 }
 .jpdb-reader-doodle-canvas {
   width: 100%;
@@ -1524,6 +1677,14 @@ export const READER_CSS = `
   min-width: 34px;
   min-height: 32px;
   padding: 0 9px;
+}
+.jpdb-subtitle-rail button[hidden],
+.jpdb-subtitle-status[hidden],
+.jpdb-subtitle-menu button[hidden] {
+  display: none !important;
+}
+.jpdb-subtitle-rail button:disabled {
+  opacity: .45;
 }
 .jpdb-subtitle-status {
   display: inline-flex;

@@ -23,6 +23,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Yomitan dictionary imports: recommended in-app downloads, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
+- Immersion Kit example sentences inside word popups, with optional thumbnails, audio, translations, length filters, source filters, and tappable Japanese inside each example.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR that works without setup through Google Lens, with Cloud Vision and local OCR app support for MangaOCR, PaddleOCR, and Apple Vision style results.
@@ -42,7 +43,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub and short Wiktionary notes when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
+Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. Immersion Kit searches send the looked-up term to Immersion Kit and fetch example media only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub and short Wiktionary notes when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 
@@ -118,7 +119,7 @@ Run the reproducible browser QA audit:
 npm run qa:audit
 ```
 
-This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB and kanji source requests for deterministic fixture coverage, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks OCR touch targets, tests YouTube immersion filtering and its escape hatches, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you also want the secret-leak guard to confirm the key only came from the environment.
+This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB, Immersion Kit, and kanji source requests for deterministic fixture coverage, checks the settings dialog, verifies automatic scanning on Bloomee, opens a hold-key hover popup, checks recursive Immersion Kit examples, checks OCR touch targets, tests YouTube immersion filtering and its escape hatches, and smoke-tests the subtitle overlay. Screenshots are written to `qa-artifacts/`. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you also want the secret-leak guard to confirm the key only came from the environment.
 
 The full product checklist and manual release scripts live in [`docs/verification-plan.md`](docs/verification-plan.md).
 
@@ -171,7 +172,7 @@ npm run prefill:greasyfork
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
 - Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, Wiktionary notes, component graph, and radical images can be toggled separately.
-- The userscript intentionally excludes `jpdb.io` by default. That avoids breaking JPDB's own review UI and avoids making active flashcard review too easy by injecting answers onto JPDB pages.
+- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed.
@@ -199,6 +200,7 @@ npm run prefill:greasyfork
 - [Genetic Kanji](http://www.genetickanji.com/query.asp?id=c22235), [Okjiten](https://okjiten.jp/index.html), and Outlier Dictionary informed the kanji-source UX research. Their content is not bundled or scraped by default without a clear API/license path.
 - [NihongoTube](https://nihongotube.app) for the Japanese-only YouTube immersion idea and page-filtering behavior.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter) for the RTK data source and presentation cues.
+- [Immersion Kit](https://www.immersionkit.com/) for searchable example sentences, audio, and stills used at runtime in the examples section.
 - [AnkiConnect](https://foosoft.net/projects/anki-connect/) for local Anki card creation.
 - [JPDB](https://jpdb.io), [Google Lens](https://lens.google.com), and [Google Cloud Vision](https://cloud.google.com/vision) for the external services users can connect to or use through the reader.
 
@@ -211,4 +213,5 @@ npm run prefill:greasyfork
 | Kanji Alive data/media | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |
 | Wiktionary text | Creative Commons Attribution-ShareAlike 4.0 / GFDL; よむ fetches short attributed notes at runtime |
 | Yomitan, asbplayer, AnkiConnect, YomiNinja, NihongoTube references | See each upstream project for its license; used as implementation/UX references or interoperable formats |
+| Immersion Kit | External runtime service for examples and media; よむ does not bundle its corpus |
 | Genetic Kanji, Okjiten, Outlier Dictionary | Reference/inspiration only unless the user supplies licensed data or a permissioned API |

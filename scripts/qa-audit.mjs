@@ -37,6 +37,17 @@ const baseSettings = {
     audioViaBlob: true,
     audioTimeoutMs: 6000,
     audioSelectionMode: 'random',
+    immersionKitEnabled: true,
+    immersionKitLimit: 3,
+    immersionKitMinLength: 4,
+    immersionKitMaxLength: 80,
+    immersionKitCategory: 'all',
+    immersionKitSort: 'sentence_length:asc',
+    immersionKitExactMatch: false,
+    immersionKitShowTranslation: false,
+    immersionKitShowImages: true,
+    immersionKitAutoPlayAudio: true,
+    immersionKitPlaybackRate: 1,
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
@@ -225,6 +236,13 @@ function maybeMockQaRequest(request) {
     if (url.hostname === 'en.wiktionary.org' && url.pathname === '/w/api.php') {
         const kanji = url.searchParams.get('page') ?? '字';
         return jsonQaResponse(mockWiktionaryParse(kanji));
+    }
+    if (url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/search') {
+        return jsonQaResponse(mockImmersionKitSearch(url));
+    }
+    if (url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/download_media') {
+        const path = url.searchParams.get('path') ?? '';
+        return textQaResponse(path.endsWith('.mp3') ? 'fake-mp3' : '<svg></svg>', path.endsWith('.mp3') ? 'audio/mpeg' : 'image/svg+xml');
     }
     return null;
 }
@@ -556,6 +574,38 @@ function mockWiktionaryParse(kanji) {
             },
         },
     };
+}
+
+function mockImmersionKitSearch(url) {
+    const query = url.searchParams.get('q') ?? '読む';
+    const examples = [
+        {
+            id: 'anime_steins_gate_000001',
+            title: 'steins_gate',
+            sentence: '今日は静かな喫茶店で本を読みました。',
+            sentence_with_furigana: '今日[きょう]は 静[しず]かな 喫茶店[きっさてん]で 本[ほん]を 読[よ]みました。',
+            translation: 'I read a book in a quiet cafe today.',
+            image: 'qa-1.jpg',
+            sound: 'qa-1.mp3',
+        },
+        {
+            id: 'anime_steins_gate_000002',
+            title: 'steins_gate',
+            sentence: '新しい本を読む時間が好きです。',
+            translation: 'I like time spent reading a new book.',
+            image: 'qa-2.jpg',
+            sound: 'qa-2.mp3',
+        },
+        {
+            id: 'drama_qa_story_000003',
+            title: 'qa_story',
+            sentence: '日本語を読む練習をしました。',
+            translation: 'I practiced reading Japanese.',
+            image: 'qa-3.jpg',
+            sound: 'qa-3.mp3',
+        },
+    ].filter(example => !query || example.sentence.includes(query) || example.sentence.includes('読') || query === '読む');
+    return { examples, category_count: { anime: 2, drama: 1 }, deck_count: {} };
 }
 
 function htmlEscape(value) {
@@ -901,12 +951,13 @@ async function auditHoverLookup(browser, server) {
     const kanjiButton = page.locator('.jpdb-reader-kanji-inline').first();
     await kanjiButton.click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent?.includes('Readings and components'), 9000, 'kanji drilldown did not show kanji details');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'Stroke-order trace did not render');
     const kanjiSnapshot = await page.evaluate(() => ({
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
         localKanjiText: document.querySelector('.jpdb-reader-kanji')?.textContent ?? '',
         originsText: document.querySelector('.jpdb-reader-origins')?.textContent ?? '',
-        originNodes: document.querySelectorAll('.jpdb-reader-origin-node').length,
+        originNodes: document.querySelectorAll('.jpdb-reader-origin-graph-node').length,
         radicalCards: document.querySelectorAll('.jpdb-reader-radical-card').length,
         sourceLinks: document.querySelectorAll('.jpdb-reader-origin-sources a').length,
         historicalNotes: document.querySelector('.jpdb-reader-origin-wiktionary')?.textContent ?? '',
@@ -920,10 +971,11 @@ async function auditHoverLookup(browser, server) {
     assertAudit(kanjiSnapshot.backVisible, 'kanji drilldown is missing a back control');
     assertAudit(kanjiSnapshot.jpdbKanjiText.includes('Readings and components'), 'kanji details section is missing');
     assertAudit(/Origin and structure|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
+    assertAudit(!/RTK frame|Old forms|Character|Kanken/i.test(kanjiSnapshot.originsText), 'kanji facts panel is showing low-value legacy fields');
     assertAudit(kanjiSnapshot.originNodes > 1, 'kanji origins map did not render component nodes');
     assertAudit(kanjiSnapshot.radicalCards > 0, 'kanji radical card did not render');
-    assertAudit(kanjiSnapshot.sourceLinks >= 2, 'kanji source links did not render');
-    assertAudit(/historical forms|Short QA note/.test(kanjiSnapshot.historicalNotes), 'Wiktionary historical notes did not render');
+    assertAudit(kanjiSnapshot.sourceLinks >= 1, 'kanji source link did not render');
+    assertAudit(!kanjiSnapshot.historicalNotes, 'Wiktionary historical notes should stay hidden by default');
     assertAudit(kanjiSnapshot.kanjiVGPaths > 0, 'Stroke-order trace did not render');
     assertAudit(kanjiSnapshot.doodleCanvas, 'kanji drawing canvas did not render');
     assertAudit(kanjiSnapshot.componentButtons > 0, 'kanji components are not clickable');
@@ -933,6 +985,51 @@ async function auditHoverLookup(browser, server) {
     await page.keyboard.up('Shift');
     await page.close();
     record('hold-key hover lookup', 'pass', 'Shift hover opens, Escape suppresses reopen, and the panel stays alive under the pointer');
+}
+
+async function auditImmersionKitPopover(browser, server) {
+    const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+        body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
+    </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。</p></body></html>`;
+    const { page, requests } = await newAuditedPage(browser, {
+        ...baseSettings,
+        localDictionariesEnabled: true,
+        immersionKitEnabled: true,
+        immersionKitShowTranslation: false,
+        immersionKitShowImages: true,
+        immersionKitAutoPlayAudio: false,
+    });
+    await page.route(`${server.origin}/immersion-fixture.html`, route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: html,
+    }));
+    await page.goto(`${server.origin}/immersion-fixture.html`, { waitUntil: 'domcontentloaded' });
+    await seedLocalKanjiDictionaries(page);
+    await injectUserscript(page);
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
+    await page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first().click();
+    await page.waitForSelector('[data-immersion-kit] .jpdb-reader-example-card', { timeout: 8000 });
+    const firstSnapshot = await page.evaluate(() => ({
+        sectionText: document.querySelector('[data-immersion-kit]')?.textContent ?? '',
+        exampleWords: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-word').length,
+        translationVisible: Boolean(document.querySelector('.jpdb-reader-example-translation')),
+        imageVisible: Boolean(document.querySelector('.jpdb-reader-example-image')),
+        localDefinitionWords: document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word').length,
+    }));
+    assertAudit(firstSnapshot.sectionText.includes('Immersion Kit'), 'Immersion Kit section is missing');
+    assertAudit(firstSnapshot.exampleWords >= 2, 'Immersion Kit sentence is not recursively tokenized');
+    assertAudit(!firstSnapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
+    assertAudit(firstSnapshot.imageVisible, 'Immersion Kit thumbnail did not render');
+    assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
+    await page.locator('[data-immersion-action="next"]').click();
+    await waitForAudit(page, () => document.querySelector('.jpdb-reader-example-card')?.getAttribute('data-immersion-sentence')?.includes('新しい本'), 6000, 'Immersion Kit next example did not update');
+    await page.locator('[data-immersion-kit] .jpdb-reader-word').filter({ hasText: '本' }).first().click();
+    await waitForAudit(page, () => document.querySelector('.jpdb-reader-spelling')?.textContent?.includes('本'), 6000, 'word inside Immersion Kit example did not open a nested popup lookup');
+    assertAudit(requests.some(request => request.url.includes('apiv2.immersionkit.com/search')), 'Immersion Kit API was not requested');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
+    await page.close();
+    record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
 }
 
 async function auditOcrFixture(browser) {
@@ -991,14 +1088,23 @@ async function auditYouTubeFilterFixture(browser) {
         contentType: 'text/html; charset=utf-8',
         body: `<!doctype html><html><head><meta charset="utf-8"><title>YouTube fixture</title><style>
             body{margin:0;padding:24px;background:#0f0f0f;color:white;font:16px system-ui}
-            main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-            ytd-rich-item-renderer,ytd-compact-video-renderer{display:block;border:1px solid #333;border-radius:8px;padding:12px;background:#181818}
+            main{display:grid;grid-template-columns:2fr 1fr;gap:18px}
+            section{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+            aside{display:grid;gap:12px}
+            ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,yt-lockup-view-model{display:block;border:1px solid #333;border-radius:8px;padding:12px;background:#181818}
             #video-title{display:block;color:white;text-decoration:none;font-weight:700}
         </style></head><body><main>
-            <ytd-rich-item-renderer data-case="jp"><a id="video-title" href="/watch?v=jp" aria-label="日本語で花の名前を覚える">日本語で花の名前を覚える</a></ytd-rich-item-renderer>
-            <ytd-rich-item-renderer data-case="english"><a id="video-title" href="/watch?v=en" aria-label="10 habits for studying">10 habits for studying</a></ytd-rich-item-renderer>
-            <ytd-compact-video-renderer data-case="mixed"><a id="video-title" href="/watch?v=mix" title="東京カフェで朝ごはん">東京カフェで朝ごはん</a></ytd-compact-video-renderer>
-            <ytd-rich-item-renderer data-case="channel-only"><a id="video-title" href="/watch?v=channel">study with me</a><span id="channel-name">日本語チャンネル</span></ytd-rich-item-renderer>
+            <section aria-label="home feed">
+                <ytd-rich-item-renderer data-case="jp"><a id="video-title" href="/watch?v=jp" aria-label="日本語で花の名前を覚える">日本語で花の名前を覚える</a></ytd-rich-item-renderer>
+                <ytd-rich-item-renderer data-case="english"><a id="video-title" href="/watch?v=en" aria-label="10 habits for studying">10 habits for studying</a></ytd-rich-item-renderer>
+                <ytd-video-renderer data-case="search-english"><h3><a href="/watch?v=search">How to arrange flowers</a></h3></ytd-video-renderer>
+                <yt-lockup-view-model data-case="lockup-jp"><a class="yt-lockup-metadata-view-model-wiz__title" href="/watch?v=lockup">東京カフェで朝ごはん</a></yt-lockup-view-model>
+            </section>
+            <aside aria-label="recommendations">
+                <ytd-compact-video-renderer data-case="mixed"><a id="video-title" href="/watch?v=mix" title="東京カフェで朝ごはん">東京カフェで朝ごはん</a></ytd-compact-video-renderer>
+                <ytd-compact-video-renderer data-case="sidebar-english"><a id="video-title" href="/watch?v=side">latest tech news</a></ytd-compact-video-renderer>
+                <ytd-rich-item-renderer data-case="channel-only"><a id="video-title" href="/watch?v=channel">study with me</a><span id="channel-name">日本語チャンネル</span></ytd-rich-item-renderer>
+            </aside>
         </main></body></html>`,
     }));
     await page.goto('https://www.youtube.com/yomu-filter-test', { waitUntil: 'domcontentloaded' });
@@ -1008,15 +1114,21 @@ async function auditYouTubeFilterFixture(browser) {
         jpHidden: document.querySelector('[data-case="jp"]')?.classList.contains('jpdb-youtube-filtered') ?? true,
         englishHidden: document.querySelector('[data-case="english"]')?.classList.contains('jpdb-youtube-filtered') ?? false,
         mixedHidden: document.querySelector('[data-case="mixed"]')?.classList.contains('jpdb-youtube-filtered') ?? true,
+        lockupHidden: document.querySelector('[data-case="lockup-jp"]')?.classList.contains('jpdb-youtube-filtered') ?? true,
+        searchEnglishHidden: document.querySelector('[data-case="search-english"]')?.classList.contains('jpdb-youtube-filtered') ?? false,
+        sidebarEnglishHidden: document.querySelector('[data-case="sidebar-english"]')?.classList.contains('jpdb-youtube-filtered') ?? false,
         channelOnlyHidden: document.querySelector('[data-case="channel-only"]')?.classList.contains('jpdb-youtube-filtered') ?? false,
         barText: document.querySelector('.jpdb-youtube-filter-bar')?.textContent ?? '',
         hiddenCount: document.querySelectorAll('.jpdb-youtube-filtered').length,
     }));
     assertAudit(hidden.jpHidden === false, 'Japanese YouTube card was hidden');
     assertAudit(hidden.mixedHidden === false, 'Japanese mixed YouTube card was hidden');
+    assertAudit(hidden.lockupHidden === false, 'Japanese lockup card was hidden');
     assertAudit(hidden.englishHidden === true, 'English YouTube card stayed visible');
+    assertAudit(hidden.searchEnglishHidden === true, 'English search card stayed visible');
+    assertAudit(hidden.sidebarEnglishHidden === true, 'English sidebar recommendation stayed visible');
     assertAudit(hidden.channelOnlyHidden === true, 'Channel-only Japanese text should not keep an English title visible');
-    assertAudit(/hid 2/.test(hidden.barText), 'YouTube filter notice did not report hidden cards');
+    assertAudit(/hid 4/.test(hidden.barText), 'YouTube filter notice did not report hidden cards');
     assertAudit(/Show anyway/.test(hidden.barText), 'YouTube filter notice is missing the Show anyway escape hatch');
     if (await page.locator('.jpdb-reader-backdrop').count()) {
         await page.keyboard.press('Escape');
@@ -1025,11 +1137,11 @@ async function auditYouTubeFilterFixture(browser) {
     await page.locator('.jpdb-youtube-filter-bar [data-action="show-anyway"]').click();
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 0, 4000, 'Show anyway did not reveal filtered YouTube cards');
     await page.locator('.jpdb-youtube-filter-bar [data-action="show-anyway"]').click();
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 2, 4000, 'Filter again did not hide YouTube cards');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 4, 4000, 'Filter again did not hide YouTube cards');
     await page.keyboard.press('Alt+Y');
     await waitForAudit(page, () => !document.querySelector('.jpdb-youtube-filter-bar') && document.querySelectorAll('.jpdb-youtube-filtered').length === 0, 4000, 'YouTube filter shortcut did not disable filtering');
     await page.keyboard.press('Alt+Y');
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 2, 4000, 'YouTube filter shortcut did not re-enable filtering');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 4, 4000, 'YouTube filter shortcut did not re-enable filtering');
     await page.locator('.jpdb-youtube-filter-bar [data-action="turn-off"]').click();
     await waitForAudit(page, () => !document.querySelector('.jpdb-youtube-filter-bar') && document.querySelectorAll('.jpdb-youtube-filtered').length === 0, 4000, 'Turn off did not persistently disable YouTube filtering');
     await page.screenshot({ path: path.join(ARTIFACTS, 'youtube-filter-fixture.png'), fullPage: false });
@@ -1151,6 +1263,7 @@ async function main() {
         await runAudit('mobile settings journey', () => auditSettingsMobile(browser, server));
         await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
         await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });
+        await runAudit('Immersion Kit popup examples', () => auditImmersionKitPopover(browser, server), { requiresApiKey: true });
         await runAudit('OCR fixture', () => auditOcrFixture(browser), { requiresApiKey: true });
         await runAudit('YouTube immersion filter fixture', () => auditYouTubeFilterFixture(browser));
         await runAudit('YouTube live smoke', () => auditYouTubeLiveSmoke(browser));
