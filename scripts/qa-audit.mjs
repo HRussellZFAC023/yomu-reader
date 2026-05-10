@@ -223,6 +223,24 @@ function textQaResponse(responseText, contentTypeValue = 'text/html; charset=utf
     };
 }
 
+function binaryQaResponse(bytes, contentTypeValue) {
+    return {
+        status: 200,
+        responseText: '',
+        bytes: [...bytes],
+        contentType: contentTypeValue,
+    };
+}
+
+async function waitForNodeAudit(predicate, timeoutMs, message) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+        if (predicate()) return;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error(message);
+}
+
 function maybeMockQaRequest(request) {
     const url = new URL(request.url);
     if (url.hostname === 'jpdb.io' && url.pathname.startsWith('/api/v1/')) {
@@ -261,7 +279,9 @@ function maybeMockQaRequest(request) {
     }
     if (url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/download_media') {
         const path = url.searchParams.get('path') ?? '';
-        return textQaResponse(path.endsWith('.mp3') ? 'fake-mp3' : 'fake-jpeg', path.endsWith('.mp3') ? 'audio/mpeg' : 'image/jpeg');
+        return path.endsWith('.mp3')
+            ? textQaResponse('fake-mp3', 'audio/mpeg')
+            : binaryQaResponse(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mP8z8BQDwAFgwJ/lbD3lgAAAABJRU5ErkJggg==', 'base64'), 'image/png');
     }
     return null;
 }
@@ -1103,7 +1123,6 @@ async function auditHoverLookup(browser, server) {
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent?.includes('Readings and components'), 9000, 'kanji drilldown did not show kanji details');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'Stroke-order trace did not render');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-similar-word').length > 0, 9000, 'kanji used-in words did not render');
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-origin-sources a').length > 0, 9000, 'kanji source link did not render');
     const kanjiSnapshot = await page.evaluate(() => ({
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
@@ -1112,7 +1131,7 @@ async function auditHoverLookup(browser, server) {
         wordsUsingHeadings: [...document.querySelectorAll('.jpdb-reader-local-title')].filter(node => /Words using/i.test(node.textContent ?? '')).length,
         originNodes: document.querySelectorAll('.jpdb-reader-origin-graph-node').length,
         radicalCards: document.querySelectorAll('.jpdb-reader-radical-card').length,
-        sourceLinks: document.querySelectorAll('.jpdb-reader-origin-sources a').length,
+        sourceLinks: document.querySelectorAll('.jpdb-reader-origin-sources a, .jpdb-reader-origins a[href*="kanjimap"], .jpdb-reader-origins a[href*="raw.githubusercontent"]').length,
         historicalNotes: document.querySelector('.jpdb-reader-origin-wiktionary')?.textContent ?? '',
         kanjiVGPaths: document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length,
         doodleCanvas: Boolean(document.querySelector('.jpdb-reader-doodle-canvas')),
@@ -1128,7 +1147,7 @@ async function auditHoverLookup(browser, server) {
     assertAudit(kanjiSnapshot.wordsUsingHeadings === 1, 'kanji drilldown should have exactly one Words using section');
     assertAudit(kanjiSnapshot.originNodes > 1, 'kanji origins map did not render component nodes');
     assertAudit(kanjiSnapshot.radicalCards > 0, 'kanji radical card did not render');
-    assertAudit(kanjiSnapshot.sourceLinks >= 1, 'kanji source link did not render');
+    assertAudit(kanjiSnapshot.sourceLinks === 0, 'kanji origins should not expose raw source links in the popup');
     assertAudit(!kanjiSnapshot.historicalNotes, 'Wiktionary historical notes should stay hidden by default');
     assertAudit(kanjiSnapshot.kanjiVGPaths > 0, 'Stroke-order trace did not render');
     assertAudit(kanjiSnapshot.doodleCanvas, 'kanji drawing canvas did not render');
@@ -1364,6 +1383,7 @@ async function auditImmersionKitPopover(browser, server) {
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
     await page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first().click();
     await page.waitForSelector('[data-immersion-kit] .jpdb-reader-example-card', { timeout: 8000 });
+    await waitForAudit(page, () => Boolean(document.querySelector('.jpdb-reader-example-image')), 6000, 'Immersion Kit thumbnail did not render');
     const firstSnapshot = await page.evaluate(() => ({
         sectionText: document.querySelector('[data-immersion-kit]')?.textContent ?? '',
         exampleWords: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-word').length,
@@ -1382,7 +1402,9 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
     await page.locator('.jpdb-reader-btn.easy').click();
-    await waitForAudit(page, () => document.querySelector('.jpdb-reader-toast')?.textContent?.includes('Anki review sent'), 6000, 'Anki grading did not send through AnkiConnect');
+    await waitForNodeAudit(() => requests.some(request => request.action === 'answerCards'), 6000, 'Anki grading did not send through AnkiConnect');
+    const reviewToastCount = await page.locator('.jpdb-reader-toast').filter({ hasText: 'review sent' }).count();
+    assertAudit(reviewToastCount === 0, 'grading should not show a low-value review sent toast');
     await page.locator('[data-immersion-action="next"]').click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-example-card')?.getAttribute('data-immersion-sentence')?.includes('新しい本'), 6000, 'Immersion Kit next example did not update');
     await page.locator('[data-immersion-kit] .jpdb-reader-word').filter({ hasText: '本' }).first().click();

@@ -54,6 +54,7 @@ export class SubtitlePlayerController {
     private secondaryCue?: SubtitleCue;
     private observer?: MutationObserver;
     private discoverTimer?: number;
+    private alignFrame?: number;
     private selectedTrackId = '';
     private secondaryTrackId = '';
     private youtubeVideoId = '';
@@ -61,6 +62,7 @@ export class SubtitlePlayerController {
     private parsedHtmlCache = new Map<string, string>();
     private renderSerial = 0;
     private panelMode: 'lines' | 'tracks' = 'lines';
+    private lastMenuSignature = '';
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -72,6 +74,8 @@ export class SubtitlePlayerController {
         });
         this.observer.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('keydown', event => this.handleKeydown(event));
+        window.addEventListener('scroll', () => this.scheduleAlignToVideo(), { passive: true });
+        window.addEventListener('resize', () => this.scheduleAlignToVideo(), { passive: true });
         this.discoverVideo();
         this.tick();
     }
@@ -104,10 +108,12 @@ export class SubtitlePlayerController {
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
+                <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">Subs</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
-                <button type="button" data-action="list" title="Subtitle lines">Subtitles</button>
+                <button type="button" data-action="list" title="Subtitle lines">Lines</button>
                 <span class="jpdb-subtitle-status" data-role="status" hidden></span>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
+                <button type="button" data-action="tracks" title="Subtitle tracks">Tracks</button>
                 <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">...</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
@@ -226,12 +232,16 @@ export class SubtitlePlayerController {
         if (rect.width < 120 || rect.height < 80) {
             this.root.style.left = '0';
             this.root.style.top = '0';
+            this.root.style.right = 'auto';
+            this.root.style.bottom = 'auto';
             this.root.style.width = '100%';
             this.root.style.height = '100%';
             return;
         }
-        this.root.style.left = `${Math.max(0, rect.left)}px`;
-        this.root.style.top = `${Math.max(0, rect.top)}px`;
+        this.root.style.left = `${rect.left}px`;
+        this.root.style.top = `${rect.top}px`;
+        this.root.style.right = 'auto';
+        this.root.style.bottom = 'auto';
         this.root.style.width = `${Math.max(260, rect.width)}px`;
         this.root.style.height = `${Math.max(160, rect.height)}px`;
     }
@@ -375,12 +385,8 @@ export class SubtitlePlayerController {
 
     private async copySubtitle(): Promise<void> {
         const text = [this.currentCue?.text.trim(), this.secondaryCue?.text.trim()].filter(Boolean).join('\n');
-        if (!text) {
-            this.options.onToast('No active subtitle to copy.');
-            return;
-        }
+        if (!text) return;
         await navigator.clipboard?.writeText(text).catch(() => undefined);
-        this.options.onToast('Subtitle copied.');
     }
 
     private async loadSubtitleFile(kind: 'primary' | 'secondary'): Promise<void> {
@@ -398,7 +404,6 @@ export class SubtitlePlayerController {
         this.tracks.push(track);
         if (kind === 'primary') await this.selectTrack(track.id);
         else await this.selectSecondaryTrack(track.id);
-        this.options.onToast(`Loaded ${cues.length} ${kind === 'primary' ? 'Japanese' : 'native'} subtitles.`);
         if (input) input.value = '';
         this.updateFromLoadedCues();
     }
@@ -408,10 +413,20 @@ export class SubtitlePlayerController {
         if (this.secondaryTrackId === id) this.secondaryTrackId = '';
         this.cues = [];
         this.currentCue = undefined;
+        const settings = this.options.getSettings();
+        if (!settings.subtitleOverlayVisible) {
+            settings.subtitleOverlayVisible = true;
+            this.options.onSettingsChange();
+        }
 
         const selected = this.tracks.find(option => option.id === id);
         if (selected?.cues) this.cues = selected.cues;
-        if (selected?.track) this.cues = readTrackCues(selected.track);
+        if (selected?.track) {
+            selected.track.mode = 'hidden';
+            this.setNativeTrackModes();
+            this.cues = readTrackCues(selected.track);
+            if (!this.cues.length) this.cues = await waitForTextTrackCues(selected.track);
+        }
         if (selected?.kind === 'youtube' && selected.url) {
             const text = await requestText(withYouTubeVttFormat(selected.url));
             this.cues = parseSubtitleText(text);
@@ -422,6 +437,7 @@ export class SubtitlePlayerController {
         this.render();
         this.renderTranscriptPanel();
         this.renderTrackPanel();
+        this.syncControls();
     }
 
     private async selectSecondaryTrack(id: string): Promise<void> {
@@ -432,7 +448,12 @@ export class SubtitlePlayerController {
 
         const selected = this.tracks.find(option => option.id === id);
         if (selected?.cues) this.secondaryCues = selected.cues;
-        if (selected?.track) this.secondaryCues = readTrackCues(selected.track);
+        if (selected?.track) {
+            selected.track.mode = 'hidden';
+            this.setNativeTrackModes();
+            this.secondaryCues = readTrackCues(selected.track);
+            if (!this.secondaryCues.length) this.secondaryCues = await waitForTextTrackCues(selected.track);
+        }
         if (selected?.kind === 'youtube' && selected.url) {
             const text = await requestText(withYouTubeVttFormat(selected.url));
             this.secondaryCues = parseSubtitleText(text);
@@ -442,6 +463,7 @@ export class SubtitlePlayerController {
         this.updateFromLoadedCues();
         this.render();
         this.renderTrackPanel();
+        this.syncControls();
     }
 
     private setNativeTrackModes(): void {
@@ -485,14 +507,23 @@ export class SubtitlePlayerController {
     private syncControls(): void {
         const settings = this.options.getSettings();
         this.root?.classList.toggle('jpdb-subtitle-menu-open', !this.menuEl?.hidden);
-        this.renderMenu();
+        this.root?.classList.toggle('jpdb-subtitle-panel-open', !this.transcriptPanel?.hidden);
+        this.root?.classList.toggle('jpdb-subtitle-has-lines', Boolean(this.cues.length || this.currentCue?.text));
+        this.root?.classList.toggle('jpdb-subtitle-has-track', Boolean(this.selectedTrackId || this.cues.length || this.currentCue?.text));
+        if (this.menuEl && !this.menuEl.hidden) this.renderMenu();
         const secondaryToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle-secondary"]');
         if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off';
-        const subtitleToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle"]');
-        if (subtitleToggle) subtitleToggle.textContent = settings.subtitleOverlayVisible ? 'Hide subtitles' : 'Show subtitles';
+        const subtitleToggle = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-toggle');
+        if (subtitleToggle) {
+            subtitleToggle.textContent = settings.subtitleOverlayVisible ? 'Hide' : 'Show';
+            subtitleToggle.setAttribute('aria-pressed', String(settings.subtitleOverlayVisible));
+            subtitleToggle.title = settings.subtitleOverlayVisible ? 'Hide subtitles' : 'Show subtitles';
+            subtitleToggle.setAttribute('aria-label', subtitleToggle.title);
+        }
         const previous = this.root?.querySelector<HTMLButtonElement>('[data-action="previous"]');
         const next = this.root?.querySelector<HTMLButtonElement>('[data-action="next"]');
         const list = this.root?.querySelector<HTMLButtonElement>('[data-action="list"]');
+        const tracks = this.root?.querySelector<HTMLButtonElement>('[data-action="tracks"]');
         const hasLines = Boolean(this.cues.length || this.currentCue?.text);
         if (previous) {
             previous.hidden = !hasLines;
@@ -503,8 +534,13 @@ export class SubtitlePlayerController {
             next.disabled = !this.video || !hasLines;
         }
         if (list) {
-            list.hidden = !hasLines && !this.tracks.length;
-            list.textContent = hasLines ? 'Lines' : 'Tracks';
+            list.hidden = !hasLines;
+            list.textContent = 'Lines';
+        }
+        if (tracks) {
+            tracks.hidden = false;
+            tracks.textContent = this.selectedTrackId ? 'Tracks' : 'Choose subs';
+            tracks.setAttribute('aria-pressed', String(Boolean(this.selectedTrackId)));
         }
         if (!this.statusEl) return;
 
@@ -525,20 +561,31 @@ export class SubtitlePlayerController {
         if (!this.menuEl) return;
         const hasLines = Boolean(this.cues.length || this.currentCue?.text);
         const hasSecondary = Boolean(this.secondaryTrackId || this.secondaryCues.length || this.secondaryCue?.text);
+        const signature = [
+            hasLines,
+            hasSecondary,
+            this.options.getSettings().subtitleSecondaryVisible,
+        ].join(':');
+        if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
+        this.lastMenuSignature = signature;
         setInnerHtml(this.menuEl, `
-            <button type="button" data-action="tracks">Subtitle tracks</button>
+            <div class="jpdb-subtitle-menu-head">
+                <span>Options</span>
+                <button class="jpdb-subtitle-close" type="button" data-action="menu" aria-label="Close subtitle options">×</button>
+            </div>
             <button type="button" data-action="load">Load Japanese subtitles</button>
             <button type="button" data-action="load-secondary">Load native subtitles</button>
             ${hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : ''}
-            ${hasSecondary ? `<button type="button" data-action="toggle-secondary">${this.options.getSettings().subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>` : ''}
-            ${hasLines ? `<button type="button" data-action="toggle">${this.options.getSettings().subtitleOverlayVisible ? 'Hide subtitles' : 'Show subtitles'}</button>` : ''}
+            ${hasSecondary ? `<button type="button" data-action="toggle-secondary" aria-pressed="${this.options.getSettings().subtitleSecondaryVisible}">${this.options.getSettings().subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>` : ''}
         `);
     }
 
     private toggleMenu(): void {
         if (!this.menuEl) return;
+        this.lastMenuSignature = '';
         this.renderMenu();
         this.menuEl.hidden = !this.menuEl.hidden;
+        if (!this.menuEl.hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
     }
 
     private toggleSubtitles(): void {
@@ -565,6 +612,7 @@ export class SubtitlePlayerController {
         const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== 'lines';
         this.panelMode = 'lines';
         this.transcriptPanel.hidden = !shouldOpen;
+        if (!this.transcriptPanel.hidden && this.menuEl) this.menuEl.hidden = true;
         this.renderTranscriptPanel();
     }
 
@@ -590,7 +638,7 @@ export class SubtitlePlayerController {
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle lines</span>
-                <button type="button" data-action="list">Close</button>
+                <button class="jpdb-subtitle-close" type="button" data-action="list" aria-label="Close subtitle lines">×</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${visible.map((cue, offset) => {
@@ -612,19 +660,23 @@ export class SubtitlePlayerController {
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
-                <button type="button" data-action="tracks">Close</button>
+                <button class="jpdb-subtitle-close" type="button" data-action="tracks" aria-label="Close subtitle tracks">×</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
+                <div class="jpdb-subtitle-track-tools">
+                    <button type="button" data-action="load">Load Japanese subtitles</button>
+                    <button type="button" data-action="load-secondary">Load native subtitles</button>
+                </div>
                 ${tracks.length ? tracks.map(track => `
                     <div class="jpdb-subtitle-track-row ${track.id === this.selectedTrackId || track.id === this.secondaryTrackId ? 'active' : ''}" data-track-id="${escapeHtml(track.id)}">
                         <strong>${escapeHtml(track.label)}</strong>
-                        <span>${formatTrackKind(track.kind)}${track.id === this.selectedTrackId ? ' · Japanese' : ''}${track.id === this.secondaryTrackId ? ' · native language' : ''}</span>
+                        <span>${formatTrackKind(track.kind)}${track.id === this.selectedTrackId ? ' · Japanese overlay' : ''}${track.id === this.secondaryTrackId ? ' · native overlay' : ''}</span>
                         <div>
-                            <button type="button" data-action="primary-track">Japanese</button>
-                            <button type="button" data-action="secondary-track">Native</button>
+                            <button type="button" data-action="primary-track" aria-pressed="${track.id === this.selectedTrackId}">Japanese</button>
+                            <button type="button" data-action="secondary-track" aria-pressed="${track.id === this.secondaryTrackId}">Native</button>
                         </div>
                     </div>
-                `).join('') : '<div class="jpdb-subtitle-list-empty">Load SRT/VTT files or enable page captions, then choose tracks here.</div>'}
+                `).join('') : '<div class="jpdb-subtitle-list-empty">No subtitle tracks found yet. Load a file, turn on captions, or play the video for a moment.</div>'}
             </div>
         `);
     }
@@ -637,6 +689,14 @@ export class SubtitlePlayerController {
     private async chooseSecondaryTrack(id?: string): Promise<void> {
         if (!id) return;
         await this.selectSecondaryTrack(id);
+    }
+
+    private scheduleAlignToVideo(): void {
+        if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
+        this.alignFrame = requestAnimationFrame(() => {
+            this.alignFrame = undefined;
+            this.alignToVideo();
+        });
     }
 }
 
@@ -656,6 +716,21 @@ function readTrackCues(track: TextTrack): SubtitleCue[] {
         .map(cue => ({ start: cue.startTime, end: cue.endTime, text: getCueText(cue as VTTCue | TextTrackCue).trim() }))
         .filter(cue => cue.text)
         .sort((a, b) => a.start - b.start);
+}
+
+function waitForTextTrackCues(track: TextTrack, timeoutMs = 900): Promise<SubtitleCue[]> {
+    const startedAt = performance.now();
+    return new Promise(resolve => {
+        const poll = () => {
+            const cues = readTrackCues(track);
+            if (cues.length || performance.now() - startedAt >= timeoutMs) {
+                resolve(cues);
+                return;
+            }
+            window.setTimeout(poll, 50);
+        };
+        poll();
+    });
 }
 
 export function parseSubtitleText(text: string): SubtitleCue[] {

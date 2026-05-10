@@ -465,7 +465,7 @@ function renderImmersionPanel(
     const example = examples[index];
     const imageUrl = settings.immersionKitShowImages ? client.mediaUrl(example, 'image') : '';
     saveMiningContext(term, immersionContextFromExample(term, example, index, examples.length, imageUrl));
-    const image = imageUrl ? `<img class="jpdb-reader-example-image" src="${escapeHtml(imageUrl)}" alt="" loading="lazy" data-yomu-immersion-image>` : '';
+    const image = imageUrl ? `<img class="jpdb-reader-example-image" alt="" loading="lazy" data-yomu-immersion-image data-yomu-immersion-image-src="${escapeHtml(imageUrl)}">` : '';
     setInnerHtml(container, `
         <div class="yomu-jpdb-card-title">
             <span>Immersion Kit</span>
@@ -488,10 +488,20 @@ function renderImmersionPanel(
             </div>
         </div>
     `);
-    container.querySelector<HTMLImageElement>('[data-yomu-immersion-image]')?.addEventListener('error', event => {
-        (event.currentTarget as HTMLElement).remove();
+    const imageElement = container.querySelector<HTMLImageElement>('[data-yomu-immersion-image]');
+    if (!imageElement) return;
+    const hideImage = () => {
+        imageElement.remove();
         container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
-    }, { once: true });
+    };
+    imageElement.addEventListener('error', hideImage, { once: true });
+    void client.fetchDataUrl(imageUrl, settings.audioTimeoutMs)
+        .then(src => {
+            if (container.isConnected && imageElement.isConnected) imageElement.src = src;
+        })
+        .catch(() => {
+            if (container.isConnected && imageElement.isConnected) imageElement.src = imageUrl;
+        });
 }
 
 function renderLocalDictionaryPanel(entries: YomitanTermEntry[]): string {

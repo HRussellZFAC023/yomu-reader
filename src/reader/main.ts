@@ -86,6 +86,7 @@ import {
     renderSettingsForm,
     syncAudioSourceRow,
     syncReviewSettingsVisibility,
+    syncSubtitlePreview,
     updateAudioSourceEditor,
     updateDictionarySourceEditor,
 } from './settings-form';
@@ -168,6 +169,8 @@ class ReaderApp {
     private suppressedHoverWord?: HTMLElement;
     private activePopoverMode?: 'modal' | 'hover';
     private activePopoverAnchor?: HTMLElement;
+    private activePopoverAnchorRect?: DOMRect;
+    private activePopoverResizeObserver?: ResizeObserver;
     private lastPointerPosition?: { x: number; y: number };
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
@@ -236,6 +239,7 @@ class ReaderApp {
 
     private applyTheme(): void {
         this.applyAccentColor(this.settings.accentColor);
+        this.applyWordColors();
         document.documentElement.classList.toggle('jpdb-reader-theme-dark', this.settings.theme === 'dark');
         document.documentElement.classList.toggle('jpdb-reader-theme-light', this.settings.theme === 'light');
         document.documentElement.classList.toggle('jpdb-reader-hide-known', this.settings.hideKnownFurigana);
@@ -245,6 +249,22 @@ class ReaderApp {
         const accentColor = sanitizeAccentColor(color);
         document.documentElement.style.setProperty('--jpdb-reader-accent', accentColor);
         document.documentElement.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18));
+    }
+
+    private applyWordColors(settings = this.settings): void {
+        const colorMap = {
+            new: sanitizeAccentColor(settings.wordColorNew),
+            learning: sanitizeAccentColor(settings.wordColorLearning),
+            known: sanitizeAccentColor(settings.wordColorKnown),
+            due: sanitizeAccentColor(settings.wordColorDue),
+            failed: sanitizeAccentColor(settings.wordColorFailed),
+            ignored: sanitizeAccentColor(settings.wordColorIgnored),
+        };
+        Object.entries(colorMap).forEach(([state, color]) => {
+            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}`, color);
+            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-soft`, accentToRgba(color, 0.16));
+            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-strong`, accentToRgba(color, 0.28));
+        });
     }
 
     private installFab(): void {
@@ -334,7 +354,7 @@ class ReaderApp {
         this.autoScanObserver = new MutationObserver(mutations => {
             if (mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (mutations.every(mutationInsideReaderRoot)) return;
-            else this.scheduleAutoScan(900);
+            else this.scheduleAutoScan(450);
         });
         this.autoScanObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
         window.addEventListener('scroll', () => this.scheduleAutoScan(500), { passive: true });
@@ -450,7 +470,7 @@ class ReaderApp {
                 this.dismiss({ suppressHoverTarget: true });
                 return;
             }
-            if (this.settings.shortcuts.hoverLookup.trim() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
+            if ((this.settings.shortcuts.hoverLookup ?? '').trim() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
             if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
                 event.preventDefault();
                 void this.scanVisiblePage({ silent: true });
@@ -489,8 +509,8 @@ class ReaderApp {
                 event.preventDefault();
                 const ankiCardId = this.lastAnkiLookup?.primary?.primaryCardId ?? null;
                 const promise = ankiCardId
-                    ? this.anki.answerCard(ankiCardId, grade).then(() => this.toast('Anki review sent.'))
-                    : this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast('Review sent.'));
+                    ? this.anki.answerCard(ankiCardId, grade)
+                    : this.jpdb.reviewCard(this.lastCard, grade);
                 void promise.catch(error => {
                     this.toast(error instanceof Error ? error.message : 'Review failed.');
                 });
@@ -498,7 +518,7 @@ class ReaderApp {
         });
         document.addEventListener('keyup', event => {
             this.pressedKeys.delete(normalizePressedKey(event.key));
-            if (this.settings.shortcuts.hoverLookup.trim() && !this.shouldLookupOnHover(event)) {
+            if ((this.settings.shortcuts.hoverLookup ?? '').trim() && !this.shouldLookupOnHover(event)) {
                 window.clearTimeout(this.hoverLookupTimer);
                 this.hoverLookupTimer = undefined;
                 this.hoverPendingWord = undefined;
@@ -530,7 +550,7 @@ class ReaderApp {
     }
 
     private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {
-        return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys);
+        return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }
 
     private beginPressLookup(event: PointerEvent): void {
@@ -658,15 +678,25 @@ class ReaderApp {
     private wordFromEventTarget(target: EventTarget | null): HTMLElement | null {
         const element = target instanceof Element ? target : null;
         const word = element?.closest?.('.jpdb-reader-word') as HTMLElement | null;
-        return word && !word.closest('[data-jpdb-reader-root]') ? word : null;
+        return word && this.canLookupReaderWord(word) ? word : null;
     }
 
     private wordFromPoint(x: number, y: number): HTMLElement | null {
         for (const element of document.elementsFromPoint(x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (word && !word.closest('[data-jpdb-reader-root]')) return word;
+            if (word && this.canLookupReaderWord(word)) return word;
         }
         return null;
+    }
+
+    private canLookupReaderWord(word: HTMLElement): boolean {
+        if (!word.closest('[data-jpdb-reader-root]')) return true;
+        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-popover'));
+    }
+
+    private canHoverLookupReaderWord(word: HTMLElement): boolean {
+        if (!word.closest('[data-jpdb-reader-root]')) return true;
+        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer'));
     }
 
     private handleHoverPointer(event: PointerEvent): void {
@@ -679,7 +709,7 @@ class ReaderApp {
         }
 
         const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (!word || word.closest('[data-jpdb-reader-root]')) return;
+        if (!word || !this.canHoverLookupReaderWord(word)) return;
         if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) {
             this.cancelHoverClose();
             return;
@@ -715,7 +745,7 @@ class ReaderApp {
         if (!this.lastPointerPosition) return;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) as HTMLElement | null;
         const word = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (!word || word.closest('[data-jpdb-reader-root]')) return;
+        if (!word || !this.canHoverLookupReaderWord(word)) return;
         this.scheduleHoverLookup(word, event);
     }
 
@@ -730,11 +760,15 @@ class ReaderApp {
         this.hoverLookupTimer = window.setTimeout(() => {
             this.hoverLookupTimer = undefined;
             this.hoverPendingWord = undefined;
-            if (!word.isConnected || this.suppressedHoverWord === word) return;
-            if (!this.isWordHoverActive(word) || !this.settings.lookupOnHover) return;
-            if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys)) return;
-            if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
-            void this.showWord(word, { trigger: 'hover' });
+            let activeWord = word;
+            if (!activeWord.isConnected && this.lastPointerPosition) {
+                activeWord = this.wordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? activeWord;
+            }
+            if (!activeWord.isConnected || this.suppressedHoverWord === activeWord) return;
+            if (!this.isWordHoverActive(activeWord) || !this.settings.lookupOnHover) return;
+            if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
+            if (activeWord.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
+            void this.showWord(activeWord, { trigger: 'hover' });
         }, Math.max(0, this.settings.hoverOpenDelayMs));
     }
 
@@ -863,7 +897,7 @@ class ReaderApp {
             this.toast('That word is no longer in the local JPDB cache. Scan it again.');
             return;
         }
-        const insideReaderPopup = Boolean(word.closest('[data-jpdb-reader-root]'));
+        const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         if (insideReaderPopup && word.closest('.jpdb-reader-example-card')) {
             this.rememberPageMiningContext(card, word.dataset.sentence || undefined, word);
         }
@@ -1018,8 +1052,8 @@ class ReaderApp {
             <div class="jpdb-reader-actions">
                 <div class="jpdb-reader-row" style="--cols: 3">
                     <button class="jpdb-reader-btn add" data-action="add">${uiText(language, 'add')}</button>
-                    <button class="jpdb-reader-btn nf" data-action="neverforget">${card.cardState.includes('never-forget') ? uiText(language, 'forget') : uiText(language, 'never')}</button>
-                    <button class="jpdb-reader-btn blacklist" data-action="blacklist">${card.cardState.includes('blacklisted') ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
+                    <button class="jpdb-reader-btn nf" data-action="neverforget" title="${uiText(language, 'neverHint')}">${card.cardState.includes('never-forget') ? uiText(language, 'forget') : uiText(language, 'never')}</button>
+                    <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${uiText(language, 'blacklistHint')}">${card.cardState.includes('blacklisted') ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
                 </div>
                 ${this.renderAnkiActionRow(ankiLookup)}
                 ${this.settings.enableReviews ? this.renderReviewButtons(ankiLookup.primary) : ''}
@@ -1335,7 +1369,7 @@ class ReaderApp {
             ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>`
             : '';
         const image = imageUrl
-            ? `<img class="jpdb-reader-example-image" data-immersion-image src="${escapeHtml(imageUrl)}" alt="" loading="lazy">`
+            ? `<img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}" alt="" loading="lazy">`
             : '';
 
         setInnerHtml(container, `
@@ -1358,11 +1392,29 @@ class ReaderApp {
             </div>
         `);
 
+        const hideBrokenImage = (imageElement: HTMLImageElement): void => {
+            imageElement.remove();
+            container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
+            this.repositionActivePopover();
+        };
         container.querySelectorAll<HTMLImageElement>('[data-immersion-image]').forEach(imageElement => {
-            imageElement.addEventListener('error', () => {
-                imageElement.remove();
-                container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
-            }, { once: true });
+            imageElement.addEventListener('error', () => hideBrokenImage(imageElement), { once: true });
+            const source = imageElement.dataset.immersionImageSrc ?? '';
+            if (!source) {
+                hideBrokenImage(imageElement);
+                return;
+            }
+            this.immersionKit.fetchDataUrl(source, this.settings.audioTimeoutMs)
+                .then(src => {
+                    if (!container.isConnected || !imageElement.isConnected) return;
+                    imageElement.src = src;
+                    this.repositionActivePopover();
+                })
+                .catch(() => {
+                    if (!container.isConnected || !imageElement.isConnected) return;
+                    imageElement.src = source;
+                    if (imageElement.complete && imageElement.naturalWidth === 0) hideBrokenImage(imageElement);
+                });
         });
         void this.parsePopoverJapanese(container);
         void this.enrichAnkiWords(tokens ?? []);
@@ -1704,10 +1756,8 @@ class ReaderApp {
                 const ankiCardId = Number(button.dataset.ankiCardId);
                 if (Number.isFinite(ankiCardId) && ankiCardId > 0) {
                     await this.anki.answerCard(ankiCardId, grade);
-                    this.toast('Anki review sent.');
                 } else {
                     await this.jpdb.reviewCard(card, grade);
-                    this.toast(this.settings.interfaceLanguage === 'ja' ? '復習を送信しました。' : 'Review sent.');
                 }
             }
             if (action !== 'audio') await this.showCard(card, sentence, anchor, { autoPlay: false, trigger });
@@ -1832,11 +1882,24 @@ class ReaderApp {
         form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('input', event => {
             this.applyAccentColor((event.currentTarget as HTMLInputElement).value);
         });
+        form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"]').forEach(input => {
+            input.addEventListener('input', () => this.applyWordColors(readFormSettings(new FormData(form), this.settings)));
+        });
+        syncSubtitlePreview(form);
+        form.addEventListener('input', event => {
+            const name = (event.target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
+            if (name.startsWith('subtitle')) syncSubtitlePreview(form);
+        });
+        form.addEventListener('change', event => {
+            const name = (event.target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
+            if (name.startsWith('subtitle')) syncSubtitlePreview(form);
+        });
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value === 'auto' || value === 'en' || value === 'ja') {
                 this.settings.interfaceLanguage = value;
                 localizeSettingsForm(form, value);
+                syncSubtitlePreview(form);
                 this.installFab();
             }
         });
@@ -2105,9 +2168,14 @@ class ReaderApp {
         const mode = options.mode ?? 'modal';
         const useBackdrop = mode !== 'hover';
         const backdrop = useBackdrop ? this.createBackdrop() : undefined;
+        const previousRect = this.activePopoverAnchorRect;
         const resolvedAnchor = anchor?.isConnected
             ? anchor
             : this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
+        const resolvedRect = resolvedAnchor ? resolvedAnchor.getBoundingClientRect() : undefined;
+        const anchorRect = resolvedRect && (resolvedRect.width > 0 || resolvedRect.height > 0)
+            ? resolvedRect
+            : previousRect;
         this.dismiss({ suppressHoverTarget: false });
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (backdrop) document.body.append(backdrop, popover);
@@ -2116,15 +2184,28 @@ class ReaderApp {
         this.activePopover = popover;
         this.activePopoverMode = mode;
         this.activePopoverAnchor = resolvedAnchor;
+        this.activePopoverAnchorRect = anchorRect;
         this.activeHoverWord = mode === 'hover' ? resolvedAnchor : undefined;
 
         if (!popover.classList.contains('jpdb-reader-sheet')) {
-            positionPopover(popover, resolvedAnchor);
+            this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
+            this.activePopoverResizeObserver.observe(popover);
+            this.repositionActivePopover();
+            requestAnimationFrame(() => this.repositionActivePopover());
         } else {
             this.installSheetHandle(popover);
         }
         if (mode === 'hover') this.installHoverPopoverLifecycle(popover);
-        popover.focus();
+        else popover.focus();
+    }
+
+    private repositionActivePopover(): void {
+        if (!this.activePopover || this.activePopover.classList.contains('jpdb-reader-sheet')) return;
+        if (this.activePopoverAnchor?.isConnected) {
+            const rect = this.activePopoverAnchor.getBoundingClientRect();
+            if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
+        }
+        positionPopover(this.activePopover, this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined, this.activePopoverAnchorRect);
     }
 
     private installHoverPopoverLifecycle(popover: HTMLElement): void {
@@ -2234,6 +2315,7 @@ class ReaderApp {
         this.cardRenderRequest++;
         if (this.settingsPreviewOriginalAccent !== undefined && this.activePopover?.classList.contains('jpdb-reader-settings')) {
             this.applyAccentColor(this.settingsPreviewOriginalAccent);
+            this.applyWordColors();
         }
         if (this.settingsPreviewOriginalLanguage !== undefined && this.activePopover?.classList.contains('jpdb-reader-settings')) {
             this.settings.interfaceLanguage = this.settingsPreviewOriginalLanguage;
@@ -2242,10 +2324,13 @@ class ReaderApp {
         this.settingsPreviewOriginalLanguage = undefined;
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
+        this.activePopoverResizeObserver?.disconnect();
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop')
             .forEach(element => element.remove());
         this.activePopover = undefined;
         this.activeBackdrop = undefined;
+        this.activePopoverResizeObserver = undefined;
+        this.activePopoverAnchorRect = undefined;
         this.activePopoverMode = undefined;
         this.activePopoverAnchor = undefined;
         this.activeHoverWord = undefined;

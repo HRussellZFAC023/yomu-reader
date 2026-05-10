@@ -29,7 +29,6 @@ const COMMON_EXCLUDE = [
     '[class*="sound" i]',
     '[class*="speaker" i]',
     '[class*="listen" i]',
-    '[class*="play" i]',
     '[class*="button" i]',
     '[class*="btn" i]',
     '[class*="voice" i]',

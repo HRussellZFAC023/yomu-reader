@@ -1,7 +1,7 @@
 import { IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
-import { AUDIO_GUIDE_URL, AUDIO_SOURCE_OPTIONS, DEFAULT_AUDIO_SOURCES, formatShortcutEvent, normalizeAudioSource, normalizeOcrProvider, sanitizeAccentColor } from './settings';
+import { AUDIO_GUIDE_URL, AUDIO_SOURCE_OPTIONS, DEFAULT_AUDIO_SOURCES, accentToRgba, formatShortcutEvent, normalizeAudioSource, normalizeOcrProvider, sanitizeAccentColor } from './settings';
 import type { AudioSourceSetting, DictionaryPreference, InterfaceLanguage, JPDBDeck, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
@@ -73,6 +73,17 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${select('theme', 'Theme', settings.theme, [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']])}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
                     ${input('accentColor', 'Accent color', sanitizeAccentColor(settings.accentColor), 'color')}
+                </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">Word colors</div>
+                    <div class="grid">
+                        ${input('wordColorNew', 'New and suspended', settings.wordColorNew, 'color')}
+                        ${input('wordColorLearning', 'Learning', settings.wordColorLearning, 'color')}
+                        ${input('wordColorKnown', 'Known and never', settings.wordColorKnown, 'color')}
+                        ${input('wordColorDue', 'Due', settings.wordColorDue, 'color')}
+                        ${input('wordColorFailed', 'Failed', settings.wordColorFailed, 'color')}
+                        ${input('wordColorIgnored', 'Ignored and blacklisted', settings.wordColorIgnored, 'color')}
+                    </div>
                 </div>
                 <div class="jpdb-reader-help">よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.</div>
             </fieldset>
@@ -169,7 +180,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('subtitleOverlayVisible', 'Show subtitle overlay', settings.subtitleOverlayVisible)}
                     ${checkbox('subtitleSecondaryVisible', 'Show native subtitles when available', settings.subtitleSecondaryVisible)}
                     ${checkbox('subtitleMiningPause', 'Pause video when mining subtitle', settings.subtitleMiningPause)}
-                    ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Show when needed'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
+                    ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
                     ${input('subtitleFontSize', 'Subtitle font size', String(settings.subtitleFontSize), 'number')}
                     ${input('subtitleBottomOffset', 'Subtitle bottom offset (%)', String(settings.subtitleBottomOffset), 'number')}
                     ${input('subtitleTextColor', 'Subtitle color', settings.subtitleTextColor, 'color')}
@@ -179,6 +190,15 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${input('subtitleFontFamily', 'Subtitle font family', settings.subtitleFontFamily)}
                     ${input('subtitleFontWeight', 'Subtitle font weight', String(settings.subtitleFontWeight), 'number')}
                     ${input('subtitleSeekPadding', 'Subtitle seek padding (seconds)', String(settings.subtitleSeekPadding), 'number')}
+                </div>
+                <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
+                    <div class="jpdb-subtitle-primary">
+                        <span class="jpdb-reader-word jpdb-new">新しい</span>
+                        <span class="jpdb-reader-word jpdb-learning">言葉</span>
+                        <span class="jpdb-reader-word jpdb-known">を</span>
+                        <span class="jpdb-reader-word jpdb-due">読む</span>
+                    </div>
+                    <div class="jpdb-subtitle-secondary">Live subtitle preview</div>
                 </div>
             </fieldset>
             <fieldset data-settings-panel="media" hidden>
@@ -329,6 +349,12 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['theme', 'theme'],
         ['popupMode', 'popupMode'],
         ['accentColor', 'accentColor'],
+        ['wordColorNew', 'wordColorNew'],
+        ['wordColorLearning', 'wordColorLearning'],
+        ['wordColorKnown', 'wordColorKnown'],
+        ['wordColorDue', 'wordColorDue'],
+        ['wordColorFailed', 'wordColorFailed'],
+        ['wordColorIgnored', 'wordColorIgnored'],
         ['parseSelection', 'parseSelection'],
         ['lookupOnClick', 'lookupOnClick'],
         ['lookupOnHover', 'lookupOnHover'],
@@ -430,6 +456,10 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['shortcuts.gradePass', 'gradePass'],
     ];
     labelKeys.forEach(([name, key]) => setControlLabel(form, name, text(key)));
+    const wordColorsTitle = Array.from(form.querySelectorAll<HTMLElement>('.jpdb-reader-local-title'))
+        .find(element => /Word colors|単語の色/.test(element.textContent ?? ''));
+    wordColorsTitle?.replaceChildren(text('wordColors'));
+    form.querySelector<HTMLElement>('[data-subtitle-preview] .jpdb-subtitle-secondary')?.replaceChildren(text('subtitlePreview'));
 
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
@@ -827,6 +857,25 @@ export function syncReviewSettingsVisibility(form: HTMLFormElement): void {
     form.querySelectorAll<HTMLElement>('[data-review-scale="pass-fail"]').forEach(node => { node.hidden = !reviewsEnabled || !passFail; });
 }
 
+export function syncSubtitlePreview(form: HTMLFormElement): void {
+    const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]');
+    if (!preview) return;
+    const value = (name: string, fallback: string) => getNamedControl<HTMLInputElement>(form, name)?.value || fallback;
+    const numberValue = (name: string, fallback: number) => {
+        const number = Number(value(name, String(fallback)));
+        return Number.isFinite(number) ? number : fallback;
+    };
+    preview.style.setProperty('--subtitle-font-size', `${Math.max(16, Math.min(64, numberValue('subtitleFontSize', 32)))}px`);
+    preview.style.setProperty('--subtitle-color', sanitizeAccentColor(value('subtitleTextColor', '#ffffff'), '#ffffff'));
+    preview.style.setProperty('--subtitle-outline', sanitizeAccentColor(value('subtitleOutlineColor', '#000000'), '#000000'));
+    preview.style.setProperty(
+        '--subtitle-background-rgba',
+        accentToRgba(sanitizeAccentColor(value('subtitleBackgroundColor', '#181b20'), '#181b20'), Math.max(0, Math.min(1, numberValue('subtitleBackgroundOpacity', 0.32)))),
+    );
+    preview.style.setProperty('--subtitle-family', value('subtitleFontFamily', 'system-ui'));
+    preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 850)))));
+}
+
 export function renderDeckControls(settings: ReaderSettings, decks: JPDBDeck[], hasApiKey: boolean): string {
     const disabled = !hasApiKey || !decks.length;
     const deckOptions = decks.map(deck => [deck.id, deck.name] as [string, string]);
@@ -1034,6 +1083,12 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
         accentColor: sanitizeAccentColor(get('accentColor'), current.accentColor),
+        wordColorNew: sanitizeAccentColor(get('wordColorNew'), current.wordColorNew),
+        wordColorLearning: sanitizeAccentColor(get('wordColorLearning'), current.wordColorLearning),
+        wordColorKnown: sanitizeAccentColor(get('wordColorKnown'), current.wordColorKnown),
+        wordColorDue: sanitizeAccentColor(get('wordColorDue'), current.wordColorDue),
+        wordColorFailed: sanitizeAccentColor(get('wordColorFailed'), current.wordColorFailed),
+        wordColorIgnored: sanitizeAccentColor(get('wordColorIgnored'), current.wordColorIgnored),
         audioViaBlob: has('audioViaBlob'),
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
         audioSelectionMode: get('audioSelectionMode') === 'random' ? 'random' : 'first',

@@ -25,6 +25,8 @@ const SKIP_SELECTOR = [
     'button',
     'option',
     'summary',
+    'svg',
+    'use',
     'rt',
     'rp',
     '[contenteditable="true"]',
@@ -32,6 +34,15 @@ const SKIP_SELECTOR = [
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
+    '[onclick]',
+    '[data-audio]',
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="listen" i]',
+    '[class*="button" i]',
+    '[class*="btn" i]',
+    '[class*="voice" i]',
     '[aria-hidden="true"]',
     '.jpdb-reader-word',
 ].join(',');
@@ -54,11 +65,22 @@ const FRAGMENT_SKIP_SELECTOR = [
     'button',
     'option',
     'summary',
+    'svg',
+    'use',
     '[contenteditable="true"]',
     '[role="button"]',
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
+    '[onclick]',
+    '[data-audio]',
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="listen" i]',
+    '[class*="button" i]',
+    '[class*="btn" i]',
+    '[class*="voice" i]',
     '[aria-hidden="true"]',
     '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
@@ -472,6 +494,7 @@ function isParagraphBoundary(element: HTMLElement): boolean {
 function isFragileUiText(element: HTMLElement, text: string): boolean {
     if (UI_CLASS_RE.test(element.className || '')) return true;
     if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
+    if (isInsideControlLikeLink(element, text)) return true;
 
     const style = getComputedStyle(element);
     const display = style.display;
@@ -513,4 +536,26 @@ function ancestorClassLooksLikeUi(element: HTMLElement): boolean {
         current = current.parentElement;
     }
     return false;
+}
+
+function isInsideControlLikeLink(element: HTMLElement, text: string): boolean {
+    const link = element.closest('a[href]') as HTMLElement | null;
+    if (!link) return false;
+    if (link.closest('article, main, [role="main"]') && isLikelyProseElement(element)) return false;
+    if (UI_CLASS_RE.test(link.className || '') || link.hasAttribute('onclick') || link.hasAttribute('data-audio')) return true;
+    if (link.querySelector('svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]')) return true;
+
+    const style = getComputedStyle(link);
+    const rect = link.getBoundingClientRect();
+    const textLength = Array.from(text.replace(/\s+/g, '')).length;
+    const linkTextLength = Array.from((link.textContent ?? '').replace(/\s+/g, '')).length;
+    const controlShape = style.display.includes('flex')
+        || style.display.includes('grid')
+        || style.display === 'inline-block'
+        || Number.parseFloat(style.borderRadius) > 0
+        || style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+        || style.borderTopStyle !== 'none'
+        || style.borderBottomStyle !== 'none';
+
+    return controlShape && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
 }
