@@ -36,6 +36,10 @@ export type SubtitleControlsMode = 'auto' | 'always' | 'hidden';
 
 export type InterfaceLanguage = 'auto' | 'en' | 'ja';
 
+export type ImmersionKitCategory = 'all' | 'anime' | 'drama' | 'games';
+
+export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 'random';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -142,6 +146,17 @@ export interface ReaderSettings {
     audioViaBlob: boolean;
     audioTimeoutMs: number;
     audioSelectionMode: AudioSelectionMode;
+    immersionKitEnabled: boolean;
+    immersionKitLimit: number;
+    immersionKitMinLength: number;
+    immersionKitMaxLength: number;
+    immersionKitCategory: ImmersionKitCategory;
+    immersionKitSort: ImmersionKitSort;
+    immersionKitExactMatch: boolean;
+    immersionKitShowTranslation: boolean;
+    immersionKitShowImages: boolean;
+    immersionKitAutoPlayAudio: boolean;
+    immersionKitPlaybackRate: number;
     parseSelection: boolean;
     lookupOnClick: boolean;
     lookupOnHover: boolean;
@@ -152,6 +167,8 @@ export interface ReaderSettings {
     autoScanJapanese: boolean;
     scanVisiblePage: boolean;
     showFloatingButton: boolean;
+    puckPositionX?: number;
+    puckPositionY?: number;
     showFurigana: boolean;
     showPitchAccent: boolean;
     hideKnownFurigana: boolean;

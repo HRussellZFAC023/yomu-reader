@@ -25,7 +25,6 @@ const SKIP_SELECTOR = [
     'button',
     'option',
     'summary',
-    'ruby',
     'rt',
     'rp',
     '[contenteditable="true"]',
@@ -34,9 +33,9 @@ const SKIP_SELECTOR = [
     '[role="radio"]',
     '[role="tab"]',
     '[aria-hidden="true"]',
-    '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
 ].join(',');
+const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 
 const FRAGMENT_SKIP_SELECTOR = [
     'script',
@@ -113,6 +112,7 @@ export interface TextTarget {
     node: Text;
     text: string;
     parent: HTMLElement;
+    hasNativeRuby?: boolean;
 }
 
 export interface TextFragment {
@@ -170,7 +170,7 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
     return collectTextTargetsIn(document.body, limit, true);
 }
 
-export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true): TextTarget[] {
+export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: { includeReaderRoot?: boolean } = {}): TextTarget[] {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const text = node.textContent?.trim() ?? '';
@@ -178,6 +178,7 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true)
 
             const parent = node.parentElement;
             if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            if (!options.includeReaderRoot && parent.closest(READER_ROOT_SELECTOR)) return NodeFilter.FILTER_REJECT;
             if (visibleOnly && !isVisible(parent)) return NodeFilter.FILTER_REJECT;
             if (isFragileUiText(parent, text)) return NodeFilter.FILTER_REJECT;
             if (parent.childNodes.length > 6) return NodeFilter.FILTER_SKIP;
@@ -190,7 +191,12 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true)
     while ((node = walker.nextNode()) && targets.length < limit) {
         const text = node.textContent?.trim() ?? '';
         const parent = node.parentElement;
-        if (parent) targets.push({ node: node as Text, text, parent });
+        if (parent) targets.push({
+            node: node as Text,
+            text,
+            parent,
+            hasNativeRuby: Boolean(parent.closest('ruby')),
+        });
     }
     return targets;
 }
@@ -287,7 +293,9 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
         if (token.start > offset) {
             fragment.append(document.createTextNode(text.slice(offset, token.start)));
         }
-        fragment.append(renderToken(text.slice(token.start, token.end), token, settings));
+        fragment.append(renderToken(text.slice(token.start, token.end), token, settings, {
+            allowRuby: !target.hasNativeRuby,
+        }));
         offset = token.end;
     }
 

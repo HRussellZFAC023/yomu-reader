@@ -283,9 +283,9 @@ describe('reader helpers', () => {
             { label: 'JLPT', value: 'N4', source: 'KANJIDIC' },
             { label: 'Grade', value: 'Grade 2', source: 'KANJIDIC' },
             { label: 'Strokes', value: '14', source: 'KanjiVG' },
-            { label: 'RTK frame', value: '372', source: 'RTK' },
-            { label: 'Old forms', value: '讀', source: 'JPDB' },
+            { label: 'Frequency', value: 'Top 400-500', source: 'JPDB' },
         ]));
+        expect(facts.some(fact => fact.label === 'RTK frame' || fact.label === 'Old forms')).toBe(false);
     });
 
     it('builds a small 2D kanji origin graph from component sources', () => {
@@ -489,10 +489,24 @@ describe('reader helpers', () => {
             .toBe('読む');
     });
 
-    it('does not scan into existing ruby annotations', () => {
+    it('scans native ruby bases without adding duplicate furigana', () => {
         document.body.innerHTML = '<p><ruby>事故<rt>じこ</rt></ruby>がありました。</p>';
         const targets = collectTextTargetsIn(document.body, 10, false);
-        expect(targets.map(target => target.text)).toEqual(['がありました。']);
+        expect(targets.map(target => target.text)).toEqual(['事故', 'がありました。']);
+        expect(targets[0].hasNativeRuby).toBe(true);
+
+        applyTokensToTextNode(targets[0], [{
+            card: { ...card, cardState: ['known'], spelling: '事故', reading: 'じこ' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'じこ', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '事故がありました。',
+        }], DEFAULT_SETTINGS);
+
+        expect(document.querySelector('ruby .jpdb-reader-word.jpdb-known')?.textContent).toBe('事故');
+        expect(document.querySelectorAll('ruby .jpdb-reader-word rt')).toHaveLength(0);
     });
 
     it('uses NHK-style ruby-aware site parsing without duplicating native furigana', () => {
