@@ -127,6 +127,12 @@ export interface ReaderSettings {
     onboardingSeen: boolean;
     interfaceLanguage: InterfaceLanguage;
     accentColor: string;
+    wordColorNew: string;
+    wordColorLearning: string;
+    wordColorKnown: string;
+    wordColorDue: string;
+    wordColorFailed: string;
+    wordColorIgnored: string;
     jpdbDefinitionsEnabled: boolean;
     jpdbDefinitionsPriority: number;
     jpdbExtensionsEnabled: boolean;

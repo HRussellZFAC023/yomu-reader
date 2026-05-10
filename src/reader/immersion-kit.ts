@@ -14,6 +14,8 @@ const TITLE_OVERRIDES: Record<string, string> = {
     fullmetal_alchemist_brotherhood: 'Fullmetal Alchemist: Brotherhood',
     attack_on_titan: 'Attack on Titan',
     demon_slayer: 'Demon Slayer',
+    sound__euphonium: 'Sound! Euphonium',
+    god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
 };
 
 export interface ImmersionKitExample {
@@ -97,10 +99,16 @@ export class ImmersionKitClient {
                 for (const example of examples.slice(0, 2)) {
                     const imageUrl = settings.immersionKitShowImages ? this.mediaUrl(example, 'image') : '';
                     if (imageUrl) {
-                        const image = new Image();
-                        image.decoding = 'async';
-                        image.loading = 'eager';
-                        image.src = imageUrl;
+                        void this.fetchBlobUrl(imageUrl, settings.audioTimeoutMs)
+                            .then(url => {
+                                const image = new Image();
+                                image.decoding = 'async';
+                                image.loading = 'eager';
+                                image.onload = () => window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+                                image.onerror = () => URL.revokeObjectURL(url);
+                                image.src = url;
+                            })
+                            .catch(() => {});
                     }
 
                     const soundUrl = this.mediaUrl(example, 'sound');

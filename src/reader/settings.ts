@@ -7,6 +7,15 @@ export const DEFAULT_AUDIO_URL =
 
 export const DEFAULT_ACCENT_COLOR = '#5ea780';
 
+export const DEFAULT_WORD_COLORS = {
+    new: '#58a6ff',
+    learning: '#ffd166',
+    known: '#7bd88f',
+    due: '#ffb454',
+    failed: '#ff6b6b',
+    ignored: '#b8a7ff',
+} as const;
+
 export const AUDIO_GUIDE_URL = 'https://yomitan.wiki/advanced/#audio';
 
 export const AUDIO_SOURCE_LABELS: Record<AudioSourceType, string> = {
@@ -36,6 +45,12 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     onboardingSeen: false,
     interfaceLanguage: 'auto',
     accentColor: DEFAULT_ACCENT_COLOR,
+    wordColorNew: DEFAULT_WORD_COLORS.new,
+    wordColorLearning: DEFAULT_WORD_COLORS.learning,
+    wordColorKnown: DEFAULT_WORD_COLORS.known,
+    wordColorDue: DEFAULT_WORD_COLORS.due,
+    wordColorFailed: DEFAULT_WORD_COLORS.failed,
+    wordColorIgnored: DEFAULT_WORD_COLORS.ignored,
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
     jpdbExtensionsEnabled: true,
@@ -125,7 +140,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleBackgroundOpacity: 0.32,
     subtitleFontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     subtitleFontWeight: 850,
-    subtitleMiningPause: true,
+    subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: false,
     youtubeShowFilterNotice: true,
@@ -189,6 +204,12 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
         accentColor: sanitizeAccentColor(value?.accentColor),
+        wordColorNew: sanitizeAccentColor(value?.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
+        wordColorLearning: sanitizeAccentColor(value?.wordColorLearning, DEFAULT_SETTINGS.wordColorLearning),
+        wordColorKnown: sanitizeAccentColor(value?.wordColorKnown, DEFAULT_SETTINGS.wordColorKnown),
+        wordColorDue: sanitizeAccentColor(value?.wordColorDue, DEFAULT_SETTINGS.wordColorDue),
+        wordColorFailed: sanitizeAccentColor(value?.wordColorFailed, DEFAULT_SETTINGS.wordColorFailed),
+        wordColorIgnored: sanitizeAccentColor(value?.wordColorIgnored, DEFAULT_SETTINGS.wordColorIgnored),
         puckPositionX: normalizeOptionalCoordinate(value?.puckPositionX),
         puckPositionY: normalizeOptionalCoordinate(value?.puckPositionY),
         audioSources,
@@ -354,7 +375,7 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
-export function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
+export function matchesShortcut(event: KeyboardEvent, shortcut = ''): boolean {
     if (!shortcut) return false;
 
     const parts = parseShortcut(shortcut);
@@ -383,7 +404,7 @@ export function formatShortcutEvent(event: KeyboardEvent): string {
     return dedupeShortcutParts(parts).join('+');
 }
 
-export function shortcutIsPressed(shortcut: string, event: MouseEvent | KeyboardEvent, pressedKeys = new Set<string>()): boolean {
+export function shortcutIsPressed(shortcut = '', event: MouseEvent | KeyboardEvent, pressedKeys = new Set<string>()): boolean {
     if (!shortcut.trim()) return true;
     const parts = parseShortcut(shortcut);
     if (parts.modifiers.has('alt') !== event.altKey) return false;

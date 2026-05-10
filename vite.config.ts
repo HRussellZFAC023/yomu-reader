@@ -50,6 +50,8 @@ export default defineConfig({
                 match: ['*://*/*', 'file:///*'],
                 connect: [
                     'jpdb.io',
+                    'apiv2.immersionkit.com',
+                    'us-southeast-1.linodeobjects.com',
                     'lensfrontend-pa.googleapis.com',
                     'lens.google.com',
                     'vision.googleapis.com',
