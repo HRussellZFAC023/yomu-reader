@@ -198,10 +198,10 @@ export function buildKanjiFacts(
     const map = sourceInfo?.kanjiMap;
 
     add('Type', normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade), jpdbInfo?.type ? 'JPDB' : local.typeSource ?? 'Kanji Alive / Jisho');
-    add('JLPT', local.jlpt ?? map?.jlpt, local.jlptSource ?? 'Jisho via The Kanji Map');
+    add('JLPT', local.jlpt ?? map?.jlpt, local.jlptSource ?? 'Jisho');
     add('Grade', local.grade ?? map?.grade, local.gradeSource ?? 'Kanji Alive / Jisho');
     add('Strokes', kanjiVGInfo?.strokeCount ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map?.strokeCount), kanjiVGInfo?.strokeCount ? 'KanjiVG' : local.strokesSource ?? 'Kanji Alive / Jisho');
-    add('Frequency', jpdbInfo?.frequency || local.frequency || map?.frequencyRank, jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho via The Kanji Map');
+    add('Frequency', jpdbInfo?.frequency || local.frequency || map?.frequencyRank, jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho');
     add('Radical', map?.radical ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(' ') : undefined, 'Kanji Alive / Jisho');
 
     if (!facts.has('Character')) add('Character', kanji, 'current lookup');
@@ -245,7 +245,7 @@ export function buildKanjiOriginGraph(
         'radical',
         'Kanji Alive / Jisho',
     );
-    sourceInfo?.kanjiMap?.parts.forEach(part => addComponent(part, 'structural part', 'Kanji Map part', 'The Kanji Map / Jisho'));
+    sourceInfo?.kanjiMap?.parts.forEach(part => addComponent(part, 'structural part', 'structural part', 'Kanji structure'));
     jpdbInfo?.components.forEach(component => addComponent(component.kanji, component.keyword, 'JPDB component', 'JPDB'));
     rtkInfo?.componentKanji.forEach(component => addComponent(component, 'RTK element', 'RTK element', 'RTK'));
 
@@ -330,7 +330,7 @@ function readKanjiMapReferences(kanjiAlive: Record<string, unknown> | undefined,
     };
     add('Kodansha', references?.kodansha, 'Kanji Alive');
     add('Classic Nelson', references?.classic_nelson, 'Kanji Alive');
-    add('Jisho', jisho?.uri, 'Jisho via The Kanji Map');
+    add('Jisho', jisho?.uri, 'Jisho');
     return facts.slice(0, 4);
 }
 

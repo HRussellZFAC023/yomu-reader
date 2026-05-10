@@ -129,6 +129,14 @@ export interface ReaderSettings {
     accentColor: string;
     jpdbDefinitionsEnabled: boolean;
     jpdbDefinitionsPriority: number;
+    jpdbExtensionsEnabled: boolean;
+    jpdbUchisenEnabled: boolean;
+    jpdbRtkEnabled: boolean;
+    jpdbImmersionKitEnabled: boolean;
+    jpdbLocalDictionariesEnabled: boolean;
+    jpdbReviewUiEnabled: boolean;
+    jpdbAutoRevealSentenceEnabled: boolean;
+    jpdbKanjiDoodleEnabled: boolean;
     rtkEnabled: boolean;
     kanjivgEnabled: boolean;
     kanjiOriginsEnabled: boolean;
@@ -147,6 +155,7 @@ export interface ReaderSettings {
     audioTimeoutMs: number;
     audioSelectionMode: AudioSelectionMode;
     immersionKitEnabled: boolean;
+    immersionKitPriority: number;
     immersionKitLimit: number;
     immersionKitMinLength: number;
     immersionKitMaxLength: number;
@@ -160,6 +169,7 @@ export interface ReaderSettings {
     parseSelection: boolean;
     lookupOnClick: boolean;
     lookupOnHover: boolean;
+    lookupOnMiddleMouse: boolean;
     hoverOpenDelayMs: number;
     hoverCloseDelayMs: number;
     popupActivationMode: PopupActivationMode;
@@ -263,6 +273,7 @@ declare global {
     }) => void);
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);
     const GM_getValue: undefined | (<T>(key: string, defaultValue: T) => T | Promise<T>);
+    const GM_deleteValue: undefined | ((key: string) => void | Promise<void>);
     const GM_addStyle: undefined | ((css: string) => void);
     const GM_registerMenuCommand: undefined | ((name: string, fn: () => void) => void);
 }

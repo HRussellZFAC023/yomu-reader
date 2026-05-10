@@ -20,10 +20,21 @@ const COMMON_EXCLUDE = [
     'footer',
     'aside',
     'button',
+    'a[role="button"]',
     '[role="dialog"]',
     '[aria-modal="true"]',
     '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="listen" i]',
+    '[class*="play" i]',
+    '[class*="button" i]',
+    '[class*="btn" i]',
+    '[class*="voice" i]',
+    '[aria-label*="聞"]',
+    '[aria-label*="音声"]',
 ].join(',');
 
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
@@ -124,7 +135,15 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '.article-title',
             '[data-testid*="article"]',
         ],
-        exclude: COMMON_EXCLUDE,
+        exclude: [
+            COMMON_EXCLUDE,
+            '.soundButton',
+            '.js-sound',
+            '.js-play',
+            '.player',
+            '[onclick]',
+            '[data-audio]',
+        ].join(','),
         matches: url => (
             (url.hostname === 'news.web.nhk' || url.hostname.endsWith('.nhk.or.jp'))
             && (/\/news\/(?:html|easy)\//.test(url.pathname) || /\/news\/easy\//.test(url.pathname))
@@ -180,9 +199,9 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
     return profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
 }
 
-export function collectScanTargets(limit = 40): ScanTextTarget[] {
-    const siteTargets = collectSiteScanTargets(limit);
-    if (siteTargets?.length) return siteTargets;
+export function collectScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] {
+    const siteTargets = collectSiteScanTargets(limit, href);
+    if (siteTargets !== null) return siteTargets;
     return collectVisibleTextTargets(limit);
 }
 

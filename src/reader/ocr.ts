@@ -123,6 +123,14 @@ export class ImageOcrController {
         images.forEach(image => this.enqueue(image, true));
     }
 
+    captureSourceImageForElement(element: Element | null): string | undefined {
+        const line = element?.closest?.('.jpdb-ocr-line');
+        if (!line) return undefined;
+        const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
+        if (!state) return undefined;
+        return captureImageElement(state.image);
+    }
+
     private ensureObserver(settings: ReaderSettings): void {
         const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
         if (this.observer && this.observerMargin === rootMargin) return;
@@ -414,6 +422,23 @@ export class ImageOcrController {
             state.overlay.remove();
             this.states.delete(image);
         }
+    }
+}
+
+function captureImageElement(image: HTMLImageElement): string | undefined {
+    try {
+        if (!image.naturalWidth || !image.naturalHeight) return undefined;
+        const canvas = document.createElement('canvas');
+        const maxWidth = 960;
+        const scale = Math.min(1, maxWidth / image.naturalWidth);
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext('2d');
+        if (!context) return undefined;
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.84);
+    } catch {
+        return undefined;
     }
 }
 

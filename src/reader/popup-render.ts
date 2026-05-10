@@ -166,10 +166,9 @@ export function renderKanjiOrigins(facts: KanjiFact[], graph: KanjiOriginGraph |
     if (!facts.length && (!graph || graph.nodes.length <= 1) && !sourceInfo?.kanjiMap) return '';
     const map = sourceInfo?.kanjiMap;
     const radical = map?.radical;
-    const kanjiMapUrl = map ? `https://thekanjimap.com/${encodeURIComponent(map.kanji)}` : '';
-    const sourceLinks = kanjiMapUrl
-        ? `<a href="${escapeHtml(kanjiMapUrl)}" target="_blank" rel="noopener">The Kanji Map ${externalLinkIcon()}</a>`
-        : '';
+    const radicalFrames = settings.kanjiOriginRadicalImagesEnabled && radical
+        ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4)
+        : [];
     return `
         <div class="jpdb-reader-local jpdb-reader-origins">
             <div class="jpdb-reader-local-title">${uiText(language, 'originStructure')}</div>
@@ -182,10 +181,12 @@ export function renderKanjiOrigins(facts: KanjiFact[], graph: KanjiOriginGraph |
                     <div>
                         ${radical ? `<strong>${escapeHtml([radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, 'strokes')}` : ''].filter(Boolean).join(' · '))}</strong>` : ''}
                         ${map.hint ? `<span>${escapeHtml(map.hint)}</span>` : ''}
+                        ${radicalFrames.length ? `<div class="jpdb-reader-radical-frames">
+                            ${radicalFrames.map((url, index) => `<img src="${escapeHtml(url)}" alt="" loading="lazy" data-radical-frame="${index}">`).join('')}
+                        </div>` : ''}
                     </div>
                 </div>` : ''}
             </div>` : ''}
-            ${sourceLinks ? `<div class="jpdb-reader-origin-sources">${sourceLinks}</div>` : ''}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ''}
         </div>
     `;
@@ -196,20 +197,20 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
     const edges = graph?.edges.filter(edge => nodes.some(node => node.id === edge.from) && nodes.some(node => node.id === edge.to)) ?? [];
     if (nodes.length <= 1 || !edges.length) return '';
     const current = nodes.find(node => node.kind === 'current') ?? nodes[0];
-    const components = nodes.filter(node => node.kind === 'component').slice(0, 8);
-    const related = nodes.filter(node => node.kind === 'related').slice(0, 4);
+    const incoming = nodes
+        .filter(node => node.id !== current.id && edges.some(edge => edge.from === node.id && edge.to === current.id))
+        .slice(0, 9);
+    const outgoing = nodes
+        .filter(node => node.id !== current.id && edges.some(edge => edge.from === current.id && edge.to === node.id))
+        .slice(0, 7);
+    const unlinked = nodes
+        .filter(node => node.id !== current.id && !incoming.includes(node) && !outgoing.includes(node))
+        .slice(0, Math.max(0, 12 - incoming.length - outgoing.length));
     const positioned = [
-        ...components.map((node, index) => ({
-            node,
-            x: 16,
-            y: components.length === 1 ? 50 : 18 + (64 / Math.max(1, components.length - 1)) * index,
-        })),
+        ...radialPositions(incoming, 28, 50, 26, -112, 112),
         { node: current, x: 50, y: 50 },
-        ...related.map((node, index) => ({
-            node,
-            x: 84,
-            y: related.length === 1 ? 50 : 24 + (52 / Math.max(1, related.length - 1)) * index,
-        })),
+        ...radialPositions(outgoing, 72, 50, 24, 68, 292),
+        ...radialPositions(unlinked, 50, 50, 36, 210, 330),
     ];
     const coords = new Map(positioned.map(item => [item.node.id, item]));
     const lines = edges
@@ -217,22 +218,53 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
             const from = coords.get(edge.from);
             const to = coords.get(edge.to);
             if (!from || !to) return '';
-            return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" />`;
+            return `<line data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" marker-end="url(#jpdb-reader-origin-arrow)" />`;
         })
         .join('');
     const nodeButtons = positioned.map(({ node, x, y }) => {
         const style = `left:${x}%;top:${y}%`;
         if (node.kind === 'related') {
-            return `<span class="jpdb-reader-origin-graph-node ${node.kind}" style="${style}" title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
+            return `<span class="jpdb-reader-origin-graph-node ${node.kind}" data-graph-node="${escapeHtml(node.id)}" data-x="${x}" data-y="${y}" style="${style}" title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
         }
-        return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" style="${style}" title="${escapeHtml([node.detail, node.source].filter(Boolean).join(' · '))}">${escapeHtml(node.label)}</button>`;
+        return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" data-graph-node="${escapeHtml(node.id)}" data-x="${x}" data-y="${y}" style="${style}" title="${escapeHtml([node.detail, node.source].filter(Boolean).join(' · '))}">${escapeHtml(node.label)}</button>`;
     }).join('');
     return `
         <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, 'originMapLabel')}">
-            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">${lines}</svg>
+            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">
+                <defs>
+                    <marker id="jpdb-reader-origin-arrow" markerWidth="4" markerHeight="4" refX="3.6" refY="2" orient="auto">
+                        <path d="M0,0 L4,2 L0,4 Z"></path>
+                    </marker>
+                </defs>
+                ${lines}
+            </svg>
             ${nodeButtons}
         </div>
     `;
+}
+
+function radialPositions<T extends { id: string }>(
+    nodes: Array<T & { kind: string }>,
+    centerX: number,
+    centerY: number,
+    radius: number,
+    startDegrees: number,
+    endDegrees: number,
+): Array<{ node: T & { kind: string }; x: number; y: number }> {
+    if (!nodes.length) return [];
+    if (nodes.length === 1) {
+        const angle = (startDegrees + endDegrees) / 2 * Math.PI / 180;
+        return [{ node: nodes[0], x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius }];
+    }
+    return nodes.map((node, index) => {
+        const t = index / Math.max(1, nodes.length - 1);
+        const angle = (startDegrees + (endDegrees - startDegrees) * t) * Math.PI / 180;
+        return {
+            node,
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius,
+        };
+    });
 }
 
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage): string {

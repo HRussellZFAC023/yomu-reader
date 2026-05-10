@@ -21,6 +21,14 @@ const baseSettings = {
     accentColor: '#5ea780',
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
+    jpdbExtensionsEnabled: true,
+    jpdbUchisenEnabled: true,
+    jpdbRtkEnabled: true,
+    jpdbImmersionKitEnabled: true,
+    jpdbLocalDictionariesEnabled: true,
+    jpdbReviewUiEnabled: true,
+    jpdbAutoRevealSentenceEnabled: true,
+    jpdbKanjiDoodleEnabled: true,
     rtkEnabled: true,
     kanjivgEnabled: true,
     kanjiOriginsEnabled: true,
@@ -38,6 +46,7 @@ const baseSettings = {
     audioTimeoutMs: 6000,
     audioSelectionMode: 'random',
     immersionKitEnabled: true,
+    immersionKitPriority: 80,
     immersionKitLimit: 3,
     immersionKitMinLength: 4,
     immersionKitMaxLength: 80,
@@ -219,12 +228,22 @@ function maybeMockQaRequest(request) {
     if (url.hostname === 'jpdb.io' && url.pathname.startsWith('/api/v1/')) {
         return mockJpdbApi(url.pathname.replace('/api/v1/', ''), request.data);
     }
+    if ((url.hostname === '127.0.0.1' || url.hostname === 'localhost') && url.port === '8765') {
+        return jsonQaResponse(mockAnkiConnect(request.data));
+    }
     if (url.hostname === 'jpdb.io' && url.pathname.startsWith('/kanji/')) {
         return textQaResponse(mockJpdbKanjiHtml(decodeURIComponent(url.pathname.split('/').pop() ?? '')));
     }
     if (url.hostname === 'hrussellzfac023.github.io' && url.pathname.startsWith('/rtk/')) {
         const kanji = decodeURIComponent(url.pathname.split('/').filter(Boolean)[1] ?? '');
         return textQaResponse(mockRtkHtml(kanji));
+    }
+    if (url.hostname === 'uchisen.com' && url.pathname.startsWith('/kanji/')) {
+        const kanji = decodeURIComponent(url.pathname.split('/').filter(Boolean)[1] ?? '');
+        return textQaResponse(mockUchisenHtml(kanji));
+    }
+    if (url.hostname === 'ik.imagekit.io' && url.pathname.startsWith('/uchisen/')) {
+        return textQaResponse(mockImageSvg('Uchisen'), 'image/svg+xml; charset=utf-8');
     }
     if (url.hostname === 'raw.githubusercontent.com' && url.pathname.includes('/KanjiVG/kanjivg/')) {
         return textQaResponse(mockKanjiVgSvg(), 'image/svg+xml; charset=utf-8');
@@ -242,7 +261,7 @@ function maybeMockQaRequest(request) {
     }
     if (url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/download_media') {
         const path = url.searchParams.get('path') ?? '';
-        return textQaResponse(path.endsWith('.mp3') ? 'fake-mp3' : '<svg></svg>', path.endsWith('.mp3') ? 'audio/mpeg' : 'image/svg+xml');
+        return textQaResponse(path.endsWith('.mp3') ? 'fake-mp3' : 'fake-jpeg', path.endsWith('.mp3') ? 'audio/mpeg' : 'image/jpeg');
     }
     return null;
 }
@@ -271,6 +290,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
                 method: request.method,
                 url: request.url.replace(QA_API_KEY, '[redacted]'),
                 status: mocked.status,
+                ...summarizeRequestBody(body),
             });
             return mocked;
         }
@@ -284,6 +304,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
             method: request.method,
             url: request.url.replace(QA_API_KEY, '[redacted]'),
             status: response.status,
+            ...summarizeRequestBody(body),
         });
         return {
             status: response.status,
@@ -338,6 +359,8 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
                     ? bytes.buffer
                     : options.responseType === 'blob'
                         ? new Blob([bytes], { type: result.contentType })
+                        : options.responseType === 'json'
+                            ? JSON.parse(result.responseText || 'null')
                         : result.responseText;
                 options.onload?.({
                     status: result.status,
@@ -421,6 +444,60 @@ function mockJpdbApi(endpoint, body) {
     return jsonQaResponse({});
 }
 
+function mockAnkiConnect(body) {
+    const request = readJsonBody(body);
+    switch (request.action) {
+        case 'version':
+            return { result: 6, error: null };
+        case 'findNotes':
+            return { result: /読む|よむ|読みました|よみました/.test(String(request.params?.query ?? '')) ? [9001] : [], error: null };
+        case 'notesInfo':
+            return {
+                result: (request.params?.notes ?? []).map(noteId => ({
+                    noteId,
+                    modelName: 'Mining',
+                    tags: ['yomu'],
+                    fields: {
+                        Expression: { value: '読みました', order: 0 },
+                        Reading: { value: 'よみました', order: 1 },
+                        Sentence: { value: '今日は本を読む。', order: 2 },
+                        Meaning: { value: 'to read', order: 3 },
+                        Source: { value: 'QA Anki deck', order: 4 },
+                    },
+                    cards: [8001],
+                })),
+                error: null,
+            };
+        case 'cardsInfo':
+            return {
+                result: (request.params?.cards ?? []).map(cardId => ({
+                    cardId,
+                    note: 9001,
+                    deckName: 'Anime Mining',
+                    queue: 2,
+                    type: 2,
+                    due: 1,
+                    reps: 12,
+                    lapses: 0,
+                    interval: 15,
+                })),
+                error: null,
+            };
+        case 'answerCards':
+        case 'guiBrowse':
+            return { result: null, error: null };
+        case 'deckNames':
+            return { result: ['Yomu'], error: null };
+        case 'modelNames':
+            return { result: [], error: null };
+        case 'createDeck':
+        case 'createModel':
+            return { result: null, error: null };
+        default:
+            return { result: null, error: null };
+    }
+}
+
 function readJsonBody(body) {
     if (!body) return {};
     if (typeof body === 'string') {
@@ -431,6 +508,28 @@ function readJsonBody(body) {
         }
     }
     return {};
+}
+
+function summarizeRequestBody(body) {
+    const json = readJsonBody(body);
+    const note = json?.params?.note;
+    return {
+        action: typeof json?.action === 'string' ? json.action : undefined,
+        ankiSentence: typeof note?.fields?.Sentence === 'string' ? textFromHtml(note.fields.Sentence) : undefined,
+        ankiSource: typeof note?.fields?.Source === 'string' ? note.fields.Source : undefined,
+        ankiHasPicture: Array.isArray(note?.picture) && note.picture.length > 0,
+    };
+}
+
+function textFromHtml(value) {
+    return String(value)
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
 }
 
 function mockJpdbParse(body) {
@@ -521,11 +620,33 @@ function mockRtkHtml(kanji) {
     </body></html>`;
 }
 
+function mockUchisenHtml(kanji) {
+    return `<!doctype html><html><body>
+        <div class="kanji_image_loader" data-large="/kanji/${encodeURIComponent(kanji)}/main.svg"></div>
+        <div id="mnemonic_story">QA Uchisen story for ${htmlEscape(kanji)}.</div>
+        <div class="mnemonic_card">
+            <input class="image_url" value="/kanji/${encodeURIComponent(kanji)}/main.svg?tr=w-300">
+            <input class="story" value="Duplicate image">
+        </div>
+        <div class="mnemonic_card">
+            <input class="image_url" value="generated_${encodeURIComponent(kanji)}.svg">
+            <input class="story" value="Second &lt;b&gt;Uchisen&lt;/b&gt; story">
+        </div>
+    </body></html>`;
+}
+
 function mockKanjiVgSvg() {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
         <path d="M10,10 C25,30 45,30 60,10" />
         <path d="M18,58 L82,58" />
         <text transform="matrix(1 0 0 1 8 12)">1</text>
+    </svg>`;
+}
+
+function mockImageSvg(label) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
+        <rect width="320" height="180" rx="12" fill="#20242b"/>
+        <text x="160" y="96" text-anchor="middle" fill="#f2f4f8" font-size="28">${htmlEscape(label)}</text>
     </svg>`;
 }
 
@@ -785,8 +906,23 @@ async function auditSettings(browser, server) {
     assertAudit(snapshot.dictionarySources >= 3, 'definition source ordering rows are missing');
     assertAudit(snapshot.supportLinks >= 4 && snapshot.hasMigakuComparison, 'support/donation links or free-vs-paid copy are missing');
     await page.screenshot({ path: path.join(ARTIFACTS, 'settings.png'), fullPage: false });
+
+    await page.locator('[data-action="settings-panel"][data-panel="mining"]').click();
+    await page.locator('[data-action="test-anki"]').click();
+    const ankiSnapshot = await waitForAudit(page, () => {
+        const status = document.querySelector('[data-anki-status]');
+        if (status?.getAttribute('data-status-tone') !== 'success') return false;
+        const button = document.querySelector('[data-action="test-anki"]');
+        return {
+            text: status.textContent ?? '',
+            tone: status.getAttribute('data-status-tone'),
+            disabled: button?.hasAttribute('disabled') ?? false,
+        };
+    }, 6000, 'Test Anki did not report status in the Anki settings panel');
+    assertAudit(ankiSnapshot.tone === 'success' && ankiSnapshot.text.includes('Connected.'), 'Test Anki status is not shown as a successful connection');
+    assertAudit(!ankiSnapshot.disabled, 'Test Anki button stayed disabled after the connection check');
     await page.close();
-    record('settings dialog', 'pass', 'actions visible, irrelevant provider fields hidden');
+    record('settings dialog', 'pass', 'actions visible, irrelevant provider fields hidden, Anki test status shown');
 }
 
 async function auditSettingsMobile(browser, server) {
@@ -967,6 +1103,7 @@ async function auditHoverLookup(browser, server) {
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent?.includes('Readings and components'), 9000, 'kanji drilldown did not show kanji details');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'Stroke-order trace did not render');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-similar-word').length > 0, 9000, 'kanji used-in words did not render');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-origin-sources a').length > 0, 9000, 'kanji source link did not render');
     const kanjiSnapshot = await page.evaluate(() => ({
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
@@ -1067,6 +1204,142 @@ async function auditJpdbSearchCompatibility(browser) {
     record('jpdb.io search compatibility', 'pass', 'native ruby, kanji drilldown, status colors, and reader control isolation work on jpdb.io');
 }
 
+async function auditJpdbPageAddons(browser) {
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        autoScanJapanese: false,
+        scanVisiblePage: false,
+        showFloatingButton: false,
+        localDictionariesEnabled: true,
+        ankiEnabled: true,
+        immersionKitEnabled: true,
+        immersionKitShowImages: true,
+        immersionKitAutoPlayAudio: false,
+        dictionaryPreferences: [
+            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 },
+            { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1 },
+        ],
+    });
+    await page.route('https://jpdb.io/kanji/**', route => {
+        const kanji = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop() ?? '読');
+        route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: mockJpdbKanjiHtml(kanji) });
+    });
+    await page.route('https://jpdb.io/vocabulary/**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: `<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body>
+            <main>
+                <div class="result vocabulary">
+                    <div class="vocabulary-spelling"><a href="/vocabulary/1/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80#a"><ruby>読<rt>よ</rt></ruby>む</a></div>
+                    <div class="subsection-meanings">
+                        <h6 class="subsection-label">Meanings</h6>
+                        <div class="subsection">to read</div>
+                    </div>
+                </div>
+            </main>
+        </body></html>`,
+    }));
+    await page.route('https://jpdb.io/review**', route => {
+        const url = new URL(route.request().url());
+        const back = url.searchParams.has('r');
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: back
+                ? `<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body>
+                    <nav class="menu"><div class="nav-item"><a>Learn (12)</a></div><div class="nav-item"><a>Decks</a></div></nav>
+                    <div class="answer-box">
+                        <input name="c" value="kb,読">
+                        <div class="sentence blur">今日は本を読む。</div>
+                        <div class="hbox"><div class="kanji">読</div></div>
+                        <div><h6 class="subsection-label">Mnemonic</h6><div class="subsection"><div class="mnemonic">Remember read.</div></div></div>
+                        <label id="show-checkbox-examples-label" for="show-checkbox-examples"><div>Click to toggle examples...</div></label>
+                        <input class="show-hide-checkbox" type="checkbox" id="show-checkbox-examples" hidden>
+                        <div class="hidden-body" hidden><p class="sentence">自分が面白いと思える本を読んでごらん。</p></div>
+                    </div>
+                </body></html>`
+                : `<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body>
+                    <nav class="menu"><div class="nav-item"><a>Learn (12)</a></div><div class="nav-item"><a>Decks</a></div><div class="nav-item"><a>Settings</a></div></nav>
+                    <button class="menu-icon">menu</button>
+                    <div class="answer-box">
+                        <input name="c" value="kb,読">
+                        <div class="bugfix"><div class="kanji-keyword">read</div></div>
+                    </div>
+                </body></html>`,
+        });
+    });
+
+    await page.goto('https://jpdb.io/kanji/%E8%AA%AD', { waitUntil: 'domcontentloaded' });
+    await seedLocalKanjiDictionaries(page);
+    await injectUserscript(page);
+    await page.waitForSelector('#yomu-jpdb-uchisen img', { timeout: 8000 });
+    await page.waitForSelector('#yomu-jpdb-rtk', { timeout: 8000 });
+    await page.waitForSelector('#yomu-jpdb-immersion .jpdb-reader-example-card', { timeout: 8000 });
+    let snapshot = await page.evaluate(() => ({
+        uchisen: document.querySelector('#yomu-jpdb-uchisen')?.textContent ?? '',
+        rtk: document.querySelector('#yomu-jpdb-rtk')?.textContent ?? '',
+        immersion: document.querySelector('#yomu-jpdb-immersion')?.textContent ?? '',
+        cards: document.querySelectorAll('.yomu-jpdb-addon-card').length,
+    }));
+    assertAudit(snapshot.uchisen.includes('QA Uchisen story') && snapshot.uchisen.includes('1/2'), 'Uchisen carousel did not render on kanji page');
+    assertAudit(snapshot.rtk.includes('Heisig story') && snapshot.rtk.includes('QA story'), 'RTK panel did not render on kanji page');
+    assertAudit(snapshot.immersion.includes('Immersion Kit') && snapshot.immersion.includes('Steins Gate'), 'Immersion Kit panel did not render on kanji page');
+    assertAudit(snapshot.cards >= 3, 'JPDB kanji add-on cards are missing');
+    await page.locator('#yomu-jpdb-uchisen [data-uchisen-action="next"]').click();
+    await waitForAudit(page, () => document.querySelector('#yomu-jpdb-uchisen')?.textContent?.includes('2/2'), 3000, 'Uchisen next button did not update the carousel');
+    await page.locator('#yomu-jpdb-uchisen [data-uchisen-action="star"]').click();
+    await waitForAudit(page, () => document.querySelector('#yomu-jpdb-uchisen [data-uchisen-action="star"]')?.textContent?.includes('★'), 3000, 'Uchisen star button did not persist favorite state');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-addons-kanji.png'), fullPage: false });
+
+    await page.goto('https://jpdb.io/vocabulary/1456360/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80#a', { waitUntil: 'domcontentloaded' });
+    await seedLocalKanjiDictionaries(page);
+    await injectUserscript(page);
+    await page.waitForSelector('.yomu-jpdb-local-dictionaries', { timeout: 8000 });
+    snapshot = await page.evaluate(() => ({
+        local: document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent ?? '',
+        immersion: document.querySelector('#yomu-jpdb-immersion')?.textContent ?? '',
+    }));
+    assertAudit(snapshot.local.includes('Imported dictionaries') && snapshot.local.includes('to read'), 'local imported dictionary entries did not render on JPDB vocabulary page');
+    assertAudit(snapshot.immersion.includes('Immersion Kit'), 'Immersion Kit did not render on JPDB vocabulary page');
+
+    await page.goto('https://jpdb.io/review?c=kb,%E8%AA%AD', { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await page.waitForSelector('#yomu-jpdb-doodle-root canvas', { timeout: 8000 });
+    snapshot = await page.evaluate(() => ({
+        nav: document.querySelector('.menu .nav-item:first-child')?.textContent ?? '',
+        hiddenItems: [...document.querySelectorAll('.menu .nav-item:not(:first-child), .menu-icon')].every(el => getComputedStyle(el).display === 'none'),
+        canvas: Boolean(document.querySelector('#yomu-jpdb-doodle-root canvas')),
+    }));
+    assertAudit(snapshot.nav.includes('Items left') && snapshot.hiddenItems, 'review navigation tweak did not apply');
+    assertAudit(snapshot.canvas, 'kanji doodle canvas did not render on review front');
+    const box = await page.locator('#yomu-jpdb-doodle-root canvas').boundingBox();
+    assertAudit(box, 'doodle canvas has no bounding box');
+    await page.mouse.move(box.x + 40, box.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 140, box.y + 120, { steps: 8 });
+    await page.mouse.up();
+
+    await page.goto('https://jpdb.io/review?c=kb,%E8%AA%AD&r=1', { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await waitForAudit(page, () => !document.querySelector('.sentence.blur'), 4000, 'answer sentence stayed blurred');
+    await page.waitForSelector('#yomu-jpdb-doodle-preview img', { timeout: 8000 });
+    snapshot = await page.evaluate(() => ({
+        sentenceBlurred: Boolean(document.querySelector('.sentence.blur')),
+        preview: Boolean(document.querySelector('#yomu-jpdb-doodle-preview img')),
+        uchisen: Boolean(document.querySelector('#yomu-jpdb-uchisen')),
+        rtk: Boolean(document.querySelector('#yomu-jpdb-rtk')),
+        examplesVisible: !document.querySelector('.hidden-body')?.hasAttribute('hidden') && document.querySelector('.hidden-body')?.textContent?.includes('読んでごらん'),
+    }));
+    assertAudit(!snapshot.sentenceBlurred, 'auto reveal did not unblur the review answer sentence');
+    assertAudit(snapshot.preview, 'kanji doodle preview did not carry to review back');
+    assertAudit(snapshot.uchisen && snapshot.rtk, 'kanji review back did not render Uchisen and RTK panels');
+    assertAudit(snapshot.examplesVisible, 'JPDB review examples were not opened by default');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-addons-review.png'), fullPage: false });
+
+    await page.close();
+    record('jpdb.io page add-ons', 'pass', 'Uchisen, RTK, Immersion Kit, dictionaries, review UI, auto reveal, and doodle all work on JPDB fixtures');
+}
+
 async function auditImmersionKitPopover(browser, server) {
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
@@ -1074,6 +1347,7 @@ async function auditImmersionKitPopover(browser, server) {
     const { page, requests } = await newAuditedPage(browser, {
         ...baseSettings,
         localDictionariesEnabled: true,
+        ankiEnabled: true,
         immersionKitEnabled: true,
         immersionKitShowTranslation: false,
         immersionKitShowImages: true,
@@ -1096,17 +1370,30 @@ async function auditImmersionKitPopover(browser, server) {
         translationVisible: Boolean(document.querySelector('.jpdb-reader-example-translation')),
         imageVisible: Boolean(document.querySelector('.jpdb-reader-example-image')),
         localDefinitionWords: document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word').length,
+        hasAnkiEdit: Boolean(document.querySelector('[data-action="anki-edit"]')),
+        hasAddToAnki: Boolean(document.querySelector('[data-action="anki"]')),
+        ankiExisting: document.querySelector('.jpdb-reader-anki-existing')?.textContent ?? '',
     }));
     assertAudit(firstSnapshot.sectionText.includes('Immersion Kit'), 'Immersion Kit section is missing');
     assertAudit(firstSnapshot.exampleWords >= 2, 'Immersion Kit sentence is not recursively tokenized');
     assertAudit(!firstSnapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(firstSnapshot.imageVisible, 'Immersion Kit thumbnail did not render');
     assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
+    assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
+    assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
+    await page.locator('.jpdb-reader-btn.easy').click();
+    await waitForAudit(page, () => document.querySelector('.jpdb-reader-toast')?.textContent?.includes('Anki review sent'), 6000, 'Anki grading did not send through AnkiConnect');
     await page.locator('[data-immersion-action="next"]').click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-example-card')?.getAttribute('data-immersion-sentence')?.includes('新しい本'), 6000, 'Immersion Kit next example did not update');
     await page.locator('[data-immersion-kit] .jpdb-reader-word').filter({ hasText: '本' }).first().click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-spelling')?.textContent?.includes('本'), 6000, 'word inside Immersion Kit example did not open a nested popup lookup');
+    await page.locator('[data-action="anki"]').click();
+    await waitForAudit(page, () => document.querySelector('.jpdb-reader-toast')?.textContent?.includes('context image'), 6000, 'Add to Anki did not use the active Immersion Kit context');
     assertAudit(requests.some(request => request.url.includes('apiv2.immersionkit.com/search')), 'Immersion Kit API was not requested');
+    assertAudit(requests.some(request => request.url.includes('127.0.0.1:8765')), 'AnkiConnect was not queried for existing card state');
+    assertAudit(requests.some(request => request.action === 'answerCards'), 'Anki grading request was not sent');
+    const addNoteRequests = requests.filter(request => request.action === 'addNote');
+    assertAudit(addNoteRequests.some(request => request.ankiSentence?.includes('新しい本') && request.ankiHasPicture), `Anki addNote did not include the selected Immersion Kit sentence and image: ${JSON.stringify(addNoteRequests)}`);
     await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
@@ -1348,6 +1635,7 @@ async function main() {
         await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
         await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });
         await runAudit('jpdb.io search compatibility', () => auditJpdbSearchCompatibility(browser), { requiresApiKey: true });
+        await runAudit('jpdb.io page add-ons', () => auditJpdbPageAddons(browser), { requiresApiKey: true });
         await runAudit('Immersion Kit popup examples', () => auditImmersionKitPopover(browser, server), { requiresApiKey: true });
         await runAudit('OCR fixture', () => auditOcrFixture(browser), { requiresApiKey: true });
         await runAudit('YouTube immersion filter fixture', () => auditYouTubeFilterFixture(browser));

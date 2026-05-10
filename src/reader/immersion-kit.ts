@@ -32,6 +32,7 @@ export interface ImmersionKitExample {
 
 export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
+    private preloadKeys = new Set<string>();
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
         const query = term.trim();
@@ -86,9 +87,47 @@ export class ImmersionKitClient {
         return `${API_BASE}/download_media?${new URLSearchParams({ path })}`;
     }
 
+    preload(term: string, settings: ReaderSettings): void {
+        const query = term.trim();
+        if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
+        this.preloadKeys.add(query);
+
+        void this.search(query, settings)
+            .then(examples => {
+                for (const example of examples.slice(0, 2)) {
+                    const imageUrl = settings.immersionKitShowImages ? this.mediaUrl(example, 'image') : '';
+                    if (imageUrl) {
+                        const image = new Image();
+                        image.decoding = 'async';
+                        image.loading = 'eager';
+                        image.src = imageUrl;
+                    }
+
+                    const soundUrl = this.mediaUrl(example, 'sound');
+                    if (soundUrl) {
+                        if (settings.audioViaBlob) {
+                            void this.fetchBlobUrl(soundUrl, settings.audioTimeoutMs)
+                                .then(url => window.setTimeout(() => URL.revokeObjectURL(url), 30000))
+                                .catch(() => {});
+                        } else {
+                            const audio = new Audio(soundUrl);
+                            audio.preload = 'auto';
+                            audio.load();
+                        }
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+
     async fetchBlobUrl(url: string, timeoutMs: number): Promise<string> {
         const blob = await requestBlob(url, timeoutMs);
         return URL.createObjectURL(blob);
+    }
+
+    async fetchDataUrl(url: string, timeoutMs: number): Promise<string> {
+        const blob = await requestBlob(url, timeoutMs);
+        return blobToDataUrl(blob);
     }
 }
 
@@ -238,5 +277,14 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
                 return response.blob();
             })
             .then(resolve, reject);
+    });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error ?? new Error('Could not read media.'));
+        reader.readAsDataURL(blob);
     });
 }

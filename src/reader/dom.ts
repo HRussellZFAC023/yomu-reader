@@ -64,7 +64,7 @@ const FRAGMENT_SKIP_SELECTOR = [
     '.jpdb-reader-word',
 ].join(',');
 
-const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
+const UI_CLASS_RE = /(^|[-_\s])(audio|badge|btn|button|chip|control|icon|label|menu|nav|pill|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const BLOCK_TAGS = new Set([
@@ -249,6 +249,11 @@ export function collectFragmentTextTargetsIn(
             return;
         }
         if (visibleOnly && !isVisible(element)) {
+            flush();
+            return;
+        }
+        const text = element.textContent?.trim() ?? '';
+        if (text && isFragileUiText(element, text)) {
             flush();
             return;
         }

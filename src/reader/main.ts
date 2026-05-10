@@ -1,7 +1,7 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient, captureActiveVideoFrame } from './anki';
+import { AnkiConnectClient, captureActiveVideoFrame, type AnkiExistingNote, type AnkiLookupResult } from './anki';
 import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
-import { APP_NAME, APP_PUCK, JPDB_DEFINITION_SOURCE_ID, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
+import { APP_NAME, APP_PUCK, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
 import {
     HAS_JAPANESE,
     applyTokensToTextNode,
@@ -16,11 +16,22 @@ import {
 } from './dom';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
 import { JpdbClient } from './jpdb';
+import { JpdbExtensionsController } from './jpdb-extensions';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient } from './kanji-origin';
 import { installKanjiDoodle } from './kanji-doodle';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
-import { uiText } from './i18n';
+import {
+    contextLabel,
+    immersionContextFromExample,
+    loadMiningContext,
+    pageMiningContext,
+    saveMiningContext,
+    shouldUseImmersionContext,
+    type MiningContext,
+    type StoredMiningContext,
+} from './mining-context';
+import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
@@ -95,6 +106,10 @@ import {
 
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
 
+function cardKey(card: JPDBCard): string {
+    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+}
+
 class ReaderApp {
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
@@ -106,6 +121,12 @@ class ReaderApp {
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
     private dictionaries = new YomitanDictionaryStore();
+    private jpdbExtensions = new JpdbExtensionsController({
+        getSettings: () => this.settings,
+        dictionaries: this.dictionaries,
+        immersionKit: this.immersionKit,
+        rtk: this.rtk,
+    });
     private onboarding = new OnboardingController({
         getSettings: () => this.settings,
         setSettings: settings => {
@@ -134,6 +155,7 @@ class ReaderApp {
     private activeBackdrop?: HTMLElement;
     private fab?: HTMLButtonElement;
     private lastCard?: JPDBCard;
+    private lastAnkiLookup?: AnkiLookupResult;
     private selectionTimer?: number;
     private autoScanTimer?: number;
     private autoScanDeadline = 0;
@@ -154,6 +176,9 @@ class ReaderApp {
     private cardRenderRequest = 0;
     private immersionKitAudio?: HTMLAudioElement;
     private immersionKitAudioBlobUrl?: string;
+    private immersionPreloadTerms = new Set<string>();
+    private activeMiningContext?: MiningContext;
+    private immersionContextByCardKey = new Map<string, StoredMiningContext>();
     private pressedKeys = new Set<string>();
     private suppressSelectionLookupUntil = 0;
     private suppressWordClickUntil = 0;
@@ -162,8 +187,11 @@ class ReaderApp {
         startX: number;
         startY: number;
         active: boolean;
+        source: 'primary' | 'middle';
+        captureTarget?: Element;
         lastWord?: HTMLElement;
     };
+    private suppressMiddleAuxClickUntil = 0;
 
     async init(): Promise<void> {
         this.settings = await loadSettings();
@@ -175,6 +203,7 @@ class ReaderApp {
         this.subtitles.init();
         this.ocr.init();
         this.youtube.init();
+        this.jpdbExtensions.init();
 
         if (typeof GM_registerMenuCommand === 'function') {
             GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
@@ -354,6 +383,18 @@ class ReaderApp {
             void this.showWord(word, { trigger: 'click' });
         }, { capture: true });
 
+        document.addEventListener('mousedown', event => {
+            if (!this.shouldCaptureMiddleMouseLookup(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+        }, { capture: true, passive: false });
+
+        document.addEventListener('auxclick', event => {
+            if (event.button !== 1 || Date.now() > this.suppressMiddleAuxClickUntil) return;
+            event.preventDefault();
+            event.stopPropagation();
+        }, { capture: true });
+
         document.addEventListener('pointerdown', event => {
             this.beginPressLookup(event);
         }, { capture: true, passive: false });
@@ -446,7 +487,11 @@ class ReaderApp {
             const grade = this.shortcutGrade(event);
             if (this.lastCard && grade && this.activePopover?.classList.contains('jpdb-reader-popover')) {
                 event.preventDefault();
-                void this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast('Review sent.')).catch(error => {
+                const ankiCardId = this.lastAnkiLookup?.primary?.primaryCardId ?? null;
+                const promise = ankiCardId
+                    ? this.anki.answerCard(ankiCardId, grade).then(() => this.toast('Anki review sent.'))
+                    : this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast('Review sent.'));
+                void promise.catch(error => {
                     this.toast(error instanceof Error ? error.message : 'Review failed.');
                 });
             }
@@ -489,18 +534,27 @@ class ReaderApp {
     }
 
     private beginPressLookup(event: PointerEvent): void {
-        if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return;
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
         if (this.isInsideActivePopover(event.target as Node | null)) return;
+        const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
+        if (!isMiddleScan) {
+            if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return;
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+        }
+
         const word = this.wordFromEventTarget(event.target);
-        if (!word) return;
+        if (!isMiddleScan && !word) return;
+        if (isMiddleScan) this.captureMiddleMouseLookup(event);
 
         this.pressLookup = {
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
-            active: false,
+            active: isMiddleScan,
+            source: isMiddleScan ? 'middle' : 'primary',
+            captureTarget: isMiddleScan && event.target instanceof Element ? event.target : undefined,
         };
+
+        if (isMiddleScan) this.updatePressLookup(event);
     }
 
     private updatePressLookup(event: PointerEvent): void {
@@ -519,8 +573,18 @@ class ReaderApp {
         event.preventDefault();
         event.stopPropagation();
 
+        const targetAtPointer = document.elementFromPoint(event.clientX, event.clientY);
+        if (this.isInsideActivePopover(targetAtPointer)) {
+            this.cancelHoverClose();
+            return;
+        }
+
         const word = this.wordFromPoint(event.clientX, event.clientY);
-        if (!word || word === pressLookup.lastWord) return;
+        if (!word) {
+            if (pressLookup.source === 'middle') this.scheduleHoverClose();
+            return;
+        }
+        if (word === pressLookup.lastWord) return;
         pressLookup.lastWord = word;
         this.cancelHoverClose();
         window.clearTimeout(this.hoverLookupTimer);
@@ -537,7 +601,58 @@ class ReaderApp {
             this.suppressWordClickUntil = Date.now() + 700;
             this.suppressSelectionLookupUntil = Date.now() + 350;
         }
+        if (pressLookup.source === 'middle') {
+            event.preventDefault();
+            event.stopPropagation();
+            this.finishMiddleMouseLookup(pressLookup);
+            if (this.activePopoverMode === 'hover' && !this.isHoverContextActive()) this.scheduleHoverClose();
+        }
         this.pressLookup = undefined;
+    }
+
+    private shouldCaptureMiddleMouseLookup(event: MouseEvent | PointerEvent): boolean {
+        if (!this.settings.lookupOnMiddleMouse || event.button !== 1) return false;
+        if ('pointerType' in event && event.pointerType !== 'mouse') return false;
+        if (this.isInsideActivePopover(event.target as Node | null)) return false;
+        const target = event.target instanceof Element ? event.target : null;
+        return !this.isNativeMiddleClickTarget(target);
+    }
+
+    private captureMiddleMouseLookup(event: PointerEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.suppressMiddleAuxClickUntil = Date.now() + 1200;
+        this.suppressSelectionLookupUntil = Date.now() + 350;
+        document.documentElement.classList.add('jpdb-reader-middle-scan-active');
+        try {
+            if (event.target instanceof Element) event.target.setPointerCapture?.(event.pointerId);
+        } catch {
+            // Some pages detach nodes during pointerdown; capture is only an enhancement.
+        }
+    }
+
+    private finishMiddleMouseLookup(pressLookup: { pointerId: number; captureTarget?: Element }): void {
+        this.suppressMiddleAuxClickUntil = Date.now() + 700;
+        document.documentElement.classList.remove('jpdb-reader-middle-scan-active');
+        try {
+            pressLookup.captureTarget?.releasePointerCapture?.(pressLookup.pointerId);
+        } catch {
+            // Already released or unsupported.
+        }
+    }
+
+    private isNativeMiddleClickTarget(target: Element | null): boolean {
+        return Boolean(target?.closest([
+            'a[href]',
+            'button',
+            'input',
+            'textarea',
+            'select',
+            'summary',
+            '[role="button"]',
+            '[contenteditable="true"]',
+            '[data-jpdb-reader-root]',
+        ].join(',')));
     }
 
     private wordFromEventTarget(target: EventTarget | null): HTMLElement | null {
@@ -556,6 +671,7 @@ class ReaderApp {
 
     private handleHoverPointer(event: PointerEvent): void {
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+        if (this.pressLookup?.source === 'middle') return;
         if (event.pointerType === 'touch') return;
         if (this.isInsideActivePopover(event.target as Node | null)) {
             this.cancelHoverClose();
@@ -686,19 +802,21 @@ class ReaderApp {
     private async lookupText(text: string, sentence = text): Promise<void> {
         const selected = text.replace(/\s+/g, ' ').trim();
         if (!selected || !HAS_JAPANESE.test(selected)) return;
+        const anchor = this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
+        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
         try {
             const [tokens] = await this.jpdb.parse([sentence]);
             const selectedToken = pickTokenForSelection(tokens, selected);
             if (!selectedToken) {
-                this.showTokenList(tokens, selected);
+                this.showTokenList(tokens, selected, anchor, trigger);
                 return;
             }
-            void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence);
+            void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, anchor, { trigger });
         } catch (error) {
             const localEntries = this.settings.localDictionariesEnabled
                 ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
                 : [];
-            if (localEntries.length) this.showLocalDictionaryPopup(selected, localEntries);
+            if (localEntries.length) this.showLocalDictionaryPopup(selected, localEntries, anchor, trigger);
             else this.toast(error instanceof Error ? error.message : 'JPDB lookup failed.');
         }
     }
@@ -713,6 +831,8 @@ class ReaderApp {
 
             const parsed = await this.jpdb.parse(targets.map(target => target.text));
             targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+            this.preloadImmersionKitForTokens(parsed.flat());
+            void this.enrichAnkiWords(parsed.flat());
         } catch (error) {
             if (!options.silent) this.toast(error instanceof Error ? error.message : 'JPDB scan failed.');
         }
@@ -728,6 +848,8 @@ class ReaderApp {
         try {
             const parsed = await this.jpdb.parse(targets.map(target => target.text));
             targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+            this.preloadImmersionKitForTokens(parsed.flat());
+            void this.enrichAnkiWords(parsed.flat());
         } catch {
             // External subtitle overlays update frequently; the regular popup path still reports API errors.
         }
@@ -741,10 +863,20 @@ class ReaderApp {
             this.toast('That word is no longer in the local JPDB cache. Scan it again.');
             return;
         }
-        void this.showCard(card, word.dataset.sentence || undefined, word, { trigger: options.trigger === 'hover' ? 'hover' : 'modal' });
+        const insideReaderPopup = Boolean(word.closest('[data-jpdb-reader-root]'));
+        if (insideReaderPopup && word.closest('.jpdb-reader-example-card')) {
+            this.rememberPageMiningContext(card, word.dataset.sentence || undefined, word);
+        }
+        const anchor = insideReaderPopup
+            ? this.activePopoverAnchor ?? undefined
+            : word;
+        const trigger = insideReaderPopup && this.activePopoverMode === 'hover'
+            ? 'hover'
+            : options.trigger === 'hover' ? 'hover' : 'modal';
+        void this.showCard(card, word.dataset.sentence || undefined, anchor, { trigger });
     }
 
-    private showTokenList(tokens: JPDBToken[], selected: string): void {
+    private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, trigger: 'modal' | 'hover' = 'modal'): void {
         if (!tokens.length) return;
         const popover = this.createPopover();
         setInnerHtml(popover, `
@@ -763,13 +895,13 @@ class ReaderApp {
             const button = (event.target as HTMLElement).closest('button[data-vid]') as HTMLButtonElement | null;
             if (!button) return;
             const card = this.jpdb.getCard(Number(button.dataset.vid), Number(button.dataset.sid));
-            if (card) void this.showCard(card, tokens.find(t => t.card === card)?.sentence);
+            if (card) void this.showCard(card, tokens.find(t => t.card === card)?.sentence, anchor, { trigger });
         });
-        this.mountPopover(popover);
+        this.mountPopover(popover, anchor, { mode: trigger });
         void this.parsePopoverJapanese(popover);
     }
 
-    private showLocalDictionaryPopup(term: string, entries: YomitanTermEntry[]): void {
+    private showLocalDictionaryPopup(term: string, entries: YomitanTermEntry[], anchor?: HTMLElement, trigger: 'modal' | 'hover' = 'modal'): void {
         const popover = this.createPopover();
         setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
@@ -785,7 +917,8 @@ class ReaderApp {
                     .join('')}
             </div>
         `);
-        this.mountPopover(popover);
+        this.mountPopover(popover, anchor, { mode: trigger });
+        void this.parsePopoverJapanese(popover);
     }
 
     private showQuickMenu(anchor: HTMLElement): void {
@@ -834,6 +967,9 @@ class ReaderApp {
         this.lastCard = card;
         const state = card.cardState[0] ?? 'not-in-deck';
         const popover = this.createPopover();
+        if (this.activeMiningContext?.term !== card.spelling || this.activeMiningContext.sentence !== (sentence || '').replace(/\s+/g, ' ').trim()) {
+            this.rememberPageMiningContext(card, sentence, anchor);
+        }
         const localEntries = this.settings.localDictionariesEnabled
             ? await this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
             : [];
@@ -843,6 +979,12 @@ class ReaderApp {
         const metaEntries = this.settings.localDictionariesEnabled
             ? await this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(() => [])
             : [];
+        const ankiLookup = this.settings.ankiEnabled
+            ? await this.anki.findExistingCards(card)
+            : { state: 'not-in-deck', notes: [], primary: null } satisfies AnkiLookupResult;
+        this.lastAnkiLookup = ankiLookup;
+        this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+        const storedContext = loadMiningContext(card.spelling);
         const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
         const cardPos = formatPartOfSpeech(card.partOfSpeech);
         const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
@@ -868,18 +1010,19 @@ class ReaderApp {
             <div class="jpdb-reader-meta">
                 ${card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : ''}
                 <span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(state)}</span>
+                ${ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${ankiLookup.state}"></span>Anki ${escapeHtml(ankiLookup.state)}</span>` : ''}
             </div>
             ${this.renderTermMeta(metaEntries)}
+            ${this.renderAnkiExistingSection(ankiLookup, storedContext)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
-            ${this.renderImmersionKitMount()}
             <div class="jpdb-reader-actions">
                 <div class="jpdb-reader-row" style="--cols: 3">
                     <button class="jpdb-reader-btn add" data-action="add">${uiText(language, 'add')}</button>
                     <button class="jpdb-reader-btn nf" data-action="neverforget">${card.cardState.includes('never-forget') ? uiText(language, 'forget') : uiText(language, 'never')}</button>
                     <button class="jpdb-reader-btn blacklist" data-action="blacklist">${card.cardState.includes('blacklisted') ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
                 </div>
-                ${this.settings.ankiEnabled ? `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(language, 'addToAnki')}</button></div>` : ''}
-                ${this.settings.enableReviews ? this.renderReviewButtons() : ''}
+                ${this.renderAnkiActionRow(ankiLookup)}
+                ${this.settings.enableReviews ? this.renderReviewButtons(ankiLookup.primary) : ''}
             </div>
         `);
 
@@ -1028,6 +1171,76 @@ class ReaderApp {
             ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo)
             : null;
         setInnerHtml(mount, renderKanjiOrigins(facts, graph, sourceInfo, this.settings, this.settings.interfaceLanguage));
+        mount.querySelectorAll<HTMLImageElement>('[data-radical-frame]').forEach(image => {
+            image.addEventListener('error', () => image.remove(), { once: true });
+        });
+        this.installKanjiGraphDrag(mount);
+    }
+
+    private installKanjiGraphDrag(root: HTMLElement): void {
+        const graph = root.querySelector<HTMLElement>('.jpdb-reader-origin-graph-wrap');
+        if (!graph) return;
+        const nodes = Array.from(graph.querySelectorAll<HTMLElement>('[data-graph-node]'));
+        const lines = Array.from(graph.querySelectorAll<SVGLineElement>('.jpdb-reader-origin-graph-lines line[data-from][data-to]'));
+        const nodeById = (id: string) => nodes.find(node => node.dataset.graphNode === id);
+        const updateLines = () => {
+            for (const line of lines) {
+                const from = line.dataset.from ? nodeById(line.dataset.from) : undefined;
+                const to = line.dataset.to ? nodeById(line.dataset.to) : undefined;
+                if (!from || !to) continue;
+                line.setAttribute('x1', from.dataset.x ?? '50');
+                line.setAttribute('y1', from.dataset.y ?? '50');
+                line.setAttribute('x2', to.dataset.x ?? '50');
+                line.setAttribute('y2', to.dataset.y ?? '50');
+            }
+        };
+
+        for (const node of nodes) {
+            let pointerId = -1;
+            let startX = 0;
+            let startY = 0;
+            let startLeft = Number(node.dataset.x ?? 50);
+            let startTop = Number(node.dataset.y ?? 50);
+            let moved = false;
+
+            node.addEventListener('pointerdown', event => {
+                if (event.button !== 0) return;
+                pointerId = event.pointerId;
+                startX = event.clientX;
+                startY = event.clientY;
+                startLeft = Number(node.dataset.x ?? 50);
+                startTop = Number(node.dataset.y ?? 50);
+                moved = false;
+                node.setPointerCapture?.(event.pointerId);
+            });
+            node.addEventListener('pointermove', event => {
+                if (event.pointerId !== pointerId) return;
+                const rect = graph.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                const nextX = Math.max(6, Math.min(94, startLeft + ((event.clientX - startX) / rect.width) * 100));
+                const nextY = Math.max(10, Math.min(90, startTop + ((event.clientY - startY) / rect.height) * 100));
+                if (Math.abs(event.clientX - startX) > 3 || Math.abs(event.clientY - startY) > 3) moved = true;
+                node.dataset.x = String(nextX);
+                node.dataset.y = String(nextY);
+                node.style.left = `${nextX}%`;
+                node.style.top = `${nextY}%`;
+                updateLines();
+            });
+            const finish = (event: PointerEvent) => {
+                if (event.pointerId !== pointerId) return;
+                node.releasePointerCapture?.(pointerId);
+                pointerId = -1;
+                if (moved) node.dataset.dragged = 'true';
+            };
+            node.addEventListener('pointerup', finish);
+            node.addEventListener('pointercancel', finish);
+            node.addEventListener('click', event => {
+                if (node.dataset.dragged !== 'true') return;
+                delete node.dataset.dragged;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }, true);
+        }
     }
 
     private renderDefinitionSources(card: JPDBCard, entries: YomitanTermEntry[]): string {
@@ -1035,6 +1248,7 @@ class ReaderApp {
         const sections = this.orderedDefinitionSourceIds([...grouped.keys()])
             .map(sourceId => {
                 if (sourceId === JPDB_DEFINITION_SOURCE_ID) return this.renderJpdbDefinitionSource(card);
+                if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
                 return this.renderLocalDefinitionSource(sourceId, grouped.get(sourceId) ?? []);
             })
             .filter(Boolean);
@@ -1068,10 +1282,10 @@ class ReaderApp {
                 return;
             }
 
-            let index = 0;
+            let index = this.immersionStartIndex(card, examples);
             const render = async (nextIndex: number, playAudio: boolean) => {
                 index = (nextIndex + examples.length) % examples.length;
-                await this.renderImmersionKitExample(container, examples, index, playAudio);
+                await this.renderImmersionKitExample(container, card, examples, index, playAudio);
             };
             container.addEventListener('click', event => {
                 const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-immersion-action]');
@@ -1083,7 +1297,7 @@ class ReaderApp {
                 if (action === 'next') void render(index + 1, this.settings.immersionKitAutoPlayAudio);
                 if (action === 'audio') void this.playImmersionKitExample(examples[index]);
             });
-            await render(0, false);
+            await render(index, false);
         } catch {
             if (!popover.isConnected || !container.isConnected) return;
             setInnerHtml(container, `
@@ -1093,22 +1307,40 @@ class ReaderApp {
         }
     }
 
-    private async renderImmersionKitExample(container: HTMLElement, examples: ImmersionKitExample[], index: number, playAudio: boolean): Promise<void> {
+    private immersionStartIndex(card: JPDBCard, examples: ImmersionKitExample[]): number {
+        const context = this.activeMiningContext?.term === card.spelling
+            ? this.activeMiningContext
+            : this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+        if (!context || context.sourceKind !== 'immersion-kit') return 0;
+
+        const sentenceIndex = examples.findIndex(example => example.sentence === context.sentence);
+        if (sentenceIndex >= 0) return sentenceIndex;
+
+        const storedIndex = Number(context.immersionIndex);
+        return Number.isFinite(storedIndex) && storedIndex >= 0 && storedIndex < examples.length ? storedIndex : 0;
+    }
+
+    private async renderImmersionKitExample(container: HTMLElement, card: JPDBCard, examples: ImmersionKitExample[], index: number, playAudio: boolean): Promise<void> {
         const example = examples[index];
         const language = this.settings.interfaceLanguage;
         const [tokens] = await this.jpdb.parse([example.sentence]).catch(() => [[] as JPDBToken[]]);
         const imageUrl = this.settings.immersionKitShowImages ? this.immersionKit.mediaUrl(example, 'image') : '';
+        const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, examples.length, imageUrl));
+        if (storedContext) {
+            this.immersionContextByCardKey.set(cardKey(card), storedContext);
+            this.activeMiningContext = storedContext;
+        }
         const sentenceHtml = renderTokensToHtml(example.sentence, tokens ?? [], this.settings);
         const translation = this.settings.immersionKitShowTranslation && example.translation
             ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>`
             : '';
         const image = imageUrl
-            ? `<img class="jpdb-reader-example-image" src="${escapeHtml(imageUrl)}" alt="" loading="lazy">`
+            ? `<img class="jpdb-reader-example-image" data-immersion-image src="${escapeHtml(imageUrl)}" alt="" loading="lazy">`
             : '';
 
         setInnerHtml(container, `
             <div class="jpdb-reader-local-title">${uiText(language, 'immersionKit')}</div>
-            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-sentence="${escapeHtml(example.sentence)}">
+            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
                 ${image}
                 <div class="jpdb-reader-example-body">
                     <div class="jpdb-reader-example-meta">
@@ -1126,7 +1358,14 @@ class ReaderApp {
             </div>
         `);
 
+        container.querySelectorAll<HTMLImageElement>('[data-immersion-image]').forEach(imageElement => {
+            imageElement.addEventListener('error', () => {
+                imageElement.remove();
+                container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
+            }, { once: true });
+        });
         void this.parsePopoverJapanese(container);
+        void this.enrichAnkiWords(tokens ?? []);
         if (playAudio) void this.playImmersionKitExample(example, true);
     }
 
@@ -1138,11 +1377,8 @@ class ReaderApp {
         }
 
         try {
-            this.immersionKitAudio?.pause();
-            if (this.immersionKitAudioBlobUrl) {
-                URL.revokeObjectURL(this.immersionKitAudioBlobUrl);
-                this.immersionKitAudioBlobUrl = undefined;
-            }
+            this.stopImmersionKitAudio();
+            this.audio.stop();
             const src = this.settings.audioViaBlob
                 ? await this.immersionKit.fetchBlobUrl(url, this.settings.audioTimeoutMs)
                 : url;
@@ -1157,6 +1393,15 @@ class ReaderApp {
         }
     }
 
+    private stopImmersionKitAudio(): void {
+        this.immersionKitAudio?.pause();
+        this.immersionKitAudio = undefined;
+        if (this.immersionKitAudioBlobUrl) {
+            URL.revokeObjectURL(this.immersionKitAudioBlobUrl);
+            this.immersionKitAudioBlobUrl = undefined;
+        }
+    }
+
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.settings.apiKey.trim()) return;
         const targets = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
@@ -1168,8 +1413,39 @@ class ReaderApp {
             const parsed = await this.jpdb.parse(targets.map(target => target.text));
             if (!popover.isConnected) return;
             targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
+            const tokens = parsed.flat();
+            this.preloadImmersionKitForTokens(tokens);
+            void this.enrichAnkiWords(tokens);
         } catch {
             // The primary popup already succeeded; nested text parsing is a quiet enhancement.
+        }
+    }
+
+    private async enrichAnkiWords(tokens: JPDBToken[]): Promise<void> {
+        if (!this.settings.ankiEnabled) return;
+        const seen = new Set<string>();
+        const uniqueTokens = tokens.filter(token => {
+            const key = cardKey(token.card);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, 16);
+        for (const token of uniqueTokens) {
+            const lookup = await this.anki.findExistingCards(token.card);
+            this.applyAnkiLookupToRenderedWords(token.card, lookup);
+        }
+    }
+
+    private preloadImmersionKitForTokens(tokens: JPDBToken[]): void {
+        if (!this.settings.immersionKitEnabled) return;
+        let queued = 0;
+        for (const token of tokens) {
+            const term = token.card.spelling.trim();
+            if (!term || this.immersionPreloadTerms.has(term)) continue;
+            this.immersionPreloadTerms.add(term);
+            this.immersionKit.preload(term, this.settings);
+            queued++;
+            if (queued >= 6) break;
         }
     }
 
@@ -1181,6 +1457,12 @@ class ReaderApp {
                 enabled: this.settings.jpdbDefinitionsEnabled,
                 priority: this.settings.jpdbDefinitionsPriority,
                 name: 'JPDB',
+            },
+            {
+                id: IMMERSION_KIT_SOURCE_ID,
+                enabled: this.settings.immersionKitEnabled,
+                priority: this.settings.immersionKitPriority,
+                name: 'Immersion Kit',
             },
             ...dictionaryNames.map((name, index) => {
                 const preference = preferences.get(name);
@@ -1302,22 +1584,94 @@ class ReaderApp {
         return this.settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
     }
 
-    private renderReviewButtons(): string {
+    private rememberPageMiningContext(card: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
+        const cleanSentence = (sentence || '').replace(/\s+/g, ' ').trim();
+        if (!cleanSentence || cleanSentence === card.spelling) return;
+        const immersionCard = anchor?.closest?.('.jpdb-reader-example-card') as HTMLElement | null;
+        if (immersionCard) {
+            const stored = saveMiningContext(card.spelling, {
+                sentence: cleanSentence,
+                sourceKind: 'immersion-kit',
+                sourceTitle: immersionCard.dataset.immersionSourceTitle || 'Immersion Kit',
+                sourceUrl: location.href,
+                imageUrl: immersionCard.dataset.immersionImageUrl || undefined,
+                immersionIndex: Number(immersionCard.dataset.immersionIndex ?? 0),
+                immersionTotal: Number(immersionCard.dataset.immersionTotal ?? 0),
+            });
+            if (stored) this.activeMiningContext = stored;
+            return;
+        }
+        const sourceKind = anchor?.closest?.('.jpdb-ocr-line') ? 'image' : document.querySelector('video') ? 'video' : location.hostname === 'jpdb.io' ? 'jpdb' : 'page';
+        const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
+        if (stored) this.activeMiningContext = stored;
+    }
+
+    private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
+        if (!ankiLookup.primary) return;
+        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+        document.querySelectorAll<HTMLElement>(selector).forEach(word => {
+            word.classList.add(`anki-${ankiLookup.state}`);
+            word.dataset.ankiState = ankiLookup.state;
+            word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
+            word.title = `Anki: ${ankiLookup.state}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+        });
+    }
+
+    private renderAnkiActionRow(ankiLookup: AnkiLookupResult): string {
+        if (!this.settings.ankiEnabled) return '';
+        if (ankiLookup.primary) {
+            return `
+                <div class="jpdb-reader-row" style="--cols: 1">
+                    <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${ankiLookup.primary.noteId}">Edit in Anki</button>
+                </div>
+            `;
+        }
+        return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(this.settings.interfaceLanguage, 'addToAnki')}</button></div>`;
+    }
+
+    private renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedContext: StoredMiningContext | null): string {
+        const note = ankiLookup.primary;
+        if (!note) return '';
+        const decks = note.deckNames.length ? note.deckNames.join(', ') : 'Anki';
+        const sentence = note.fields.Sentence || note.fields.Example || note.fields.SentenceExpression || '';
+        const meaning = note.fields.Meaning || note.fields.Definition || note.fields.Glossary || '';
+        const source = note.fields.Source || note.fields.Url || '';
+        const lastContext = storedContext
+            ? `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml(contextLabel(storedContext))}</span><small>${escapeHtml(storedContext.sentence)}</small></div>`
+            : '';
+        return `
+            <details class="jpdb-reader-anki-existing">
+                <summary>
+                    <span><span class="jpdb-reader-state-dot jpdb-${note.state}"></span>Already in Anki</span>
+                    <small>${escapeHtml(decks)} · ${escapeHtml(note.modelName)}</small>
+                </summary>
+                <div class="jpdb-reader-anki-card-preview">
+                    ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml(sentence)}</span></div>` : ''}
+                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml(meaning).slice(0, 420)}</span></div>` : ''}
+                    ${source ? `<div><strong>Source</strong><span>${escapeHtml(source)}</span></div>` : ''}
+                    ${lastContext}
+                </div>
+            </details>
+        `;
+    }
+
+    private renderReviewButtons(ankiNote: AnkiExistingNote | null = null): string {
+        const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : '';
         if (this.settings.twoButtonReviews) {
             return `
                 <div class="jpdb-reader-row" style="--cols: 2">
-                    <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail">FAIL</button>
-                    <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass">PASS</button>
+                    <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail"${ankiAttrs}>FAIL</button>
+                    <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass"${ankiAttrs}>PASS</button>
                 </div>
             `;
         }
         return `
             <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 5">
-                <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing">NOTHING</button>
-                <button class="jpdb-reader-btn something" data-action="grade" data-grade="something">SOMETHING</button>
-                <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard">HARD</button>
-                <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay">OKAY</button>
-                <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy">EASY</button>
+                <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing"${ankiAttrs}>NOTHING</button>
+                <button class="jpdb-reader-btn something" data-action="grade" data-grade="something"${ankiAttrs}>SOMETHING</button>
+                <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard"${ankiAttrs}>HARD</button>
+                <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay"${ankiAttrs}>OKAY</button>
+                <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy"${ankiAttrs}>EASY</button>
             </div>
         `;
     }
@@ -1326,6 +1680,8 @@ class ReaderApp {
         if (button.disabled) return;
         button.disabled = true;
         const action = button.dataset.action;
+        const anchor = this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
+        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
         try {
             if (action === 'audio') await this.playAudio(card);
             if (action === 'add') {
@@ -1335,13 +1691,26 @@ class ReaderApp {
                 this.toast(`${uiText(this.settings.interfaceLanguage, 'add')} JPDB.`);
             }
             if (action === 'anki') await this.addToAnki(card, sentence);
+            if (action === 'anki-edit') {
+                const noteId = Number(button.dataset.noteId);
+                if (!Number.isFinite(noteId)) throw new Error('Anki note not found.');
+                await this.anki.browseNote(noteId);
+                this.toast('Opened in Anki.');
+            }
             if (action === 'neverforget') await this.toggleDeck(card, 'never-forget', this.settings.neverForgetDeck);
             if (action === 'blacklist') await this.toggleDeck(card, 'blacklisted', this.settings.blacklistDeck);
             if (action === 'grade') {
-                await this.jpdb.reviewCard(card, button.dataset.grade as JPDBGrade);
-                this.toast(this.settings.interfaceLanguage === 'ja' ? '復習を送信しました。' : 'Review sent.');
+                const grade = button.dataset.grade as JPDBGrade;
+                const ankiCardId = Number(button.dataset.ankiCardId);
+                if (Number.isFinite(ankiCardId) && ankiCardId > 0) {
+                    await this.anki.answerCard(ankiCardId, grade);
+                    this.toast('Anki review sent.');
+                } else {
+                    await this.jpdb.reviewCard(card, grade);
+                    this.toast(this.settings.interfaceLanguage === 'ja' ? '復習を送信しました。' : 'Review sent.');
+                }
             }
-            if (action !== 'audio') await this.showCard(card, sentence, undefined, { autoPlay: false });
+            if (action !== 'audio') await this.showCard(card, sentence, anchor, { autoPlay: false, trigger });
         } catch (error) {
             this.toast(error instanceof Error ? error.message : 'Action failed.');
         } finally {
@@ -1350,6 +1719,12 @@ class ReaderApp {
     }
 
     private async addToAnki(card: JPDBCard, sentence?: string): Promise<void> {
+        const existing = await this.anki.findExistingCards(card);
+        if (existing.primary) {
+            this.toast('Already in Anki. Use Edit in Anki instead.');
+            await this.showCard(card, sentence, this.activePopoverAnchor, { autoPlay: false, trigger: this.activePopoverMode === 'hover' ? 'hover' : 'modal' });
+            return;
+        }
         const [localEntries, kanjiEntries, metaEntries] = await Promise.all([
             this.settings.localDictionariesEnabled
                 ? this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
@@ -1361,17 +1736,46 @@ class ReaderApp {
                 ? this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(() => [])
                 : Promise.resolve([]),
         ]);
-        const imageDataUrl = this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined;
-        await this.anki.addCard(card, sentence, {
-            imageDataUrl,
+        const context = await this.resolveMiningContext(card, sentence);
+        await this.anki.addCard(card, context.sentence || sentence, {
+            imageDataUrl: context.imageDataUrl,
             localEntries,
             kanjiEntries,
             metaEntries,
             dictionaryPreferences: this.settings.dictionaryPreferences,
-            sourceTitle: document.title,
-            sourceUrl: location.href,
+            sourceTitle: context.sourceTitle || document.title,
+            sourceUrl: context.sourceUrl || location.href,
         });
-        this.toast(imageDataUrl ? 'Added to Anki with image.' : 'Added to Anki.');
+        this.toast(context.imageDataUrl ? 'Added to Anki with context image.' : 'Added to Anki.');
+    }
+
+    private async resolveMiningContext(card: JPDBCard, sentence?: string): Promise<MiningContext> {
+        const activeContext = this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : undefined;
+        const storedImmersionContext = this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+        const anchor = this.activePopoverAnchor;
+        const ocrImage = this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined;
+        if (ocrImage && sentence) {
+            const context = saveMiningContext(card.spelling, pageMiningContext(sentence, 'image'));
+            return { ...(context ?? pageMiningContext(sentence, 'image')), term: card.spelling, updatedAt: Date.now(), imageDataUrl: ocrImage };
+        }
+
+        const videoImage = this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined;
+        if (videoImage && sentence) {
+            const context = saveMiningContext(card.spelling, pageMiningContext(sentence, 'video'));
+            return { ...(context ?? pageMiningContext(sentence, 'video')), term: card.spelling, updatedAt: Date.now(), imageDataUrl: videoImage };
+        }
+
+        const chosen = activeContext ?? storedImmersionContext;
+        if (shouldUseImmersionContext(this.settings, chosen ?? null) && chosen) {
+            const imageDataUrl = chosen.imageUrl && this.settings.immersionKitShowImages
+                ? await this.immersionKit.fetchDataUrl(chosen.imageUrl, this.settings.audioTimeoutMs).catch(() => undefined)
+                : undefined;
+            return { ...chosen, imageDataUrl };
+        }
+
+        const fallback = saveMiningContext(card.spelling, pageMiningContext(sentence || card.spelling, location.hostname === 'jpdb.io' ? 'jpdb' : 'page'))
+            ?? { ...pageMiningContext(sentence || card.spelling, 'page'), term: card.spelling, updatedAt: Date.now() };
+        return fallback;
     }
 
     private async toggleDeck(card: JPDBCard, state: 'never-forget' | 'blacklisted', deck: string): Promise<void> {
@@ -1386,6 +1790,7 @@ class ReaderApp {
 
     private async playAudio(card: JPDBCard): Promise<void> {
         try {
+            this.stopImmersionKitAudio();
             await this.audio.play(card);
         } catch (error) {
             this.toast(error instanceof Error ? error.message : 'Audio playback failed.');
@@ -1415,6 +1820,7 @@ class ReaderApp {
                 this.subtitles.refresh();
                 this.ocr.refresh();
                 this.youtube.refresh();
+                this.jpdbExtensions.refresh();
                 this.scheduleAutoScan(100);
                 this.settingsPreviewOriginalAccent = undefined;
                 this.settingsPreviewOriginalLanguage = undefined;
@@ -1593,6 +1999,7 @@ class ReaderApp {
                 this.installFab();
                 this.subtitles.refresh();
                 this.youtube.refresh();
+                this.jpdbExtensions.refresh();
                 this.settingsPreviewOriginalAccent = undefined;
                 this.showSettings();
                 return;
@@ -1636,15 +2043,32 @@ class ReaderApp {
 
             if (action === 'test-anki') {
                 const ankiStatus = form.querySelector<HTMLElement>('[data-anki-status]');
+                const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+                const button = control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button');
+                const setAnkiStatus = (message: string, tone: 'pending' | 'success' | 'error') => {
+                    if (!ankiStatus) return;
+                    ankiStatus.textContent = message;
+                    ankiStatus.dataset.statusTone = tone;
+                };
                 const previous = this.settings;
                 this.settings = readFormSettings(new FormData(form), this.settings);
+                button?.setAttribute('disabled', 'true');
+                setAnkiStatus(uiText(language, 'ankiTesting'), 'pending');
                 try {
                     const connected = await this.anki.isConnected();
-                    if (!connected) throw new Error('AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.');
+                    if (!connected) throw new Error(uiText(language, 'ankiUnreachable'));
                     await this.anki.ensureDeckAndModel();
-                    if (ankiStatus) ankiStatus.textContent = `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+                    const readyMessage = resolveUiLanguage(language) === 'ja'
+                        ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。`
+                        : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+                    setAnkiStatus(readyMessage, 'success');
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : uiText(language, 'ankiUnreachable');
+                    setAnkiStatus(message, 'error');
+                    this.toast(message);
                 } finally {
                     this.settings = previous;
+                    button?.removeAttribute('disabled');
                 }
                 return;
             }
@@ -1681,6 +2105,9 @@ class ReaderApp {
         const mode = options.mode ?? 'modal';
         const useBackdrop = mode !== 'hover';
         const backdrop = useBackdrop ? this.createBackdrop() : undefined;
+        const resolvedAnchor = anchor?.isConnected
+            ? anchor
+            : this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
         this.dismiss({ suppressHoverTarget: false });
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (backdrop) document.body.append(backdrop, popover);
@@ -1688,11 +2115,11 @@ class ReaderApp {
         this.activeBackdrop = backdrop;
         this.activePopover = popover;
         this.activePopoverMode = mode;
-        this.activePopoverAnchor = anchor;
-        this.activeHoverWord = mode === 'hover' ? anchor : undefined;
+        this.activePopoverAnchor = resolvedAnchor;
+        this.activeHoverWord = mode === 'hover' ? resolvedAnchor : undefined;
 
         if (!popover.classList.contains('jpdb-reader-sheet')) {
-            positionPopover(popover, anchor);
+            positionPopover(popover, resolvedAnchor);
         } else {
             this.installSheetHandle(popover);
         }

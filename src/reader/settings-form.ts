@@ -1,4 +1,4 @@
-import { JPDB_DEFINITION_SOURCE_ID, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
+import { IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { AUDIO_GUIDE_URL, AUDIO_SOURCE_OPTIONS, DEFAULT_AUDIO_SOURCES, formatShortcutEvent, normalizeAudioSource, normalizeOcrProvider, sanitizeAccentColor } from './settings';
@@ -51,6 +51,20 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                     ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                 </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">JPDB page add-ons</div>
+                    <div class="grid">
+                        ${checkbox('jpdbExtensionsEnabled', 'Enable JPDB page add-ons', settings.jpdbExtensionsEnabled)}
+                        ${checkbox('jpdbUchisenEnabled', 'Uchisen mnemonic carousel', settings.jpdbUchisenEnabled)}
+                        ${checkbox('jpdbRtkEnabled', 'RTK story panel', settings.jpdbRtkEnabled)}
+                        ${checkbox('jpdbImmersionKitEnabled', 'Immersion Kit examples on JPDB', settings.jpdbImmersionKitEnabled)}
+                        ${checkbox('jpdbLocalDictionariesEnabled', 'Imported dictionary entries on JPDB', settings.jpdbLocalDictionariesEnabled)}
+                        ${checkbox('jpdbReviewUiEnabled', 'Compact review navigation', settings.jpdbReviewUiEnabled)}
+                        ${checkbox('jpdbAutoRevealSentenceEnabled', 'Auto-reveal answer sentence', settings.jpdbAutoRevealSentenceEnabled)}
+                        ${checkbox('jpdbKanjiDoodleEnabled', 'Kanji doodle pad in reviews', settings.jpdbKanjiDoodleEnabled)}
+                    </div>
+                    <div class="jpdb-reader-help">These only run on jpdb.io. Each add-on can be turned off without disabling the rest of よむ.</div>
+                </div>
             </fieldset>
             <fieldset data-settings-panel="basics">
                 <legend>Interface</legend>
@@ -100,6 +114,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('parseSelection', 'Lookup selected text', settings.parseSelection)}
                     ${checkbox('lookupOnClick', 'Tap or click scanned words', settings.lookupOnClick)}
                     ${checkbox('lookupOnHover', 'Hover scanned words', settings.lookupOnHover)}
+                    ${checkbox('lookupOnMiddleMouse', 'Hold middle mouse button to scan words', settings.lookupOnMiddleMouse)}
                     ${checkbox('autoScanJapanese', 'Auto-scan when Japanese is detected', settings.autoScanJapanese)}
                     ${checkbox('scanVisiblePage', 'Scan visible page on load', settings.scanVisiblePage)}
                     ${checkbox('showFloatingButton', 'Toggle floating puck on pages', settings.showFloatingButton)}
@@ -116,6 +131,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('kanjiOriginsEnabled', 'Show compact kanji facts and component map', settings.kanjiOriginsEnabled)}
                     ${checkbox('kanjiOriginKanjiMapEnabled', 'Use Kanji Alive and Kanji Map facts', settings.kanjiOriginKanjiMapEnabled)}
                     ${checkbox('kanjiOriginGraphEnabled', 'Show component graph', settings.kanjiOriginGraphEnabled)}
+                    ${checkbox('kanjiOriginRadicalImagesEnabled', 'Show radical images', settings.kanjiOriginRadicalImagesEnabled)}
                     ${checkbox('rtkEnabled', 'Show RTK information', settings.rtkEnabled)}
                     ${checkbox('similarKanjiWords', 'Show words using the same kanji', settings.similarKanjiWords)}
                     ${input('similarKanjiWordLimit', 'Similar word limit', String(settings.similarKanjiWordLimit), 'number')}
@@ -187,7 +203,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
                 </div>
-                <div class="jpdb-reader-help" data-anki-status>Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
+                <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
             </fieldset>
             <fieldset data-settings-panel="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -316,6 +332,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['parseSelection', 'parseSelection'],
         ['lookupOnClick', 'lookupOnClick'],
         ['lookupOnHover', 'lookupOnHover'],
+        ['lookupOnMiddleMouse', 'lookupOnMiddleMouse'],
         ['autoScanJapanese', 'autoScanJapanese'],
         ['scanVisiblePage', 'scanVisiblePage'],
         ['showFloatingButton', 'showFloatingButton'],
@@ -851,6 +868,15 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
             readonly: true,
             help: 'Built-in JPDB meanings from the parsed card.',
         },
+        {
+            id: IMMERSION_KIT_SOURCE_ID,
+            name: 'Immersion Kit',
+            alias: 'Immersion Kit',
+            enabled: settings.immersionKitEnabled,
+            priority: settings.immersionKitPriority,
+            readonly: true,
+            help: 'Example sentences, images, and audio for the looked-up word.',
+        },
         ...preferences.map(preference => ({
             id: preference.name,
             name: preference.name,
@@ -862,8 +888,8 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         })),
     ].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 
-    if (rows.length === 1) return `
-        <div class="jpdb-reader-help">JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.</div>
+    if (rows.length === 2) return `
+        <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
         ${renderDictionarySourceRowsList(rows)}
     `;
     return renderDictionarySourceRowsList(rows);
@@ -877,10 +903,10 @@ function renderDictionarySourceRowsList(rows: Array<{ id: string; name: string; 
             <span>Alias</span>
             <span>Order</span>
         </div>
-        <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter(row => row.id !== JPDB_DEFINITION_SOURCE_ID).length}">
+        <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter(row => !isBuiltInDictionarySource(row.id)).length}">
         ${rows.map((row, index) => {
-            const localIndex = rows.slice(0, index).filter(item => item.id !== JPDB_DEFINITION_SOURCE_ID).length;
-            const prefix = row.id === JPDB_DEFINITION_SOURCE_ID ? 'jpdbDefinitions' : `dictionaryPreferences.${localIndex}`;
+            const localIndex = rows.slice(0, index).filter(item => !isBuiltInDictionarySource(item.id)).length;
+            const prefix = dictionarySourcePrefix(row.id, localIndex);
             return `
             <div class="jpdb-reader-dictionary-row" draggable="true" data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle">
@@ -898,6 +924,16 @@ function renderDictionarySourceRowsList(rows: Array<{ id: string; name: string; 
             </div>
         `; }).join('')}
     `;
+}
+
+function isBuiltInDictionarySource(id: string): boolean {
+    return id === JPDB_DEFINITION_SOURCE_ID || id === IMMERSION_KIT_SOURCE_ID;
+}
+
+function dictionarySourcePrefix(id: string, localIndex: number): string {
+    if (id === JPDB_DEFINITION_SOURCE_ID) return 'jpdbDefinitions';
+    if (id === IMMERSION_KIT_SOURCE_ID) return 'immersionKit';
+    return `dictionaryPreferences.${localIndex}`;
 }
 
 export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]): string {
@@ -975,13 +1011,21 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         interfaceLanguage: ['auto', 'en', 'ja'].includes(get('interfaceLanguage')) ? get('interfaceLanguage') as ReaderSettings['interfaceLanguage'] : current.interfaceLanguage,
         jpdbDefinitionsEnabled: has('jpdbDefinitions.enabled'),
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
+        jpdbExtensionsEnabled: has('jpdbExtensionsEnabled'),
+        jpdbUchisenEnabled: has('jpdbUchisenEnabled'),
+        jpdbRtkEnabled: has('jpdbRtkEnabled'),
+        jpdbImmersionKitEnabled: has('jpdbImmersionKitEnabled'),
+        jpdbLocalDictionariesEnabled: has('jpdbLocalDictionariesEnabled'),
+        jpdbReviewUiEnabled: has('jpdbReviewUiEnabled'),
+        jpdbAutoRevealSentenceEnabled: has('jpdbAutoRevealSentenceEnabled'),
+        jpdbKanjiDoodleEnabled: has('jpdbKanjiDoodleEnabled'),
         rtkEnabled: has('rtkEnabled'),
         kanjivgEnabled: has('kanjivgEnabled'),
         kanjiOriginsEnabled: has('kanjiOriginsEnabled'),
         kanjiOriginKanjiMapEnabled: has('kanjiOriginKanjiMapEnabled'),
         kanjiOriginWiktionaryEnabled: false,
         kanjiOriginGraphEnabled: has('kanjiOriginGraphEnabled'),
-        kanjiOriginRadicalImagesEnabled: false,
+        kanjiOriginRadicalImagesEnabled: has('kanjiOriginRadicalImagesEnabled'),
         similarKanjiWords: has('similarKanjiWords'),
         similarKanjiWordLimit: Math.max(2, Math.min(24, number('similarKanjiWordLimit', current.similarKanjiWordLimit))),
         audioEnabled: has('audioEnabled'),
@@ -993,7 +1037,8 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         audioViaBlob: has('audioViaBlob'),
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
         audioSelectionMode: get('audioSelectionMode') === 'random' ? 'random' : 'first',
-        immersionKitEnabled: has('immersionKitEnabled'),
+        immersionKitEnabled: has('immersionKitEnabled') && has('immersionKit.enabled'),
+        immersionKitPriority: Math.max(0, Math.min(999, number('immersionKit.priority', current.immersionKitPriority))),
         immersionKitLimit: Math.max(1, Math.min(12, number('immersionKitLimit', current.immersionKitLimit))),
         immersionKitMinLength: Math.max(0, Math.min(120, number('immersionKitMinLength', current.immersionKitMinLength))),
         immersionKitMaxLength: Math.max(0, Math.min(240, number('immersionKitMaxLength', current.immersionKitMaxLength))),
@@ -1007,6 +1052,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         parseSelection: has('parseSelection'),
         lookupOnClick: has('lookupOnClick'),
         lookupOnHover: has('lookupOnHover'),
+        lookupOnMiddleMouse: has('lookupOnMiddleMouse'),
         hoverOpenDelayMs: Math.max(0, Math.min(1500, number('hoverOpenDelayMs', current.hoverOpenDelayMs))),
         hoverCloseDelayMs: Math.max(0, Math.min(3000, number('hoverCloseDelayMs', current.hoverCloseDelayMs))),
         popupActivationMode: current.popupActivationMode,
