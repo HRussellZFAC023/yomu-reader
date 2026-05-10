@@ -25,9 +25,9 @@ const baseSettings = {
     kanjivgEnabled: true,
     kanjiOriginsEnabled: true,
     kanjiOriginKanjiMapEnabled: true,
-    kanjiOriginWiktionaryEnabled: true,
+    kanjiOriginWiktionaryEnabled: false,
     kanjiOriginGraphEnabled: true,
-    kanjiOriginRadicalImagesEnabled: true,
+    kanjiOriginRadicalImagesEnabled: false,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: false,
@@ -952,11 +952,13 @@ async function auditHoverLookup(browser, server) {
     await kanjiButton.click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent?.includes('Readings and components'), 9000, 'kanji drilldown did not show kanji details');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'Stroke-order trace did not render');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-similar-word').length > 0, 9000, 'kanji used-in words did not render');
     const kanjiSnapshot = await page.evaluate(() => ({
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
         localKanjiText: document.querySelector('.jpdb-reader-kanji')?.textContent ?? '',
         originsText: document.querySelector('.jpdb-reader-origins')?.textContent ?? '',
+        wordsUsingHeadings: [...document.querySelectorAll('.jpdb-reader-local-title')].filter(node => /Words using/i.test(node.textContent ?? '')).length,
         originNodes: document.querySelectorAll('.jpdb-reader-origin-graph-node').length,
         radicalCards: document.querySelectorAll('.jpdb-reader-radical-card').length,
         sourceLinks: document.querySelectorAll('.jpdb-reader-origin-sources a').length,
@@ -970,8 +972,9 @@ async function auditHoverLookup(browser, server) {
     assertAudit(kanjiSnapshot.kanjiPill.includes('https://jpdb.io/kanji/'), 'kanji JPDB pill is not the kanji open link');
     assertAudit(kanjiSnapshot.backVisible, 'kanji drilldown is missing a back control');
     assertAudit(kanjiSnapshot.jpdbKanjiText.includes('Readings and components'), 'kanji details section is missing');
-    assertAudit(/Origin and structure|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
+    assertAudit(/Kanji facts|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
     assertAudit(!/RTK frame|Old forms|Character|Kanken/i.test(kanjiSnapshot.originsText), 'kanji facts panel is showing low-value legacy fields');
+    assertAudit(kanjiSnapshot.wordsUsingHeadings === 1, 'kanji drilldown should have exactly one Words using section');
     assertAudit(kanjiSnapshot.originNodes > 1, 'kanji origins map did not render component nodes');
     assertAudit(kanjiSnapshot.radicalCards > 0, 'kanji radical card did not render');
     assertAudit(kanjiSnapshot.sourceLinks >= 1, 'kanji source link did not render');
@@ -985,6 +988,69 @@ async function auditHoverLookup(browser, server) {
     await page.keyboard.up('Shift');
     await page.close();
     record('hold-key hover lookup', 'pass', 'Shift hover opens, Escape suppresses reopen, and the panel stays alive under the pointer');
+}
+
+async function auditJpdbSearchCompatibility(browser) {
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        localDictionariesEnabled: true,
+        lookupOnHover: true,
+        scanModifierKey: '',
+        showFloatingButton: false,
+    });
+    await page.route('https://jpdb.io/search**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+            body{margin:0;background:#171a1f;color:#f4f6fb;font:18px/1.9 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+            main{max-width:760px;margin:48px auto;padding:24px;border:1px solid #3b4250;border-radius:14px;background:#20242b}
+            .result{padding:18px;border-bottom:1px solid #343a46}
+            button{width:100%!important;min-height:76px!important;padding:22px!important;border-radius:0!important}
+            svg{width:160px!important;height:160px!important}
+            ruby rt{color:#8da2c9}
+        </style></head><body>
+            <main>
+                <h1>JPDB search fixture</h1>
+                <div class="result">検索結果：<ruby>読む<rt>よむ</rt></ruby> 本と日本語を勉強します。</div>
+                <div class="result">今日は新しい本を読みました。</div>
+            </main>
+        </body></html>`,
+    }));
+    await page.goto('https://jpdb.io/search?q=%E8%AA%AD%E3%82%80', { waitUntil: 'domcontentloaded' });
+    await seedLocalKanjiDictionaries(page);
+    await injectUserscript(page);
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length >= 4, 10000, 'jpdb.io search fixture text was not scanned');
+    const scanSnapshot = await page.evaluate(() => ({
+        words: document.querySelectorAll('.jpdb-reader-word').length,
+        colored: document.querySelectorAll('.jpdb-reader-word[class*="jpdb-"]').length,
+        furigana: document.querySelectorAll('.jpdb-reader-furi').length,
+        nativeRubyWords: [...document.querySelectorAll('ruby .jpdb-reader-word')].map(node => node.textContent ?? ''),
+    }));
+    assertAudit(scanSnapshot.colored >= 3, 'jpdb.io search words are not colored by status');
+    assertAudit(scanSnapshot.furigana > 0, 'jpdb.io search non-ruby words did not receive furigana');
+    assertAudit(scanSnapshot.nativeRubyWords.some(text => text.includes('読')), 'native ruby word on jpdb.io was not wrapped for lookup');
+
+    await page.locator('.jpdb-reader-word').filter({ hasText: '読む' }).first().click();
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    const buttonSnapshot = await page.evaluate(() => {
+        const button = document.querySelector('.jpdb-reader-audio-control');
+        const svg = button?.querySelector('svg');
+        const buttonRect = button?.getBoundingClientRect();
+        const svgRect = svg?.getBoundingClientRect();
+        return {
+            button: buttonRect ? { width: buttonRect.width, height: buttonRect.height } : null,
+            svg: svgRect ? { width: svgRect.width, height: svgRect.height } : null,
+        };
+    });
+    assertAudit((buttonSnapshot.button?.width ?? 999) <= 44 && (buttonSnapshot.button?.height ?? 999) <= 44, 'jpdb.io page CSS stretched the reader audio button');
+    assertAudit((buttonSnapshot.svg?.width ?? 999) <= 24 && (buttonSnapshot.svg?.height ?? 999) <= 24, 'jpdb.io page CSS stretched the reader icon SVG');
+
+    await page.locator('.jpdb-reader-kanji-inline').first().click();
+    await waitForAudit(page, () => document.querySelector('.jpdb-reader-kanji-display')?.textContent?.trim() === '読', 6000, 'kanji drilldown did not open on jpdb.io');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'kanji stroke trace did not render on jpdb.io');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-search-compat.png'), fullPage: false });
+    await page.close();
+    record('jpdb.io search compatibility', 'pass', 'native ruby, kanji drilldown, status colors, and reader control isolation work on jpdb.io');
 }
 
 async function auditImmersionKitPopover(browser, server) {
@@ -1222,6 +1288,8 @@ async function auditVideoFixture(browser, server) {
             rect: rect ? { width: rect.width, height: rect.height, bottom: rect.bottom } : null,
             buttons,
             menuHidden: document.querySelector('.jpdb-subtitle-menu')?.hasAttribute('hidden'),
+            visibleFileInputs: document.querySelectorAll('.jpdb-subtitle-player input[type="file"]:not([hidden])').length,
+            obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
             subtitleBackground: primaryStyle?.backgroundImage ?? '',
             subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
@@ -1230,6 +1298,8 @@ async function auditVideoFixture(browser, server) {
     assertAudit(snapshot.hidden === false, 'subtitle player is hidden on a page with video');
     assertAudit((snapshot.rect?.width ?? 0) > 200, 'subtitle player is not laid out');
     assertAudit(snapshot.buttons.includes('Lines') && snapshot.buttons.includes('...'), 'subtitle controls are missing');
+    assertAudit(snapshot.visibleFileInputs === 0, 'subtitle file inputs are visible over the video');
+    assertAudit(!snapshot.obsoleteStatusText, 'obsolete no-subtitle status text is visible over the controls');
     assertAudit(snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読'), 'subtitle fixture cue is not visible');
     assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');
     assertAudit(snapshot.subtitleBackground.includes('rgba'), 'subtitle readable background is not applied');
@@ -1263,6 +1333,7 @@ async function main() {
         await runAudit('mobile settings journey', () => auditSettingsMobile(browser, server));
         await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
         await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });
+        await runAudit('jpdb.io search compatibility', () => auditJpdbSearchCompatibility(browser), { requiresApiKey: true });
         await runAudit('Immersion Kit popup examples', () => auditImmersionKitPopover(browser, server), { requiresApiKey: true });
         await runAudit('OCR fixture', () => auditOcrFixture(browser), { requiresApiKey: true });
         await runAudit('YouTube immersion filter fixture', () => auditYouTubeFilterFixture(browser));

@@ -59,6 +59,14 @@ describe('reader helpers', () => {
         expect(new Set(played)).toEqual(new Set(ids));
         const afterReset = deck.order('読む', ids)[0];
         expect(afterReset).not.toBe(played[played.length - 1]);
+        const secondCycle = [afterReset];
+        deck.markPlayed('読む', afterReset);
+        while (secondCycle.length < ids.length) {
+            const next = deck.order('読む', ids)[0];
+            secondCycle.push(next);
+            deck.markPlayed('読む', next);
+        }
+        expect(new Set(secondCycle)).toEqual(new Set(ids));
     });
 
     it('rewrites localhost audio URLs returned by a remote custom source', () => {

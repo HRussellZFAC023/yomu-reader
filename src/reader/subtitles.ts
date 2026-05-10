@@ -494,8 +494,14 @@ export class SubtitlePlayerController {
         const next = this.root?.querySelector<HTMLButtonElement>('[data-action="next"]');
         const list = this.root?.querySelector<HTMLButtonElement>('[data-action="list"]');
         const hasLines = Boolean(this.cues.length || this.currentCue?.text);
-        if (previous) previous.disabled = !this.video;
-        if (next) next.disabled = !this.video;
+        if (previous) {
+            previous.hidden = !hasLines;
+            previous.disabled = !this.video || !hasLines;
+        }
+        if (next) {
+            next.hidden = !hasLines;
+            next.disabled = !this.video || !hasLines;
+        }
         if (list) {
             list.hidden = !hasLines && !this.tracks.length;
             list.textContent = hasLines ? 'Lines' : 'Tracks';

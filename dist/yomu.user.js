@@ -6099,7 +6099,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.",
       kanjivgEnabled: "Show stroke order and drawing pad",
-      kanjiOriginsEnabled: "Show kanji facts and origins map",
+      kanjiOriginsEnabled: "Show compact kanji facts and component map",
       kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
       kanjiOriginWiktionaryEnabled: "Use Wiktionary origin notes",
       kanjiOriginGraphEnabled: "Show component graph",
@@ -6271,7 +6271,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       hideTrace: "Hide trace",
       showTrace: "Show trace",
       clear: "Clear",
-      originStructure: "Origin and structure",
+      originStructure: "Kanji facts",
       originMapLabel: "2D kanji origin and component map",
       kanjiMapData: "Kanji Map data",
       kanjiAlive: "Kanji Alive",
@@ -6364,7 +6364,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       hideKnownFurigana: "既知カードだけふりがなを隠す",
       readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバー、クリックも使いたい場合はタップ/クリックをオンにしてください。",
       kanjivgEnabled: "筆順と手書き練習を表示",
-      kanjiOriginsEnabled: "漢字の基本情報と成り立ちマップを表示",
+      kanjiOriginsEnabled: "漢字の基本情報と構成マップを表示",
       kanjiOriginKanjiMapEnabled: "Kanji Alive / Kanji Mapの情報を使う",
       kanjiOriginWiktionaryEnabled: "Wiktionaryの成り立ちメモを使う",
       kanjiOriginGraphEnabled: "構成グラフを表示",
@@ -6536,7 +6536,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       hideTrace: "なぞりを隠す",
       showTrace: "なぞりを表示",
       clear: "消す",
-      originStructure: "成り立ちと構成",
+      originStructure: "漢字情報",
       originMapLabel: "漢字の成り立ち・構成マップ",
       kanjiMapData: "Kanji Mapデータ",
       kanjiAlive: "Kanji Alive",
@@ -8140,6 +8140,19 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   --jpdb-reader-hover: rgba(20,30,45,.07);
 }
 
+[data-jpdb-reader-root],
+[data-jpdb-reader-root] * {
+  box-sizing: border-box;
+}
+[data-jpdb-reader-root] button,
+[data-jpdb-reader-root] input,
+[data-jpdb-reader-root] select,
+[data-jpdb-reader-root] textarea {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .jpdb-reader-word {
   position: relative;
   border-radius: 3px;
@@ -8413,9 +8426,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
 .jpdb-reader-icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
   flex: 0 0 auto;
+  padding: 0 !important;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 50%;
   background: var(--jpdb-reader-surface);
@@ -8525,8 +8543,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   min-height: 46px;
 }
 .jpdb-reader-icon-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -9632,8 +9652,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   justify-content: flex-end;
 }
 .jpdb-reader-icon-mini {
-  width: 28px;
-  height: 28px;
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 !important;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 7px;
   background: transparent;
@@ -10016,8 +10041,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     justify-content: flex-start;
   }
   .jpdb-reader-icon-mini {
-    width: 34px;
-    height: 34px;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
   }
   .jpdb-ocr-line { min-width: 38px; min-height: 38px; border-radius: 8px; }
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
@@ -10463,8 +10492,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const next = (_f = this.root) == null ? void 0 : _f.querySelector('[data-action="next"]');
       const list = (_g = this.root) == null ? void 0 : _g.querySelector('[data-action="list"]');
       const hasLines = Boolean(this.cues.length || ((_h = this.currentCue) == null ? void 0 : _h.text));
-      if (previous) previous.disabled = !this.video;
-      if (next) next.disabled = !this.video;
+      if (previous) {
+        previous.hidden = !hasLines;
+        previous.disabled = !this.video || !hasLines;
+      }
+      if (next) {
+        next.hidden = !hasLines;
+        next.disabled = !this.video || !hasLines;
+      }
       if (list) {
         list.hidden = !hasLines && !this.tracks.length;
         list.textContent = hasLines ? "Lines" : "Tracks";
@@ -11695,11 +11730,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
       const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
       const kanjiVGPromise = this.settings.kanjivgEnabled ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null);
-      const [jpdbInfo, kanjiEntries, rtkInfo, similarTerms] = await Promise.all([
+      const similarTermsPromise = this.settings.similarKanjiWords && this.settings.localDictionariesEnabled ? this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
+      const [jpdbInfo, kanjiEntries, rtkInfo] = await Promise.all([
         this.jpdbKanji.lookup(kanji).catch(() => null),
         this.settings.localDictionariesEnabled ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]),
-        this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null),
-        this.settings.similarKanjiWords && this.settings.localDictionariesEnabled ? this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([])
+        this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null)
       ]);
       const componentSummaries = buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries);
       this.settings.kanjiOriginsEnabled ? buildKanjiFacts(kanji, jpdbInfo, rtkInfo, null, kanjiEntries, null) : [];
@@ -11727,7 +11762,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
             ${renderJpdbKanjiInfo(jpdbInfo, language)}
             ${renderRtkInfo(rtkInfo, componentSummaries, language)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
-            ${this.renderSimilarKanjiWords(similarTerms, (jpdbInfo == null ? void 0 : jpdbInfo.vocabulary) ?? [], kanji, card)}
+            <div data-kanji-similar-mount>
+                ${this.settings.similarKanjiWords ? this.renderSimilarKanjiWords([], (jpdbInfo == null ? void 0 : jpdbInfo.vocabulary) ?? [], kanji, card) : ""}
+            </div>
             <div data-kanji-origin-mount></div>
         `);
       popover.addEventListener("click", (event) => {
@@ -11746,9 +11783,19 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (this.settings.kanjivgEnabled) {
         void this.renderKanjiVGInto(popover, kanjiVGPromise, kanji, language);
       }
+      if (this.settings.similarKanjiWords) {
+        void this.renderSimilarKanjiWordsInto(popover, similarTermsPromise, (jpdbInfo == null ? void 0 : jpdbInfo.vocabulary) ?? [], kanji, card);
+      }
       if (this.settings.kanjiOriginsEnabled) {
         void this.renderKanjiOriginsInto(popover, kanji, jpdbInfo, rtkInfo, null, kanjiEntries);
       }
+    }
+    async renderSimilarKanjiWordsInto(popover, promise, jpdbVocabulary, kanji, card) {
+      const mount = popover.querySelector("[data-kanji-similar-mount]");
+      if (!mount) return;
+      const entries = await promise;
+      if (!popover.isConnected || !mount.isConnected) return;
+      setInnerHtml(mount, this.renderSimilarKanjiWords(entries, jpdbVocabulary, kanji, card));
     }
     async renderKanjiVGInto(popover, kanjiVGPromise, kanji, language) {
       var _a, _b;
@@ -12299,7 +12346,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                 <legend>Kanji</legend>
                 <div class="grid">
                     ${checkbox("kanjivgEnabled", "Show stroke order and drawing pad", this.settings.kanjivgEnabled)}
-                    ${checkbox("kanjiOriginsEnabled", "Show kanji facts and origins map", this.settings.kanjiOriginsEnabled)}
+                    ${checkbox("kanjiOriginsEnabled", "Show compact kanji facts and component map", this.settings.kanjiOriginsEnabled)}
                     ${checkbox("kanjiOriginKanjiMapEnabled", "Use Kanji Alive and Kanji Map facts", this.settings.kanjiOriginKanjiMapEnabled)}
                     ${checkbox("kanjiOriginGraphEnabled", "Show component graph", this.settings.kanjiOriginGraphEnabled)}
                     ${checkbox("rtkEnabled", "Show RTK information", this.settings.rtkEnabled)}
@@ -13112,9 +13159,7 @@ ${entry.reading}`;
   function renderJpdbKanjiInfo(info, language) {
     if (!info) return "";
     const infoChips = [
-      info.type,
-      info.kanken ? `Kanken ${info.kanken.replace(/^Level\s*/i, "")}` : "",
-      info.oldForms.length ? `Old ${info.oldForms.join("、")}` : ""
+      info.type
     ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
     return `
         <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
