@@ -1,6 +1,6 @@
 import { escapeHtml } from './dom';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
-import type { DictionaryPreference, JPDBCard, ReaderSettings } from './types';
+import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import {
     glossaryToHtml,
     glossaryToText,
@@ -50,6 +50,45 @@ interface AnkiNote {
 
 type AnkiPicture = NonNullable<AnkiNote['picture']>[number];
 
+interface AnkiNoteInfo {
+    noteId: number;
+    modelName: string;
+    tags: string[];
+    fields: Record<string, { value: string; order?: number }>;
+    cards: number[];
+}
+
+interface AnkiCardInfo {
+    cardId: number;
+    deckName: string;
+    queue: number;
+    type: number;
+    due?: number;
+    reps?: number;
+    lapses?: number;
+    interval?: number;
+    note?: number;
+}
+
+export interface AnkiExistingNote {
+    noteId: number;
+    modelName: string;
+    deckNames: string[];
+    cardIds: number[];
+    primaryCardId: number | null;
+    state: CardState;
+    fields: Record<string, string>;
+    tags: string[];
+    reps: number;
+    lapses: number;
+}
+
+export interface AnkiLookupResult {
+    state: CardState;
+    notes: AnkiExistingNote[];
+    primary: AnkiExistingNote | null;
+}
+
 export interface AnkiCardContext {
     imageDataUrl?: string;
     localEntries?: YomitanTermEntry[];
@@ -61,6 +100,9 @@ export interface AnkiCardContext {
 }
 
 export class AnkiConnectClient {
+    private lookupCache = new Map<string, { at: number; result: AnkiLookupResult }>();
+    private unavailableUntil = 0;
+
     constructor(private getSettings: () => ReaderSettings) {}
 
     async isConnected(): Promise<boolean> {
@@ -80,6 +122,85 @@ export class AnkiConnectClient {
         return this.invoke<string[]>('modelNames');
     }
 
+    async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
+        const empty: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        if (Date.now() < this.unavailableUntil) return empty;
+
+        const cacheKey = `${card.spelling}|${card.reading}`;
+        const cached = this.lookupCache.get(cacheKey);
+        if (cached && Date.now() - cached.at < 45000) return cached.result;
+
+        try {
+            const queryTerms = unique([card.spelling, card.reading].filter(Boolean));
+            const noteIds = new Set<number>();
+            for (const term of queryTerms) {
+                const ids = await this.invoke<number[]>('findNotes', { query: quoteAnkiSearch(term) }).catch((): number[] => []);
+                ids.forEach(id => noteIds.add(id));
+            }
+            if (!noteIds.size) {
+                this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+                return empty;
+            }
+
+            const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [...noteIds] });
+            const matchingNotes = notes.filter(note => noteLooksLikeCard(note, card));
+            if (!matchingNotes.length) {
+                this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+                return empty;
+            }
+
+            const cardIds = unique(matchingNotes.flatMap(note => note.cards ?? []));
+            const cards = cardIds.length
+                ? await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }).catch((): AnkiCardInfo[] => [])
+                : [];
+            const cardsByNote = new Map<number, AnkiCardInfo[]>();
+            for (const cardInfo of cards) {
+                const noteId = Number(cardInfo.note);
+                if (!Number.isFinite(noteId)) continue;
+                const list = cardsByNote.get(noteId) ?? [];
+                list.push(cardInfo);
+                cardsByNote.set(noteId, list);
+            }
+
+            const existing = matchingNotes.map(note => {
+                const noteCards = cardsByNote.get(note.noteId) ?? [];
+                const fields = flattenNoteFields(note.fields);
+                const state = stateFromAnkiCards(noteCards);
+                return {
+                    noteId: note.noteId,
+                    modelName: note.modelName,
+                    deckNames: unique(noteCards.map(item => item.deckName).filter(Boolean)),
+                    cardIds: note.cards ?? [],
+                    primaryCardId: pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null,
+                    state,
+                    fields,
+                    tags: note.tags ?? [],
+                    reps: noteCards.reduce((sum, item) => sum + Number(item.reps || 0), 0),
+                    lapses: noteCards.reduce((sum, item) => sum + Number(item.lapses || 0), 0),
+                } satisfies AnkiExistingNote;
+            });
+            const result: AnkiLookupResult = {
+                state: stateFromExistingNotes(existing),
+                notes: existing,
+                primary: pickPrimaryExistingNote(existing),
+            };
+            this.lookupCache.set(cacheKey, { at: Date.now(), result });
+            return result;
+        } catch {
+            this.unavailableUntil = Date.now() + 30000;
+            return empty;
+        }
+    }
+
+    async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
+        const ease = ankiEaseFromGrade(grade);
+        await this.invoke<null>('answerCards', { answers: [{ cardId, ease }] });
+    }
+
+    async browseNote(noteId: number): Promise<void> {
+        await this.invoke<unknown>('guiBrowse', { query: `nid:${noteId}` });
+    }
+
     async addCard(card: JPDBCard, sentence = '', options: AnkiCardContext = {}): Promise<number | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) return null;
@@ -97,7 +218,7 @@ export class AnkiConnectClient {
             tags: tagsFromString(settings.ankiTags),
             options: {
                 allowDuplicate: false,
-                duplicateScope: 'deck',
+                duplicateScope: 'collection',
             },
         };
 
@@ -239,6 +360,102 @@ function visibleArea(element: HTMLElement): number {
     const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
     const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     return width * height;
+}
+
+function quoteAnkiSearch(term: string): string {
+    return `"${term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function unique<T>(items: T[]): T[] {
+    return [...new Set(items)];
+}
+
+function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, string> {
+    const out: Record<string, string> = {};
+    Object.entries(fields ?? {}).forEach(([name, value]) => {
+        out[name] = stripHtml(String(value?.value ?? ''));
+    });
+    return out;
+}
+
+function noteLooksLikeCard(note: AnkiNoteInfo, card: JPDBCard): boolean {
+    const fields = flattenNoteFields(note.fields);
+    const values = Object.values(fields).map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const exactTargets = unique([card.spelling, card.reading].filter(Boolean));
+    if (exactTargets.some(target => values.some(value => value === target))) return true;
+    const expression = fields.Expression || fields.Front || fields.Word || fields.Vocab || fields.Term || fields['Expression Reading'];
+    if (expression && exactTargets.some(target => expression.includes(target))) return true;
+    const reading = fields.Reading || fields.Kana || fields.Yomi;
+    return Boolean(reading && card.reading && reading.includes(card.reading));
+}
+
+function stripHtml(value: string): string {
+    return value
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+}
+
+function stateFromAnkiCards(cards: AnkiCardInfo[]): CardState {
+    if (!cards.length) return 'known';
+    if (cards.some(card => card.queue === -1)) return 'suspended';
+    if (cards.some(card => card.type === 3 || card.queue === 3)) return 'failed';
+    if (cards.some(card => card.queue === 1 || card.type === 1)) return 'learning';
+    if (cards.some(card => card.queue === 0 || card.type === 0)) return 'new';
+    if (cards.some(card => card.queue === 2 && Number(card.due ?? 0) <= 0)) return 'due';
+    return 'known';
+}
+
+function stateFromExistingNotes(notes: AnkiExistingNote[]): CardState {
+    const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended'];
+    return order.find(state => notes.some(note => note.state === state)) ?? (notes.length ? 'known' : 'not-in-deck');
+}
+
+function pickPrimaryCard(cards: AnkiCardInfo[]): AnkiCardInfo | null {
+    const order = (card: AnkiCardInfo) => {
+        if (card.type === 3 || card.queue === 3) return 0;
+        if (card.queue === 2 && Number(card.due ?? 0) <= 0) return 1;
+        if (card.queue === 1 || card.type === 1) return 2;
+        if (card.queue === 0 || card.type === 0) return 3;
+        return 4;
+    };
+    return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
+}
+
+function pickPrimaryExistingNote(notes: AnkiExistingNote[]): AnkiExistingNote | null {
+    const order = (note: AnkiExistingNote) => {
+        if (note.state === 'failed') return 0;
+        if (note.state === 'due') return 1;
+        if (note.state === 'learning') return 2;
+        if (note.state === 'new') return 3;
+        if (note.state === 'known') return 4;
+        return 5;
+    };
+    return [...notes].sort((a, b) => order(a) - order(b))[0] ?? null;
+}
+
+function ankiEaseFromGrade(grade: JPDBGrade): number {
+    switch (grade) {
+        case 'nothing':
+        case 'fail':
+            return 1;
+        case 'something':
+        case 'hard':
+            return 2;
+        case 'okay':
+        case 'pass':
+            return 3;
+        case 'easy':
+            return 4;
+        default:
+            return 3;
+    }
 }
 
 function yomuCardTemplates(): Record<string, { Front: string; Back: string }> {
@@ -392,7 +609,7 @@ function renderKanjiDefinitions(entries: YomitanKanjiEntry[], preferences: Dicti
         <div class="yomu-kanji-entry">
             <div class="yomu-dict-head">
                 <span class="yomu-kanji-char">${escapeHtml(character)}</span>
-                <span class="yomu-dict-label">${escapeHtml(items.map(item => dictionaryLabel(item.dictionary, preferences)).filter(unique).slice(0, 3).join(' · '))}</span>
+                <span class="yomu-dict-label">${escapeHtml(items.map(item => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(' · '))}</span>
             </div>
             ${items.slice(0, 3).map(item => `
                 <div>
@@ -415,7 +632,7 @@ function renderFrequency(card: JPDBCard, entries: YomitanMetaEntry[], preference
         if (value) chips.push(`<span class="yomu-chip">${escapeHtml(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml(value)}</span>`);
         if (chips.length >= 8) break;
     }
-    return chips.filter(unique).join(' ');
+    return chips.filter(uniqueValue).join(' ');
 }
 
 function renderPitchField(card: JPDBCard, entries: YomitanMetaEntry[], preferences: DictionaryPreference[]): string {
@@ -426,7 +643,7 @@ function renderPitchField(card: JPDBCard, entries: YomitanMetaEntry[], preferenc
         if (value) chips.push(`<span class="yomu-chip">${escapeHtml(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml(value)}</span>`);
         if (chips.length >= 8) break;
     }
-    return chips.filter(unique).join(' ');
+    return chips.filter(uniqueValue).join(' ');
 }
 
 function renderSource(sourceUrl: string, sourceTitle: string): string {
@@ -450,6 +667,10 @@ function dictionaryLabel(name: string, preferences: DictionaryPreference[]): str
     return preferences.find(item => item.name === name)?.alias || name;
 }
 
+function uniqueValue<T>(value: T, index: number, array: T[]): boolean {
+    return array.indexOf(value) === index;
+}
+
 function safeGlossaryHtml(value: unknown): string {
     const html = glossaryToHtml(value);
     return html || escapeHtml(glossaryToText(value));
@@ -470,10 +691,6 @@ function formatMetaPitch(value: unknown): string {
     if (positions.length) return positions.slice(0, 4).map(String).join(', ');
     if (typeof record.position === 'number') return String(record.position);
     return '';
-}
-
-function unique<T>(value: T, index: number, array: T[]): boolean {
-    return array.indexOf(value) === index;
 }
 
 function safeLocationHref(): string {

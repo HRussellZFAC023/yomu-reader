@@ -5,7 +5,8 @@
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      MIT
-// @icon         https://images2.imgbox.com/c8/21/h1DhlGPW_o.png
+// @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%23111827%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2258%22%20height%3D%2258%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%232f3b4f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%2217%22%20r%3D%228%22%20fill%3D%22%235ea780%22%20opacity%3D%220.18%22%2F%3E%3Cpath%20d%3D%22M38%2018l7%207h8%22%20fill%3D%22none%22%20stroke%3D%22%23ff6384%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2238%22%20cy%3D%2218%22%20r%3D%222.7%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ccircle%20cx%3D%2245%22%20cy%3D%2225%22%20r%3D%222.7%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ccircle%20cx%3D%2253%22%20cy%3D%2225%22%20r%3D%222.7%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ctext%20x%3D%2230%22%20y%3D%2246%22%20text-anchor%3D%22middle%22%20font-family%3D%22Hiragino%20Sans%2C%20Yu%20Gothic%2C%20Noto%20Sans%20JP%2C%20system-ui%2C%20sans-serif%22%20font-size%3D%2237%22%20font-weight%3D%22800%22%20fill%3D%22%23f8fafc%22%3E%26%2312424%3B%3C%2Ftext%3E%3Cpath%20d%3D%22M17%2050h28%22%20stroke%3D%22%235ea780%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E
+// @icon64       data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%23111827%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2258%22%20height%3D%2258%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%232f3b4f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%2217%22%20r%3D%228%22%20fill%3D%22%235ea780%22%20opacity%3D%220.18%22%2F%3E%3Cpath%20d%3D%22M38%2018l7%207h8%22%20fill%3D%22none%22%20stroke%3D%22%23ff6384%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2238%22%20cy%3D%2218%22%20r%3D%222.7%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ccircle%20cx%3D%2245%22%20cy%3D%2225%22%20r%3D%222.7%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ccircle%20cx%3D%2253%22%20cy%3D%2225%22%20r%3D%222.7%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ctext%20x%3D%2230%22%20y%3D%2246%22%20text-anchor%3D%22middle%22%20font-family%3D%22Hiragino%20Sans%2C%20Yu%20Gothic%2C%20Noto%20Sans%20JP%2C%20system-ui%2C%20sans-serif%22%20font-size%3D%2237%22%20font-weight%3D%22800%22%20fill%3D%22%23f8fafc%22%3E%26%2312424%3B%3C%2Ftext%3E%3Cpath%20d%3D%22M17%2050h28%22%20stroke%3D%22%235ea780%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E
 // @homepage     https://github.com/HRussellZFAC023/kotoba-reader#readme
 // @homepageURL  https://github.com/HRussellZFAC023/kotoba-reader
 // @source       https://github.com/HRussellZFAC023/kotoba-reader.git
@@ -26,6 +27,7 @@
 // @connect      *.ts.net
 // @connect      *
 // @grant        GM_addStyle
+// @grant        GM_deleteValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
@@ -433,7 +435,7 @@
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
   ].join(",");
-  const UI_CLASS_RE = /(^|[-_\s])(btn|button|badge|chip|tag|label|required|pill|tab|nav|menu)([-_\s]|$)/i;
+  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|btn|button|chip|control|icon|label|menu|nav|pill|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const BLOCK_TAGS = /* @__PURE__ */ new Set([
@@ -558,10 +560,11 @@
       fragments.length = 0;
     }
     function visit(node, hasNativeRuby = false) {
+      var _a;
       if (targets.length >= limit) return;
       if (node.nodeType === Node.TEXT_NODE) {
-        const text2 = node.textContent ?? "";
-        if (text2) fragments.push({ node, start: 0, end: text2.length, hasNativeRuby });
+        const text22 = node.textContent ?? "";
+        if (text22) fragments.push({ node, start: 0, end: text22.length, hasNativeRuby });
         return;
       }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -574,6 +577,11 @@
         return;
       }
       if (visibleOnly && !isVisible(element2)) {
+        flush();
+        return;
+      }
+      const text2 = ((_a = element2.textContent) == null ? void 0 : _a.trim()) ?? "";
+      if (text2 && isFragileUiText(element2, text2)) {
         flush();
         return;
       }
@@ -3173,13 +3181,21 @@
     accentColor: DEFAULT_ACCENT_COLOR,
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
+    jpdbExtensionsEnabled: true,
+    jpdbUchisenEnabled: true,
+    jpdbRtkEnabled: true,
+    jpdbImmersionKitEnabled: true,
+    jpdbLocalDictionariesEnabled: true,
+    jpdbReviewUiEnabled: true,
+    jpdbAutoRevealSentenceEnabled: true,
+    jpdbKanjiDoodleEnabled: true,
     rtkEnabled: true,
     kanjivgEnabled: true,
     kanjiOriginsEnabled: true,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginWiktionaryEnabled: false,
     kanjiOriginGraphEnabled: true,
-    kanjiOriginRadicalImagesEnabled: false,
+    kanjiOriginRadicalImagesEnabled: true,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
     audioEnabled: true,
@@ -3191,6 +3207,7 @@
     audioTimeoutMs: 6e3,
     audioSelectionMode: "random",
     immersionKitEnabled: true,
+    immersionKitPriority: 80,
     immersionKitLimit: 3,
     immersionKitMinLength: 4,
     immersionKitMaxLength: 80,
@@ -3204,6 +3221,7 @@
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
+    lookupOnMiddleMouse: true,
     hoverOpenDelayMs: 120,
     hoverCloseDelayMs: 260,
     popupActivationMode: "hover",
@@ -3308,6 +3326,7 @@
       jpdbDefinitionsPriority: clampNumber(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
       lookupOnClick: typeof (value == null ? void 0 : value.lookupOnClick) === "boolean" ? value.lookupOnClick : true,
       lookupOnHover: typeof (value == null ? void 0 : value.lookupOnHover) === "boolean" ? value.lookupOnHover : (value == null ? void 0 : value.popupActivationMode) !== "click",
+      lookupOnMiddleMouse: typeof (value == null ? void 0 : value.lookupOnMiddleMouse) === "boolean" ? value.lookupOnMiddleMouse : true,
       hoverOpenDelayMs: clampNumber(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs),
       accentColor: sanitizeAccentColor(value == null ? void 0 : value.accentColor),
@@ -3315,6 +3334,7 @@
       puckPositionY: normalizeOptionalCoordinate(value == null ? void 0 : value.puckPositionY),
       audioSources,
       audioSourceUrl: ((_a = audioSources.find((source) => source.url)) == null ? void 0 : _a.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL,
+      immersionKitPriority: clampNumber(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
       immersionKitLimit: clampNumber(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
       immersionKitMinLength: clampNumber(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
       immersionKitMaxLength: clampNumber(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
@@ -3669,7 +3689,7 @@ ${entry.reading}`;
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
       onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
-      const blob = await requestBlob$2(url, onProgress);
+      const blob = await requestBlob$3(url, onProgress);
       const file = new File([blob], filename, { type: blob.type || "application/zip" });
       return this.importFile(file, onProgress, url);
     }
@@ -4343,7 +4363,7 @@ ${entry.reading}`;
       return "dictionary.zip";
     }
   }
-  async function requestBlob$2(url, onProgress) {
+  async function requestBlob$3(url, onProgress) {
     if (typeof GM_xmlhttpRequest === "function") {
       return new Promise((resolve, reject) => {
         GM_xmlhttpRequest({
@@ -4453,6 +4473,8 @@ ${entry.reading}`;
   ];
   class AnkiConnectClient {
     constructor(getSettings) {
+      __publicField(this, "lookupCache", /* @__PURE__ */ new Map());
+      __publicField(this, "unavailableUntil", 0);
       this.getSettings = getSettings;
     }
     async isConnected() {
@@ -4468,6 +4490,76 @@ ${entry.reading}`;
     }
     async modelNames() {
       return this.invoke("modelNames");
+    }
+    async findExistingCards(card) {
+      const empty = { state: "not-in-deck", notes: [], primary: null };
+      if (Date.now() < this.unavailableUntil) return empty;
+      const cacheKey = `${card.spelling}|${card.reading}`;
+      const cached = this.lookupCache.get(cacheKey);
+      if (cached && Date.now() - cached.at < 45e3) return cached.result;
+      try {
+        const queryTerms = unique([card.spelling, card.reading].filter(Boolean));
+        const noteIds = /* @__PURE__ */ new Set();
+        for (const term of queryTerms) {
+          const ids = await this.invoke("findNotes", { query: quoteAnkiSearch(term) }).catch(() => []);
+          ids.forEach((id) => noteIds.add(id));
+        }
+        if (!noteIds.size) {
+          this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+          return empty;
+        }
+        const notes = await this.invoke("notesInfo", { notes: [...noteIds] });
+        const matchingNotes = notes.filter((note) => noteLooksLikeCard(note, card));
+        if (!matchingNotes.length) {
+          this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+          return empty;
+        }
+        const cardIds = unique(matchingNotes.flatMap((note) => note.cards ?? []));
+        const cards = cardIds.length ? await this.invoke("cardsInfo", { cards: cardIds }).catch(() => []) : [];
+        const cardsByNote = /* @__PURE__ */ new Map();
+        for (const cardInfo of cards) {
+          const noteId = Number(cardInfo.note);
+          if (!Number.isFinite(noteId)) continue;
+          const list = cardsByNote.get(noteId) ?? [];
+          list.push(cardInfo);
+          cardsByNote.set(noteId, list);
+        }
+        const existing = matchingNotes.map((note) => {
+          var _a, _b;
+          const noteCards = cardsByNote.get(note.noteId) ?? [];
+          const fields = flattenNoteFields(note.fields);
+          const state = stateFromAnkiCards(noteCards);
+          return {
+            noteId: note.noteId,
+            modelName: note.modelName,
+            deckNames: unique(noteCards.map((item) => item.deckName).filter(Boolean)),
+            cardIds: note.cards ?? [],
+            primaryCardId: ((_a = pickPrimaryCard(noteCards)) == null ? void 0 : _a.cardId) ?? ((_b = note.cards) == null ? void 0 : _b[0]) ?? null,
+            state,
+            fields,
+            tags: note.tags ?? [],
+            reps: noteCards.reduce((sum, item) => sum + Number(item.reps || 0), 0),
+            lapses: noteCards.reduce((sum, item) => sum + Number(item.lapses || 0), 0)
+          };
+        });
+        const result = {
+          state: stateFromExistingNotes(existing),
+          notes: existing,
+          primary: pickPrimaryExistingNote(existing)
+        };
+        this.lookupCache.set(cacheKey, { at: Date.now(), result });
+        return result;
+      } catch {
+        this.unavailableUntil = Date.now() + 3e4;
+        return empty;
+      }
+    }
+    async answerCard(cardId, grade) {
+      const ease = ankiEaseFromGrade(grade);
+      await this.invoke("answerCards", { answers: [{ cardId, ease }] });
+    }
+    async browseNote(noteId) {
+      await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async addCard(card, sentence = "", options = {}) {
       const settings = this.getSettings();
@@ -4485,7 +4577,7 @@ ${entry.reading}`;
         tags: tagsFromString(settings.ankiTags),
         options: {
           allowDuplicate: false,
-          duplicateScope: "deck"
+          duplicateScope: "collection"
         }
       };
       const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
@@ -4613,6 +4705,83 @@ ${entry.reading}`;
     const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
     const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     return width * height;
+  }
+  function quoteAnkiSearch(term) {
+    return `"${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+  function unique(items) {
+    return [...new Set(items)];
+  }
+  function flattenNoteFields(fields) {
+    const out = {};
+    Object.entries(fields ?? {}).forEach(([name, value]) => {
+      out[name] = stripHtml$1(String((value == null ? void 0 : value.value) ?? ""));
+    });
+    return out;
+  }
+  function noteLooksLikeCard(note, card) {
+    const fields = flattenNoteFields(note.fields);
+    const values = Object.values(fields).map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean);
+    const exactTargets = unique([card.spelling, card.reading].filter(Boolean));
+    if (exactTargets.some((target) => values.some((value) => value === target))) return true;
+    const expression = fields.Expression || fields.Front || fields.Word || fields.Vocab || fields.Term || fields["Expression Reading"];
+    if (expression && exactTargets.some((target) => expression.includes(target))) return true;
+    const reading = fields.Reading || fields.Kana || fields.Yomi;
+    return Boolean(reading && card.reading && reading.includes(card.reading));
+  }
+  function stripHtml$1(value) {
+    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  }
+  function stateFromAnkiCards(cards) {
+    if (!cards.length) return "known";
+    if (cards.some((card) => card.queue === -1)) return "suspended";
+    if (cards.some((card) => card.type === 3 || card.queue === 3)) return "failed";
+    if (cards.some((card) => card.queue === 1 || card.type === 1)) return "learning";
+    if (cards.some((card) => card.queue === 0 || card.type === 0)) return "new";
+    if (cards.some((card) => card.queue === 2 && Number(card.due ?? 0) <= 0)) return "due";
+    return "known";
+  }
+  function stateFromExistingNotes(notes) {
+    const order = ["failed", "due", "learning", "new", "known", "suspended"];
+    return order.find((state) => notes.some((note) => note.state === state)) ?? (notes.length ? "known" : "not-in-deck");
+  }
+  function pickPrimaryCard(cards) {
+    const order = (card) => {
+      if (card.type === 3 || card.queue === 3) return 0;
+      if (card.queue === 2 && Number(card.due ?? 0) <= 0) return 1;
+      if (card.queue === 1 || card.type === 1) return 2;
+      if (card.queue === 0 || card.type === 0) return 3;
+      return 4;
+    };
+    return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
+  }
+  function pickPrimaryExistingNote(notes) {
+    const order = (note) => {
+      if (note.state === "failed") return 0;
+      if (note.state === "due") return 1;
+      if (note.state === "learning") return 2;
+      if (note.state === "new") return 3;
+      if (note.state === "known") return 4;
+      return 5;
+    };
+    return [...notes].sort((a, b) => order(a) - order(b))[0] ?? null;
+  }
+  function ankiEaseFromGrade(grade) {
+    switch (grade) {
+      case "nothing":
+      case "fail":
+        return 1;
+      case "something":
+      case "hard":
+        return 2;
+      case "okay":
+      case "pass":
+        return 3;
+      case "easy":
+        return 4;
+      default:
+        return 3;
+    }
   }
   function yomuCardTemplates() {
     return {
@@ -4758,7 +4927,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         <div class="yomu-kanji-entry">
             <div class="yomu-dict-head">
                 <span class="yomu-kanji-char">${escapeHtml$1(character)}</span>
-                <span class="yomu-dict-label">${escapeHtml$1(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(unique).slice(0, 3).join(" · "))}</span>
+                <span class="yomu-dict-label">${escapeHtml$1(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(" · "))}</span>
             </div>
             ${items.slice(0, 3).map((item) => `
                 <div>
@@ -4780,7 +4949,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
       if (chips.length >= 8) break;
     }
-    return chips.filter(unique).join(" ");
+    return chips.filter(uniqueValue).join(" ");
   }
   function renderPitchField(card, entries, preferences) {
     const chips = card.pitchAccent.slice(0, 4).map((pitch) => `<span class="yomu-chip">JPDB ${escapeHtml$1(pitch)}</span>`);
@@ -4790,7 +4959,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
       if (chips.length >= 8) break;
     }
-    return chips.filter(unique).join(" ");
+    return chips.filter(uniqueValue).join(" ");
   }
   function renderSource(sourceUrl, sourceTitle) {
     if (!sourceUrl && !sourceTitle) return "";
@@ -4811,6 +4980,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     var _a;
     return ((_a = preferences.find((item) => item.name === name)) == null ? void 0 : _a.alias) || name;
   }
+  function uniqueValue(value, index, array) {
+    return array.indexOf(value) === index;
+  }
   function safeGlossaryHtml(value) {
     const html = glossaryToHtml(value);
     return html || escapeHtml$1(glossaryToText(value));
@@ -4829,9 +5001,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (positions.length) return positions.slice(0, 4).map(String).join(", ");
     if (typeof record.position === "number") return String(record.position);
     return "";
-  }
-  function unique(value, index, array) {
-    return array.indexOf(value) === index;
   }
   function safeLocationHref() {
     return typeof location === "undefined" ? "" : location.href;
@@ -4891,6 +5060,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const APP_PUCK = "よむ";
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
   const SUPPORT_LINKS = {
     discordUsername: "henry281199",
     github: "https://github.com/HRussellZFAC023/kotoba-reader",
@@ -4915,6 +5085,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   class ImmersionKitClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
+      __publicField(this, "preloadKeys", /* @__PURE__ */ new Set());
     }
     async search(term, settings) {
       const query = term.trim();
@@ -4954,9 +5125,41 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const path = `media/${category}/${title}/media/${file}`;
       return `${API_BASE$1}/download_media?${new URLSearchParams({ path })}`;
     }
+    preload(term, settings) {
+      const query = term.trim();
+      if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
+      this.preloadKeys.add(query);
+      void this.search(query, settings).then((examples) => {
+        for (const example of examples.slice(0, 2)) {
+          const imageUrl = settings.immersionKitShowImages ? this.mediaUrl(example, "image") : "";
+          if (imageUrl) {
+            const image = new Image();
+            image.decoding = "async";
+            image.loading = "eager";
+            image.src = imageUrl;
+          }
+          const soundUrl = this.mediaUrl(example, "sound");
+          if (soundUrl) {
+            if (settings.audioViaBlob) {
+              void this.fetchBlobUrl(soundUrl, settings.audioTimeoutMs).then((url) => window.setTimeout(() => URL.revokeObjectURL(url), 3e4)).catch(() => {
+              });
+            } else {
+              const audio = new Audio(soundUrl);
+              audio.preload = "auto";
+              audio.load();
+            }
+          }
+        }
+      }).catch(() => {
+      });
+    }
     async fetchBlobUrl(url, timeoutMs) {
-      const blob = await requestBlob$1(url, timeoutMs);
+      const blob = await requestBlob$2(url, timeoutMs);
       return URL.createObjectURL(blob);
+    }
+    async fetchDataUrl(url, timeoutMs) {
+      const blob = await requestBlob$2(url, timeoutMs);
+      return blobToDataUrl$1(blob);
     }
   }
   function collectExamples(value) {
@@ -5058,7 +5261,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       }).then(resolve, reject);
     });
   }
-  function requestBlob$1(url, timeoutMs) {
+  function requestBlob$2(url, timeoutMs) {
     return new Promise((resolve, reject) => {
       if (typeof GM_xmlhttpRequest === "function") {
         GM_xmlhttpRequest({
@@ -5082,6 +5285,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
         return response.blob();
       }).then(resolve, reject);
+    });
+  }
+  function blobToDataUrl$1(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read media."));
+      reader.readAsDataURL(blob);
     });
   }
   const API_BASE = "https://jpdb.io/api/v1";
@@ -5440,6 +5651,1783 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     card.wordWithReading = word.join("");
   }
+  const CONTEXT_PREFIX = "yomu-mining-context:";
+  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
+  function saveMiningContext(term, context) {
+    const normalized = term.trim();
+    if (!normalized || !context.sentence.trim()) return null;
+    const stored = {
+      ...context,
+      term: normalized,
+      sentence: context.sentence.trim(),
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      updatedAt: Date.now()
+    };
+    try {
+      localStorage.setItem(contextStorageKey(normalized), JSON.stringify(stored));
+    } catch {
+    }
+    return stored;
+  }
+  function loadMiningContext(term) {
+    const normalized = term.trim();
+    if (!normalized) return null;
+    try {
+      const raw = localStorage.getItem(contextStorageKey(normalized));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.term !== normalized || !parsed.sentence) return null;
+      if (Date.now() - Number(parsed.updatedAt || 0) > CONTEXT_MAX_AGE_MS) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+  function immersionContextFromExample(term, example, index, total, imageUrl) {
+    return {
+      sentence: example.sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: example.sourceTitle || "Immersion Kit",
+      sourceUrl: immersionKitUrl(term, index),
+      imageUrl: imageUrl || void 0,
+      immersionIndex: index,
+      immersionTotal: total
+    };
+  }
+  function pageMiningContext(sentence, sourceKind = "page") {
+    return {
+      sentence,
+      sourceKind,
+      sourceTitle: document.title || location.hostname,
+      sourceUrl: location.href
+    };
+  }
+  function contextLabel(context) {
+    if (context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal) {
+      return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
+    }
+    if (context.sourceKind === "video") return `Video: ${context.sourceTitle}`;
+    if (context.sourceKind === "image") return `Image: ${context.sourceTitle}`;
+    if (context.sourceKind === "jpdb") return `JPDB: ${context.sourceTitle}`;
+    return context.sourceTitle || context.sourceUrl || "Current page";
+  }
+  function shouldUseImmersionContext(settings, context) {
+    return Boolean(settings.immersionKitEnabled && (context == null ? void 0 : context.sourceKind) === "immersion-kit" && context.sentence.trim());
+  }
+  function contextStorageKey(term) {
+    return `${CONTEXT_PREFIX}${term}`;
+  }
+  function immersionKitUrl(term, index) {
+    const url = new URL("https://www.immersionkit.com/dictionary");
+    url.searchParams.set("keyword", term);
+    url.searchParams.set("sort", "sentence_length:asc");
+    url.searchParams.set("page", String(index + 1));
+    return url.toString();
+  }
+  const COPY = {
+    en: {
+      settingsTitle: `${APP_NAME} Settings`,
+      welcomeLabel: `${APP_NAME} welcome`,
+      onboardingEyebrow: "Japanese, wherever it appears",
+      onboardingCopy: "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.",
+      onboardingLanguage: "Settings language",
+      onboardingAddApiKey: "Add API key",
+      onboardingUseWithoutApiKey: "Use without API key",
+      onboardingNote: "YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.",
+      featureText: "Text",
+      featureTextBody: "Hover or tap Japanese words once a page is scanned.",
+      featureImages: "Images",
+      featureImagesBody: "Readable image text can be detected quietly near the viewport.",
+      featureVideo: "Video",
+      featureVideoBody: "Subtitle words become tappable when subtitles are available.",
+      featureControl: "Control",
+      featureControlBody: "Open Settings any time to turn features off, change shortcuts, or tune the accent color.",
+      quickDescription: "Select Japanese text, tap subtitle words, or read text in images.",
+      scanPage: "Scan page",
+      scanImages: "Scan images",
+      settings: "Settings",
+      save: "Save",
+      cancel: "Cancel",
+      basics: "Basics",
+      dictionaries: "Dictionaries",
+      media: "Media",
+      mining: "Mining",
+      shortcuts: "Shortcuts",
+      help: "Help",
+      interface: "Interface",
+      reader: "Reader",
+      kanji: "Kanji",
+      audio: "Audio",
+      images: "Images",
+      video: "Video",
+      youtube: "YouTube",
+      anki: "Anki",
+      support: "Support",
+      apiKey: "API key",
+      jpdbSettings: "JPDB settings",
+      addToForq: "Also add mined cards to forq",
+      enableReviews: "Enable review actions",
+      reviewRatingScale: "Review rating scale",
+      fivePoint: "Five point: NOTHING to EASY",
+      twoPoint: "Two point: FAIL / PASS",
+      settingsLanguage: "Settings language",
+      automatic: "Automatic",
+      english: "English",
+      japanese: "日本語",
+      theme: "Theme",
+      auto: "Auto",
+      dark: "Dark",
+      light: "Light",
+      popupMode: "Popup mode",
+      bottomSheet: "Bottom sheet",
+      popover: "Popover",
+      accentColor: "Accent color",
+      interfaceHelp: "よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.",
+      parseSelection: "Lookup selected text",
+      lookupOnClick: "Tap or click scanned words",
+      lookupOnHover: "Hover scanned words",
+      lookupOnMiddleMouse: "Hold middle mouse button to scan words",
+      autoScanJapanese: "Auto-scan when Japanese is detected",
+      scanVisiblePage: "Scan visible page on load",
+      showFloatingButton: "Toggle floating puck on pages",
+      showFurigana: "Enable furigana annotations",
+      showPitchAccent: "Show pitch accent",
+      hideKnownFurigana: "Hide furigana for known cards only",
+      readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.",
+      kanjivgEnabled: "Show stroke order and drawing pad",
+      kanjiOriginsEnabled: "Show compact kanji facts and component map",
+      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
+      kanjiOriginWiktionaryEnabled: "Use Wiktionary origin notes",
+      kanjiOriginGraphEnabled: "Show component graph",
+      kanjiOriginRadicalImagesEnabled: "Show radical images",
+      rtkEnabled: "Show RTK information",
+      similarKanjiWords: "Show words using the same kanji",
+      similarKanjiWordLimit: "Similar word limit",
+      kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
+      audioEnabled: "Enable audio playback for terms",
+      autoPlayAudio: "Auto-play search result audio",
+      audioEnableDefaultSources: "Use built-in audio sources",
+      audioSelectionMode: "When a source has several clips",
+      firstAudio: "First audio",
+      randomAudio: "Random audio",
+      audioViaBlob: "Fetch as blob for iOS Tampermonkey",
+      audioTimeoutMs: "Audio timeout (ms)",
+      audioHelp: "Supports {term}, {reading}, and {language}. See the Yomitan audio guide.",
+      audioSource: "Audio source",
+      urlVoice: "URL / voice",
+      addAudioSource: "Add audio source",
+      immersionKit: "Immersion Kit",
+      immersionKitEnabled: "Show Immersion Kit examples",
+      immersionKitShowTranslation: "Show example translations",
+      immersionKitShowImages: "Show example thumbnails",
+      immersionKitAutoPlayAudio: "Play example audio after next/previous",
+      immersionKitCategory: "Example source",
+      immersionKitSort: "Example order",
+      immersionKitLimit: "Examples per word",
+      immersionKitMinLength: "Minimum sentence length",
+      immersionKitMaxLength: "Maximum sentence length",
+      immersionKitPlaybackRate: "Example audio speed",
+      immersionKitExactMatch: "Prefer exact matches",
+      immersionKitHelp: "Immersion examples appear inside word popups. Example text is tappable too, so translations can stay off unless you want them.",
+      loadingExamples: "Loading examples...",
+      noImmersionExamples: "No Immersion Kit examples found.",
+      previousExample: "Previous example",
+      nextExample: "Next example",
+      playExampleAudio: "Play example audio",
+      allCategories: "All",
+      anime: "Anime",
+      drama: "Drama",
+      games: "Games",
+      shortestFirst: "Shortest first",
+      longestFirst: "Longest first",
+      randomOrder: "Random",
+      ocrEnabled: "Read text in images",
+      ocrAutoScanImages: "Read images automatically",
+      ocrShowTextOverlay: "Show recognized image text areas",
+      ocrProvider: "Image reading",
+      googleLens: "Google Lens (recommended)",
+      localOcr: "Local OCR app",
+      cloudVision: "Google Cloud Vision",
+      off: "Off",
+      ocrMaxImagesPerPage: "Images to read per page",
+      ocrMinImageArea: "Smallest image to read",
+      ocrMaxImagePixels: "Image detail",
+      lightWork: "Light",
+      normal: "Normal",
+      more: "More",
+      largeOnly: "Large images only",
+      includeSmall: "Include small images",
+      faster: "Faster",
+      balanced: "Balanced",
+      sharper: "Sharper",
+      ocrTextColor: "Image text color",
+      ocrOutlineColor: "Image text outline",
+      ocrBackgroundColor: "Image highlight background",
+      ocrBackgroundOpacity: "Image highlight opacity",
+      ocrFontScale: "Image text scale",
+      ocrEndpointUrl: "Local OCR app URL",
+      ocrEngine: "Local OCR engine",
+      cloudVisionApiKey: "Cloud Vision API key",
+      ocrHelp: "Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.",
+      subtitlePlayerEnabled: "Enable video subtitle player",
+      subtitleAutoDetect: "Auto-detect page subtitles",
+      subtitleOverlayVisible: "Show subtitle overlay",
+      subtitleSecondaryVisible: "Show native subtitles when available",
+      subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleControlsMode: "Subtitle controls",
+      showWhenNeeded: "Show when needed",
+      hideControls: "Hide controls",
+      alwaysVisible: "Always visible",
+      subtitleFontSize: "Subtitle font size",
+      subtitleBottomOffset: "Subtitle bottom offset (%)",
+      subtitleTextColor: "Subtitle color",
+      subtitleOutlineColor: "Subtitle outline",
+      subtitleBackgroundColor: "Subtitle background",
+      subtitleBackgroundOpacity: "Subtitle background opacity",
+      subtitleFontFamily: "Subtitle font family",
+      subtitleFontWeight: "Subtitle font weight",
+      subtitleSeekPadding: "Subtitle seek padding (seconds)",
+      youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
+      youtubeShowFilterNotice: "Show reveal control for hidden videos",
+      youtubeHelp: "Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.",
+      youtubeFilterOn: "YouTube filter on",
+      youtubeFilterOff: "YouTube filter off",
+      youtubeShowAnyway: "Show anyway",
+      youtubeFilterAgain: "Filter again",
+      youtubeTurnOff: "Turn off",
+      youtubeToggleToastOn: "YouTube immersion filter enabled.",
+      youtubeToggleToastOff: "YouTube immersion filter disabled.",
+      ankiEnabled: "Enable Anki mining",
+      ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
+      ankiCaptureScreenshot: "Attach video screenshot when possible",
+      ankiConnectUrl: "AnkiConnect URL",
+      ankiDeck: "Anki deck",
+      ankiModel: "Anki note type",
+      ankiTags: "Tags",
+      testAnki: "Test Anki",
+      ankiTesting: "Testing AnkiConnect...",
+      ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
+      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional video images.",
+      jpdbDefinitionsEnabled: "Show JPDB definitions",
+      localDictionariesEnabled: "Show imported dictionary definitions",
+      localDictionaryShowKanji: "Show kanji dictionary cards",
+      localDictionaryMaxResults: "Dictionary result limit",
+      importSettings: "Import settings JSON",
+      exportSettings: "Export settings JSON",
+      importDictionaries: "Import dictionaries",
+      exportDictionaries: "Export dictionaries",
+      dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
+      recommendedDownloads: "Recommended dictionary downloads",
+      downloadMissingRecommended: "Download missing recommended",
+      refreshInstalledList: "Refresh installed list",
+      homepage: "Homepage",
+      download: "Download",
+      update: "Update",
+      noLocalDictionaries: "No local dictionaries imported yet.",
+      checkingDictionaries: "Checking imported dictionaries...",
+      dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
+      decksLoaded: "Decks are loaded from your JPDB account.",
+      decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
+      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
+      holdWhileHovering: "Hold while hovering",
+      hoverOpenDelayMs: "Hover open delay (ms)",
+      hoverCloseDelayMs: "Hover close delay (ms)",
+      pressKeys: "Press keys",
+      blankPlainHover: "Blank means hover without a key",
+      openSettings: "Open settings",
+      playAudio: "Play audio",
+      closePopup: "Close popup",
+      previousSubtitle: "Previous subtitle",
+      nextSubtitle: "Next subtitle",
+      copySubtitle: "Copy subtitle",
+      toggleImageReading: "Toggle image reading",
+      toggleYoutubeImmersion: "Toggle YouTube filter",
+      readImagesNow: "Read images now",
+      gradeNothing: "Grade NOTHING",
+      gradeSomething: "Grade SOMETHING",
+      gradeHard: "Grade HARD",
+      gradeOkay: "Grade OKAY",
+      gradeEasy: "Grade EASY",
+      gradeFail: "Pass/fail: FAIL",
+      gradePass: "Pass/fail: PASS",
+      supportTitle: "Free Japanese reading and mining tools",
+      supportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
+      supportDonation: "Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.",
+      donate: "Donate",
+      reportIssue: "Report issue",
+      github: "GitHub",
+      copyDiscord: "Copy Discord",
+      openOnJpdb: "Open on JPDB",
+      backToWord: "Back to word",
+      previousKanji: "Previous kanji",
+      nextKanji: "Next kanji",
+      openKanjiOnJpdb: "Open kanji on JPDB",
+      strokePractice: "Stroke order + practice",
+      practiceDrawing: "Practice drawing",
+      strokes: "strokes",
+      textTrace: "text trace",
+      hideTrace: "Hide trace",
+      showTrace: "Show trace",
+      clear: "Clear",
+      originStructure: "Kanji facts",
+      originMapLabel: "2D kanji origin and component map",
+      kanjiMapData: "Kanji Map data",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "Radical",
+      historicalNotes: "Historical notes",
+      readingsComponents: "Readings and components",
+      showKanji: "Show kanji",
+      jpdbMnemonic: "JPDB mnemonic",
+      rtkComponentKeywords: "RTK component keywords",
+      onReading: "On",
+      kunReading: "Kun",
+      heisigStory: "Heisig story",
+      heisigComment: "Heisig comment",
+      koohiiStories: "Koohii stories",
+      add: "Add",
+      forget: "Forget",
+      never: "Never",
+      unlist: "Unlist",
+      blacklist: "Blacklist",
+      addToAnki: "Add to Anki",
+      noDefinitions: "No enabled definition source returned results."
+    },
+    ja: {
+      settingsTitle: `${APP_NAME} 設定`,
+      welcomeLabel: `${APP_NAME} へようこそ`,
+      onboardingEyebrow: "日本語がある場所ならどこでも",
+      onboardingCopy: "ページの文章、字幕、画像内の日本語をタップできる辞書カードにします。音声を聞き、単語を採掘し、読みやすさを保ったまま学習できます。",
+      onboardingLanguage: "表示言語",
+      onboardingAddApiKey: "APIキーを追加",
+      onboardingUseWithoutApiKey: "APIキーなしで使う",
+      onboardingNote: "YouTube没入フィルターも入っていますが、最初はオフです。日本語動画だけに集中したい時にオンにしてください。",
+      featureText: "文章",
+      featureTextBody: "ページを読み取ると、日本語の単語をホバーまたはタップできます。",
+      featureImages: "画像",
+      featureImagesBody: "画面付近の読みやすい画像内テキストを静かに検出します。",
+      featureVideo: "動画",
+      featureVideoBody: "字幕が見つかると、字幕内の単語もタップできます。",
+      featureControl: "調整",
+      featureControlBody: "設定から機能のオンオフ、ショートカット、アクセント色をいつでも変更できます。",
+      quickDescription: "日本語テキストを選択、字幕の単語をタップ、または画像内テキストを読み取ります。",
+      scanPage: "ページを読む",
+      scanImages: "画像を読む",
+      settings: "設定",
+      save: "保存",
+      cancel: "キャンセル",
+      basics: "基本",
+      dictionaries: "辞書",
+      media: "メディア",
+      mining: "採掘",
+      shortcuts: "ショートカット",
+      help: "ヘルプ",
+      interface: "表示",
+      reader: "リーダー",
+      kanji: "漢字",
+      audio: "音声",
+      images: "画像",
+      video: "動画",
+      youtube: "YouTube",
+      anki: "Anki",
+      support: "サポート",
+      apiKey: "APIキー",
+      jpdbSettings: "JPDB設定",
+      addToForq: "採掘したカードをforqにも追加",
+      enableReviews: "復習ボタンを表示",
+      reviewRatingScale: "復習評価",
+      fivePoint: "5段階: NOTHINGからEASY",
+      twoPoint: "2段階: FAIL / PASS",
+      settingsLanguage: "表示言語",
+      automatic: "自動",
+      english: "English",
+      japanese: "日本語",
+      theme: "テーマ",
+      auto: "自動",
+      dark: "ダーク",
+      light: "ライト",
+      popupMode: "ポップアップ表示",
+      bottomSheet: "下シート",
+      popover: "ポップオーバー",
+      accentColor: "アクセント色",
+      interfaceHelp: "よむはJPDB優先、インポート辞書優先、またはローカル辞書のみでも使えます。辞書タブで表示順を調整できます。",
+      parseSelection: "選択したテキストを調べる",
+      lookupOnClick: "読み取り済み単語をタップ/クリック",
+      lookupOnHover: "読み取り済み単語をホバー",
+      lookupOnMiddleMouse: "マウス中ボタンを押しながら単語を読む",
+      autoScanJapanese: "日本語を検出したら自動で読む",
+      scanVisiblePage: "読み込み時に見える範囲を読む",
+      showFloatingButton: "浮動ボタンを切り替え",
+      showFurigana: "ふりがなを表示",
+      showPitchAccent: "ピッチアクセントを表示",
+      hideKnownFurigana: "既知カードだけふりがなを隠す",
+      readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバーです。中ボタン読み取り中はブラウザの自動スクロールを止めますが、リンクの中クリックは通常通り残します。",
+      kanjivgEnabled: "筆順と手書き練習を表示",
+      kanjiOriginsEnabled: "漢字の基本情報と構成マップを表示",
+      kanjiOriginKanjiMapEnabled: "Kanji Alive / Kanji Mapの情報を使う",
+      kanjiOriginWiktionaryEnabled: "Wiktionaryの成り立ちメモを使う",
+      kanjiOriginGraphEnabled: "構成グラフを表示",
+      kanjiOriginRadicalImagesEnabled: "部首画像を表示",
+      rtkEnabled: "RTK情報を表示",
+      similarKanjiWords: "同じ漢字を使う単語を表示",
+      similarKanjiWordLimit: "関連単語の上限",
+      kanjiHelp: "ポップアップ内の漢字をクリックすると、RTK、漢字辞書、構成要素、関連単語を確認できます。",
+      audioEnabled: "単語音声を有効化",
+      autoPlayAudio: "検索結果の音声を自動再生",
+      audioEnableDefaultSources: "内蔵音声ソースを使う",
+      audioSelectionMode: "複数音声がある時",
+      firstAudio: "最初の音声",
+      randomAudio: "ランダム音声",
+      audioViaBlob: "iOS Tampermonkey用にblobで取得",
+      audioTimeoutMs: "音声タイムアウト (ms)",
+      audioHelp: "{term}、{reading}、{language} に対応。Yomitan音声ガイドも参照できます。",
+      audioSource: "音声ソース",
+      urlVoice: "URL / 声",
+      addAudioSource: "音声ソースを追加",
+      immersionKit: "Immersion Kit",
+      immersionKitEnabled: "Immersion Kit例文を表示",
+      immersionKitShowTranslation: "例文の翻訳を表示",
+      immersionKitShowImages: "例文サムネイルを表示",
+      immersionKitAutoPlayAudio: "前/次の例文で音声を再生",
+      immersionKitCategory: "例文ソース",
+      immersionKitSort: "例文の並び",
+      immersionKitLimit: "単語ごとの例文数",
+      immersionKitMinLength: "最短例文長",
+      immersionKitMaxLength: "最長例文長",
+      immersionKitPlaybackRate: "例文音声速度",
+      immersionKitExactMatch: "完全一致を優先",
+      immersionKitHelp: "Immersion Kit例文は単語ポップアップ内に表示されます。例文の日本語もタップできるため、翻訳は必要な時だけオンにできます。",
+      loadingExamples: "例文を読み込み中...",
+      noImmersionExamples: "Immersion Kit例文が見つかりません。",
+      previousExample: "前の例文",
+      nextExample: "次の例文",
+      playExampleAudio: "例文音声を再生",
+      allCategories: "すべて",
+      anime: "アニメ",
+      drama: "ドラマ",
+      games: "ゲーム",
+      shortestFirst: "短い順",
+      longestFirst: "長い順",
+      randomOrder: "ランダム",
+      ocrEnabled: "画像内テキストを読む",
+      ocrAutoScanImages: "画像を自動で読む",
+      ocrShowTextOverlay: "画像の認識範囲を表示",
+      ocrProvider: "画像の読み取り",
+      googleLens: "Google Lens (推奨)",
+      localOcr: "ローカルOCRアプリ",
+      cloudVision: "Google Cloud Vision",
+      off: "オフ",
+      ocrMaxImagesPerPage: "1ページで読む画像数",
+      ocrMinImageArea: "読む最小画像サイズ",
+      ocrMaxImagePixels: "画像精細度",
+      lightWork: "軽め",
+      normal: "標準",
+      more: "多め",
+      largeOnly: "大きい画像のみ",
+      includeSmall: "小さい画像も含める",
+      faster: "高速",
+      balanced: "バランス",
+      sharper: "高精細",
+      ocrTextColor: "画像テキスト色",
+      ocrOutlineColor: "画像テキストの縁取り",
+      ocrBackgroundColor: "画像ハイライト背景",
+      ocrBackgroundOpacity: "画像ハイライト濃度",
+      ocrFontScale: "画像テキスト倍率",
+      ocrEndpointUrl: "ローカルOCRアプリURL",
+      ocrEngine: "ローカルOCRエンジン",
+      cloudVisionApiKey: "Cloud Vision APIキー",
+      ocrHelp: "画像は画面付近で静かに読み取ります。通常画像はGoogle Lensが既定です。認識範囲はタップまたはホバーするまで透明のままです。",
+      subtitlePlayerEnabled: "動画字幕プレイヤーを有効化",
+      subtitleAutoDetect: "ページ字幕を自動検出",
+      subtitleOverlayVisible: "字幕オーバーレイを表示",
+      subtitleSecondaryVisible: "利用可能なら母語字幕も表示",
+      subtitleMiningPause: "字幕から採掘する時に一時停止",
+      subtitleControlsMode: "字幕コントロール",
+      showWhenNeeded: "必要な時だけ表示",
+      hideControls: "隠す",
+      alwaysVisible: "常に表示",
+      subtitleFontSize: "字幕サイズ",
+      subtitleBottomOffset: "字幕の下位置 (%)",
+      subtitleTextColor: "字幕色",
+      subtitleOutlineColor: "字幕の縁取り",
+      subtitleBackgroundColor: "字幕背景",
+      subtitleBackgroundOpacity: "字幕背景の濃度",
+      subtitleFontFamily: "字幕フォント",
+      subtitleFontWeight: "字幕の太さ",
+      subtitleSeekPadding: "字幕移動の余白 (秒)",
+      youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
+      youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
+      youtubeHelp: "既定ではオフです。YouTubeのおすすめ、検索、サイドバーを日本語らしい動画に集中させたい時にオンにしてください。",
+      youtubeFilterOn: "YouTubeフィルター: オン",
+      youtubeFilterOff: "YouTubeフィルター: オフ",
+      youtubeShowAnyway: "それでも表示",
+      youtubeFilterAgain: "もう一度隠す",
+      youtubeTurnOff: "オフにする",
+      youtubeToggleToastOn: "YouTube没入フィルターをオンにしました。",
+      youtubeToggleToastOff: "YouTube没入フィルターをオフにしました。",
+      ankiEnabled: "Anki採掘を有効化",
+      ankiMineWithJpdb: "JPDB追加時にAnkiにも追加",
+      ankiCaptureScreenshot: "可能なら動画スクリーンショットを添付",
+      ankiConnectUrl: "AnkiConnect URL",
+      ankiDeck: "Ankiデッキ",
+      ankiModel: "Ankiノートタイプ",
+      ankiTags: "タグ",
+      testAnki: "Ankiをテスト",
+      ankiTesting: "AnkiConnectをテストしています...",
+      ankiUnreachable: "AnkiConnectに接続できません。Ankiを開き、AnkiConnectアドオンが有効か確認してください。",
+      ankiHelp: "AnkiConnectを使います。よむノートタイプにはJPDBの意味・状態、インポート辞書、漢字カード、ピッチ・頻度、出典リンク、可能なら動画画像を入れます。",
+      jpdbDefinitionsEnabled: "JPDB定義を表示",
+      localDictionariesEnabled: "インポート辞書の定義を表示",
+      localDictionaryShowKanji: "漢字辞書カードを表示",
+      localDictionaryMaxResults: "辞書結果の上限",
+      importSettings: "設定JSONをインポート",
+      exportSettings: "設定JSONをエクスポート",
+      importDictionaries: "辞書をインポート",
+      exportDictionaries: "辞書をエクスポート",
+      dictionaryImportHelp: "Yomitan設定JSON、Yomitan辞書ZIP、またはエクスポートした辞書バックアップに対応しています。",
+      recommendedDownloads: "おすすめ辞書のダウンロード",
+      downloadMissingRecommended: "未導入のおすすめをダウンロード",
+      refreshInstalledList: "導入済み一覧を更新",
+      homepage: "ホームページ",
+      download: "ダウンロード",
+      update: "更新",
+      noLocalDictionaries: "ローカル辞書はまだインポートされていません。",
+      checkingDictionaries: "インポート済み辞書を確認中...",
+      dictionaryOnlyJpdb: "現在の定義ソースはJPDBのみです。Yomitan辞書をインポートすると、ローカル辞書や母語辞書の定義を追加できます。",
+      decksLoaded: "デッキはJPDBアカウントから読み込みました。",
+      decksUnavailable: "まだデッキを読み込めません。保存済みのデッキIDは維持されます。",
+      addApiKeyChooseDecks: "JPDB APIキーを追加するとデッキを選べます。",
+      holdWhileHovering: "ホバー中に押すキー",
+      hoverOpenDelayMs: "ホバー表示までの遅延 (ms)",
+      hoverCloseDelayMs: "ホバーを閉じる遅延 (ms)",
+      pressKeys: "キーを押してください",
+      blankPlainHover: "空欄ならキーなしホバー",
+      openSettings: "設定を開く",
+      playAudio: "音声を再生",
+      closePopup: "ポップアップを閉じる",
+      previousSubtitle: "前の字幕",
+      nextSubtitle: "次の字幕",
+      copySubtitle: "字幕をコピー",
+      toggleImageReading: "画像読み取りを切替",
+      toggleYoutubeImmersion: "YouTubeフィルターを切替",
+      readImagesNow: "今すぐ画像を読む",
+      gradeNothing: "NOTHING評価",
+      gradeSomething: "SOMETHING評価",
+      gradeHard: "HARD評価",
+      gradeOkay: "OKAY評価",
+      gradeEasy: "EASY評価",
+      gradeFail: "FAIL評価",
+      gradePass: "PASS評価",
+      supportTitle: "無料の日本語リーダー・採掘ツール",
+      supportCopy: "よむはポップアップ辞書、JPDB採掘、インポート辞書、字幕、画像読み取り、Anki出力を1つの無料ユーザースクリプトにまとめます。Migakuのような学習スイートは月$10からの有料プランを案内していますが、よむは同じ中心的な読解・採掘ワークフローを無料で提供します。",
+      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間を支える助けになります。",
+      donate: "寄付",
+      reportIssue: "不具合報告",
+      github: "GitHub",
+      copyDiscord: "Discordをコピー",
+      openOnJpdb: "JPDBで開く",
+      backToWord: "単語に戻る",
+      previousKanji: "前の漢字",
+      nextKanji: "次の漢字",
+      openKanjiOnJpdb: "JPDBで漢字を開く",
+      strokePractice: "筆順と手書き練習",
+      practiceDrawing: "手書き練習",
+      strokes: "画",
+      textTrace: "文字なぞり",
+      hideTrace: "なぞりを隠す",
+      showTrace: "なぞりを表示",
+      clear: "消す",
+      originStructure: "漢字情報",
+      originMapLabel: "漢字の成り立ち・構成マップ",
+      kanjiMapData: "Kanji Mapデータ",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "部首",
+      historicalNotes: "字源メモ",
+      readingsComponents: "読みと構成要素",
+      showKanji: "漢字を表示",
+      jpdbMnemonic: "JPDBニーモニック",
+      rtkComponentKeywords: "RTK構成キーワード",
+      onReading: "音",
+      kunReading: "訓",
+      heisigStory: "Heisigストーリー",
+      heisigComment: "Heisigコメント",
+      koohiiStories: "Koohiiストーリー",
+      add: "追加",
+      forget: "解除",
+      never: "Never",
+      unlist: "解除",
+      blacklist: "ブラックリスト",
+      addToAnki: "Ankiに追加",
+      noDefinitions: "有効な辞書ソースから定義が見つかりませんでした。"
+    }
+  };
+  function resolveUiLanguage(language) {
+    if (language === "ja") return "ja";
+    if (language === "en") return "en";
+    return typeof navigator !== "undefined" && /^ja\b/i.test(navigator.language) ? "ja" : "en";
+  }
+  function uiText(language, key) {
+    return COPY[resolveUiLanguage(language)][key] ?? COPY.en[key];
+  }
+  function pickTokenForSelection(tokens = [], selected) {
+    const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
+    if (exact) return exact;
+    return tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
+  }
+  function formatMetaFrequency(value) {
+    if (typeof value === "number" || typeof value === "string") return `#${value}`;
+    if (!value || typeof value !== "object") return "";
+    const record = value;
+    const display = record.displayValue ?? record.frequency ?? record.value;
+    if (display == null) return "";
+    return `#${String(display)}`;
+  }
+  function formatMetaPitch(value) {
+    if (!value || typeof value !== "object") return "";
+    const record = value;
+    const positions = Array.isArray(record.pitches) ? record.pitches : Array.isArray(record.positions) ? record.positions : [];
+    if (positions.length) return positions.slice(0, 4).map(String).join(", ");
+    if (typeof record.position === "number") return String(record.position);
+    return "";
+  }
+  function renderSpellingForKanjiNavigation(spelling, language) {
+    return Array.from(spelling).map(
+      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
+    ).join("");
+  }
+  function groupTermEntriesByDictionary(entries) {
+    const grouped = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const group = grouped.get(entry.dictionary) ?? [];
+      group.push(entry);
+      grouped.set(entry.dictionary, group);
+    }
+    return grouped;
+  }
+  function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
+    const elementKeywords = splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "");
+    const jpdbByKanji = new Map(((jpdbInfo == null ? void 0 : jpdbInfo.components) ?? []).map((component) => [component.kanji, component.keyword]));
+    const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
+    return [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter).map((kanji, index) => ({
+      kanji,
+      keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
+      meaning: localByKanji.get(kanji) || ""
+    }));
+  }
+  function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
+    const currentKeys = /* @__PURE__ */ new Set([`${currentCard.spelling}
+${currentCard.reading}`, `${currentCard.spelling}
+`]);
+    const words = /* @__PURE__ */ new Map();
+    const add = (entry) => {
+      const key = `${entry.expression}
+${entry.reading}`;
+      if (currentKeys.has(key) || entry.expression === currentCard.spelling) return;
+      const existing = words.get(key);
+      if (existing) {
+        existing.meaning || (existing.meaning = entry.meaning);
+        existing.frequency ?? (existing.frequency = entry.frequency);
+        if (!existing.source.includes(entry.source)) existing.source = `${existing.source} · ${entry.source}`;
+        return;
+      }
+      words.set(key, entry);
+    };
+    jpdbVocabulary.forEach((entry) => add({
+      expression: entry.expression,
+      reading: entry.reading,
+      meaning: entry.meaning,
+      source: "JPDB"
+    }));
+    localEntries.forEach((entry) => add({
+      expression: entry.expression,
+      reading: entry.reading,
+      meaning: entry.glossary.map(glossaryToText).filter(Boolean).join("; ").slice(0, 140),
+      frequency: entry.jpdbFrequency,
+      source: dictionaryLabel2(entry.dictionary)
+    }));
+    return Array.from(words.values()).sort(
+      (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
+    );
+  }
+  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries) {
+    const keywords = /* @__PURE__ */ new Map();
+    const addKeyword = (text2, source) => {
+      const normalized = text2 == null ? void 0 : text2.trim();
+      if (!normalized) return;
+      const key = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
+      if (!existing.sources.includes(source)) existing.sources.push(source);
+      keywords.set(key, existing);
+    };
+    addKeyword(jpdbInfo == null ? void 0 : jpdbInfo.keyword, "JPDB");
+    addKeyword(rtkInfo == null ? void 0 : rtkInfo.keyword, "RTK");
+    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, "dict"));
+    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small>${escapeHtml$1(keyword.text)}</span>`).join("");
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
+  }
+  function splitRtkElements$1(value) {
+    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  }
+  function compareOptionalNumber(a, b) {
+    if (a === void 0 && b === void 0) return 0;
+    if (a === void 0) return 1;
+    if (b === void 0) return -1;
+    return a - b;
+  }
+  function renderKanjiPractice(info, kanji, language) {
+    const ghost = `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;
+    return `
+        <div class="jpdb-reader-local jpdb-reader-kanjivg">
+            <div class="jpdb-reader-local-title">${uiText(language, "strokePractice")}</div>
+            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
+            </div>
+            <div class="jpdb-reader-doodle-tools">
+                <span class="jpdb-reader-help">${uiText(language, "textTrace")}</span>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
+                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
+            </div>
+        </div>
+    `;
+  }
+  function renderKanjiOrigins(facts, graph, sourceInfo, settings, language) {
+    if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) return "";
+    const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
+    const radical = map == null ? void 0 : map.radical;
+    const radicalFrames = settings.kanjiOriginRadicalImagesEnabled && radical ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4) : [];
+    return `
+        <div class="jpdb-reader-local jpdb-reader-origins">
+            <div class="jpdb-reader-local-title">${uiText(language, "originStructure")}</div>
+            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
+                ${facts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
+            </div>` : ""}
+            ${map ? `<div class="jpdb-reader-origin-detail">
+                ${radical || map.hint ? `<div class="jpdb-reader-radical-card">
+                    ${radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$1(radical.symbol || uiText(language, "radical"))}</strong>` : ""}
+                    <div>
+                        ${radical ? `<strong>${escapeHtml$1([radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""].filter(Boolean).join(" · "))}</strong>` : ""}
+                        ${map.hint ? `<span>${escapeHtml$1(map.hint)}</span>` : ""}
+                        ${radicalFrames.length ? `<div class="jpdb-reader-radical-frames">
+                            ${radicalFrames.map((url, index) => `<img src="${escapeHtml$1(url)}" alt="" loading="lazy" data-radical-frame="${index}">`).join("")}
+                        </div>` : ""}
+                    </div>
+                </div>` : ""}
+            </div>` : ""}
+            ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
+        </div>
+    `;
+  }
+  function renderKanjiOriginGraph(graph, language) {
+    const nodes = (graph == null ? void 0 : graph.nodes.filter((node) => !node.id.startsWith("rtk:"))) ?? [];
+    const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodes.some((node) => node.id === edge.from) && nodes.some((node) => node.id === edge.to))) ?? [];
+    if (nodes.length <= 1 || !edges.length) return "";
+    const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
+    const incoming = nodes.filter((node) => node.id !== current.id && edges.some((edge) => edge.from === node.id && edge.to === current.id)).slice(0, 9);
+    const outgoing = nodes.filter((node) => node.id !== current.id && edges.some((edge) => edge.from === current.id && edge.to === node.id)).slice(0, 7);
+    const unlinked = nodes.filter((node) => node.id !== current.id && !incoming.includes(node) && !outgoing.includes(node)).slice(0, Math.max(0, 12 - incoming.length - outgoing.length));
+    const positioned = [
+      ...radialPositions(incoming, 28, 50, 26, -112, 112),
+      { node: current, x: 50, y: 50 },
+      ...radialPositions(outgoing, 72, 50, 24, 68, 292),
+      ...radialPositions(unlinked, 50, 50, 36, 210, 330)
+    ];
+    const coords = new Map(positioned.map((item) => [item.node.id, item]));
+    const lines = edges.map((edge) => {
+      const from = coords.get(edge.from);
+      const to = coords.get(edge.to);
+      if (!from || !to) return "";
+      return `<line data-from="${escapeHtml$1(edge.from)}" data-to="${escapeHtml$1(edge.to)}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" marker-end="url(#jpdb-reader-origin-arrow)" />`;
+    }).join("");
+    const nodeButtons = positioned.map(({ node, x, y }) => {
+      const style = `left:${x}%;top:${y}%`;
+      if (node.kind === "related") {
+        return `<span class="jpdb-reader-origin-graph-node ${node.kind}" data-graph-node="${escapeHtml$1(node.id)}" data-x="${x}" data-y="${y}" style="${style}" title="${escapeHtml$1(node.detail)}">${escapeHtml$1(node.label)}</span>`;
+      }
+      return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" data-graph-node="${escapeHtml$1(node.id)}" data-x="${x}" data-y="${y}" style="${style}" title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
+    }).join("");
+    return `
+        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, "originMapLabel")}">
+            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">
+                <defs>
+                    <marker id="jpdb-reader-origin-arrow" markerWidth="4" markerHeight="4" refX="3.6" refY="2" orient="auto">
+                        <path d="M0,0 L4,2 L0,4 Z"></path>
+                    </marker>
+                </defs>
+                ${lines}
+            </svg>
+            ${nodeButtons}
+        </div>
+    `;
+  }
+  function radialPositions(nodes, centerX, centerY, radius, startDegrees, endDegrees) {
+    if (!nodes.length) return [];
+    if (nodes.length === 1) {
+      const angle = (startDegrees + endDegrees) / 2 * Math.PI / 180;
+      return [{ node: nodes[0], x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius }];
+    }
+    return nodes.map((node, index) => {
+      const t = index / Math.max(1, nodes.length - 1);
+      const angle = (startDegrees + (endDegrees - startDegrees) * t) * Math.PI / 180;
+      return {
+        node,
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius
+      };
+    });
+  }
+  function renderJpdbKanjiInfo(info, language) {
+    if (!info) return "";
+    const infoChips = [
+      info.type
+    ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
+    return `
+        <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
+            <div class="jpdb-reader-local-title">${uiText(language, "readingsComponents")}</div>
+            <div class="jpdb-reader-local-entry">
+                ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ""}
+                ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
+                    ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
+                </div>` : ""}
+                ${info.components.length ? `<div class="jpdb-reader-component-grid">
+                    ${info.components.map((component) => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
+                        <strong>${escapeHtml$1(component.kanji)}</strong>
+                        <span>${escapeHtml$1(component.keyword)}</span>
+                    </button>`).join("")}
+                </div>` : ""}
+                ${info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : ""}
+            </div>
+        </div>
+    `;
+  }
+  function renderRtkInfo(info, components2, language) {
+    if (!info) return "";
+    const elementKeywords = splitRtkElements$1(info.elements);
+    const componentByKeyword = new Map(components2.filter((component) => component.keyword).map((component) => [component.keyword.toLowerCase(), component.kanji]));
+    return `
+        <div class="jpdb-reader-local jpdb-reader-rtk">
+            <div class="jpdb-reader-local-title">RTK</div>
+            <div class="jpdb-reader-local-entry">
+                <div class="jpdb-reader-rtk-head">
+                    <strong>${escapeHtml$1(info.keyword)}</strong>
+                    ${info.frameNumber ? `<span>${escapeHtml$1(info.frameNumber)}</span>` : ""}
+                </div>
+                ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
+                    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
+                    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
+                </div>` : ""}
+                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
+                    ${elementKeywords.map((keyword, index) => {
+    var _a;
+    const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || ((_a = components2[index]) == null ? void 0 : _a.kanji);
+    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}"><strong>${escapeHtml$1(componentKanji)}</strong><span>${escapeHtml$1(keyword)}</span></button>` : `<span>${escapeHtml$1(keyword)}</span>`;
+  }).join("")}
+                </div>` : ""}
+                ${components2.length ? `<div class="jpdb-reader-component-grid">
+                    ${components2.map((component) => {
+    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
+                            <strong>${escapeHtml$1(component.kanji)}</strong>
+                            ${component.keyword ? `<span>${escapeHtml$1(component.keyword)}</span>` : ""}
+                            ${component.meaning && component.meaning !== component.keyword ? `<small>${escapeHtml$1(component.meaning)}</small>` : ""}
+                        </button>`;
+  }).join("")}
+                </div>` : ""}
+                ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
+                ${info.heisigComment ? `<details><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : ""}
+                ${info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""}
+            </div>
+        </div>
+    `;
+  }
+  function renderPitch(card) {
+    const [pitch] = card.pitchAccent;
+    if (!pitch) return "";
+    const morae = splitMorae(card.reading);
+    const highs = Array.from(pitch).filter((ch) => ch === "H" || ch === "L").slice(0, morae.length);
+    if (highs.length < 2) return "";
+    const width = morae.length * 24 + 18;
+    const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
+    const cls = getPitchClassName(pitch);
+    return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
+        <polyline class="${cls}" points="${points}"></polyline>
+        ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
+    </svg></div>`;
+  }
+  function externalLinkIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
+  }
+  function uniqueKanji(value) {
+    return [...new Set(Array.from(value).filter(isKanjiCharacter))];
+  }
+  function isKanjiCharacter(value) {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 13312 && code <= 40959;
+  }
+  function splitMorae(reading) {
+    const small = new Set("ゃゅょャュョァィゥェォ");
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && small.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function getPitchClassName(pitch) {
+    const drops = (pitch.match(/HL/g) ?? []).length;
+    const rises = (pitch.match(/LH/g) ?? []).length;
+    if (pitch.startsWith("H") && drops === 1) return "atamadaka";
+    if (pitch.startsWith("L") && rises === 1 && !pitch.endsWith("L")) return "heiban";
+    if (pitch.startsWith("L") && rises === 1 && pitch.endsWith("L")) return "nakadaka";
+    if (rises > 1 || drops > 1) return "kifuku";
+    return "odaka";
+  }
+  const ROOT_ATTR = "data-yomu-jpdb-addon";
+  const UCHISEN_ID = "yomu-jpdb-uchisen";
+  const RTK_ID = "yomu-jpdb-rtk";
+  const IMMERSION_ID = "yomu-jpdb-immersion";
+  const DOODLE_ROOT_ID = "yomu-jpdb-doodle-root";
+  const DOODLE_PREVIEW_ID = "yomu-jpdb-doodle-preview";
+  const DOODLE_STORAGE_KEY = "yomu-jpdb-doodle-current-drawing";
+  const UCHISEN_STAR_PREFIX = "yomu-jpdb-uchisen-star:";
+  const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
+  const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
+  const JAPANESE_RE$2 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
+  class JpdbExtensionsController {
+    constructor(options) {
+      __publicField(this, "observer");
+      __publicField(this, "timer");
+      __publicField(this, "lastUrl", "");
+      __publicField(this, "rtkKanji", "");
+      __publicField(this, "uchisenKanji", "");
+      __publicField(this, "immersionKey", "");
+      __publicField(this, "localDictionaryKeys", /* @__PURE__ */ new Set());
+      __publicField(this, "currentObjectUrl", "");
+      this.options = options;
+    }
+    init() {
+      if (!isJpdbHost()) return;
+      this.lastUrl = location.href;
+      this.run();
+      this.observer = new MutationObserver(() => {
+        const urlChanged = this.lastUrl !== location.href;
+        if (urlChanged) this.lastUrl = location.href;
+        this.schedule(urlChanged ? 80 : 260);
+      });
+      this.observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    refresh() {
+      if (!isJpdbHost()) return;
+      this.resetSeenKeys();
+      this.schedule(40);
+    }
+    schedule(delay) {
+      window.clearTimeout(this.timer);
+      this.timer = window.setTimeout(() => this.run(), delay);
+    }
+    run() {
+      const settings = this.options.getSettings();
+      if (!settings.jpdbExtensionsEnabled) {
+        this.removeAll();
+        return;
+      }
+      document.documentElement.classList.toggle("yomu-jpdb-review-compact-nav", isReviewPage() && settings.jpdbReviewUiEnabled);
+      if (settings.jpdbReviewUiEnabled) {
+        this.applyReviewUiTweak();
+        this.showReviewExamplesByDefault();
+      } else this.restoreReviewUiTweak();
+      if (settings.jpdbAutoRevealSentenceEnabled) this.revealAnswerSentence();
+      const kanji = extractCurrentKanji();
+      if (settings.jpdbUchisenEnabled && kanji) this.renderUchisen(kanji);
+      else removeElement(UCHISEN_ID);
+      if (settings.jpdbRtkEnabled && settings.rtkEnabled && kanji) this.renderRtk(kanji);
+      else removeElement(RTK_ID);
+      if (settings.jpdbImmersionKitEnabled && settings.immersionKitEnabled) this.renderImmersionKit();
+      else removeElement(IMMERSION_ID);
+      if (settings.jpdbLocalDictionariesEnabled && settings.localDictionariesEnabled) this.renderLocalDictionaries();
+      else this.removeLocalDictionaries();
+      if (settings.jpdbKanjiDoodleEnabled && isReviewPage()) this.renderDoodle();
+      else this.removeDoodle();
+    }
+    removeAll() {
+      removeElement(UCHISEN_ID);
+      removeElement(RTK_ID);
+      removeElement(IMMERSION_ID);
+      this.removeLocalDictionaries();
+      this.restoreReviewUiTweak();
+      this.removeDoodle();
+    }
+    resetSeenKeys() {
+      this.rtkKanji = "";
+      this.uchisenKanji = "";
+      this.immersionKey = "";
+      this.localDictionaryKeys.clear();
+    }
+    applyReviewUiTweak() {
+      var _a;
+      if (!isReviewPage()) return;
+      const firstItem = document.querySelector(".menu .nav-item:first-child");
+      if (!firstItem) return;
+      const label = firstItem.querySelector("a, div") ?? firstItem;
+      if (!label.getAttribute("data-yomu-original-text")) {
+        label.setAttribute("data-yomu-original-text", ((_a = label.textContent) == null ? void 0 : _a.trim()) ?? "");
+      }
+      const original = label.getAttribute("data-yomu-original-text") || label.textContent || "";
+      label.textContent = original.replace(/\bLearn\b/i, "Items left");
+    }
+    showReviewExamplesByDefault() {
+      if (!isReviewPage()) return;
+      const checkbox2 = document.querySelector("#show-checkbox-examples");
+      if (checkbox2 && !checkbox2.checked) {
+        checkbox2.checked = true;
+        checkbox2.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      document.querySelectorAll(".hidden-body").forEach((body) => {
+        body.hidden = false;
+        body.style.display = "";
+      });
+      document.querySelectorAll("#show-checkbox-examples-label").forEach((label) => {
+        label.dataset.yomuExamplesVisible = "true";
+      });
+    }
+    restoreReviewUiTweak() {
+      document.documentElement.classList.remove("yomu-jpdb-review-compact-nav");
+      document.querySelectorAll("[data-yomu-original-text]").forEach((element2) => {
+        element2.textContent = element2.getAttribute("data-yomu-original-text") ?? element2.textContent;
+        element2.removeAttribute("data-yomu-original-text");
+      });
+    }
+    revealAnswerSentence() {
+      var _a;
+      if (!isReviewAnswer()) return;
+      (_a = document.querySelector(".sentence.blur")) == null ? void 0 : _a.classList.remove("blur");
+    }
+    async renderRtk(kanji) {
+      if (this.rtkKanji === kanji && document.getElementById(RTK_ID)) return;
+      this.rtkKanji = kanji;
+      removeElement(RTK_ID);
+      const anchor = findKanjiSectionAnchor();
+      if (!anchor) return;
+      const container = createAddonCard(RTK_ID, "RTK");
+      setInnerHtml(container, `
+            <div class="yomu-jpdb-card-title">RTK</div>
+            <div class="jpdb-reader-help">Loading story data...</div>
+        `);
+      insertAfter(anchor, container);
+      const info = await this.options.rtk.lookup(kanji).catch(() => null);
+      if (!container.isConnected || this.rtkKanji !== kanji) return;
+      if (!info) {
+        container.remove();
+        return;
+      }
+      setInnerHtml(container, renderRtkPanel(info));
+    }
+    async renderUchisen(kanji) {
+      if (!isKanjiPage() && !isReviewAnswer()) return;
+      if (this.uchisenKanji === kanji && document.getElementById(UCHISEN_ID)) return;
+      this.uchisenKanji = kanji;
+      this.revokeCurrentImage();
+      removeElement(UCHISEN_ID);
+      const anchor = findKanjiSectionAnchor();
+      if (!anchor) return;
+      const container = createAddonCard(UCHISEN_ID, "Uchisen");
+      setInnerHtml(container, `
+            <div class="yomu-jpdb-card-title">Uchisen</div>
+            <div class="jpdb-reader-help">Loading mnemonic images...</div>
+        `);
+      insertAfter(anchor, container);
+      const html = await requestText$5(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3).catch(() => "");
+      if (!container.isConnected || this.uchisenKanji !== kanji) return;
+      const images = parseUchisenImages(html);
+      if (!images.length) {
+        container.remove();
+        return;
+      }
+      let index = await storageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
+      const starred = await storageGet(`${UCHISEN_STAR_PREFIX}${kanji}`, null);
+      const starredIndex = starred ? images.findIndex((item) => item.url === starred) : -1;
+      if (starredIndex >= 0) index = starredIndex;
+      if (!Number.isFinite(index) || index < 0 || index >= images.length) index = 0;
+      let currentStarred = starred;
+      const render = () => {
+        const item = images[index];
+        const isStarred = currentStarred === item.url;
+        setInnerHtml(container, `
+                <div class="yomu-jpdb-card-title">
+                    <span>Uchisen</span>
+                    <a href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">Open</a>
+                </div>
+                <div class="yomu-jpdb-toolbar" role="toolbar" aria-label="Uchisen mnemonic images">
+                    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">‹</button>
+                    <span class="yomu-jpdb-counter">${index + 1}/${images.length}</span>
+                    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">›</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="star" title="Favorite">${isStarred ? "★" : "☆"}</button>
+                </div>
+                <div class="yomu-jpdb-image-shell"><img alt="Uchisen mnemonic for ${escapeHtml$1(kanji)}" data-uchisen-image></div>
+                <div class="yomu-jpdb-story">${escapeHtml$1(item.story || "No story available")}</div>
+            `);
+        const image = container.querySelector("[data-uchisen-image]");
+        if (!image) return;
+        const srcUrl = item.url;
+        requestBlobUrl(srcUrl, 9e3).then((url) => {
+          var _a;
+          if (!image.isConnected || ((_a = images[index]) == null ? void 0 : _a.url) !== srcUrl) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+          this.revokeCurrentImage();
+          this.currentObjectUrl = url;
+          image.src = url;
+        }).catch(() => {
+          if (image.isConnected) image.remove();
+        });
+      };
+      container.addEventListener("click", (event) => {
+        var _a;
+        const action = (_a = event.target.closest("[data-uchisen-action]")) == null ? void 0 : _a.dataset.uchisenAction;
+        if (!action) return;
+        event.preventDefault();
+        if (action === "previous") index = (index - 1 + images.length) % images.length;
+        if (action === "next") index = (index + 1) % images.length;
+        if (action === "star") {
+          const key = `${UCHISEN_STAR_PREFIX}${kanji}`;
+          if (currentStarred === images[index].url) {
+            currentStarred = null;
+            void storageDelete(key);
+          } else {
+            currentStarred = images[index].url;
+            void storageSet(key, currentStarred);
+          }
+        } else {
+          void storageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+        }
+        render();
+      });
+      render();
+    }
+    revokeCurrentImage() {
+      if (!this.currentObjectUrl) return;
+      try {
+        URL.revokeObjectURL(this.currentObjectUrl);
+      } catch {
+      }
+      this.currentObjectUrl = "";
+    }
+    async renderImmersionKit() {
+      const target = currentJpdbTermTarget();
+      if (!target) return;
+      const key = `${location.pathname}:${target.term}`;
+      if (this.immersionKey === key && document.getElementById(IMMERSION_ID)) return;
+      this.immersionKey = key;
+      removeElement(IMMERSION_ID);
+      const container = createAddonCard(IMMERSION_ID, "Immersion Kit");
+      setInnerHtml(container, `
+            <div class="yomu-jpdb-card-title">Immersion Kit</div>
+            <div class="jpdb-reader-help">Loading examples for ${escapeHtml$1(target.term)}...</div>
+        `);
+      insertAfter(target.anchor, container);
+      const examples = await this.options.immersionKit.search(target.term, this.options.getSettings()).catch(() => []);
+      if (!container.isConnected || this.immersionKey !== key) return;
+      if (!examples.length) {
+        setInnerHtml(container, `
+                <div class="yomu-jpdb-card-title">Immersion Kit</div>
+                <div class="jpdb-reader-help">No examples found for ${escapeHtml$1(target.term)}.</div>
+            `);
+        return;
+      }
+      let index = savedImmersionIndex(target.term, examples.length);
+      const render = () => renderImmersionPanel(container, examples, index, target.term, this.options.immersionKit, this.options.getSettings());
+      container.addEventListener("click", (event) => {
+        var _a;
+        const action = (_a = event.target.closest("[data-yomu-immersion-action]")) == null ? void 0 : _a.dataset.yomuImmersionAction;
+        if (!action) return;
+        event.preventDefault();
+        if (action === "previous") index = (index - 1 + examples.length) % examples.length;
+        if (action === "next") index = (index + 1) % examples.length;
+        if (action === "audio") playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings());
+        if (action !== "audio") render();
+      });
+      render();
+    }
+    async renderLocalDictionaries() {
+      var _a, _b;
+      const targets = currentLocalDictionaryTargets();
+      for (const target of targets) {
+        const key = `${location.pathname}:${target.term}:${target.reading}`;
+        if (this.localDictionaryKeys.has(key) && ((_a = target.anchor.parentElement) == null ? void 0 : _a.querySelector(`[data-yomu-local-key="${cssEscape(key)}"]`))) continue;
+        this.localDictionaryKeys.add(key);
+        (_b = target.anchor.parentElement) == null ? void 0 : _b.querySelectorAll(`[data-yomu-local-key="${cssEscape(key)}"]`).forEach((node) => node.remove());
+        const entries = await this.options.dictionaries.lookup(target.term, target.reading, Math.min(this.options.getSettings().localDictionaryMaxResults, 8), this.options.getSettings().dictionaryPreferences).catch(() => []);
+        if (!entries.length || !target.anchor.isConnected) continue;
+        const container = createAddonCard("", "Imported dictionaries");
+        container.classList.add("yomu-jpdb-local-dictionaries");
+        container.dataset.yomuLocalKey = key;
+        setInnerHtml(container, renderLocalDictionaryPanel(entries));
+        insertAfter(target.anchor, container);
+      }
+    }
+    removeLocalDictionaries() {
+      this.localDictionaryKeys.clear();
+      document.querySelectorAll(".yomu-jpdb-local-dictionaries").forEach((node) => node.remove());
+    }
+    renderDoodle() {
+      if (isKanjiReviewFront()) {
+        removeElement(DOODLE_PREVIEW_ID);
+        this.installDoodleCanvas();
+        return;
+      }
+      if (isKanjiReviewBack()) {
+        this.removeDoodleCanvas();
+        this.installDoodlePreview();
+        return;
+      }
+      this.removeDoodle();
+    }
+    installDoodleCanvas() {
+      if (document.getElementById(DOODLE_ROOT_ID)) return;
+      const mount = document.querySelector(".bugfix") ?? document.querySelector(".answer-box");
+      if (!mount) return;
+      const glyph = extractCurrentKanji() || firstReviewGlyph(document.body.textContent || "") || "";
+      const root = document.createElement("div");
+      root.id = DOODLE_ROOT_ID;
+      root.setAttribute(ROOT_ATTR, "doodle");
+      root.innerHTML = `
+            <div class="yomu-doodle-stage">
+                <div class="yomu-doodle-ghost" aria-hidden="true">${escapeHtml$1(glyph)}</div>
+                <canvas class="yomu-doodle-canvas" aria-label="Kanji drawing pad"></canvas>
+            </div>
+            <div class="yomu-jpdb-toolbar">
+                <button class="jpdb-reader-btn" type="button" data-doodle-clear>Clear</button>
+                <button class="jpdb-reader-btn" type="button" data-doodle-ghost>Ghost: On</button>
+            </div>
+        `;
+      mount.appendChild(root);
+      installDoodle(root, glyph);
+    }
+    removeDoodleCanvas() {
+      var _a, _b, _c;
+      const root = document.getElementById(DOODLE_ROOT_ID);
+      (_a = root == null ? void 0 : root.__yomuDoodle) == null ? void 0 : _a.cleanup.forEach((fn) => fn());
+      (_c = (_b = root == null ? void 0 : root.__yomuDoodle) == null ? void 0 : _b.resizeObserver) == null ? void 0 : _c.disconnect();
+      root == null ? void 0 : root.remove();
+    }
+    installDoodlePreview() {
+      if (document.getElementById(DOODLE_PREVIEW_ID)) return;
+      const drawing = localStorage.getItem(DOODLE_STORAGE_KEY);
+      if (!drawing) return;
+      const mount = document.querySelector(".hbox") ?? document.querySelector(".answer-box");
+      if (!mount) return;
+      const preview = document.createElement("div");
+      preview.id = DOODLE_PREVIEW_ID;
+      preview.setAttribute(ROOT_ATTR, "doodle-preview");
+      preview.innerHTML = `<img src="${escapeHtml$1(drawing)}" alt="Your kanji drawing">`;
+      mount.appendChild(preview);
+      localStorage.removeItem(DOODLE_STORAGE_KEY);
+    }
+    removeDoodle() {
+      this.removeDoodleCanvas();
+      removeElement(DOODLE_PREVIEW_ID);
+    }
+  }
+  function parseUchisenImages(html) {
+    var _a, _b;
+    if (!html.trim()) return [];
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const images = [];
+    const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
+    const mainImage = (mainLoader == null ? void 0 : mainLoader.getAttribute("data-large")) || ((_a = doc.querySelector("#full_kanji_image")) == null ? void 0 : _a.getAttribute("src")) || "";
+    const mainStory = cleanText$3(((_b = doc.querySelector("#mnemonic_story")) == null ? void 0 : _b.textContent) ?? "");
+    if (mainImage) images.push({ url: canonicalUchisenUrl(mainImage), story: mainStory || "No story available" });
+    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
+      var _a2, _b2;
+      const rawUrl = ((_a2 = card.querySelector("input.image_url")) == null ? void 0 : _a2.value.trim()) ?? "";
+      const rawStory = ((_b2 = card.querySelector("input.story")) == null ? void 0 : _b2.value) ?? "";
+      const story = cleanText$3(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
+      if (rawUrl) images.push({ url: canonicalUchisenUrl(rawUrl), story: story || mainStory || "No story available" });
+    });
+    const seen = /* @__PURE__ */ new Set();
+    return images.filter((item) => {
+      if (!item.url || seen.has(item.url)) return false;
+      seen.add(item.url);
+      return true;
+    });
+  }
+  function renderRtkPanel(info) {
+    const readings2 = [info.onYomi ? `On: ${info.onYomi}` : "", info.kunYomi ? `Kun: ${info.kunYomi}` : ""].filter(Boolean).join(" · ");
+    return `
+        <div class="yomu-jpdb-card-title">
+            <span>RTK</span>
+            ${info.frameNumber ? `<span class="yomu-jpdb-counter">#${escapeHtml$1(info.frameNumber)}</span>` : ""}
+        </div>
+        <div class="yomu-jpdb-facts">
+            <span><strong>Keyword</strong>${escapeHtml$1(info.keyword)}</span>
+            ${readings2 ? `<span><strong>Readings</strong>${escapeHtml$1(readings2)}</span>` : ""}
+            ${info.elements ? `<span><strong>Elements</strong>${escapeHtml$1(info.elements)}</span>` : ""}
+        </div>
+        ${info.heisigStory ? `<section><h6>Heisig story</h6><p>${escapeHtml$1(info.heisigStory)}</p></section>` : ""}
+        ${info.heisigComment ? `<section><h6>Heisig comment</h6><p>${escapeHtml$1(info.heisigComment)}</p></section>` : ""}
+        ${info.koohiiStories.length ? `<section><h6>Koohii stories</h6>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</section>` : ""}
+    `;
+  }
+  function renderImmersionPanel(container, examples, index, term, client, settings) {
+    var _a;
+    const example = examples[index];
+    const imageUrl = settings.immersionKitShowImages ? client.mediaUrl(example, "image") : "";
+    saveMiningContext(term, immersionContextFromExample(term, example, index, examples.length, imageUrl));
+    const image = imageUrl ? `<img class="jpdb-reader-example-image" src="${escapeHtml$1(imageUrl)}" alt="" loading="lazy" data-yomu-immersion-image>` : "";
+    setInnerHtml(container, `
+        <div class="yomu-jpdb-card-title">
+            <span>Immersion Kit</span>
+            <a href="https://www.immersionkit.com/dictionary?keyword=${encodeURIComponent(term)}" target="_blank" rel="noopener">Open</a>
+        </div>
+        <div class="jpdb-reader-example-card ${image ? "has-image" : ""}">
+            ${image}
+            <div class="jpdb-reader-example-body">
+                <div class="jpdb-reader-example-meta">
+                    <span>${escapeHtml$1(example.sourceTitle)}</span>
+                    <span>${index + 1}/${examples.length}</span>
+                </div>
+                <div class="jpdb-reader-example-sentence">${escapeHtml$1(example.sentence)}</div>
+                ${settings.immersionKitShowTranslation && example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
+                <div class="jpdb-reader-example-actions">
+                    <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="previous" title="Previous">‹</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="audio" title="Play audio">${speakerIcon()}</button>
+                    <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="next" title="Next">›</button>
+                </div>
+            </div>
+        </div>
+    `);
+    (_a = container.querySelector("[data-yomu-immersion-image]")) == null ? void 0 : _a.addEventListener("error", (event) => {
+      var _a2;
+      event.currentTarget.remove();
+      (_a2 = container.querySelector(".jpdb-reader-example-card")) == null ? void 0 : _a2.classList.remove("has-image");
+    }, { once: true });
+  }
+  function renderLocalDictionaryPanel(entries) {
+    const byDictionary = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const list = byDictionary.get(entry.dictionary) ?? [];
+      list.push(entry);
+      byDictionary.set(entry.dictionary, list);
+    }
+    return `
+        <div class="yomu-jpdb-card-title">Imported dictionaries</div>
+        ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries]) => `
+            <div class="jpdb-reader-local-entry">
+                <div class="jpdb-reader-local-head">
+                    <span>${escapeHtml$1(dictionary)}</span>
+                    <span class="jpdb-reader-local-dict">${dictionaryEntries.length}</span>
+                </div>
+                <div class="jpdb-reader-local-glossary">
+                    ${dictionaryEntries.slice(0, 3).map((entry) => `
+                        <div>
+                            <strong>${escapeHtml$1(entry.expression)}</strong>${entry.reading && entry.reading !== entry.expression ? ` <span class="jpdb-reader-local-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
+                            ${entry.glossary.slice(0, 3).map((item) => `<div>${glossaryToHtml(item)}</div>`).join("")}
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `).join("")}
+    `;
+  }
+  function playExampleAudio(example, client, settings) {
+    const url = client.mediaUrl(example, "sound");
+    if (!url) return;
+    const play = (src) => {
+      const audio = new Audio(src);
+      audio.playbackRate = settings.immersionKitPlaybackRate;
+      void audio.play().catch(() => void 0);
+    };
+    if (!settings.audioViaBlob) {
+      play(url);
+      return;
+    }
+    void client.fetchBlobUrl(url, settings.audioTimeoutMs).then((src) => {
+      play(src);
+      window.setTimeout(() => URL.revokeObjectURL(src), 45e3);
+    }).catch(() => void 0);
+  }
+  function installDoodle(root, glyph) {
+    var _a, _b;
+    const stage = root.querySelector(".yomu-doodle-stage");
+    const canvas = root.querySelector(".yomu-doodle-canvas");
+    const ghost = root.querySelector(".yomu-doodle-ghost");
+    if (!stage || !canvas || !ghost) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    let dpr = Math.max(1, window.devicePixelRatio || 1);
+    let drawing = false;
+    let pointerId = -1;
+    let strokes = [];
+    let current = [];
+    const cleanup = [];
+    const add = (target, type, listener, options) => {
+      target.addEventListener(type, listener, options);
+      cleanup.push(() => target.removeEventListener(type, listener, options));
+    };
+    const resize = () => {
+      const rect = stage.getBoundingClientRect();
+      dpr = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      redraw();
+    };
+    const point = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width))),
+        y: Math.max(0, Math.min(1, (event.clientY - rect.top) / Math.max(1, rect.height))),
+        pressure: Math.max(0.15, Math.min(1, event.pressure || 0.55))
+      };
+    };
+    const drawStroke = (stroke) => {
+      if (!stroke.length) return;
+      context.save();
+      context.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text") || "#111";
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.beginPath();
+      stroke.forEach((item, index) => {
+        const x = item.x * canvas.width;
+        const y = item.y * canvas.height;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      });
+      const last = stroke[stroke.length - 1];
+      context.lineWidth = Math.max(4, Math.min(12, canvas.width * 0.018)) * (0.75 + ((last == null ? void 0 : last.pressure) ?? 0.55) * 0.35);
+      context.stroke();
+      context.restore();
+    };
+    const redraw = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      for (const stroke of strokes) drawStroke(stroke);
+      drawStroke(current);
+    };
+    const save = () => {
+      try {
+        localStorage.setItem(DOODLE_STORAGE_KEY, canvas.toDataURL("image/png"));
+      } catch {
+      }
+    };
+    add(canvas, "pointerdown", (event) => {
+      var _a2;
+      event.preventDefault();
+      drawing = true;
+      pointerId = event.pointerId;
+      current = [point(event)];
+      (_a2 = canvas.setPointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      redraw();
+    }, { passive: false });
+    add(canvas, "pointermove", (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      const next = point(event);
+      const last = current[current.length - 1];
+      if (!last || Math.hypot(next.x - last.x, next.y - last.y) > 25e-4) {
+        current.push(next);
+        redraw();
+      }
+    }, { passive: false });
+    const finish = (event) => {
+      var _a2;
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      if (current.length) strokes = [...strokes, current];
+      current = [];
+      drawing = false;
+      pointerId = -1;
+      (_a2 = canvas.releasePointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      redraw();
+      save();
+    };
+    add(canvas, "pointerup", finish, { passive: false });
+    add(canvas, "pointercancel", finish, { passive: false });
+    (_a = root.querySelector("[data-doodle-clear]")) == null ? void 0 : _a.addEventListener("click", (event) => {
+      event.preventDefault();
+      strokes = [];
+      current = [];
+      redraw();
+      save();
+    });
+    (_b = root.querySelector("[data-doodle-ghost]")) == null ? void 0 : _b.addEventListener("click", (event) => {
+      event.preventDefault();
+      ghost.hidden = !ghost.hidden;
+      event.currentTarget.textContent = ghost.hidden ? "Ghost: Off" : "Ghost: On";
+    });
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(stage);
+    add(window, "resize", resize);
+    resize();
+    if (glyph) {
+      void requestText$5(kanjiVgUrl(glyph), 5e3).then((svg) => {
+        if (!root.isConnected || !svg.includes("<svg")) return;
+        setInnerHtml(ghost, svg.replace(/<script[\s\S]*?<\/script>/gi, ""));
+      }).catch(() => void 0);
+    }
+    root.__yomuDoodle = { resizeObserver, cleanup };
+  }
+  function savedImmersionIndex(term, total) {
+    var _a;
+    const index = (_a = loadMiningContext(term)) == null ? void 0 : _a.immersionIndex;
+    return Number.isFinite(index) && index !== void 0 && index >= 0 && index < total ? index : 0;
+  }
+  function currentJpdbTermTarget() {
+    const term = extractCurrentTerm();
+    if (!term) return null;
+    const anchor = document.querySelector(".subsection-meanings") ?? document.querySelector(".result.vocabulary") ?? document.querySelector(".answer-box") ?? document.querySelector("main") ?? document.body;
+    return { term, anchor };
+  }
+  function currentLocalDictionaryTargets() {
+    if (isDeckPage() || isSearchPage()) {
+      return Array.from(document.querySelectorAll(".result.vocabulary, .entry")).map((section) => {
+        const term = extractTermFromElement(section);
+        return term ? { ...term, anchor: section.querySelector(".subsection-meanings") ?? section } : null;
+      }).filter((item) => item !== null).slice(0, 16);
+    }
+    const target = currentJpdbTermTarget();
+    if (!target) return [];
+    return [{ term: target.term, reading: extractReadingFromUrl() || target.term, anchor: target.anchor }];
+  }
+  function extractCurrentTerm() {
+    const fromUrl = extractTermFromUrl();
+    if (fromUrl) return fromUrl;
+    const fromPage = extractTermFromElement(document.body);
+    return (fromPage == null ? void 0 : fromPage.term) ?? "";
+  }
+  function extractTermFromUrl() {
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (parts[0] === "vocabulary" && parts[2]) return decodeURIComponent(parts[2]);
+    if (parts[0] === "kanji" && parts[1]) return decodeURIComponent(parts[1]);
+    return "";
+  }
+  function extractReadingFromUrl() {
+    const parts = location.pathname.split("/").filter(Boolean);
+    return parts[0] === "vocabulary" && parts[3] ? decodeURIComponent(parts[3]) : "";
+  }
+  function extractTermFromElement(root) {
+    const candidates = [
+      ".vocabulary-spelling a",
+      ".vocabulary-spelling",
+      ".horizontal-spelling",
+      ".subsection-spelling",
+      ".answer-box .plain",
+      ".plain"
+    ];
+    for (const selector of candidates) {
+      const element2 = root.querySelector(selector);
+      if (!element2) continue;
+      const term = cleanText$3(extractBaseText(element2)) || cleanText$3(element2.textContent ?? "");
+      const reading = cleanText$3(extractReadingText(element2)) || term;
+      if (term && JAPANESE_RE$2.test(term)) return { term, reading };
+    }
+    return null;
+  }
+  function extractBaseText(root) {
+    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
+    if (root.nodeType !== Node.ELEMENT_NODE) return "";
+    const element2 = root;
+    if (element2.tagName === "RT" || element2.tagName === "RP") return "";
+    return Array.from(element2.childNodes).map(extractBaseText).join("");
+  }
+  function extractReadingText(root) {
+    var _a;
+    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
+    if (root.nodeType !== Node.ELEMENT_NODE) return "";
+    const element2 = root;
+    if (element2.tagName === "RT" || element2.tagName === "RP") return "";
+    if (element2.tagName === "RUBY") {
+      const rt = ((_a = Array.from(element2.children).find((child) => child.tagName === "RT")) == null ? void 0 : _a.textContent) ?? "";
+      return rt || extractBaseText(element2);
+    }
+    return Array.from(element2.childNodes).map(extractReadingText).join("");
+  }
+  function extractCurrentKanji() {
+    var _a, _b;
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (parts[0] === "kanji" && parts[1]) return firstReviewGlyph(decodeURIComponent(parts[1])) ?? "";
+    const hidden = ((_a = document.querySelector('input[name="c"]')) == null ? void 0 : _a.value) ?? "";
+    const hiddenParts = hidden.split(",");
+    if (hiddenParts[0] === "kb" && hiddenParts[1]) return firstReviewGlyph(hiddenParts[1]) ?? "";
+    return firstReviewGlyph(((_b = document.querySelector(".kanji, a.kanji.plain")) == null ? void 0 : _b.textContent) ?? "") ?? "";
+  }
+  function firstReviewGlyph(text2) {
+    var _a;
+    const direct = text2.match(KANJI_RE$1);
+    if (direct) return direct[0];
+    try {
+      return ((_a = decodeURIComponent(text2).match(KANJI_RE$1)) == null ? void 0 : _a[0]) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function findKanjiSectionAnchor() {
+    var _a;
+    const uchisen = document.getElementById(UCHISEN_ID);
+    if (uchisen) return uchisen;
+    const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
+    const mnemonic = labels.find((label) => {
+      var _a2;
+      return (_a2 = label.textContent) == null ? void 0 : _a2.trim().toLowerCase().startsWith("mnemonic");
+    });
+    if ((mnemonic == null ? void 0 : mnemonic.nextElementSibling) instanceof HTMLElement) return mnemonic.nextElementSibling;
+    return ((_a = document.querySelector(".mnemonic")) == null ? void 0 : _a.closest(".subsection")) ?? document.querySelector(".result.kanji") ?? document.querySelector(".answer-box") ?? document.querySelector("main");
+  }
+  function createAddonCard(id, label) {
+    const container = document.createElement("section");
+    if (id) container.id = id;
+    container.className = "yomu-jpdb-addon-card";
+    container.setAttribute(ROOT_ATTR, label);
+    return container;
+  }
+  function insertAfter(anchor, element2) {
+    var _a;
+    (_a = anchor.parentNode) == null ? void 0 : _a.insertBefore(element2, anchor.nextSibling);
+  }
+  function removeElement(id) {
+    var _a;
+    (_a = document.getElementById(id)) == null ? void 0 : _a.remove();
+  }
+  function isJpdbHost() {
+    return location.hostname === "jpdb.io";
+  }
+  function isReviewPage() {
+    return location.pathname.startsWith("/review");
+  }
+  function isKanjiPage() {
+    return location.pathname.startsWith("/kanji/");
+  }
+  function isDeckPage() {
+    return location.pathname.startsWith("/deck");
+  }
+  function isSearchPage() {
+    return location.pathname.startsWith("/search");
+  }
+  function isReviewAnswer() {
+    return isReviewPage() && (/[?&]r=/.test(location.search) || Boolean(document.querySelector(".review-reveal, .kanji, .subsection-meanings")));
+  }
+  function isKanjiReviewFront() {
+    return isReviewPage() && Boolean(document.querySelector(".kanji-keyword")) && !document.querySelector(".kanji");
+  }
+  function isKanjiReviewBack() {
+    return isReviewPage() && Boolean(document.querySelector(".kanji"));
+  }
+  function decodeEntities(value) {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = value;
+    return textarea.value;
+  }
+  function canonicalUchisenUrl(value) {
+    let url = value.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      if (url.startsWith("/")) url = `https://ik.imagekit.io/uchisen${url}`;
+      else if (url.startsWith("generated_")) url = `https://ik.imagekit.io/uchisen/generated/saved/${url}`;
+      else url = `https://ik.imagekit.io/uchisen/${url}`;
+    }
+    try {
+      const parsed = new URL(url);
+      parsed.pathname = parsed.pathname.replace(/\/{2,}/g, "/");
+      parsed.search = "";
+      parsed.hash = "";
+      return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      return url.replace(/\/{2,}/g, "/").split(/[?#]/)[0];
+    }
+  }
+  function cleanText$3(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function kanjiVgUrl(glyph) {
+    var _a;
+    const hex = ((_a = glyph.codePointAt(0)) == null ? void 0 : _a.toString(16).padStart(5, "0")) ?? "";
+    return `https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/${hex}.svg`;
+  }
+  function requestText$5(url, timeout) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest === "function") {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          timeout,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? response.response ?? ""));
+            else reject(new Error(`HTTP ${response.status}`));
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("Timed out"))
+        });
+        return;
+      }
+      fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      }).then(resolve, reject);
+    });
+  }
+  function requestBlobUrl(url, timeout) {
+    return requestBlob$1(url, timeout).then((blob) => URL.createObjectURL(blob));
+  }
+  function requestBlob$1(url, timeout) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest === "function") {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url,
+          responseType: "blob",
+          timeout,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300 && response.response instanceof Blob) resolve(response.response);
+            else reject(new Error(`HTTP ${response.status}`));
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("Timed out"))
+        });
+        return;
+      }
+      fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.blob();
+      }).then(resolve, reject);
+    });
+  }
+  async function storageGet(key, fallback) {
+    if (typeof GM_getValue === "function") return await GM_getValue(key, fallback);
+    try {
+      const value = localStorage.getItem(key);
+      return value == null ? fallback : JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  async function storageSet(key, value) {
+    if (typeof GM_setValue === "function") {
+      await GM_setValue(key, value);
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+  async function storageDelete(key) {
+    if (typeof GM_deleteValue === "function") {
+      await GM_deleteValue(key);
+      return;
+    }
+    localStorage.removeItem(key);
+  }
+  function cssEscape(value) {
+    if ("CSS" in window && typeof CSS.escape === "function") return CSS.escape(value);
+    return value.replace(/["\\]/g, "\\$&");
+  }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   class JpdbKanjiClient {
@@ -5703,10 +7691,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const local = extractLocalKanjiFacts(entries);
     const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
     add("Type", normalizeKanjiType(jpdbInfo == null ? void 0 : jpdbInfo.type) ?? local.type ?? typeFromGrade(map == null ? void 0 : map.grade), (jpdbInfo == null ? void 0 : jpdbInfo.type) ? "JPDB" : local.typeSource ?? "Kanji Alive / Jisho");
-    add("JLPT", local.jlpt ?? (map == null ? void 0 : map.jlpt), local.jlptSource ?? "Jisho via The Kanji Map");
+    add("JLPT", local.jlpt ?? (map == null ? void 0 : map.jlpt), local.jlptSource ?? "Jisho");
     add("Grade", local.grade ?? (map == null ? void 0 : map.grade), local.gradeSource ?? "Kanji Alive / Jisho");
     add("Strokes", (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map == null ? void 0 : map.strokeCount), (kanjiVGInfo == null ? void 0 : kanjiVGInfo.strokeCount) ? "KanjiVG" : local.strokesSource ?? "Kanji Alive / Jisho");
-    add("Frequency", (jpdbInfo == null ? void 0 : jpdbInfo.frequency) || local.frequency || (map == null ? void 0 : map.frequencyRank), (jpdbInfo == null ? void 0 : jpdbInfo.frequency) ? "JPDB" : local.frequencySource ?? "Jisho via The Kanji Map");
+    add("Frequency", (jpdbInfo == null ? void 0 : jpdbInfo.frequency) || local.frequency || (map == null ? void 0 : map.frequencyRank), (jpdbInfo == null ? void 0 : jpdbInfo.frequency) ? "JPDB" : local.frequencySource ?? "Jisho");
     add("Radical", (map == null ? void 0 : map.radical) ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(" ") : void 0, "Kanji Alive / Jisho");
     if (!facts.has("Character")) add("Character", kanji, "current lookup");
     return Array.from(facts.values()).filter((fact) => fact.label !== "Character").slice(0, 6);
@@ -5741,10 +7729,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       "radical",
       "Kanji Alive / Jisho"
     );
-    (_d = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _d.parts.forEach((part) => addComponent(part, "structural part", "Kanji Map part", "The Kanji Map / Jisho"));
+    (_d = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _d.parts.forEach((part) => addComponent(part, "structural part", "structural part", "Kanji structure"));
     jpdbInfo == null ? void 0 : jpdbInfo.components.forEach((component) => addComponent(component.kanji, component.keyword, "JPDB component", "JPDB"));
     rtkInfo == null ? void 0 : rtkInfo.componentKanji.forEach((component) => addComponent(component, "RTK element", "RTK element", "RTK"));
-    splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((element2) => !Array.from(element2).some((character) => character === kanji)).slice(0, 6).forEach((element2, index) => {
+    splitRtkElements((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((element2) => !Array.from(element2).some((character) => character === kanji)).slice(0, 6).forEach((element2, index) => {
       const id = `rtk:${index}:${element2}`;
       nodes.set(id, { id, label: element2, kind: "related", detail: "RTK keyword", source: "RTK" });
       edges.push({ from: id, to: kanji, label: "memory cue" });
@@ -5805,7 +7793,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     };
     add("Kodansha", references == null ? void 0 : references.kodansha, "Kanji Alive");
     add("Classic Nelson", references == null ? void 0 : references.classic_nelson, "Kanji Alive");
-    add("Jisho", jisho == null ? void 0 : jisho.uri, "Jisho via The Kanji Map");
+    add("Jisho", jisho == null ? void 0 : jisho.uri, "Jisho");
     return facts.slice(0, 4);
   }
   function extractLocalKanjiFacts(entries) {
@@ -5896,7 +7884,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const number = normalizeNumber(value);
     return number ? `#${number}` : "";
   }
-  function splitRtkElements$1(value) {
+  function splitRtkElements(value) {
     return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
   }
   function wiktionaryHtml(raw) {
@@ -6023,546 +8011,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function first(values) {
     var _a;
     return (_a = values.find((value) => value == null ? void 0 : value.trim())) == null ? void 0 : _a.trim();
-  }
-  const COPY = {
-    en: {
-      settingsTitle: `${APP_NAME} Settings`,
-      welcomeLabel: `${APP_NAME} welcome`,
-      onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.",
-      onboardingLanguage: "Settings language",
-      onboardingAddApiKey: "Add API key",
-      onboardingUseWithoutApiKey: "Use without API key",
-      onboardingNote: "YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.",
-      featureText: "Text",
-      featureTextBody: "Hover or tap Japanese words once a page is scanned.",
-      featureImages: "Images",
-      featureImagesBody: "Readable image text can be detected quietly near the viewport.",
-      featureVideo: "Video",
-      featureVideoBody: "Subtitle words become tappable when subtitles are available.",
-      featureControl: "Control",
-      featureControlBody: "Open Settings any time to turn features off, change shortcuts, or tune the accent color.",
-      quickDescription: "Select Japanese text, tap subtitle words, or read text in images.",
-      scanPage: "Scan page",
-      scanImages: "Scan images",
-      settings: "Settings",
-      save: "Save",
-      cancel: "Cancel",
-      basics: "Basics",
-      dictionaries: "Dictionaries",
-      media: "Media",
-      mining: "Mining",
-      shortcuts: "Shortcuts",
-      help: "Help",
-      interface: "Interface",
-      reader: "Reader",
-      kanji: "Kanji",
-      audio: "Audio",
-      images: "Images",
-      video: "Video",
-      youtube: "YouTube",
-      anki: "Anki",
-      support: "Support",
-      apiKey: "API key",
-      jpdbSettings: "JPDB settings",
-      addToForq: "Also add mined cards to forq",
-      enableReviews: "Enable review actions",
-      reviewRatingScale: "Review rating scale",
-      fivePoint: "Five point: NOTHING to EASY",
-      twoPoint: "Two point: FAIL / PASS",
-      settingsLanguage: "Settings language",
-      automatic: "Automatic",
-      english: "English",
-      japanese: "日本語",
-      theme: "Theme",
-      auto: "Auto",
-      dark: "Dark",
-      light: "Light",
-      popupMode: "Popup mode",
-      bottomSheet: "Bottom sheet",
-      popover: "Popover",
-      accentColor: "Accent color",
-      interfaceHelp: "よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.",
-      parseSelection: "Lookup selected text",
-      lookupOnClick: "Tap or click scanned words",
-      lookupOnHover: "Hover scanned words",
-      autoScanJapanese: "Auto-scan when Japanese is detected",
-      scanVisiblePage: "Scan visible page on load",
-      showFloatingButton: "Toggle floating puck on pages",
-      showFurigana: "Enable furigana annotations",
-      showPitchAccent: "Show pitch accent",
-      hideKnownFurigana: "Hide furigana for known cards only",
-      readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.",
-      kanjivgEnabled: "Show stroke order and drawing pad",
-      kanjiOriginsEnabled: "Show compact kanji facts and component map",
-      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
-      kanjiOriginWiktionaryEnabled: "Use Wiktionary origin notes",
-      kanjiOriginGraphEnabled: "Show component graph",
-      kanjiOriginRadicalImagesEnabled: "Show radical images",
-      rtkEnabled: "Show RTK information",
-      similarKanjiWords: "Show words using the same kanji",
-      similarKanjiWordLimit: "Similar word limit",
-      kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
-      audioEnabled: "Enable audio playback for terms",
-      autoPlayAudio: "Auto-play search result audio",
-      audioEnableDefaultSources: "Use built-in audio sources",
-      audioSelectionMode: "When a source has several clips",
-      firstAudio: "First audio",
-      randomAudio: "Random audio",
-      audioViaBlob: "Fetch as blob for iOS Tampermonkey",
-      audioTimeoutMs: "Audio timeout (ms)",
-      audioHelp: "Supports {term}, {reading}, and {language}. See the Yomitan audio guide.",
-      audioSource: "Audio source",
-      urlVoice: "URL / voice",
-      addAudioSource: "Add audio source",
-      immersionKit: "Immersion Kit",
-      immersionKitEnabled: "Show Immersion Kit examples",
-      immersionKitShowTranslation: "Show example translations",
-      immersionKitShowImages: "Show example thumbnails",
-      immersionKitAutoPlayAudio: "Play example audio after next/previous",
-      immersionKitCategory: "Example source",
-      immersionKitSort: "Example order",
-      immersionKitLimit: "Examples per word",
-      immersionKitMinLength: "Minimum sentence length",
-      immersionKitMaxLength: "Maximum sentence length",
-      immersionKitPlaybackRate: "Example audio speed",
-      immersionKitExactMatch: "Prefer exact matches",
-      immersionKitHelp: "Immersion examples appear inside word popups. Example text is tappable too, so translations can stay off unless you want them.",
-      loadingExamples: "Loading examples...",
-      noImmersionExamples: "No Immersion Kit examples found.",
-      previousExample: "Previous example",
-      nextExample: "Next example",
-      playExampleAudio: "Play example audio",
-      allCategories: "All",
-      anime: "Anime",
-      drama: "Drama",
-      games: "Games",
-      shortestFirst: "Shortest first",
-      longestFirst: "Longest first",
-      randomOrder: "Random",
-      ocrEnabled: "Read text in images",
-      ocrAutoScanImages: "Read images automatically",
-      ocrShowTextOverlay: "Show recognized image text areas",
-      ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      localOcr: "Local OCR app",
-      cloudVision: "Google Cloud Vision",
-      off: "Off",
-      ocrMaxImagesPerPage: "Images to read per page",
-      ocrMinImageArea: "Smallest image to read",
-      ocrMaxImagePixels: "Image detail",
-      lightWork: "Light",
-      normal: "Normal",
-      more: "More",
-      largeOnly: "Large images only",
-      includeSmall: "Include small images",
-      faster: "Faster",
-      balanced: "Balanced",
-      sharper: "Sharper",
-      ocrTextColor: "Image text color",
-      ocrOutlineColor: "Image text outline",
-      ocrBackgroundColor: "Image highlight background",
-      ocrBackgroundOpacity: "Image highlight opacity",
-      ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Local OCR app URL",
-      ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.",
-      subtitlePlayerEnabled: "Enable video subtitle player",
-      subtitleAutoDetect: "Auto-detect page subtitles",
-      subtitleOverlayVisible: "Show subtitle overlay",
-      subtitleSecondaryVisible: "Show native subtitles when available",
-      subtitleMiningPause: "Pause video when mining subtitle",
-      subtitleControlsMode: "Subtitle controls",
-      showWhenNeeded: "Show when needed",
-      hideControls: "Hide controls",
-      alwaysVisible: "Always visible",
-      subtitleFontSize: "Subtitle font size",
-      subtitleBottomOffset: "Subtitle bottom offset (%)",
-      subtitleTextColor: "Subtitle color",
-      subtitleOutlineColor: "Subtitle outline",
-      subtitleBackgroundColor: "Subtitle background",
-      subtitleBackgroundOpacity: "Subtitle background opacity",
-      subtitleFontFamily: "Subtitle font family",
-      subtitleFontWeight: "Subtitle font weight",
-      subtitleSeekPadding: "Subtitle seek padding (seconds)",
-      youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
-      youtubeShowFilterNotice: "Show reveal control for hidden videos",
-      youtubeHelp: "Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.",
-      youtubeFilterOn: "YouTube filter on",
-      youtubeFilterOff: "YouTube filter off",
-      youtubeShowAnyway: "Show anyway",
-      youtubeFilterAgain: "Filter again",
-      youtubeTurnOff: "Turn off",
-      youtubeToggleToastOn: "YouTube immersion filter enabled.",
-      youtubeToggleToastOff: "YouTube immersion filter disabled.",
-      ankiEnabled: "Enable Anki mining",
-      ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
-      ankiCaptureScreenshot: "Attach video screenshot when possible",
-      ankiConnectUrl: "AnkiConnect URL",
-      ankiDeck: "Anki deck",
-      ankiModel: "Anki note type",
-      ankiTags: "Tags",
-      testAnki: "Test Anki",
-      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional video images.",
-      jpdbDefinitionsEnabled: "Show JPDB definitions",
-      localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionaryShowKanji: "Show kanji dictionary cards",
-      localDictionaryMaxResults: "Dictionary result limit",
-      importSettings: "Import settings JSON",
-      exportSettings: "Export settings JSON",
-      importDictionaries: "Import dictionaries",
-      exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
-      recommendedDownloads: "Recommended dictionary downloads",
-      downloadMissingRecommended: "Download missing recommended",
-      refreshInstalledList: "Refresh installed list",
-      homepage: "Homepage",
-      download: "Download",
-      update: "Update",
-      noLocalDictionaries: "No local dictionaries imported yet.",
-      checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
-      decksLoaded: "Decks are loaded from your JPDB account.",
-      decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
-      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
-      holdWhileHovering: "Hold while hovering",
-      hoverOpenDelayMs: "Hover open delay (ms)",
-      hoverCloseDelayMs: "Hover close delay (ms)",
-      pressKeys: "Press keys",
-      blankPlainHover: "Blank means hover without a key",
-      openSettings: "Open settings",
-      playAudio: "Play audio",
-      closePopup: "Close popup",
-      previousSubtitle: "Previous subtitle",
-      nextSubtitle: "Next subtitle",
-      copySubtitle: "Copy subtitle",
-      toggleImageReading: "Toggle image reading",
-      toggleYoutubeImmersion: "Toggle YouTube filter",
-      readImagesNow: "Read images now",
-      gradeNothing: "Grade NOTHING",
-      gradeSomething: "Grade SOMETHING",
-      gradeHard: "Grade HARD",
-      gradeOkay: "Grade OKAY",
-      gradeEasy: "Grade EASY",
-      gradeFail: "Pass/fail: FAIL",
-      gradePass: "Pass/fail: PASS",
-      supportTitle: "Free Japanese reading and mining tools",
-      supportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
-      supportDonation: "Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.",
-      donate: "Donate",
-      reportIssue: "Report issue",
-      github: "GitHub",
-      copyDiscord: "Copy Discord",
-      openOnJpdb: "Open on JPDB",
-      backToWord: "Back to word",
-      previousKanji: "Previous kanji",
-      nextKanji: "Next kanji",
-      openKanjiOnJpdb: "Open kanji on JPDB",
-      strokePractice: "Stroke order + practice",
-      practiceDrawing: "Practice drawing",
-      strokes: "strokes",
-      textTrace: "text trace",
-      hideTrace: "Hide trace",
-      showTrace: "Show trace",
-      clear: "Clear",
-      originStructure: "Kanji facts",
-      originMapLabel: "2D kanji origin and component map",
-      kanjiMapData: "Kanji Map data",
-      kanjiAlive: "Kanji Alive",
-      wiktionary: "Wiktionary",
-      radical: "Radical",
-      historicalNotes: "Historical notes",
-      readingsComponents: "Readings and components",
-      showKanji: "Show kanji",
-      jpdbMnemonic: "JPDB mnemonic",
-      rtkComponentKeywords: "RTK component keywords",
-      onReading: "On",
-      kunReading: "Kun",
-      heisigStory: "Heisig story",
-      heisigComment: "Heisig comment",
-      koohiiStories: "Koohii stories",
-      add: "Add",
-      forget: "Forget",
-      never: "Never",
-      unlist: "Unlist",
-      blacklist: "Blacklist",
-      addToAnki: "Add to Anki",
-      noDefinitions: "No enabled definition source returned results."
-    },
-    ja: {
-      settingsTitle: `${APP_NAME} 設定`,
-      welcomeLabel: `${APP_NAME} へようこそ`,
-      onboardingEyebrow: "日本語がある場所ならどこでも",
-      onboardingCopy: "ページの文章、字幕、画像内の日本語をタップできる辞書カードにします。音声を聞き、単語を採掘し、読みやすさを保ったまま学習できます。",
-      onboardingLanguage: "表示言語",
-      onboardingAddApiKey: "APIキーを追加",
-      onboardingUseWithoutApiKey: "APIキーなしで使う",
-      onboardingNote: "YouTube没入フィルターも入っていますが、最初はオフです。日本語動画だけに集中したい時にオンにしてください。",
-      featureText: "文章",
-      featureTextBody: "ページを読み取ると、日本語の単語をホバーまたはタップできます。",
-      featureImages: "画像",
-      featureImagesBody: "画面付近の読みやすい画像内テキストを静かに検出します。",
-      featureVideo: "動画",
-      featureVideoBody: "字幕が見つかると、字幕内の単語もタップできます。",
-      featureControl: "調整",
-      featureControlBody: "設定から機能のオンオフ、ショートカット、アクセント色をいつでも変更できます。",
-      quickDescription: "日本語テキストを選択、字幕の単語をタップ、または画像内テキストを読み取ります。",
-      scanPage: "ページを読む",
-      scanImages: "画像を読む",
-      settings: "設定",
-      save: "保存",
-      cancel: "キャンセル",
-      basics: "基本",
-      dictionaries: "辞書",
-      media: "メディア",
-      mining: "採掘",
-      shortcuts: "ショートカット",
-      help: "ヘルプ",
-      interface: "表示",
-      reader: "リーダー",
-      kanji: "漢字",
-      audio: "音声",
-      images: "画像",
-      video: "動画",
-      youtube: "YouTube",
-      anki: "Anki",
-      support: "サポート",
-      apiKey: "APIキー",
-      jpdbSettings: "JPDB設定",
-      addToForq: "採掘したカードをforqにも追加",
-      enableReviews: "復習ボタンを表示",
-      reviewRatingScale: "復習評価",
-      fivePoint: "5段階: NOTHINGからEASY",
-      twoPoint: "2段階: FAIL / PASS",
-      settingsLanguage: "表示言語",
-      automatic: "自動",
-      english: "English",
-      japanese: "日本語",
-      theme: "テーマ",
-      auto: "自動",
-      dark: "ダーク",
-      light: "ライト",
-      popupMode: "ポップアップ表示",
-      bottomSheet: "下シート",
-      popover: "ポップオーバー",
-      accentColor: "アクセント色",
-      interfaceHelp: "よむはJPDB優先、インポート辞書優先、またはローカル辞書のみでも使えます。辞書タブで表示順を調整できます。",
-      parseSelection: "選択したテキストを調べる",
-      lookupOnClick: "読み取り済み単語をタップ/クリック",
-      lookupOnHover: "読み取り済み単語をホバー",
-      autoScanJapanese: "日本語を検出したら自動で読む",
-      scanVisiblePage: "読み込み時に見える範囲を読む",
-      showFloatingButton: "浮動ボタンを切り替え",
-      showFurigana: "ふりがなを表示",
-      showPitchAccent: "ピッチアクセントを表示",
-      hideKnownFurigana: "既知カードだけふりがなを隠す",
-      readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバー、クリックも使いたい場合はタップ/クリックをオンにしてください。",
-      kanjivgEnabled: "筆順と手書き練習を表示",
-      kanjiOriginsEnabled: "漢字の基本情報と構成マップを表示",
-      kanjiOriginKanjiMapEnabled: "Kanji Alive / Kanji Mapの情報を使う",
-      kanjiOriginWiktionaryEnabled: "Wiktionaryの成り立ちメモを使う",
-      kanjiOriginGraphEnabled: "構成グラフを表示",
-      kanjiOriginRadicalImagesEnabled: "部首画像を表示",
-      rtkEnabled: "RTK情報を表示",
-      similarKanjiWords: "同じ漢字を使う単語を表示",
-      similarKanjiWordLimit: "関連単語の上限",
-      kanjiHelp: "ポップアップ内の漢字をクリックすると、RTK、漢字辞書、構成要素、関連単語を確認できます。",
-      audioEnabled: "単語音声を有効化",
-      autoPlayAudio: "検索結果の音声を自動再生",
-      audioEnableDefaultSources: "内蔵音声ソースを使う",
-      audioSelectionMode: "複数音声がある時",
-      firstAudio: "最初の音声",
-      randomAudio: "ランダム音声",
-      audioViaBlob: "iOS Tampermonkey用にblobで取得",
-      audioTimeoutMs: "音声タイムアウト (ms)",
-      audioHelp: "{term}、{reading}、{language} に対応。Yomitan音声ガイドも参照できます。",
-      audioSource: "音声ソース",
-      urlVoice: "URL / 声",
-      addAudioSource: "音声ソースを追加",
-      immersionKit: "Immersion Kit",
-      immersionKitEnabled: "Immersion Kit例文を表示",
-      immersionKitShowTranslation: "例文の翻訳を表示",
-      immersionKitShowImages: "例文サムネイルを表示",
-      immersionKitAutoPlayAudio: "前/次の例文で音声を再生",
-      immersionKitCategory: "例文ソース",
-      immersionKitSort: "例文の並び",
-      immersionKitLimit: "単語ごとの例文数",
-      immersionKitMinLength: "最短例文長",
-      immersionKitMaxLength: "最長例文長",
-      immersionKitPlaybackRate: "例文音声速度",
-      immersionKitExactMatch: "完全一致を優先",
-      immersionKitHelp: "Immersion Kit例文は単語ポップアップ内に表示されます。例文の日本語もタップできるため、翻訳は必要な時だけオンにできます。",
-      loadingExamples: "例文を読み込み中...",
-      noImmersionExamples: "Immersion Kit例文が見つかりません。",
-      previousExample: "前の例文",
-      nextExample: "次の例文",
-      playExampleAudio: "例文音声を再生",
-      allCategories: "すべて",
-      anime: "アニメ",
-      drama: "ドラマ",
-      games: "ゲーム",
-      shortestFirst: "短い順",
-      longestFirst: "長い順",
-      randomOrder: "ランダム",
-      ocrEnabled: "画像内テキストを読む",
-      ocrAutoScanImages: "画像を自動で読む",
-      ocrShowTextOverlay: "画像の認識範囲を表示",
-      ocrProvider: "画像の読み取り",
-      googleLens: "Google Lens (推奨)",
-      localOcr: "ローカルOCRアプリ",
-      cloudVision: "Google Cloud Vision",
-      off: "オフ",
-      ocrMaxImagesPerPage: "1ページで読む画像数",
-      ocrMinImageArea: "読む最小画像サイズ",
-      ocrMaxImagePixels: "画像精細度",
-      lightWork: "軽め",
-      normal: "標準",
-      more: "多め",
-      largeOnly: "大きい画像のみ",
-      includeSmall: "小さい画像も含める",
-      faster: "高速",
-      balanced: "バランス",
-      sharper: "高精細",
-      ocrTextColor: "画像テキスト色",
-      ocrOutlineColor: "画像テキストの縁取り",
-      ocrBackgroundColor: "画像ハイライト背景",
-      ocrBackgroundOpacity: "画像ハイライト濃度",
-      ocrFontScale: "画像テキスト倍率",
-      ocrEndpointUrl: "ローカルOCRアプリURL",
-      ocrEngine: "ローカルOCRエンジン",
-      cloudVisionApiKey: "Cloud Vision APIキー",
-      ocrHelp: "画像は画面付近で静かに読み取ります。通常画像はGoogle Lensが既定です。認識範囲はタップまたはホバーするまで透明のままです。",
-      subtitlePlayerEnabled: "動画字幕プレイヤーを有効化",
-      subtitleAutoDetect: "ページ字幕を自動検出",
-      subtitleOverlayVisible: "字幕オーバーレイを表示",
-      subtitleSecondaryVisible: "利用可能なら母語字幕も表示",
-      subtitleMiningPause: "字幕から採掘する時に一時停止",
-      subtitleControlsMode: "字幕コントロール",
-      showWhenNeeded: "必要な時だけ表示",
-      hideControls: "隠す",
-      alwaysVisible: "常に表示",
-      subtitleFontSize: "字幕サイズ",
-      subtitleBottomOffset: "字幕の下位置 (%)",
-      subtitleTextColor: "字幕色",
-      subtitleOutlineColor: "字幕の縁取り",
-      subtitleBackgroundColor: "字幕背景",
-      subtitleBackgroundOpacity: "字幕背景の濃度",
-      subtitleFontFamily: "字幕フォント",
-      subtitleFontWeight: "字幕の太さ",
-      subtitleSeekPadding: "字幕移動の余白 (秒)",
-      youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
-      youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
-      youtubeHelp: "既定ではオフです。YouTubeのおすすめ、検索、サイドバーを日本語らしい動画に集中させたい時にオンにしてください。",
-      youtubeFilterOn: "YouTubeフィルター: オン",
-      youtubeFilterOff: "YouTubeフィルター: オフ",
-      youtubeShowAnyway: "それでも表示",
-      youtubeFilterAgain: "もう一度隠す",
-      youtubeTurnOff: "オフにする",
-      youtubeToggleToastOn: "YouTube没入フィルターをオンにしました。",
-      youtubeToggleToastOff: "YouTube没入フィルターをオフにしました。",
-      ankiEnabled: "Anki採掘を有効化",
-      ankiMineWithJpdb: "JPDB追加時にAnkiにも追加",
-      ankiCaptureScreenshot: "可能なら動画スクリーンショットを添付",
-      ankiConnectUrl: "AnkiConnect URL",
-      ankiDeck: "Ankiデッキ",
-      ankiModel: "Ankiノートタイプ",
-      ankiTags: "タグ",
-      testAnki: "Ankiをテスト",
-      ankiHelp: "AnkiConnectを使います。よむノートタイプにはJPDBの意味・状態、インポート辞書、漢字カード、ピッチ・頻度、出典リンク、可能なら動画画像を入れます。",
-      jpdbDefinitionsEnabled: "JPDB定義を表示",
-      localDictionariesEnabled: "インポート辞書の定義を表示",
-      localDictionaryShowKanji: "漢字辞書カードを表示",
-      localDictionaryMaxResults: "辞書結果の上限",
-      importSettings: "設定JSONをインポート",
-      exportSettings: "設定JSONをエクスポート",
-      importDictionaries: "辞書をインポート",
-      exportDictionaries: "辞書をエクスポート",
-      dictionaryImportHelp: "Yomitan設定JSON、Yomitan辞書ZIP、またはエクスポートした辞書バックアップに対応しています。",
-      recommendedDownloads: "おすすめ辞書のダウンロード",
-      downloadMissingRecommended: "未導入のおすすめをダウンロード",
-      refreshInstalledList: "導入済み一覧を更新",
-      homepage: "ホームページ",
-      download: "ダウンロード",
-      update: "更新",
-      noLocalDictionaries: "ローカル辞書はまだインポートされていません。",
-      checkingDictionaries: "インポート済み辞書を確認中...",
-      dictionaryOnlyJpdb: "現在の定義ソースはJPDBのみです。Yomitan辞書をインポートすると、ローカル辞書や母語辞書の定義を追加できます。",
-      decksLoaded: "デッキはJPDBアカウントから読み込みました。",
-      decksUnavailable: "まだデッキを読み込めません。保存済みのデッキIDは維持されます。",
-      addApiKeyChooseDecks: "JPDB APIキーを追加するとデッキを選べます。",
-      holdWhileHovering: "ホバー中に押すキー",
-      hoverOpenDelayMs: "ホバー表示までの遅延 (ms)",
-      hoverCloseDelayMs: "ホバーを閉じる遅延 (ms)",
-      pressKeys: "キーを押してください",
-      blankPlainHover: "空欄ならキーなしホバー",
-      openSettings: "設定を開く",
-      playAudio: "音声を再生",
-      closePopup: "ポップアップを閉じる",
-      previousSubtitle: "前の字幕",
-      nextSubtitle: "次の字幕",
-      copySubtitle: "字幕をコピー",
-      toggleImageReading: "画像読み取りを切替",
-      toggleYoutubeImmersion: "YouTubeフィルターを切替",
-      readImagesNow: "今すぐ画像を読む",
-      gradeNothing: "NOTHING評価",
-      gradeSomething: "SOMETHING評価",
-      gradeHard: "HARD評価",
-      gradeOkay: "OKAY評価",
-      gradeEasy: "EASY評価",
-      gradeFail: "FAIL評価",
-      gradePass: "PASS評価",
-      supportTitle: "無料の日本語リーダー・採掘ツール",
-      supportCopy: "よむはポップアップ辞書、JPDB採掘、インポート辞書、字幕、画像読み取り、Anki出力を1つの無料ユーザースクリプトにまとめます。Migakuのような学習スイートは月$10からの有料プランを案内していますが、よむは同じ中心的な読解・採掘ワークフローを無料で提供します。",
-      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間を支える助けになります。",
-      donate: "寄付",
-      reportIssue: "不具合報告",
-      github: "GitHub",
-      copyDiscord: "Discordをコピー",
-      openOnJpdb: "JPDBで開く",
-      backToWord: "単語に戻る",
-      previousKanji: "前の漢字",
-      nextKanji: "次の漢字",
-      openKanjiOnJpdb: "JPDBで漢字を開く",
-      strokePractice: "筆順と手書き練習",
-      practiceDrawing: "手書き練習",
-      strokes: "画",
-      textTrace: "文字なぞり",
-      hideTrace: "なぞりを隠す",
-      showTrace: "なぞりを表示",
-      clear: "消す",
-      originStructure: "漢字情報",
-      originMapLabel: "漢字の成り立ち・構成マップ",
-      kanjiMapData: "Kanji Mapデータ",
-      kanjiAlive: "Kanji Alive",
-      wiktionary: "Wiktionary",
-      radical: "部首",
-      historicalNotes: "字源メモ",
-      readingsComponents: "読みと構成要素",
-      showKanji: "漢字を表示",
-      jpdbMnemonic: "JPDBニーモニック",
-      rtkComponentKeywords: "RTK構成キーワード",
-      onReading: "音",
-      kunReading: "訓",
-      heisigStory: "Heisigストーリー",
-      heisigComment: "Heisigコメント",
-      koohiiStories: "Koohiiストーリー",
-      add: "追加",
-      forget: "解除",
-      never: "Never",
-      unlist: "解除",
-      blacklist: "ブラックリスト",
-      addToAnki: "Ankiに追加",
-      noDefinitions: "有効な辞書ソースから定義が見つかりませんでした。"
-    }
-  };
-  function resolveUiLanguage(language) {
-    if (language === "ja") return "ja";
-    if (language === "en") return "en";
-    return typeof navigator !== "undefined" && /^ja\b/i.test(navigator.language) ? "ja" : "en";
-  }
-  function uiText(language, key) {
-    return COPY[resolveUiLanguage(language)][key] ?? COPY.en[key];
   }
   function installKanjiDoodle(popover, getLanguage) {
     const stage = popover.querySelector(".jpdb-reader-doodle-stage");
@@ -6977,6 +8425,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       }
       images.forEach((image) => this.enqueue(image, true));
     }
+    captureSourceImageForElement(element2) {
+      var _a;
+      const line = (_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, ".jpdb-ocr-line");
+      if (!line) return void 0;
+      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (!state) return void 0;
+      return captureImageElement(state.image);
+    }
     ensureObserver(settings) {
       var _a;
       const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
@@ -7235,6 +8691,22 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         state.overlay.remove();
         this.states.delete(image);
       }
+    }
+  }
+  function captureImageElement(image) {
+    try {
+      if (!image.naturalWidth || !image.naturalHeight) return void 0;
+      const canvas = document.createElement("canvas");
+      const maxWidth = 960;
+      const scale = Math.min(1, maxWidth / image.naturalWidth);
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.84);
+    } catch {
+      return void 0;
     }
   }
   function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
@@ -7955,311 +9427,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
   }
-  function pickTokenForSelection(tokens = [], selected) {
-    const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
-    if (exact) return exact;
-    return tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
-  }
-  function formatMetaFrequency(value) {
-    if (typeof value === "number" || typeof value === "string") return `#${value}`;
-    if (!value || typeof value !== "object") return "";
-    const record = value;
-    const display = record.displayValue ?? record.frequency ?? record.value;
-    if (display == null) return "";
-    return `#${String(display)}`;
-  }
-  function formatMetaPitch(value) {
-    if (!value || typeof value !== "object") return "";
-    const record = value;
-    const positions = Array.isArray(record.pitches) ? record.pitches : Array.isArray(record.positions) ? record.positions : [];
-    if (positions.length) return positions.slice(0, 4).map(String).join(", ");
-    if (typeof record.position === "number") return String(record.position);
-    return "";
-  }
-  function renderSpellingForKanjiNavigation(spelling, language) {
-    return Array.from(spelling).map(
-      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
-    ).join("");
-  }
-  function groupTermEntriesByDictionary(entries) {
-    const grouped = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      const group = grouped.get(entry.dictionary) ?? [];
-      group.push(entry);
-      grouped.set(entry.dictionary, group);
-    }
-    return grouped;
-  }
-  function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
-    const elementKeywords = splitRtkElements((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "");
-    const jpdbByKanji = new Map(((jpdbInfo == null ? void 0 : jpdbInfo.components) ?? []).map((component) => [component.kanji, component.keyword]));
-    const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
-    return [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter).map((kanji, index) => ({
-      kanji,
-      keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
-      meaning: localByKanji.get(kanji) || ""
-    }));
-  }
-  function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
-    const currentKeys = /* @__PURE__ */ new Set([`${currentCard.spelling}
-${currentCard.reading}`, `${currentCard.spelling}
-`]);
-    const words = /* @__PURE__ */ new Map();
-    const add = (entry) => {
-      const key = `${entry.expression}
-${entry.reading}`;
-      if (currentKeys.has(key) || entry.expression === currentCard.spelling) return;
-      const existing = words.get(key);
-      if (existing) {
-        existing.meaning || (existing.meaning = entry.meaning);
-        existing.frequency ?? (existing.frequency = entry.frequency);
-        if (!existing.source.includes(entry.source)) existing.source = `${existing.source} · ${entry.source}`;
-        return;
-      }
-      words.set(key, entry);
-    };
-    jpdbVocabulary.forEach((entry) => add({
-      expression: entry.expression,
-      reading: entry.reading,
-      meaning: entry.meaning,
-      source: "JPDB"
-    }));
-    localEntries.forEach((entry) => add({
-      expression: entry.expression,
-      reading: entry.reading,
-      meaning: entry.glossary.map(glossaryToText).filter(Boolean).join("; ").slice(0, 140),
-      frequency: entry.jpdbFrequency,
-      source: dictionaryLabel2(entry.dictionary)
-    }));
-    return Array.from(words.values()).sort(
-      (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
-    );
-  }
-  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries) {
-    const keywords = /* @__PURE__ */ new Map();
-    const addKeyword = (text2, source) => {
-      const normalized = text2 == null ? void 0 : text2.trim();
-      if (!normalized) return;
-      const key = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-      if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key, existing);
-    };
-    addKeyword(jpdbInfo == null ? void 0 : jpdbInfo.keyword, "JPDB");
-    addKeyword(rtkInfo == null ? void 0 : rtkInfo.keyword, "RTK");
-    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, "dict"));
-    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small>${escapeHtml$1(keyword.text)}</span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
-  }
-  function splitRtkElements(value) {
-    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
-  }
-  function compareOptionalNumber(a, b) {
-    if (a === void 0 && b === void 0) return 0;
-    if (a === void 0) return 1;
-    if (b === void 0) return -1;
-    return a - b;
-  }
-  function renderKanjiPractice(info, kanji, language) {
-    const ghost = `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;
-    return `
-        <div class="jpdb-reader-local jpdb-reader-kanjivg">
-            <div class="jpdb-reader-local-title">${uiText(language, "strokePractice")}</div>
-            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
-            </div>
-            <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${uiText(language, "textTrace")}</span>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
-            </div>
-        </div>
-    `;
-  }
-  function renderKanjiOrigins(facts, graph, sourceInfo, settings, language) {
-    if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) return "";
-    const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
-    const radical = map == null ? void 0 : map.radical;
-    const kanjiMapUrl = map ? `https://thekanjimap.com/${encodeURIComponent(map.kanji)}` : "";
-    const sourceLinks = kanjiMapUrl ? `<a href="${escapeHtml$1(kanjiMapUrl)}" target="_blank" rel="noopener">The Kanji Map ${externalLinkIcon()}</a>` : "";
-    return `
-        <div class="jpdb-reader-local jpdb-reader-origins">
-            <div class="jpdb-reader-local-title">${uiText(language, "originStructure")}</div>
-            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
-                ${facts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
-            </div>` : ""}
-            ${map ? `<div class="jpdb-reader-origin-detail">
-                ${radical || map.hint ? `<div class="jpdb-reader-radical-card">
-                    ${radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$1(radical.symbol || uiText(language, "radical"))}</strong>` : ""}
-                    <div>
-                        ${radical ? `<strong>${escapeHtml$1([radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""].filter(Boolean).join(" · "))}</strong>` : ""}
-                        ${map.hint ? `<span>${escapeHtml$1(map.hint)}</span>` : ""}
-                    </div>
-                </div>` : ""}
-            </div>` : ""}
-            ${sourceLinks ? `<div class="jpdb-reader-origin-sources">${sourceLinks}</div>` : ""}
-            ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
-        </div>
-    `;
-  }
-  function renderKanjiOriginGraph(graph, language) {
-    const nodes = (graph == null ? void 0 : graph.nodes.filter((node) => !node.id.startsWith("rtk:"))) ?? [];
-    const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodes.some((node) => node.id === edge.from) && nodes.some((node) => node.id === edge.to))) ?? [];
-    if (nodes.length <= 1 || !edges.length) return "";
-    const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
-    const components2 = nodes.filter((node) => node.kind === "component").slice(0, 8);
-    const related = nodes.filter((node) => node.kind === "related").slice(0, 4);
-    const positioned = [
-      ...components2.map((node, index) => ({
-        node,
-        x: 16,
-        y: components2.length === 1 ? 50 : 18 + 64 / Math.max(1, components2.length - 1) * index
-      })),
-      { node: current, x: 50, y: 50 },
-      ...related.map((node, index) => ({
-        node,
-        x: 84,
-        y: related.length === 1 ? 50 : 24 + 52 / Math.max(1, related.length - 1) * index
-      }))
-    ];
-    const coords = new Map(positioned.map((item) => [item.node.id, item]));
-    const lines = edges.map((edge) => {
-      const from = coords.get(edge.from);
-      const to = coords.get(edge.to);
-      if (!from || !to) return "";
-      return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" />`;
-    }).join("");
-    const nodeButtons = positioned.map(({ node, x, y }) => {
-      const style = `left:${x}%;top:${y}%`;
-      if (node.kind === "related") {
-        return `<span class="jpdb-reader-origin-graph-node ${node.kind}" style="${style}" title="${escapeHtml$1(node.detail)}">${escapeHtml$1(node.label)}</span>`;
-      }
-      return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" style="${style}" title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
-    }).join("");
-    return `
-        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, "originMapLabel")}">
-            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">${lines}</svg>
-            ${nodeButtons}
-        </div>
-    `;
-  }
-  function renderJpdbKanjiInfo(info, language) {
-    if (!info) return "";
-    const infoChips = [
-      info.type
-    ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
-    return `
-        <div class="jpdb-reader-local jpdb-reader-jpdb-kanji">
-            <div class="jpdb-reader-local-title">${uiText(language, "readingsComponents")}</div>
-            <div class="jpdb-reader-local-entry">
-                ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ""}
-                ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
-                </div>` : ""}
-                ${info.components.length ? `<div class="jpdb-reader-component-grid">
-                    ${info.components.map((component) => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
-                        <strong>${escapeHtml$1(component.kanji)}</strong>
-                        <span>${escapeHtml$1(component.keyword)}</span>
-                    </button>`).join("")}
-                </div>` : ""}
-                ${info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : ""}
-            </div>
-        </div>
-    `;
-  }
-  function renderRtkInfo(info, components2, language) {
-    if (!info) return "";
-    const elementKeywords = splitRtkElements(info.elements);
-    const componentByKeyword = new Map(components2.filter((component) => component.keyword).map((component) => [component.keyword.toLowerCase(), component.kanji]));
-    return `
-        <div class="jpdb-reader-local jpdb-reader-rtk">
-            <div class="jpdb-reader-local-title">RTK</div>
-            <div class="jpdb-reader-local-entry">
-                <div class="jpdb-reader-rtk-head">
-                    <strong>${escapeHtml$1(info.keyword)}</strong>
-                    ${info.frameNumber ? `<span>${escapeHtml$1(info.frameNumber)}</span>` : ""}
-                </div>
-                ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
-                    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
-                </div>` : ""}
-                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
-                    ${elementKeywords.map((keyword, index) => {
-    var _a;
-    const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || ((_a = components2[index]) == null ? void 0 : _a.kanji);
-    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}"><strong>${escapeHtml$1(componentKanji)}</strong><span>${escapeHtml$1(keyword)}</span></button>` : `<span>${escapeHtml$1(keyword)}</span>`;
-  }).join("")}
-                </div>` : ""}
-                ${components2.length ? `<div class="jpdb-reader-component-grid">
-                    ${components2.map((component) => {
-    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
-                            <strong>${escapeHtml$1(component.kanji)}</strong>
-                            ${component.keyword ? `<span>${escapeHtml$1(component.keyword)}</span>` : ""}
-                            ${component.meaning && component.meaning !== component.keyword ? `<small>${escapeHtml$1(component.meaning)}</small>` : ""}
-                        </button>`;
-  }).join("")}
-                </div>` : ""}
-                ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
-                ${info.heisigComment ? `<details><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : ""}
-                ${info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""}
-            </div>
-        </div>
-    `;
-  }
-  function renderPitch(card) {
-    const [pitch] = card.pitchAccent;
-    if (!pitch) return "";
-    const morae = splitMorae(card.reading);
-    const highs = Array.from(pitch).filter((ch) => ch === "H" || ch === "L").slice(0, morae.length);
-    if (highs.length < 2) return "";
-    const width = morae.length * 24 + 18;
-    const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
-    const cls = getPitchClassName(pitch);
-    return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
-        <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
-        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
-    </svg></div>`;
-  }
-  function externalLinkIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7 17 17 7"></path>
-        <path d="M9 7h8v8"></path>
-    </svg>`;
-  }
-  function speakerIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
-  }
-  function uniqueKanji(value) {
-    return [...new Set(Array.from(value).filter(isKanjiCharacter))];
-  }
-  function isKanjiCharacter(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
-  }
-  function splitMorae(reading) {
-    const small = new Set("ゃゅょャュョァィゥェォ");
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && small.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function getPitchClassName(pitch) {
-    const drops = (pitch.match(/HL/g) ?? []).length;
-    const rises = (pitch.match(/LH/g) ?? []).length;
-    if (pitch.startsWith("H") && drops === 1) return "atamadaka";
-    if (pitch.startsWith("L") && rises === 1 && !pitch.endsWith("L")) return "heiban";
-    if (pitch.startsWith("L") && rises === 1 && pitch.endsWith("L")) return "nakadaka";
-    if (rises > 1 || drops > 1) return "kifuku";
-    return "odaka";
-  }
   const RECOMMENDED_JAPANESE_DICTIONARIES = [
     {
       id: "jitendex",
@@ -8450,6 +9617,20 @@ ${entry.reading}`;
                 <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
                     ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
                 </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">JPDB page add-ons</div>
+                    <div class="grid">
+                        ${checkbox("jpdbExtensionsEnabled", "Enable JPDB page add-ons", settings.jpdbExtensionsEnabled)}
+                        ${checkbox("jpdbUchisenEnabled", "Uchisen mnemonic carousel", settings.jpdbUchisenEnabled)}
+                        ${checkbox("jpdbRtkEnabled", "RTK story panel", settings.jpdbRtkEnabled)}
+                        ${checkbox("jpdbImmersionKitEnabled", "Immersion Kit examples on JPDB", settings.jpdbImmersionKitEnabled)}
+                        ${checkbox("jpdbLocalDictionariesEnabled", "Imported dictionary entries on JPDB", settings.jpdbLocalDictionariesEnabled)}
+                        ${checkbox("jpdbReviewUiEnabled", "Compact review navigation", settings.jpdbReviewUiEnabled)}
+                        ${checkbox("jpdbAutoRevealSentenceEnabled", "Auto-reveal answer sentence", settings.jpdbAutoRevealSentenceEnabled)}
+                        ${checkbox("jpdbKanjiDoodleEnabled", "Kanji doodle pad in reviews", settings.jpdbKanjiDoodleEnabled)}
+                    </div>
+                    <div class="jpdb-reader-help">These only run on jpdb.io. Each add-on can be turned off without disabling the rest of よむ.</div>
+                </div>
             </fieldset>
             <fieldset data-settings-panel="basics">
                 <legend>Interface</legend>
@@ -8499,6 +9680,7 @@ ${entry.reading}`;
                     ${checkbox("parseSelection", "Lookup selected text", settings.parseSelection)}
                     ${checkbox("lookupOnClick", "Tap or click scanned words", settings.lookupOnClick)}
                     ${checkbox("lookupOnHover", "Hover scanned words", settings.lookupOnHover)}
+                    ${checkbox("lookupOnMiddleMouse", "Hold middle mouse button to scan words", settings.lookupOnMiddleMouse)}
                     ${checkbox("autoScanJapanese", "Auto-scan when Japanese is detected", settings.autoScanJapanese)}
                     ${checkbox("scanVisiblePage", "Scan visible page on load", settings.scanVisiblePage)}
                     ${checkbox("showFloatingButton", "Toggle floating puck on pages", settings.showFloatingButton)}
@@ -8515,6 +9697,7 @@ ${entry.reading}`;
                     ${checkbox("kanjiOriginsEnabled", "Show compact kanji facts and component map", settings.kanjiOriginsEnabled)}
                     ${checkbox("kanjiOriginKanjiMapEnabled", "Use Kanji Alive and Kanji Map facts", settings.kanjiOriginKanjiMapEnabled)}
                     ${checkbox("kanjiOriginGraphEnabled", "Show component graph", settings.kanjiOriginGraphEnabled)}
+                    ${checkbox("kanjiOriginRadicalImagesEnabled", "Show radical images", settings.kanjiOriginRadicalImagesEnabled)}
                     ${checkbox("rtkEnabled", "Show RTK information", settings.rtkEnabled)}
                     ${checkbox("similarKanjiWords", "Show words using the same kanji", settings.similarKanjiWords)}
                     ${input("similarKanjiWordLimit", "Similar word limit", String(settings.similarKanjiWordLimit), "number")}
@@ -8586,7 +9769,7 @@ ${entry.reading}`;
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
                 </div>
-                <div class="jpdb-reader-help" data-anki-status>Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
+                <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this Mac. The default creates a small Yomu note type automatically.</div>
             </fieldset>
             <fieldset data-settings-panel="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -8709,6 +9892,7 @@ ${entry.reading}`;
       ["parseSelection", "parseSelection"],
       ["lookupOnClick", "lookupOnClick"],
       ["lookupOnHover", "lookupOnHover"],
+      ["lookupOnMiddleMouse", "lookupOnMiddleMouse"],
       ["autoScanJapanese", "autoScanJapanese"],
       ["scanVisiblePage", "scanVisiblePage"],
       ["showFloatingButton", "showFloatingButton"],
@@ -9218,6 +10402,15 @@ ${entry.reading}`;
         readonly: true,
         help: "Built-in JPDB meanings from the parsed card."
       },
+      {
+        id: IMMERSION_KIT_SOURCE_ID,
+        name: "Immersion Kit",
+        alias: "Immersion Kit",
+        enabled: settings.immersionKitEnabled,
+        priority: settings.immersionKitPriority,
+        readonly: true,
+        help: "Example sentences, images, and audio for the looked-up word."
+      },
       ...preferences.map((preference) => ({
         id: preference.name,
         name: preference.name,
@@ -9228,8 +10421,8 @@ ${entry.reading}`;
         help: ""
       }))
     ].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-    if (rows.length === 1) return `
-        <div class="jpdb-reader-help">JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.</div>
+    if (rows.length === 2) return `
+        <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
         ${renderDictionarySourceRowsList(rows)}
     `;
     return renderDictionarySourceRowsList(rows);
@@ -9242,10 +10435,10 @@ ${entry.reading}`;
             <span>Alias</span>
             <span>Order</span>
         </div>
-        <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter((row) => row.id !== JPDB_DEFINITION_SOURCE_ID).length}">
+        <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter((row) => !isBuiltInDictionarySource(row.id)).length}">
         ${rows.map((row, index) => {
-    const localIndex = rows.slice(0, index).filter((item) => item.id !== JPDB_DEFINITION_SOURCE_ID).length;
-    const prefix = row.id === JPDB_DEFINITION_SOURCE_ID ? "jpdbDefinitions" : `dictionaryPreferences.${localIndex}`;
+    const localIndex = rows.slice(0, index).filter((item) => !isBuiltInDictionarySource(item.id)).length;
+    const prefix = dictionarySourcePrefix(row.id, localIndex);
     return `
             <div class="jpdb-reader-dictionary-row" draggable="true" data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle">
@@ -9264,6 +10457,14 @@ ${entry.reading}`;
         `;
   }).join("")}
     `;
+  }
+  function isBuiltInDictionarySource(id) {
+    return id === JPDB_DEFINITION_SOURCE_ID || id === IMMERSION_KIT_SOURCE_ID;
+  }
+  function dictionarySourcePrefix(id, localIndex) {
+    if (id === JPDB_DEFINITION_SOURCE_ID) return "jpdbDefinitions";
+    if (id === IMMERSION_KIT_SOURCE_ID) return "immersionKit";
+    return `dictionaryPreferences.${localIndex}`;
   }
   function renderRecommendedDictionaries(installed) {
     const groups = [
@@ -9334,13 +10535,21 @@ ${entry.reading}`;
       interfaceLanguage: ["auto", "en", "ja"].includes(get("interfaceLanguage")) ? get("interfaceLanguage") : current.interfaceLanguage,
       jpdbDefinitionsEnabled: has("jpdbDefinitions.enabled"),
       jpdbDefinitionsPriority: Math.max(0, Math.min(999, number("jpdbDefinitions.priority", current.jpdbDefinitionsPriority))),
+      jpdbExtensionsEnabled: has("jpdbExtensionsEnabled"),
+      jpdbUchisenEnabled: has("jpdbUchisenEnabled"),
+      jpdbRtkEnabled: has("jpdbRtkEnabled"),
+      jpdbImmersionKitEnabled: has("jpdbImmersionKitEnabled"),
+      jpdbLocalDictionariesEnabled: has("jpdbLocalDictionariesEnabled"),
+      jpdbReviewUiEnabled: has("jpdbReviewUiEnabled"),
+      jpdbAutoRevealSentenceEnabled: has("jpdbAutoRevealSentenceEnabled"),
+      jpdbKanjiDoodleEnabled: has("jpdbKanjiDoodleEnabled"),
       rtkEnabled: has("rtkEnabled"),
       kanjivgEnabled: has("kanjivgEnabled"),
       kanjiOriginsEnabled: has("kanjiOriginsEnabled"),
       kanjiOriginKanjiMapEnabled: has("kanjiOriginKanjiMapEnabled"),
       kanjiOriginWiktionaryEnabled: false,
       kanjiOriginGraphEnabled: has("kanjiOriginGraphEnabled"),
-      kanjiOriginRadicalImagesEnabled: false,
+      kanjiOriginRadicalImagesEnabled: has("kanjiOriginRadicalImagesEnabled"),
       similarKanjiWords: has("similarKanjiWords"),
       similarKanjiWordLimit: Math.max(2, Math.min(24, number("similarKanjiWordLimit", current.similarKanjiWordLimit))),
       audioEnabled: has("audioEnabled"),
@@ -9352,7 +10561,8 @@ ${entry.reading}`;
       audioViaBlob: has("audioViaBlob"),
       audioTimeoutMs: Math.max(1e3, number("audioTimeoutMs", current.audioTimeoutMs)),
       audioSelectionMode: get("audioSelectionMode") === "random" ? "random" : "first",
-      immersionKitEnabled: has("immersionKitEnabled"),
+      immersionKitEnabled: has("immersionKitEnabled") && has("immersionKit.enabled"),
+      immersionKitPriority: Math.max(0, Math.min(999, number("immersionKit.priority", current.immersionKitPriority))),
       immersionKitLimit: Math.max(1, Math.min(12, number("immersionKitLimit", current.immersionKitLimit))),
       immersionKitMinLength: Math.max(0, Math.min(120, number("immersionKitMinLength", current.immersionKitMinLength))),
       immersionKitMaxLength: Math.max(0, Math.min(240, number("immersionKitMaxLength", current.immersionKitMaxLength))),
@@ -9366,6 +10576,7 @@ ${entry.reading}`;
       parseSelection: has("parseSelection"),
       lookupOnClick: has("lookupOnClick"),
       lookupOnHover: has("lookupOnHover"),
+      lookupOnMiddleMouse: has("lookupOnMiddleMouse"),
       hoverOpenDelayMs: Math.max(0, Math.min(1500, number("hoverOpenDelayMs", current.hoverOpenDelayMs))),
       hoverCloseDelayMs: Math.max(0, Math.min(3e3, number("hoverCloseDelayMs", current.hoverCloseDelayMs))),
       popupActivationMode: current.popupActivationMode,
@@ -9520,10 +10731,21 @@ ${entry.reading}`;
     "footer",
     "aside",
     "button",
+    'a[role="button"]',
     '[role="dialog"]',
     '[aria-modal="true"]',
     "[data-jpdb-reader-root]",
-    ".jpdb-reader-word"
+    ".jpdb-reader-word",
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="listen" i]',
+    '[class*="play" i]',
+    '[class*="button" i]',
+    '[class*="btn" i]',
+    '[class*="voice" i]',
+    '[aria-label*="聞"]',
+    '[aria-label*="音声"]'
   ].join(",");
   const SITE_PARSER_PROFILES = [
     {
@@ -9619,7 +10841,15 @@ ${entry.reading}`;
         ".article-title",
         '[data-testid*="article"]'
       ],
-      exclude: COMMON_EXCLUDE,
+      exclude: [
+        COMMON_EXCLUDE,
+        ".soundButton",
+        ".js-sound",
+        ".js-play",
+        ".player",
+        "[onclick]",
+        "[data-audio]"
+      ].join(","),
       matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && (/\/news\/(?:html|easy)\//.test(url.pathname) || /\/news\/easy\//.test(url.pathname))
     },
     {
@@ -9666,9 +10896,9 @@ ${entry.reading}`;
     if (targets.length) return targets;
     return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
   }
-  function collectScanTargets(limit = 40) {
-    const siteTargets = collectSiteScanTargets(limit);
-    if (siteTargets == null ? void 0 : siteTargets.length) return siteTargets;
+  function collectScanTargets(limit = 40, href = window.location.href) {
+    const siteTargets = collectSiteScanTargets(limit, href);
+    if (siteTargets !== null) return siteTargets;
     return collectVisibleTextTargets(limit);
   }
   function queryParserRoots(profile) {
@@ -9736,6 +10966,15 @@ ${entry.reading}`;
   --jpdb-reader-hover: rgba(20,30,45,.07);
 }
 
+.jpdb-reader-middle-scan-active {
+  overscroll-behavior: none;
+  cursor: crosshair;
+}
+
+.jpdb-reader-middle-scan-active * {
+  cursor: crosshair !important;
+}
+
 [data-jpdb-reader-root],
 [data-jpdb-reader-root] * {
   box-sizing: border-box;
@@ -9779,6 +11018,12 @@ ${entry.reading}`;
 .jpdb-reader-word.jpdb-suspended { opacity: .58; text-decoration-color: #999; }
 .jpdb-reader-word.jpdb-redundant { text-decoration-color: #70c000; }
 .jpdb-reader-word.jpdb-not-in-deck { text-decoration-color: rgba(127,137,152,.55); }
+.jpdb-reader-word.anki-new { background: rgba(75,141,255,.18); text-decoration-color: #4b8dff; }
+.jpdb-reader-word.anki-learning { background: rgba(94,167,128,.17); text-decoration-color: #5ea780; }
+.jpdb-reader-word.anki-known { text-decoration-color: #70c000; }
+.jpdb-reader-word.anki-due { background: rgba(255,165,0,.18); text-decoration-color: #ffa500; }
+.jpdb-reader-word.anki-failed { background: rgba(255,69,0,.18); text-decoration-color: #ff4500; }
+.jpdb-reader-word.anki-suspended { opacity: .58; text-decoration-color: #999; }
 .jpdb-reader-furi { font-size: .55em; color: var(--jpdb-reader-muted); line-height: 1; user-select: none; }
 .jpdb-reader-word ruby {
   position: relative;
@@ -10185,6 +11430,7 @@ ${entry.reading}`;
 .jpdb-reader-jpdb-pill {
   display: inline-flex;
   align-items: center;
+  align-self: center;
   gap: 4px;
   min-height: 22px;
   padding: 1px 7px;
@@ -10194,8 +11440,9 @@ ${entry.reading}`;
   background: var(--jpdb-reader-accent-soft);
   font-size: 10px;
   font-weight: 850;
-  line-height: 1.2;
+  line-height: 1;
   text-decoration: none;
+  transform: translateY(1px);
 }
 .jpdb-reader-jpdb-pill:hover,
 .jpdb-reader-jpdb-pill:focus-visible {
@@ -10221,6 +11468,28 @@ ${entry.reading}`;
 
 .jpdb-reader-reading { margin-top: 2px; font-size: 15px; }
 .jpdb-reader-pos { margin-top: 7px; font-size: 12px; line-height: 1.35; }
+.jpdb-reader-status-line { min-height: 22px; }
+.jpdb-reader-status-line[data-status-tone] {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-status-line[data-status-tone="pending"] {
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-status-line[data-status-tone="success"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 11%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-status-line[data-status-tone="error"] {
+  border-color: color-mix(in srgb, #e55353 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, #e55353 11%, var(--jpdb-reader-surface-2));
+  color: #ff8c8c;
+}
 .jpdb-reader-meanings { margin: 9px 0; display: grid; gap: 5px; }
 .jpdb-reader-meaning { color: var(--jpdb-reader-text); line-height: 1.35; }
 .jpdb-reader-meaning-pos { color: var(--jpdb-reader-faint); font-size: 11px; margin-right: 5px; font-style: italic; text-transform: none; }
@@ -10233,6 +11502,7 @@ ${entry.reading}`;
 .jpdb-reader-state-dot.jpdb-due { background: #ffa500; }
 .jpdb-reader-state-dot.jpdb-failed { background: #ff4500; }
 .jpdb-reader-state-dot.jpdb-blacklisted { background: #555; }
+.jpdb-reader-state-dot.jpdb-suspended { background: #999; }
 
 .jpdb-reader-local {
   border-top: 1px solid var(--jpdb-reader-border);
@@ -10303,8 +11573,236 @@ ${entry.reading}`;
   border: 1px solid var(--jpdb-reader-border);
   padding: 4px 6px;
 }
+.jpdb-reader-anki-existing {
+  margin-top: 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  overflow: hidden;
+}
+.jpdb-reader-anki-existing summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  cursor: pointer;
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 800;
+  list-style: none;
+}
+.jpdb-reader-anki-existing summary::-webkit-details-marker { display: none; }
+.jpdb-reader-anki-existing summary small {
+  color: var(--jpdb-reader-muted);
+  font-weight: 600;
+  text-align: right;
+}
+.jpdb-reader-anki-card-preview {
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding: 9px 10px 10px;
+  display: grid;
+  gap: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.jpdb-reader-anki-card-preview div {
+  display: grid;
+  gap: 2px;
+}
+.jpdb-reader-anki-card-preview strong {
+  color: var(--jpdb-reader-text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.jpdb-reader-anki-card-preview span,
+.jpdb-reader-anki-card-preview small {
+  white-space: pre-wrap;
+}
 .jpdb-reader-immersion {
   gap: 8px;
+}
+.yomu-jpdb-addon-card {
+  display: grid;
+  gap: 9px;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.22));
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface, color-mix(in srgb, Canvas 94%, CanvasText 6%));
+  color: var(--jpdb-reader-text, inherit);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.42;
+}
+.yomu-jpdb-addon-card,
+.yomu-jpdb-addon-card * {
+  box-sizing: border-box;
+}
+.yomu-jpdb-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.yomu-jpdb-card-title a {
+  color: var(--jpdb-reader-accent);
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  text-transform: none;
+}
+.yomu-jpdb-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.yomu-jpdb-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.yomu-jpdb-image-shell {
+  display: grid;
+  place-items: center;
+}
+.yomu-jpdb-image-shell img {
+  display: block;
+  width: min(320px, 100%);
+  max-height: 340px;
+  object-fit: contain;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-bg);
+}
+.yomu-jpdb-story {
+  max-width: 58ch;
+  margin: 0 auto;
+  color: var(--jpdb-reader-text);
+  white-space: pre-wrap;
+}
+.yomu-jpdb-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 7px;
+}
+.yomu-jpdb-facts span {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+}
+.yomu-jpdb-facts strong,
+.yomu-jpdb-addon-card h6 {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.yomu-jpdb-addon-card h6,
+.yomu-jpdb-addon-card p {
+  margin: 0;
+}
+.yomu-jpdb-addon-card section {
+  display: grid;
+  gap: 5px;
+}
+.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry {
+  background: var(--jpdb-reader-surface-2);
+}
+.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),
+.yomu-jpdb-review-compact-nav .menu-icon {
+  display: none !important;
+}
+.yomu-jpdb-review-compact-nav .menu {
+  max-height: 32px !important;
+  transition: none !important;
+}
+#yomu-jpdb-doodle-root {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  margin: 12px auto;
+  color: var(--jpdb-reader-text);
+}
+.yomu-doodle-stage {
+  position: relative;
+  width: min(92vw, 420px);
+  aspect-ratio: 1;
+  touch-action: none;
+}
+.yomu-doodle-canvas,
+.yomu-doodle-ghost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.yomu-doodle-canvas {
+  z-index: 1;
+  border: 3px solid var(--jpdb-reader-text);
+  border-radius: 8px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.yomu-doodle-ghost {
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--jpdb-reader-accent);
+  font-size: min(72vw, 320px);
+  line-height: 1;
+  opacity: .26;
+  pointer-events: none;
+}
+.yomu-doodle-ghost svg {
+  width: 100%;
+  height: 100%;
+}
+.yomu-doodle-ghost path,
+.yomu-doodle-ghost line,
+.yomu-doodle-ghost polyline {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+#yomu-jpdb-doodle-preview {
+  display: grid;
+  place-items: center;
+  margin-left: 12px;
+}
+#yomu-jpdb-doodle-preview img {
+  width: min(200px, 34vw);
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+}
+.jpdb-reader-settings-subsection {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-example-card {
   display: grid;
@@ -10429,20 +11927,24 @@ ${entry.reading}`;
 .jpdb-reader-kanji-keyword {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  min-height: 24px;
-  padding: 2px 8px;
+  min-height: 26px;
+  padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 13%, transparent);
   color: var(--jpdb-reader-text);
   font-size: 12px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 .jpdb-reader-kanji-keyword small {
   color: var(--jpdb-reader-muted);
   font-size: 9px;
   font-weight: 900;
+  line-height: 1;
   text-transform: uppercase;
 }
 .jpdb-reader-kanji-facts {
@@ -10542,7 +12044,7 @@ ${entry.reading}`;
 }
 .jpdb-reader-radical-card {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -10561,11 +12063,17 @@ ${entry.reading}`;
   line-height: 1;
 }
 .jpdb-reader-radical-card img {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   border-radius: 6px;
   background: color-mix(in srgb, var(--jpdb-reader-text) 92%, white);
+}
+.jpdb-reader-radical-frames {
+  display: flex !important;
+  flex-flow: row wrap;
+  gap: 5px !important;
+  margin-top: 5px;
 }
 .jpdb-reader-radical-card div {
   display: grid;
@@ -10656,7 +12164,7 @@ ${entry.reading}`;
 }
 .jpdb-reader-origin-graph-wrap {
   position: relative;
-  min-height: 150px;
+  min-height: 180px;
   margin-top: 8px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
@@ -10672,7 +12180,10 @@ ${entry.reading}`;
 }
 .jpdb-reader-origin-graph-lines line {
   stroke: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
-  stroke-width: .8;
+  stroke-width: 1;
+}
+.jpdb-reader-origin-graph-lines path {
+  fill: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
 }
 .jpdb-reader-origin-graph-node {
   position: absolute;
@@ -10688,6 +12199,8 @@ ${entry.reading}`;
   color: var(--jpdb-reader-text);
   font: 850 19px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
 }
 .jpdb-reader-origin-graph-node.current {
   border-color: var(--jpdb-reader-accent);
@@ -10912,11 +12425,17 @@ ${entry.reading}`;
 }
 
 .jpdb-reader-actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 4;
   border-top: 1px solid var(--jpdb-reader-border);
-  margin-top: 12px;
-  padding-top: 12px;
+  margin: 12px -14px -14px;
+  padding: 12px 14px 14px;
   display: grid;
   gap: 8px;
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--jpdb-reader-bg) 0%, transparent), var(--jpdb-reader-bg) 16px),
+    var(--jpdb-reader-bg);
 }
 
 .jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
@@ -12649,6 +14168,9 @@ ${entry.reading}`;
     });
   }
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
+  function cardKey(card) {
+    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+  }
   class ReaderApp {
     constructor() {
       __publicField(this, "settings", DEFAULT_SETTINGS);
@@ -12661,6 +14183,12 @@ ${entry.reading}`;
       __publicField(this, "anki", new AnkiConnectClient(() => this.settings));
       __publicField(this, "rtk", new RtkClient());
       __publicField(this, "dictionaries", new YomitanDictionaryStore());
+      __publicField(this, "jpdbExtensions", new JpdbExtensionsController({
+        getSettings: () => this.settings,
+        dictionaries: this.dictionaries,
+        immersionKit: this.immersionKit,
+        rtk: this.rtk
+      }));
       __publicField(this, "onboarding", new OnboardingController({
         getSettings: () => this.settings,
         setSettings: (settings) => {
@@ -12689,6 +14217,7 @@ ${entry.reading}`;
       __publicField(this, "activeBackdrop");
       __publicField(this, "fab");
       __publicField(this, "lastCard");
+      __publicField(this, "lastAnkiLookup");
       __publicField(this, "selectionTimer");
       __publicField(this, "autoScanTimer");
       __publicField(this, "autoScanDeadline", 0);
@@ -12709,10 +14238,14 @@ ${entry.reading}`;
       __publicField(this, "cardRenderRequest", 0);
       __publicField(this, "immersionKitAudio");
       __publicField(this, "immersionKitAudioBlobUrl");
+      __publicField(this, "immersionPreloadTerms", /* @__PURE__ */ new Set());
+      __publicField(this, "activeMiningContext");
+      __publicField(this, "immersionContextByCardKey", /* @__PURE__ */ new Map());
       __publicField(this, "pressedKeys", /* @__PURE__ */ new Set());
       __publicField(this, "suppressSelectionLookupUntil", 0);
       __publicField(this, "suppressWordClickUntil", 0);
       __publicField(this, "pressLookup");
+      __publicField(this, "suppressMiddleAuxClickUntil", 0);
     }
     async init() {
       this.settings = await loadSettings();
@@ -12724,6 +14257,7 @@ ${entry.reading}`;
       this.subtitles.init();
       this.ocr.init();
       this.youtube.init();
+      this.jpdbExtensions.init();
       if (typeof GM_registerMenuCommand === "function") {
         GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
         GM_registerMenuCommand(`${APP_NAME} scan visible page`, () => this.scanVisiblePage());
@@ -12895,6 +14429,16 @@ ${entry.reading}`;
         if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
         void this.showWord(word, { trigger: "click" });
       }, { capture: true });
+      document.addEventListener("mousedown", (event) => {
+        if (!this.shouldCaptureMiddleMouseLookup(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }, { capture: true, passive: false });
+      document.addEventListener("auxclick", (event) => {
+        if (event.button !== 1 || Date.now() > this.suppressMiddleAuxClickUntil) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }, { capture: true });
       document.addEventListener("pointerdown", (event) => {
         this.beginPressLookup(event);
       }, { capture: true, passive: false });
@@ -12932,7 +14476,7 @@ ${entry.reading}`;
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), 180);
       }, { passive: true });
       document.addEventListener("keydown", (event) => {
-        var _a;
+        var _a, _b, _c;
         this.pressedKeys.add(normalizePressedKey(event.key));
         if (isEditableTarget(event.target)) return;
         const escapeClose = this.settings.shortcuts.closePopup.trim().toLowerCase() === "escape" && event.key === "Escape";
@@ -12978,7 +14522,9 @@ ${entry.reading}`;
         const grade = this.shortcutGrade(event);
         if (this.lastCard && grade && ((_a = this.activePopover) == null ? void 0 : _a.classList.contains("jpdb-reader-popover"))) {
           event.preventDefault();
-          void this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast("Review sent.")).catch((error) => {
+          const ankiCardId = ((_c = (_b = this.lastAnkiLookup) == null ? void 0 : _b.primary) == null ? void 0 : _c.primaryCardId) ?? null;
+          const promise = ankiCardId ? this.anki.answerCard(ankiCardId, grade).then(() => this.toast("Anki review sent.")) : this.jpdb.reviewCard(this.lastCard, grade).then(() => this.toast("Review sent."));
+          void promise.catch((error) => {
             this.toast(error instanceof Error ? error.message : "Review failed.");
           });
         }
@@ -13018,17 +14564,24 @@ ${entry.reading}`;
       return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup, event, this.pressedKeys);
     }
     beginPressLookup(event) {
-      if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return;
-      if (event.pointerType === "mouse" && event.button !== 0) return;
       if (this.isInsideActivePopover(event.target)) return;
+      const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
+      if (!isMiddleScan) {
+        if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+      }
       const word = this.wordFromEventTarget(event.target);
-      if (!word) return;
+      if (!isMiddleScan && !word) return;
+      if (isMiddleScan) this.captureMiddleMouseLookup(event);
       this.pressLookup = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        active: false
+        active: isMiddleScan,
+        source: isMiddleScan ? "middle" : "primary",
+        captureTarget: isMiddleScan && event.target instanceof Element ? event.target : void 0
       };
+      if (isMiddleScan) this.updatePressLookup(event);
     }
     updatePressLookup(event) {
       const pressLookup = this.pressLookup;
@@ -13043,8 +14596,17 @@ ${entry.reading}`;
       }
       event.preventDefault();
       event.stopPropagation();
+      const targetAtPointer = document.elementFromPoint(event.clientX, event.clientY);
+      if (this.isInsideActivePopover(targetAtPointer)) {
+        this.cancelHoverClose();
+        return;
+      }
       const word = this.wordFromPoint(event.clientX, event.clientY);
-      if (!word || word === pressLookup.lastWord) return;
+      if (!word) {
+        if (pressLookup.source === "middle") this.scheduleHoverClose();
+        return;
+      }
+      if (word === pressLookup.lastWord) return;
       pressLookup.lastWord = word;
       this.cancelHoverClose();
       window.clearTimeout(this.hoverLookupTimer);
@@ -13060,7 +14622,54 @@ ${entry.reading}`;
         this.suppressWordClickUntil = Date.now() + 700;
         this.suppressSelectionLookupUntil = Date.now() + 350;
       }
+      if (pressLookup.source === "middle") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.finishMiddleMouseLookup(pressLookup);
+        if (this.activePopoverMode === "hover" && !this.isHoverContextActive()) this.scheduleHoverClose();
+      }
       this.pressLookup = void 0;
+    }
+    shouldCaptureMiddleMouseLookup(event) {
+      if (!this.settings.lookupOnMiddleMouse || event.button !== 1) return false;
+      if ("pointerType" in event && event.pointerType !== "mouse") return false;
+      if (this.isInsideActivePopover(event.target)) return false;
+      const target = event.target instanceof Element ? event.target : null;
+      return !this.isNativeMiddleClickTarget(target);
+    }
+    captureMiddleMouseLookup(event) {
+      var _a, _b;
+      event.preventDefault();
+      event.stopPropagation();
+      this.suppressMiddleAuxClickUntil = Date.now() + 1200;
+      this.suppressSelectionLookupUntil = Date.now() + 350;
+      document.documentElement.classList.add("jpdb-reader-middle-scan-active");
+      try {
+        if (event.target instanceof Element) (_b = (_a = event.target).setPointerCapture) == null ? void 0 : _b.call(_a, event.pointerId);
+      } catch {
+      }
+    }
+    finishMiddleMouseLookup(pressLookup) {
+      var _a, _b;
+      this.suppressMiddleAuxClickUntil = Date.now() + 700;
+      document.documentElement.classList.remove("jpdb-reader-middle-scan-active");
+      try {
+        (_b = (_a = pressLookup.captureTarget) == null ? void 0 : _a.releasePointerCapture) == null ? void 0 : _b.call(_a, pressLookup.pointerId);
+      } catch {
+      }
+    }
+    isNativeMiddleClickTarget(target) {
+      return Boolean(target == null ? void 0 : target.closest([
+        "a[href]",
+        "button",
+        "input",
+        "textarea",
+        "select",
+        "summary",
+        '[role="button"]',
+        '[contenteditable="true"]',
+        "[data-jpdb-reader-root]"
+      ].join(",")));
     }
     wordFromEventTarget(target) {
       var _a;
@@ -13077,14 +14686,15 @@ ${entry.reading}`;
       return null;
     }
     handleHoverPointer(event) {
-      var _a, _b;
+      var _a, _b, _c;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+      if (((_a = this.pressLookup) == null ? void 0 : _a.source) === "middle") return;
       if (event.pointerType === "touch") return;
       if (this.isInsideActivePopover(event.target)) {
         this.cancelHoverClose();
         return;
       }
-      const word = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-word");
+      const word = (_c = (_b = event.target).closest) == null ? void 0 : _c.call(_b, ".jpdb-reader-word");
       if (!word || word.closest("[data-jpdb-reader-root]")) return;
       if (this.activePopoverMode === "hover" && this.activeHoverWord === word) {
         this.cancelHoverClose();
@@ -13193,19 +14803,22 @@ ${entry.reading}`;
       await this.lookupText(selected, getSelectionSentence());
     }
     async lookupText(text2, sentence = text2) {
+      var _a;
       const selected = text2.replace(/\s+/g, " ").trim();
       if (!selected || !HAS_JAPANESE.test(selected)) return;
+      const anchor = ((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0;
+      const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
       try {
         const [tokens] = await this.jpdb.parse([sentence]);
         const selectedToken = pickTokenForSelection(tokens, selected);
         if (!selectedToken) {
-          this.showTokenList(tokens, selected);
+          this.showTokenList(tokens, selected, anchor, trigger);
           return;
         }
-        void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence);
+        void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, anchor, { trigger });
       } catch (error) {
         const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
-        if (localEntries.length) this.showLocalDictionaryPopup(selected, localEntries);
+        if (localEntries.length) this.showLocalDictionaryPopup(selected, localEntries, anchor, trigger);
         else this.toast(error instanceof Error ? error.message : "JPDB lookup failed.");
       }
     }
@@ -13218,6 +14831,8 @@ ${entry.reading}`;
         }
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
         targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+        this.preloadImmersionKitForTokens(parsed.flat());
+        void this.enrichAnkiWords(parsed.flat());
       } catch (error) {
         if (!options.silent) this.toast(error instanceof Error ? error.message : "JPDB scan failed.");
       }
@@ -13230,6 +14845,8 @@ ${entry.reading}`;
       try {
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
         targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+        this.preloadImmersionKitForTokens(parsed.flat());
+        void this.enrichAnkiWords(parsed.flat());
       } catch {
       }
     }
@@ -13241,9 +14858,15 @@ ${entry.reading}`;
         this.toast("That word is no longer in the local JPDB cache. Scan it again.");
         return;
       }
-      void this.showCard(card, word.dataset.sentence || void 0, word, { trigger: options.trigger === "hover" ? "hover" : "modal" });
+      const insideReaderPopup = Boolean(word.closest("[data-jpdb-reader-root]"));
+      if (insideReaderPopup && word.closest(".jpdb-reader-example-card")) {
+        this.rememberPageMiningContext(card, word.dataset.sentence || void 0, word);
+      }
+      const anchor = insideReaderPopup ? this.activePopoverAnchor ?? void 0 : word;
+      const trigger = insideReaderPopup && this.activePopoverMode === "hover" ? "hover" : options.trigger === "hover" ? "hover" : "modal";
+      void this.showCard(card, word.dataset.sentence || void 0, anchor, { trigger });
     }
-    showTokenList(tokens, selected) {
+    showTokenList(tokens, selected, anchor, trigger = "modal") {
       if (!tokens.length) return;
       const popover = this.createPopover();
       setInnerHtml(popover, `
@@ -13263,12 +14886,12 @@ ${entry.reading}`;
         const button2 = event.target.closest("button[data-vid]");
         if (!button2) return;
         const card = this.jpdb.getCard(Number(button2.dataset.vid), Number(button2.dataset.sid));
-        if (card) void this.showCard(card, (_a = tokens.find((t) => t.card === card)) == null ? void 0 : _a.sentence);
+        if (card) void this.showCard(card, (_a = tokens.find((t) => t.card === card)) == null ? void 0 : _a.sentence, anchor, { trigger });
       });
-      this.mountPopover(popover);
+      this.mountPopover(popover, anchor, { mode: trigger });
       void this.parsePopoverJapanese(popover);
     }
-    showLocalDictionaryPopup(term, entries) {
+    showLocalDictionaryPopup(term, entries, anchor, trigger = "modal") {
       const popover = this.createPopover();
       setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
@@ -13282,7 +14905,8 @@ ${entry.reading}`;
                 ${Array.from(groupTermEntriesByDictionary(entries)).map(([dictionary, dictionaryEntries]) => this.renderLocalDefinitionSource(dictionary, dictionaryEntries)).join("")}
             </div>
         `);
-      this.mountPopover(popover);
+      this.mountPopover(popover, anchor, { mode: trigger });
+      void this.parsePopoverJapanese(popover);
     }
     showQuickMenu(anchor) {
       const popover = this.createPopover();
@@ -13320,13 +14944,21 @@ ${entry.reading}`;
       this.mountPopover(popover, anchor);
     }
     async showCard(card, sentence, anchor, options = {}) {
+      var _a;
       const requestId = ++this.cardRenderRequest;
       this.lastCard = card;
       const state = card.cardState[0] ?? "not-in-deck";
       const popover = this.createPopover();
+      if (((_a = this.activeMiningContext) == null ? void 0 : _a.term) !== card.spelling || this.activeMiningContext.sentence !== (sentence || "").replace(/\s+/g, " ").trim()) {
+        this.rememberPageMiningContext(card, sentence, anchor);
+      }
       const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
       const kanjiEntries = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? await this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
       const metaEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(() => []) : [];
+      const ankiLookup = this.settings.ankiEnabled ? await this.anki.findExistingCards(card) : { state: "not-in-deck", notes: [], primary: null };
+      this.lastAnkiLookup = ankiLookup;
+      this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+      const storedContext = loadMiningContext(card.spelling);
       const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
       const cardPos = formatPartOfSpeech(card.partOfSpeech);
       const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
@@ -13351,18 +14983,19 @@ ${entry.reading}`;
             <div class="jpdb-reader-meta">
                 ${card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : ""}
                 <span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(state)}</span>
+                ${ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${ankiLookup.state}"></span>Anki ${escapeHtml$1(ankiLookup.state)}</span>` : ""}
             </div>
             ${this.renderTermMeta(metaEntries)}
+            ${this.renderAnkiExistingSection(ankiLookup, storedContext)}
             ${this.renderKanjiDefinitions(kanjiEntries)}
-            ${this.renderImmersionKitMount()}
             <div class="jpdb-reader-actions">
                 <div class="jpdb-reader-row" style="--cols: 3">
                     <button class="jpdb-reader-btn add" data-action="add">${uiText(language, "add")}</button>
                     <button class="jpdb-reader-btn nf" data-action="neverforget">${card.cardState.includes("never-forget") ? uiText(language, "forget") : uiText(language, "never")}</button>
                     <button class="jpdb-reader-btn blacklist" data-action="blacklist">${card.cardState.includes("blacklisted") ? uiText(language, "unlist") : uiText(language, "blacklist")}</button>
                 </div>
-                ${this.settings.ankiEnabled ? `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(language, "addToAnki")}</button></div>` : ""}
-                ${this.settings.enableReviews ? this.renderReviewButtons() : ""}
+                ${this.renderAnkiActionRow(ankiLookup)}
+                ${this.settings.enableReviews ? this.renderReviewButtons(ankiLookup.primary) : ""}
             </div>
         `);
       if (requestId !== this.cardRenderRequest) return;
@@ -13492,11 +15125,81 @@ ${entry.reading}`;
       const facts = buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
       const graph = this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo) : null;
       setInnerHtml(mount, renderKanjiOrigins(facts, graph, sourceInfo, this.settings, this.settings.interfaceLanguage));
+      mount.querySelectorAll("[data-radical-frame]").forEach((image) => {
+        image.addEventListener("error", () => image.remove(), { once: true });
+      });
+      this.installKanjiGraphDrag(mount);
+    }
+    installKanjiGraphDrag(root) {
+      const graph = root.querySelector(".jpdb-reader-origin-graph-wrap");
+      if (!graph) return;
+      const nodes = Array.from(graph.querySelectorAll("[data-graph-node]"));
+      const lines = Array.from(graph.querySelectorAll(".jpdb-reader-origin-graph-lines line[data-from][data-to]"));
+      const nodeById = (id) => nodes.find((node) => node.dataset.graphNode === id);
+      const updateLines = () => {
+        for (const line of lines) {
+          const from = line.dataset.from ? nodeById(line.dataset.from) : void 0;
+          const to = line.dataset.to ? nodeById(line.dataset.to) : void 0;
+          if (!from || !to) continue;
+          line.setAttribute("x1", from.dataset.x ?? "50");
+          line.setAttribute("y1", from.dataset.y ?? "50");
+          line.setAttribute("x2", to.dataset.x ?? "50");
+          line.setAttribute("y2", to.dataset.y ?? "50");
+        }
+      };
+      for (const node of nodes) {
+        let pointerId = -1;
+        let startX = 0;
+        let startY = 0;
+        let startLeft = Number(node.dataset.x ?? 50);
+        let startTop = Number(node.dataset.y ?? 50);
+        let moved = false;
+        node.addEventListener("pointerdown", (event) => {
+          var _a;
+          if (event.button !== 0) return;
+          pointerId = event.pointerId;
+          startX = event.clientX;
+          startY = event.clientY;
+          startLeft = Number(node.dataset.x ?? 50);
+          startTop = Number(node.dataset.y ?? 50);
+          moved = false;
+          (_a = node.setPointerCapture) == null ? void 0 : _a.call(node, event.pointerId);
+        });
+        node.addEventListener("pointermove", (event) => {
+          if (event.pointerId !== pointerId) return;
+          const rect = graph.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          const nextX = Math.max(6, Math.min(94, startLeft + (event.clientX - startX) / rect.width * 100));
+          const nextY = Math.max(10, Math.min(90, startTop + (event.clientY - startY) / rect.height * 100));
+          if (Math.abs(event.clientX - startX) > 3 || Math.abs(event.clientY - startY) > 3) moved = true;
+          node.dataset.x = String(nextX);
+          node.dataset.y = String(nextY);
+          node.style.left = `${nextX}%`;
+          node.style.top = `${nextY}%`;
+          updateLines();
+        });
+        const finish = (event) => {
+          var _a;
+          if (event.pointerId !== pointerId) return;
+          (_a = node.releasePointerCapture) == null ? void 0 : _a.call(node, pointerId);
+          pointerId = -1;
+          if (moved) node.dataset.dragged = "true";
+        };
+        node.addEventListener("pointerup", finish);
+        node.addEventListener("pointercancel", finish);
+        node.addEventListener("click", (event) => {
+          if (node.dataset.dragged !== "true") return;
+          delete node.dataset.dragged;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }, true);
+      }
     }
     renderDefinitionSources(card, entries) {
       const grouped = groupTermEntriesByDictionary(entries);
       const sections = this.orderedDefinitionSourceIds([...grouped.keys()]).map((sourceId) => {
         if (sourceId === JPDB_DEFINITION_SOURCE_ID) return this.renderJpdbDefinitionSource(card);
+        if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
         return this.renderLocalDefinitionSource(sourceId, grouped.get(sourceId) ?? []);
       }).filter(Boolean);
       return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${uiText(this.settings.interfaceLanguage, "noDefinitions")}</div>`;
@@ -13523,10 +15226,10 @@ ${entry.reading}`;
                 `);
           return;
         }
-        let index = 0;
+        let index = this.immersionStartIndex(card, examples);
         const render = async (nextIndex, playAudio) => {
           index = (nextIndex + examples.length) % examples.length;
-          await this.renderImmersionKitExample(container, examples, index, playAudio);
+          await this.renderImmersionKitExample(container, card, examples, index, playAudio);
         };
         container.addEventListener("click", (event) => {
           const button2 = event.target.closest("[data-immersion-action]");
@@ -13538,7 +15241,7 @@ ${entry.reading}`;
           if (action === "next") void render(index + 1, this.settings.immersionKitAutoPlayAudio);
           if (action === "audio") void this.playImmersionKitExample(examples[index]);
         });
-        await render(0, false);
+        await render(index, false);
       } catch {
         if (!popover.isConnected || !container.isConnected) return;
         setInnerHtml(container, `
@@ -13547,17 +15250,31 @@ ${entry.reading}`;
             `);
       }
     }
-    async renderImmersionKitExample(container, examples, index, playAudio) {
+    immersionStartIndex(card, examples) {
+      var _a;
+      const context = ((_a = this.activeMiningContext) == null ? void 0 : _a.term) === card.spelling ? this.activeMiningContext : this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+      if (!context || context.sourceKind !== "immersion-kit") return 0;
+      const sentenceIndex = examples.findIndex((example) => example.sentence === context.sentence);
+      if (sentenceIndex >= 0) return sentenceIndex;
+      const storedIndex = Number(context.immersionIndex);
+      return Number.isFinite(storedIndex) && storedIndex >= 0 && storedIndex < examples.length ? storedIndex : 0;
+    }
+    async renderImmersionKitExample(container, card, examples, index, playAudio) {
       const example = examples[index];
       const language = this.settings.interfaceLanguage;
       const [tokens] = await this.jpdb.parse([example.sentence]).catch(() => [[]]);
       const imageUrl = this.settings.immersionKitShowImages ? this.immersionKit.mediaUrl(example, "image") : "";
+      const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, examples.length, imageUrl));
+      if (storedContext) {
+        this.immersionContextByCardKey.set(cardKey(card), storedContext);
+        this.activeMiningContext = storedContext;
+      }
       const sentenceHtml = renderTokensToHtml(example.sentence, tokens ?? [], this.settings);
       const translation = this.settings.immersionKitShowTranslation && example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml$1(example.translation)}</div>` : "";
-      const image = imageUrl ? `<img class="jpdb-reader-example-image" src="${escapeHtml$1(imageUrl)}" alt="" loading="lazy">` : "";
+      const image = imageUrl ? `<img class="jpdb-reader-example-image" data-immersion-image src="${escapeHtml$1(imageUrl)}" alt="" loading="lazy">` : "";
       setInnerHtml(container, `
             <div class="jpdb-reader-local-title">${uiText(language, "immersionKit")}</div>
-            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-sentence="${escapeHtml$1(example.sentence)}">
+            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(imageUrl)}">
                 ${image}
                 <div class="jpdb-reader-example-body">
                     <div class="jpdb-reader-example-meta">
@@ -13574,22 +15291,26 @@ ${entry.reading}`;
                 </div>
             </div>
         `);
+      container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
+        imageElement.addEventListener("error", () => {
+          var _a;
+          imageElement.remove();
+          (_a = container.querySelector(".jpdb-reader-example-card")) == null ? void 0 : _a.classList.remove("has-image");
+        }, { once: true });
+      });
       void this.parsePopoverJapanese(container);
+      void this.enrichAnkiWords(tokens ?? []);
       if (playAudio) void this.playImmersionKitExample(example, true);
     }
     async playImmersionKitExample(example, quiet = false) {
-      var _a;
       const url = this.immersionKit.mediaUrl(example, "sound");
       if (!url) {
         if (!quiet) this.toast("No Immersion Kit audio for this example.");
         return;
       }
       try {
-        (_a = this.immersionKitAudio) == null ? void 0 : _a.pause();
-        if (this.immersionKitAudioBlobUrl) {
-          URL.revokeObjectURL(this.immersionKitAudioBlobUrl);
-          this.immersionKitAudioBlobUrl = void 0;
-        }
+        this.stopImmersionKitAudio();
+        this.audio.stop();
         const src = this.settings.audioViaBlob ? await this.immersionKit.fetchBlobUrl(url, this.settings.audioTimeoutMs) : url;
         if (this.settings.audioViaBlob) this.immersionKitAudioBlobUrl = src;
         const audio = new Audio(src);
@@ -13601,6 +15322,15 @@ ${entry.reading}`;
         if (!quiet) this.toast(error instanceof Error ? error.message : "Immersion Kit audio failed.");
       }
     }
+    stopImmersionKitAudio() {
+      var _a;
+      (_a = this.immersionKitAudio) == null ? void 0 : _a.pause();
+      this.immersionKitAudio = void 0;
+      if (this.immersionKitAudioBlobUrl) {
+        URL.revokeObjectURL(this.immersionKitAudioBlobUrl);
+        this.immersionKitAudioBlobUrl = void 0;
+      }
+    }
     async parsePopoverJapanese(popover) {
       if (!this.settings.apiKey.trim()) return;
       const targets = Array.from(popover.querySelectorAll(".jpdb-reader-parseable")).flatMap((root) => collectTextTargetsIn(root, 24, false, { includeReaderRoot: true })).slice(0, 24);
@@ -13609,7 +15339,36 @@ ${entry.reading}`;
         const parsed = await this.jpdb.parse(targets.map((target) => target.text));
         if (!popover.isConnected) return;
         targets.forEach((target, index) => applyTokensToTextNode(target, parsed[index] ?? [], this.settings));
+        const tokens = parsed.flat();
+        this.preloadImmersionKitForTokens(tokens);
+        void this.enrichAnkiWords(tokens);
       } catch {
+      }
+    }
+    async enrichAnkiWords(tokens) {
+      if (!this.settings.ankiEnabled) return;
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueTokens = tokens.filter((token) => {
+        const key = cardKey(token.card);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 16);
+      for (const token of uniqueTokens) {
+        const lookup = await this.anki.findExistingCards(token.card);
+        this.applyAnkiLookupToRenderedWords(token.card, lookup);
+      }
+    }
+    preloadImmersionKitForTokens(tokens) {
+      if (!this.settings.immersionKitEnabled) return;
+      let queued = 0;
+      for (const token of tokens) {
+        const term = token.card.spelling.trim();
+        if (!term || this.immersionPreloadTerms.has(term)) continue;
+        this.immersionPreloadTerms.add(term);
+        this.immersionKit.preload(term, this.settings);
+        queued++;
+        if (queued >= 6) break;
       }
     }
     orderedDefinitionSourceIds(dictionaryNames) {
@@ -13620,6 +15379,12 @@ ${entry.reading}`;
           enabled: this.settings.jpdbDefinitionsEnabled,
           priority: this.settings.jpdbDefinitionsPriority,
           name: "JPDB"
+        },
+        {
+          id: IMMERSION_KIT_SOURCE_ID,
+          enabled: this.settings.immersionKitEnabled,
+          priority: this.settings.immersionKitPriority,
+          name: "Immersion Kit"
         },
         ...dictionaryNames.map((name, index) => {
           const preference = preferences.get(name);
@@ -13726,29 +15491,100 @@ ${entry.reading}`;
       var _a;
       return ((_a = this.settings.dictionaryPreferences.find((item) => item.name === name)) == null ? void 0 : _a.alias) || name;
     }
-    renderReviewButtons() {
+    rememberPageMiningContext(card, sentence, anchor) {
+      var _a, _b;
+      const cleanSentence = (sentence || "").replace(/\s+/g, " ").trim();
+      if (!cleanSentence || cleanSentence === card.spelling) return;
+      const immersionCard = (_a = anchor == null ? void 0 : anchor.closest) == null ? void 0 : _a.call(anchor, ".jpdb-reader-example-card");
+      if (immersionCard) {
+        const stored2 = saveMiningContext(card.spelling, {
+          sentence: cleanSentence,
+          sourceKind: "immersion-kit",
+          sourceTitle: immersionCard.dataset.immersionSourceTitle || "Immersion Kit",
+          sourceUrl: location.href,
+          imageUrl: immersionCard.dataset.immersionImageUrl || void 0,
+          immersionIndex: Number(immersionCard.dataset.immersionIndex ?? 0),
+          immersionTotal: Number(immersionCard.dataset.immersionTotal ?? 0)
+        });
+        if (stored2) this.activeMiningContext = stored2;
+        return;
+      }
+      const sourceKind = ((_b = anchor == null ? void 0 : anchor.closest) == null ? void 0 : _b.call(anchor, ".jpdb-ocr-line")) ? "image" : document.querySelector("video") ? "video" : location.hostname === "jpdb.io" ? "jpdb" : "page";
+      const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
+      if (stored) this.activeMiningContext = stored;
+    }
+    applyAnkiLookupToRenderedWords(card, ankiLookup) {
+      if (!ankiLookup.primary) return;
+      const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+      document.querySelectorAll(selector).forEach((word) => {
+        var _a;
+        word.classList.add(`anki-${ankiLookup.state}`);
+        word.dataset.ankiState = ankiLookup.state;
+        word.dataset.ankiDecks = ((_a = ankiLookup.primary) == null ? void 0 : _a.deckNames.join(", ")) ?? "";
+        word.title = `Anki: ${ankiLookup.state}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
+      });
+    }
+    renderAnkiActionRow(ankiLookup) {
+      if (!this.settings.ankiEnabled) return "";
+      if (ankiLookup.primary) {
+        return `
+                <div class="jpdb-reader-row" style="--cols: 1">
+                    <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${ankiLookup.primary.noteId}">Edit in Anki</button>
+                </div>
+            `;
+      }
+      return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(this.settings.interfaceLanguage, "addToAnki")}</button></div>`;
+    }
+    renderAnkiExistingSection(ankiLookup, storedContext) {
+      const note = ankiLookup.primary;
+      if (!note) return "";
+      const decks = note.deckNames.length ? note.deckNames.join(", ") : "Anki";
+      const sentence = note.fields.Sentence || note.fields.Example || note.fields.SentenceExpression || "";
+      const meaning = note.fields.Meaning || note.fields.Definition || note.fields.Glossary || "";
+      const source = note.fields.Source || note.fields.Url || "";
+      const lastContext = storedContext ? `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml$1(contextLabel(storedContext))}</span><small>${escapeHtml$1(storedContext.sentence)}</small></div>` : "";
+      return `
+            <details class="jpdb-reader-anki-existing">
+                <summary>
+                    <span><span class="jpdb-reader-state-dot jpdb-${note.state}"></span>Already in Anki</span>
+                    <small>${escapeHtml$1(decks)} · ${escapeHtml$1(note.modelName)}</small>
+                </summary>
+                <div class="jpdb-reader-anki-card-preview">
+                    ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml$1(sentence)}</span></div>` : ""}
+                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml$1(meaning).slice(0, 420)}</span></div>` : ""}
+                    ${source ? `<div><strong>Source</strong><span>${escapeHtml$1(source)}</span></div>` : ""}
+                    ${lastContext}
+                </div>
+            </details>
+        `;
+    }
+    renderReviewButtons(ankiNote = null) {
+      const ankiAttrs = (ankiNote == null ? void 0 : ankiNote.primaryCardId) ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
       if (this.settings.twoButtonReviews) {
         return `
                 <div class="jpdb-reader-row" style="--cols: 2">
-                    <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail">FAIL</button>
-                    <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass">PASS</button>
+                    <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail"${ankiAttrs}>FAIL</button>
+                    <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass"${ankiAttrs}>PASS</button>
                 </div>
             `;
       }
       return `
             <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 5">
-                <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing">NOTHING</button>
-                <button class="jpdb-reader-btn something" data-action="grade" data-grade="something">SOMETHING</button>
-                <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard">HARD</button>
-                <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay">OKAY</button>
-                <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy">EASY</button>
+                <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing"${ankiAttrs}>NOTHING</button>
+                <button class="jpdb-reader-btn something" data-action="grade" data-grade="something"${ankiAttrs}>SOMETHING</button>
+                <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard"${ankiAttrs}>HARD</button>
+                <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay"${ankiAttrs}>OKAY</button>
+                <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy"${ankiAttrs}>EASY</button>
             </div>
         `;
     }
     async handleCardAction(button2, card, sentence) {
+      var _a;
       if (button2.disabled) return;
       button2.disabled = true;
       const action = button2.dataset.action;
+      const anchor = ((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0;
+      const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
       try {
         if (action === "audio") await this.playAudio(card);
         if (action === "add") {
@@ -13758,13 +15594,26 @@ ${entry.reading}`;
           this.toast(`${uiText(this.settings.interfaceLanguage, "add")} JPDB.`);
         }
         if (action === "anki") await this.addToAnki(card, sentence);
+        if (action === "anki-edit") {
+          const noteId = Number(button2.dataset.noteId);
+          if (!Number.isFinite(noteId)) throw new Error("Anki note not found.");
+          await this.anki.browseNote(noteId);
+          this.toast("Opened in Anki.");
+        }
         if (action === "neverforget") await this.toggleDeck(card, "never-forget", this.settings.neverForgetDeck);
         if (action === "blacklist") await this.toggleDeck(card, "blacklisted", this.settings.blacklistDeck);
         if (action === "grade") {
-          await this.jpdb.reviewCard(card, button2.dataset.grade);
-          this.toast(this.settings.interfaceLanguage === "ja" ? "復習を送信しました。" : "Review sent.");
+          const grade = button2.dataset.grade;
+          const ankiCardId = Number(button2.dataset.ankiCardId);
+          if (Number.isFinite(ankiCardId) && ankiCardId > 0) {
+            await this.anki.answerCard(ankiCardId, grade);
+            this.toast("Anki review sent.");
+          } else {
+            await this.jpdb.reviewCard(card, grade);
+            this.toast(this.settings.interfaceLanguage === "ja" ? "復習を送信しました。" : "Review sent.");
+          }
         }
-        if (action !== "audio") await this.showCard(card, sentence, void 0, { autoPlay: false });
+        if (action !== "audio") await this.showCard(card, sentence, anchor, { autoPlay: false, trigger });
       } catch (error) {
         this.toast(error instanceof Error ? error.message : "Action failed.");
       } finally {
@@ -13772,22 +15621,51 @@ ${entry.reading}`;
       }
     }
     async addToAnki(card, sentence) {
+      const existing = await this.anki.findExistingCards(card);
+      if (existing.primary) {
+        this.toast("Already in Anki. Use Edit in Anki instead.");
+        await this.showCard(card, sentence, this.activePopoverAnchor, { autoPlay: false, trigger: this.activePopoverMode === "hover" ? "hover" : "modal" });
+        return;
+      }
       const [localEntries, kanjiEntries, metaEntries] = await Promise.all([
         this.settings.localDictionariesEnabled ? this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]),
         this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]),
         this.settings.localDictionariesEnabled ? this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([])
       ]);
-      const imageDataUrl = this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : void 0;
-      await this.anki.addCard(card, sentence, {
-        imageDataUrl,
+      const context = await this.resolveMiningContext(card, sentence);
+      await this.anki.addCard(card, context.sentence || sentence, {
+        imageDataUrl: context.imageDataUrl,
         localEntries,
         kanjiEntries,
         metaEntries,
         dictionaryPreferences: this.settings.dictionaryPreferences,
-        sourceTitle: document.title,
-        sourceUrl: location.href
+        sourceTitle: context.sourceTitle || document.title,
+        sourceUrl: context.sourceUrl || location.href
       });
-      this.toast(imageDataUrl ? "Added to Anki with image." : "Added to Anki.");
+      this.toast(context.imageDataUrl ? "Added to Anki with context image." : "Added to Anki.");
+    }
+    async resolveMiningContext(card, sentence) {
+      var _a;
+      const activeContext = ((_a = this.activeMiningContext) == null ? void 0 : _a.term) === card.spelling ? this.activeMiningContext : void 0;
+      const storedImmersionContext = this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+      const anchor = this.activePopoverAnchor;
+      const ocrImage = this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : void 0;
+      if (ocrImage && sentence) {
+        const context = saveMiningContext(card.spelling, pageMiningContext(sentence, "image"));
+        return { ...context ?? pageMiningContext(sentence, "image"), term: card.spelling, updatedAt: Date.now(), imageDataUrl: ocrImage };
+      }
+      const videoImage = this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : void 0;
+      if (videoImage && sentence) {
+        const context = saveMiningContext(card.spelling, pageMiningContext(sentence, "video"));
+        return { ...context ?? pageMiningContext(sentence, "video"), term: card.spelling, updatedAt: Date.now(), imageDataUrl: videoImage };
+      }
+      const chosen = activeContext ?? storedImmersionContext;
+      if (shouldUseImmersionContext(this.settings, chosen ?? null) && chosen) {
+        const imageDataUrl = chosen.imageUrl && this.settings.immersionKitShowImages ? await this.immersionKit.fetchDataUrl(chosen.imageUrl, this.settings.audioTimeoutMs).catch(() => void 0) : void 0;
+        return { ...chosen, imageDataUrl };
+      }
+      const fallback = saveMiningContext(card.spelling, pageMiningContext(sentence || card.spelling, location.hostname === "jpdb.io" ? "jpdb" : "page")) ?? { ...pageMiningContext(sentence || card.spelling, "page"), term: card.spelling, updatedAt: Date.now() };
+      return fallback;
     }
     async toggleDeck(card, state, deck) {
       if (card.cardState.includes(state)) {
@@ -13800,6 +15678,7 @@ ${entry.reading}`;
     }
     async playAudio(card) {
       try {
+        this.stopImmersionKitAudio();
         await this.audio.play(card);
       } catch (error) {
         this.toast(error instanceof Error ? error.message : "Audio playback failed.");
@@ -13828,6 +15707,7 @@ ${entry.reading}`;
           this.subtitles.refresh();
           this.ocr.refresh();
           this.youtube.refresh();
+          this.jpdbExtensions.refresh();
           this.scheduleAutoScan(100);
           this.settingsPreviewOriginalAccent = void 0;
           this.settingsPreviewOriginalLanguage = void 0;
@@ -13999,6 +15879,7 @@ ${entry.reading}`;
           this.installFab();
           this.subtitles.refresh();
           this.youtube.refresh();
+          this.jpdbExtensions.refresh();
           this.settingsPreviewOriginalAccent = void 0;
           this.showSettings();
           return;
@@ -14038,15 +15919,30 @@ ${entry.reading}`;
         }
         if (action === "test-anki") {
           const ankiStatus = form.querySelector("[data-anki-status]");
+          const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+          const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
+          const setAnkiStatus = (message, tone) => {
+            if (!ankiStatus) return;
+            ankiStatus.textContent = message;
+            ankiStatus.dataset.statusTone = tone;
+          };
           const previous = this.settings;
           this.settings = readFormSettings(new FormData(form), this.settings);
+          button2 == null ? void 0 : button2.setAttribute("disabled", "true");
+          setAnkiStatus(uiText(language, "ankiTesting"), "pending");
           try {
             const connected = await this.anki.isConnected();
-            if (!connected) throw new Error("AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.");
+            if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
             await this.anki.ensureDeckAndModel();
-            if (ankiStatus) ankiStatus.textContent = `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+            const readyMessage = resolveUiLanguage(language) === "ja" ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。` : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+            setAnkiStatus(readyMessage, "success");
+          } catch (error) {
+            const message = error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
+            setAnkiStatus(message, "error");
+            this.toast(message);
           } finally {
             this.settings = previous;
+            button2 == null ? void 0 : button2.removeAttribute("disabled");
           }
           return;
         }
@@ -14076,9 +15972,11 @@ ${entry.reading}`;
       return popover;
     }
     mountPopover(popover, anchor, options = {}) {
+      var _a;
       const mode = options.mode ?? "modal";
       const useBackdrop = mode !== "hover";
       const backdrop = useBackdrop ? this.createBackdrop() : void 0;
+      const resolvedAnchor = (anchor == null ? void 0 : anchor.isConnected) ? anchor : ((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0;
       this.dismiss({ suppressHoverTarget: false });
       popover.setAttribute("aria-modal", String(useBackdrop));
       if (backdrop) document.body.append(backdrop, popover);
@@ -14086,10 +15984,10 @@ ${entry.reading}`;
       this.activeBackdrop = backdrop;
       this.activePopover = popover;
       this.activePopoverMode = mode;
-      this.activePopoverAnchor = anchor;
-      this.activeHoverWord = mode === "hover" ? anchor : void 0;
+      this.activePopoverAnchor = resolvedAnchor;
+      this.activeHoverWord = mode === "hover" ? resolvedAnchor : void 0;
       if (!popover.classList.contains("jpdb-reader-sheet")) {
-        positionPopover(popover, anchor);
+        positionPopover(popover, resolvedAnchor);
       } else {
         this.installSheetHandle(popover);
       }

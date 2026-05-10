@@ -5,6 +5,7 @@ import { buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
 import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, ShuffledAudioDeck } from '../../src/reader/audio';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
+import { parseUchisenImages } from '../../src/reader/jpdb-extensions';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
@@ -12,7 +13,7 @@ import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr'
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { DEFAULT_SETTINGS, applyUrlBootstrapSettings, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
-import { SITE_PARSER_PROFILES, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
+import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport } from '../../src/reader/yomitan';
@@ -254,6 +255,26 @@ describe('reader helpers', () => {
         });
     });
 
+    it('parses and de-duplicates Uchisen mnemonic images', () => {
+        const images = parseUchisenImages(`
+            <div class="kanji_image_loader" data-large="/kanji/1/main.png"></div>
+            <div id="mnemonic_story">Main story</div>
+            <div class="mnemonic_card">
+                <input class="image_url" value="https://ik.imagekit.io/uchisen//kanji/1/main.png?tr=w-300">
+                <input class="story" value="Duplicate story">
+            </div>
+            <div class="mnemonic_card">
+                <input class="image_url" value="generated_sample.jpg">
+                <input class="story" value="A &lt;b&gt;second&lt;/b&gt; story">
+            </div>
+        `);
+
+        expect(images).toEqual([
+            { url: 'https://ik.imagekit.io/uchisen/kanji/1/main.png', story: 'Main story' },
+            { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg', story: 'A second story' },
+        ]);
+    });
+
     it('sanitizes stroke-order SVGs before embedding them', () => {
         const info = parseKanjiVGSvg(`
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
@@ -366,7 +387,7 @@ describe('reader helpers', () => {
         expect(graph.nodes.map(node => node.id)).toEqual(expect.arrayContaining(['読', '言', '売']));
         expect(graph.edges).toEqual(expect.arrayContaining([
             { from: '言', to: '読', label: 'radical' },
-            { from: '売', to: '読', label: 'Kanji Map part' },
+            { from: '売', to: '読', label: 'structural part' },
             { from: '言', to: '読', label: 'JPDB component' },
             { from: '売', to: '読', label: 'RTK element' },
         ]));
@@ -562,6 +583,32 @@ describe('reader helpers', () => {
         expect(document.querySelector('rt')?.textContent).toBe('とうきょう');
         expect(document.querySelectorAll('.jpdb-reader-word.jpdb-known')).toHaveLength(1);
         expect(document.querySelector('.jpdb-reader-word')?.textContent).toBe('東京');
+    });
+
+    it('does not fall back to generic scanning on NHK controls', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main>
+                <a class="listen-news" href="#audio">ニュースを聞く</a>
+                <button>漢字の読み方を消す</button>
+            </main>
+            <p>今日は本を読みます。</p>
+        `;
+
+        const targets = collectScanTargets(10, 'https://news.web.nhk/news/easy/ne2026050812537/ne2026050812537.html');
+        rectSpy.mockRestore();
+
+        expect(targets).toEqual([]);
     });
 
     it('ports the supported site parser list from anki-jpdb.reader, including the newer NHK host', () => {

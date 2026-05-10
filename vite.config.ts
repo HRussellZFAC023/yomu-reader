@@ -1,10 +1,16 @@
 /// <reference types="vitest" />
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 
 const repoUrl = 'https://github.com/HRussellZFAC023/kotoba-reader';
 const rawUserscriptUrl = 'https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js';
+const userscriptIconSvg = readFileSync(new URL('./src/reader/assets/yomu-icon.svg', import.meta.url), 'utf8')
+    .replace(/>\s+</g, '><')
+    .replace(/\s+\/>/g, '/>')
+    .trim();
+const userscriptIcon = `data:image/svg+xml,${encodeURIComponent(userscriptIconSvg)}`;
 
 export default defineConfig({
     plugins: [
@@ -64,7 +70,8 @@ export default defineConfig({
                 ],
                 'run-at': 'document-idle',
                 license: 'MIT',
-                icon: 'https://images2.imgbox.com/c8/21/h1DhlGPW_o.png',
+                icon: userscriptIcon,
+                icon64: userscriptIcon,
                 homepageURL: repoUrl,
                 supportURL: `${repoUrl}/issues`,
                 downloadURL: rawUserscriptUrl,

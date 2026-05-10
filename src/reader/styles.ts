@@ -47,6 +47,15 @@ export const READER_CSS = `
   --jpdb-reader-hover: rgba(20,30,45,.07);
 }
 
+.jpdb-reader-middle-scan-active {
+  overscroll-behavior: none;
+  cursor: crosshair;
+}
+
+.jpdb-reader-middle-scan-active * {
+  cursor: crosshair !important;
+}
+
 [data-jpdb-reader-root],
 [data-jpdb-reader-root] * {
   box-sizing: border-box;
@@ -90,6 +99,12 @@ export const READER_CSS = `
 .jpdb-reader-word.jpdb-suspended { opacity: .58; text-decoration-color: #999; }
 .jpdb-reader-word.jpdb-redundant { text-decoration-color: #70c000; }
 .jpdb-reader-word.jpdb-not-in-deck { text-decoration-color: rgba(127,137,152,.55); }
+.jpdb-reader-word.anki-new { background: rgba(75,141,255,.18); text-decoration-color: #4b8dff; }
+.jpdb-reader-word.anki-learning { background: rgba(94,167,128,.17); text-decoration-color: #5ea780; }
+.jpdb-reader-word.anki-known { text-decoration-color: #70c000; }
+.jpdb-reader-word.anki-due { background: rgba(255,165,0,.18); text-decoration-color: #ffa500; }
+.jpdb-reader-word.anki-failed { background: rgba(255,69,0,.18); text-decoration-color: #ff4500; }
+.jpdb-reader-word.anki-suspended { opacity: .58; text-decoration-color: #999; }
 .jpdb-reader-furi { font-size: .55em; color: var(--jpdb-reader-muted); line-height: 1; user-select: none; }
 .jpdb-reader-word ruby {
   position: relative;
@@ -496,6 +511,7 @@ export const READER_CSS = `
 .jpdb-reader-jpdb-pill {
   display: inline-flex;
   align-items: center;
+  align-self: center;
   gap: 4px;
   min-height: 22px;
   padding: 1px 7px;
@@ -505,8 +521,9 @@ export const READER_CSS = `
   background: var(--jpdb-reader-accent-soft);
   font-size: 10px;
   font-weight: 850;
-  line-height: 1.2;
+  line-height: 1;
   text-decoration: none;
+  transform: translateY(1px);
 }
 .jpdb-reader-jpdb-pill:hover,
 .jpdb-reader-jpdb-pill:focus-visible {
@@ -532,6 +549,28 @@ export const READER_CSS = `
 
 .jpdb-reader-reading { margin-top: 2px; font-size: 15px; }
 .jpdb-reader-pos { margin-top: 7px; font-size: 12px; line-height: 1.35; }
+.jpdb-reader-status-line { min-height: 22px; }
+.jpdb-reader-status-line[data-status-tone] {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-status-line[data-status-tone="pending"] {
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-status-line[data-status-tone="success"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 11%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-status-line[data-status-tone="error"] {
+  border-color: color-mix(in srgb, #e55353 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, #e55353 11%, var(--jpdb-reader-surface-2));
+  color: #ff8c8c;
+}
 .jpdb-reader-meanings { margin: 9px 0; display: grid; gap: 5px; }
 .jpdb-reader-meaning { color: var(--jpdb-reader-text); line-height: 1.35; }
 .jpdb-reader-meaning-pos { color: var(--jpdb-reader-faint); font-size: 11px; margin-right: 5px; font-style: italic; text-transform: none; }
@@ -544,6 +583,7 @@ export const READER_CSS = `
 .jpdb-reader-state-dot.jpdb-due { background: #ffa500; }
 .jpdb-reader-state-dot.jpdb-failed { background: #ff4500; }
 .jpdb-reader-state-dot.jpdb-blacklisted { background: #555; }
+.jpdb-reader-state-dot.jpdb-suspended { background: #999; }
 
 .jpdb-reader-local {
   border-top: 1px solid var(--jpdb-reader-border);
@@ -614,8 +654,236 @@ export const READER_CSS = `
   border: 1px solid var(--jpdb-reader-border);
   padding: 4px 6px;
 }
+.jpdb-reader-anki-existing {
+  margin-top: 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  overflow: hidden;
+}
+.jpdb-reader-anki-existing summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  cursor: pointer;
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 800;
+  list-style: none;
+}
+.jpdb-reader-anki-existing summary::-webkit-details-marker { display: none; }
+.jpdb-reader-anki-existing summary small {
+  color: var(--jpdb-reader-muted);
+  font-weight: 600;
+  text-align: right;
+}
+.jpdb-reader-anki-card-preview {
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding: 9px 10px 10px;
+  display: grid;
+  gap: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.jpdb-reader-anki-card-preview div {
+  display: grid;
+  gap: 2px;
+}
+.jpdb-reader-anki-card-preview strong {
+  color: var(--jpdb-reader-text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.jpdb-reader-anki-card-preview span,
+.jpdb-reader-anki-card-preview small {
+  white-space: pre-wrap;
+}
 .jpdb-reader-immersion {
   gap: 8px;
+}
+.yomu-jpdb-addon-card {
+  display: grid;
+  gap: 9px;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.22));
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface, color-mix(in srgb, Canvas 94%, CanvasText 6%));
+  color: var(--jpdb-reader-text, inherit);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.42;
+}
+.yomu-jpdb-addon-card,
+.yomu-jpdb-addon-card * {
+  box-sizing: border-box;
+}
+.yomu-jpdb-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.yomu-jpdb-card-title a {
+  color: var(--jpdb-reader-accent);
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  text-transform: none;
+}
+.yomu-jpdb-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.yomu-jpdb-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.yomu-jpdb-image-shell {
+  display: grid;
+  place-items: center;
+}
+.yomu-jpdb-image-shell img {
+  display: block;
+  width: min(320px, 100%);
+  max-height: 340px;
+  object-fit: contain;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-bg);
+}
+.yomu-jpdb-story {
+  max-width: 58ch;
+  margin: 0 auto;
+  color: var(--jpdb-reader-text);
+  white-space: pre-wrap;
+}
+.yomu-jpdb-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 7px;
+}
+.yomu-jpdb-facts span {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+}
+.yomu-jpdb-facts strong,
+.yomu-jpdb-addon-card h6 {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.yomu-jpdb-addon-card h6,
+.yomu-jpdb-addon-card p {
+  margin: 0;
+}
+.yomu-jpdb-addon-card section {
+  display: grid;
+  gap: 5px;
+}
+.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry {
+  background: var(--jpdb-reader-surface-2);
+}
+.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),
+.yomu-jpdb-review-compact-nav .menu-icon {
+  display: none !important;
+}
+.yomu-jpdb-review-compact-nav .menu {
+  max-height: 32px !important;
+  transition: none !important;
+}
+#yomu-jpdb-doodle-root {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  margin: 12px auto;
+  color: var(--jpdb-reader-text);
+}
+.yomu-doodle-stage {
+  position: relative;
+  width: min(92vw, 420px);
+  aspect-ratio: 1;
+  touch-action: none;
+}
+.yomu-doodle-canvas,
+.yomu-doodle-ghost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.yomu-doodle-canvas {
+  z-index: 1;
+  border: 3px solid var(--jpdb-reader-text);
+  border-radius: 8px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.yomu-doodle-ghost {
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--jpdb-reader-accent);
+  font-size: min(72vw, 320px);
+  line-height: 1;
+  opacity: .26;
+  pointer-events: none;
+}
+.yomu-doodle-ghost svg {
+  width: 100%;
+  height: 100%;
+}
+.yomu-doodle-ghost path,
+.yomu-doodle-ghost line,
+.yomu-doodle-ghost polyline {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+#yomu-jpdb-doodle-preview {
+  display: grid;
+  place-items: center;
+  margin-left: 12px;
+}
+#yomu-jpdb-doodle-preview img {
+  width: min(200px, 34vw);
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+}
+.jpdb-reader-settings-subsection {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-example-card {
   display: grid;
@@ -740,20 +1008,24 @@ export const READER_CSS = `
 .jpdb-reader-kanji-keyword {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  min-height: 24px;
-  padding: 2px 8px;
+  min-height: 26px;
+  padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 13%, transparent);
   color: var(--jpdb-reader-text);
   font-size: 12px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 .jpdb-reader-kanji-keyword small {
   color: var(--jpdb-reader-muted);
   font-size: 9px;
   font-weight: 900;
+  line-height: 1;
   text-transform: uppercase;
 }
 .jpdb-reader-kanji-facts {
@@ -853,7 +1125,7 @@ export const READER_CSS = `
 }
 .jpdb-reader-radical-card {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -872,11 +1144,17 @@ export const READER_CSS = `
   line-height: 1;
 }
 .jpdb-reader-radical-card img {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   border-radius: 6px;
   background: color-mix(in srgb, var(--jpdb-reader-text) 92%, white);
+}
+.jpdb-reader-radical-frames {
+  display: flex !important;
+  flex-flow: row wrap;
+  gap: 5px !important;
+  margin-top: 5px;
 }
 .jpdb-reader-radical-card div {
   display: grid;
@@ -967,7 +1245,7 @@ export const READER_CSS = `
 }
 .jpdb-reader-origin-graph-wrap {
   position: relative;
-  min-height: 150px;
+  min-height: 180px;
   margin-top: 8px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
@@ -983,7 +1261,10 @@ export const READER_CSS = `
 }
 .jpdb-reader-origin-graph-lines line {
   stroke: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
-  stroke-width: .8;
+  stroke-width: 1;
+}
+.jpdb-reader-origin-graph-lines path {
+  fill: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
 }
 .jpdb-reader-origin-graph-node {
   position: absolute;
@@ -999,6 +1280,8 @@ export const READER_CSS = `
   color: var(--jpdb-reader-text);
   font: 850 19px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
 }
 .jpdb-reader-origin-graph-node.current {
   border-color: var(--jpdb-reader-accent);
@@ -1223,11 +1506,17 @@ export const READER_CSS = `
 }
 
 .jpdb-reader-actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 4;
   border-top: 1px solid var(--jpdb-reader-border);
-  margin-top: 12px;
-  padding-top: 12px;
+  margin: 12px -14px -14px;
+  padding: 12px 14px 14px;
   display: grid;
   gap: 8px;
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--jpdb-reader-bg) 0%, transparent), var(--jpdb-reader-bg) 16px),
+    var(--jpdb-reader-bg);
 }
 
 .jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
