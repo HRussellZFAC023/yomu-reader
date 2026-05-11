@@ -1,9 +1,10 @@
 import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
-import { buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
+import { AnkiConnectClient, buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
 import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, ShuffledAudioDeck } from '../../src/reader/audio';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
+import { ImmersionKitClient } from '../../src/reader/immersion-kit';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { parseUchisenImages } from '../../src/reader/jpdb-extensions';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
@@ -11,12 +12,14 @@ import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktion
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
+import { renderKanjiOrigins } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { DEFAULT_SETTINGS, applyUrlBootstrapSettings, matchesShortcut, normalizeAudioSources, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
+import { detectGrammarHints } from '../../src/reader/study-tools';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
-import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport } from '../../src/reader/yomitan';
+import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
 const card: JPDBCard = {
@@ -75,6 +78,34 @@ describe('reader helpers', () => {
             { audioSources: [{ url: 'http://localhost:8080/audio/nhk\\media\\x.mp3' }] },
             'http://tailnet-audio.example:8080/?term=青空&reading=あおぞら',
         )).toBe('http://tailnet-audio.example:8080/audio/nhk/media/x.mp3');
+    });
+
+    it('uses userscript GM object requests for Immersion Kit search', async () => {
+        const client = new ImmersionKitClient();
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: () => Promise.resolve({
+                status: 200,
+                responseText: JSON.stringify({
+                    examples: [{
+                        id: 'anime_steins_gate_000002366',
+                        sentence: 'メールを読みました',
+                        translation: 'I read your message.',
+                        image: 'A_SteinsGateS01_E07_1_0.19.51.112.jpg',
+                        sound: 'A_SteinsGateS01_E07_1_0.19.50.215-0.19.52.008.mp3',
+                        title: 'steins_gate',
+                    }],
+                }),
+            }),
+        });
+
+        try {
+            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
+
+            expect(examples[0]).toMatchObject({ sourceTitle: 'Steins Gate', imageFile: 'A_SteinsGateS01_E07_1_0.19.51.112.jpg' });
+            expect(client.mediaUrl(examples[0], 'image')).toContain('media%2Fanime%2FSteins+Gate%2Fmedia%2FA_SteinsGateS01_E07_1_0.19.51.112.jpg');
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('does not treat normal-sized JapanesePod101 audio as unavailable', async () => {
@@ -167,11 +198,45 @@ describe('reader helpers', () => {
         expect(imported.settings.dictionaryPreferences?.[0]).toMatchObject({ name: 'Jitendex', enabled: true, priority: 0 });
     });
 
+    it('detects grammar hints with stable guide links', () => {
+        const hints = detectGrammarHints('この日本語の本を読みきりたいので、毎日読んでいる。');
+        expect(hints.map(hint => hint.name)).toEqual(expect.arrayContaining(['ている', 'たい', 'ので']));
+        expect(hints.find(hint => hint.name === 'ている')?.url).toBe('https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/');
+        expect(hints.find(hint => hint.name === 'たい')?.confidence).toBe('high');
+    });
+
     it('flattens Yomitan structured glossary content for the compact popup', () => {
         expect(glossaryToText({ type: 'structured-content', content: ['to read ', { tag: 'ruby', content: ['読', { tag: 'rt', content: 'よ' }] }] }))
             .toContain('to read');
-        expect(glossaryToHtml({ tag: 'ul', content: [{ tag: 'li', content: 'definition' }] }))
-            .toContain('<ul>');
+        const html = glossaryToHtml({
+            type: 'structured-content',
+            content: {
+                tag: 'ul',
+                data: { content: 'glossary' },
+                content: [{ tag: 'li', data: { class: 'tag' }, content: 'definition' }],
+            },
+        }, 'Jitendex');
+        expect(html).toContain('class="structured-content"');
+        expect(html).toContain('data-dictionary="Jitendex"');
+        expect(html).toContain('class="gloss-sc-ul"');
+        expect(html).toContain('data-sc-content="glossary"');
+        expect(html).toContain('data-sc-class="tag"');
+        expect(html).toContain('definition');
+        expect(glossaryToHtml(['読', { tag: 'ruby', content: ['む', { tag: 'rt', content: 'む' }] }]))
+            .toContain('読<ruby');
+    });
+
+    it('scopes imported Yomitan dictionary CSS to dictionary content', () => {
+        const css = renderDictionaryScopedStyles([
+            { title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, styles: 'ul[data-sc-content="glossary"] { padding-left: 1em; }' },
+            { title: 'Disabled', alias: 'Disabled', enabled: false, priority: 1, styles: '.x { color: red; }' },
+        ], [
+            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 },
+            { name: 'Disabled', alias: 'Disabled', enabled: false, priority: 1 },
+        ]);
+        expect(css).toContain('[data-dictionary="Jitendex"]');
+        expect(css).toContain('data-sc-content');
+        expect(css).not.toContain('[data-dictionary="Disabled"]');
     });
 
     it('builds rich Anki fields from JPDB and imported dictionary context', () => {
@@ -221,6 +286,71 @@ describe('reader helpers', () => {
         expect(fields.Frequency).toContain('JPDBv2 #123');
         expect(fields.Pitch).toContain('LHH');
         expect(fields.Source).toContain('Example article');
+    });
+
+    it('builds Anki fields for local dictionary cards without requiring JPDB links', () => {
+        const localCard: JPDBCard = {
+            vid: -1,
+            sid: -1,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [{ glosses: ['blue sky'], partOfSpeech: [] }],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'local',
+        };
+
+        const fields = buildYomuAnkiFields(localCard, '青空を見る。');
+
+        expect(fields.Meaning).toContain('blue sky');
+        expect(fields.JPDB).toBe('');
+        expect(fields.Status).toContain('local dictionary');
+    });
+
+    it('uses promise-style GM object requests for AnkiConnect', async () => {
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: () => Promise.resolve({
+                status: 200,
+                response: { result: 6, error: null },
+            }),
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+            await expect(client.isConnected()).resolves.toBe(true);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('finds local dictionary terms in text for JPDB-free parsing', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const file = new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [
+                    {
+                        tableName: 'terms',
+                        rows: [
+                            { $: [1, { expression: '青空', reading: 'あおぞら', glossary: ['blue sky'], score: 10, dictionary: 'Jitendex' }] },
+                            { $: [2, { expression: '空', reading: 'そら', glossary: ['sky'], score: 2, dictionary: 'Jitendex' }] },
+                        ],
+                    },
+                ],
+            },
+        })], 'local-terms.json', { type: 'application/json' });
+
+        await store.importFile(file);
+        const text = `${'これは長い前置きです'.repeat(18)}。青空を見る。`;
+        const matches = await store.findTermMatches(text, 5);
+
+        expect(matches).toHaveLength(1);
+        expect(matches[0]).toMatchObject({ surface: '青空', start: text.indexOf('青空'), end: text.indexOf('青空') + 2 });
     });
 
     it('renders JPDB part-of-speech codes as readable labels', () => {
@@ -348,7 +478,7 @@ describe('reader helpers', () => {
                     taughtIn: 'grade 2',
                     strokeCount: 14,
                     newspaperFrequencyRank: '618',
-                    parts: ['言', '売'],
+                    parts: ['言', '売', '讠'],
                 },
             }, '読', 'https://example.test/読.json'),
         };
@@ -361,7 +491,7 @@ describe('reader helpers', () => {
             heisig: '',
             oldForms: [],
             readings: [],
-            components: [{ kanji: '言', keyword: 'say' }],
+            components: [{ kanji: '言', keyword: 'say' }, { kanji: '買', keyword: 'buy' }],
             mnemonic: '',
             vocabulary: [],
         }, {
@@ -371,7 +501,7 @@ describe('reader helpers', () => {
             onYomi: '',
             kunYomi: '',
             elements: 'words + sell',
-            componentKanji: ['言', '売'],
+            componentKanji: ['言', '売', '買'],
             heisigStory: '',
             heisigComment: '',
             koohiiStories: [],
@@ -391,6 +521,14 @@ describe('reader helpers', () => {
             { from: '言', to: '読', label: 'JPDB component' },
             { from: '売', to: '読', label: 'RTK element' },
         ]));
+
+        const html = renderKanjiOrigins([], graph, sourceInfo, DEFAULT_SETTINGS, 'en');
+        expect(html).toContain('preserveAspectRatio="none"');
+        expect(html).not.toContain('<line ');
+        expect(html.match(/class="jpdb-reader-origin-edge"/g)).toHaveLength(2);
+        expect(html).toContain('data-rx=');
+        expect(html).not.toContain('data-graph-node="買"');
+        expect(html).not.toContain('data-graph-node="讠"');
     });
 
     it('normalizes Kanji Alive and Kanji Map data for compact kanji cards', () => {
@@ -806,14 +944,21 @@ describe('reader helpers', () => {
     it('imports Yomitan Dexie exports with term, kanji, and metadata tables', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
+        const progress: string[] = [];
         const file = new File([JSON.stringify({
             formatName: 'dexie',
             data: {
+                tables: [
+                    { name: 'dictionaries', rowCount: 2 },
+                    { name: 'terms', rowCount: 1 },
+                    { name: 'kanji', rowCount: 1 },
+                    { name: 'termMeta', rowCount: 1 },
+                ],
                 data: [
                     {
                         tableName: 'dictionaries',
                         rows: [
-                            { $: [1, { title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 }] },
+                            { $: [1, { title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, styles: 'span[data-sc-content="part-of-speech-info"] { font-weight: bold; }' }] },
                             { $: [2, { title: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1 }] },
                         ],
                     },
@@ -839,11 +984,16 @@ describe('reader helpers', () => {
             },
         })], 'yomitan-dictionaries.json', { type: 'application/json' });
 
-        const summary = await store.importFile(file);
+        const summary = await store.importFile(file, message => progress.push(message));
         expect(summary).toMatchObject({ terms: 1, kanji: 1, termMeta: 1 });
+        expect(progress).toContain('Preparing to import 3 dictionary records...');
+        expect(progress).toContain('Importing terms: 0 / 1 entries (0 / 3 total)...');
+        expect(progress).toContain('Importing terms: 1 / 1 entries (3 / 3 total)...');
+        expect(progress).toContain('Imported 3 / 3 dictionary records...');
         expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Jitendex', glossary: ['to read'] }]);
         expect(await store.lookupKanji('読む', 5)).toMatchObject([{ dictionary: 'KANJIDIC', meanings: ['read'] }]);
         expect(await store.lookupTermMeta('読む', 5)).toMatchObject([{ dictionary: 'JPDBv2', mode: 'freq' }]);
+        expect(await store.dictionaryStyleCss()).toContain('part-of-speech-info');
     });
 
     it('imports direct Dexie rows from current Yomitan dictionary exports', async () => {
@@ -910,6 +1060,7 @@ describe('reader helpers', () => {
         await store.clear();
         const zip = new JSZip();
         zip.file('index.json', JSON.stringify({ title: 'Tiny Dictionary', format: 3, revision: 'test' }));
+        zip.file('styles.css', 'ul[data-sc-content="glossary"] { padding-left: 1em; }');
         zip.file('term_bank_1.json', JSON.stringify([
             ['読む', 'よむ', '', '', 1, ['to read'], 1, ''],
         ]));
@@ -924,6 +1075,58 @@ describe('reader helpers', () => {
 
             expect(summary).toMatchObject({ dictionaries: ['Tiny Dictionary'], terms: 1 });
             expect(dictionaries[0]).toMatchObject({ title: 'Tiny Dictionary', revision: 'test', downloadUrl: 'https://example.test/tiny.zip' });
+            expect(await store.dictionaryStyleCss()).toContain('data-sc-content');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('removes one imported dictionary without clearing the others', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+
+        const firstZip = new JSZip();
+        firstZip.file('index.json', JSON.stringify({ title: 'Tiny Terms', format: 3 }));
+        firstZip.file('term_bank_1.json', JSON.stringify([
+            ['読む', 'よむ', '', '', 1, ['to read'], 1, ''],
+        ]));
+        const secondZip = new JSZip();
+        secondZip.file('index.json', JSON.stringify({ title: 'Tiny Kanji', format: 3 }));
+        secondZip.file('kanji_bank_1.json', JSON.stringify([
+            ['読', 'ドク', 'よ.む', '', ['read'], {}, {}],
+        ]));
+
+        await store.importFile(new File([await firstZip.generateAsync({ type: 'blob' })], 'tiny-terms.zip', { type: 'application/zip' }));
+        await store.importFile(new File([await secondZip.generateAsync({ type: 'blob' })], 'tiny-kanji.zip', { type: 'application/zip' }));
+        await store.deleteDictionary('Tiny Terms');
+
+        const summary = await store.summary();
+        expect(summary.dictionaries.map(item => item.title)).toEqual(['Tiny Kanji']);
+        expect(summary.terms).toBe(0);
+        expect(summary.kanji).toBe(1);
+        expect(await store.lookup('読む', 'よむ', 5)).toEqual([]);
+        expect(await store.lookupKanji('読', 5)).toMatchObject([{ dictionary: 'Tiny Kanji' }]);
+    });
+
+    it('downloads recommended dictionary ZIPs via the GM object userscript request API', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const zip = new JSZip();
+        zip.file('index.json', JSON.stringify({ title: 'Tiny GM Dictionary', format: 3, revision: 'test' }));
+        zip.file('term_bank_1.json', JSON.stringify([
+            ['書く', 'かく', '', '', 1, ['to write'], 1, ''],
+        ]));
+        const blob = await zip.generateAsync({ type: 'blob' });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: () => Promise.resolve({ status: 200, response: blob }),
+        });
+
+        try {
+            const summary = await store.importFromUrl('https://example.test/tiny-gm.zip', 'tiny-gm.zip');
+            const dictionaries = (await store.summary()).dictionaries;
+
+            expect(summary).toMatchObject({ dictionaries: ['Tiny GM Dictionary'], terms: 1 });
+            expect(dictionaries[0]).toMatchObject({ title: 'Tiny GM Dictionary', revision: 'test', downloadUrl: 'https://example.test/tiny-gm.zip' });
         } finally {
             vi.unstubAllGlobals();
         }

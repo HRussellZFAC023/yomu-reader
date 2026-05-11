@@ -204,8 +204,6 @@ export class AnkiConnectClient {
     async addCard(card: JPDBCard, sentence = '', options: AnkiCardContext = {}): Promise<number | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) return null;
-        await this.ensureDeckAndModel();
-
         const note: AnkiNote = {
             deckName: settings.ankiDeck || 'よむ',
             modelName: settings.ankiModel || 'よむ Japanese',
@@ -225,7 +223,21 @@ export class AnkiConnectClient {
         const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
         if (image) note.picture = [image];
 
-        return this.invoke<number | null>('addNote', { note });
+        if (settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment()) {
+            if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
+            return null;
+        }
+
+        try {
+            await this.ensureDeckAndModel();
+            return await this.invoke<number | null>('addNote', { note });
+        } catch (error) {
+            if (settings.ankiMobileHandoff && isMobileUserAgent()) {
+                if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
+                return null;
+            }
+            throw error;
+        }
     }
 
     async ensureDeckAndModel(): Promise<void> {
@@ -236,7 +248,7 @@ export class AnkiConnectClient {
         const modelNames = await this.modelNames().catch((): string[] => []);
         if (modelNames.includes(modelName)) {
             await this.ensureModelFields(modelName);
-            await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates() } });
+            await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
             await this.invoke<null>('updateModelStyling', { model: { name: modelName, css: yomuCardCss() } });
             return;
         }
@@ -244,7 +256,7 @@ export class AnkiConnectClient {
             modelName,
             inOrderFields: YOMU_MODEL_FIELDS,
             css: yomuCardCss(),
-            cardTemplates: Object.entries(yomuCardTemplates()).map(([Name, template]) => ({ Name, ...template })),
+            cardTemplates: Object.entries(yomuCardTemplates(settings.ankiTemplateMode)).map(([Name, template]) => ({ Name, ...template })),
         });
     }
 
@@ -287,22 +299,27 @@ export function captureActiveVideoFrame(): string | undefined {
 }
 
 function postJson<T>(url: string, body: string): Promise<T> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            const handleLoad = (response: UserscriptHttpResponse) => {
+                if (response.status >= 200 && response.status < 300) resolve(response.response as T);
+                else reject(new Error(`AnkiConnect request failed (${response.status}).`));
+            };
+            const result = userscriptRequest({
                 method: 'POST',
                 url,
                 headers: { 'Content-Type': 'application/json' },
                 data: body,
                 responseType: 'json',
                 timeout: 5000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(response.response as T);
-                    else reject(new Error(`AnkiConnect request failed (${response.status}).`));
-                },
+                onload: handleLoad,
                 onerror: reject,
                 ontimeout: () => reject(new Error('AnkiConnect timed out.')),
             });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
+            }
         });
     }
 
@@ -316,9 +333,15 @@ function postJson<T>(url: string, body: string): Promise<T> {
     });
 }
 
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
+}
+
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {
     const dictionaryPreferences = context.dictionaryPreferences ?? [];
-    const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
+    const jpdbUrl = card.source === 'local' ? '' : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
     const sourceUrl = context.sourceUrl ?? '';
     const sourceTitle = context.sourceTitle ?? '';
     return {
@@ -330,8 +353,8 @@ export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: Anki
         Frequency: renderFrequency(card, context.metaEntries ?? [], dictionaryPreferences),
         PartOfSpeech: escapeHtml(formatPartOfSpeech(card.partOfSpeech) || formatPartOfSpeechDetails(card.partOfSpeech)),
         Image: '',
-        JPDB: `<a href="${jpdbUrl}">Open on JPDB</a>`,
-        Status: card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' '),
+        JPDB: jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : '',
+        Status: card.source === 'local' ? '<span class="yomu-chip">local dictionary</span>' : card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' '),
         Pitch: renderPitchField(card, context.metaEntries ?? [], dictionaryPreferences),
         DictionaryDefinitions: renderDictionaryDefinitions(context.localEntries ?? [], dictionaryPreferences),
         Kanji: renderKanjiDefinitions(context.kanjiEntries ?? [], dictionaryPreferences),
@@ -353,6 +376,61 @@ function imageFromDataUrl(dataUrl: string, card: JPDBCard): AnkiPicture | null {
         data: match[2],
         fields: ['Image'],
     };
+}
+
+function isMobileUserAgent(): boolean {
+    const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+    return /iPad|iPhone|iPod|Android/i.test(userAgent);
+}
+
+function isMobileAnkiHandoffEnvironment(): boolean {
+    const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+    return /iPad|iPhone|iPod/i.test(userAgent)
+        || (/Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent));
+}
+
+function openMobileAnkiHandoff(note: AnkiNote): boolean {
+    const url = /Android/i.test(typeof navigator === 'undefined' ? '' : navigator.userAgent)
+        ? androidAnkiDroidIntentUrl(note)
+        : iosAnkiMobileUrl(note);
+    const appName = /Android/i.test(typeof navigator === 'undefined' ? '' : navigator.userAgent) ? 'AnkiDroid' : 'AnkiMobile';
+    if (!window.confirm(`Open ${appName} to add "${stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || 'this note')}"?`)) return false;
+    location.href = url;
+    return true;
+}
+
+function iosAnkiMobileUrl(note: AnkiNote): string {
+    const params = new URLSearchParams();
+    params.set('type', note.modelName);
+    params.set('deck', note.deckName);
+    if (note.tags?.length) params.set('tags', note.tags.join(' '));
+    Object.entries(note.fields).forEach(([field, value]) => {
+        if (field !== 'Image') params.set(`fld${field}`, stripForMobileHandoff(value));
+    });
+    return `anki://x-callback-url/addnote?${params.toString()}`;
+}
+
+function androidAnkiDroidIntentUrl(note: AnkiNote): string {
+    const front = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || '');
+    const back = stripForMobileHandoff([
+        note.fields.Reading,
+        note.fields.Meaning,
+        note.fields.DictionaryDefinitions,
+        note.fields.Source,
+    ].filter(Boolean).join('\n\n'));
+    return [
+        'intent:#Intent',
+        'action=android.intent.action.SEND',
+        'type=text/plain',
+        'package=com.ichi2.anki',
+        `S.android.intent.extra.SUBJECT=${encodeURIComponent(front)}`,
+        `S.android.intent.extra.TEXT=${encodeURIComponent(back)}`,
+        'end',
+    ].join(';');
+}
+
+function stripForMobileHandoff(value: string): string {
+    return stripHtml(value).replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function visibleArea(element: HTMLElement): number {
@@ -458,20 +536,28 @@ function ankiEaseFromGrade(grade: JPDBGrade): number {
     }
 }
 
-function yomuCardTemplates(): Record<string, { Front: string; Back: string }> {
-    return {
-        Recognition: {
-            Front: `
+function yomuCardTemplates(mode: ReaderSettings['ankiTemplateMode'] = 'recognition'): Record<string, { Front: string; Back: string }> {
+    const recognitionFront = `
 <main class="yomu-card yomu-front">
     <div class="yomu-expression">{{Expression}}</div>
     {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
     {{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}
     {{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}
-</main>`,
-            Back: `
+</main>`;
+    const contextFront = `
+<main class="yomu-card yomu-front">
+    {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
+    {{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}
+    <div class="yomu-prompt">Recall the highlighted word.</div>
+</main>`;
+    const back = `
 {{FrontSide}}
 <main class="yomu-card yomu-back">
-    {{#Meaning}}<section class="yomu-section"><h2>JPDB</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+    <section class="yomu-section yomu-answer">
+        <div class="yomu-expression">{{Expression}}</div>
+        {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
+    </section>
+    {{#Meaning}}<section class="yomu-section"><h2>Meaning</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
     {{#DictionaryDefinitions}}<section class="yomu-section"><h2>Dictionaries</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
     {{#Kanji}}<section class="yomu-section"><h2>Kanji</h2>{{Kanji}}</section>{{/Kanji}}
     <section class="yomu-section yomu-meta">
@@ -482,7 +568,11 @@ function yomuCardTemplates(): Record<string, { Front: string; Back: string }> {
         {{#JPDB}}<div><strong>Links</strong><span>{{JPDB}}</span></div>{{/JPDB}}
         {{#Source}}<div><strong>Source</strong><span>{{Source}}</span></div>{{/Source}}
     </section>
-</main>`,
+</main>`;
+    return {
+        [mode === 'context' ? 'Context' : 'Recognition']: {
+            Front: mode === 'context' ? contextFront : recognitionFront,
+            Back: back,
         },
     };
 }
@@ -502,6 +592,7 @@ function yomuCardCss(): string {
 .yomu-card { max-width: 760px; margin: 0 auto; padding: 22px; }
 .yomu-expression { font-size: 44px; font-weight: 850; letter-spacing: 0; line-height: 1.1; }
 .yomu-reading { margin-top: 6px; color: #bac3d0; font-size: 24px; }
+.yomu-prompt { margin-top: 14px; color: #bac3d0; font-size: 16px; }
 .yomu-sentence {
     margin-top: 18px;
     padding: 14px 16px;
@@ -511,6 +602,7 @@ function yomuCardCss(): string {
     color: #d8dee8;
 }
 .yomu-highlight { color: #7ad119; font-weight: 800; }
+.yomu-sentence-front { font-size: 28px; }
 .yomu-image img, .yomu-image { max-width: 100%; border-radius: 10px; margin-top: 16px; }
 .yomu-section {
     margin-top: 16px;
@@ -591,7 +683,7 @@ function renderDictionaryDefinitions(entries: YomitanTermEntry[], preferences: D
                         ${entry.reading && entry.reading !== entry.expression ? `<span class="yomu-dict-reading">${escapeHtml(entry.reading)}</span>` : ''}
                         ${entry.definitionTags || entry.rules || entry.termTags ? `<span class="yomu-tags">${escapeHtml([entry.definitionTags, entry.rules, entry.termTags].filter(Boolean).join(' · '))}</span>` : ''}
                     </div>
-                    <div class="yomu-glossary">${entry.glossary.slice(0, 5).map(item => `<div>${safeGlossaryHtml(item)}</div>`).join('')}</div>
+                    <div class="yomu-glossary" data-dictionary="${escapeHtml(entry.dictionary)}">${entry.glossary.slice(0, 5).map(item => `<div>${safeGlossaryHtml(item, entry.dictionary)}</div>`).join('')}</div>
                 </div>
             `).join('')}
         </div>
@@ -671,8 +763,8 @@ function uniqueValue<T>(value: T, index: number, array: T[]): boolean {
     return array.indexOf(value) === index;
 }
 
-function safeGlossaryHtml(value: unknown): string {
-    const html = glossaryToHtml(value);
+function safeGlossaryHtml(value: unknown, dictionary: string): string {
+    const html = glossaryToHtml(value, dictionary);
     return html || escapeHtml(glossaryToText(value));
 }
 

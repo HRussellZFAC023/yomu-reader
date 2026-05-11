@@ -194,46 +194,54 @@ export function renderKanjiOrigins(facts: KanjiFact[], graph: KanjiOriginGraph |
 
 function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const nodes = graph?.nodes.filter(node => !node.id.startsWith('rtk:')) ?? [];
-    const edges = graph?.edges.filter(edge => nodes.some(node => node.id === edge.from) && nodes.some(node => node.id === edge.to)) ?? [];
+    const nodeById = new Map(nodes.map(node => [node.id, node]));
+    const nodeIds = new Set(nodeById.keys());
+    const edges = graph?.edges.filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
     if (nodes.length <= 1 || !edges.length) return '';
     const current = nodes.find(node => node.kind === 'current') ?? nodes[0];
-    const incoming = nodes
-        .filter(node => node.id !== current.id && edges.some(edge => edge.from === node.id && edge.to === current.id))
-        .slice(0, 9);
-    const outgoing = nodes
-        .filter(node => node.id !== current.id && edges.some(edge => edge.from === current.id && edge.to === node.id))
-        .slice(0, 7);
-    const unlinked = nodes
-        .filter(node => node.id !== current.id && !incoming.includes(node) && !outgoing.includes(node))
-        .slice(0, Math.max(0, 12 - incoming.length - outgoing.length));
-    const positioned = [
-        ...radialPositions(incoming, 28, 50, 26, -112, 112),
-        { node: current, x: 50, y: 50 },
-        ...radialPositions(outgoing, 72, 50, 24, 68, 292),
-        ...radialPositions(unlinked, 50, 50, 36, 210, 330),
-    ];
+    const selectedEdges = selectOriginEdgeGroups(groupOriginEdges(edges), nodeById);
+    if (!selectedEdges.length) return '';
+    const connectedIds = new Set([current.id]);
+    selectedEdges.forEach(edge => {
+        connectedIds.add(edge.from);
+        connectedIds.add(edge.to);
+    });
+    const graphNodes = nodes.filter(node => connectedIds.has(node.id) && !isNoisyOriginNode(node));
+    const visibleNodes = chooseOriginGraphNodes(graphNodes, selectedEdges, current.id);
+    const visibleIds = new Set(visibleNodes.map(node => node.id));
+    const edgeGroups = selectedEdges.filter(edge => visibleIds.has(edge.from) && visibleIds.has(edge.to));
+    if (visibleNodes.length <= 1 || !edgeGroups.length) return '';
+    const positioned = forceLayoutOriginGraph(visibleNodes, edgeGroups, current.id);
     const coords = new Map(positioned.map(item => [item.node.id, item]));
-    const lines = edges
+    const markerId = `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map(item => item.node.id).join('|'))}`;
+    const lines = edgeGroups
         .map(edge => {
             const from = coords.get(edge.from);
             const to = coords.get(edge.to);
             if (!from || !to) return '';
-            return `<line data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" marker-end="url(#jpdb-reader-origin-arrow)" />`;
+            const edgePath = clippedOriginEdgePath(from, to);
+            const label = edge.labels.join(' / ');
+            const particles = originEdgeParticles(edgePath);
+            return `<g class="jpdb-reader-origin-edge-group" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}">
+                <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
+                ${particles.map(point => `<circle class="jpdb-reader-origin-edge-particle" cx="${formatGraphNumber(point.x)}" cy="${formatGraphNumber(point.y)}" r="0.55"></circle>`).join('')}
+            </g>`;
         })
         .join('');
-    const nodeButtons = positioned.map(({ node, x, y }) => {
-        const style = `left:${x}%;top:${y}%`;
+    const nodeButtons = positioned.map(({ node, x, y, rx, ry }) => {
+        const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
+        const attrs = `data-graph-node="${escapeHtml(node.id)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}" style="${style}"`;
         if (node.kind === 'related') {
-            return `<span class="jpdb-reader-origin-graph-node ${node.kind}" data-graph-node="${escapeHtml(node.id)}" data-x="${x}" data-y="${y}" style="${style}" title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
+            return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
         }
-        return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" data-graph-node="${escapeHtml(node.id)}" data-x="${x}" data-y="${y}" style="${style}" title="${escapeHtml([node.detail, node.source].filter(Boolean).join(' · '))}">${escapeHtml(node.label)}</button>`;
+        return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" ${attrs} title="${escapeHtml([node.detail, node.source].filter(Boolean).join(' · '))}">${escapeHtml(node.label)}</button>`;
     }).join('');
     return `
         <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, 'originMapLabel')}">
-            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" aria-hidden="true">
+            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
-                    <marker id="jpdb-reader-origin-arrow" markerWidth="4" markerHeight="4" refX="3.6" refY="2" orient="auto">
-                        <path d="M0,0 L4,2 L0,4 Z"></path>
+                    <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
                     </marker>
                 </defs>
                 ${lines}
@@ -243,28 +251,318 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
     `;
 }
 
-function radialPositions<T extends { id: string }>(
-    nodes: Array<T & { kind: string }>,
-    centerX: number,
-    centerY: number,
-    radius: number,
-    startDegrees: number,
-    endDegrees: number,
-): Array<{ node: T & { kind: string }; x: number; y: number }> {
-    if (!nodes.length) return [];
-    if (nodes.length === 1) {
-        const angle = (startDegrees + endDegrees) / 2 * Math.PI / 180;
-        return [{ node: nodes[0], x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius }];
+type OriginGraphNode = KanjiOriginGraph['nodes'][number];
+type OriginGraphEdge = KanjiOriginGraph['edges'][number];
+
+const SIMPLIFIED_ONLY_COMPONENTS = new Set(['讠', '钅', '饣', '纟', '门', '车', '贝', '见', '长', '马', '鸟', '鱼']);
+
+interface OriginEdgeGroup {
+    from: string;
+    to: string;
+    labels: string[];
+}
+
+interface PositionedOriginNode {
+    node: OriginGraphNode;
+    x: number;
+    y: number;
+    rx: number;
+    ry: number;
+}
+
+interface OriginEdgePath {
+    d: string;
+    x1: number;
+    y1: number;
+    cx: number;
+    cy: number;
+    x2: number;
+    y2: number;
+}
+
+interface OriginNodeState extends PositionedOriginNode {
+    vx: number;
+    vy: number;
+    anchorX: number;
+    anchorY: number;
+    collision: number;
+}
+
+function chooseOriginGraphNodes(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): OriginGraphNode[] {
+    const current = nodes.find(node => node.id === currentId) ?? nodes[0];
+    const degree = new Map<string, number>();
+    edges.forEach(edge => {
+        degree.set(edge.from, (degree.get(edge.from) ?? 0) + 1);
+        degree.set(edge.to, (degree.get(edge.to) ?? 0) + 1);
+    });
+    const ranked = nodes
+        .filter(node => node.id !== current.id)
+        .sort((a, b) => {
+            const priority = originNodePriority(a.id, edges, current.id) - originNodePriority(b.id, edges, current.id);
+            if (priority) return priority;
+            const degreeDelta = (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0);
+            if (degreeDelta) return degreeDelta;
+            return a.label.localeCompare(b.label, 'ja');
+        });
+    return [current, ...ranked.slice(0, 12)];
+}
+
+function originNodePriority(id: string, edges: OriginEdgeGroup[], currentId: string): number {
+    if (edges.some(edge => edge.from === id && edge.to === currentId)) return 0;
+    if (edges.some(edge => edge.from === currentId && edge.to === id)) return 1;
+    if (edges.some(edge => edge.from === id || edge.to === id)) return 2;
+    return 3;
+}
+
+function selectOriginEdgeGroups(groups: OriginEdgeGroup[], nodeById: Map<string, OriginGraphNode>): OriginEdgeGroup[] {
+    const useful = groups.filter(edge => {
+        const from = nodeById.get(edge.from);
+        const to = nodeById.get(edge.to);
+        return from && to && !isNoisyOriginNode(from) && !isNoisyOriginNode(to);
+    });
+    const structural = useful.filter(edge => edge.labels.some(label => label === 'radical' || label === 'structural part'));
+    if (structural.length) return structural;
+    const jpdb = useful.filter(edge => edge.labels.includes('JPDB component'));
+    if (jpdb.length) return jpdb;
+    return useful.filter(edge => !edge.labels.includes('memory cue'));
+}
+
+function isNoisyOriginNode(node: OriginGraphNode): boolean {
+    return SIMPLIFIED_ONLY_COMPONENTS.has(node.id) || SIMPLIFIED_ONLY_COMPONENTS.has(node.label);
+}
+
+function groupOriginEdges(edges: OriginGraphEdge[]): OriginEdgeGroup[] {
+    const groups = new Map<string, OriginEdgeGroup>();
+    for (const edge of edges) {
+        const key = `${edge.from}\u0000${edge.to}`;
+        const group = groups.get(key) ?? { from: edge.from, to: edge.to, labels: [] };
+        if (edge.label && !group.labels.includes(edge.label)) group.labels.push(edge.label);
+        groups.set(key, group);
     }
-    return nodes.map((node, index) => {
-        const t = index / Math.max(1, nodes.length - 1);
-        const angle = (startDegrees + (endDegrees - startDegrees) * t) * Math.PI / 180;
+    return Array.from(groups.values());
+}
+
+function forceLayoutOriginGraph(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): PositionedOriginNode[] {
+    const anchors = originGraphAnchors(nodes, edges, currentId);
+    const states: OriginNodeState[] = nodes.map((node, index) => {
+        const { rx, ry } = originNodeRadii(node);
+        const anchor = anchors.get(node.id) ?? { x: 50, y: 50 };
+        const jitter = index === 0 ? 0 : (index % 2 === 0 ? 1 : -1) * (1.2 + (index % 3) * 0.45);
         return {
             node,
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius,
+            x: anchor.x + jitter,
+            y: anchor.y - jitter * 0.6,
+            rx,
+            ry,
+            vx: 0,
+            vy: 0,
+            anchorX: anchor.x,
+            anchorY: anchor.y,
+            collision: Math.max(rx * 1.35, ry) + 3.8,
         };
     });
+    const byId = new Map(states.map(state => [state.node.id, state]));
+
+    for (let iteration = 0; iteration < 240; iteration++) {
+        const alpha = Math.pow(1 - iteration / 240, 1.45);
+        for (let aIndex = 0; aIndex < states.length; aIndex++) {
+            for (let bIndex = aIndex + 1; bIndex < states.length; bIndex++) {
+                const a = states[aIndex];
+                const b = states[bIndex];
+                let dx = b.x - a.x;
+                let dy = b.y - a.y;
+                if (Math.abs(dx) + Math.abs(dy) < 0.01) {
+                    dx = (bIndex - aIndex) * 0.13;
+                    dy = (aIndex + bIndex) * 0.11;
+                }
+                const distanceSquared = Math.max(8, dx * dx + dy * dy);
+                const distance = Math.sqrt(distanceSquared);
+                const repel = Math.min(0.55, (14 * alpha) / distanceSquared);
+                a.vx -= dx * repel;
+                a.vy -= dy * repel;
+                b.vx += dx * repel;
+                b.vy += dy * repel;
+
+                const minimumDistance = a.collision + b.collision;
+                if (distance < minimumDistance) {
+                    const push = ((minimumDistance - distance) / distance) * 0.085 * alpha;
+                    a.vx -= dx * push;
+                    a.vy -= dy * push;
+                    b.vx += dx * push;
+                    b.vy += dy * push;
+                }
+            }
+        }
+
+        for (const edge of edges) {
+            const source = byId.get(edge.from);
+            const target = byId.get(edge.to);
+            if (!source || !target) continue;
+            const dx = target.x - source.x;
+            const dy = target.y - source.y;
+            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+            const targetDistance = source.node.id === currentId || target.node.id === currentId ? 23 : 21;
+            const pull = ((distance - targetDistance) / distance) * 0.06 * alpha;
+            source.vx += dx * pull;
+            source.vy += dy * pull;
+            target.vx -= dx * pull;
+            target.vy -= dy * pull;
+        }
+
+        for (const state of states) {
+            const anchorStrength = state.node.id === currentId ? 0.32 : 0.16;
+            state.vx += (state.anchorX - state.x) * anchorStrength * alpha;
+            state.vy += (state.anchorY - state.y) * anchorStrength * alpha;
+        }
+
+        for (const state of states) {
+            if (state.node.id === currentId) {
+                state.x += (state.anchorX - state.x) * 0.4;
+                state.y += (state.anchorY - state.y) * 0.4;
+                state.vx = 0;
+                state.vy = 0;
+            } else {
+                state.x += state.vx;
+                state.y += state.vy;
+                state.vx *= 0.58;
+                state.vy *= 0.58;
+            }
+            state.x = clampGraphValue(state.x, 8 + state.rx, 92 - state.rx);
+            state.y = clampGraphValue(state.y, 10 + state.ry, 90 - state.ry);
+        }
+    }
+
+    return states.map(({ node, x, y, rx, ry }) => ({
+        node,
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+        rx,
+        ry,
+    }));
+}
+
+function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): Map<string, { x: number; y: number }> {
+    const anchors = new Map<string, { x: number; y: number }>();
+    const current = nodes.find(node => node.id === currentId);
+    if (current) anchors.set(current.id, { x: 50, y: 50 });
+    const incoming = nodes.filter(node => node.id !== currentId && edges.some(edge => edge.from === node.id && edge.to === currentId));
+    const outgoing = nodes.filter(node => node.id !== currentId && edges.some(edge => edge.from === currentId && edge.to === node.id));
+    const attached = new Set([...incoming, ...outgoing].map(node => node.id));
+    const others = nodes.filter(node => node.id !== currentId && !attached.has(node.id));
+
+    if (outgoing.length) {
+        spreadOnArc(incoming, 30, 50, 8, 24, -86, 86).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+        spreadOnArc(outgoing, 70, 50, 8, 24, -86, 86).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+    } else {
+        spreadConstellation(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+    }
+    others.forEach((node, index) => {
+        const t = (index + 1) / (others.length + 1);
+        anchors.set(node.id, { x: 26 + t * 48, y: 78 + (index % 2) * 3 });
+    });
+    return anchors;
+}
+
+function spreadConstellation(nodes: OriginGraphNode[]): Array<{ node: OriginGraphNode; x: number; y: number }> {
+    const presets: Array<Array<{ x: number; y: number }>> = [
+        [],
+        [{ x: 26, y: 50 }],
+        [{ x: 28, y: 50 }, { x: 72, y: 50 }],
+        [{ x: 50, y: 24 }, { x: 27, y: 65 }, { x: 73, y: 65 }],
+        [{ x: 28, y: 34 }, { x: 72, y: 34 }, { x: 28, y: 66 }, { x: 72, y: 66 }],
+        [{ x: 50, y: 22 }, { x: 25, y: 40 }, { x: 75, y: 40 }, { x: 32, y: 74 }, { x: 68, y: 74 }],
+    ];
+    const preset = presets[nodes.length];
+    if (preset) return nodes.map((node, index) => ({ node, ...preset[index] }));
+    return nodes.map((node, index) => {
+        const angle = (-90 + index * (360 / nodes.length)) * Math.PI / 180;
+        return {
+            node,
+            x: 50 + Math.cos(angle) * 30,
+            y: 50 + Math.sin(angle) * 28,
+        };
+    });
+}
+
+function spreadOnArc(nodes: OriginGraphNode[], centerX: number, centerY: number, radiusX: number, radiusY: number, startDegrees: number, endDegrees: number): Array<{ node: OriginGraphNode; x: number; y: number }> {
+    return nodes.map((node, index) => {
+        const t = (index + 1) / (nodes.length + 1);
+        const angle = (startDegrees + (endDegrees - startDegrees) * t) * Math.PI / 180;
+        return { node, x: centerX + Math.cos(angle) * radiusX, y: centerY + Math.sin(angle) * radiusY };
+    });
+}
+
+function originNodeRadii(node: OriginGraphNode): { rx: number; ry: number } {
+    const length = Array.from(node.label).length;
+    if (node.kind === 'current') return { rx: 8.2, ry: 14.2 };
+    if (node.kind === 'related') return { rx: Math.min(13, 7.2 + length * 1.2), ry: 12.8 };
+    return { rx: Math.min(10.4, 7.4 + Math.max(0, length - 1) * 1.15), ry: 13 };
+}
+
+function clippedOriginEdgePath(from: PositionedOriginNode, to: PositionedOriginNode): OriginEdgePath {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const sourceOffset = ellipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
+    const targetOffset = ellipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
+    const x1 = from.x + dx * sourceOffset;
+    const y1 = from.y + dy * sourceOffset;
+    const x2 = to.x - dx * targetOffset;
+    const y2 = to.y - dy * targetOffset;
+    const curve = edgeCurveControl(x1, y1, x2, y2);
+    return {
+        d: `M${formatGraphNumber(x1)} ${formatGraphNumber(y1)} Q${formatGraphNumber(curve.x)} ${formatGraphNumber(curve.y)} ${formatGraphNumber(x2)} ${formatGraphNumber(y2)}`,
+        x1,
+        y1,
+        cx: curve.x,
+        cy: curve.y,
+        x2,
+        y2,
+    };
+}
+
+function ellipseOffset(dx: number, dy: number, rx: number, ry: number): number {
+    const denominator = Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
+    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
+}
+
+function clampGraphValue(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+function formatGraphNumber(value: number): string {
+    return Number(value.toFixed(2)).toString();
+}
+
+function originEdgeParticles(path: OriginEdgePath): Array<{ x: number; y: number }> {
+    return [0.38, 0.66].map(t => quadraticPoint(path.x1, path.y1, path.cx, path.cy, path.x2, path.y2, t));
+}
+
+function quadraticPoint(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number, t: number): { x: number; y: number } {
+    const mt = 1 - t;
+    return {
+        x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
+        y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2,
+    };
+}
+
+function edgeCurveControl(x1: number, y1: number, x2: number, y2: number): { x: number; y: number } {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    const bend = Math.min(4.6, Math.max(1.8, distance * 0.08));
+    const sign = y1 <= y2 ? 1 : -1;
+    return {
+        x: (x1 + x2) / 2 - (dy / distance) * bend * sign,
+        y: (y1 + y2) / 2 + (dx / distance) * bend * sign,
+    };
+}
+
+function hashOriginGraphId(value: string): string {
+    let hash = 0;
+    for (const character of value) {
+        hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+    }
+    return Math.abs(hash).toString(36);
 }
 
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage): string {

@@ -271,7 +271,7 @@ export class ImageOcrController {
         const showText = settings.ocrShowTextOverlay || forceOverlay;
 
         const sentence = result.lines.map(line => line.text).join('\n');
-        const parsed = settings.apiKey.trim()
+        const parsed = settings.apiKey.trim() || settings.localDictionariesEnabled
             ? await Promise.all(result.lines.map(line => this.options.parseJapanese(line.text).catch(() => [])))
             : result.lines.map(() => []);
         state.overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);

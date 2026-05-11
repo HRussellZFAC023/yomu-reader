@@ -226,26 +226,31 @@ function shuffle<T>(items: T[]): T[] {
 
 function requestJson(url: string, timeoutMs: number): Promise<unknown> {
     return new Promise((resolve, reject) => {
-        if (typeof GM_xmlhttpRequest === 'function') {
-            GM_xmlhttpRequest({
+        const userscriptRequest = getUserscriptHttpRequest();
+        if (userscriptRequest) {
+            const handleLoad = (response: UserscriptHttpResponse) => {
+                if (response.status < 200 || response.status >= 300) {
+                    reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
+                    return;
+                }
+                try {
+                    resolve(JSON.parse(String(response.responseText ?? response.response ?? 'null')));
+                } catch {
+                    reject(new Error('Immersion Kit returned invalid JSON.'));
+                }
+            };
+            const result = userscriptRequest({
                 method: 'GET',
                 url,
                 responseType: 'text',
                 timeout: timeoutMs,
-                onload: response => {
-                    if (response.status < 200 || response.status >= 300) {
-                        reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
-                        return;
-                    }
-                    try {
-                        resolve(JSON.parse(String(response.responseText ?? response.response ?? 'null')));
-                    } catch {
-                        reject(new Error('Immersion Kit returned invalid JSON.'));
-                    }
-                },
+                onload: handleLoad,
                 onerror: () => reject(new Error('Immersion Kit request failed.')),
                 ontimeout: () => reject(new Error('Immersion Kit request timed out.')),
             });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Immersion Kit request failed.')));
+            }
             return;
         }
 
@@ -260,22 +265,27 @@ function requestJson(url: string, timeoutMs: number): Promise<unknown> {
 
 function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
-        if (typeof GM_xmlhttpRequest === 'function') {
-            GM_xmlhttpRequest({
+        const userscriptRequest = getUserscriptHttpRequest();
+        if (userscriptRequest) {
+            const handleLoad = (response: UserscriptHttpResponse) => {
+                if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
+                    reject(new Error(`Media returned HTTP ${response.status}.`));
+                    return;
+                }
+                resolve(response.response);
+            };
+            const result = userscriptRequest({
                 method: 'GET',
                 url,
                 responseType: 'blob',
                 timeout: timeoutMs,
-                onload: response => {
-                    if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
-                        reject(new Error(`Media returned HTTP ${response.status}.`));
-                        return;
-                    }
-                    resolve(response.response);
-                },
+                onload: handleLoad,
                 onerror: () => reject(new Error('Media request failed.')),
                 ontimeout: () => reject(new Error('Media request timed out.')),
             });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Media request failed.')));
+            }
             return;
         }
 
@@ -286,6 +296,12 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
             })
             .then(resolve, reject);
     });
+}
+
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

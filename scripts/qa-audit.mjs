@@ -791,7 +791,15 @@ async function seedLocalKanjiDictionaries(page) {
         await new Promise((resolve, reject) => {
             const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
             tx.objectStore('dictionaryInfo').put({ title: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1, counts: { kanji: 4 } });
-            tx.objectStore('dictionaryInfo').put({ title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 2, counts: { terms: 4 } });
+            tx.objectStore('dictionaryInfo').put({
+                title: 'Jitendex',
+                alias: 'Jitendex',
+                enabled: true,
+                priority: 2,
+                counts: { terms: 6 },
+                styles: 'span[data-sc-content="part-of-speech-info"] { text-decoration-line: underline; }',
+            });
+            tx.objectStore('dictionaryInfo').put({ title: 'JMnedict', alias: 'JMnedict', enabled: true, priority: 3, counts: { terms: 1 } });
             tx.objectStore('dictionaryInfo').put({ title: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 3, counts: { termMeta: 4 } });
             [
                 { character: '今', onyomi: ['コン'], kunyomi: ['いま'], tags: ['grade 2'], meanings: ['now', 'the present'], dictionary: 'KANJIDIC' },
@@ -804,6 +812,8 @@ async function seedLocalKanjiDictionaries(page) {
                 { expression: '今朝', reading: 'けさ', glossary: ['this morning'], score: 8, dictionary: 'Jitendex' },
                 { expression: '今週', reading: 'こんしゅう', glossary: ['this week'], score: 7, dictionary: 'Jitendex' },
                 { expression: '読む', reading: 'よむ', glossary: ['to read'], score: 10, dictionary: 'Jitendex' },
+                { expression: '母', reading: 'はは', glossary: [{ type: 'structured-content', content: { tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: [{ tag: 'span', data: { content: 'part-of-speech-info' }, content: 'n' }, ' mother; mama'] }] } }], score: 10, dictionary: 'Jitendex' },
+                { expression: '母', reading: 'はは', glossary: [{ tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: 'female parent name entry' }] }], score: 5, dictionary: 'JMnedict' },
             ].forEach(entry => tx.objectStore('terms').add(entry));
             [
                 { expression: '今日', mode: 'freq', data: { frequency: 100, displayValue: 100 }, dictionary: 'JPDBv2㋕' },
@@ -1175,30 +1185,59 @@ async function auditJpdbSearchCompatibility(browser) {
             body{margin:0;background:#171a1f;color:#f4f6fb;font:18px/1.9 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
             main{max-width:760px;margin:48px auto;padding:24px;border:1px solid #3b4250;border-radius:14px;background:#20242b}
             .result{padding:18px;border-bottom:1px solid #343a46}
+            .subsection-spelling{font-size:30px;font-weight:800}
+            .subsection-meanings{display:grid;gap:8px}
+            .subsection-label{margin:0;color:#aab2c0;font-size:12px;text-transform:uppercase}
+            .subsection{font-size:16px}
             button{width:100%!important;min-height:76px!important;padding:22px!important;border-radius:0!important}
             svg{width:160px!important;height:160px!important}
             ruby rt{color:#8da2c9}
         </style></head><body>
             <main>
                 <h1>JPDB search fixture</h1>
-                <div class="result">検索結果：<ruby>読む<rt>よむ</rt></ruby> 本と日本語を勉強します。</div>
-                <div class="result">今日は新しい本を読みました。</div>
+                <div class="results search">
+                    <div id="result-0">
+                        <div class="result vocabulary">
+                            <div class="subsection-spelling with-furigana">
+                                <div class="primary-spelling"><div class="spelling"><div><ruby class="v">母<rt>はは</rt></ruby></div></div></div>
+                            </div>
+                            <div class="subsection-meanings">
+                                <h6 class="subsection-label">Meanings</h6>
+                                <div class="subsection"><div class="description">mother</div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result">検索結果：<ruby>読む<rt>よむ</rt></ruby> 本と日本語を勉強します。</div>
+                    <div class="result">今日は新しい本を読みました。</div>
+                </div>
             </main>
         </body></html>`,
     }));
     await page.goto('https://jpdb.io/search?q=%E8%AA%AD%E3%82%80', { waitUntil: 'domcontentloaded' });
     await seedLocalKanjiDictionaries(page);
     await injectUserscript(page);
+    await page.waitForSelector('.yomu-jpdb-local-dictionaries .structured-content', { timeout: 8000 });
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length >= 4, 10000, 'jpdb.io search fixture text was not scanned');
-    const scanSnapshot = await page.evaluate(() => ({
-        words: document.querySelectorAll('.jpdb-reader-word').length,
-        colored: document.querySelectorAll('.jpdb-reader-word[class*="jpdb-"]').length,
-        furigana: document.querySelectorAll('.jpdb-reader-furi').length,
-        nativeRubyWords: [...document.querySelectorAll('ruby .jpdb-reader-word')].map(node => node.textContent ?? ''),
-    }));
+    const scanSnapshot = await page.evaluate(() => {
+        const decoratedTag = document.querySelector('.yomu-jpdb-local-dictionaries [data-sc-content="part-of-speech-info"]');
+        return {
+            words: document.querySelectorAll('.jpdb-reader-word').length,
+            colored: document.querySelectorAll('.jpdb-reader-word[class*="jpdb-"]').length,
+            furigana: document.querySelectorAll('.jpdb-reader-furi').length,
+            nativeRubyWords: [...document.querySelectorAll('ruby .jpdb-reader-word')].map(node => node.textContent ?? ''),
+            localText: document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent ?? '',
+            localGroups: document.querySelectorAll('.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group').length,
+            structuredLists: document.querySelectorAll('.yomu-jpdb-local-dictionaries .gloss-sc-ul[data-sc-content="glossary"]').length,
+            decoratedTag: decoratedTag ? getComputedStyle(decoratedTag).textDecorationLine : '',
+        };
+    });
     assertAudit(scanSnapshot.colored >= 3, 'jpdb.io search words are not colored by status');
     assertAudit(scanSnapshot.furigana > 0, 'jpdb.io search non-ruby words did not receive furigana');
     assertAudit(scanSnapshot.nativeRubyWords.some(text => text.includes('読')), 'native ruby word on jpdb.io was not wrapped for lookup');
+    assertAudit(scanSnapshot.localText.includes('Imported dictionaries') && scanSnapshot.localText.includes('mother; mama'), 'local dictionaries did not render on JPDB search results');
+    assertAudit(scanSnapshot.localGroups >= 2, 'multiple local dictionaries were not grouped on JPDB search results');
+    assertAudit(scanSnapshot.structuredLists >= 2, 'Yomitan structured glossary markup did not render on JPDB search results');
+    assertAudit(scanSnapshot.decoratedTag.includes('underline'), 'imported Yomitan dictionary CSS did not apply to JPDB search entries');
 
     await page.locator('.jpdb-reader-word').filter({ hasText: '読む' }).first().click();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });

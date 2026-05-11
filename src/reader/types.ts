@@ -40,6 +40,8 @@ export type ImmersionKitCategory = 'all' | 'anime' | 'drama' | 'games';
 
 export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 'random';
 
+export type AnkiTemplateMode = 'recognition' | 'context';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -72,6 +74,7 @@ export interface JPDBCard {
     cardState: CardState[];
     pitchAccent: string[];
     wordWithReading: string | null;
+    source?: 'jpdb' | 'local';
 }
 
 export interface JPDBDeck {
@@ -234,6 +237,10 @@ export interface ReaderSettings {
     ankiTags: string;
     ankiMineWithJpdb: boolean;
     ankiCaptureScreenshot: boolean;
+    ankiTemplateMode: AnkiTemplateMode;
+    ankiMobileHandoff: boolean;
+    studyTranslationEnabled: boolean;
+    studyGrammarEnabled: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     miningDeck: string;
@@ -265,6 +272,20 @@ export interface ReaderSettings {
 }
 
 declare global {
+    type UserscriptHttpResponse = { status: number; response: unknown; responseText?: string; finalUrl?: string };
+    type UserscriptHttpRequest = (details: {
+        method?: string;
+        url: string;
+        headers?: Record<string, string>;
+        data?: string | Blob | FormData | ArrayBuffer;
+        responseType?: 'blob' | 'json' | 'text' | 'arraybuffer';
+        timeout?: number;
+        onload?: (response: UserscriptHttpResponse) => void;
+        onprogress?: (event: { lengthComputable?: boolean; loaded: number; total: number }) => void;
+        onerror?: (error: unknown) => void;
+        ontimeout?: () => void;
+    }) => void | Promise<UserscriptHttpResponse>;
+
     const GM_xmlhttpRequest: undefined | ((details: {
         method?: string;
         url: string;
@@ -277,6 +298,10 @@ declare global {
         onerror?: (error: unknown) => void;
         ontimeout?: () => void;
     }) => void);
+    const GM: undefined | {
+        xmlHttpRequest?: UserscriptHttpRequest;
+        xmlhttpRequest?: UserscriptHttpRequest;
+    };
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);
     const GM_getValue: undefined | (<T>(key: string, defaultValue: T) => T | Promise<T>);
     const GM_deleteValue: undefined | ((key: string) => void | Promise<void>);

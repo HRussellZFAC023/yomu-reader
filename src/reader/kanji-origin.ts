@@ -568,9 +568,10 @@ function parseJson(value: string): unknown {
 }
 
 function requestText(url: string): Promise<string> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'GET',
                 url,
                 timeout: 10000,
@@ -588,6 +589,12 @@ function requestText(url: string): Promise<string> {
         if (!response.ok) throw new Error(`Kanji origin request failed (${response.status}).`);
         return response.text();
     });
+}
+
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
 }
 
 function first(values: Array<string | undefined>): string | undefined {

@@ -326,19 +326,20 @@ export class JpdbExtensionsController {
 
     private async renderLocalDictionaries(): Promise<void> {
         const targets = currentLocalDictionaryTargets();
+        const settings = this.options.getSettings();
         for (const target of targets) {
             const key = `${location.pathname}:${target.term}:${target.reading}`;
             if (this.localDictionaryKeys.has(key) && target.anchor.parentElement?.querySelector(`[data-yomu-local-key="${cssEscape(key)}"]`)) continue;
             this.localDictionaryKeys.add(key);
             target.anchor.parentElement?.querySelectorAll<HTMLElement>(`[data-yomu-local-key="${cssEscape(key)}"]`).forEach(node => node.remove());
             const entries = await this.options.dictionaries
-                .lookup(target.term, target.reading, Math.min(this.options.getSettings().localDictionaryMaxResults, 8), this.options.getSettings().dictionaryPreferences)
+                .lookup(target.term, target.reading, Math.min(settings.localDictionaryMaxResults, 8), settings.dictionaryPreferences)
                 .catch(() => []);
             if (!entries.length || !target.anchor.isConnected) continue;
             const container = createAddonCard('', 'Imported dictionaries');
             container.classList.add('yomu-jpdb-local-dictionaries');
             container.dataset.yomuLocalKey = key;
-            setInnerHtml(container, renderLocalDictionaryPanel(entries));
+            setInnerHtml(container, renderLocalDictionaryPanel(entries, settings));
             insertAfter(target.anchor, container);
         }
     }
@@ -504,7 +505,7 @@ function renderImmersionPanel(
         });
 }
 
-function renderLocalDictionaryPanel(entries: YomitanTermEntry[]): string {
+function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings: ReaderSettings): string {
     const byDictionary = new Map<string, YomitanTermEntry[]>();
     for (const entry of entries) {
         const list = byDictionary.get(entry.dictionary) ?? [];
@@ -513,23 +514,27 @@ function renderLocalDictionaryPanel(entries: YomitanTermEntry[]): string {
     }
     return `
         <div class="yomu-jpdb-card-title">Imported dictionaries</div>
-        ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries]) => `
-            <div class="jpdb-reader-local-entry">
-                <div class="jpdb-reader-local-head">
-                    <span>${escapeHtml(dictionary)}</span>
+        ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries], index) => `
+            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${index < 2 ? 'open' : ''}>
+                <summary class="jpdb-reader-local-head">
+                    <span>${escapeHtml(dictionaryLabel(dictionary, settings))}</span>
                     <span class="jpdb-reader-local-dict">${dictionaryEntries.length}</span>
-                </div>
-                <div class="jpdb-reader-local-glossary">
+                </summary>
+                <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(dictionary)}">
                     ${dictionaryEntries.slice(0, 3).map(entry => `
                         <div>
                             <strong>${escapeHtml(entry.expression)}</strong>${entry.reading && entry.reading !== entry.expression ? ` <span class="jpdb-reader-local-reading">${escapeHtml(entry.reading)}</span>` : ''}
-                            ${entry.glossary.slice(0, 3).map(item => `<div>${glossaryToHtml(item)}</div>`).join('')}
+                            ${entry.glossary.slice(0, 3).map(item => `<div>${glossaryToHtml(item, entry.dictionary)}</div>`).join('')}
                         </div>
                     `).join('')}
                 </div>
-            </div>
+            </details>
         `).join('')}
     `;
+}
+
+function dictionaryLabel(name: string, settings: ReaderSettings): string {
+    return settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
 }
 
 function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClient, settings: ReaderSettings): void {

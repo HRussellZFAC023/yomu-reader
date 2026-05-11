@@ -10,4 +10,5 @@ export const SUPPORT_LINKS = {
     issues: 'https://github.com/HRussellZFAC023/kotoba-reader/issues',
     paypal: 'https://paypal.me/HenryRussell163',
     migakuPricing: 'https://migaku.com/pricing',
+    yomikiri: 'https://github.com/BlueGreenMagick/yomikiri',
 } as const;
