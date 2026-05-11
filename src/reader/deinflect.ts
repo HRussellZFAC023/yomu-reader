@@ -1,9 +1,13 @@
+import { Logger } from './logger';
+
 export interface DeinflectedTerm {
     term: string;
     rules: string[];
     reasons: string[];
     depth: number;
 }
+
+const log = Logger.scope('Deinflect');
 
 interface DeinflectionRule {
     from: string;
@@ -171,7 +175,13 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
         }
     }
 
-    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+    const sorted = results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+    log.debugThrottled('deinflect-term', 1000, 'Deinflected Japanese term', {
+        source,
+        candidates: sorted.length,
+        derived: sorted.filter(candidate => candidate.depth > 0).length,
+    });
+    return sorted;
 }
 
 export function termRulesMatch(entryRules: string | undefined, candidateRules: string[]): boolean {

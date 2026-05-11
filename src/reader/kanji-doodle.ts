@@ -1,7 +1,9 @@
 import { uiText } from './i18n';
+import { Logger } from './logger';
 import type { InterfaceLanguage } from './types';
 
 type DoodlePoint = { x: number; y: number; pressure: number };
+const log = Logger.scope('KanjiDoodle');
 
 export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage): void {
     const stage = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-stage');
@@ -9,10 +11,17 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const ghost = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
     const clear = popover.querySelector<HTMLButtonElement>('[data-doodle-clear]');
     const trace = popover.querySelector<HTMLButtonElement>('[data-doodle-trace]');
-    if (!stage || !canvas || !ghost) return;
+    if (!stage || !canvas || !ghost) {
+        log.debug('Kanji doodle install skipped', { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
+        return;
+    }
 
     const context = canvas.getContext('2d');
-    if (!context) return;
+    if (!context) {
+        log.warn('Kanji doodle install failed', { reason: 'missing-2d-context' });
+        return;
+    }
+    log.debug('Kanji doodle installed', { kanji: stage.dataset.kanji ?? '' });
 
     let dpr = 1;
     let drawing = false;
@@ -27,6 +36,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         canvas.width = Math.max(1, Math.round(rect.width * dpr));
         canvas.height = Math.max(1, Math.round(rect.height * dpr));
         redraw();
+        log.debugThrottled('resize', 1000, 'Kanji doodle resized', { width: canvas.width, height: canvas.height, dpr });
     };
 
     const toPoint = (event: PointerEvent): DoodlePoint => {
@@ -72,6 +82,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         points = [toPoint(event)];
         canvas.setPointerCapture?.(event.pointerId);
         redraw();
+        log.debug('Kanji doodle stroke started', { pointerType: event.pointerType, strokes: strokes.length });
     };
 
     const move = (event: PointerEvent) => {
@@ -97,6 +108,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         pointerId = -1;
         canvas.releasePointerCapture?.(event.pointerId);
         redraw();
+        log.debug('Kanji doodle stroke ended', { strokes: strokes.length });
     };
 
     canvas.addEventListener('pointerdown', start, { passive: false });
@@ -109,6 +121,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         strokes = [];
         points = [];
         redraw();
+        log.debug('Kanji doodle cleared');
     });
     trace?.addEventListener('click', event => {
         event.preventDefault();
@@ -117,6 +130,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         ghost.hidden = !traceVisible;
         stage.classList.toggle('trace-hidden', !traceVisible);
         trace.textContent = uiText(getLanguage(), traceVisible ? 'hideTrace' : 'showTrace');
+        log.debug('Kanji doodle trace toggled', { traceVisible });
     });
 
     const resizeObserver = new ResizeObserver(resize);
@@ -124,6 +138,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const disconnectWhenDetached = () => {
         if (!popover.isConnected) {
             resizeObserver.disconnect();
+            log.debug('Kanji doodle detached');
             return;
         }
         requestAnimationFrame(disconnectWhenDetached);

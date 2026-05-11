@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { getUserscriptHttpRequest } from './userscript';
 
 export interface RtkInfo {
     kanji: string;
@@ -120,10 +121,4 @@ function requestText(url: string): Promise<string> {
         if (!response.ok) throw new Error(`RTK request failed (${response.status}).`);
         return response.text();
     });
-}
-
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
 }

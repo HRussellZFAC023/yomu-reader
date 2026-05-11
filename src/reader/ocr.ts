@@ -2,6 +2,7 @@ import { HAS_JAPANESE, escapeHtml, renderTokensToHtml, setInnerHtml } from './do
 import { Logger } from './logger';
 import { accentToRgba } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
+import { getUserscriptHttpRequest } from './userscript';
 
 type LookupText = (text: string, sentence?: string) => Promise<void> | void;
 
@@ -1142,10 +1143,11 @@ function randomBytes(length: number): Uint8Array {
 }
 
 function requestJson(url: string, data: string, timeout: number): Promise<unknown> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         log.debug('JSON OCR request via userscript API', { host: safeHost(url), bytes: data.length });
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'POST',
                 url,
                 headers: { 'content-type': 'application/json' },
@@ -1167,10 +1169,11 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
 
 function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
     const body = new Uint8Array(data);
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         log.debug('ArrayBuffer OCR request via userscript API', { host: safeHost(url), bytes: body.byteLength });
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'POST',
                 url,
                 headers: {
@@ -1204,10 +1207,11 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Pro
 }
 
 function requestTextForm(url: string, data: FormData, timeout: number): Promise<string> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         log.debug('Form OCR request via userscript API', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'POST',
                 url,
                 data,
@@ -1226,10 +1230,11 @@ function requestTextForm(url: string, data: FormData, timeout: number): Promise<
 }
 
 function requestBlob(url: string): Promise<Blob> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         log.debug('Image blob request via userscript API', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'GET',
                 url,
                 responseType: 'blob',

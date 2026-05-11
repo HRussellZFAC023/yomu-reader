@@ -1,6 +1,8 @@
+import { Logger } from './logger';
 import type { JPDBToken, ReaderSettings } from './types';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+const log = Logger.scope('Dom');
 type TrustedTypesFactory = {
     createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
     getPolicy?: (name: string) => { createHTML: (value: string) => unknown } | null;
@@ -198,6 +200,7 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
 }
 
 export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: { includeReaderRoot?: boolean } = {}): TextTarget[] {
+    const done = log.time('Collect text targets', { limit, visibleOnly, includeReaderRoot: options.includeReaderRoot, root: nodeLabel(root) });
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const text = node.textContent?.trim() ?? '';
@@ -225,6 +228,8 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true,
             hasNativeRuby: Boolean(parent.closest('ruby')),
         });
     }
+    log.debug('Collected text targets', { count: targets.length, limit, root: nodeLabel(root) });
+    done();
     return targets;
 }
 
@@ -234,6 +239,7 @@ export function collectFragmentTextTargetsIn(
     visibleOnly = true,
     excludeSelector = '',
 ): FragmentTextTarget[] {
+    const done = log.time('Collect fragment text targets', { limit, visibleOnly, root: nodeLabel(root), hasExcludeSelector: Boolean(excludeSelector) });
     const targets: FragmentTextTarget[] = [];
     const fragments: TextFragment[] = [];
 
@@ -299,6 +305,8 @@ export function collectFragmentTextTargetsIn(
 
     visit(root);
     flush();
+    log.debug('Collected fragment text targets', { count: targets.length, limit, root: nodeLabel(root) });
+    done();
     return targets;
 }
 
@@ -309,6 +317,38 @@ export function isFragmentTextTarget(target: ScanTextTarget): target is Fragment
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
     else applyTokensToTextNode(target, tokens, settings);
+}
+
+export function unwrapReaderWords(root: ParentNode = document): number {
+    const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
+        .filter(word => !word.closest(READER_ROOT_SELECTOR));
+    const parents = new Set<Node>();
+
+    for (const word of words) {
+        const parent = word.parentNode;
+        if (!parent) continue;
+        parents.add(parent);
+        word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+    }
+
+    parents.forEach(parent => parent.normalize());
+    log.debug('Unwrapped reader words', { count: words.length });
+    return words.length;
+}
+
+export function readerWordSurfaceText(element: Element): string {
+    let text = '';
+    element.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent ?? '';
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const child = node as Element;
+        if (child.tagName === 'RT' || child.tagName === 'RP') return;
+        text += readerWordSurfaceText(child);
+    });
+    return text;
 }
 
 export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
@@ -336,6 +376,7 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     }
 
     target.node.replaceWith(fragment);
+    log.debugThrottled('apply-text-node', 1000, 'Applied tokens to text node', { tokens: safeTokens.length, textLength: text.length, parent: nodeLabel(target.parent) });
 }
 
 export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
@@ -382,6 +423,12 @@ export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: 
         if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
         fragmentInfo.node.replaceWith(replacement);
     }
+    log.debugThrottled('apply-fragment', 1000, 'Applied tokens to fragment target', {
+        tokens: safeTokens.length,
+        fragments: target.fragments.length,
+        textLength: target.text.length,
+        parserId: target.parserId,
+    });
 }
 
 export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: ReaderSettings): string {
@@ -396,6 +443,7 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
+    log.debugThrottled('render-token-html', 1000, 'Rendered token HTML', { tokens: safeTokens.length, textLength: text.length, htmlLength: html.length });
     return html;
 }
 
@@ -474,6 +522,15 @@ function trustedHtml(value: string): string | unknown {
         }
     }
     return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
+}
+
+function nodeLabel(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) return '#text';
+    if (node.nodeType !== Node.ELEMENT_NODE) return node.nodeName.toLowerCase();
+    const element = node as Element;
+    const id = element.id ? `#${element.id}` : '';
+    const classes = element.classList.length ? `.${[...element.classList].slice(0, 3).join('.')}` : '';
+    return `${element.tagName.toLowerCase()}${id}${classes}`;
 }
 
 function isVisible(element: HTMLElement): boolean {

@@ -1,4 +1,8 @@
 import { escapeHtml } from './dom';
+import { Logger } from './logger';
+import { getUserscriptHttpRequest } from './userscript';
+
+const log = Logger.scope('StudyTools');
 
 export interface GrammarHint {
     name: string;
@@ -28,7 +32,7 @@ const translationCache = new Map<string, string>();
 export function detectGrammarHints(sentence: string): GrammarHint[] {
     const normalized = sentence.replace(/\s+/g, '');
     const seen = new Set<string>();
-    return GRAMMAR_PATTERNS
+    const hints = GRAMMAR_PATTERNS
         .map(item => ({ item, match: item.pattern.exec(normalized)?.[0] ?? '' }))
         .filter(result => result.match)
         .map(({ item, match }) => ({
@@ -44,27 +48,43 @@ export function detectGrammarHints(sentence: string): GrammarHint[] {
             return true;
         })
         .slice(0, 6);
+    log.debug('Grammar hints detected', { sentenceLength: sentence.length, hints: hints.map(hint => hint.name) });
+    return hints;
 }
 
 export async function translateJapaneseSentence(sentence: string): Promise<string> {
     const trimmed = sentence.trim();
     if (!trimmed) return '';
     const cached = translationCache.get(trimmed);
-    if (cached) return cached;
+    if (cached) {
+        log.debug('Translation cache hit', { sentenceLength: trimmed.length });
+        return cached;
+    }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
-    const json = await requestJson<GoogleTranslateResponse>(url);
-    const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
-    if (!translated) throw new Error('No translation returned.');
-    translationCache.set(trimmed, translated);
-    return translated;
+    const done = log.time('Translate sentence', { sentenceLength: trimmed.length });
+    try {
+        const json = await requestJson<GoogleTranslateResponse>(url);
+        const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
+        if (!translated) throw new Error('No translation returned.');
+        translationCache.set(trimmed, translated);
+        log.info('Translation completed', { sentenceLength: trimmed.length, translationLength: translated.length });
+        return translated;
+    } catch (error) {
+        log.warn('Translation failed', { sentenceLength: trimmed.length, error });
+        throw error;
+    } finally {
+        done();
+    }
 }
 
-export function renderGrammarHints(hints: GrammarHint[], sentence = ''): string {
-    if (!hints.length) {
-        const searchUrl = `https://www.tofugu.com/japanese-grammar/?search=${encodeURIComponent(sentence.slice(0, 40))}`;
-        return `<div class="jpdb-reader-study-empty">No obvious grammar pattern found.</div><a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener">Open Tofugu grammar index</a>`;
-    }
-    return `<div class="jpdb-reader-study-note">Pattern hints are best guesses from the sentence shape.</div>${hints.map(hint => `
+export function renderGrammarHints(hints: GrammarHint[], sentence: string): string {
+    if (!hints.length) return '';
+    return `
+        <div class="jpdb-reader-study-title">Sentence</div>
+        <div class="jpdb-reader-study-original jpdb-reader-parseable">${escapeHtml(sentence)}</div>
+        <div class="jpdb-reader-study-title">Breakdown</div>
+        <div class="jpdb-reader-study-note">Pattern hints are best guesses from the full sentence shape.</div>
+        ${hints.map(hint => `
         <div class="jpdb-reader-study-item">
             <div>
                 <div class="jpdb-reader-study-name">${escapeHtml(hint.name)}</div>
@@ -81,10 +101,9 @@ interface GoogleTranslateResponse {
 }
 
 function requestJson<T>(url: string): Promise<T> {
-    const userscriptRequest = typeof GM_xmlhttpRequest === 'function'
-        ? GM_xmlhttpRequest
-        : typeof GM !== 'undefined' ? GM.xmlHttpRequest ?? GM.xmlhttpRequest : undefined;
+    const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
+        log.debug('Translation request using userscript request');
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'GET',
@@ -93,18 +112,31 @@ function requestJson<T>(url: string): Promise<T> {
                 timeout: 8000,
                 onload: response => {
                     if (response.status >= 200 && response.status < 300) {
+                        log.debug('Translation request completed', { status: response.status });
                         resolve((response.response ?? JSON.parse(String(response.responseText ?? '{}'))) as T);
                     } else {
+                        log.warn('Translation request returned HTTP error', { status: response.status });
                         reject(new Error(`Translation request failed (${response.status}).`));
                     }
                 },
-                onerror: reject,
-                ontimeout: () => reject(new Error('Translation timed out.')),
+                onerror: error => {
+                    log.warn('Translation request failed', { error });
+                    reject(error);
+                },
+                ontimeout: () => {
+                    log.warn('Translation request timed out');
+                    reject(new Error('Translation timed out.'));
+                },
             });
         });
     }
+    log.debug('Translation request using fetch');
     return fetch(url).then(async response => {
-        if (!response.ok) throw new Error(`Translation request failed (${response.status}).`);
+        if (!response.ok) {
+            log.warn('Translation request returned HTTP error', { status: response.status });
+            throw new Error(`Translation request failed (${response.status}).`);
+        }
+        log.debug('Translation request completed', { status: response.status });
         return response.json() as Promise<T>;
     });
 }

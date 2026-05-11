@@ -73,6 +73,19 @@ export class ReaderParser {
         return this.dependencies.jpdb.getCard(vid, sid) ?? this.localCardCache.get(cardCacheKey(vid, sid));
     }
 
+    cacheCards(cards: JPDBCard[]): void {
+        cards.forEach(card => {
+            if (card.source === 'local' || card.vid <= 0 || card.sid <= 0) {
+                this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
+            }
+        });
+    }
+
+    clearLocalCache(): void {
+        this.localCardCache.clear();
+        log.debug('Local card cache cleared');
+    }
+
     localCardFromEntry(entry: YomitanTermEntry): JPDBCard {
         const id = -stableLocalId(`${entry.dictionary}\n${entry.expression}\n${entry.reading}`);
         const card: JPDBCard = {

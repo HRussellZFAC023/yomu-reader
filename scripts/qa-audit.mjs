@@ -1063,83 +1063,32 @@ async function auditBloomeeAutoScan(browser) {
     record('Bloomee auto page scan', 'pass', `${snapshot.wrappedWords} wrapped words, ${snapshot.furigana} furigana nodes`);
 }
 
-async function auditHoverLookup(browser, server) {
-    const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
-        body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
-    </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。明日は学校で勉強します。</p></body></html>`;
-    const { page } = await newAuditedPage(browser, {
-        ...baseSettings,
-        lookupOnClick: false,
-        lookupOnHover: true,
-        hoverOpenDelayMs: 40,
-        hoverCloseDelayMs: 140,
-        localDictionariesEnabled: true,
-        localDictionaryShowKanji: true,
-        dictionaryPreferences: [
-            { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 0 },
-            { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1 },
-            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 2 },
-        ],
-        shortcuts: { ...baseSettings.shortcuts, hoverLookup: 'Shift' },
-    });
-    await page.route(`${server.origin}/hover-fixture.html`, route => route.fulfill({
-        status: 200,
-        contentType: 'text/html; charset=utf-8',
-        body: html,
-    }));
-    await page.goto(`${server.origin}/hover-fixture.html`, { waitUntil: 'domcontentloaded' });
-    await seedLocalKanjiDictionaries(page);
-    await injectUserscript(page);
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
-    const firstWord = await page.locator('.jpdb-reader-word').first().boundingBox();
-    const secondWord = await page.locator('.jpdb-reader-word').nth(1).boundingBox();
-    assertAudit(firstWord, 'no scanned word bounding box found');
-    assertAudit(secondWord, 'no second scanned word bounding box found');
-    await page.keyboard.down('Shift');
-    await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    const hoverHasBackdrop = await page.locator('.jpdb-reader-backdrop').count();
-    assertAudit(hoverHasBackdrop === 0, 'hover lookup mounted a modal backdrop');
-    const text = await page.locator('.jpdb-reader-popover').innerText();
-    assertAudit(/JPDB|Add|Never|Blacklist/.test(text), 'hover popup did not render mining actions');
-    await page.keyboard.press('Escape');
-    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup');
-    await page.waitForTimeout(260);
-    const reopenedAfterEscape = await page.locator('.jpdb-reader-popover').count();
-    assertAudit(reopenedAfterEscape === 0, 'hover popup reopened immediately after Escape without pointer leaving the word');
-    await page.mouse.move(8, 8);
-    await page.mouse.move(secondWord.x + secondWord.width / 2, secondWord.y + secondWord.height / 2);
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    const popoverBox = await page.locator('.jpdb-reader-popover').boundingBox();
-    assertAudit(popoverBox, 'hover popup has no bounding box');
-    await page.mouse.move(popoverBox.x + Math.min(24, popoverBox.width / 2), popoverBox.y + Math.min(24, popoverBox.height / 2));
-    await page.waitForTimeout(260);
-    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'hover popup closed while pointer was inside the panel');
-    await page.keyboard.up('Shift');
-    await page.keyboard.press('Escape');
-    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup before press-drag lookup');
-    await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(secondWord.x + secondWord.width / 2, secondWord.y + secondWord.height / 2, { steps: 10 });
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await page.mouse.up();
-    await page.waitForTimeout(220);
-    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'press-drag lookup did not leave exactly one popup open');
-    assertAudit(await page.locator('.jpdb-reader-backdrop').count() === 0, 'press-drag lookup opened a modal backdrop');
-    await page.keyboard.press('Escape');
-    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the press-drag popup');
-    await page.keyboard.down('Shift');
-    await page.mouse.move(8, 8);
-    await page.waitForTimeout(220);
-    await page.mouse.move(firstWord.x + firstWord.width / 2, firstWord.y + firstWord.height / 2);
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+async function assertTodayKanjiDrilldown(page) {
+    await waitForAudit(page, () => document.querySelector('.jpdb-reader-spelling')?.textContent?.includes('今日'), 6000, '今日 hover popup did not open before kanji drilldown');
     const pillHref = await page.locator('.jpdb-reader-jpdb-pill').first().getAttribute('href');
     assertAudit(pillHref?.includes('https://jpdb.io/vocabulary/'), 'JPDB pill is not the vocabulary open link');
-    const kanjiButton = page.locator('.jpdb-reader-kanji-inline').first();
+    const kanjiButton = page.locator('.jpdb-reader-kanji-inline', { hasText: '今' }).first();
     await kanjiButton.click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent?.includes('Readings and components'), 9000, 'kanji drilldown did not show kanji details');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'Stroke-order trace did not render');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-similar-word').length > 0, 9000, 'kanji used-in words did not render');
+    await waitForAudit(
+        page,
+        () => /KANJIDIC|now|day|sun|book|read/.test(document.querySelector('.jpdb-reader-kanji')?.textContent ?? ''),
+        9000,
+        'local kanji dictionary section did not render',
+    ).catch(async error => {
+        const debug = await page.evaluate(() => ({
+            sourceCards: [...document.querySelectorAll('.jpdb-reader-source-card')].map(node => ({
+                classes: node.className,
+                title: node.querySelector('summary')?.textContent?.trim() ?? '',
+                text: node.textContent?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '',
+            })),
+            hasDefinitionsMount: Boolean(document.querySelector('[data-kanji-definitions-mount]')),
+            kanjiSectionHtml: document.querySelector('.jpdb-reader-kanji-section-stack')?.innerHTML.slice(0, 1200) ?? '',
+        }));
+        throw new Error(`${error instanceof Error ? error.message : String(error)}: ${JSON.stringify(debug)}`);
+    });
     const kanjiSnapshot = await page.evaluate(() => ({
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
@@ -1172,6 +1121,74 @@ async function auditHoverLookup(browser, server) {
     assertAudit(/KANJIDIC|now|day|sun|book|read/.test(kanjiSnapshot.localKanjiText), 'local kanji dictionary section is missing');
     assertAudit(kanjiSnapshot.similarWords > 0, 'kanji drilldown did not show JPDB used-in words');
     await page.screenshot({ path: path.join(ARTIFACTS, 'hover-lookup.png'), fullPage: false });
+}
+
+async function auditHoverLookup(browser, server) {
+    const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+        body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
+    </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。明日は学校で勉強します。</p></body></html>`;
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        lookupOnClick: false,
+        lookupOnHover: true,
+        hoverOpenDelayMs: 40,
+        hoverCloseDelayMs: 140,
+        localDictionariesEnabled: true,
+        localDictionaryShowKanji: true,
+        dictionaryPreferences: [
+            { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 0 },
+            { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1 },
+            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 2 },
+        ],
+        shortcuts: { ...baseSettings.shortcuts, hoverLookup: 'Shift' },
+    });
+    await page.route(`${server.origin}/hover-fixture.html`, route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: html,
+    }));
+    await page.goto(`${server.origin}/hover-fixture.html`, { waitUntil: 'domcontentloaded' });
+    await seedLocalKanjiDictionaries(page);
+    await injectUserscript(page);
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
+    const todayWord = await page.locator('.jpdb-reader-word', { hasText: '今日' }).first().boundingBox();
+    const quietWord = await page.locator('.jpdb-reader-word', { hasText: '静か' }).first().boundingBox();
+    assertAudit(todayWord, 'no 今日 scanned word bounding box found');
+    assertAudit(quietWord, 'no 静か scanned word bounding box found');
+    await page.keyboard.down('Shift');
+    await page.mouse.move(todayWord.x + todayWord.width / 2, todayWord.y + todayWord.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    const hoverHasBackdrop = await page.locator('.jpdb-reader-backdrop').count();
+    assertAudit(hoverHasBackdrop === 0, 'hover lookup mounted a modal backdrop');
+    const text = await page.locator('.jpdb-reader-popover').innerText();
+    assertAudit(/JPDB|Add|Never|Blacklist/.test(text), 'hover popup did not render mining actions');
+    await assertTodayKanjiDrilldown(page);
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup');
+    await page.waitForTimeout(260);
+    const reopenedAfterEscape = await page.locator('.jpdb-reader-popover').count();
+    assertAudit(reopenedAfterEscape === 0, 'hover popup reopened immediately after Escape without pointer leaving the word');
+    await page.mouse.move(8, 8);
+    await page.mouse.move(quietWord.x + quietWord.width / 2, quietWord.y + quietWord.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    const popoverBox = await page.locator('.jpdb-reader-popover').boundingBox();
+    assertAudit(popoverBox, 'hover popup has no bounding box');
+    await page.mouse.move(popoverBox.x + Math.min(24, popoverBox.width / 2), popoverBox.y + Math.min(24, popoverBox.height / 2));
+    await page.waitForTimeout(260);
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'hover popup closed while pointer was inside the panel');
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup before press-drag lookup');
+    await page.mouse.move(todayWord.x + todayWord.width / 2, todayWord.y + todayWord.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(quietWord.x + quietWord.width / 2, quietWord.y + quietWord.height / 2, { steps: 10 });
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await page.mouse.up();
+    await page.waitForTimeout(220);
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'press-drag lookup did not leave exactly one popup open');
+    assertAudit(await page.locator('.jpdb-reader-backdrop').count() === 0, 'press-drag lookup opened a modal backdrop');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the press-drag popup');
     await page.keyboard.up('Shift');
     await page.close();
     record('hold-key hover lookup', 'pass', 'Shift hover and press-drag lookup both open lightweight popups');

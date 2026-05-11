@@ -4,4 +4,6 @@ dist/*
 dist-reader/
 coverage/
 qa-artifacts/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 .DS_Store

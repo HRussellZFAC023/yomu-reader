@@ -1,12 +1,15 @@
 import { APP_NAME } from './constants';
 import { uiText, type UiCopyKey } from './i18n';
-import { saveSettings } from './settings';
+import { Logger } from './logger';
+import { defaultDictionaryLookupLinks, saveSettings } from './settings';
 import type { InterfaceLanguage, ReaderSettings } from './types';
+
+const log = Logger.scope('Onboarding');
 
 interface OnboardingOptions {
     getSettings: () => ReaderSettings;
     setSettings: (settings: ReaderSettings) => void;
-    showSettings: () => void;
+    showSettings: (panel?: string) => void;
 }
 
 export class OnboardingController {
@@ -17,12 +20,16 @@ export class OnboardingController {
     constructor(private readonly options: OnboardingOptions) {}
 
     async showIfNeeded(): Promise<boolean> {
-        if (this.options.getSettings().onboardingSeen) return false;
+        if (this.options.getSettings().onboardingSeen) {
+            log.debug('Onboarding skipped', { reason: 'already-seen' });
+            return false;
+        }
         this.show();
         return true;
     }
 
     private show(): void {
+        log.info('Showing onboarding', { language: this.options.getSettings().interfaceLanguage });
         this.close();
         this.backdrop = document.createElement('div');
         this.backdrop.className = 'jpdb-reader-backdrop jpdb-reader-onboarding-backdrop';
@@ -82,14 +89,17 @@ export class OnboardingController {
         actions.className = 'jpdb-reader-onboarding-actions';
         const setup = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingAddApiKey'));
         setup.className = 'jpdb-reader-btn add';
+        setup.dataset.onboardingAction = 'api-key';
         setup.addEventListener('click', () => void this.complete(true));
-        const browse = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingUseWithoutApiKey'));
-        browse.className = 'jpdb-reader-btn';
-        browse.addEventListener('click', () => void this.complete(false));
-        actions.append(setup, browse);
+        const dictionaries = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingUseWithoutApiKey'));
+        dictionaries.className = 'jpdb-reader-btn';
+        dictionaries.dataset.onboardingAction = 'without-api';
+        dictionaries.addEventListener('click', () => void this.complete('dictionaries'));
+        actions.append(setup, dictionaries);
 
         this.languageSelect.addEventListener('change', () => {
             const language = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
+            log.info('Onboarding language changed', { language });
             this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language });
             this.localize(language);
         });
@@ -129,27 +139,41 @@ export class OnboardingController {
             card.querySelector('strong')?.replaceChildren(uiText(language, headingKey));
             card.querySelector('span')?.replaceChildren(uiText(language, bodyKey));
         });
-        panel.querySelector('.jpdb-reader-onboarding-actions .jpdb-reader-btn.add')?.replaceChildren(uiText(language, 'onboardingAddApiKey'));
-        panel.querySelector('.jpdb-reader-onboarding-actions .jpdb-reader-btn:not(.add)')?.replaceChildren(uiText(language, 'onboardingUseWithoutApiKey'));
+        panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language, 'onboardingAddApiKey'));
+        panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language, 'onboardingUseWithoutApiKey'));
         panel.querySelector('.jpdb-reader-onboarding-note')?.replaceChildren(uiText(language, 'onboardingNote'));
     }
 
-    private async complete(openSettings: boolean): Promise<void> {
+    private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
+        const done = log.time('Onboarding complete', { openSettings });
         const language = this.languageSelect?.value;
         const settings = {
             ...this.options.getSettings(),
             onboardingSeen: true,
+            jpdbDefinitionsEnabled: openSettings === true,
+            localDictionariesEnabled: openSettings !== true,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
             interfaceLanguage: language === 'en' || language === 'ja' || language === 'auto'
                 ? language
                 : this.options.getSettings().interfaceLanguage,
         };
-        this.options.setSettings(settings);
-        await saveSettings(settings);
-        this.close();
-        if (openSettings) this.options.showSettings();
+        try {
+            this.options.setSettings(settings);
+            await saveSettings(settings);
+            this.close();
+            if (openSettings === 'dictionaries') this.options.showSettings('dictionaries');
+            else if (openSettings) this.options.showSettings();
+            log.info('Onboarding completed', { openSettings, language: settings.interfaceLanguage });
+        } catch (error) {
+            log.warn('Onboarding completion failed', { openSettings, error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     private close(): void {
+        if (this.panel || this.backdrop) log.debug('Closing onboarding');
         this.panel?.remove();
         this.backdrop?.remove();
         this.panel = undefined;

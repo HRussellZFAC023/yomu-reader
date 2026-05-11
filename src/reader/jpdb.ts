@@ -2,7 +2,7 @@ import { JpdbApiClient } from './jpdb-api';
 import { getPitchClass, jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
 import { LruCache } from './lru-cache';
 import { Logger } from './logger';
-import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBToken } from './types';
+import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from './types';
 
 const TOKEN_FIELDS = ['vocabulary_index', 'position', 'length', 'furigana'];
 const VOCABULARY_FIELDS = [
@@ -21,6 +21,15 @@ const VOCABULARY_FIELDS = [
 const DECK_FIELDS = ['id', 'name'];
 const PARSE_CACHE_SIZE = 250;
 const log = Logger.scope('JpdbClient');
+
+interface JpdbDeckVocabularyResponse {
+    vocabulary?: unknown[];
+    occurences?: number[];
+}
+
+interface JpdbVocabularyLookupResponse {
+    vocabulary_info?: unknown[];
+}
 
 export { getPitchClass, splitJapaneseSentences };
 
@@ -85,6 +94,30 @@ export class JpdbClient {
             : [];
         log.debug('Decks listed', { decks: decks.length });
         return decks;
+    }
+
+    async listDeckCards(deckId: string, limit = 80): Promise<JPDBCard[]> {
+        const id = normalizeDeckRequestId(deckId);
+        const done = log.time('listDeckCards', { deckId, limit });
+        const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
+            id,
+            fetch_occurences: false,
+        });
+        const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
+        if (!pairs.length) {
+            done();
+            log.debug('Deck vocabulary list was empty', { deckId });
+            return [];
+        }
+        const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
+            list: pairs,
+            fields: VOCABULARY_FIELDS,
+        });
+        const cards = jpdbVocabularyToCards((lookup.vocabulary_info ?? []) as JPDBRawVocabulary[]);
+        this.cacheCards(cards);
+        done();
+        log.debug('Deck cards loaded', { deckId, requested: pairs.length, cards: cards.length });
+        return cards;
     }
 
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
@@ -159,6 +192,34 @@ function normalizeParagraphs(paragraphs: string[]): string[] {
 
 function cardKey(vid: number, sid: number): string {
     return `${vid}/${sid}`;
+}
+
+function normalizeDeckRequestId(value: string): string | number {
+    const trimmed = value.trim();
+    const number = Number(trimmed);
+    return trimmed && Number.isInteger(number) && String(number) === trimmed ? number : trimmed;
+}
+
+function normalizeVocabularyPairs(value: unknown): Array<[number, number]> {
+    if (!Array.isArray(value)) return [];
+    return value
+        .map(item => {
+            if (!Array.isArray(item)) return null;
+            const vid = Number(item[0]);
+            const sid = Number(item[1]);
+            return Number.isInteger(vid) && Number.isInteger(sid) ? [vid, sid] as [number, number] : null;
+        })
+        .filter((item): item is [number, number] => item !== null);
+}
+
+function sampleVocabularyPairs(pairs: Array<[number, number]>, limit: number): Array<[number, number]> {
+    if (pairs.length <= limit) return pairs;
+    const sampled = pairs.slice();
+    for (let index = sampled.length - 1; index > 0; index--) {
+        const swap = Math.floor(Math.random() * (index + 1));
+        [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
+    }
+    return sampled.slice(0, limit);
 }
 
 function normalizeDeck(value: unknown): JPDBDeck | null {

@@ -6,6 +6,8 @@ JPDB/Yomitan popup reader for Japanese text, audio, manga OCR, and video subtitl
 
 ## Install
 
+Friendly guide: https://hrussellzfac023.github.io/kotoba-reader/getting-started
+
 The built userscript is:
 
 ```text
@@ -29,6 +31,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Manga/image OCR that works without setup through Google Lens, with Cloud Vision and local OCR app support for MangaOCR, PaddleOCR, and Apple Vision style results.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
+- Optional new-tab study page at `https://hrussellzfac023.github.io/kotoba-reader/newtab/`, with accessible accent-color theming and real Anki or JPDB words.
 - Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
 - First-run welcome screen explains the core workflow once, then stays out of the way.
 - Configurable accent color for the reader controls.
@@ -64,6 +67,16 @@ Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect a
 Context selection is metadata-first: よむ remembers the last useful sentence/source for a term without storing image blobs in localStorage. Immersion Kit mining uses the exact example currently selected in the popup, including its sentence and thumbnail. Subtitle and video cards can include a best-effort still image from the active video, and OCR/image cards can include the source image when browser security allows it. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin media source the way a full browser extension can.
 
 Anki mobile note: AnkiConnect is an Anki desktop add-on, so direct one-tap Anki mining is designed around desktop Anki reachable at a local or LAN/Tailscale URL. On iPad or Android, Yomu can still copy/look up/mine to JPDB; direct AnkiMobile/AnkiDroid card creation needs a desktop bridge or another reachable service.
+
+## New Tab
+
+Enable **Yomu new tab page** in settings, then use this address as a browser new-tab/home-page URL or add it to the iPad Home Screen:
+
+```text
+https://hrussellzfac023.github.io/kotoba-reader/newtab/
+```
+
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is enabled and reachable, otherwise from the configured JPDB deck. Tapping a word opens the same popup dictionary used on normal pages.
 
 ## OCR
 
@@ -180,6 +193,7 @@ npm run prefill:greasyfork
 
 ## Support
 
+- Documentation: https://hrussellzfac023.github.io/kotoba-reader/
 - Issues and source: https://github.com/HRussellZFAC023/kotoba-reader/issues
 - Discord: `henry281199`
 - Donate: https://paypal.me/HenryRussell163

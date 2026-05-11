@@ -5,6 +5,7 @@ import { immersionContextFromExample, loadMiningContext, saveMiningContext } fro
 import { speakerIcon } from './popup-render';
 import { RtkClient, type RtkInfo } from './rtk';
 import type { ReaderSettings } from './types';
+import { getUserscriptHttpRequest } from './userscript';
 import { YomitanDictionaryStore, glossaryToHtml, type YomitanTermEntry } from './yomitan';
 
 const ROOT_ATTR = 'data-yomu-jpdb-addon';
@@ -19,6 +20,11 @@ const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
 const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
 const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
 const log = Logger.scope('JpdbExtensions');
+let immersionAddonAudio: HTMLAudioElement | undefined;
+let immersionAddonAudioBlobUrl = '';
+let immersionAddonAudioKey = '';
+let immersionAddonAudioLoadingKey = '';
+let immersionAddonAudioRequestId = 0;
 
 export interface UchisenImage {
     url: string;
@@ -543,8 +549,8 @@ function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings: Reade
     }
     return `
         <div class="yomu-jpdb-card-title">Imported dictionaries</div>
-        ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries], index) => `
-            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${index < 2 ? 'open' : ''}>
+        ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries]) => `
+            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${settings.dictionarySourcesInitiallyExpanded ? 'open' : ''}>
                 <summary class="jpdb-reader-local-head">
                     <span>${escapeHtml(dictionaryLabel(dictionary, settings))}</span>
                     <span class="jpdb-reader-local-dict">${dictionaryEntries.length}</span>
@@ -569,21 +575,57 @@ function dictionaryLabel(name: string, settings: ReaderSettings): string {
 function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClient, settings: ReaderSettings): void {
     const url = client.mediaUrl(example, 'sound');
     if (!url) return;
-    const play = (src: string) => {
+    if (isImmersionAddonAudioBusy(url)) return;
+
+    const requestId = ++immersionAddonAudioRequestId;
+    clearImmersionAddonAudio();
+    immersionAddonAudioKey = url;
+    immersionAddonAudioLoadingKey = url;
+
+    const play = (src: string, isBlob = false) => {
+        if (requestId !== immersionAddonAudioRequestId || immersionAddonAudioKey !== url) {
+            if (isBlob) URL.revokeObjectURL(src);
+            return;
+        }
         const audio = new Audio(src);
         audio.playbackRate = settings.immersionKitPlaybackRate;
-        void audio.play().catch(() => undefined);
+        if (isBlob) immersionAddonAudioBlobUrl = src;
+        immersionAddonAudio = audio;
+        immersionAddonAudioLoadingKey = '';
+        const cleanup = () => {
+            if (immersionAddonAudio === audio) clearImmersionAddonAudio();
+        };
+        audio.addEventListener('ended', cleanup, { once: true });
+        audio.addEventListener('error', cleanup, { once: true });
+        void audio.play().catch(() => {
+            if (requestId === immersionAddonAudioRequestId) clearImmersionAddonAudio();
+        });
     };
     if (!settings.audioViaBlob) {
         play(url);
         return;
     }
     void client.fetchBlobUrl(url, settings.audioTimeoutMs)
-        .then(src => {
-            play(src);
-            window.setTimeout(() => URL.revokeObjectURL(src), 45000);
-        })
-        .catch(() => undefined);
+        .then(src => play(src, true))
+        .catch(() => {
+            if (requestId === immersionAddonAudioRequestId) clearImmersionAddonAudio();
+        });
+}
+
+function clearImmersionAddonAudio(): void {
+    immersionAddonAudio?.pause();
+    immersionAddonAudio = undefined;
+    immersionAddonAudioKey = '';
+    immersionAddonAudioLoadingKey = '';
+    if (immersionAddonAudioBlobUrl) {
+        URL.revokeObjectURL(immersionAddonAudioBlobUrl);
+        immersionAddonAudioBlobUrl = '';
+    }
+}
+
+function isImmersionAddonAudioBusy(key: string): boolean {
+    if (immersionAddonAudioLoadingKey === key) return true;
+    return Boolean(immersionAddonAudio && immersionAddonAudioKey === key && !immersionAddonAudio.ended);
 }
 
 function installDoodle(root: HTMLElement, glyph: string): void {
@@ -925,9 +967,10 @@ function kanjiVgUrl(glyph: string): string {
 
 function requestText(url: string, timeout: number): Promise<string> {
     return new Promise((resolve, reject) => {
-        if (typeof GM_xmlhttpRequest === 'function') {
+        const userscriptRequest = getUserscriptHttpRequest();
+        if (userscriptRequest) {
             log.debug('Text request via userscript API', { host: safeHost(url) });
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'GET',
                 url,
                 timeout,
@@ -954,9 +997,10 @@ function requestBlobUrl(url: string, timeout: number): Promise<string> {
 
 function requestBlob(url: string, timeout: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
-        if (typeof GM_xmlhttpRequest === 'function') {
+        const userscriptRequest = getUserscriptHttpRequest();
+        if (userscriptRequest) {
             log.debug('Blob request via userscript API', { host: safeHost(url) });
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'GET',
                 url,
                 responseType: 'blob',

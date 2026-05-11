@@ -2,6 +2,7 @@ import { escapeHtml } from './dom';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
 import { Logger } from './logger';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
+import { getUserscriptHttpRequest } from './userscript';
 import {
     glossaryToHtml,
     glossaryToText,
@@ -128,6 +129,52 @@ export class AnkiConnectClient {
         const models = await this.invoke<string[]>('modelNames');
         log.debug('Model names loaded', { models: models.length });
         return models;
+    }
+
+    async listNewTabCards(limit = 80): Promise<JPDBCard[]> {
+        const settings = this.getSettings();
+        if (!settings.ankiEnabled || Date.now() < this.unavailableUntil) return [];
+
+        try {
+            const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+            const query = [
+                settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : '',
+                settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : '',
+            ].filter(Boolean).join(' ');
+            const noteIds = await this.invoke<number[]>('findNotes', { query });
+            const sampledIds = sampleAnkiIds(noteIds, Math.max(1, limit * 3));
+            if (!sampledIds.length) {
+                done();
+                log.debug('No Anki notes available for new tab', { query });
+                return [];
+            }
+
+            const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: sampledIds });
+            const cardIds = unique(notes.flatMap(note => note.cards ?? []));
+            const cards = cardIds.length
+                ? await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }).catch((): AnkiCardInfo[] => [])
+                : [];
+            const cardsByNote = new Map<number, AnkiCardInfo[]>();
+            for (const cardInfo of cards) {
+                const noteId = Number(cardInfo.note);
+                if (!Number.isFinite(noteId)) continue;
+                const list = cardsByNote.get(noteId) ?? [];
+                list.push(cardInfo);
+                cardsByNote.set(noteId, list);
+            }
+
+            const result = notes
+                .map(note => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? []))
+                .filter((card): card is JPDBCard => card !== null)
+                .slice(0, Math.max(1, limit));
+            done();
+            log.debug('Anki new tab cards loaded', { notes: notes.length, cards: result.length });
+            return result;
+        } catch (error) {
+            log.warn('Anki new tab lookup failed; entering cooldown', error);
+            this.unavailableUntil = Date.now() + 30000;
+            return [];
+        }
     }
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
@@ -390,12 +437,6 @@ function postJson<T>(url: string, body: string): Promise<T> {
     });
 }
 
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
-}
-
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {
     const dictionaryPreferences = context.dictionaryPreferences ?? [];
     const jpdbUrl = card.source === 'local' ? '' : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
@@ -505,12 +546,84 @@ function unique<T>(items: T[]): T[] {
     return [...new Set(items)];
 }
 
+function sampleAnkiIds(ids: number[], limit: number): number[] {
+    const uniqueIds = unique(ids).filter(id => Number.isFinite(Number(id)));
+    if (uniqueIds.length <= limit) return uniqueIds.reverse();
+    const sampled = uniqueIds.slice();
+    for (let index = sampled.length - 1; index > 0; index--) {
+        const swap = Math.floor(Math.random() * (index + 1));
+        [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
+    }
+    return sampled.slice(0, limit);
+}
+
 function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, string> {
     const out: Record<string, string> = {};
     Object.entries(fields ?? {}).forEach(([name, value]) => {
         out[name] = stripHtml(String(value?.value ?? ''));
     });
     return out;
+}
+
+function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | null {
+    const fields = flattenNoteFields(note.fields);
+    const spelling = firstField(fields, ['Expression', 'Word', 'Vocab', 'Vocabulary', 'Term', 'Front', 'Expression Reading'])
+        || firstJapaneseValue(fields);
+    if (!spelling) return null;
+    const reading = firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling;
+    const meaning = firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '';
+    const partOfSpeech = firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']);
+    const state = stateFromAnkiCards(cards);
+    return {
+        vid: -stableAnkiId(String(note.noteId)),
+        sid: -stableAnkiId(`${note.noteId}:${spelling}`),
+        rid: 0,
+        spelling,
+        reading,
+        frequencyRank: null,
+        partOfSpeech: partOfSpeech ? [partOfSpeech] : [],
+        meanings: [{
+            glosses: meaningToGlosses(meaning),
+            partOfSpeech: partOfSpeech ? [partOfSpeech] : [],
+        }],
+        cardState: [state],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'local',
+    };
+}
+
+function firstField(fields: Record<string, string>, names: string[]): string {
+    for (const name of names) {
+        const value = fields[name]?.replace(/\s+/g, ' ').trim();
+        if (value) return value;
+    }
+    return '';
+}
+
+function firstJapaneseValue(fields: Record<string, string>): string {
+    for (const value of Object.values(fields)) {
+        const normalized = value.replace(/\s+/g, ' ').trim();
+        if (/[\u3040-\u30ff\u3400-\u9fff]/.test(normalized)) return normalized.slice(0, 80);
+    }
+    return '';
+}
+
+function meaningToGlosses(value: string): string[] {
+    return value
+        .split(/\n+|[;；]/)
+        .map(item => item.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 8);
+}
+
+function stableAnkiId(value: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) || 1;
 }
 
 function noteLooksLikeCard(note: AnkiNoteInfo, card: JPDBCard): boolean {

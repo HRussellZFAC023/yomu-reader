@@ -59,6 +59,13 @@ export interface DictionaryPreference {
     allowSecondarySearches?: boolean;
 }
 
+export interface DictionaryLookupLink {
+    id: string;
+    label: string;
+    urlTemplate: string;
+    enabled: boolean;
+}
+
 export interface JPDBMeaning {
     glosses: string[];
     partOfSpeech: string[];
@@ -148,14 +155,20 @@ export interface ReaderSettings {
     jpdbReviewUiEnabled: boolean;
     jpdbAutoRevealSentenceEnabled: boolean;
     jpdbKanjiDoodleEnabled: boolean;
+    jpdbKanjiEnabled: boolean;
+    jpdbKanjiPriority: number;
     rtkEnabled: boolean;
+    rtkPriority: number;
     kanjivgEnabled: boolean;
+    kanjivgPriority: number;
     kanjiOriginsEnabled: boolean;
+    kanjiOriginsPriority: number;
     kanjiOriginKanjiMapEnabled: boolean;
     kanjiOriginWiktionaryEnabled: boolean;
     kanjiOriginGraphEnabled: boolean;
     kanjiOriginRadicalImagesEnabled: boolean;
     similarKanjiWords: boolean;
+    similarKanjiWordsPriority: number;
     similarKanjiWordLimit: number;
     audioEnabled: boolean;
     autoPlayAudio: boolean;
@@ -163,6 +176,7 @@ export interface ReaderSettings {
     audioEnableDefaultSources: boolean;
     audioSourceUrl?: string;
     audioViaBlob: boolean;
+    audioFallbackChimeEnabled: boolean;
     audioTimeoutMs: number;
     audioSelectionMode: AudioSelectionMode;
     immersionKitEnabled: boolean;
@@ -216,7 +230,10 @@ export interface ReaderSettings {
     localDictionariesEnabled: boolean;
     localDictionaryMaxResults: number;
     localDictionaryShowKanji: boolean;
+    kanjiDictionariesPriority: number;
+    dictionarySourcesInitiallyExpanded: boolean;
     dictionaryPreferences: DictionaryPreference[];
+    dictionaryLookupLinks: DictionaryLookupLink[];
     yomitanSettingsBackup?: unknown;
     subtitlePlayerEnabled: boolean;
     subtitleAutoDetect: boolean;
@@ -245,7 +262,9 @@ export interface ReaderSettings {
     ankiTemplateMode: AnkiTemplateMode;
     ankiMobileHandoff: boolean;
     studyTranslationEnabled: boolean;
+    studyTranslationPriority: number;
     studyGrammarEnabled: boolean;
+    studyGrammarPriority: number;
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';

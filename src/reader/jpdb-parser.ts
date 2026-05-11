@@ -1,9 +1,11 @@
-import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
+import { Logger } from './logger';
+import type { CardState, JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
 
 const SMALL_KANA = new Set('ゃゅょァィゥェォッャュョ');
+const log = Logger.scope('JpdbParser');
 
 export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
-    return vocabulary.map(([
+    const cards = vocabulary.map(([
         vid,
         sid,
         rid,
@@ -15,7 +17,7 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
         meaningsPartOfSpeech,
         cardState,
         pitchAccent,
-    ]) => ({
+    ]): JPDBCard => ({
         vid,
         sid,
         rid,
@@ -27,16 +29,24 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
             glosses,
             partOfSpeech: meaningsPartOfSpeech[index] ?? [],
         })),
-        cardState: cardState?.length ? cardState : ['not-in-deck'],
+        cardState: (cardState?.length ? cardState : ['not-in-deck']) as CardState[],
         pitchAccent: pitchAccent ?? [],
         wordWithReading: null,
-        source: 'jpdb',
+        source: 'jpdb' as const,
     }));
+    log.debug('Converted JPDB vocabulary to cards', { vocabulary: vocabulary.length, cards: cards.length });
+    return cards;
 }
 
 export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRawToken[][], cards: JPDBCard[]): JPDBToken[][] {
     const tokens = rawTokens.map(innerTokens => parseParagraphTokens(innerTokens, cards));
     assignSentenceInfo(paragraphs, tokens);
+    log.debug('Converted JPDB parse result to tokens', {
+        paragraphs: paragraphs.length,
+        tokenGroups: rawTokens.length,
+        tokens: tokens.reduce((total, group) => total + group.length, 0),
+        cards: cards.length,
+    });
     return tokens;
 }
 
@@ -148,7 +158,9 @@ export function splitJapaneseSentences(text: string): string[] {
     if (tail) sentences.push(tail);
 
     const nonEmptySentences = sentences.filter(Boolean);
-    return nonEmptySentences.length ? nonEmptySentences : [text];
+    const result = nonEmptySentences.length ? nonEmptySentences : [text];
+    log.debugThrottled('split-sentences', 1000, 'Split Japanese sentences', { textLength: text.length, sentences: result.length });
+    return result;
 }
 
 export function getPitchClass(pitchAccent: string[], reading: string): string {

@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { getUserscriptHttpRequest } from './userscript';
 
 export interface JpdbKanjiReading {
     reading: string;
@@ -28,6 +29,7 @@ export interface JpdbKanjiInfo {
     oldForms: string[];
     readings: JpdbKanjiReading[];
     components: JpdbKanjiComponent[];
+    usedInKanji?: JpdbKanjiComponent[];
     mnemonic: string;
     vocabulary: JpdbKanjiVocabulary[];
 }
@@ -80,6 +82,7 @@ export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo |
         oldForms: oldForms(doc),
         readings: readings(doc),
         components: components(doc),
+        usedInKanji: usedInKanji(doc),
         mnemonic: sectionText(doc, 'Mnemonic'),
         vocabulary: vocabulary(doc).slice(0, 8),
     };
@@ -130,7 +133,17 @@ function readings(doc: Document): JpdbKanjiReading[] {
 }
 
 function components(doc: Document): JpdbKanjiComponent[] {
-    return Array.from(doc.querySelectorAll('.subsection-composed-of-kanji .subsection > div'))
+    return kanjiSectionEntries(doc, label => label.startsWith('Composed of'));
+}
+
+function usedInKanji(doc: Document): JpdbKanjiComponent[] {
+    return kanjiSectionEntries(doc, label => label.startsWith('Used in kanji'));
+}
+
+function kanjiSectionEntries(doc: Document, matchesLabel: (label: string) => boolean): JpdbKanjiComponent[] {
+    return Array.from(doc.querySelectorAll('.subsection-composed-of-kanji'))
+        .filter(section => matchesLabel(cleanText(section.querySelector('.subsection-label')?.textContent ?? '')))
+        .flatMap(section => Array.from(section.querySelectorAll('.subsection > div')))
         .map(element => ({
             kanji: cleanText(element.querySelector('.spelling')?.textContent ?? ''),
             keyword: cleanText(element.querySelector('.description')?.textContent ?? ''),
@@ -219,10 +232,4 @@ function requestText(url: string): Promise<string> {
         if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
         return response.text();
     });
-}
-
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
 }
