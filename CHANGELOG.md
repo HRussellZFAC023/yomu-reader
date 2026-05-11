@@ -11,6 +11,7 @@ All notable user-facing changes should be recorded here. The documentation site 
 - Added the optional よむ new-tab study page for browser home pages, new tabs, and iPad Home Screen shortcuts.
 - Added clearer iPhone/iPad guidance, including Tampermonkey and the free open-source Userscripts app.
 - Added documentation for upcoming native Chrome, Firefox, and Safari extensions.
+- Added a Local Audio docs page covering hosted Ultimate Yomitan Audio, the local Rust audio server, startup tasks, custom ports, and Tailscale access.
 - Added this changelog as the canonical release-notes source for the website.
 - Added a copy button to word and kanji lookup pills.
 - Added public JPDB pitch-accent fallback for words that do not include pitch data in the parsed card.
