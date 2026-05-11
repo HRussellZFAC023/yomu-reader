@@ -21,6 +21,7 @@ export default defineConfig({
         nav: [
             { text: 'Getting Started', link: '/getting-started' },
             { text: 'Features', link: '/features' },
+            { text: 'Local Audio', link: '/local-audio' },
             { text: 'Changelog', link: '/changelog' },
             { text: 'Support', link: '/support' },
         ],
@@ -31,6 +32,7 @@ export default defineConfig({
                     { text: 'Overview', link: '/' },
                     { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Features', link: '/features' },
+                    { text: 'Local Audio', link: '/local-audio' },
                 ],
             },
             {

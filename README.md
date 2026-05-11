@@ -52,6 +52,8 @@ Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, 
 
 Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format.
 
+Local setup guide: https://hrussellzfac023.github.io/kotoba-reader/local-audio
+
 Guide: https://yomitan.wiki/advanced/#audio
 
 The default sources are JapanesePod101, LanguagePod101, and Jisho.org. Add a custom URL only if you already use a local audio server.
