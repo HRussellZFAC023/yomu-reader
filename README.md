@@ -168,7 +168,7 @@ npm run prefill:greasyfork
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
 - Recommended dictionary downloads are available in settings for Jitendex, JMnedict, KANJIDIC, BCCWJ, JPDBv2㋕, and Jiten. JPDB frequency entries are shown first in local frequency chips.
-- Definition sources can be reordered in settings. JPDB can be disabled as a definition source while still using JPDB for parsing, mining, audio context, and kanji pages.
+- Definition sources can be reordered in settings. When a JPDB API key is missing or parsing fails, imported Yomitan dictionaries are used for local parsing with common deinflection rules; JPDB-only mining and kanji pages still require JPDB access.
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
 - Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, Wiktionary notes, component graph, and radical images can be toggled separately.

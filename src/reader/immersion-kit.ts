@@ -1,7 +1,9 @@
+import { Logger } from './logger';
 import type { ReaderSettings } from './types';
 
 const API_BASE = 'https://apiv2.immersionkit.com';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
+const log = Logger.scope('ImmersionKit');
 
 const TITLE_OVERRIDES: Record<string, string> = {
     steins_gate: 'Steins Gate',
@@ -50,7 +52,10 @@ export class ImmersionKitClient {
             exact: settings.immersionKitExactMatch,
         });
         const cached = this.cache.get(cacheKey);
-        if (cached) return cached;
+        if (cached) {
+            log.debug('Search cache hit', { query, examples: cached.length });
+            return cached;
+        }
 
         const params = new URLSearchParams({
             q: query,
@@ -60,6 +65,7 @@ export class ImmersionKitClient {
         if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
         if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
 
+        const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
         const data = await requestJson(`${API_BASE}/search?${params}`, settings.audioTimeoutMs);
         const examples = collectExamples(data)
             .map(normalizeExample)
@@ -72,6 +78,8 @@ export class ImmersionKitClient {
             : examples;
         const result = ordered.slice(0, settings.immersionKitLimit);
         this.cache.set(cacheKey, result);
+        log.debug('Search completed', { query, rawExamples: examples.length, returned: result.length });
+        done();
         return result;
     }
 
@@ -93,9 +101,11 @@ export class ImmersionKitClient {
         const query = term.trim();
         if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
         this.preloadKeys.add(query);
+        log.debug('Preload queued', { query });
 
         void this.search(query, settings)
             .then(examples => {
+                log.debug('Preload search completed', { query, examples: examples.length });
                 for (const example of examples.slice(0, 2)) {
                     const imageUrl = settings.immersionKitShowImages ? this.mediaUrl(example, 'image') : '';
                     if (imageUrl) {
@@ -108,7 +118,7 @@ export class ImmersionKitClient {
                                 image.onerror = () => URL.revokeObjectURL(url);
                                 image.src = url;
                             })
-                            .catch(() => {});
+                            .catch(error => log.debug('Preload image failed quietly', { query, sourceTitle: example.sourceTitle }, error));
                     }
 
                     const soundUrl = this.mediaUrl(example, 'sound');
@@ -116,7 +126,7 @@ export class ImmersionKitClient {
                         if (settings.audioViaBlob) {
                             void this.fetchBlobUrl(soundUrl, settings.audioTimeoutMs)
                                 .then(url => window.setTimeout(() => URL.revokeObjectURL(url), 30000))
-                                .catch(() => {});
+                                .catch(error => log.debug('Preload audio failed quietly', { query, sourceTitle: example.sourceTitle }, error));
                         } else {
                             const audio = new Audio(soundUrl);
                             audio.preload = 'auto';
@@ -125,16 +135,18 @@ export class ImmersionKitClient {
                     }
                 }
             })
-            .catch(() => {});
+            .catch(error => log.debug('Preload search failed quietly', { query }, error));
     }
 
     async fetchBlobUrl(url: string, timeoutMs: number): Promise<string> {
         const blob = await requestBlob(url, timeoutMs);
+        log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
         return URL.createObjectURL(blob);
     }
 
     async fetchDataUrl(url: string, timeoutMs: number): Promise<string> {
         const blob = await requestBlob(url, timeoutMs);
+        log.debug('Data URL media fetched', { host: safeHost(url), size: blob.size, type: blob.type });
         return blobToDataUrl(blob);
     }
 }
@@ -228,6 +240,7 @@ function requestJson(url: string, timeoutMs: number): Promise<unknown> {
     return new Promise((resolve, reject) => {
         const userscriptRequest = getUserscriptHttpRequest();
         if (userscriptRequest) {
+            log.debug('JSON request via userscript API', { host: safeHost(url) });
             const handleLoad = (response: UserscriptHttpResponse) => {
                 if (response.status < 200 || response.status >= 300) {
                     reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
@@ -254,6 +267,7 @@ function requestJson(url: string, timeoutMs: number): Promise<unknown> {
             return;
         }
 
+        log.debug('JSON request via fetch', { host: safeHost(url) });
         fetch(url, { credentials: 'omit' })
             .then(response => {
                 if (!response.ok) throw new Error(`Immersion Kit returned HTTP ${response.status}.`);
@@ -267,6 +281,7 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const userscriptRequest = getUserscriptHttpRequest();
         if (userscriptRequest) {
+            log.debug('Media request via userscript API', { host: safeHost(url) });
             const handleLoad = (response: UserscriptHttpResponse) => {
                 if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
                     reject(new Error(`Media returned HTTP ${response.status}.`));
@@ -289,6 +304,7 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
             return;
         }
 
+        log.debug('Media request via fetch', { host: safeHost(url) });
         fetch(url, { credentials: 'omit' })
             .then(response => {
                 if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
@@ -311,4 +327,12 @@ function blobToDataUrl(blob: Blob): Promise<string> {
         reader.onerror = () => reject(reader.error ?? new Error('Could not read media.'));
         reader.readAsDataURL(blob);
     });
+}
+
+function safeHost(value: string): string {
+    try {
+        return new URL(value, location.href).host;
+    } catch {
+        return 'invalid-url';
+    }
 }

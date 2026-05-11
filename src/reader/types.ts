@@ -42,6 +42,8 @@ export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 
 
 export type AnkiTemplateMode = 'recognition' | 'context';
 
+export type NewTabWordSource = 'auto' | 'jpdb' | 'anki';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -186,6 +188,9 @@ export interface ReaderSettings {
     autoScanJapanese: boolean;
     scanVisiblePage: boolean;
     showFloatingButton: boolean;
+    newTabEnabled: boolean;
+    newTabSource: NewTabWordSource;
+    newTabJpdbDeck: string;
     puckPositionX?: number;
     puckPositionY?: number;
     showFurigana: boolean;
@@ -241,6 +246,7 @@ export interface ReaderSettings {
     ankiMobileHandoff: boolean;
     studyTranslationEnabled: boolean;
     studyGrammarEnabled: boolean;
+    enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     miningDeck: string;

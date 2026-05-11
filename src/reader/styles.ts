@@ -357,45 +357,6 @@ export const READER_CSS = `
   align-items: flex-start;
   gap: 10px;
 }
-.jpdb-reader-quick {
-  display: grid;
-  gap: 12px;
-}
-.jpdb-reader-quick .jpdb-reader-header {
-  align-items: center;
-}
-.jpdb-reader-quick-status {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-.jpdb-reader-quick-chip {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 32px;
-  padding: 7px 9px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.2;
-}
-.jpdb-reader-quick-chip.ready {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 56%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, var(--jpdb-reader-surface));
-  color: var(--jpdb-reader-accent);
-}
-.jpdb-reader-quick-chip.warning {
-  border-color: color-mix(in srgb, #ff8c8c 45%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, #ff8c8c 10%, var(--jpdb-reader-surface));
-  color: #ffb0b0;
-}
-.jpdb-reader-quick-chip.pending {
-  color: var(--jpdb-reader-faint);
-}
 .jpdb-reader-heading {
   min-width: 0;
   flex: 1 1 auto;
@@ -1858,21 +1819,7 @@ export const READER_CSS = `
     linear-gradient(to bottom, color-mix(in srgb, var(--jpdb-reader-bg) 0%, transparent), var(--jpdb-reader-bg) 16px),
     var(--jpdb-reader-bg);
 }
-.jpdb-reader-quick-actions {
-  position: static;
-  bottom: auto;
-  border-top: 0;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-}
-
 .jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
-.jpdb-reader-quick-row .jpdb-reader-btn {
-  min-width: 0;
-  min-height: 40px;
-  font-size: 12px;
-}
 .jpdb-reader-grades .jpdb-reader-btn {
   min-width: 0;
   min-height: 40px;
@@ -2660,8 +2607,6 @@ export const READER_CSS = `
   }
   .jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
-  .jpdb-reader-quick-status { grid-template-columns: 1fr; }
-  .jpdb-reader-quick-row { grid-template-columns: 1fr !important; }
   .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 88vh; max-height: 88svh; border-radius: 16px 16px 0 0; }
   .jpdb-reader-settings-head { padding: 18px 20px 0; }
   .jpdb-reader-settings-scroll { padding: 0 20px 106px; }

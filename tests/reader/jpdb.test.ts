@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { AnkiConnectClient, buildYomuAnkiFields, YOMU_MODEL_FIELDS } from '../../src/reader/anki';
 import { findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, ShuffledAudioDeck } from '../../src/reader/audio';
+import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectTextTargetsIn, renderTokensToHtml } from '../../src/reader/dom';
 import { ImmersionKitClient } from '../../src/reader/immersion-kit';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
@@ -10,6 +11,7 @@ import { parseUchisenImages } from '../../src/reader/jpdb-extensions';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
+import { Logger } from '../../src/reader/logger';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { renderKanjiOrigins } from '../../src/reader/popup-render';
@@ -152,6 +154,31 @@ describe('reader helpers', () => {
         expect(normalizeOcrProvider('custom-json')).toBe('local-service');
     });
 
+    it('keeps numeric token counts visible while redacting real secrets in logs', () => {
+        const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+
+        try {
+            Logger.reset();
+            Logger.configure({ forceEnabled: true });
+            Logger.scope('Test').info('scan summary', {
+                tokens: 4,
+                token: 'secret-token',
+                apiKey: 'secret-key',
+            });
+
+            expect(infoSpy).toHaveBeenCalledTimes(1);
+            expect(infoSpy.mock.calls[0][4]).toMatchObject({
+                tokens: 4,
+                token: '[redacted]',
+                apiKey: '[redacted]',
+            });
+        } finally {
+            Logger.configure({ forceEnabled: false });
+            Logger.reset();
+            infoSpy.mockRestore();
+        }
+    });
+
     it('ships direct Japanese recommended dictionary downloads from Yomitan', () => {
         expect(findRecommendedDictionary('jitendex')?.downloadUrl).toContain('jitendex-yomitan.zip');
         expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
@@ -163,6 +190,71 @@ describe('reader helpers', () => {
             'BCCWJ',
             'Jiten',
         ]);
+    });
+
+    it('downloads dictionaries through lowercase GM.xmlhttpRequest when that is the exposed userscript API', async () => {
+        const zip = new JSZip();
+        zip.file('index.json', JSON.stringify({ title: 'Alias Dict', format: 3 }));
+        zip.file('term_bank_1.json', JSON.stringify([
+            ['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, ''],
+        ]));
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            expect(options.url).toBe('https://dict.test/alias.zip');
+            options.onprogress?.({ lengthComputable: true, loaded: blob.size, total: blob.size });
+            options.onload?.({ status: 200, response: blob });
+        });
+
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        vi.stubGlobal('GM', { xmlhttpRequest: request });
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not run'))));
+
+        try {
+            const store = new YomitanDictionaryStore();
+            await store.clear();
+            const progress: string[] = [];
+            const summary = await store.importFromUrl('https://dict.test/alias.zip', 'alias.zip', message => progress.push(message));
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(summary).toMatchObject({ dictionaries: ['Alias Dict'], terms: 1, entries: 1 });
+            expect(progress).toContain('Downloading alias.zip...');
+            expect(progress).toContain('Downloading dictionary 100%...');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses the local dev dictionary proxy when userscript requests are unavailable on localhost', async () => {
+        expect(['localhost', '127.0.0.1', '::1']).toContain(location.hostname);
+        const zip = new JSZip();
+        zip.file('index.json', JSON.stringify({ title: 'Proxy Dict', format: 3 }));
+        zip.file('term_bank_1.json', JSON.stringify([
+            ['青空', 'あおぞら', '', '', 10, ['blue sky'], 1, ''],
+        ]));
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            expect(String(input)).toBe('/__jpdb-reader-dictionary-proxy?url=https%3A%2F%2Fdict.test%2Fproxy.zip');
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                blob: () => Promise.resolve(blob),
+            } as Response);
+        });
+
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        vi.stubGlobal('GM', {});
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const store = new YomitanDictionaryStore();
+            await store.clear();
+            const summary = await store.importFromUrl('https://dict.test/proxy.zip', 'proxy.zip');
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(summary).toMatchObject({ dictionaries: ['Proxy Dict'], terms: 1, entries: 1 });
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('sanitizes configurable accent colors', () => {
@@ -351,6 +443,44 @@ describe('reader helpers', () => {
 
         expect(matches).toHaveLength(1);
         expect(matches[0]).toMatchObject({ surface: '青空', start: text.indexOf('青空'), end: text.indexOf('青空') + 2 });
+    });
+
+    it('deinflects local dictionary terms using Yomitan term rules', async () => {
+        expect(deinflectJapaneseTerm('読んだ')).toEqual(expect.arrayContaining([
+            expect.objectContaining({ term: '読む', rules: expect.arrayContaining(['v5m']) }),
+        ]));
+        expect(termRulesMatch('v5m vt', ['v5m', 'v5'])).toBe(true);
+        expect(termRulesMatch('', ['v5m', 'v5'])).toBe(false);
+
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const file = new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [
+                    {
+                        tableName: 'terms',
+                        rows: [
+                            { $: [1, { expression: '読む', reading: 'よむ', rules: 'v5m', glossary: ['to read'], score: 10, dictionary: 'Jitendex' }] },
+                            { $: [2, { expression: '食べる', reading: 'たべる', rules: 'v1', glossary: ['to eat'], score: 10, dictionary: 'Jitendex' }] },
+                            { $: [3, { expression: '高い', reading: 'たかい', rules: 'adj-i', glossary: ['high'], score: 10, dictionary: 'Jitendex' }] },
+                            { $: [4, { expression: '勉強する', reading: 'べんきょうする', rules: 'vs', glossary: ['to study'], score: 10, dictionary: 'Jitendex' }] },
+                            { $: [5, { expression: '読む', reading: 'よむ', rules: '', glossary: ['uninflectable duplicate'], score: 99, dictionary: 'Names' }] },
+                        ],
+                    },
+                ],
+            },
+        })], 'local-terms.json', { type: 'application/json' });
+
+        await store.importFile(file);
+        const matches = await store.findTermMatches('本を読んだ。寿司を食べました。高かった。勉強している。', 8);
+
+        expect(matches.map(match => [match.surface, match.entry.expression, match.entry.dictionary, match.deinflected?.term])).toEqual([
+            ['読んだ', '読む', 'Jitendex', '読む'],
+            ['食べました', '食べる', 'Jitendex', '食べる'],
+            ['高かった', '高い', 'Jitendex', '高い'],
+            ['勉強して', '勉強する', 'Jitendex', '勉強する'],
+        ]);
     });
 
     it('renders JPDB part-of-speech codes as readable labels', () => {

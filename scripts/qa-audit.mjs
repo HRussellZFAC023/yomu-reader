@@ -399,6 +399,13 @@ async function injectUserscript(page) {
     }, userscript);
 }
 
+async function openSettingsFromPuck(page) {
+    await page.waitForSelector('.jpdb-reader-fab', { timeout: 6000 });
+    await page.locator('.jpdb-reader-fab').click();
+    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    assertAudit(await page.locator('.jpdb-reader-quick').count() === 0, 'puck opened the removed quick controls panel');
+}
+
 async function auditNoSecretLeak() {
     if (!API_KEY) {
         record('secret leak scan', 'skip', 'YOMU_TEST_API_KEY is not set');
@@ -879,7 +886,7 @@ async function auditSettings(browser, server) {
     });
     await page.goto(`${server.origin}/reader-test.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    await openSettingsFromPuck(page);
     await page.selectOption('select[name="interfaceLanguage"]', 'ja');
     let localeSnapshot = await page.evaluate(() => ({
         title: document.querySelector('.jpdb-reader-settings')?.getAttribute('aria-label'),
@@ -964,7 +971,7 @@ async function auditSettingsMobile(browser, server) {
     }, { width: 390, height: 844 });
     await page.goto(`${server.origin}/reader-test.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    await openSettingsFromPuck(page);
     let snapshot = await page.evaluate(() => {
         const tabs = [...document.querySelectorAll('.jpdb-reader-settings-tab')].map(tab => {
             const rect = tab.getBoundingClientRect();

@@ -1,5 +1,6 @@
 import { escapeHtml, setInnerHtml } from './dom';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
+import { Logger } from './logger';
 import { immersionContextFromExample, loadMiningContext, saveMiningContext } from './mining-context';
 import { speakerIcon } from './popup-render';
 import { RtkClient, type RtkInfo } from './rtk';
@@ -17,6 +18,7 @@ const UCHISEN_STAR_PREFIX = 'yomu-jpdb-uchisen-star:';
 const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
 const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
 const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
+const log = Logger.scope('JpdbExtensions');
 
 export interface UchisenImage {
     url: string;
@@ -57,12 +59,14 @@ export class JpdbExtensionsController {
             this.schedule(urlChanged ? 80 : 260);
         });
         this.observer.observe(document.documentElement, { childList: true, subtree: true });
+        log.info('JPDB page add-ons initialized', { href: location.href });
     }
 
     refresh(): void {
         if (!isJpdbHost()) return;
         this.resetSeenKeys();
         this.schedule(40);
+        log.debug('JPDB page add-ons refresh scheduled');
     }
 
     private schedule(delay: number): void {
@@ -74,8 +78,14 @@ export class JpdbExtensionsController {
         const settings = this.options.getSettings();
         if (!settings.jpdbExtensionsEnabled) {
             this.removeAll();
+            log.debug('JPDB page add-ons disabled; removed all add-ons');
             return;
         }
+        log.debugThrottled('run', 2500, 'JPDB page add-ons scan', {
+            isKanjiPage: isKanjiPage(),
+            isReviewPage: isReviewPage(),
+            isReviewAnswer: isReviewAnswer(),
+        });
 
         document.documentElement.classList.toggle('yomu-jpdb-review-compact-nav', isReviewPage() && settings.jpdbReviewUiEnabled);
         if (settings.jpdbReviewUiEnabled) {
@@ -175,12 +185,16 @@ export class JpdbExtensionsController {
         `);
         insertAfter(anchor, container);
 
-        const info = await this.options.rtk.lookup(kanji).catch(() => null);
+        const info = await this.options.rtk.lookup(kanji).catch(error => {
+            log.warn('JPDB add-on RTK lookup failed', { kanji }, error);
+            return null;
+        });
         if (!container.isConnected || this.rtkKanji !== kanji) return;
         if (!info) {
             container.remove();
             return;
         }
+        log.debug('JPDB add-on RTK rendered', { kanji });
         setInnerHtml(container, renderRtkPanel(info));
     }
 
@@ -201,14 +215,19 @@ export class JpdbExtensionsController {
         `);
         insertAfter(anchor, container);
 
-        const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000).catch(() => '');
+        const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000).catch(error => {
+            log.warn('Uchisen request failed', { kanji }, error);
+            return '';
+        });
         if (!container.isConnected || this.uchisenKanji !== kanji) return;
 
         const images = parseUchisenImages(html);
         if (!images.length) {
+            log.debug('No Uchisen images found', { kanji });
             container.remove();
             return;
         }
+        log.debug('Uchisen images loaded', { kanji, images: images.length });
 
         let index = await storageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
         const starred = await storageGet<string | null>(`${UCHISEN_STAR_PREFIX}${kanji}`, null);
@@ -247,7 +266,8 @@ export class JpdbExtensionsController {
                     this.currentObjectUrl = url;
                     image.src = url;
                 })
-                .catch(() => {
+                .catch(error => {
+                    log.debug('Uchisen image load failed quietly', { kanji }, error);
                     if (image.isConnected) image.remove();
                 });
         };
@@ -300,15 +320,20 @@ export class JpdbExtensionsController {
         `);
         insertAfter(target.anchor, container);
 
-        const examples = await this.options.immersionKit.search(target.term, this.options.getSettings()).catch(() => []);
+        const examples = await this.options.immersionKit.search(target.term, this.options.getSettings()).catch(error => {
+            log.warn('JPDB add-on Immersion Kit search failed', { term: target.term }, error);
+            return [];
+        });
         if (!container.isConnected || this.immersionKey !== key) return;
         if (!examples.length) {
+            log.debug('JPDB add-on Immersion Kit returned no examples', { term: target.term });
             setInnerHtml(container, `
                 <div class="yomu-jpdb-card-title">Immersion Kit</div>
                 <div class="jpdb-reader-help">No examples found for ${escapeHtml(target.term)}.</div>
             `);
             return;
         }
+        log.debug('JPDB add-on Immersion Kit rendered', { term: target.term, examples: examples.length });
 
         let index = savedImmersionIndex(target.term, examples.length);
         const render = () => renderImmersionPanel(container, examples, index, target.term, this.options.immersionKit, this.options.getSettings());
@@ -334,13 +359,17 @@ export class JpdbExtensionsController {
             target.anchor.parentElement?.querySelectorAll<HTMLElement>(`[data-yomu-local-key="${cssEscape(key)}"]`).forEach(node => node.remove());
             const entries = await this.options.dictionaries
                 .lookup(target.term, target.reading, Math.min(settings.localDictionaryMaxResults, 8), settings.dictionaryPreferences)
-                .catch(() => []);
+                .catch(error => {
+                    log.warn('JPDB add-on local dictionary lookup failed', { term: target.term, reading: target.reading }, error);
+                    return [];
+                });
             if (!entries.length || !target.anchor.isConnected) continue;
             const container = createAddonCard('', 'Imported dictionaries');
             container.classList.add('yomu-jpdb-local-dictionaries');
             container.dataset.yomuLocalKey = key;
             setInnerHtml(container, renderLocalDictionaryPanel(entries, settings));
             insertAfter(target.anchor, container);
+            log.debug('JPDB add-on local dictionaries rendered', { term: target.term, entries: entries.length });
         }
     }
 
@@ -897,6 +926,7 @@ function kanjiVgUrl(glyph: string): string {
 function requestText(url: string, timeout: number): Promise<string> {
     return new Promise((resolve, reject) => {
         if (typeof GM_xmlhttpRequest === 'function') {
+            log.debug('Text request via userscript API', { host: safeHost(url) });
             GM_xmlhttpRequest({
                 method: 'GET',
                 url,
@@ -910,6 +940,7 @@ function requestText(url: string, timeout: number): Promise<string> {
             });
             return;
         }
+        log.debug('Text request via fetch', { host: safeHost(url) });
         fetch(url).then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.text();
@@ -924,6 +955,7 @@ function requestBlobUrl(url: string, timeout: number): Promise<string> {
 function requestBlob(url: string, timeout: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
         if (typeof GM_xmlhttpRequest === 'function') {
+            log.debug('Blob request via userscript API', { host: safeHost(url) });
             GM_xmlhttpRequest({
                 method: 'GET',
                 url,
@@ -938,6 +970,7 @@ function requestBlob(url: string, timeout: number): Promise<Blob> {
             });
             return;
         }
+        log.debug('Blob request via fetch', { host: safeHost(url) });
         fetch(url).then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.blob();
@@ -974,4 +1007,12 @@ async function storageDelete(key: string): Promise<void> {
 function cssEscape(value: string): string {
     if ('CSS' in window && typeof CSS.escape === 'function') return CSS.escape(value);
     return value.replace(/["\\]/g, '\\$&');
+}
+
+function safeHost(value: string): string {
+    try {
+        return new URL(value, location.href).host;
+    } catch {
+        return 'invalid-url';
+    }
 }

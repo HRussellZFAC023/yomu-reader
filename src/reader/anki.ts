@@ -1,5 +1,6 @@
 import { escapeHtml } from './dom';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
+import { Logger } from './logger';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import {
     glossaryToHtml,
@@ -10,6 +11,7 @@ import {
 } from './yomitan';
 
 const ANKI_VERSION = 6;
+const log = Logger.scope('Anki');
 export const YOMU_MODEL_FIELDS = [
     'Expression',
     'Reading',
@@ -108,29 +110,42 @@ export class AnkiConnectClient {
     async isConnected(): Promise<boolean> {
         try {
             await this.invoke<number>('version');
+            log.debug('AnkiConnect reachable');
             return true;
-        } catch {
+        } catch (error) {
+            log.warnOnce('connection-unavailable', 'AnkiConnect unavailable', error);
             return false;
         }
     }
 
     async deckNames(): Promise<string[]> {
-        return this.invoke<string[]>('deckNames');
+        const decks = await this.invoke<string[]>('deckNames');
+        log.debug('Deck names loaded', { decks: decks.length });
+        return decks;
     }
 
     async modelNames(): Promise<string[]> {
-        return this.invoke<string[]>('modelNames');
+        const models = await this.invoke<string[]>('modelNames');
+        log.debug('Model names loaded', { models: models.length });
+        return models;
     }
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         const empty: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
-        if (Date.now() < this.unavailableUntil) return empty;
+        if (Date.now() < this.unavailableUntil) {
+            log.debug('Anki lookup skipped during cooldown', { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
+            return empty;
+        }
 
         const cacheKey = `${card.spelling}|${card.reading}`;
         const cached = this.lookupCache.get(cacheKey);
-        if (cached && Date.now() - cached.at < 45000) return cached.result;
+        if (cached && Date.now() - cached.at < 45000) {
+            log.debug('Anki lookup cache hit', { term: card.spelling, state: cached.result.state });
+            return cached.result;
+        }
 
         try {
+            const done = log.time('findExistingCards', { term: card.spelling });
             const queryTerms = unique([card.spelling, card.reading].filter(Boolean));
             const noteIds = new Set<number>();
             for (const term of queryTerms) {
@@ -139,6 +154,8 @@ export class AnkiConnectClient {
             }
             if (!noteIds.size) {
                 this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+                log.debug('No Anki notes found', { term: card.spelling });
+                done();
                 return empty;
             }
 
@@ -146,6 +163,8 @@ export class AnkiConnectClient {
             const matchingNotes = notes.filter(note => noteLooksLikeCard(note, card));
             if (!matchingNotes.length) {
                 this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+                log.debug('Anki notes found but none matched Yomu card', { term: card.spelling, candidateNotes: notes.length });
+                done();
                 return empty;
             }
 
@@ -185,8 +204,11 @@ export class AnkiConnectClient {
                 primary: pickPrimaryExistingNote(existing),
             };
             this.lookupCache.set(cacheKey, { at: Date.now(), result });
+            log.debug('Anki lookup completed', { term: card.spelling, notes: existing.length, state: result.state });
+            done();
             return result;
-        } catch {
+        } catch (error) {
+            log.warn('Anki lookup failed; entering cooldown', { term: card.spelling }, error);
             this.unavailableUntil = Date.now() + 30000;
             return empty;
         }
@@ -194,16 +216,21 @@ export class AnkiConnectClient {
 
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
         const ease = ankiEaseFromGrade(grade);
+        log.info('Answering Anki card', { cardId, grade, ease });
         await this.invoke<null>('answerCards', { answers: [{ cardId, ease }] });
     }
 
     async browseNote(noteId: number): Promise<void> {
+        log.info('Opening Anki note browser', { noteId });
         await this.invoke<unknown>('guiBrowse', { query: `nid:${noteId}` });
     }
 
     async addCard(card: JPDBCard, sentence = '', options: AnkiCardContext = {}): Promise<number | null> {
         const settings = this.getSettings();
-        if (!settings.ankiEnabled) return null;
+        if (!settings.ankiEnabled) {
+            log.debug('Anki add skipped because Anki is disabled', { term: card.spelling });
+            return null;
+        }
         const note: AnkiNote = {
             deckName: settings.ankiDeck || 'よむ',
             modelName: settings.ankiModel || 'よむ Japanese',
@@ -222,17 +249,28 @@ export class AnkiConnectClient {
 
         const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
         if (image) note.picture = [image];
+        log.info('Adding Anki note', {
+            term: card.spelling,
+            deck: note.deckName,
+            model: note.modelName,
+            hasImage: Boolean(image),
+            tags: note.tags,
+        });
 
         if (settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment()) {
+            log.info('Opening mobile Anki handoff', { term: card.spelling });
             if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
             return null;
         }
 
         try {
             await this.ensureDeckAndModel();
-            return await this.invoke<number | null>('addNote', { note });
+            const noteId = await this.invoke<number | null>('addNote', { note });
+            log.info('Anki note added', { term: card.spelling, noteId });
+            return noteId;
         } catch (error) {
             if (settings.ankiMobileHandoff && isMobileUserAgent()) {
+                log.warn('AnkiConnect add failed; trying mobile handoff', { term: card.spelling }, error);
                 if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
                 return null;
             }
@@ -244,12 +282,17 @@ export class AnkiConnectClient {
         const settings = this.getSettings();
         const deckName = settings.ankiDeck || 'よむ';
         const modelName = settings.ankiModel || 'よむ Japanese';
-        await this.invoke<null>('createDeck', { deck: deckName }).catch(() => null);
+        log.debug('Ensuring Anki deck/model', { deckName, modelName });
+        await this.invoke<null>('createDeck', { deck: deckName }).catch(error => {
+            log.debug('createDeck ignored', { deckName }, error);
+            return null;
+        });
         const modelNames = await this.modelNames().catch((): string[] => []);
         if (modelNames.includes(modelName)) {
             await this.ensureModelFields(modelName);
             await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
             await this.invoke<null>('updateModelStyling', { model: { name: modelName, css: yomuCardCss() } });
+            log.debug('Anki model updated', { modelName });
             return;
         }
         await this.invoke<unknown>('createModel', {
@@ -258,13 +301,17 @@ export class AnkiConnectClient {
             css: yomuCardCss(),
             cardTemplates: Object.entries(yomuCardTemplates(settings.ankiTemplateMode)).map(([Name, template]) => ({ Name, ...template })),
         });
+        log.info('Anki model created', { modelName });
     }
 
     private async ensureModelFields(modelName: string): Promise<void> {
         const fieldNames = await this.invoke<string[]>('modelFieldNames', { modelName }).catch((): string[] => []);
         const existing = new Set(fieldNames);
         for (const fieldName of YOMU_MODEL_FIELDS) {
-            if (!existing.has(fieldName)) await this.invoke<null>('modelFieldAdd', { modelName, fieldName });
+            if (!existing.has(fieldName)) {
+                log.debug('Adding missing Anki model field', { modelName, fieldName });
+                await this.invoke<null>('modelFieldAdd', { modelName, fieldName });
+            }
         }
     }
 
@@ -272,8 +319,12 @@ export class AnkiConnectClient {
         const settings = this.getSettings();
         const url = settings.ankiConnectUrl || 'http://127.0.0.1:8765';
         const body = JSON.stringify({ action, version: ANKI_VERSION, params });
+        log.debug('Invoking AnkiConnect action', { action });
         const response = await postJson<AnkiResponse<T>>(url, body);
-        if (response.error) throw new Error(response.error);
+        if (response.error) {
+            log.warn('AnkiConnect action returned error', { action, error: response.error });
+            throw new Error(response.error);
+        }
         return response.result;
     }
 }
@@ -282,7 +333,10 @@ export function captureActiveVideoFrame(): string | undefined {
     const video = Array.from(document.querySelectorAll('video'))
         .filter(item => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0)
         .sort((a, b) => visibleArea(b) - visibleArea(a))[0];
-    if (!video) return undefined;
+    if (!video) {
+        log.debug('No active video available for Anki screenshot');
+        return undefined;
+    }
     try {
         const canvas = document.createElement('canvas');
         const maxWidth = 960;
@@ -292,8 +346,11 @@ export function captureActiveVideoFrame(): string | undefined {
         const context = canvas.getContext('2d');
         if (!context) return undefined;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL('image/jpeg', 0.84);
-    } catch {
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+        log.debug('Captured active video frame', { width: canvas.width, height: canvas.height });
+        return dataUrl;
+    } catch (error) {
+        log.warn('Active video frame capture failed', error);
         return undefined;
     }
 }

@@ -1,4 +1,6 @@
 import JSZip from 'jszip';
+import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from './deinflect';
+import { Logger } from './logger';
 import { normalizeAudioSource, normalizeDictionaryPreferences } from './settings';
 import type { DictionaryPreference, ReaderSettings } from './types';
 
@@ -8,6 +10,7 @@ const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const log = Logger.scope('Yomitan');
 
 type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo';
 type EntryStoreName = Exclude<StoreName, 'dictionaryInfo'>;
@@ -90,165 +93,253 @@ export interface YomitanTermMatch {
     start: number;
     end: number;
     surface: string;
+    deinflected?: DeinflectedTerm;
 }
 
 export class YomitanDictionaryStore {
     private dbPromise?: Promise<IDBDatabase>;
 
     async lookup(expression: string, reading: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
-        const db = await this.db();
-        const entries = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'expression', expression, Math.max(limit * 40, 500));
-        if (reading && reading !== expression) {
-            const byReading = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'reading', reading, Math.max(limit * 20, 250));
-            entries.push(...byReading);
-        }
+        const done = log.time('Term lookup', { expression, reading, limit, dictionaries: preferences.length });
+        try {
+            const db = await this.db();
+            const entries = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'expression', expression, Math.max(limit * 40, 500));
+            if (reading && reading !== expression) {
+                const byReading = await this.getByIndex<YomitanTermEntry>(db, 'terms', 'reading', reading, Math.max(limit * 20, 250));
+                entries.push(...byReading);
+            }
 
-        const rank = dictionaryRank(preferences);
-        const seen = new Set<string>();
-        return entries
-            .filter(entry => dictionaryEnabled(entry.dictionary, rank))
-            .sort((a, b) =>
-                dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-                || Number(b.reading === reading) - Number(a.reading === reading)
-                || (b.score ?? 0) - (a.score ?? 0),
-            )
-            .filter(entry => {
-                const key = `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${JSON.stringify(entry.glossary).slice(0, 120)}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            })
-            .slice(0, limit);
+            const rank = dictionaryRank(preferences);
+            const seen = new Set<string>();
+            const results = entries
+                .filter(entry => dictionaryEnabled(entry.dictionary, rank))
+                .sort((a, b) =>
+                    dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+                    || Number(b.reading === reading) - Number(a.reading === reading)
+                    || (b.score ?? 0) - (a.score ?? 0),
+                )
+                .filter(entry => {
+                    const key = `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${JSON.stringify(entry.glossary).slice(0, 120)}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                })
+                .slice(0, limit);
+            log.debug('Term lookup completed', { expression, reading, candidates: entries.length, results: results.length });
+            return results;
+        } catch (error) {
+            log.warn('Term lookup failed', { expression, reading, error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async lookupKanji(text: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanKanjiEntry[]> {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const characters = [...new Set(Array.from(text).filter(isKanji))];
-        const entries: YomitanKanjiEntry[] = [];
-        for (const character of characters) {
-            entries.push(...await this.getByIndex<YomitanKanjiEntry>(db, 'kanji', 'character', character, limit));
+        const done = log.time('Kanji lookup', { length: text.length, limit, dictionaries: preferences.length });
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const characters = [...new Set(Array.from(text).filter(isKanji))];
+            const entries: YomitanKanjiEntry[] = [];
+            for (const character of characters) {
+                entries.push(...await this.getByIndex<YomitanKanjiEntry>(db, 'kanji', 'character', character, limit));
+            }
+            const results = entries
+                .filter(entry => dictionaryEnabled(entry.dictionary, rank))
+                .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank))
+                .slice(0, limit);
+            log.debug('Kanji lookup completed', { characters, candidates: entries.length, results: results.length });
+            return results;
+        } catch (error) {
+            log.warn('Kanji lookup failed', { length: text.length, error });
+            throw error;
+        } finally {
+            done();
         }
-        return entries
-            .filter(entry => dictionaryEnabled(entry.dictionary, rank))
-            .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank))
-            .slice(0, limit);
     }
 
     async lookupTermMeta(expression: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanMetaEntry[]> {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        return (await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'expression', expression, Math.max(limit * 8, 80)))
-            .filter(entry => dictionaryEnabled(entry.dictionary, rank))
-            .sort((a, b) => compareMetaEntries(a, b, rank))
-            .slice(0, limit);
+        const done = log.time('Term metadata lookup', { expression, limit, dictionaries: preferences.length });
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const entries = await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'expression', expression, Math.max(limit * 8, 80));
+            const results = entries
+                .filter(entry => dictionaryEnabled(entry.dictionary, rank))
+                .sort((a, b) => compareMetaEntries(a, b, rank))
+                .slice(0, limit);
+            log.debug('Term metadata lookup completed', { expression, candidates: entries.length, results: results.length });
+            return results;
+        } catch (error) {
+            log.warn('Term metadata lookup failed', { expression, error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async lookupSimilarTermsByKanji(character: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const entries: YomitanTermEntry[] = [];
-        const seen = new Set<string>();
-        await new Promise<void>((resolve, reject) => {
-            const tx = db.transaction('terms', 'readonly');
-            const request = tx.objectStore('terms').openCursor();
-            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionaries.'));
-            request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor || entries.length >= Math.max(limit * 8, 80)) {
-                    resolve();
-                    return;
-                }
-                const entry = cursor.value as YomitanTermEntry;
-                if (entry.expression?.includes(character) && dictionaryEnabled(entry.dictionary, rank)) {
-                    const key = `${entry.expression}\n${entry.reading}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        entries.push(entry);
+        const done = log.time('Similar terms by kanji lookup', { character, limit, dictionaries: preferences.length });
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const entries: YomitanTermEntry[] = [];
+            const seen = new Set<string>();
+            await new Promise<void>((resolve, reject) => {
+                const tx = db.transaction('terms', 'readonly');
+                const request = tx.objectStore('terms').openCursor();
+                request.onerror = () => reject(request.error ?? new Error('Could not search local dictionaries.'));
+                request.onsuccess = () => {
+                    const cursor = request.result;
+                    if (!cursor || entries.length >= Math.max(limit * 8, 80)) {
+                        resolve();
+                        return;
                     }
-                }
-                cursor.continue();
-            };
-        });
+                    const entry = cursor.value as YomitanTermEntry;
+                    if (entry.expression?.includes(character) && dictionaryEnabled(entry.dictionary, rank)) {
+                        const key = `${entry.expression}\n${entry.reading}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            entries.push(entry);
+                        }
+                    }
+                    cursor.continue();
+                };
+            });
 
-        const annotated = await Promise.all(entries.map(async entry => ({
-            ...entry,
-            jpdbFrequency: await this.frequencyForExpression(entry.expression, preferences),
-        })));
-        return annotated
-            .sort((a, b) =>
-                compareFrequency(a.jpdbFrequency, b.jpdbFrequency)
-                || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-                || (b.score ?? 0) - (a.score ?? 0)
-                || a.expression.length - b.expression.length,
-            )
-            .slice(0, limit);
+            const annotated = await Promise.all(entries.map(async entry => ({
+                ...entry,
+                jpdbFrequency: await this.frequencyForExpression(entry.expression, preferences),
+            })));
+            const results = annotated
+                .sort((a, b) =>
+                    compareFrequency(a.jpdbFrequency, b.jpdbFrequency)
+                    || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+                    || (b.score ?? 0) - (a.score ?? 0)
+                    || a.expression.length - b.expression.length,
+                )
+                .slice(0, limit);
+            log.debug('Similar terms by kanji lookup completed', { character, candidates: entries.length, results: results.length });
+            return results;
+        } catch (error) {
+            log.warn('Similar terms by kanji lookup failed', { character, error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async findTermMatches(text: string, limit = 32, preferences: DictionaryPreference[] = []): Promise<YomitanTermMatch[]> {
+        const done = log.time('Inline term match search', { length: text.length, limit, dictionaries: preferences.length });
         const source = text.slice(0, 240);
-        if (!source.trim()) return [];
+        if (!source.trim()) {
+            done();
+            return [];
+        }
 
-        const candidates = new Map<string, Array<{ start: number; end: number; surface: string }>>();
+        const candidates = new Map<string, Array<{ start: number; end: number; surface: string; deinflected: DeinflectedTerm }>>();
         const maxLength = Math.min(18, source.length);
         for (let start = 0; start < source.length; start++) {
             if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
             for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
                 const surface = source.slice(start, start + length);
                 if (!JAPANESE_RE.test(surface) || /\s/.test(surface)) continue;
-                const positions = candidates.get(surface) ?? [];
-                positions.push({ start, end: start + length, surface });
-                candidates.set(surface, positions);
+                for (const deinflected of deinflectJapaneseTerm(surface)) {
+                    if (!JAPANESE_RE.test(deinflected.term)) continue;
+                    const positions = candidates.get(deinflected.term) ?? [];
+                    positions.push({ start, end: start + length, surface, deinflected });
+                    candidates.set(deinflected.term, positions);
+                }
             }
         }
-        if (!candidates.size) return [];
+        if (!candidates.size) {
+            log.debug('Inline term match search skipped', { reason: 'no-candidates', length: source.length });
+            done();
+            return [];
+        }
 
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const matches = await new Promise<YomitanTermMatch[]>((resolve, reject) => {
-            const tx = db.transaction('terms', 'readonly');
-            const index = tx.objectStore('terms').index('expression');
-            const results: YomitanTermMatch[] = [];
-            const expressions = Array.from(candidates.keys())
-                .sort((a, b) => b.length - a.length || a.localeCompare(b));
-            let pending = expressions.length;
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const matches = await new Promise<YomitanTermMatch[]>((resolve, reject) => {
+                const tx = db.transaction('terms', 'readonly');
+                const index = tx.objectStore('terms').index('expression');
+                const results: YomitanTermMatch[] = [];
+                const expressions = Array.from(candidates.keys())
+                    .sort((a, b) => b.length - a.length || a.localeCompare(b));
+                let pending = expressions.length;
 
-            const finish = () => {
-                if (--pending <= 0) resolve(results);
-            };
-
-            for (const expression of expressions) {
-                const request = index.getAll(IDBKeyRange.only(expression), 8);
-                request.onsuccess = () => {
-                    const entry = (request.result as YomitanTermEntry[])
-                        .filter(item => dictionaryEnabled(item.dictionary, rank))
-                        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0))[0];
-                    if (entry) {
-                        for (const position of candidates.get(expression) ?? []) {
-                            results.push({ entry, ...position });
-                        }
-                    }
-                    finish();
+                const finish = () => {
+                    if (--pending <= 0) resolve(results);
                 };
-                request.onerror = () => reject(request.error);
-            }
 
-            tx.onerror = () => reject(tx.error);
-        });
+                for (const expression of expressions) {
+                    const request = index.getAll(IDBKeyRange.only(expression), 8);
+                    request.onsuccess = () => {
+                        const entries = (request.result as YomitanTermEntry[])
+                            .filter(item => dictionaryEnabled(item.dictionary, rank))
+                            .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+                        if (entries.length) {
+                            for (const position of candidates.get(expression) ?? []) {
+                                const entry = entries.find(item => termRulesMatch(item.rules, position.deinflected.rules));
+                                if (entry) results.push({
+                                    entry,
+                                    ...position,
+                                    deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
+                                });
+                            }
+                        }
+                        finish();
+                    };
+                    request.onerror = () => reject(request.error);
+                }
 
-        return nonOverlappingMatches(matches, limit);
+                tx.onerror = () => reject(tx.error);
+            });
+
+            const results = nonOverlappingMatches(matches, limit);
+            log.debug('Inline term match search completed', {
+                length: source.length,
+                candidates: candidates.size,
+                overlappingMatches: matches.length,
+                results: results.length,
+            });
+            return results;
+        } catch (error) {
+            log.warn('Inline term match search failed', { length: source.length, candidates: candidates.size, error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async summary(): Promise<DictionarySummary> {
-        const db = await this.db();
-        const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
-            this.getAllDictionaryInfo(db),
-            this.countStore(db, 'terms'),
-            this.countStore(db, 'kanji'),
-            this.countStore(db, 'termMeta'),
-            this.countStore(db, 'kanjiMeta'),
-        ]);
-        return { dictionaries, terms, kanji, termMeta, kanjiMeta };
+        const done = log.time('Dictionary summary');
+        try {
+            const db = await this.db();
+            const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
+                this.getAllDictionaryInfo(db),
+                this.countStore(db, 'terms'),
+                this.countStore(db, 'kanji'),
+                this.countStore(db, 'termMeta'),
+                this.countStore(db, 'kanjiMeta'),
+            ]);
+            const summary = { dictionaries, terms, kanji, termMeta, kanjiMeta };
+            log.debug('Dictionary summary loaded', {
+                dictionaries: dictionaries.length,
+                terms,
+                kanji,
+                termMeta,
+                kanjiMeta,
+            });
+            return summary;
+        } catch (error) {
+            log.warn('Dictionary summary failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async countEntries(): Promise<number> {
@@ -257,7 +348,10 @@ export class YomitanDictionaryStore {
     }
 
     private async frequencyForExpression(expression: string, preferences: DictionaryPreference[]): Promise<number | undefined> {
-        const metas = await this.lookupTermMeta(expression, 12, preferences).catch(() => []);
+        const metas = await this.lookupTermMeta(expression, 12, preferences).catch(error => {
+            log.debug('Frequency metadata lookup skipped', { expression, error });
+            return [];
+        });
         for (const meta of metas) {
             if (meta.mode !== 'freq') continue;
             const frequency = extractFrequency(meta.data);
@@ -267,18 +361,34 @@ export class YomitanDictionaryStore {
     }
 
     async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
-        if (/\.zip$/i.test(file.name)) return this.importZip(file, onProgress, sourceUrl);
-        return this.importJson(file, onProgress);
+        const done = log.time('Dictionary file import', fileSummary(file, sourceUrl));
+        try {
+            log.info('Dictionary file import started', fileSummary(file, sourceUrl));
+            const summary = /\.zip$/i.test(file.name)
+                ? await this.importZip(file, onProgress, sourceUrl)
+                : await this.importJson(file, onProgress);
+            log.info('Dictionary file import completed', summary);
+            return summary;
+        } catch (error) {
+            log.warn('Dictionary file import failed', { ...fileSummary(file, sourceUrl), error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async importFromUrl(url: string, filename = filenameFromUrl(url), onProgress?: (message: string) => void): Promise<ImportSummary> {
+        log.info('Dictionary URL import started', { filename, host: safeHost(url) });
         onProgress?.(`Downloading ${filename}...`);
         const blob = await requestBlob(url, onProgress);
         const file = new File([blob], filename, { type: blob.type || 'application/zip' });
-        return this.importFile(file, onProgress, url);
+        const summary = await this.importFile(file, onProgress, url);
+        log.info('Dictionary URL import completed', { filename, host: safeHost(url), ...summary });
+        return summary;
     }
 
     async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
+        log.debug('ZIP dictionary import started', fileSummary(file, sourceUrl));
         onProgress?.('Reading dictionary ZIP...');
         const zip = await JSZip.loadAsync(file);
         const indexFile = zip.file('index.json');
@@ -318,17 +428,21 @@ export class YomitanDictionaryStore {
         await importBank(/^kanji_meta_bank_\d+\.json$/i, 'kanjiMeta', 'kanjiMeta', row => normalizeZipKanjiMetaRow(row, dictionary));
 
         if (summary.entries === 0) throw new Error('No supported Yomitan dictionary banks found.');
+        log.info('ZIP dictionary import parsed', summary);
         return summary;
     }
 
     async importJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
+        log.debug('JSON dictionary import started', fileSummary(file));
         const head = await readBlobText(file.slice(0, 4096));
         if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
+            log.debug('Detected Yomitan Dexie dictionary export', { name: file.name, size: file.size });
             return this.importDexieJson(file, onProgress);
         }
 
         const json = JSON.parse(await readBlobText(file)) as unknown;
         if (isReaderDictionaryExport(json)) {
+            log.debug('Detected Yomu dictionary export', { name: file.name, size: file.size });
             await this.clear();
             await Promise.all([
                 this.addToStore('dictionaryInfo', json.dictionaries ?? [], true),
@@ -339,7 +453,7 @@ export class YomitanDictionaryStore {
             ]);
             const dictionaryNames = json.dictionaries?.map(item => item.title)
                 ?? [...new Set((json.terms ?? json.entries ?? []).map(entry => entry.dictionary))];
-            return {
+            const summary = {
                 dictionaries: dictionaryNames,
                 entries: (json.terms ?? json.entries ?? []).length + (json.kanji ?? []).length + (json.termMeta ?? []).length + (json.kanjiMeta ?? []).length,
                 terms: (json.terms ?? json.entries ?? []).length,
@@ -347,16 +461,20 @@ export class YomitanDictionaryStore {
                 termMeta: (json.termMeta ?? []).length,
                 kanjiMeta: (json.kanjiMeta ?? []).length,
             };
+            log.info('JSON dictionary import parsed', summary);
+            return summary;
         }
 
         throw new Error('Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.');
     }
 
     async importDexieJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
+        log.debug('Dexie dictionary import started', fileSummary(file));
         onProgress?.('Streaming Yomitan dictionary export...');
         await this.clear();
         const rowCounts: Partial<Record<string, number>> = await readDexieTableRowCounts(file).catch(() => ({}));
         const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
+        log.debug('Dexie dictionary row counts read', { totalRows, rowCounts });
         if (totalRows > 0) onProgress?.(`Preparing to import ${totalRows.toLocaleString()} dictionary records...`);
         const dictionaries = new Set<string>();
         const summary: ImportSummary = { dictionaries: [], entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
@@ -433,56 +551,98 @@ export class YomitanDictionaryStore {
         await Promise.all(importEntryStores().map(store => flush(store, true)));
         reportProgress(undefined, true);
         summary.dictionaries = [...dictionaries];
+        log.info('Dexie dictionary import parsed', summary);
         return summary;
     }
 
     async exportJson(): Promise<Blob> {
-        const db = await this.db();
-        const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
-            this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo'),
-            this.getAllFromStore<YomitanTermEntry>(db, 'terms'),
-            this.getAllFromStore<YomitanKanjiEntry>(db, 'kanji'),
-            this.getAllFromStore<YomitanMetaEntry>(db, 'termMeta'),
-            this.getAllFromStore<YomitanMetaEntry>(db, 'kanjiMeta'),
-        ]);
-        return new Blob([JSON.stringify({
-            formatName: 'yomu-yomitan-dictionaries',
-            formatVersion: 2,
-            exportedAt: new Date().toISOString(),
-            dictionaries,
-            terms,
-            kanji,
-            termMeta,
-            kanjiMeta,
-        })], { type: 'application/json' });
+        const done = log.time('Dictionary export');
+        try {
+            const db = await this.db();
+            const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
+                this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo'),
+                this.getAllFromStore<YomitanTermEntry>(db, 'terms'),
+                this.getAllFromStore<YomitanKanjiEntry>(db, 'kanji'),
+                this.getAllFromStore<YomitanMetaEntry>(db, 'termMeta'),
+                this.getAllFromStore<YomitanMetaEntry>(db, 'kanjiMeta'),
+            ]);
+            log.info('Dictionary export prepared', {
+                dictionaries: dictionaries.length,
+                terms: terms.length,
+                kanji: kanji.length,
+                termMeta: termMeta.length,
+                kanjiMeta: kanjiMeta.length,
+            });
+            return new Blob([JSON.stringify({
+                formatName: 'yomu-yomitan-dictionaries',
+                formatVersion: 2,
+                exportedAt: new Date().toISOString(),
+                dictionaries,
+                terms,
+                kanji,
+                termMeta,
+                kanjiMeta,
+            })], { type: 'application/json' });
+        } catch (error) {
+            log.warn('Dictionary export failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async dictionaryStyleCss(preferences: DictionaryPreference[] = []): Promise<string> {
-        const db = await this.db();
-        return renderDictionaryScopedStyles(await this.getAllDictionaryInfo(db), preferences);
+        try {
+            const db = await this.db();
+            const dictionaries = await this.getAllDictionaryInfo(db);
+            const css = renderDictionaryScopedStyles(dictionaries, preferences);
+            log.debug('Dictionary stylesheet rendered', { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
+            return css;
+        } catch (error) {
+            log.warn('Dictionary stylesheet render failed', { error });
+            throw error;
+        }
     }
 
     async clear(): Promise<void> {
-        const db = await this.db();
-        await new Promise<void>((resolve, reject) => {
-            const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo']);
-            const tx = db.transaction(stores, 'readwrite');
-            for (const store of stores) tx.objectStore(store).clear();
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-        });
+        const done = log.time('Dictionary store clear');
+        try {
+            const db = await this.db();
+            await new Promise<void>((resolve, reject) => {
+                const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo']);
+                const tx = db.transaction(stores, 'readwrite');
+                for (const store of stores) tx.objectStore(store).clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+            log.info('Dictionary store cleared');
+        } catch (error) {
+            log.warn('Dictionary store clear failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     async deleteDictionary(dictionary: string): Promise<void> {
-        const db = await this.db();
-        const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta']);
-        await Promise.all(stores.map(store => deleteByDictionary(db, store, dictionary)));
-        await new Promise<void>((resolve, reject) => {
-            const tx = db.transaction('dictionaryInfo', 'readwrite');
-            tx.objectStore('dictionaryInfo').delete(dictionary);
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-        });
+        const done = log.time('Dictionary delete', { dictionary });
+        try {
+            const db = await this.db();
+            const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta']);
+            await Promise.all(stores.map(store => deleteByDictionary(db, store, dictionary)));
+            await new Promise<void>((resolve, reject) => {
+                const tx = db.transaction('dictionaryInfo', 'readwrite');
+                tx.objectStore('dictionaryInfo').delete(dictionary);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+            log.info('Dictionary deleted', { dictionary });
+        } catch (error) {
+            log.warn('Dictionary delete failed', { dictionary, error });
+            throw error;
+        } finally {
+            done();
+        }
     }
 
     private async putDictionaryInfo(info: YomitanDictionaryInfo): Promise<void> {
@@ -553,10 +713,12 @@ export class YomitanDictionaryStore {
 
     private db(): Promise<IDBDatabase> {
         this.dbPromise ??= new Promise((resolve, reject) => {
+            log.debug('Opening dictionary database', { name: DB_NAME, version: DB_VERSION });
             const request = indexedDB.open(DB_NAME, DB_VERSION);
             request.onupgradeneeded = () => {
                 const db = request.result;
                 const tx = request.transaction!;
+                log.info('Upgrading dictionary database', { oldVersion: request.oldVersion, newVersion: DB_VERSION });
                 const terms = ensureStore(db, tx, 'terms');
                 ensureIndex(terms, 'expression', 'expression');
                 ensureIndex(terms, 'reading', 'reading');
@@ -578,16 +740,27 @@ export class YomitanDictionaryStore {
                     db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
                 }
             };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                log.debug('Dictionary database opened', { name: DB_NAME, version: request.result.version });
+                resolve(request.result);
+            };
+            request.onerror = () => {
+                log.warn('Dictionary database open failed', { error: request.error });
+                reject(request.error);
+            };
         });
         return this.dbPromise;
     }
 }
 
 export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImport {
+    const done = log.time('Yomitan settings export parse');
     const profileOptions = getYomitanProfileOptions(value);
-    if (!profileOptions) throw new Error('This does not look like a Yomitan settings export.');
+    if (!profileOptions) {
+        done();
+        log.warn('Yomitan settings export rejected', { reason: 'missing-profile-options' });
+        throw new Error('This does not look like a Yomitan settings export.');
+    }
 
     const settings: YomitanSettingsImport['settings'] = {};
     const audio = profileOptions.audio as Record<string, unknown> | undefined;
@@ -654,10 +827,17 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
         : [];
     settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryPreferences);
 
-    return {
+    const result = {
         settings,
         dictionaryNames: settings.dictionaryPreferences.filter(item => item.enabled).map(item => item.name),
     };
+    log.info('Yomitan settings export parsed', {
+        dictionaryPreferences: settings.dictionaryPreferences.length,
+        enabledDictionaries: result.dictionaryNames.length,
+        importedAudioSources: settings.audioSources?.length ?? 0,
+    });
+    done();
+    return result;
 }
 
 export function glossaryToText(value: unknown): string {
@@ -1340,6 +1520,7 @@ function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number): Yomi
     const overlaps = (match: YomitanTermMatch) => occupied.some(([start, end]) => match.start < end && match.end > start);
     for (const match of matches.sort((a, b) =>
         (b.end - b.start) - (a.end - a.start)
+        || (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0)
         || a.start - b.start
         || a.entry.dictionary.localeCompare(b.entry.dictionary)
         || (b.entry.score ?? 0) - (a.entry.score ?? 0),
@@ -1366,19 +1547,44 @@ function filenameFromUrl(url: string): string {
     }
 }
 
+function fileSummary(file: File, sourceUrl = ''): Record<string, unknown> {
+    return {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sourceHost: sourceUrl ? safeHost(sourceUrl) : '',
+    };
+}
+
+function safeHost(url: string): string {
+    try {
+        return new URL(url, location.href).host;
+    } catch {
+        return '';
+    }
+}
+
 async function requestBlob(url: string, onProgress?: (message: string) => void): Promise<Blob> {
+    const done = log.time('Dictionary download', { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
+        log.debug('Dictionary download using userscript request', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             const handleLoad = (response: UserscriptHttpResponse) => {
                 if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
+                    log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: response.response.size });
+                    done();
                     resolve(response.response);
                     return;
                 }
                 if (response.status < 200 || response.status >= 300) {
+                    log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status: response.status });
+                    done();
                     reject(new Error(`Dictionary download failed (${response.status}).`));
                     return;
                 }
+                log.warn('Dictionary download returned unexpected payload', { host: safeHost(url), status: response.status });
+                done();
                 reject(new Error('Dictionary download did not return a ZIP file.'));
             };
             const result = userscriptRequest({
@@ -1393,23 +1599,62 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
                     }
                 },
                 onload: handleLoad,
-                onerror: () => reject(new Error('Dictionary download failed.')),
-                ontimeout: () => reject(new Error('Dictionary download timed out.')),
+                onerror: () => {
+                    log.warn('Dictionary download failed', { host: safeHost(url) });
+                    done();
+                    reject(new Error('Dictionary download failed.'));
+                },
+                ontimeout: () => {
+                    log.warn('Dictionary download timed out', { host: safeHost(url) });
+                    done();
+                    reject(new Error('Dictionary download timed out.'));
+                },
             });
             if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-                (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Dictionary download failed.')));
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => {
+                    log.warn('Dictionary download failed', { host: safeHost(url) });
+                    done();
+                    reject(new Error('Dictionary download failed.'));
+                });
             }
         });
     }
 
     let response: Response;
     try {
-        response = await fetch(url, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
-    } catch {
+        const downloadUrl = dictionaryDownloadUrl(url);
+        log.debug('Dictionary download using fetch', { host: safeHost(url), proxied: downloadUrl !== url });
+        response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+    } catch (error) {
+        log.warn('Dictionary download fetch failed', { host: safeHost(url), error });
+        done();
         throw new Error('Dictionary download failed. Reinstall or update the userscript so its userscript request grant is active, then try again.');
     }
-    if (!response.ok) throw new Error(`Dictionary download failed (${response.status}).`);
-    return response.blob();
+    if (!response.ok) {
+        log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status: response.status });
+        done();
+        throw new Error(`Dictionary download failed (${response.status}).`);
+    }
+    const blob = await response.blob();
+    log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
+    done();
+    return blob;
+}
+
+function dictionaryDownloadUrl(url: string): string {
+    if (!isLoopbackPage()) return url;
+    try {
+        const target = new URL(url, location.href);
+        const current = new URL(location.href);
+        if (target.origin === current.origin) return target.href;
+        return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
+    } catch {
+        return url;
+    }
+}
+
+function isLoopbackPage(): boolean {
+    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }
 
 function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {

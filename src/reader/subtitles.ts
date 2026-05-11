@@ -1,4 +1,5 @@
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { Logger } from './logger';
 import { accentToRgba, matchesShortcut } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
@@ -37,6 +38,7 @@ const CAPTION_SELECTOR_LIST = [
 ];
 
 const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
+const log = Logger.scope('Subtitles');
 
 export class SubtitlePlayerController {
     private root?: HTMLElement;
@@ -78,6 +80,7 @@ export class SubtitlePlayerController {
         window.addEventListener('resize', () => this.scheduleAlignToVideo(), { passive: true });
         this.discoverVideo();
         this.tick();
+        log.info('Subtitle controller initialized');
     }
 
     refresh(): void {
@@ -97,6 +100,12 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
         this.syncControls();
         this.render();
+        log.debugThrottled('refresh', 2500, 'Subtitle player refreshed', {
+            enabled: settings.subtitlePlayerEnabled,
+            hasVideo: Boolean(this.video),
+            cues: this.cues.length,
+            tracks: this.tracks.length,
+        });
     }
 
     private install(): void {
@@ -133,6 +142,7 @@ export class SubtitlePlayerController {
         document.body.appendChild(root);
         this.root = root;
         this.refresh();
+        log.debug('Subtitle player DOM installed');
     }
 
     private scheduleDiscoverVideo(): void {
@@ -155,6 +165,7 @@ export class SubtitlePlayerController {
         if (candidate && candidate !== this.video) {
             this.video = candidate;
             this.attachTextTracks(candidate);
+            log.info('Subtitle video detected', videoSummary(candidate));
         }
         void this.discoverYouTubeTracks();
         this.refresh();
@@ -166,6 +177,7 @@ export class SubtitlePlayerController {
             const track = (event as TrackEvent).track as TextTrack | null;
             if (track) this.addNativeTrack(track);
         });
+        log.debug('Attached native text track listeners', { tracks: video.textTracks.length });
     }
 
     private addNativeTrack(track: TextTrack): void {
@@ -173,6 +185,7 @@ export class SubtitlePlayerController {
         const id = `native-${this.tracks.length}`;
         const label = track.label || track.language || `Subtitle ${this.tracks.length + 1}`;
         this.tracks.push({ id, label, kind: 'native', track });
+        log.debug('Native subtitle track added', { id, label, language: track.language });
 
         track.addEventListener('cuechange', () => this.updateFromNativeTrack(track));
         window.setTimeout(() => {
@@ -309,7 +322,9 @@ export class SubtitlePlayerController {
             this.parsedHtmlCache.set(key, html);
             if (this.parsedHtmlCache.size > 80) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
             this.replacePrimaryHtml(html, serial);
-        } catch {
+            log.debug('Subtitle line parsed', { length: text.length, tokens: tokens.length });
+        } catch (error) {
+            log.debug('Subtitle line parse failed quietly', { length: text.length }, error);
             // Keep plain selectable subtitles if JPDB is unavailable.
         }
     }
@@ -325,6 +340,7 @@ export class SubtitlePlayerController {
         if (!action) return;
         event.preventDefault();
         event.stopPropagation();
+        log.debug('Subtitle control clicked', { action });
 
         if (action === 'cue') this.seekToCue(Number((event.target as HTMLElement).closest<HTMLElement>('[data-index]')?.dataset.index));
         if (action === 'previous') this.seekSubtitle(-1);
@@ -381,12 +397,14 @@ export class SubtitlePlayerController {
         this.render();
         this.syncControls();
         this.renderTranscriptPanel();
+        log.debug('Subtitle cue selected', { index, start: cue.start, end: cue.end });
     }
 
     private async copySubtitle(): Promise<void> {
         const text = [this.currentCue?.text.trim(), this.secondaryCue?.text.trim()].filter(Boolean).join('\n');
         if (!text) return;
-        await navigator.clipboard?.writeText(text).catch(() => undefined);
+        await navigator.clipboard?.writeText(text).catch(error => log.warn('Subtitle clipboard copy failed', error));
+        log.debug('Subtitle copied', { length: text.length });
     }
 
     private async loadSubtitleFile(kind: 'primary' | 'secondary'): Promise<void> {
@@ -406,6 +424,7 @@ export class SubtitlePlayerController {
         else await this.selectSecondaryTrack(track.id);
         if (input) input.value = '';
         this.updateFromLoadedCues();
+        log.info('Subtitle file loaded', { kind, name: file.name, cues: cues.length });
     }
 
     private async selectTrack(id: string): Promise<void> {
@@ -438,6 +457,7 @@ export class SubtitlePlayerController {
         this.renderTranscriptPanel();
         this.renderTrackPanel();
         this.syncControls();
+        log.info('Primary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.cues.length });
     }
 
     private async selectSecondaryTrack(id: string): Promise<void> {
@@ -464,6 +484,7 @@ export class SubtitlePlayerController {
         this.render();
         this.renderTrackPanel();
         this.syncControls();
+        log.info('Secondary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.secondaryCues.length });
     }
 
     private setNativeTrackModes(): void {
@@ -486,6 +507,7 @@ export class SubtitlePlayerController {
             this.secondaryCues = this.secondaryTrackId ? this.secondaryCues : [];
             this.currentCue = undefined;
             this.secondaryCue = undefined;
+            log.debug('YouTube video changed for subtitle discovery', { videoId });
         }
 
         const tracks = getYouTubeCaptionTracks();
@@ -495,6 +517,7 @@ export class SubtitlePlayerController {
             if (this.tracks.some(existing => existing.kind === 'youtube' && existing.url === track.url)) continue;
             this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: 'youtube', url: track.url });
         }
+        log.debug('YouTube caption tracks discovered', { tracks: tracks.length });
 
         const primary = this.tracks.find(track => track.kind === 'youtube' && isJapaneseTrack(track.label))
             ?? this.tracks.find(track => track.kind === 'youtube');
@@ -593,6 +616,7 @@ export class SubtitlePlayerController {
         settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
         this.options.onSettingsChange();
         this.refresh();
+        log.info('Subtitle overlay toggled', { visible: settings.subtitleOverlayVisible });
     }
 
     private toggleSecondarySubtitles(): void {
@@ -601,6 +625,7 @@ export class SubtitlePlayerController {
         if (!settings.subtitleSecondaryVisible) this.secondaryCue = undefined;
         this.options.onSettingsChange();
         this.render();
+        log.info('Secondary subtitles toggled', { visible: settings.subtitleSecondaryVisible });
     }
 
     private toggleTranscriptPanel(): void {
@@ -938,6 +963,7 @@ function withYouTubeVttFormat(url: string): string {
 
 function requestText(url: string): Promise<string> {
     if (typeof GM_xmlhttpRequest === 'function') {
+        log.debug('Subtitle request via userscript API', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'GET',
@@ -952,10 +978,28 @@ function requestText(url: string): Promise<string> {
             });
         });
     }
+    log.debug('Subtitle request via fetch', { host: safeHost(url) });
     return fetch(url, { signal: AbortSignal.timeout(8000) }).then(response => {
         if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
         return response.text();
     });
+}
+
+function videoSummary(video: HTMLVideoElement): Record<string, unknown> {
+    return {
+        currentSrcHost: safeHost(video.currentSrc || video.src),
+        width: video.videoWidth || video.clientWidth,
+        height: video.videoHeight || video.clientHeight,
+        textTracks: video.textTracks.length,
+    };
+}
+
+function safeHost(value: string): string {
+    try {
+        return new URL(value, location.href).host;
+    } catch {
+        return value ? 'inline-or-invalid' : '';
+    }
 }
 
 function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
