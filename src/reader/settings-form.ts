@@ -22,6 +22,7 @@ export function renderSupportPanel(): string {
                 <button class="jpdb-reader-btn" type="button" data-action="copy-discord" data-support-link="discord">Copy Discord</button>
             </div>
             <div class="jpdb-reader-help">Discord: ${SUPPORT_LINKS.discordUsername}</div>
+            <div class="jpdb-reader-help">Credits: mobile Anki handoff, template, translation, and grammar workflow ideas were informed by <a href="${SUPPORT_LINKS.yomikiri}" target="_blank" rel="noopener">Yomikiri</a>.</div>
         </div>
     `;
 }
@@ -215,15 +216,28 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
                     ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB', settings.ankiMineWithJpdb)}
                     ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
+                    ${checkbox('ankiMobileHandoff', 'Use mobile Anki handoff when AnkiConnect is unavailable', settings.ankiMobileHandoff)}
                     ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}
                     ${input('ankiDeck', 'Anki deck', settings.ankiDeck)}
                     ${input('ankiModel', 'Anki note type', settings.ankiModel)}
+                    ${select('ankiTemplateMode', 'Anki card template', settings.ankiTemplateMode, [['recognition', 'Word first'], ['context', 'Sentence first']])}
                     ${input('ankiTags', 'Tags', settings.ankiTags)}
                 </div>
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
                 </div>
                 <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this device. The default creates a small Yomu note type automatically.</div>
+                <div data-anki-template-preview>
+                    ${renderAnkiTemplatePreview(settings)}
+                </div>
+            </fieldset>
+            <fieldset data-settings-panel="mining" hidden>
+                <legend>Study tools</legend>
+                <div class="grid">
+                    ${checkbox('studyTranslationEnabled', 'Show sentence translation tool', settings.studyTranslationEnabled)}
+                    ${checkbox('studyGrammarEnabled', 'Show grammar hint tool', settings.studyGrammarEnabled)}
+                </div>
+                <div class="jpdb-reader-help">Sentence tools appear in word popups when よむ knows the surrounding sentence. Translation uses Google Translate; grammar hints are local pattern matches with Tofugu links.</div>
             </fieldset>
             <fieldset data-settings-panel="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -332,6 +346,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         text('video'),
         text('youtube'),
         text('anki'),
+        text('studyTools'),
         text('dictionaries'),
         text('shortcuts'),
         text('support'),
@@ -426,10 +441,14 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['ankiEnabled', 'ankiEnabled'],
         ['ankiMineWithJpdb', 'ankiMineWithJpdb'],
         ['ankiCaptureScreenshot', 'ankiCaptureScreenshot'],
+        ['ankiMobileHandoff', 'mobileAnkiHandoff'],
         ['ankiConnectUrl', 'ankiConnectUrl'],
         ['ankiDeck', 'ankiDeck'],
         ['ankiModel', 'ankiModel'],
+        ['ankiTemplateMode', 'ankiTemplateMode'],
         ['ankiTags', 'ankiTags'],
+        ['studyTranslationEnabled', 'studyTranslationEnabled'],
+        ['studyGrammarEnabled', 'studyGrammarEnabled'],
         ['jpdbDefinitionsEnabled', 'jpdbDefinitionsEnabled'],
         ['localDictionariesEnabled', 'localDictionariesEnabled'],
         ['localDictionaryShowKanji', 'localDictionaryShowKanji'],
@@ -529,6 +548,10 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('showWhenNeeded')],
         ['hidden', text('hideControls')],
         ['always', text('alwaysVisible')],
+    ]);
+    setSelectOptionLabels(form, 'ankiTemplateMode', [
+        ['recognition', text('wordFirst')],
+        ['context', text('sentenceFirst')],
     ]);
 
     setShortcutPlaceholder(form, 'shortcuts.hoverLookup', text('blankPlainHover'));
@@ -691,6 +714,15 @@ export function renderAudioSourceEditor(sources: AudioSourceSetting[]): string {
     `;
 }
 
+function miniIcon(name: 'up' | 'down' | 'remove'): string {
+    const paths = {
+        up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
+        down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
+        remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
+    } satisfies Record<typeof name, string>;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+}
+
 function renderAudioSourceRows(rows: AudioSourceSetting[]): string {
     const count = rows.length;
 
@@ -712,9 +744,9 @@ function renderAudioSourceRows(rows: AudioSourceSetting[]): string {
                     <input data-audio-voice-field name="audioSources.${index}.voice" type="text" value="${escapeHtml(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
                 </div>
                 <div class="jpdb-reader-row-tools" aria-label="Audio source order">
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up">↑</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down">↓</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="Remove">×</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="Remove" aria-label="Remove">${miniIcon('remove')}</button>
                 </div>
             </div>
         `).join('')}
@@ -905,6 +937,31 @@ export function settingsTabButton(panel: string, label: string, active = false):
     return `<button class="jpdb-reader-settings-tab" type="button" data-action="settings-panel" data-panel="${escapeHtml(panel)}" role="tab" aria-selected="${active ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
 }
 
+export function renderAnkiTemplatePreview(settings: ReaderSettings): string {
+    const contextMode = settings.ankiTemplateMode === 'context';
+    const front = contextMode
+        ? '<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>'
+        : '<div class="jpdb-reader-template-expression">読む</div><div class="jpdb-reader-template-reading">よむ</div><small>Recall the meaning and reading first.</small>';
+    return `
+        <div class="jpdb-reader-template-preview">
+            <div class="jpdb-reader-template-preview-title">${contextMode ? 'Sentence first preset' : 'Word first preset'}</div>
+            <div class="jpdb-reader-template-preview-grid">
+                <div>
+                    <strong>Front</strong>
+                    ${front}
+                </div>
+                <div>
+                    <strong>Back</strong>
+                    <div class="jpdb-reader-template-expression">読む</div>
+                    <div class="jpdb-reader-template-reading">よむ</div>
+                    <div class="jpdb-reader-template-meaning">to read</div>
+                    <small>Includes dictionary, kanji, pitch, frequency, source, and image fields when available.</small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const preferences = settings.dictionaryPreferences;
     const rows = [
@@ -951,6 +1008,7 @@ function renderDictionarySourceRowsList(rows: Array<{ id: string; name: string; 
             <span>Definition source</span>
             <span>Alias</span>
             <span>Order</span>
+            <span>Remove</span>
         </div>
         <input type="hidden" name="dictionaryPreferenceCount" value="${rows.filter(row => !isBuiltInDictionarySource(row.id)).length}">
         ${rows.map((row, index) => {
@@ -966,8 +1024,11 @@ function renderDictionarySourceRowsList(rows: Array<{ id: string; name: string; 
                 <input name="${prefix}.alias" type="text" value="${escapeHtml(row.alias)}" ${row.readonly ? 'readonly' : ''} aria-label="Dictionary alias">
                 <div class="jpdb-reader-row-tools">
                     <input name="${prefix}.priority" type="hidden" value="${index}" aria-label="Dictionary priority">
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up">↑</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down">↓</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
+                </div>
+                <div class="jpdb-reader-row-tools">
+                    ${row.readonly ? '' : `<button type="button" class="jpdb-reader-icon-mini" data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml(row.name)}" title="Remove imported dictionary" aria-label="Remove imported dictionary">${miniIcon('remove')}</button>`}
                 </div>
                 ${row.help ? `<div class="jpdb-reader-dictionary-row-help">${escapeHtml(row.help)}</div>` : ''}
             </div>
@@ -1160,9 +1221,13 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiConnectUrl: get('ankiConnectUrl').trim() || current.ankiConnectUrl,
         ankiDeck: get('ankiDeck').trim() || current.ankiDeck,
         ankiModel: get('ankiModel').trim() || current.ankiModel,
+        ankiTemplateMode: get('ankiTemplateMode') === 'context' ? 'context' : 'recognition',
         ankiTags: get('ankiTags').trim(),
         ankiMineWithJpdb: has('ankiMineWithJpdb'),
         ankiCaptureScreenshot: has('ankiCaptureScreenshot'),
+        ankiMobileHandoff: has('ankiMobileHandoff'),
+        studyTranslationEnabled: has('studyTranslationEnabled'),
+        studyGrammarEnabled: has('studyGrammarEnabled'),
         theme: get('theme') as ReaderSettings['theme'],
         popupMode: get('popupMode') as ReaderSettings['popupMode'],
         miningDeck: get('miningDeck').trim() || 'forq',

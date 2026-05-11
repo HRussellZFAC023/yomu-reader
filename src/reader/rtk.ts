@@ -88,9 +88,10 @@ function cleanText(value: string): string {
 }
 
 function requestText(url: string): Promise<string> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            userscriptRequest({
                 method: 'GET',
                 url,
                 timeout: 8000,
@@ -108,4 +109,10 @@ function requestText(url: string): Promise<string> {
         if (!response.ok) throw new Error(`RTK request failed (${response.status}).`);
         return response.text();
     });
+}
+
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
 }

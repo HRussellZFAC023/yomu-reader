@@ -1,4 +1,4 @@
-import type { AudioSourceSetting, AudioSourceType, DictionaryPreference, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
+import type { AnkiTemplateMode, AudioSourceSetting, AudioSourceType, DictionaryPreference, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
 
@@ -148,6 +148,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
     ankiModel: 'よむ Japanese',
+    ankiTemplateMode: 'recognition',
+    ankiMobileHandoff: true,
+    studyTranslationEnabled: true,
+    studyGrammarEnabled: true,
     ankiTags: 'yomu',
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
@@ -239,6 +243,10 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
         ankiModel: normalizeAnkiName(value?.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
+        ankiTemplateMode: normalizeAnkiTemplateMode(value?.ankiTemplateMode),
+        ankiMobileHandoff: typeof value?.ankiMobileHandoff === 'boolean' ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
+        studyTranslationEnabled: typeof value?.studyTranslationEnabled === 'boolean' ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
+        studyGrammarEnabled: typeof value?.studyGrammarEnabled === 'boolean' ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
         ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
         dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
         shortcuts,
@@ -255,6 +263,10 @@ function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string)
     const trimmed = value.trim();
     if (!trimmed || trimmed === oldDefault) return fallback;
     return trimmed;
+}
+
+function normalizeAnkiTemplateMode(value: unknown): AnkiTemplateMode {
+    return value === 'context' || value === 'recognition' ? value : DEFAULT_SETTINGS.ankiTemplateMode;
 }
 
 function normalizeInterfaceLanguage(value: unknown): InterfaceLanguage {

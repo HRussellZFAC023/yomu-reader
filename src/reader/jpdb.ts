@@ -209,6 +209,7 @@ export class JpdbClient {
             cardState: cardState?.length ? cardState : ['not-in-deck'],
             pitchAccent: pitchAccent ?? [],
             wordWithReading: null,
+            source: 'jpdb',
         }));
     }
 
@@ -316,23 +317,28 @@ function postJson(url: string, token: string, body?: Record<string, unknown>): P
         Accept: 'application/json',
     };
 
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            const handleLoad = (response: UserscriptHttpResponse) => resolve({
+                status: response.status,
+                ok: response.status >= 200 && response.status < 300,
+                text: String(response.responseText ?? response.response ?? ''),
+            });
+            const result = userscriptRequest({
                 method: 'POST',
                 url,
                 headers,
                 data,
                 responseType: 'text',
                 timeout: 30000,
-                onload: response => resolve({
-                    status: response.status,
-                    ok: response.status >= 200 && response.status < 300,
-                    text: String(response.responseText ?? response.response ?? ''),
-                }),
+                onload: handleLoad,
                 onerror: reject,
                 ontimeout: () => reject(new Error('JPDB request timed out.')),
             });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
+            }
         });
     }
 
@@ -345,6 +351,12 @@ function postJson(url: string, token: string, body?: Record<string, unknown>): P
         ok: response.ok,
         text: await response.text(),
     }));
+}
+
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
 }
 
 export function splitJapaneseSentences(text: string): string[] {

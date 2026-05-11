@@ -64,6 +64,7 @@ export default defineConfig({
                     '*',
                 ],
                 grant: [
+                    'GM.xmlHttpRequest',
                     'GM_xmlhttpRequest',
                     'GM_setValue',
                     'GM_getValue',

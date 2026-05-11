@@ -290,7 +290,7 @@ export class SubtitlePlayerController {
             ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>`
             : '';
         setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${escapeWithBreaks(text)}</div>${secondary}`);
-        if (this.options.getSettings().apiKey) void this.renderParsedPrimary(text);
+        if (this.options.getSettings().apiKey || this.options.getSettings().localDictionariesEnabled) void this.renderParsedPrimary(text);
     }
 
     private async renderParsedPrimary(text: string): Promise<void> {

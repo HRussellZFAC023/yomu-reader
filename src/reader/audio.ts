@@ -343,23 +343,28 @@ async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wikti
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number): Promise<unknown> {
     const url = getProxyUrl(responseUrl);
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            const handleLoad = (response: UserscriptHttpResponse) => {
+                if (response.status >= 200 && response.status < 300) {
+                    resolve(response.response ?? response.responseText ?? '');
+                } else {
+                    reject(new Error(`Audio request failed (${response.status}).`));
+                }
+            };
+            const result = userscriptRequest({
                 method: 'GET',
                 url,
                 responseType,
                 timeout: timeoutMs,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) {
-                        resolve(response.response ?? response.responseText ?? '');
-                    } else {
-                        reject(new Error(`Audio request failed (${response.status}).`));
-                    }
-                },
+                onload: handleLoad,
                 onerror: reject,
                 ontimeout: () => reject(new Error('Audio request timed out.')),
             });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
+            }
         });
     }
 
@@ -367,6 +372,12 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
         if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
         return responseType === 'blob' ? await response.blob() : await response.text();
     });
+}
+
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
 }
 
 function normalizeAudioUrl(value: string, sourceUrl?: string): string {

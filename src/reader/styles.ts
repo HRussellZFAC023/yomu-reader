@@ -357,6 +357,45 @@ export const READER_CSS = `
   align-items: flex-start;
   gap: 10px;
 }
+.jpdb-reader-quick {
+  display: grid;
+  gap: 12px;
+}
+.jpdb-reader-quick .jpdb-reader-header {
+  align-items: center;
+}
+.jpdb-reader-quick-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.jpdb-reader-quick-chip {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.jpdb-reader-quick-chip.ready {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 56%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-quick-chip.warning {
+  border-color: color-mix(in srgb, #ff8c8c 45%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, #ff8c8c 10%, var(--jpdb-reader-surface));
+  color: #ffb0b0;
+}
+.jpdb-reader-quick-chip.pending {
+  color: var(--jpdb-reader-faint);
+}
 .jpdb-reader-heading {
   min-width: 0;
   flex: 1 1 auto;
@@ -664,6 +703,11 @@ export const READER_CSS = `
   white-space: pre-wrap;
   display: grid;
   gap: 4px;
+  --font-size-no-units: 13;
+  --line-height: 1.45;
+  --list-padding1: 1.1em;
+  --list-padding2: 1.45em;
+  --compact-list-separator: " / ";
 }
 .jpdb-reader-local-glossary ul,
 .jpdb-reader-local-glossary ol {
@@ -679,6 +723,146 @@ export const READER_CSS = `
 .jpdb-reader-local-glossary th {
   border: 1px solid var(--jpdb-reader-border);
   padding: 4px 6px;
+}
+.jpdb-reader-dictionary-group {
+  padding: 0;
+  overflow: hidden;
+}
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head {
+  padding: 8px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.jpdb-reader-dictionary-group > .jpdb-reader-local-glossary {
+  padding: 0 8px 8px;
+}
+.jpdb-reader-local-glossary .structured-content {
+  display: inline;
+  white-space: normal;
+  line-height: var(--line-height);
+}
+.jpdb-reader-local-glossary :is(.gloss-sc-div, .gloss-sc-ul, .gloss-sc-ol, .gloss-sc-li, .gloss-sc-details) {
+  white-space: normal;
+}
+.jpdb-reader-local-glossary .gloss-sc-ul,
+.jpdb-reader-local-glossary .gloss-sc-ol {
+  margin: 0.25em 0 0.25em var(--list-padding1);
+  padding: 0;
+}
+.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content="glossary"],
+.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content="glossary"] {
+  display: grid;
+  gap: 0.25em;
+}
+.jpdb-reader-local-glossary .gloss-sc-li {
+  margin: 0;
+  padding-left: 0.1em;
+}
+.jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ul,
+.jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ol {
+  margin-left: var(--list-padding2);
+}
+.jpdb-reader-local-glossary .gloss-sc-details {
+  margin: 0.35em 0;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
+}
+.jpdb-reader-local-glossary .gloss-sc-summary {
+  padding: 0.35em 0.55em;
+  cursor: pointer;
+  font-weight: 700;
+}
+.jpdb-reader-local-glossary .gloss-sc-details > :not(.gloss-sc-summary) {
+  padding: 0 0.55em 0.45em;
+}
+.jpdb-reader-local-glossary .gloss-sc-table-container {
+  display: block;
+  max-width: 100%;
+  margin: 0.35em 0;
+  overflow-x: auto;
+  white-space: normal;
+}
+.jpdb-reader-local-glossary .gloss-sc-table {
+  width: auto;
+  min-width: min(100%, 24rem);
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.jpdb-reader-local-glossary .gloss-sc-th,
+.jpdb-reader-local-glossary .gloss-sc-td {
+  border: 1px solid var(--jpdb-reader-border);
+  padding: 0.35em 0.45em;
+  vertical-align: top;
+}
+.jpdb-reader-local-glossary .gloss-sc-th {
+  background: var(--jpdb-reader-surface-2);
+  font-weight: 800;
+}
+.jpdb-reader-local-glossary .gloss-link {
+  color: var(--jpdb-reader-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.jpdb-reader-local-glossary .gloss-link-external-icon {
+  display: none;
+}
+.jpdb-reader-local-glossary [data-sc-content="part-of-speech-info"],
+.jpdb-reader-local-glossary [data-sc-class="tag"],
+.jpdb-reader-local-glossary [data-sc-class="pitch-accent-position"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.4em;
+  margin: 0 0.25em 0.15em 0;
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+  font-size: 0.88em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.jpdb-reader-local-glossary .gloss-image-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  max-width: 100%;
+  margin: 0.15em 0;
+  color: var(--jpdb-reader-muted);
+  vertical-align: middle;
+}
+.jpdb-reader-local-glossary .gloss-image-container {
+  position: relative;
+  display: inline-block;
+  max-width: min(100%, 20rem);
+  min-width: 3rem;
+  overflow: hidden;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+  background: var(--jpdb-reader-surface-2);
+  vertical-align: middle;
+}
+.jpdb-reader-local-glossary .gloss-image-sizer {
+  display: block;
+}
+.jpdb-reader-local-glossary .gloss-image-background,
+.jpdb-reader-local-glossary .gloss-image-container-overlay {
+  position: absolute;
+  inset: 0;
+}
+.jpdb-reader-local-glossary .gloss-image-background {
+  background:
+    linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25% 75%, rgba(255,255,255,.06) 75%),
+    linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25% 75%, rgba(255,255,255,.06) 75%);
+  background-position: 0 0, 6px 6px;
+  background-size: 12px 12px;
+}
+.jpdb-reader-local-glossary .gloss-image-link-text,
+.jpdb-reader-local-glossary .gloss-image-description {
+  color: var(--jpdb-reader-muted);
+  font-size: 0.9em;
 }
 .jpdb-reader-anki-existing {
   margin-top: 12px;
@@ -979,6 +1163,104 @@ export const READER_CSS = `
   stroke-linejoin: round;
 }
 .jpdb-reader-media-note { color: var(--jpdb-reader-muted); font-style: italic; }
+.jpdb-reader-study-tools {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.jpdb-reader-study-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.jpdb-reader-study-actions .jpdb-reader-icon-mini {
+  width: auto;
+  min-width: 76px;
+  padding: 0 10px;
+}
+.jpdb-reader-study-panel {
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 10px;
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.jpdb-reader-study-title,
+.jpdb-reader-study-name {
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+}
+.jpdb-reader-study-note,
+.jpdb-reader-study-match {
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+}
+.jpdb-reader-study-item {
+  display: grid;
+  grid-template-columns: minmax(56px, auto) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 7px;
+}
+.jpdb-reader-study-item:first-of-type { margin-top: 4px; }
+.jpdb-reader-study-short,
+.jpdb-reader-study-empty {
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-template-preview {
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 10px;
+  margin-top: 10px;
+}
+.jpdb-reader-template-preview-title {
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.jpdb-reader-template-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.jpdb-reader-template-preview-grid > div {
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  padding: 10px;
+  min-height: 118px;
+}
+.jpdb-reader-template-preview strong,
+.jpdb-reader-template-preview small {
+  display: block;
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-template-expression {
+  color: var(--jpdb-reader-text);
+  font-size: 24px;
+  font-weight: 850;
+  line-height: 1.1;
+  margin-top: 8px;
+}
+.jpdb-reader-template-reading,
+.jpdb-reader-template-meaning {
+  color: var(--jpdb-reader-muted);
+  margin-top: 4px;
+}
+.jpdb-reader-template-sentence {
+  color: var(--jpdb-reader-text);
+  font-size: 18px;
+  line-height: 1.35;
+  margin: 10px 0 8px;
+}
+.jpdb-reader-template-sentence span {
+  color: var(--jpdb-reader-accent);
+  font-weight: 850;
+}
 .jpdb-reader-chip {
   display: inline-flex;
   align-items: center;
@@ -1271,11 +1553,13 @@ export const READER_CSS = `
 }
 .jpdb-reader-origin-graph-wrap {
   position: relative;
-  min-height: 180px;
+  height: min(240px, 58vw);
+  min-height: 190px;
   margin-top: 8px;
-  border: 1px solid var(--jpdb-reader-border);
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 70%, #000);
   border-radius: 8px;
-  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent), transparent 56%), var(--jpdb-reader-surface-2);
+  background: #11171d;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), inset 0 -18px 44px rgba(0,0,0,.18);
   overflow: hidden;
 }
 .jpdb-reader-origin-graph-lines {
@@ -1285,42 +1569,72 @@ export const READER_CSS = `
   height: 100%;
   pointer-events: none;
 }
-.jpdb-reader-origin-graph-lines line {
-  stroke: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
-  stroke-width: 1;
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge {
+  fill: none;
+  stroke: rgba(242,244,248,.78);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
-.jpdb-reader-origin-graph-lines path {
-  fill: color-mix(in srgb, var(--jpdb-reader-muted) 76%, transparent);
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow {
+  fill: rgba(242,244,248,.82);
+}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle {
+  fill: rgba(242,244,248,.94);
+  stroke: #11171d;
+  stroke-width: .12;
 }
 .jpdb-reader-origin-graph-node {
   position: absolute;
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  min-width: 34px;
-  height: 34px;
-  padding: 0 8px;
-  border: 1px solid var(--jpdb-reader-border);
+  width: 62px;
+  min-width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 4px solid #03070b;
   border-radius: 999px;
-  background: var(--jpdb-reader-bg);
-  color: var(--jpdb-reader-text);
-  font: 850 19px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  cursor: pointer;
+  background: #7dc3e5;
+  color: #03070b;
+  font: 850 32px/1 "Hiragino Sans", "Yu Gothic", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 9px 26px rgba(0,0,0,.34);
+  cursor: grab;
   touch-action: none;
   user-select: none;
+  z-index: 1;
+  transition: border-color .14s ease, box-shadow .14s ease, color .14s ease, transform .14s ease;
 }
 .jpdb-reader-origin-graph-node.current {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-bg));
+  width: 68px;
+  min-width: 68px;
+  height: 68px;
+  border-color: #03070b;
+  background: #2fa6dc;
+  font-size: 34px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.4);
+}
+.jpdb-reader-origin-graph-node.component {
+  border-color: #03070b;
 }
 .jpdb-reader-origin-graph-node.related {
-  color: var(--jpdb-reader-muted);
-  cursor: default;
+  background: #f4f7fb;
+  color: #03070b;
+  font-size: 22px;
 }
 .jpdb-reader-origin-graph-node:hover,
 .jpdb-reader-origin-graph-node:focus-visible {
-  border-color: var(--jpdb-reader-accent);
+  border-color: #03070b;
+  box-shadow: 0 14px 34px rgba(0,0,0,.44), 0 0 0 3px rgba(125,195,229,.16);
   outline: none;
+  transform: translate(-50%, -50%) scale(1.04);
+}
+.jpdb-reader-origin-graph-node.dragging {
+  cursor: grabbing;
+  z-index: 3;
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 18px 40px rgba(0,0,0,.5), 0 0 0 4px rgba(125,195,229,.2);
 }
 .jpdb-reader-rtk-head {
   display: flex;
@@ -1544,8 +1858,21 @@ export const READER_CSS = `
     linear-gradient(to bottom, color-mix(in srgb, var(--jpdb-reader-bg) 0%, transparent), var(--jpdb-reader-bg) 16px),
     var(--jpdb-reader-bg);
 }
+.jpdb-reader-quick-actions {
+  position: static;
+  bottom: auto;
+  border-top: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
 
 .jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
+.jpdb-reader-quick-row .jpdb-reader-btn {
+  min-width: 0;
+  min-height: 40px;
+  font-size: 12px;
+}
 .jpdb-reader-grades .jpdb-reader-btn {
   min-width: 0;
   min-height: 40px;
@@ -1567,6 +1894,11 @@ export const READER_CSS = `
 }
 .jpdb-reader-btn:hover { background: var(--jpdb-reader-hover); }
 .jpdb-reader-btn:disabled { opacity: .45; cursor: progress; }
+.jpdb-reader-btn.primary {
+  color: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent);
+}
 .jpdb-reader-btn.add { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
 .jpdb-reader-btn.nf { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
 .jpdb-reader-btn.blacklist {
@@ -1826,7 +2158,7 @@ export const READER_CSS = `
 .jpdb-reader-dictionary-head,
 .jpdb-reader-dictionary-row {
   display: grid;
-  grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, .8fr) 74px;
+  grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, .8fr) 74px 58px;
   gap: 8px;
   align-items: center;
 }
@@ -1897,6 +2229,11 @@ export const READER_CSS = `
   display: block;
   width: 16px;
   height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .jpdb-reader-icon-mini:hover,
 .jpdb-reader-icon-mini:focus-visible {
@@ -2323,6 +2660,8 @@ export const READER_CSS = `
   }
   .jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
+  .jpdb-reader-quick-status { grid-template-columns: 1fr; }
+  .jpdb-reader-quick-row { grid-template-columns: 1fr !important; }
   .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 88vh; max-height: 88svh; border-radius: 16px 16px 0 0; }
   .jpdb-reader-settings-head { padding: 18px 20px 0; }
   .jpdb-reader-settings-scroll { padding: 0 20px 106px; }
@@ -2339,6 +2678,7 @@ export const READER_CSS = `
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
   .jpdb-reader-support-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .jpdb-reader-recommended-item { grid-template-columns: 1fr; }
+  .jpdb-reader-template-preview-grid { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding {
     inset: auto 0 0 0;
     transform: none;

@@ -4,8 +4,13 @@ import type { DictionaryPreference, ReaderSettings } from './types';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 2;
+const DEXIE_IMPORT_BATCH_SIZE = 5000;
+const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 
 type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo';
+type EntryStoreName = Exclude<StoreName, 'dictionaryInfo'>;
 
 export interface YomitanTermEntry {
     id?: number;
@@ -53,6 +58,11 @@ export interface YomitanDictionaryInfo {
     importDate?: number;
 }
 
+interface StructuredRenderContext {
+    dictionary: string;
+    root: boolean;
+}
+
 export interface DictionarySummary {
     dictionaries: YomitanDictionaryInfo[];
     terms: number;
@@ -73,6 +83,13 @@ export interface ImportSummary {
 export interface YomitanSettingsImport {
     settings: Partial<Omit<ReaderSettings, 'shortcuts'>> & { shortcuts?: Partial<ReaderSettings['shortcuts']> };
     dictionaryNames: string[];
+}
+
+export interface YomitanTermMatch {
+    entry: YomitanTermEntry;
+    start: number;
+    end: number;
+    surface: string;
 }
 
 export class YomitanDictionaryStore {
@@ -168,6 +185,60 @@ export class YomitanDictionaryStore {
             .slice(0, limit);
     }
 
+    async findTermMatches(text: string, limit = 32, preferences: DictionaryPreference[] = []): Promise<YomitanTermMatch[]> {
+        const source = text.slice(0, 240);
+        if (!source.trim()) return [];
+
+        const candidates = new Map<string, Array<{ start: number; end: number; surface: string }>>();
+        const maxLength = Math.min(18, source.length);
+        for (let start = 0; start < source.length; start++) {
+            if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
+            for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
+                const surface = source.slice(start, start + length);
+                if (!JAPANESE_RE.test(surface) || /\s/.test(surface)) continue;
+                const positions = candidates.get(surface) ?? [];
+                positions.push({ start, end: start + length, surface });
+                candidates.set(surface, positions);
+            }
+        }
+        if (!candidates.size) return [];
+
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const matches = await new Promise<YomitanTermMatch[]>((resolve, reject) => {
+            const tx = db.transaction('terms', 'readonly');
+            const index = tx.objectStore('terms').index('expression');
+            const results: YomitanTermMatch[] = [];
+            const expressions = Array.from(candidates.keys())
+                .sort((a, b) => b.length - a.length || a.localeCompare(b));
+            let pending = expressions.length;
+
+            const finish = () => {
+                if (--pending <= 0) resolve(results);
+            };
+
+            for (const expression of expressions) {
+                const request = index.getAll(IDBKeyRange.only(expression), 8);
+                request.onsuccess = () => {
+                    const entry = (request.result as YomitanTermEntry[])
+                        .filter(item => dictionaryEnabled(item.dictionary, rank))
+                        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0))[0];
+                    if (entry) {
+                        for (const position of candidates.get(expression) ?? []) {
+                            results.push({ entry, ...position });
+                        }
+                    }
+                    finish();
+                };
+                request.onerror = () => reject(request.error);
+            }
+
+            tx.onerror = () => reject(tx.error);
+        });
+
+        return nonOverlappingMatches(matches, limit);
+    }
+
     async summary(): Promise<DictionarySummary> {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -222,6 +293,7 @@ export class YomitanDictionaryStore {
             alias: dictionary,
             enabled: true,
             priority: 0,
+            styles: await readZipText(zip, 'styles.css').catch(() => ''),
             revision: typeof index.revision === 'string' ? index.revision : undefined,
             downloadUrl: sourceUrl || undefined,
             importDate: Date.now(),
@@ -283,25 +355,47 @@ export class YomitanDictionaryStore {
     async importDexieJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
         onProgress?.('Streaming Yomitan dictionary export...');
         await this.clear();
+        const rowCounts: Partial<Record<string, number>> = await readDexieTableRowCounts(file).catch(() => ({}));
+        const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
+        if (totalRows > 0) onProgress?.(`Preparing to import ${totalRows.toLocaleString()} dictionary records...`);
         const dictionaries = new Set<string>();
         const summary: ImportSummary = { dictionaries: [], entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-        const batches: Record<'terms' | 'kanji' | 'termMeta' | 'kanjiMeta', unknown[]> = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
+        const batches: Record<EntryStoreName, unknown[]> = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
+        const progressAt: Record<EntryStoreName, number> = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
 
-        const flush = async (store: keyof typeof batches) => {
+        const reportProgress = (store?: EntryStoreName, force = false) => {
+            if (!store) {
+                if (totalRows > 0) onProgress?.(`Imported ${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} dictionary records...`);
+                else onProgress?.(`Imported ${summary.entries.toLocaleString()} dictionary records...`);
+                return;
+            }
+
+            const imported = summary[store];
+            const tableTotal = rowCounts[store] ?? 0;
+            if (!force && imported < progressAt[store]) return;
+            progressAt[store] = imported + DEXIE_PROGRESS_INTERVAL;
+            if (tableTotal > 0 && totalRows > 0) {
+                onProgress?.(`Importing ${store}: ${imported.toLocaleString()} / ${tableTotal.toLocaleString()} entries (${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} total)...`);
+                return;
+            }
+            onProgress?.(`Importing ${store}: ${imported.toLocaleString()} entries...`);
+        };
+
+        const flush = async (store: EntryStoreName, forceProgress = false) => {
             const batch = batches[store];
             if (!batch.length) return;
             await this.addToStore(store, batch);
             batches[store] = [];
+            reportProgress(store, forceProgress);
         };
-        const addBatch = async (store: keyof typeof batches, entry: unknown, label: keyof Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>) => {
+        const addBatch = async (store: EntryStoreName, entry: unknown) => {
             batches[store].push(entry);
-            summary[label]++;
+            summary[store]++;
             summary.entries++;
             const dictionary = (entry as { dictionary?: unknown }).dictionary;
             if (typeof dictionary === 'string') dictionaries.add(dictionary);
-            if (batches[store].length >= 1000) {
+            if (batches[store].length >= DEXIE_IMPORT_BATCH_SIZE) {
                 await flush(store);
-                if (summary.entries % 25000 === 0) onProgress?.(`Imported ${summary.entries.toLocaleString()} dictionary records...`);
             }
         };
 
@@ -314,23 +408,30 @@ export class YomitanDictionaryStore {
             },
             terms: async row => {
                 const entry = normalizeDexieTermRow(row);
-                if (entry) await addBatch('terms', entry, 'terms');
+                if (entry) await addBatch('terms', entry);
             },
             kanji: async row => {
                 const entry = normalizeDexieKanjiRow(row);
-                if (entry) await addBatch('kanji', entry, 'kanji');
+                if (entry) await addBatch('kanji', entry);
             },
             termMeta: async row => {
                 const entry = normalizeDexieTermMetaRow(row);
-                if (entry) await addBatch('termMeta', entry, 'termMeta');
+                if (entry) await addBatch('termMeta', entry);
             },
             kanjiMeta: async row => {
                 const entry = normalizeDexieKanjiMetaRow(row);
-                if (entry) await addBatch('kanjiMeta', entry, 'kanjiMeta');
+                if (entry) await addBatch('kanjiMeta', entry);
             },
-        }, table => onProgress?.(`Importing Yomitan ${table}...`));
+        }, table => {
+            if (isEntryStoreName(table)) {
+                reportProgress(table, true);
+                return;
+            }
+            onProgress?.(`Importing Yomitan ${table}...`);
+        });
 
-        await Promise.all([flush('terms'), flush('kanji'), flush('termMeta'), flush('kanjiMeta')]);
+        await Promise.all(importEntryStores().map(store => flush(store, true)));
+        reportProgress(undefined, true);
         summary.dictionaries = [...dictionaries];
         return summary;
     }
@@ -356,6 +457,11 @@ export class YomitanDictionaryStore {
         })], { type: 'application/json' });
     }
 
+    async dictionaryStyleCss(preferences: DictionaryPreference[] = []): Promise<string> {
+        const db = await this.db();
+        return renderDictionaryScopedStyles(await this.getAllDictionaryInfo(db), preferences);
+    }
+
     async clear(): Promise<void> {
         const db = await this.db();
         await new Promise<void>((resolve, reject) => {
@@ -367,7 +473,7 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private async deleteDictionary(dictionary: string): Promise<void> {
+    async deleteDictionary(dictionary: string): Promise<void> {
         const db = await this.db();
         const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta']);
         await Promise.all(stores.map(store => deleteByDictionary(db, store, dictionary)));
@@ -569,23 +675,267 @@ export function glossaryToText(value: unknown): string {
     return '';
 }
 
-export function glossaryToHtml(value: unknown): string {
+export function glossaryToHtml(value: unknown, dictionary = ''): string {
+    return renderGlossaryValue(value, { dictionary, root: true });
+}
+
+export function renderDictionaryScopedStyles(dictionaries: YomitanDictionaryInfo[], preferences: DictionaryPreference[] = []): string {
+    const rank = dictionaryRank(preferences);
+    return dictionaries
+        .filter(dictionary => dictionaryEnabled(dictionary.title, rank))
+        .map(dictionary => {
+            const styles = dictionary.styles?.trim();
+            if (!styles) return '';
+            return `${dictionaryScopeSelector(dictionary.title)} {\n${styles}\n}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+}
+
+function renderGlossaryValue(value: unknown, context: StructuredRenderContext): string {
     if (value == null) return '';
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return escapeHtml(String(value));
-    if (Array.isArray(value)) return value.map(glossaryToHtml).filter(Boolean).join(' ');
+    if (Array.isArray(value)) return value.map(item => renderGlossaryValue(item, { ...context, root: false })).filter(Boolean).join('');
     if (typeof value !== 'object') return '';
 
     const record = value as Record<string, unknown>;
     if (typeof record.text === 'string') return escapeHtml(record.text);
-    if ('path' in record) return `<span class="jpdb-reader-media-note">${escapeHtml(String(record.description || record.alt || '[media]'))}</span>`;
+    if (record.type === 'structured-content') {
+        const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : '';
+        return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, { ...context, root: false })}</span>`;
+    }
+    if (record.type === 'image' || 'path' in record) return renderStructuredImage(record, context.dictionary);
+    if (record.type === 'text' && 'content' in record) return renderGlossaryValue(record.content, { ...context, root: false });
 
-    const tag = typeof record.tag === 'string' ? record.tag.toLowerCase() : 'span';
-    const content = glossaryToHtml(record.content);
-    const attrs = renderStructuredAttributes(record);
-    if (['div', 'span', 'ol', 'ul', 'li', 'table', 'tbody', 'thead', 'tr', 'td', 'th', 'ruby', 'rt', 'rp', 'br'].includes(tag)) {
-        return tag === 'br' ? '<br>' : `<${tag}${attrs}>${content}</${tag}>`;
+    const tag = typeof record.tag === 'string' ? record.tag.toLowerCase() : ('content' in record ? 'span' : '');
+    if (!tag) return Object.values(record).map(item => renderGlossaryValue(item, { ...context, root: false })).filter(Boolean).join('');
+    if (tag === 'a') return renderStructuredLink(record, context);
+    if (tag === 'img') return renderStructuredImage(record, context.dictionary);
+
+    const content = tag === 'br' ? '' : renderGlossaryValue(record.content, { ...context, root: false });
+    if (tag === 'table') {
+        return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record, tag, context.dictionary)}>${content}</table></div>`;
+    }
+    if (STRUCTURED_CONTENT_TAGS.has(tag)) {
+        const attrs = renderStructuredElementAttributes(record, tag, context.dictionary);
+        return tag === 'br' ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
     }
     return content || escapeHtml(glossaryToText(value));
+}
+
+const STRUCTURED_CONTENT_TAGS = new Set([
+    'br',
+    'ruby',
+    'rt',
+    'rp',
+    'thead',
+    'tbody',
+    'tfoot',
+    'tr',
+    'th',
+    'td',
+    'div',
+    'span',
+    'ol',
+    'ul',
+    'li',
+    'details',
+    'summary',
+]);
+
+const STRUCTURED_STYLE_PROPERTIES: Record<string, string> = {
+    fontStyle: 'font-style',
+    fontWeight: 'font-weight',
+    fontSize: 'font-size',
+    color: 'color',
+    background: 'background',
+    backgroundColor: 'background-color',
+    textDecorationStyle: 'text-decoration-style',
+    textDecorationColor: 'text-decoration-color',
+    borderColor: 'border-color',
+    borderStyle: 'border-style',
+    borderRadius: 'border-radius',
+    borderWidth: 'border-width',
+    clipPath: 'clip-path',
+    verticalAlign: 'vertical-align',
+    textAlign: 'text-align',
+    textEmphasis: 'text-emphasis',
+    textShadow: 'text-shadow',
+    margin: 'margin',
+    marginTop: 'margin-top',
+    marginLeft: 'margin-left',
+    marginRight: 'margin-right',
+    marginBottom: 'margin-bottom',
+    padding: 'padding',
+    paddingTop: 'padding-top',
+    paddingLeft: 'padding-left',
+    paddingRight: 'padding-right',
+    paddingBottom: 'padding-bottom',
+    wordBreak: 'word-break',
+    whiteSpace: 'white-space',
+    cursor: 'cursor',
+    listStyleType: 'list-style-type',
+};
+
+const STRUCTURED_NUMERIC_EM_STYLES = new Set(['marginTop', 'marginLeft', 'marginRight', 'marginBottom']);
+
+function renderStructuredElementAttributes(record: Record<string, unknown>, tag: string, dictionary: string): string {
+    const attrs = [` class="gloss-sc-${escapeHtml(tag)}"`];
+    if (dictionary) attrs.push(` data-dictionary="${escapeHtml(dictionary)}"`);
+    attrs.push(renderStructuredDataAttributes(record.data));
+    attrs.push(renderDirectDataAttributes(record));
+    const style = renderStructuredStyle(record.style);
+    if (style) attrs.push(` style="${escapeHtml(style)}"`);
+    if (typeof record.title === 'string') attrs.push(` title="${escapeHtml(record.title)}"`);
+    if (typeof record.lang === 'string') attrs.push(` lang="${escapeHtml(record.lang)}"`);
+    if (tag === 'details' && record.open === true) attrs.push(' open');
+    if ((tag === 'td' || tag === 'th') && Number.isFinite(Number(record.colSpan))) attrs.push(` colspan="${Number(record.colSpan)}"`);
+    if ((tag === 'td' || tag === 'th') && Number.isFinite(Number(record.rowSpan))) attrs.push(` rowspan="${Number(record.rowSpan)}"`);
+    return attrs.filter(Boolean).join('');
+}
+
+function renderStructuredDataAttributes(value: unknown): string {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+    const attrs: string[] = [];
+    for (const [key, rawValue] of Object.entries(value)) {
+        if (!key || rawValue == null || (typeof rawValue !== 'string' && typeof rawValue !== 'number' && typeof rawValue !== 'boolean')) continue;
+        attrs.push(` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"`);
+    }
+    return attrs.join('');
+}
+
+function renderDirectDataAttributes(record: Record<string, unknown>): string {
+    const attrs: string[] = [];
+    for (const [key, value] of Object.entries(record)) {
+        if (!key.startsWith('data-') || (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean')) continue;
+        attrs.push(` ${key}="${escapeHtml(String(value))}"`);
+    }
+    return attrs.join('');
+}
+
+function renderStructuredStyle(value: unknown): string {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+    const declarations: string[] = [];
+    const style = value as Record<string, unknown>;
+    const textDecorationLine = style.textDecorationLine;
+    if (typeof textDecorationLine === 'string') declarations.push(`text-decoration:${textDecorationLine};`);
+    else if (Array.isArray(textDecorationLine)) declarations.push(`text-decoration:${textDecorationLine.map(String).join(' ')};`);
+
+    for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
+        const rawValue = style[key];
+        if (typeof rawValue === 'string') declarations.push(`${property}:${rawValue};`);
+        else if (typeof rawValue === 'number' && STRUCTURED_NUMERIC_EM_STYLES.has(key)) declarations.push(`${property}:${rawValue}em;`);
+    }
+    return declarations.join('');
+}
+
+function renderStructuredLink(record: Record<string, unknown>, context: StructuredRenderContext): string {
+    const content = renderGlossaryValue(record.content, { ...context, root: false }) || escapeHtml(glossaryToText(record));
+    const rawHref = typeof record.href === 'string' ? record.href : '';
+    const href = normalizeStructuredHref(rawHref);
+    const external = href ? !href.startsWith(locationOrigin()) && !href.startsWith('#') : false;
+    const attrs = [
+        ' class="gloss-link"',
+        ` data-external="${external}"`,
+        context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : '',
+        href ? ` href="${escapeHtml(href)}"` : '',
+        external ? ' target="_blank" rel="noopener noreferrer"' : '',
+        typeof record.lang === 'string' ? ` lang="${escapeHtml(record.lang)}"` : '',
+    ].join('');
+    const icon = external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : '';
+    return `<a${attrs}><span class="gloss-link-text">${content}</span>${icon}</a>`;
+}
+
+function renderStructuredImage(record: Record<string, unknown>, dictionary: string): string {
+    const path = typeof record.path === 'string' ? record.path : '';
+    const title = typeof record.title === 'string' ? record.title : '';
+    const description = typeof record.description === 'string' ? record.description : typeof record.alt === 'string' ? record.alt : '';
+    const preferredWidth = numericRecordValue(record, 'preferredWidth');
+    const preferredHeight = numericRecordValue(record, 'preferredHeight');
+    const width = preferredWidth ?? numericRecordValue(record, 'width') ?? 100;
+    const height = preferredHeight ?? numericRecordValue(record, 'height') ?? 100;
+    const invAspectRatio = height > 0 && width > 0 ? height / width : 1;
+    const usedWidth = preferredWidth ?? (preferredHeight ? preferredHeight / invAspectRatio : width);
+    const dictionaryAttr = dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : '';
+    const attrs = [
+        ` class="gloss-image-link"`,
+        dictionaryAttr,
+        path ? ` data-path="${escapeHtml(path)}"` : '',
+        ` data-image-load-state="unloaded"`,
+        ` data-has-aspect-ratio="true"`,
+        ` data-image-rendering="${escapeHtml(String(record.imageRendering || (record.pixelated ? 'pixelated' : 'auto')))}"`,
+        ` data-appearance="${escapeHtml(String(record.appearance || 'auto'))}"`,
+        ` data-background="${typeof record.background === 'boolean' ? record.background : true}"`,
+        ` data-collapsed="${typeof record.collapsed === 'boolean' ? record.collapsed : false}"`,
+        ` data-collapsible="${typeof record.collapsible === 'boolean' ? record.collapsible : true}"`,
+        typeof record.verticalAlign === 'string' ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : '',
+        typeof record.sizeUnits === 'string' ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : '',
+    ].join('');
+    const containerStyle = [
+        `width:${formatCssNumber(usedWidth)}em;`,
+        typeof record.border === 'string' ? `border:${record.border};` : '',
+        typeof record.borderRadius === 'string' ? `border-radius:${record.borderRadius};` : '',
+    ].join('');
+    const containerTitle = title ? ` title="${escapeHtml(title)}"` : '';
+    const descriptionHtml = description ? `<span class="gloss-image-description">${escapeHtml(description)}</span>` : '';
+    return `<span${attrs}><span class="gloss-image-container" style="${escapeHtml(containerStyle)}"${containerTitle}><span class="gloss-image-sizer" style="padding-top:${formatCssNumber(invAspectRatio * 100)}%;"></span><span class="gloss-image-background"></span><span class="gloss-image-container-overlay"></span></span><span class="gloss-image-link-text">Image</span></span>${descriptionHtml}`;
+}
+
+function normalizeStructuredHref(href: string): string {
+    if (!href) return '';
+    if (/^https?:\/\//i.test(href) || href.startsWith('#')) return href;
+    if (href.startsWith('?')) return `https://jpdb.io/search${href}`;
+    return '';
+}
+
+function locationOrigin(): string {
+    try {
+        return location.origin;
+    } catch {
+        return '';
+    }
+}
+
+function numericRecordValue(record: Record<string, unknown>, key: string): number | undefined {
+    const value = record[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function formatCssNumber(value: number): string {
+    return Number.isFinite(value) ? Number(value.toFixed(4)).toString() : '0';
+}
+
+function camelToKebabCase(value: string): string {
+    return value.replace(/[A-Z]/g, character => `-${character.toLowerCase()}`);
+}
+
+function importEntryStores(): EntryStoreName[] {
+    return ['terms', 'kanji', 'termMeta', 'kanjiMeta'];
+}
+
+function isEntryStoreName(value: string): value is EntryStoreName {
+    return value === 'terms' || value === 'kanji' || value === 'termMeta' || value === 'kanjiMeta';
+}
+
+async function readDexieTableRowCounts(file: File): Promise<Partial<Record<string, number>>> {
+    const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
+    const tablesIndex = head.indexOf('"tables"');
+    if (tablesIndex < 0) return {};
+    const arrayStart = head.indexOf('[', tablesIndex);
+    if (arrayStart < 0) return {};
+    const arrayEnd = findJsonArrayEnd(head, arrayStart);
+    if (arrayEnd < 0) return {};
+
+    const tables = JSON.parse(head.slice(arrayStart, arrayEnd + 1)) as unknown[];
+    const counts: Partial<Record<string, number>> = {};
+    for (const table of tables) {
+        if (!table || typeof table !== 'object') continue;
+        const record = table as Record<string, unknown>;
+        if (typeof record.name === 'string' && typeof record.rowCount === 'number') {
+            counts[record.name] = record.rowCount;
+        }
+    }
+    return counts;
 }
 
 async function streamDexieTables(
@@ -699,6 +1049,34 @@ async function streamDexieTables(
             }
         }
     }
+}
+
+function findJsonArrayEnd(text: string, start: number): number {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text.length; index++) {
+        const char = text[index];
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (char === '\\') escaped = true;
+            else if (char === '"') inString = false;
+            continue;
+        }
+        if (char === '"') {
+            inString = true;
+            continue;
+        }
+        if (char === '[') {
+            depth++;
+            continue;
+        }
+        if (char === ']') {
+            depth--;
+            if (depth === 0) return index;
+        }
+    }
+    return -1;
 }
 
 async function streamDexieTablesFromText(
@@ -905,18 +1283,6 @@ function getYomitanProfileOptions(value: unknown): Record<string, unknown> | nul
     return options?.profiles?.[0]?.options ?? null;
 }
 
-function renderStructuredAttributes(record: Record<string, unknown>): string {
-    const attrs: string[] = [];
-    for (const key of ['data', 'class', 'title', 'lang']) {
-        const value = record[key];
-        if (typeof value === 'string') attrs.push(` ${key === 'class' ? 'class' : key}="${escapeHtml(value)}"`);
-    }
-    for (const [key, value] of Object.entries(record)) {
-        if (key.startsWith('data-') && typeof value === 'string') attrs.push(` ${key}="${escapeHtml(value)}"`);
-    }
-    return attrs.join('');
-}
-
 function dictionaryRank(preferences: DictionaryPreference[]): Map<string, DictionaryPreference> {
     return new Map(normalizeDictionaryPreferences(preferences).map(item => [item.name, item]));
 }
@@ -968,6 +1334,28 @@ function compareFrequency(a?: number, b?: number): number {
     return a - b;
 }
 
+function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number): YomitanTermMatch[] {
+    const selected: YomitanTermMatch[] = [];
+    const occupied: Array<[number, number]> = [];
+    const overlaps = (match: YomitanTermMatch) => occupied.some(([start, end]) => match.start < end && match.end > start);
+    for (const match of matches.sort((a, b) =>
+        (b.end - b.start) - (a.end - a.start)
+        || a.start - b.start
+        || a.entry.dictionary.localeCompare(b.entry.dictionary)
+        || (b.entry.score ?? 0) - (a.entry.score ?? 0),
+    )) {
+        if (overlaps(match)) continue;
+        selected.push(match);
+        occupied.push([match.start, match.end]);
+        if (selected.length >= limit) break;
+    }
+    return selected.sort((a, b) => a.start - b.start);
+}
+
+function dictionaryScopeSelector(dictionary: string): string {
+    return `[data-dictionary="${dictionary.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+}
+
 function filenameFromUrl(url: string): string {
     try {
         const parsed = new URL(url);
@@ -979,9 +1367,21 @@ function filenameFromUrl(url: string): string {
 }
 
 async function requestBlob(url: string, onProgress?: (message: string) => void): Promise<Blob> {
-    if (typeof GM_xmlhttpRequest === 'function') {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            const handleLoad = (response: UserscriptHttpResponse) => {
+                if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
+                    resolve(response.response);
+                    return;
+                }
+                if (response.status < 200 || response.status >= 300) {
+                    reject(new Error(`Dictionary download failed (${response.status}).`));
+                    return;
+                }
+                reject(new Error('Dictionary download did not return a ZIP file.'));
+            };
+            const result = userscriptRequest({
                 method: 'GET',
                 url,
                 headers: { accept: 'application/zip,application/octet-stream,*/*' },
@@ -992,26 +1392,30 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
                         onProgress?.(`Downloading dictionary ${Math.round((event.loaded / event.total) * 100)}%...`);
                     }
                 },
-                onload: response => {
-                    if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
-                        resolve(response.response);
-                        return;
-                    }
-                    if (response.status < 200 || response.status >= 300) {
-                        reject(new Error(`Dictionary download failed (${response.status}).`));
-                        return;
-                    }
-                    reject(new Error('Dictionary download did not return a ZIP file.'));
-                },
+                onload: handleLoad,
                 onerror: () => reject(new Error('Dictionary download failed.')),
                 ontimeout: () => reject(new Error('Dictionary download timed out.')),
             });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Dictionary download failed.')));
+            }
         });
     }
 
-    const response = await fetch(url, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+    let response: Response;
+    try {
+        response = await fetch(url, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+    } catch {
+        throw new Error('Dictionary download failed. Reinstall or update the userscript so its userscript request grant is active, then try again.');
+    }
     if (!response.ok) throw new Error(`Dictionary download failed (${response.status}).`);
     return response.blob();
+}
+
+function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
+    return undefined;
 }
 
 function splitTags(value: unknown): string[] {
@@ -1073,6 +1477,11 @@ function readBlobText(blob: Blob): Promise<string> {
         reader.onerror = () => reject(reader.error);
         reader.readAsText(blob);
     });
+}
+
+async function readZipText(zip: JSZip, filename: string): Promise<string> {
+    const file = zip.file(filename);
+    return file ? await file.async('string') : '';
 }
 
 function escapeHtml(value: string): string {
