@@ -1,6 +1,8 @@
-import type { AnkiTemplateMode, AudioSourceSetting, AudioSourceType, DictionaryPreference, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
+import { Logger } from './logger';
+import type { AnkiTemplateMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
+const log = Logger.scope('Settings');
 
 export const DEFAULT_AUDIO_URL =
     'http://localhost:9090/?term={term}&reading={reading}';
@@ -36,6 +38,28 @@ export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'jpod101', url: '', voice: '', enabled: true },
     { type: 'language-pod-101', url: '', voice: '', enabled: true },
     { type: 'jisho', url: '', voice: '', enabled: true },
+    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+];
+
+export const MAX_DICTIONARY_LOOKUP_LINKS = 8;
+
+export const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'jpdb',
+    label: 'JPDB',
+    urlTemplate: 'https://jpdb.io/search?q={query}',
+    enabled: false,
+};
+
+export const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'jisho',
+    label: 'Jisho',
+    urlTemplate: 'https://jisho.org/search/{query}',
+    enabled: true,
+};
+
+export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
+    JPDB_LOOKUP_LINK,
+    JISHO_LOOKUP_LINK,
 ];
 
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
@@ -61,14 +85,20 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     jpdbReviewUiEnabled: true,
     jpdbAutoRevealSentenceEnabled: true,
     jpdbKanjiDoodleEnabled: true,
+    jpdbKanjiEnabled: true,
+    jpdbKanjiPriority: 10,
     rtkEnabled: true,
+    rtkPriority: 20,
     kanjivgEnabled: true,
+    kanjivgPriority: 0,
     kanjiOriginsEnabled: true,
+    kanjiOriginsPriority: 50,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginWiktionaryEnabled: false,
     kanjiOriginGraphEnabled: true,
     kanjiOriginRadicalImagesEnabled: true,
     similarKanjiWords: true,
+    similarKanjiWordsPriority: 40,
     similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
@@ -76,6 +106,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioEnableDefaultSources: true,
     audioSourceUrl: DEFAULT_AUDIO_URL,
     audioViaBlob: true,
+    audioFallbackChimeEnabled: true,
     audioTimeoutMs: 6000,
     audioSelectionMode: 'random',
     immersionKitEnabled: true,
@@ -129,7 +160,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
+    kanjiDictionariesPriority: 30,
+    dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
+    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({ ...link })),
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
@@ -167,6 +201,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     addToForq: false,
     enableReviews: true,
     twoButtonReviews: false,
+    studyTranslationPriority: 10,
+    studyGrammarPriority: 20,
     shortcuts: {
         scanPage: 'Alt+J',
         hoverLookup: '',
@@ -201,6 +237,11 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
     if (value && value.shortcuts && !Object.prototype.hasOwnProperty.call(value.shortcuts, 'hoverLookup')) {
         shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
     }
+    const hasSavedLookupLinks = Boolean(value && Object.prototype.hasOwnProperty.call(value, 'dictionaryLookupLinks'));
+    const dictionaryLookupLinks = normalizeDictionaryLookupLinks(
+        value?.dictionaryLookupLinks,
+        !hasSavedLookupLinks && Boolean(value?.apiKey?.trim()),
+    );
     return {
         ...DEFAULT_SETTINGS,
         ...(value ?? {}),
@@ -211,6 +252,9 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         lookupOnMiddleMouse: typeof value?.lookupOnMiddleMouse === 'boolean' ? value.lookupOnMiddleMouse : true,
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
+        newTabEnabled: typeof value?.newTabEnabled === 'boolean' ? value.newTabEnabled : DEFAULT_SETTINGS.newTabEnabled,
+        newTabSource: normalizeNewTabSource(value?.newTabSource),
+        newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
         accentColor: sanitizeAccentColor(value?.accentColor),
         wordColorNew: sanitizeAccentColor(value?.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
         wordColorLearning: sanitizeAccentColor(value?.wordColorLearning, DEFAULT_SETTINGS.wordColorLearning),
@@ -222,6 +266,7 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         puckPositionY: normalizeOptionalCoordinate(value?.puckPositionY),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
+        audioFallbackChimeEnabled: typeof value?.audioFallbackChimeEnabled === 'boolean' ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
         immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
         immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
@@ -243,6 +288,13 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
         subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
         subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
+        jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === 'boolean' ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
+        jpdbKanjiPriority: clampNumber(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
+        rtkPriority: clampNumber(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
+        kanjivgPriority: clampNumber(value?.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
+        kanjiOriginsPriority: clampNumber(value?.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
+        kanjiDictionariesPriority: clampNumber(value?.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
+        similarKanjiWordsPriority: clampNumber(value?.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
         similarKanjiWordLimit: clampNumber(value?.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit),
         ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
@@ -250,10 +302,17 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         ankiTemplateMode: normalizeAnkiTemplateMode(value?.ankiTemplateMode),
         ankiMobileHandoff: typeof value?.ankiMobileHandoff === 'boolean' ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
         studyTranslationEnabled: typeof value?.studyTranslationEnabled === 'boolean' ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
+        studyTranslationPriority: clampNumber(value?.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
         studyGrammarEnabled: typeof value?.studyGrammarEnabled === 'boolean' ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
+        studyGrammarPriority: clampNumber(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
         enableLogging: typeof value?.enableLogging === 'boolean' ? value.enableLogging : DEFAULT_SETTINGS.enableLogging,
         ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
+        miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
+        neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
+        blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
+        dictionarySourcesInitiallyExpanded: typeof value?.dictionarySourcesInitiallyExpanded === 'boolean' ? value.dictionarySourcesInitiallyExpanded : DEFAULT_SETTINGS.dictionarySourcesInitiallyExpanded,
         dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
+        dictionaryLookupLinks,
         shortcuts,
     };
 }
@@ -315,6 +374,14 @@ function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitle
     return value === 'always' || value === 'hidden' || value === 'auto' ? value : DEFAULT_SETTINGS.subtitleControlsMode;
 }
 
+function normalizeNewTabSource(value: unknown): ReaderSettings['newTabSource'] {
+    return value === 'jpdb' || value === 'anki' || value === 'auto' ? value : DEFAULT_SETTINGS.newTabSource;
+}
+
+function normalizeDeckIdSetting(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
 export function sanitizeAccentColor(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
     if (typeof value !== 'string') return fallback;
     const trimmed = value.trim();
@@ -338,6 +405,11 @@ export function applyUrlBootstrapSettings(settings: ReaderSettings, search = loc
     const audio = params.get('audio')?.trim();
     const ocr = params.get('ocr')?.trim();
     if (!apiKey && !audio && !ocr) return settings;
+    log.info('Applying URL bootstrap settings', {
+        hasApiKey: Boolean(apiKey),
+        hasAudio: Boolean(audio),
+        hasOcr: Boolean(ocr),
+    });
 
     const audioSources = audio
         ? [{ type: 'custom-json', url: audio, voice: '', enabled: true } satisfies AudioSourceSetting, ...settings.audioSources.filter(source => source.url !== audio)]
@@ -373,23 +445,45 @@ export function normalizeOcrEngine(value: unknown): string {
 
 export async function loadSettings(): Promise<ReaderSettings> {
     if (typeof GM_getValue === 'function') {
-        return mergeSettings(await GM_getValue<Partial<ReaderSettings> | null>(STORAGE_KEY, null));
+        try {
+            const settings = mergeSettings(await GM_getValue<Partial<ReaderSettings> | null>(STORAGE_KEY, null));
+            log.debug('Loaded settings from userscript storage', settingsSummary(settings));
+            return settings;
+        } catch (error) {
+            log.warn('Userscript settings load failed, using defaults', { error });
+            return mergeSettings(null);
+        }
     }
 
     try {
-        return mergeSettings(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
-    } catch {
+        const settings = mergeSettings(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
+        log.debug('Loaded settings from localStorage', settingsSummary(settings));
+        return settings;
+    } catch (error) {
+        log.warn('Local settings load failed, using defaults', { error });
         return mergeSettings(null);
     }
 }
 
 export async function saveSettings(settings: ReaderSettings): Promise<void> {
     if (typeof GM_setValue === 'function') {
-        await GM_setValue(STORAGE_KEY, settings);
-        return;
+        try {
+            await GM_setValue(STORAGE_KEY, settings);
+            log.debug('Saved settings to userscript storage', settingsSummary(settings));
+            return;
+        } catch (error) {
+            log.warn('Userscript settings save failed', { error });
+            throw error;
+        }
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        log.debug('Saved settings to localStorage', settingsSummary(settings));
+    } catch (error) {
+        log.warn('Local settings save failed', { error });
+        throw error;
+    }
 }
 
 export function matchesShortcut(event: KeyboardEvent, shortcut = ''): boolean {
@@ -512,6 +606,71 @@ export function normalizeDictionaryPreferences(value: unknown): DictionaryPrefer
         .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 
+export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({
+        ...link,
+        enabled: link.id === 'jpdb' ? mode === 'jpdb' : mode !== 'jpdb',
+    }));
+}
+
+export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = false): DictionaryLookupLink[] {
+    const builtIns = defaultDictionaryLookupLinks(preferJpdb ? 'jpdb' : 'local');
+    if (!Array.isArray(value)) return builtIns;
+
+    const normalized: DictionaryLookupLink[] = [];
+    const seen = new Set<string>();
+    const add = (link: DictionaryLookupLink) => {
+        const id = link.id.trim();
+        if (!id || seen.has(id) || normalized.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
+        seen.add(id);
+        normalized.push({ ...link, id });
+    };
+
+    for (const item of value) {
+        const link = normalizeDictionaryLookupLink(item);
+        if (link) add(link);
+    }
+
+    for (const builtIn of builtIns) {
+        if (!seen.has(builtIn.id)) add(builtIn);
+    }
+
+    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+}
+
+export function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | null {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown };
+    const id = typeof record.id === 'string' && record.id.trim()
+        ? record.id.trim()
+        : typeof record.label === 'string'
+            ? `custom-${stableLookupLinkId(record.label)}`
+            : '';
+    const label = typeof record.label === 'string' && record.label.trim() ? record.label.trim().slice(0, 24) : id;
+    const urlTemplate = typeof record.urlTemplate === 'string' ? record.urlTemplate.trim() : '';
+    if (!id || !label || !urlTemplate || !isSafeLookupUrlTemplate(urlTemplate)) return null;
+    return {
+        id,
+        label,
+        urlTemplate,
+        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+    };
+}
+
+function stableLookupLinkId(value: string): string {
+    const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24);
+    return slug || 'lookup';
+}
+
+function isSafeLookupUrlTemplate(value: string): boolean {
+    try {
+        const url = new URL(value.replace(/\{[^}]+\}/g, 'x'));
+        return url.protocol === 'https:' || url.protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
 export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[]): DictionaryPreference[] {
     const merged = new Map(current.map(item => [item.name, item]));
     for (const name of names) {
@@ -526,4 +685,18 @@ export function mergeDictionaryPreferences(current: DictionaryPreference[], name
         }
     }
     return normalizeDictionaryPreferences([...merged.values()]);
+}
+
+function settingsSummary(settings: ReaderSettings): Record<string, unknown> {
+    return {
+        enableLogging: settings.enableLogging,
+        hasApiKey: Boolean(settings.apiKey.trim()),
+        dictionaries: settings.dictionaryPreferences.length,
+        localDictionariesEnabled: settings.localDictionariesEnabled,
+        ocrEnabled: settings.ocrEnabled,
+        subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+        youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
+        ankiEnabled: settings.ankiEnabled,
+        theme: settings.theme,
+    };
 }

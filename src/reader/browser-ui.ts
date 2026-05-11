@@ -1,3 +1,7 @@
+import { Logger } from './logger';
+
+const log = Logger.scope('BrowserUi');
+
 export function pauseActiveVideo(): void {
     const videos = Array.from(document.querySelectorAll('video'));
     const playable = videos
@@ -7,7 +11,9 @@ export function pauseActiveVideo(): void {
             const bArea = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
             return Number(a.paused) - Number(b.paused) || bArea - aArea;
         });
-    playable[0]?.pause();
+    const target = playable[0];
+    target?.pause();
+    log.debug('Pause active video requested', { videos: videos.length, playable: playable.length, paused: Boolean(target) });
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
@@ -19,8 +25,10 @@ export async function copyText(text: string): Promise<void> {
     if (navigator.clipboard?.writeText) {
         try {
             await navigator.clipboard.writeText(text);
+            log.debug('Copied text with Clipboard API', { length: text.length });
             return;
-        } catch {
+        } catch (error) {
+            log.debug('Clipboard API copy failed, falling back', { length: text.length, error });
             // Userscript contexts can deny clipboard even when the API exists.
         }
     }
@@ -33,6 +41,7 @@ export async function copyText(text: string): Promise<void> {
     textarea.select();
     document.execCommand('copy');
     textarea.remove();
+    log.debug('Copied text with execCommand fallback', { length: text.length });
 }
 
 export function normalizePressedKey(key: string): string {
@@ -56,6 +65,7 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
     if (!rect) {
         popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, viewportWidth - width - margin))}px`;
         popover.style.top = `${Math.max(margin, Math.min(fallbackTop, viewportHeight - height - margin))}px`;
+        log.debugThrottled('position-popover', 1000, 'Popover positioned without anchor', { width, height, viewportWidth, viewportHeight });
         return;
     }
 
@@ -63,7 +73,8 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
     const aboveSpace = Math.max(0, rect.top - margin - 10);
     const belowSpace = Math.max(0, viewportHeight - rect.bottom - margin - 10);
     const preferredVerticalSpace = Math.max(aboveSpace, belowSpace);
-    const canUseVerticalSpace = preferredVerticalSpace >= Math.min(240, viewportHeight * 0.32);
+    const minimumVerticalHeight = Math.min(180, viewportHeight - margin * 2);
+    const canUseVerticalSpace = preferredVerticalSpace >= minimumVerticalHeight;
     const effectiveMaxHeight = canUseVerticalSpace
         ? Math.min(viewportHeight - margin * 2, preferredVerticalSpace)
         : viewportHeight - margin * 2;
@@ -73,10 +84,10 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
     const clampLeft = (left: number) => Math.max(margin, Math.min(left, viewportWidth - width - margin));
     const clampTop = (top: number) => Math.max(margin, Math.min(top, viewportHeight - effectiveHeight - margin));
     const candidates = [
-        { left: centeredLeft, top: rect.top - effectiveHeight - 10, space: aboveSpace, axis: 'vertical' },
-        { left: centeredLeft, top: rect.bottom + 10, space: belowSpace, axis: 'vertical' },
-        { left: rect.right + 10, top: sideTop, space: viewportWidth - rect.right - margin, axis: 'horizontal' },
-        { left: rect.left - width - 10, top: sideTop, space: rect.left - margin, axis: 'horizontal' },
+        { left: centeredLeft, top: rect.top - effectiveHeight - 10, space: aboveSpace, axis: 'vertical', side: 'above' },
+        { left: centeredLeft, top: rect.bottom + 10, space: belowSpace, axis: 'vertical', side: 'below' },
+        { left: rect.left - width - 10, top: sideTop, space: rect.left - margin, axis: 'horizontal', side: 'left' },
+        { left: rect.right + 10, top: sideTop, space: viewportWidth - rect.right - margin, axis: 'horizontal', side: 'right' },
     ].map(candidate => {
         const left = clampLeft(candidate.left);
         const top = clampTop(candidate.top);
@@ -85,18 +96,27 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
             && top < rect.bottom + margin
             && top + effectiveHeight > rect.top - margin;
         const fits = candidate.axis === 'vertical'
-            ? candidate.space >= effectiveHeight
+            ? candidate.space + 4 >= effectiveHeight
             : candidate.space >= width + 10;
         return {
             left,
             top,
             score: (fits ? 100000 : 0)
                 + candidate.space
-                + (candidate.axis === 'vertical' ? 1000 : 0)
+                + (candidate.axis === 'vertical' ? 30000 : 0)
+                + (candidate.side === 'left' ? 15000 : 0)
+                - (candidate.side === 'right' ? 10000 : 0)
                 - (overlapsAnchor ? 50000 : 0),
         };
     }).sort((a, b) => b.score - a.score);
     const placement = candidates[0];
     popover.style.left = `${placement.left}px`;
     popover.style.top = `${placement.top}px`;
+    log.debugThrottled('position-popover', 1000, 'Popover positioned', {
+        left: Math.round(placement.left),
+        top: Math.round(placement.top),
+        score: Math.round(placement.score),
+        viewportWidth,
+        viewportHeight,
+    });
 }

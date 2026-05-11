@@ -3,6 +3,27 @@ import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from './d
 import { Logger } from './logger';
 import { normalizeAudioSource, normalizeDictionaryPreferences } from './settings';
 import type { DictionaryPreference, ReaderSettings } from './types';
+import { getUserscriptHttpRequest } from './userscript';
+import { glossaryToHtml, glossaryToText, renderDictionaryScopedStyles } from './yomitan-glossary';
+import {
+    compareMetaEntries,
+    dictionaryEnabled,
+    dictionaryPriority,
+    dictionaryRank,
+    nonOverlappingMatches,
+} from './yomitan-ranking';
+import type {
+    DictionarySummary,
+    EntryStoreName,
+    ImportSummary,
+    StoreName,
+    YomitanDictionaryInfo,
+    YomitanKanjiEntry,
+    YomitanMetaEntry,
+    YomitanSettingsImport,
+    YomitanTermEntry,
+    YomitanTermMatch,
+} from './yomitan-types';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 2;
@@ -12,89 +33,17 @@ const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
 
-type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo';
-type EntryStoreName = Exclude<StoreName, 'dictionaryInfo'>;
-
-export interface YomitanTermEntry {
-    id?: number;
-    expression: string;
-    reading: string;
-    definitionTags?: string;
-    rules?: string;
-    score?: number;
-    glossary: unknown[];
-    sequence?: number;
-    termTags?: string;
-    dictionary: string;
-    jpdbFrequency?: number;
-}
-
-export interface YomitanKanjiEntry {
-    id?: number;
-    character: string;
-    onyomi: string[];
-    kunyomi: string[];
-    tags: string[];
-    meanings: string[];
-    stats?: unknown;
-    dictionary: string;
-}
-
-export interface YomitanMetaEntry {
-    id?: number;
-    expression?: string;
-    character?: string;
-    mode: string;
-    data: unknown;
-    dictionary: string;
-}
-
-export interface YomitanDictionaryInfo {
-    title: string;
-    alias: string;
-    enabled: boolean;
-    priority: number;
-    counts?: Record<string, unknown>;
-    styles?: string;
-    revision?: string;
-    downloadUrl?: string;
-    importDate?: number;
-}
-
-interface StructuredRenderContext {
-    dictionary: string;
-    root: boolean;
-}
-
-export interface DictionarySummary {
-    dictionaries: YomitanDictionaryInfo[];
-    terms: number;
-    kanji: number;
-    termMeta: number;
-    kanjiMeta: number;
-}
-
-export interface ImportSummary {
-    dictionaries: string[];
-    entries: number;
-    terms: number;
-    kanji: number;
-    termMeta: number;
-    kanjiMeta: number;
-}
-
-export interface YomitanSettingsImport {
-    settings: Partial<Omit<ReaderSettings, 'shortcuts'>> & { shortcuts?: Partial<ReaderSettings['shortcuts']> };
-    dictionaryNames: string[];
-}
-
-export interface YomitanTermMatch {
-    entry: YomitanTermEntry;
-    start: number;
-    end: number;
-    surface: string;
-    deinflected?: DeinflectedTerm;
-}
+export type {
+    DictionarySummary,
+    ImportSummary,
+    YomitanDictionaryInfo,
+    YomitanKanjiEntry,
+    YomitanMetaEntry,
+    YomitanSettingsImport,
+    YomitanTermEntry,
+    YomitanTermMatch,
+} from './yomitan-types';
+export { glossaryToHtml, glossaryToText, renderDictionaryScopedStyles } from './yomitan-glossary';
 
 export class YomitanDictionaryStore {
     private dbPromise?: Promise<IDBDatabase>;
@@ -208,14 +157,9 @@ export class YomitanDictionaryStore {
                 };
             });
 
-            const annotated = await Promise.all(entries.map(async entry => ({
-                ...entry,
-                jpdbFrequency: await this.frequencyForExpression(entry.expression, preferences),
-            })));
-            const results = annotated
+            const results = entries
                 .sort((a, b) =>
-                    compareFrequency(a.jpdbFrequency, b.jpdbFrequency)
-                    || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+                    dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
                     || (b.score ?? 0) - (a.score ?? 0)
                     || a.expression.length - b.expression.length,
                 )
@@ -264,35 +208,53 @@ export class YomitanDictionaryStore {
             const rank = dictionaryRank(preferences);
             const matches = await new Promise<YomitanTermMatch[]>((resolve, reject) => {
                 const tx = db.transaction('terms', 'readonly');
-                const index = tx.objectStore('terms').index('expression');
+                const store = tx.objectStore('terms');
+                const expressionIndex = store.index('expression');
+                const readingIndex = store.index('reading');
                 const results: YomitanTermMatch[] = [];
                 const expressions = Array.from(candidates.keys())
                     .sort((a, b) => b.length - a.length || a.localeCompare(b));
-                let pending = expressions.length;
+                let pending = expressions.length * 2;
 
                 const finish = () => {
                     if (--pending <= 0) resolve(results);
                 };
 
+                const addMatches = (expression: string, foundEntries: YomitanTermEntry[]) => {
+                    const seen = new Set<string>();
+                    const entries = foundEntries
+                        .filter(item => {
+                            const key = `${item.id ?? ''}\n${item.dictionary}\n${item.expression}\n${item.reading}\n${item.sequence ?? ''}`;
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return dictionaryEnabled(item.dictionary, rank);
+                        })
+                        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+                    if (!entries.length) return;
+                    for (const position of candidates.get(expression) ?? []) {
+                        const entry = entries.find(item => termRulesMatch(item.rules, position.deinflected.rules));
+                        if (entry) results.push({
+                            entry,
+                            ...position,
+                            deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
+                        });
+                    }
+                };
+
                 for (const expression of expressions) {
-                    const request = index.getAll(IDBKeyRange.only(expression), 8);
-                    request.onsuccess = () => {
-                        const entries = (request.result as YomitanTermEntry[])
-                            .filter(item => dictionaryEnabled(item.dictionary, rank))
-                            .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
-                        if (entries.length) {
-                            for (const position of candidates.get(expression) ?? []) {
-                                const entry = entries.find(item => termRulesMatch(item.rules, position.deinflected.rules));
-                                if (entry) results.push({
-                                    entry,
-                                    ...position,
-                                    deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
-                                });
-                            }
-                        }
+                    const expressionRequest = expressionIndex.getAll(IDBKeyRange.only(expression), 8);
+                    expressionRequest.onsuccess = () => {
+                        addMatches(expression, expressionRequest.result as YomitanTermEntry[]);
                         finish();
                     };
-                    request.onerror = () => reject(request.error);
+                    expressionRequest.onerror = () => reject(expressionRequest.error);
+
+                    const readingRequest = readingIndex.getAll(IDBKeyRange.only(expression), 8);
+                    readingRequest.onsuccess = () => {
+                        addMatches(expression, readingRequest.result as YomitanTermEntry[]);
+                        finish();
+                    };
+                    readingRequest.onerror = () => reject(readingRequest.error);
                 }
 
                 tx.onerror = () => reject(tx.error);
@@ -345,19 +307,6 @@ export class YomitanDictionaryStore {
     async countEntries(): Promise<number> {
         const summary = await this.summary();
         return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
-    }
-
-    private async frequencyForExpression(expression: string, preferences: DictionaryPreference[]): Promise<number | undefined> {
-        const metas = await this.lookupTermMeta(expression, 12, preferences).catch(error => {
-            log.debug('Frequency metadata lookup skipped', { expression, error });
-            return [];
-        });
-        for (const meta of metas) {
-            if (meta.mode !== 'freq') continue;
-            const frequency = extractFrequency(meta.data);
-            if (frequency !== undefined) return frequency;
-        }
-        return undefined;
     }
 
     async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
@@ -652,7 +601,13 @@ export class YomitanDictionaryStore {
     private async addToStore<T>(storeName: StoreName, entries: T[], put = false): Promise<void> {
         if (!entries.length) return;
         const db = await this.db();
-        await new Promise<void>((resolve, reject) => {
+        for (let start = 0; start < entries.length; start += DEXIE_IMPORT_BATCH_SIZE) {
+            await this.addStoreChunk(db, storeName, entries.slice(start, start + DEXIE_IMPORT_BATCH_SIZE), put);
+        }
+    }
+
+    private addStoreChunk<T>(db: IDBDatabase, storeName: StoreName, entries: T[], put: boolean): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             const tx = db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
             for (const entry of entries) put ? store.put(entry) : store.add(entry);
@@ -715,10 +670,10 @@ export class YomitanDictionaryStore {
         this.dbPromise ??= new Promise((resolve, reject) => {
             log.debug('Opening dictionary database', { name: DB_NAME, version: DB_VERSION });
             const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onupgradeneeded = () => {
+            request.onupgradeneeded = event => {
                 const db = request.result;
                 const tx = request.transaction!;
-                log.info('Upgrading dictionary database', { oldVersion: request.oldVersion, newVersion: DB_VERSION });
+                log.info('Upgrading dictionary database', { oldVersion: event.oldVersion, newVersion: DB_VERSION });
                 const terms = ensureStore(db, tx, 'terms');
                 ensureIndex(terms, 'expression', 'expression');
                 ensureIndex(terms, 'reading', 'reading');
@@ -838,255 +793,6 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
     });
     done();
     return result;
-}
-
-export function glossaryToText(value: unknown): string {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    if (Array.isArray(value)) return value.map(glossaryToText).filter(Boolean).join(' ');
-    if (typeof value === 'object') {
-        const record = value as Record<string, unknown>;
-        if (typeof record.text === 'string') return record.text;
-        if ('content' in record) return glossaryToText(record.content);
-        if ('path' in record) return String(record.description || record.alt || '[media]');
-        return Object.values(record).map(glossaryToText).filter(Boolean).join(' ');
-    }
-    return '';
-}
-
-export function glossaryToHtml(value: unknown, dictionary = ''): string {
-    return renderGlossaryValue(value, { dictionary, root: true });
-}
-
-export function renderDictionaryScopedStyles(dictionaries: YomitanDictionaryInfo[], preferences: DictionaryPreference[] = []): string {
-    const rank = dictionaryRank(preferences);
-    return dictionaries
-        .filter(dictionary => dictionaryEnabled(dictionary.title, rank))
-        .map(dictionary => {
-            const styles = dictionary.styles?.trim();
-            if (!styles) return '';
-            return `${dictionaryScopeSelector(dictionary.title)} {\n${styles}\n}`;
-        })
-        .filter(Boolean)
-        .join('\n');
-}
-
-function renderGlossaryValue(value: unknown, context: StructuredRenderContext): string {
-    if (value == null) return '';
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return escapeHtml(String(value));
-    if (Array.isArray(value)) return value.map(item => renderGlossaryValue(item, { ...context, root: false })).filter(Boolean).join('');
-    if (typeof value !== 'object') return '';
-
-    const record = value as Record<string, unknown>;
-    if (typeof record.text === 'string') return escapeHtml(record.text);
-    if (record.type === 'structured-content') {
-        const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : '';
-        return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, { ...context, root: false })}</span>`;
-    }
-    if (record.type === 'image' || 'path' in record) return renderStructuredImage(record, context.dictionary);
-    if (record.type === 'text' && 'content' in record) return renderGlossaryValue(record.content, { ...context, root: false });
-
-    const tag = typeof record.tag === 'string' ? record.tag.toLowerCase() : ('content' in record ? 'span' : '');
-    if (!tag) return Object.values(record).map(item => renderGlossaryValue(item, { ...context, root: false })).filter(Boolean).join('');
-    if (tag === 'a') return renderStructuredLink(record, context);
-    if (tag === 'img') return renderStructuredImage(record, context.dictionary);
-
-    const content = tag === 'br' ? '' : renderGlossaryValue(record.content, { ...context, root: false });
-    if (tag === 'table') {
-        return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record, tag, context.dictionary)}>${content}</table></div>`;
-    }
-    if (STRUCTURED_CONTENT_TAGS.has(tag)) {
-        const attrs = renderStructuredElementAttributes(record, tag, context.dictionary);
-        return tag === 'br' ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
-    }
-    return content || escapeHtml(glossaryToText(value));
-}
-
-const STRUCTURED_CONTENT_TAGS = new Set([
-    'br',
-    'ruby',
-    'rt',
-    'rp',
-    'thead',
-    'tbody',
-    'tfoot',
-    'tr',
-    'th',
-    'td',
-    'div',
-    'span',
-    'ol',
-    'ul',
-    'li',
-    'details',
-    'summary',
-]);
-
-const STRUCTURED_STYLE_PROPERTIES: Record<string, string> = {
-    fontStyle: 'font-style',
-    fontWeight: 'font-weight',
-    fontSize: 'font-size',
-    color: 'color',
-    background: 'background',
-    backgroundColor: 'background-color',
-    textDecorationStyle: 'text-decoration-style',
-    textDecorationColor: 'text-decoration-color',
-    borderColor: 'border-color',
-    borderStyle: 'border-style',
-    borderRadius: 'border-radius',
-    borderWidth: 'border-width',
-    clipPath: 'clip-path',
-    verticalAlign: 'vertical-align',
-    textAlign: 'text-align',
-    textEmphasis: 'text-emphasis',
-    textShadow: 'text-shadow',
-    margin: 'margin',
-    marginTop: 'margin-top',
-    marginLeft: 'margin-left',
-    marginRight: 'margin-right',
-    marginBottom: 'margin-bottom',
-    padding: 'padding',
-    paddingTop: 'padding-top',
-    paddingLeft: 'padding-left',
-    paddingRight: 'padding-right',
-    paddingBottom: 'padding-bottom',
-    wordBreak: 'word-break',
-    whiteSpace: 'white-space',
-    cursor: 'cursor',
-    listStyleType: 'list-style-type',
-};
-
-const STRUCTURED_NUMERIC_EM_STYLES = new Set(['marginTop', 'marginLeft', 'marginRight', 'marginBottom']);
-
-function renderStructuredElementAttributes(record: Record<string, unknown>, tag: string, dictionary: string): string {
-    const attrs = [` class="gloss-sc-${escapeHtml(tag)}"`];
-    if (dictionary) attrs.push(` data-dictionary="${escapeHtml(dictionary)}"`);
-    attrs.push(renderStructuredDataAttributes(record.data));
-    attrs.push(renderDirectDataAttributes(record));
-    const style = renderStructuredStyle(record.style);
-    if (style) attrs.push(` style="${escapeHtml(style)}"`);
-    if (typeof record.title === 'string') attrs.push(` title="${escapeHtml(record.title)}"`);
-    if (typeof record.lang === 'string') attrs.push(` lang="${escapeHtml(record.lang)}"`);
-    if (tag === 'details' && record.open === true) attrs.push(' open');
-    if ((tag === 'td' || tag === 'th') && Number.isFinite(Number(record.colSpan))) attrs.push(` colspan="${Number(record.colSpan)}"`);
-    if ((tag === 'td' || tag === 'th') && Number.isFinite(Number(record.rowSpan))) attrs.push(` rowspan="${Number(record.rowSpan)}"`);
-    return attrs.filter(Boolean).join('');
-}
-
-function renderStructuredDataAttributes(value: unknown): string {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
-    const attrs: string[] = [];
-    for (const [key, rawValue] of Object.entries(value)) {
-        if (!key || rawValue == null || (typeof rawValue !== 'string' && typeof rawValue !== 'number' && typeof rawValue !== 'boolean')) continue;
-        attrs.push(` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"`);
-    }
-    return attrs.join('');
-}
-
-function renderDirectDataAttributes(record: Record<string, unknown>): string {
-    const attrs: string[] = [];
-    for (const [key, value] of Object.entries(record)) {
-        if (!key.startsWith('data-') || (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean')) continue;
-        attrs.push(` ${key}="${escapeHtml(String(value))}"`);
-    }
-    return attrs.join('');
-}
-
-function renderStructuredStyle(value: unknown): string {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
-    const declarations: string[] = [];
-    const style = value as Record<string, unknown>;
-    const textDecorationLine = style.textDecorationLine;
-    if (typeof textDecorationLine === 'string') declarations.push(`text-decoration:${textDecorationLine};`);
-    else if (Array.isArray(textDecorationLine)) declarations.push(`text-decoration:${textDecorationLine.map(String).join(' ')};`);
-
-    for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
-        const rawValue = style[key];
-        if (typeof rawValue === 'string') declarations.push(`${property}:${rawValue};`);
-        else if (typeof rawValue === 'number' && STRUCTURED_NUMERIC_EM_STYLES.has(key)) declarations.push(`${property}:${rawValue}em;`);
-    }
-    return declarations.join('');
-}
-
-function renderStructuredLink(record: Record<string, unknown>, context: StructuredRenderContext): string {
-    const content = renderGlossaryValue(record.content, { ...context, root: false }) || escapeHtml(glossaryToText(record));
-    const rawHref = typeof record.href === 'string' ? record.href : '';
-    const href = normalizeStructuredHref(rawHref);
-    const external = href ? !href.startsWith(locationOrigin()) && !href.startsWith('#') : false;
-    const attrs = [
-        ' class="gloss-link"',
-        ` data-external="${external}"`,
-        context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : '',
-        href ? ` href="${escapeHtml(href)}"` : '',
-        external ? ' target="_blank" rel="noopener noreferrer"' : '',
-        typeof record.lang === 'string' ? ` lang="${escapeHtml(record.lang)}"` : '',
-    ].join('');
-    const icon = external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : '';
-    return `<a${attrs}><span class="gloss-link-text">${content}</span>${icon}</a>`;
-}
-
-function renderStructuredImage(record: Record<string, unknown>, dictionary: string): string {
-    const path = typeof record.path === 'string' ? record.path : '';
-    const title = typeof record.title === 'string' ? record.title : '';
-    const description = typeof record.description === 'string' ? record.description : typeof record.alt === 'string' ? record.alt : '';
-    const preferredWidth = numericRecordValue(record, 'preferredWidth');
-    const preferredHeight = numericRecordValue(record, 'preferredHeight');
-    const width = preferredWidth ?? numericRecordValue(record, 'width') ?? 100;
-    const height = preferredHeight ?? numericRecordValue(record, 'height') ?? 100;
-    const invAspectRatio = height > 0 && width > 0 ? height / width : 1;
-    const usedWidth = preferredWidth ?? (preferredHeight ? preferredHeight / invAspectRatio : width);
-    const dictionaryAttr = dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : '';
-    const attrs = [
-        ` class="gloss-image-link"`,
-        dictionaryAttr,
-        path ? ` data-path="${escapeHtml(path)}"` : '',
-        ` data-image-load-state="unloaded"`,
-        ` data-has-aspect-ratio="true"`,
-        ` data-image-rendering="${escapeHtml(String(record.imageRendering || (record.pixelated ? 'pixelated' : 'auto')))}"`,
-        ` data-appearance="${escapeHtml(String(record.appearance || 'auto'))}"`,
-        ` data-background="${typeof record.background === 'boolean' ? record.background : true}"`,
-        ` data-collapsed="${typeof record.collapsed === 'boolean' ? record.collapsed : false}"`,
-        ` data-collapsible="${typeof record.collapsible === 'boolean' ? record.collapsible : true}"`,
-        typeof record.verticalAlign === 'string' ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : '',
-        typeof record.sizeUnits === 'string' ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : '',
-    ].join('');
-    const containerStyle = [
-        `width:${formatCssNumber(usedWidth)}em;`,
-        typeof record.border === 'string' ? `border:${record.border};` : '',
-        typeof record.borderRadius === 'string' ? `border-radius:${record.borderRadius};` : '',
-    ].join('');
-    const containerTitle = title ? ` title="${escapeHtml(title)}"` : '';
-    const descriptionHtml = description ? `<span class="gloss-image-description">${escapeHtml(description)}</span>` : '';
-    return `<span${attrs}><span class="gloss-image-container" style="${escapeHtml(containerStyle)}"${containerTitle}><span class="gloss-image-sizer" style="padding-top:${formatCssNumber(invAspectRatio * 100)}%;"></span><span class="gloss-image-background"></span><span class="gloss-image-container-overlay"></span></span><span class="gloss-image-link-text">Image</span></span>${descriptionHtml}`;
-}
-
-function normalizeStructuredHref(href: string): string {
-    if (!href) return '';
-    if (/^https?:\/\//i.test(href) || href.startsWith('#')) return href;
-    if (href.startsWith('?')) return `https://jpdb.io/search${href}`;
-    return '';
-}
-
-function locationOrigin(): string {
-    try {
-        return location.origin;
-    } catch {
-        return '';
-    }
-}
-
-function numericRecordValue(record: Record<string, unknown>, key: string): number | undefined {
-    const value = record[key];
-    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function formatCssNumber(value: number): string {
-    return Number.isFinite(value) ? Number(value.toFixed(4)).toString() : '0';
-}
-
-function camelToKebabCase(value: string): string {
-    return value.replace(/[A-Z]/g, character => `-${character.toLowerCase()}`);
 }
 
 function importEntryStores(): EntryStoreName[] {
@@ -1463,80 +1169,6 @@ function getYomitanProfileOptions(value: unknown): Record<string, unknown> | nul
     return options?.profiles?.[0]?.options ?? null;
 }
 
-function dictionaryRank(preferences: DictionaryPreference[]): Map<string, DictionaryPreference> {
-    return new Map(normalizeDictionaryPreferences(preferences).map(item => [item.name, item]));
-}
-
-function dictionaryEnabled(dictionary: string, rank: Map<string, DictionaryPreference>): boolean {
-    return rank.get(dictionary)?.enabled ?? true;
-}
-
-function dictionaryPriority(dictionary: string, rank: Map<string, DictionaryPreference>): number {
-    return rank.get(dictionary)?.priority ?? 9999;
-}
-
-function compareMetaEntries(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
-    if (a.mode === 'freq' && b.mode !== 'freq') return -1;
-    if (a.mode !== 'freq' && b.mode === 'freq') return 1;
-    if (a.mode === 'freq' && b.mode === 'freq') {
-        const aJpdb = isJpdbFrequencyDictionary(a.dictionary) ? 0 : 1;
-        const bJpdb = isJpdbFrequencyDictionary(b.dictionary) ? 0 : 1;
-        return aJpdb - bJpdb
-            || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-            || frequencyRank(a.data) - frequencyRank(b.data)
-            || a.dictionary.localeCompare(b.dictionary);
-    }
-    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-        || a.dictionary.localeCompare(b.dictionary);
-}
-
-function isJpdbFrequencyDictionary(dictionary: string): boolean {
-    return /jpdb/i.test(dictionary);
-}
-
-function frequencyRank(value: unknown): number {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
-    if (!value || typeof value !== 'object') return Number.POSITIVE_INFINITY;
-    const record = value as Record<string, unknown>;
-    return frequencyRank(record.frequency ?? record.value ?? record.displayValue);
-}
-
-function extractFrequency(value: unknown): number | undefined {
-    const rank = frequencyRank(value);
-    return Number.isFinite(rank) ? rank : undefined;
-}
-
-function compareFrequency(a?: number, b?: number): number {
-    if (a === undefined && b === undefined) return 0;
-    if (a === undefined) return 1;
-    if (b === undefined) return -1;
-    return a - b;
-}
-
-function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number): YomitanTermMatch[] {
-    const selected: YomitanTermMatch[] = [];
-    const occupied: Array<[number, number]> = [];
-    const overlaps = (match: YomitanTermMatch) => occupied.some(([start, end]) => match.start < end && match.end > start);
-    for (const match of matches.sort((a, b) =>
-        (b.end - b.start) - (a.end - a.start)
-        || (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0)
-        || a.start - b.start
-        || a.entry.dictionary.localeCompare(b.entry.dictionary)
-        || (b.entry.score ?? 0) - (a.entry.score ?? 0),
-    )) {
-        if (overlaps(match)) continue;
-        selected.push(match);
-        occupied.push([match.start, match.end]);
-        if (selected.length >= limit) break;
-    }
-    return selected.sort((a, b) => a.start - b.start);
-}
-
-function dictionaryScopeSelector(dictionary: string): string {
-    return `[data-dictionary="${dictionary.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
-}
-
 function filenameFromUrl(url: string): string {
     try {
         const parsed = new URL(url);
@@ -1657,12 +1289,6 @@ function isLoopbackPage(): boolean {
     return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }
 
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
-}
-
 function splitTags(value: unknown): string[] {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
     return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : [];
@@ -1727,14 +1353,6 @@ function readBlobText(blob: Blob): Promise<string> {
 async function readZipText(zip: JSZip, filename: string): Promise<string> {
     const file = zip.file(filename);
     return file ? await file.async('string') : '';
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 function capitalize(value: string): string {

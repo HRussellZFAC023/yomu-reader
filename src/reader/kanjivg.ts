@@ -1,5 +1,6 @@
 import { escapeHtml } from './dom';
 import { Logger } from './logger';
+import { getUserscriptHttpRequest } from './userscript';
 
 const KANJIVG_RAW_BASE = 'https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji';
 const log = Logger.scope('KanjiVG');
@@ -99,10 +100,4 @@ function requestText(url: string): Promise<string> {
         if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
         return response.text();
     });
-}
-
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
 }

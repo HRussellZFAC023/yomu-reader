@@ -1,5 +1,6 @@
 import { Logger } from './logger';
 import type { ReaderSettings } from './types';
+import { getUserscriptHttpRequest } from './userscript';
 
 const API_BASE = 'https://apiv2.immersionkit.com';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
@@ -36,6 +37,7 @@ export interface ImmersionKitExample {
 
 export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
+    private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
     private preloadKeys = new Set<string>();
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
@@ -56,6 +58,11 @@ export class ImmersionKitClient {
             log.debug('Search cache hit', { query, examples: cached.length });
             return cached;
         }
+        const inflight = this.inflight.get(cacheKey);
+        if (inflight) {
+            log.debug('Search joined in-flight request', { query });
+            return inflight;
+        }
 
         const params = new URLSearchParams({
             q: query,
@@ -66,21 +73,28 @@ export class ImmersionKitClient {
         if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
 
         const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-        const data = await requestJson(`${API_BASE}/search?${params}`, settings.audioTimeoutMs);
-        const examples = collectExamples(data)
-            .map(normalizeExample)
-            .filter((example): example is ImmersionKitExample => Boolean(example))
-            .filter(example => sentenceLength(example.sentence) >= settings.immersionKitMinLength)
-            .filter(example => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength);
+        const promise = requestJson(`${API_BASE}/search?${params}`, settings.audioTimeoutMs)
+            .then(data => {
+                const examples = collectExamples(data)
+                    .map(normalizeExample)
+                    .filter((example): example is ImmersionKitExample => Boolean(example))
+                    .filter(example => sentenceLength(example.sentence) >= settings.immersionKitMinLength)
+                    .filter(example => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength);
 
-        const ordered = settings.immersionKitSort === 'random'
-            ? shuffle(examples)
-            : examples;
-        const result = ordered.slice(0, settings.immersionKitLimit);
-        this.cache.set(cacheKey, result);
-        log.debug('Search completed', { query, rawExamples: examples.length, returned: result.length });
-        done();
-        return result;
+                const ordered = settings.immersionKitSort === 'random'
+                    ? shuffle(examples)
+                    : examples;
+                const result = ordered.slice(0, settings.immersionKitLimit);
+                this.cache.set(cacheKey, result);
+                log.debug('Search completed', { query, rawExamples: examples.length, returned: result.length });
+                return result;
+            })
+            .finally(() => {
+                this.inflight.delete(cacheKey);
+                done();
+            });
+        this.inflight.set(cacheKey, promise);
+        return promise;
     }
 
     mediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
@@ -312,12 +326,6 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
             })
             .then(resolve, reject);
     });
-}
-
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

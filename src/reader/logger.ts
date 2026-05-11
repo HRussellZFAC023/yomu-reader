@@ -107,7 +107,7 @@ class LoggerImpl {
     }
 
     isEnabled(): boolean {
-        if (IS_DEV_MODE || this.forceEnabled || getRuntimeLoggingOverride()) return true;
+        if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
         try {
             return this.settingsProvider?.().enableLogging === true;
         } catch {
@@ -168,10 +168,10 @@ class LoggerImpl {
 
     time(scope: string, label: string, ...args: unknown[]): () => void {
         if (!this.isEnabled()) return () => undefined;
-        const start = performance.now();
+        const start = nowMs();
         this.debug(scope, `${label} started`, ...args);
         return () => {
-            this.debug(scope, `${label} finished`, { durationMs: Math.round((performance.now() - start) * 10) / 10 });
+            this.debug(scope, `${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
         };
     }
 
@@ -295,6 +295,8 @@ export function loggingSettingsSummary(settings: ReaderSettings): Record<string,
         localDictionariesEnabled: settings.localDictionariesEnabled,
         localDictionarySources: settings.dictionaryPreferences.length,
         ankiEnabled: settings.ankiEnabled,
+        newTabEnabled: settings.newTabEnabled,
+        newTabSource: settings.newTabSource,
         ocrEnabled: settings.ocrEnabled,
         subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
         youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
@@ -318,6 +320,10 @@ function setRuntimeLoggingOverride(enabled: boolean): void {
     } catch {
         // Storage can be unavailable on some embedded pages; runtime forceEnabled still applies.
     }
+}
+
+function nowMs(): number {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 }
 
 function sanitizeForConsole(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {

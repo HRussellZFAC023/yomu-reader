@@ -1,12 +1,15 @@
 import type { JpdbKanjiInfo } from './jpdb-kanji';
 import type { KanjiVGInfo } from './kanjivg';
+import { Logger } from './logger';
 import type { RtkInfo } from './rtk';
 import type { ReaderSettings } from './types';
 import type { YomitanKanjiEntry } from './yomitan';
+import { getUserscriptHttpRequest } from './userscript';
 
 const KANJI_MAP_KANJI_BASE = 'https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji';
 const WIKTIONARY_PARSE_URL = 'https://en.wiktionary.org/w/api.php?action=parse&prop=text&format=json&origin=*&page=';
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const log = Logger.scope('KanjiOrigin');
 
 export interface KanjiFact {
     label: string;
@@ -87,7 +90,10 @@ export class KanjiOriginClient {
 
     lookup(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
         const key = Array.from(kanji)[0] ?? kanji;
-        if (!key || !settings.kanjiOriginsEnabled) return Promise.resolve(null);
+        if (!key || !settings.kanjiOriginsEnabled) {
+            log.debug('Kanji origin lookup skipped', { kanji, enabled: settings.kanjiOriginsEnabled });
+            return Promise.resolve(null);
+        }
         const cacheKey = [
             key,
             settings.kanjiOriginKanjiMapEnabled ? 'map' : '',
@@ -95,30 +101,51 @@ export class KanjiOriginClient {
         ].join(':');
         let promise = this.cache.get(cacheKey);
         if (!promise) {
+            log.debug('Kanji origin cache miss', { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
             promise = this.fetchInfo(key, settings);
             this.cache.set(cacheKey, promise);
+        } else {
+            log.debug('Kanji origin cache hit', { kanji: key });
         }
         return promise;
     }
 
     private async fetchInfo(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
+        const done = log.time('Kanji origin lookup', { kanji });
         const [kanjiMap, wiktionary] = await Promise.all([
-            settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch(() => undefined) : Promise.resolve(undefined),
-            settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch(() => undefined) : Promise.resolve(undefined),
+            settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch(error => {
+                log.warn('Kanji Map origin lookup failed', { kanji, error });
+                return undefined;
+            }) : Promise.resolve(undefined),
+            settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch(error => {
+                log.warn('Wiktionary origin lookup failed', { kanji, error });
+                return undefined;
+            }) : Promise.resolve(undefined),
         ]);
-        return kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
+        const result = kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
+        log.debug('Kanji origin lookup completed', { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
+        done();
+        return result;
     }
 }
 
 export async function fetchKanjiMapInfo(kanji: string): Promise<KanjiMapKanjiInfo | undefined> {
+    const done = log.time('Fetch Kanji Map info', { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText(sourceUrl));
-    return raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : undefined;
+    const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : undefined;
+    log.debug('Kanji Map info parsed', { kanji, found: Boolean(info), examples: info?.examples.length ?? 0, references: info?.references.length ?? 0 });
+    done();
+    return info;
 }
 
 export async function fetchWiktionaryInfo(kanji: string): Promise<WiktionaryKanjiInfo | undefined> {
+    const done = log.time('Fetch Wiktionary info', { kanji });
     const raw = parseJson(await requestText(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
-    return raw ? parseWiktionaryInfo(raw, kanji) : undefined;
+    const info = raw ? parseWiktionaryInfo(raw, kanji) : undefined;
+    log.debug('Wiktionary info parsed', { kanji, found: Boolean(info), glyphOrigin: info?.glyphOrigin.length ?? 0, images: info?.images.length ?? 0 });
+    done();
+    return info;
 }
 
 export function parseKanjiMapInfo(raw: unknown, kanji: string, sourceUrl: string): KanjiMapKanjiInfo | undefined {
@@ -205,7 +232,9 @@ export function buildKanjiFacts(
     add('Radical', map?.radical ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(' ') : undefined, 'Kanji Alive / Jisho');
 
     if (!facts.has('Character')) add('Character', kanji, 'current lookup');
-    return Array.from(facts.values()).filter(fact => fact.label !== 'Character').slice(0, 6);
+    const result = Array.from(facts.values()).filter(fact => fact.label !== 'Character').slice(0, 6);
+    log.debug('Kanji facts built', { kanji, facts: result.map(fact => fact.label) });
+    return result;
 }
 
 export function buildKanjiOriginGraph(
@@ -238,6 +267,18 @@ export function buildKanjiOriginGraph(
             edges.push({ from: id, to: kanji, label });
         }
     };
+    const addUsedInKanji = (id: string, detail: string, source: string) => {
+        if (!id || id === kanji) return;
+        const existing = nodes.get(id);
+        if (!existing) {
+            nodes.set(id, { id, label: id, kind: 'component', detail, source });
+        } else if (!existing.detail && detail) {
+            existing.detail = detail;
+        }
+        if (!edges.some(edge => edge.from === kanji && edge.to === id && edge.label === 'used in kanji')) {
+            edges.push({ from: kanji, to: id, label: 'used in kanji' });
+        }
+    };
 
     sourceInfo?.kanjiMap?.radical?.symbol && addComponent(
         sourceInfo.kanjiMap.radical.symbol,
@@ -247,6 +288,7 @@ export function buildKanjiOriginGraph(
     );
     sourceInfo?.kanjiMap?.parts.forEach(part => addComponent(part, 'structural part', 'structural part', 'Kanji structure'));
     jpdbInfo?.components.forEach(component => addComponent(component.kanji, component.keyword, 'JPDB component', 'JPDB'));
+    jpdbInfo?.usedInKanji?.forEach(component => addUsedInKanji(component.kanji, component.keyword, 'JPDB'));
     rtkInfo?.componentKanji.forEach(component => addComponent(component, 'RTK element', 'RTK element', 'RTK'));
 
     splitRtkElements(rtkInfo?.elements ?? '')
@@ -258,7 +300,9 @@ export function buildKanjiOriginGraph(
             edges.push({ from: id, to: kanji, label: 'memory cue' });
         });
 
-    return { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
+    const graph = { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
+    log.debug('Kanji origin graph built', { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
+    return graph;
 }
 
 interface LocalKanjiFacts {
@@ -570,33 +614,52 @@ function parseJson(value: string): unknown {
 function requestText(url: string): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
+        log.debug('Kanji origin request using userscript request', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'GET',
                 url,
                 timeout: 10000,
                 onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
-                    else reject(new Error(`Kanji origin request failed (${response.status}).`));
+                    if (response.status >= 200 && response.status < 300) {
+                        log.debug('Kanji origin request completed', { host: safeHost(url), status: response.status });
+                        resolve(String(response.responseText ?? ''));
+                    } else {
+                        log.warn('Kanji origin request returned HTTP error', { host: safeHost(url), status: response.status });
+                        reject(new Error(`Kanji origin request failed (${response.status}).`));
+                    }
                 },
-                onerror: reject,
-                ontimeout: () => reject(new Error('Kanji origin request timed out.')),
+                onerror: error => {
+                    log.warn('Kanji origin request failed', { host: safeHost(url), error });
+                    reject(error);
+                },
+                ontimeout: () => {
+                    log.warn('Kanji origin request timed out', { host: safeHost(url) });
+                    reject(new Error('Kanji origin request timed out.'));
+                },
             });
         });
     }
 
+    log.debug('Kanji origin request using fetch', { host: safeHost(url) });
     return fetch(url).then(response => {
-        if (!response.ok) throw new Error(`Kanji origin request failed (${response.status}).`);
+        if (!response.ok) {
+            log.warn('Kanji origin request returned HTTP error', { host: safeHost(url), status: response.status });
+            throw new Error(`Kanji origin request failed (${response.status}).`);
+        }
+        log.debug('Kanji origin request completed', { host: safeHost(url), status: response.status });
         return response.text();
     });
 }
 
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
-}
-
 function first(values: Array<string | undefined>): string | undefined {
     return values.find(value => value?.trim())?.trim();
+}
+
+function safeHost(url: string): string {
+    try {
+        return new URL(url, location.href).host;
+    } catch {
+        return '';
+    }
 }

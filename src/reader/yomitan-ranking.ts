@@ -1,0 +1,80 @@
+import { Logger } from './logger';
+import { normalizeDictionaryPreferences } from './settings';
+import type { DictionaryPreference } from './types';
+import type { YomitanMetaEntry, YomitanTermMatch } from './yomitan-types';
+
+const log = Logger.scope('YomitanRanking');
+
+export function dictionaryRank(preferences: DictionaryPreference[]): Map<string, DictionaryPreference> {
+    const rank = new Map(normalizeDictionaryPreferences(preferences).map(item => [item.name, item]));
+    log.debugThrottled('dictionary-rank', 2000, 'Built dictionary rank map', { preferences: preferences.length, enabled: [...rank.values()].filter(item => item.enabled).length });
+    return rank;
+}
+
+export function dictionaryEnabled(dictionary: string, rank: Map<string, DictionaryPreference>): boolean {
+    return rank.get(dictionary)?.enabled ?? true;
+}
+
+export function dictionaryPriority(dictionary: string, rank: Map<string, DictionaryPreference>): number {
+    return rank.get(dictionary)?.priority ?? 9999;
+}
+
+export function compareMetaEntries(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
+    if (a.mode === 'freq' && b.mode !== 'freq') return -1;
+    if (a.mode !== 'freq' && b.mode === 'freq') return 1;
+    if (a.mode === 'freq' && b.mode === 'freq') {
+        const aJpdb = isJpdbFrequencyDictionary(a.dictionary) ? 0 : 1;
+        const bJpdb = isJpdbFrequencyDictionary(b.dictionary) ? 0 : 1;
+        return aJpdb - bJpdb
+            || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+            || frequencyRank(a.data) - frequencyRank(b.data)
+            || a.dictionary.localeCompare(b.dictionary);
+    }
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+        || a.dictionary.localeCompare(b.dictionary);
+}
+
+export function extractFrequency(value: unknown): number | undefined {
+    const rank = frequencyRank(value);
+    return Number.isFinite(rank) ? rank : undefined;
+}
+
+export function compareFrequency(a?: number, b?: number): number {
+    if (a === undefined && b === undefined) return 0;
+    if (a === undefined) return 1;
+    if (b === undefined) return -1;
+    return a - b;
+}
+
+export function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number): YomitanTermMatch[] {
+    const selected: YomitanTermMatch[] = [];
+    const occupied: Array<[number, number]> = [];
+    const overlaps = (match: YomitanTermMatch) => occupied.some(([start, end]) => match.start < end && match.end > start);
+    for (const match of matches.sort((a, b) =>
+        (b.end - b.start) - (a.end - a.start)
+        || (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0)
+        || a.start - b.start
+        || a.entry.dictionary.localeCompare(b.entry.dictionary)
+        || (b.entry.score ?? 0) - (a.entry.score ?? 0),
+    )) {
+        if (overlaps(match)) continue;
+        selected.push(match);
+        occupied.push([match.start, match.end]);
+        if (selected.length >= limit) break;
+    }
+    const result = selected.sort((a, b) => a.start - b.start);
+    log.debug('Selected non-overlapping matches', { input: matches.length, result: result.length, limit });
+    return result;
+}
+
+function isJpdbFrequencyDictionary(dictionary: string): boolean {
+    return /jpdb/i.test(dictionary);
+}
+
+function frequencyRank(value: unknown): number {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+    if (!value || typeof value !== 'object') return Number.POSITIVE_INFINITY;
+    const record = value as Record<string, unknown>;
+    return frequencyRank(record.frequency ?? record.value ?? record.displayValue);
+}

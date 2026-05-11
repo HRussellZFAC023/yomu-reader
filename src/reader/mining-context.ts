@@ -1,9 +1,11 @@
 import type { ImmersionKitExample } from './immersion-kit';
+import { Logger } from './logger';
 import type { ReaderSettings } from './types';
 
 const CONTEXT_PREFIX = 'yomu-mining-context:';
 const CONTEXT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 21;
 const MINING_SOURCE_KINDS = ['page', 'video', 'image', 'immersion-kit', 'jpdb'] as const;
+const log = Logger.scope('MiningContext');
 
 export type MiningSourceKind = 'page' | 'video' | 'image' | 'immersion-kit' | 'jpdb';
 export type MiningContextDraft = Omit<StoredMiningContext, 'term' | 'updatedAt'>;
@@ -95,24 +97,55 @@ export async function resolveMiningContext({
     videoImageDataUrl,
     fetchImageDataUrl,
 }: MiningContextResolutionOptions): Promise<MiningContext> {
+    const done = log.time('Resolve mining context', {
+        term,
+        hasSentence: Boolean(sentence?.trim()),
+        activeKind: activeContext?.sourceKind,
+        storedKind: storedContext?.sourceKind,
+        sourceKind,
+        hasImage: Boolean(imageDataUrl),
+        hasVideoImage: Boolean(videoImageDataUrl),
+    });
     const cleanSentence = normalizeMiningSentence(sentence);
-    if (imageDataUrl && cleanSentence) return miningContextWithImage(term, cleanSentence, 'image', imageDataUrl);
-    if (videoImageDataUrl && cleanSentence) return miningContextWithImage(term, cleanSentence, 'video', videoImageDataUrl);
+    try {
+        if (imageDataUrl && cleanSentence) {
+            log.debug('Using direct image mining context', { term, sentenceLength: cleanSentence.length });
+            return miningContextWithImage(term, cleanSentence, 'image', imageDataUrl);
+        }
+        if (videoImageDataUrl && cleanSentence) {
+            log.debug('Using video image mining context', { term, sentenceLength: cleanSentence.length });
+            return miningContextWithImage(term, cleanSentence, 'video', videoImageDataUrl);
+        }
 
-    const chosen = activeContext?.term === term ? activeContext : storedContext ?? undefined;
-    if (chosen && shouldUseImmersionContext(settings, chosen)) {
-        const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl
-            ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch(() => undefined)
-            : undefined;
-        return { ...chosen, imageDataUrl: fetchedImageDataUrl };
+        const chosen = activeContext?.term === term ? activeContext : storedContext ?? undefined;
+        if (chosen && shouldUseImmersionContext(settings, chosen)) {
+            const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl
+                ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch(error => {
+                    log.debug('Mining context image fetch skipped', { term, sourceKind: chosen.sourceKind, error });
+                    return undefined;
+                })
+                : undefined;
+            log.debug('Using immersion mining context', {
+                term,
+                sourceTitle: chosen.sourceTitle,
+                hasImageUrl: Boolean(chosen.imageUrl),
+                fetchedImage: Boolean(fetchedImageDataUrl),
+            });
+            return { ...chosen, imageDataUrl: fetchedImageDataUrl };
+        }
+
+        const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
+        const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
+        log.debug('Using page mining context', { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
+        return result;
+    } finally {
+        done();
     }
-
-    const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
-    return saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
 }
 
 export function miningContextWithImage(term: string, sentence: string, sourceKind: 'image' | 'video', imageDataUrl: string): MiningContext {
     const context = pageMiningContext(sentence, sourceKind);
+    log.debug('Creating mining context with image', { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
     return {
         ...(saveMiningContext(term, context) ?? createFallbackMiningContext(term, context)),
         imageDataUrl,
@@ -121,11 +154,16 @@ export function miningContextWithImage(term: string, sentence: string, sourceKin
 
 export function saveMiningContext(term: string, context: MiningContextDraft): StoredMiningContext | null {
     const stored = createStoredMiningContext(term, context);
-    if (!stored) return null;
+    if (!stored) {
+        log.debug('Mining context not saved', { term, reason: 'missing-term-or-sentence', sourceKind: context.sourceKind });
+        return null;
+    }
 
     try {
         localStorage.setItem(contextStorageKey(stored.term), JSON.stringify(stored));
-    } catch {
+        log.debug('Mining context saved', { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
+    } catch (error) {
+        log.warn('Mining context save failed', { term: stored.term, sourceKind: stored.sourceKind, error });
         // Metadata-only cache; failing to persist should never block mining.
     }
     return stored;
@@ -136,9 +174,15 @@ export function loadMiningContext(term: string): StoredMiningContext | null {
     if (!normalized) return null;
     try {
         const raw = localStorage.getItem(contextStorageKey(normalized));
-        if (!raw) return null;
-        return parseStoredMiningContext(JSON.parse(raw), normalized);
-    } catch {
+        if (!raw) {
+            log.debug('Mining context cache miss', { term: normalized });
+            return null;
+        }
+        const context = parseStoredMiningContext(JSON.parse(raw), normalized);
+        log.debug('Mining context cache read', { term: normalized, hit: Boolean(context), sourceKind: context?.sourceKind });
+        return context;
+    } catch (error) {
+        log.warn('Mining context load failed', { term: normalized, error });
         return null;
     }
 }
@@ -206,7 +250,10 @@ function parseStoredMiningContext(value: unknown, expectedTerm: string, now = Da
     if (!isMiningSourceKind(value.sourceKind)) return null;
 
     const updatedAt = Number(value.updatedAt);
-    if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) return null;
+    if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
+        log.debug('Mining context cache entry expired', { term: expectedTerm, updatedAt });
+        return null;
+    }
 
     const context = createStoredMiningContext(expectedTerm, {
         sentence: text(value.sentence),

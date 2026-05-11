@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { getUserscriptHttpRequest } from './userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';
 const RATE_LIMIT_BACKOFF_MS = 30_000;
@@ -110,12 +111,6 @@ function postJsonWithUserscriptRequest(
             (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
         }
     });
-}
-
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
 }
 
 function endpointLabel(url: string): string {

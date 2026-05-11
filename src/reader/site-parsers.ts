@@ -4,6 +4,7 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from './dom';
+import { Logger } from './logger';
 
 export interface SiteParserProfile {
     id: string;
@@ -35,6 +36,7 @@ const COMMON_EXCLUDE = [
     '[aria-label*="聞"]',
     '[aria-label*="音声"]',
 ].join(',');
+const log = Logger.scope('SiteParsers');
 
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
@@ -166,12 +168,18 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
 
 export function getMatchingSiteParsers(href = window.location.href): SiteParserProfile[] {
     const url = new URL(href, window.location.href);
-    return SITE_PARSER_PROFILES.filter(profile => profile.matches(url));
+    const profiles = SITE_PARSER_PROFILES.filter(profile => profile.matches(url));
+    log.debugThrottled('matching-parsers', 2000, 'Matched site parsers', { href: url.href, profiles: profiles.map(profile => profile.id) });
+    return profiles;
 }
 
 export function collectSiteScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] | null {
+    const done = log.time('Collect site scan targets', { limit, href });
     const profiles = getMatchingSiteParsers(href);
-    if (!profiles.length) return null;
+    if (!profiles.length) {
+        done();
+        return null;
+    }
 
     const targets: FragmentTextTarget[] = [];
     const seen = new Set<Text>();
@@ -194,14 +202,23 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
         }
     }
 
-    if (targets.length) return targets;
-    return profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
+    if (targets.length) {
+        log.debug('Collected site scan targets', { count: targets.length, profiles: profiles.map(profile => profile.id) });
+        done();
+        return targets;
+    }
+    const fallback = profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
+    log.debug('No site scan targets collected', { profiles: profiles.map(profile => profile.id), fallbackToVisible: fallback === null });
+    done();
+    return fallback;
 }
 
 export function collectScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] {
     const siteTargets = collectSiteScanTargets(limit, href);
     if (siteTargets !== null) return siteTargets;
-    return collectVisibleTextTargets(limit);
+    const targets = collectVisibleTextTargets(limit);
+    log.debug('Collected visible scan targets', { count: targets.length, limit });
+    return targets;
 }
 
 function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
@@ -210,7 +227,9 @@ function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
         roots.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
     }
     if (!roots.length && profile.id === 'nhk-parser') roots.push(document.body);
-    return uniqueVisibleRoots(roots);
+    const result = uniqueVisibleRoots(roots);
+    log.debugThrottled(`parser-roots:${profile.id}`, 2000, 'Queried parser roots', { parserId: profile.id, roots: result.length });
+    return result;
 }
 
 function uniqueVisibleRoots(roots: HTMLElement[]): HTMLElement[] {

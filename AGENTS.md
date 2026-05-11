@@ -37,3 +37,10 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 - Browser-impacting changes have screenshot or DOM evidence from `scripts/qa-audit.mjs`, a local fixture, or a clearly described manual/browser flow.
 - README claims match implemented behavior.
 - New external data/source usage is documented with license and attribution.
+
+## Changelog and Docs
+
+- Keep `CHANGELOG.md` up to date for every user-facing release. The website changelog includes this file directly through `docs/changelog.md`, so do not duplicate release notes elsewhere.
+- Put beginner-facing docs in `docs/` and keep install guidance plain enough for someone who has never used a userscript manager.
+- When screenshots need refreshing, run `npm run qa:audit` and copy the relevant Playwright screenshots from `qa-artifacts/` into `docs/assets/screenshots/`.
+- Run `npm run docs:build` after documentation or VitePress theme changes.

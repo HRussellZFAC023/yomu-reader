@@ -1,12 +1,13 @@
 import { Logger } from './logger';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
+import { getUserscriptHttpRequest } from './userscript';
 
 interface AudioCandidate {
     url: string;
     sourceUrl: string;
 }
 
-const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho'];
+const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const log = Logger.scope('Audio');
@@ -14,6 +15,7 @@ const log = Logger.scope('Audio');
 export class AudioPlayer {
     private current?: HTMLAudioElement;
     private utterance?: SpeechSynthesisUtterance;
+    private fallbackChimeContext?: AudioContext;
     private lastBlobUrl?: string;
     private playRequestId = 0;
     private shuffledAudio = new ShuffledAudioDeck();
@@ -26,11 +28,16 @@ export class AudioPlayer {
         if (!settings.audioEnabled) throw new Error('Audio playback is disabled.');
 
         const sources = getOrderedAudioSources(settings);
-        if (!sources.length) throw new Error('No audio sources configured.');
-
         this.stopCurrent();
+        if (!sources.length) {
+            log.warn('No audio sources configured', { term: card.spelling });
+            await this.playMissingAudioFallback(settings, requestId);
+            return;
+        }
+
         const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: settings.audioViaBlob });
         const errors: string[] = [];
+        const triedUrls = new Set<string>();
         for (const source of sources) {
             if (requestId !== this.playRequestId) {
                 log.debug('Audio request superseded', { term: card.spelling, requestId });
@@ -38,7 +45,7 @@ export class AudioPlayer {
                 return;
             }
             try {
-                if (await this.playFromSource(source, card, settings, requestId)) {
+                if (await this.playFromSource(source, card, settings, requestId, triedUrls)) {
                     log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
                     done();
                     return;
@@ -51,7 +58,7 @@ export class AudioPlayer {
 
         done();
         log.warn('No playable audio found', { term: card.spelling, errors });
-        throw new Error(errors.length ? `No playable audio found. ${errors[0]}` : 'No playable audio found.');
+        await this.playMissingAudioFallback(settings, requestId);
     }
 
     stop(): void {
@@ -67,13 +74,17 @@ export class AudioPlayer {
             speechSynthesis.cancel();
             this.utterance = undefined;
         }
+        if (this.fallbackChimeContext) {
+            void this.fallbackChimeContext.close().catch(() => undefined);
+            this.fallbackChimeContext = undefined;
+        }
         if (this.lastBlobUrl) {
             URL.revokeObjectURL(this.lastBlobUrl);
             this.lastBlobUrl = undefined;
         }
     }
 
-    private async playFromSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number): Promise<boolean> {
+    private async playFromSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number, triedUrls: Set<string>): Promise<boolean> {
         if (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') {
             if (requestId !== this.playRequestId) return true;
             await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
@@ -85,10 +96,16 @@ export class AudioPlayer {
         log.debug('Audio candidates resolved', { source: source.type, candidates: candidates.length });
         const bagKey = getAudioBagKey(source, card);
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
+            const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
+            if (triedUrls.has(candidateKey)) {
+                log.debug('Skipping duplicate audio candidate', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) });
+                continue;
+            }
+            triedUrls.add(candidateKey);
             try {
-                const audioUrl = settings.audioViaBlob || isJapanesePod101Url(candidate.sourceUrl)
+                const audioUrl = shouldFetchCandidateAsBlob(settings, candidate)
                     ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode)
-                    : await this.resolveAudioUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
+                    : candidate.url;
                 if (requestId !== this.playRequestId) return true;
                 const audio = new Audio(audioUrl);
                 audio.preload = 'auto';
@@ -115,23 +132,12 @@ export class AudioPlayer {
         }
 
         if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
-        if (isJapanesePod101Url(sourceUrl) && await isUnavailableJapanesePod101Audio(response)) {
+        if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
             throw new Error('JapanesePod101 has no audio for this term.');
         }
         this.lastBlobUrl = URL.createObjectURL(response);
         log.debug('Audio blob URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size });
         return this.lastBlobUrl;
-    }
-
-    private async resolveAudioUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
-        const response = await requestUrl(url, 'text', timeoutMs);
-        if (typeof response !== 'string') return url;
-
-        try {
-            return findAudioUrl(JSON.parse(response), sourceUrl, mode) ?? url;
-        } catch {
-            return url;
-        }
     }
 
     private playTextToSpeech(text: string, voiceName: string): Promise<void> {
@@ -147,6 +153,66 @@ export class AudioPlayer {
             this.utterance = utterance;
             speechSynthesis.speak(utterance);
         });
+    }
+
+    private async playMissingAudioFallback(settings: ReaderSettings, requestId: number): Promise<void> {
+        if (!settings.audioFallbackChimeEnabled) {
+            log.debug('Missing-audio fallback is silent');
+            return;
+        }
+        if (requestId !== this.playRequestId) return;
+
+        try {
+            await this.playSoftChime(requestId);
+            log.debug('Missing-audio fallback chime played');
+        } catch (error) {
+            log.debug('Missing-audio fallback chime unavailable', {}, error);
+        }
+    }
+
+    private async playSoftChime(requestId: number): Promise<void> {
+        const AudioContextCtor = window.AudioContext
+            ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextCtor) return;
+
+        const context = new AudioContextCtor();
+        this.fallbackChimeContext = context;
+        if (context.state === 'suspended') await context.resume().catch(() => undefined);
+        if (requestId !== this.playRequestId) return;
+
+        const start = context.currentTime + 0.015;
+        const filter = context.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1800, start);
+
+        const master = context.createGain();
+        master.gain.setValueAtTime(0.72, start);
+        filter.connect(master);
+        master.connect(context.destination);
+
+        [
+            { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
+            { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
+        ].forEach(note => {
+            const noteStart = start + note.offset;
+            const oscillator = context.createOscillator();
+            const gain = context.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+            gain.gain.setValueAtTime(0.0001, noteStart);
+            gain.gain.exponentialRampToValueAtTime(note.gain, noteStart + 0.018);
+            gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + note.duration);
+            oscillator.connect(gain);
+            gain.connect(filter);
+            oscillator.start(noteStart);
+            oscillator.stop(noteStart + note.duration + 0.03);
+        });
+
+        await new Promise(resolve => window.setTimeout(resolve, 460));
+        if (this.fallbackChimeContext === context) {
+            this.fallbackChimeContext = undefined;
+            await context.close().catch(() => undefined);
+        }
     }
 }
 
@@ -395,12 +461,6 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
     });
 }
 
-function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
-    if (typeof GM !== 'undefined') return GM.xmlHttpRequest ?? GM.xmlhttpRequest;
-    return undefined;
-}
-
 function normalizeAudioUrl(value: string, sourceUrl?: string): string {
     try {
         const nested = new URL(value);
@@ -419,8 +479,37 @@ function normalizeAudioUrl(value: string, sourceUrl?: string): string {
     }
 }
 
+function normalizeAttemptedAudioUrl(value: string): string {
+    try {
+        const url = new URL(value, location.href);
+        url.hash = '';
+        return url.href;
+    } catch {
+        return value;
+    }
+}
+
+function shouldFetchCandidateAsBlob(settings: ReaderSettings, candidate: AudioCandidate): boolean {
+    return shouldFetchAudioAsBlob(settings)
+        || isJapanesePod101Url(candidate.url)
+        || isJapanesePod101Url(candidate.sourceUrl);
+}
+
+function shouldFetchAudioAsBlob(settings: ReaderSettings): boolean {
+    return settings.audioViaBlob && isLikelyIosBrowser();
+}
+
+function isLikelyIosBrowser(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const platform = navigator.platform || '';
+    const userAgent = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/i.test(platform)
+        || /iPad|iPhone|iPod/i.test(userAgent)
+        || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 function getProxyUrl(url: string): string {
-    if (typeof GM_xmlhttpRequest === 'function') return url;
+    if (getUserscriptHttpRequest()) return url;
     if (!['localhost', '127.0.0.1'].includes(location.hostname)) return url;
     if (!/^https?:\/\//.test(url)) return url;
     return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;

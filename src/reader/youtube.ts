@@ -1,6 +1,7 @@
 import { APP_NAME } from './constants';
 import { HAS_JAPANESE } from './dom';
 import { uiText } from './i18n';
+import { Logger } from './logger';
 import type { ReaderSettings } from './types';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
@@ -61,6 +62,7 @@ const TITLE_SELECTOR = [
 const JAPANESE_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff]/g;
 const KANA_RE = /[\u3040-\u30ff]/g;
 const LATIN_WORD_RE = /[a-z]{3,}/gi;
+const log = Logger.scope('YouTubeFilter');
 
 export function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
@@ -88,7 +90,9 @@ export function collectYouTubeVideoCards(root: ParentNode = document): HTMLEleme
         const card = link.closest<HTMLElement>(VIDEO_CARD_CLOSEST_SELECTOR) ?? link.parentElement;
         if (card && !card.closest('[data-jpdb-reader-root]')) cards.add(card);
     });
-    return [...cards].filter(card => card.isConnected);
+    const result = [...cards].filter(card => card.isConnected);
+    log.debugThrottled('collect-cards', 2000, 'Collected YouTube video cards', { count: result.length });
+    return result;
 }
 
 export function readYouTubeCardText(card: HTMLElement): string {
@@ -113,7 +117,10 @@ export class YoutubeImmersionFilter {
     }) {}
 
     init(): void {
-        if (!isYouTubeHost()) return;
+        if (!isYouTubeHost()) {
+            log.debug('YouTube filter initialization skipped', { hostname: location.hostname });
+            return;
+        }
         this.observer?.disconnect();
         this.observer = new MutationObserver(mutations => {
             if (mutations.every(mutationInsideReaderRoot)) return;
@@ -123,26 +130,32 @@ export class YoutubeImmersionFilter {
         window.addEventListener('yt-navigate-finish', () => this.schedule(120));
         window.addEventListener('popstate', () => this.schedule(120));
         this.schedule(300);
+        log.info('YouTube filter initialized', { enabled: this.options.getSettings().youtubeImmersionEnabled });
     }
 
     refresh(): void {
         if (!isYouTubeHost()) return;
         if (!this.options.getSettings().youtubeImmersionEnabled) {
+            log.debug('YouTube filter refresh disabled by settings');
             this.clear();
             return;
         }
+        log.debug('YouTube filter refresh scheduled');
         this.schedule(0);
     }
 
     private schedule(delay: number): void {
         window.clearTimeout(this.timer);
         this.timer = window.setTimeout(() => this.scan(), delay);
+        log.debugThrottled('schedule', 1000, 'YouTube filter scan scheduled', { delay });
     }
 
     private scan(): void {
+        const done = log.time('YouTube filter scan');
         const settings = this.options.getSettings();
         if (!settings.youtubeImmersionEnabled) {
             this.clear();
+            done();
             return;
         }
 
@@ -164,6 +177,8 @@ export class YoutubeImmersionFilter {
 
         if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount, settings);
         else this.bar?.remove();
+        log.debug('YouTube filter scan completed', { filteredCount, shownCount, revealed: this.revealed });
+        done();
     }
 
     private hideCard(card: HTMLElement): void {
@@ -202,9 +217,11 @@ export class YoutubeImmersionFilter {
                 const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
                 if (action === 'show-anyway') {
                     this.revealed = !this.revealed;
+                    log.info('YouTube filter reveal toggled', { revealed: this.revealed });
                     this.schedule(0);
                 }
                 if (action === 'turn-off') {
+                    log.info('YouTube filter turn-off clicked');
                     this.options.setEnabled?.(false);
                     if (!this.options.setEnabled) this.clear();
                 }
@@ -233,6 +250,7 @@ export class YoutubeImmersionFilter {
         document.querySelectorAll<HTMLElement>('[data-yomu-youtube-filtered="true"]').forEach(card => this.showCard(card));
         this.bar?.remove();
         this.bar = undefined;
+        log.debug('YouTube filter cleared');
     }
 }
 
