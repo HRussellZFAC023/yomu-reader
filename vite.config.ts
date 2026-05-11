@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { readFileSync } from 'node:fs';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
@@ -15,9 +16,9 @@ const userscriptIcon = `data:image/svg+xml,${encodeURIComponent(userscriptIconSv
 export default defineConfig({
     plugins: [
         {
-            name: 'jpdb-reader-audio-proxy',
+            name: 'jpdb-reader-dev-proxies',
             configureServer(server) {
-                server.middlewares.use('/__jpdb-reader-audio-proxy', async (req, res) => {
+                const proxy = async (req: IncomingMessage, res: ServerResponse, label: string) => {
                     try {
                         const requestUrl = new URL(req.url ?? '', 'http://127.0.0.1');
                         const target = requestUrl.searchParams.get('url');
@@ -30,13 +31,17 @@ export default defineConfig({
                         res.statusCode = response.status;
                         res.setHeader('access-control-allow-origin', '*');
                         res.setHeader('content-type', response.headers.get('content-type') ?? 'application/octet-stream');
+                        const disposition = response.headers.get('content-disposition');
+                        if (disposition) res.setHeader('content-disposition', disposition);
                         const body = Buffer.from(await response.arrayBuffer());
                         res.end(body);
                     } catch (error) {
                         res.statusCode = 502;
-                        res.end(error instanceof Error ? error.message : 'Proxy failed');
+                        res.end(error instanceof Error ? error.message : `${label} proxy failed`);
                     }
-                });
+                };
+                server.middlewares.use('/__jpdb-reader-audio-proxy', (req, res) => void proxy(req, res, 'Audio'));
+                server.middlewares.use('/__jpdb-reader-dictionary-proxy', (req, res) => void proxy(req, res, 'Dictionary'));
             },
         },
         monkey({
@@ -65,6 +70,9 @@ export default defineConfig({
                 ],
                 grant: [
                     'GM.xmlHttpRequest',
+                    // Some managers expose this legacy lowercase-h alias, but vite-plugin-monkey's grant types omit it.
+                    // @ts-expect-error keep the literal metadata entry for compatibility.
+                    'GM.xmlhttpRequest',
                     'GM_xmlhttpRequest',
                     'GM_setValue',
                     'GM_getValue',

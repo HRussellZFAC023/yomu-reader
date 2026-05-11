@@ -1,4 +1,5 @@
 import { HAS_JAPANESE, escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { Logger } from './logger';
 import { accentToRgba } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
@@ -49,6 +50,7 @@ const LENS_PLATFORM_WEB = 3;
 const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
+const log = Logger.scope('OCR');
 
 interface ProtoField {
     field: number;
@@ -83,12 +85,14 @@ export class ImageOcrController {
             if (mutations.some(mutation => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
         });
         this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+        log.info('OCR controller initialized');
     }
 
     refresh(): void {
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) {
             this.clear();
+            log.debug('OCR disabled; cleared overlays');
             return;
         }
 
@@ -104,6 +108,7 @@ export class ImageOcrController {
             this.observer?.observe(image);
         }
         this.schedulePosition();
+        log.debugThrottled('refresh', 2500, 'OCR refreshed image candidates', { images: images.length });
     }
 
     toggle(): void {
@@ -111,16 +116,19 @@ export class ImageOcrController {
         settings.ocrEnabled = !settings.ocrEnabled;
         this.options.onToast(settings.ocrEnabled ? 'Image reading enabled.' : 'Image reading hidden.');
         this.refresh();
+        log.info('OCR toggled', { enabled: settings.ocrEnabled });
     }
 
     async scanVisible(): Promise<void> {
         this.refresh();
         const images = [...this.states.keys()].filter(image => isNearViewport(image, 120));
         if (!images.length) {
+            log.debug('Manual OCR scan found no nearby images');
             this.options.onToast('No readable images nearby.');
             return;
         }
         images.forEach(image => this.enqueue(image, true));
+        log.info('Manual OCR scan queued images', { images: images.length });
     }
 
     captureSourceImageForElement(element: Element | null): string | undefined {
@@ -128,7 +136,9 @@ export class ImageOcrController {
         if (!line) return undefined;
         const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
         if (!state) return undefined;
-        return captureImageElement(state.image);
+        const image = captureImageElement(state.image);
+        log.debug('Captured OCR source image for mining', { success: Boolean(image) });
+        return image;
     }
 
     private ensureObserver(settings: ReaderSettings): void {
@@ -145,6 +155,7 @@ export class ImageOcrController {
                 if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
             }
         }, { rootMargin });
+        log.debug('OCR observer configured', { rootMargin });
     }
 
     private ensureState(image: HTMLImageElement): ImageState {
@@ -169,6 +180,7 @@ export class ImageOcrController {
             this.scheduleRefresh(80);
         });
         this.states.set(image, state);
+        log.debug('OCR state created for image', imageSummary(image));
         return state;
     }
 
@@ -188,6 +200,7 @@ export class ImageOcrController {
             state.status.hidden = false;
             state.status.textContent = 'Reading image...';
         }
+        log.debug('OCR image queued', { userRequested, queue: this.queue.length, image: imageSummary(image) });
         this.drainQueue();
     }
 
@@ -198,6 +211,7 @@ export class ImageOcrController {
         this.busy = true;
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
         const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
+        log.debug('OCR queue draining', { delay, hasFastText, remaining: this.queue.length });
         void waitForIdle(delay)
             .then(() => this.scanImage(image))
             .finally(() => {
@@ -214,6 +228,7 @@ export class ImageOcrController {
         this.resetStateIfImageChanged(state);
         const cached = this.cache.get(key);
         if (cached) {
+            log.debug('OCR cache hit', { image: imageSummary(image), lines: cached.lines.length });
             await this.renderResult(state, cached);
             state.manualRequested = false;
             return;
@@ -225,6 +240,8 @@ export class ImageOcrController {
         const canUseCloudVision = settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim();
         const canUseGoogleLens = settings.ocrProvider === 'google-lens';
         state.status.textContent = 'Reading image...';
+        const provider = inlineProviderLabel(settings);
+        const done = log.time('scanImage', { provider, image: imageSummary(image), manualRequested });
 
         try {
             const inlineFallback = readFallbackOcrResult(image, false);
@@ -241,24 +258,29 @@ export class ImageOcrController {
                 state.autoSkipped = !manualRequested;
                 state.status.textContent = 'No Japanese text found';
                 state.status.hidden = !state.overlayRequested || state.autoSkipped;
+                log.debug('OCR found no lines', { provider, manualRequested });
                 return;
             }
 
             this.remember(key, result);
             state.key = key;
             await this.renderResult(state, result);
+            log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
         } catch (error) {
             const fallback = readFallbackOcrResult(image, false);
             if (fallback?.lines.length) {
+                log.warn('OCR provider failed; rendered fallback metadata', { provider }, error);
                 await this.renderResult(state, fallback);
             } else {
                 state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
                 state.autoSkipped = !manualRequested;
                 state.status.hidden = !state.overlayRequested || state.autoSkipped;
+                log.warn('OCR scan failed', { provider, manualRequested }, error);
             }
         } finally {
             state.loading = false;
             state.manualRequested = false;
+            done();
         }
     }
 
@@ -272,7 +294,10 @@ export class ImageOcrController {
 
         const sentence = result.lines.map(line => line.text).join('\n');
         const parsed = settings.apiKey.trim() || settings.localDictionariesEnabled
-            ? await Promise.all(result.lines.map(line => this.options.parseJapanese(line.text).catch(() => [])))
+            ? await Promise.all(result.lines.map(line => this.options.parseJapanese(line.text).catch(error => {
+                log.debug('OCR line parse failed quietly', { textLength: line.text.length }, error);
+                return [];
+            })))
             : result.lines.map(() => []);
         state.overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
         state.overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
@@ -328,6 +353,11 @@ export class ImageOcrController {
             state.overlay.append(element);
         }
         this.positionState(state.image);
+        log.debug('OCR overlay lines positioned', {
+            lines: result.lines.length,
+            parsedTokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0),
+            forcedOverlay: forceOverlay,
+        });
     }
 
     private activateLine(state: ImageState, element: HTMLElement, pinned: boolean): void {
@@ -355,6 +385,7 @@ export class ImageOcrController {
         state.autoSkipped = false;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
         state.status.hidden = true;
+        log.debug('OCR image state reset after source change', { image: imageSummary(state.image) });
     }
 
     private remember(key: string, result: OcrResult): void {
@@ -413,6 +444,7 @@ export class ImageOcrController {
         this.queue = [];
         for (const state of this.states.values()) state.overlay.remove();
         this.states.clear();
+        log.debug('OCR state cleared');
     }
 
     private pruneDisconnectedStates(): void {
@@ -520,6 +552,7 @@ function visualTextLength(text: string): number {
 }
 
 async function recognizeViaLocalService(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    log.debug('Recognizing image via local OCR service', { endpointHost: safeHost(settings.ocrEndpointUrl), engine: settings.ocrEngine });
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const payload = await canvasToBase64Payload(canvas);
     const engine = settings.ocrEngine === 'auto' ? '' : settings.ocrEngine;
@@ -542,6 +575,7 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
 }
 
 async function recognizeViaCloudVision(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    log.debug('Recognizing image via Cloud Vision');
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const payload = await canvasToBase64Payload(canvas);
     const body = JSON.stringify({
@@ -557,6 +591,7 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
 }
 
 async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    log.debug('Recognizing image via Google Lens');
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const blob = await canvasToBlob(canvas, 'image/jpeg', 0.88);
     const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -564,12 +599,14 @@ async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderS
     try {
         const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
         return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-    } catch {
+    } catch (error) {
+        log.warn('Google Lens protobuf endpoint failed; trying upload fallback', error);
         return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
     }
 }
 
 async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: number, timeout: number): Promise<OcrResult | null> {
+    log.debug('Recognizing image via Google Lens upload fallback', { width, height, size: blob.size });
     const data = new FormData();
     data.append('encoded_image', blob, 'image.jpg');
     const response = await requestTextForm('https://lens.google.com/v3/upload?stcs=' + Date.now().toString().slice(0, 10), data, timeout);
@@ -579,7 +616,8 @@ async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: n
 async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
     try {
         return drawImageToCanvas(image, maxPixels);
-    } catch {
+    } catch (error) {
+        log.debug('Direct canvas draw failed; fetching image blob fallback', { image: imageSummary(image) }, error);
         const url = image.currentSrc || image.src;
         if (!url || url.startsWith('data:')) throw new Error('Image cannot be read by OCR.');
         const blob = await requestBlob(url);
@@ -1105,6 +1143,7 @@ function randomBytes(length: number): Uint8Array {
 
 function requestJson(url: string, data: string, timeout: number): Promise<unknown> {
     if (typeof GM_xmlhttpRequest === 'function') {
+        log.debug('JSON OCR request via userscript API', { host: safeHost(url), bytes: data.length });
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'POST',
@@ -1121,6 +1160,7 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
             });
         });
     }
+    log.debug('JSON OCR request via fetch', { host: safeHost(url), bytes: data.length });
     return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: data })
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
 }
@@ -1128,6 +1168,7 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
 function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
     const body = new Uint8Array(data);
     if (typeof GM_xmlhttpRequest === 'function') {
+        log.debug('ArrayBuffer OCR request via userscript API', { host: safeHost(url), bytes: body.byteLength });
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'POST',
@@ -1149,6 +1190,7 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Pro
             });
         });
     }
+    log.debug('ArrayBuffer OCR request via fetch', { host: safeHost(url), bytes: body.byteLength });
     return fetch(url, {
         method: 'POST',
         headers: {
@@ -1163,6 +1205,7 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Pro
 
 function requestTextForm(url: string, data: FormData, timeout: number): Promise<string> {
     if (typeof GM_xmlhttpRequest === 'function') {
+        log.debug('Form OCR request via userscript API', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'POST',
@@ -1178,11 +1221,13 @@ function requestTextForm(url: string, data: FormData, timeout: number): Promise<
             });
         });
     }
+    log.debug('Form OCR request via fetch', { host: safeHost(url) });
     return fetch(url, { method: 'POST', body: data }).then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
 }
 
 function requestBlob(url: string): Promise<Blob> {
     if (typeof GM_xmlhttpRequest === 'function') {
+        log.debug('Image blob request via userscript API', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'GET',
@@ -1195,6 +1240,7 @@ function requestBlob(url: string): Promise<Blob> {
             });
         });
     }
+    log.debug('Image blob request via fetch', { host: safeHost(url) });
     return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
 }
 
@@ -1240,4 +1286,28 @@ function stringFrom(value: unknown): string {
 function numberFrom(value: unknown): number | null {
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
+}
+
+function imageSummary(image: HTMLImageElement): Record<string, unknown> {
+    return {
+        host: safeHost(image.currentSrc || image.src),
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+        altLength: image.alt?.length ?? 0,
+    };
+}
+
+function inlineProviderLabel(settings: ReaderSettings): string {
+    if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) return `local-service:${settings.ocrEngine || 'auto'}`;
+    if (settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim()) return 'cloud-vision';
+    if (settings.ocrProvider === 'google-lens') return 'google-lens';
+    return settings.ocrProvider;
+}
+
+function safeHost(value: string): string {
+    try {
+        return new URL(value, location.href).host;
+    } catch {
+        return 'inline-or-invalid';
+    }
 }

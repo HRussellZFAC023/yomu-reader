@@ -1,6 +1,8 @@
 import { escapeHtml } from './dom';
+import { Logger } from './logger';
 
 const KANJIVG_RAW_BASE = 'https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji';
+const log = Logger.scope('KanjiVG');
 
 export interface KanjiVGInfo {
     kanji: string;
@@ -16,17 +18,25 @@ export class KanjiVGClient {
         if (!character) return Promise.resolve(null);
         let promise = this.cache.get(character);
         if (!promise) {
+            log.debug('Lookup cache miss', { kanji: character });
             promise = this.fetchSvg(character);
             this.cache.set(character, promise);
+        } else {
+            log.debug('Lookup cache hit', { kanji: character });
         }
         return promise;
     }
 
     private async fetchSvg(kanji: string): Promise<KanjiVGInfo | null> {
         const url = kanjiVGUrl(kanji);
-        const svgText = await requestText(url).catch(() => '');
+        const svgText = await requestText(url).catch(error => {
+            log.warn('Stroke-order request failed', { kanji }, error);
+            return '';
+        });
         if (!svgText) return null;
-        return parseKanjiVGSvg(svgText, kanji);
+        const info = parseKanjiVGSvg(svgText, kanji);
+        log.debug('Stroke-order SVG parsed', { kanji, found: Boolean(info), strokes: info?.strokeCount ?? 0 });
+        return info;
     }
 }
 

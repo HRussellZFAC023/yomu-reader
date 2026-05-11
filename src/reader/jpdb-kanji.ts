@@ -1,3 +1,5 @@
+import { Logger } from './logger';
+
 export interface JpdbKanjiReading {
     reading: string;
     share: string;
@@ -32,6 +34,7 @@ export interface JpdbKanjiInfo {
 
 const JPDB_KANJI_BASE_URL = 'https://jpdb.io/kanji';
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const log = Logger.scope('JpdbKanji');
 
 export class JpdbKanjiClient {
     private cache = new Map<string, Promise<JpdbKanjiInfo | null>>();
@@ -41,15 +44,23 @@ export class JpdbKanjiClient {
         if (!key) return Promise.resolve(null);
         let promise = this.cache.get(key);
         if (!promise) {
+            log.debug('Lookup cache miss', { kanji: key });
             promise = this.fetchInfo(key);
             this.cache.set(key, promise);
+        } else {
+            log.debug('Lookup cache hit', { kanji: key });
         }
         return promise;
     }
 
     private async fetchInfo(kanji: string): Promise<JpdbKanjiInfo | null> {
-        const html = await requestText(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch(() => '');
-        return html ? parseJpdbKanjiHtml(html, kanji) : null;
+        const html = await requestText(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch(error => {
+            log.warn('Kanji page request failed', { kanji }, error);
+            return '';
+        });
+        const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
+        log.debug('Kanji info parsed', { kanji, found: Boolean(info) });
+        return info;
     }
 }
 
@@ -187,6 +198,7 @@ function escapeRegExp(value: string): string {
 function requestText(url: string): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
+        log.debug('Kanji page request via userscript API');
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'GET',
@@ -202,6 +214,7 @@ function requestText(url: string): Promise<string> {
         });
     }
 
+    log.debug('Kanji page request via fetch');
     return fetch(url).then(response => {
         if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
         return response.text();

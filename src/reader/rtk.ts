@@ -1,3 +1,5 @@
+import { Logger } from './logger';
+
 export interface RtkInfo {
     kanji: string;
     keyword: string;
@@ -13,6 +15,7 @@ export interface RtkInfo {
 
 const RTK_BASE_URL = 'https://hrussellzfac023.github.io/rtk';
 const KANJI_RE = /[\u3400-\u9fff]/u;
+const log = Logger.scope('RTK');
 
 export class RtkClient {
     private cache = new Map<string, Promise<RtkInfo | null>>();
@@ -22,16 +25,24 @@ export class RtkClient {
         const key = Array.from(kanji)[0] ?? kanji;
         let promise = this.cache.get(key);
         if (!promise) {
+            log.debug('Lookup cache miss', { kanji: key });
             promise = this.fetchInfo(key);
             this.cache.set(key, promise);
+        } else {
+            log.debug('Lookup cache hit', { kanji: key });
         }
         return promise;
     }
 
     private async fetchInfo(kanji: string): Promise<RtkInfo | null> {
-        const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch(() => '');
+        const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch(error => {
+            log.warn('RTK request failed', { kanji }, error);
+            return '';
+        });
         if (!html) return null;
-        return parseRtkHtml(html, kanji);
+        const info = parseRtkHtml(html, kanji);
+        log.debug('RTK info parsed', { kanji, found: Boolean(info), keyword: info?.keyword ?? '' });
+        return info;
     }
 }
 

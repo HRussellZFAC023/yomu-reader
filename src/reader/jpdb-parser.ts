@@ -1,0 +1,194 @@
+import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
+
+const SMALL_KANA = new Set('ゃゅょァィゥェォッャュョ');
+
+export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
+    return vocabulary.map(([
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank,
+        partOfSpeech,
+        meaningsChunks,
+        meaningsPartOfSpeech,
+        cardState,
+        pitchAccent,
+    ]) => ({
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank,
+        partOfSpeech,
+        meanings: meaningsChunks.map((glosses, index) => ({
+            glosses,
+            partOfSpeech: meaningsPartOfSpeech[index] ?? [],
+        })),
+        cardState: cardState?.length ? cardState : ['not-in-deck'],
+        pitchAccent: pitchAccent ?? [],
+        wordWithReading: null,
+        source: 'jpdb',
+    }));
+}
+
+export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRawToken[][], cards: JPDBCard[]): JPDBToken[][] {
+    const tokens = rawTokens.map(innerTokens => parseParagraphTokens(innerTokens, cards));
+    assignSentenceInfo(paragraphs, tokens);
+    return tokens;
+}
+
+function parseParagraphTokens(rawTokens: JPDBRawToken[], cards: JPDBCard[]): JPDBToken[] {
+    let inheritedPitchClass = '';
+    return rawTokens.map(rawToken => {
+        const token = parseToken(rawToken, cards, inheritedPitchClass);
+        inheritedPitchClass = token.pitchClass;
+        return token;
+    });
+}
+
+function parseToken([vocabularyIndex, position, length, furigana]: JPDBRawToken, cards: JPDBCard[], inheritedPitchClass: string): JPDBToken {
+    const card = cards[vocabularyIndex];
+    const token: JPDBToken = {
+        card,
+        start: position,
+        end: position + length,
+        length,
+        rubies: parseRubies(furigana, position),
+        pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass),
+    };
+    assignWordWithReading(token);
+    return token;
+}
+
+function parseRubies(furigana: JPDBRawToken[3], startOffset: number): JPDBRuby[] {
+    if (furigana === null) return [];
+
+    let offset = startOffset;
+    return furigana.flatMap(part => {
+        if (typeof part === 'string') {
+            offset += part.length;
+            return [];
+        }
+
+        const [base, ruby] = part;
+        const start = offset;
+        const end = (offset = start + base.length);
+        return [{ text: ruby, start, end, length: base.length }];
+    });
+}
+
+function inheritedOrCurrentPitchClass(card: JPDBCard, inheritedPitchClass: string): string {
+    if (card.partOfSpeech.includes('prt')) return inheritedPitchClass;
+    return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
+}
+
+function assignSentenceInfo(paragraphs: string[], tokens: JPDBToken[][]): void {
+    paragraphs.forEach((paragraph, index) => {
+        const tokenData = tokens[index] ?? [];
+        const sentences = splitJapaneseSentences(paragraph);
+        if (sentences.length === 1) {
+            tokenData.forEach(token => { token.sentence = sentences[0]; });
+            return;
+        }
+
+        let offset = 0;
+        for (const sentence of sentences) {
+            const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, '');
+            const relativeStart = paragraph.slice(offset).indexOf(compare);
+            if (relativeStart === -1) {
+                offset += sentence.length;
+                continue;
+            }
+
+            const start = offset + relativeStart;
+            const end = start + sentence.length;
+            for (const token of tokenData) {
+                if (token.start >= start && token.end <= end) token.sentence = sentence;
+            }
+            offset += sentence.length;
+        }
+    });
+}
+
+export function splitJapaneseSentences(text: string): string[] {
+    const sentences: string[] = [];
+    let start = 0;
+    let quote: '」' | '』' | null = null;
+
+    for (let index = 0; index < text.length; index++) {
+        const char = text[index];
+        if (char === '「') quote = '」';
+        if (char === '『') quote = '』';
+
+        if (quote) {
+            if (char === quote) {
+                const next = text[index + 1];
+                quote = null;
+                if (!next || /\s/.test(next) || !/[、，]/.test(next)) {
+                    sentences.push(text.slice(start, index + 1).trim());
+                    start = index + 1;
+                }
+            }
+            continue;
+        }
+
+        if ('。！？'.includes(char)) {
+            const next = text[index + 1];
+            const end = next === '」' || next === '』' ? index + 2 : index + 1;
+            sentences.push(text.slice(start, end).trim());
+            start = end;
+            if (next === '」' || next === '』') index++;
+        }
+    }
+
+    const tail = text.slice(start).trim();
+    if (tail) sentences.push(tail);
+
+    const nonEmptySentences = sentences.filter(Boolean);
+    return nonEmptySentences.length ? nonEmptySentences : [text];
+}
+
+export function getPitchClass(pitchAccent: string[], reading: string): string {
+    if (!pitchAccent.length) return '';
+
+    const [pitch] = pitchAccent;
+    const parts = pitch.split('');
+    const first = parts.shift();
+    const last = parts.pop();
+    if (!first || !last) return '';
+
+    if (reading.length > 1 && SMALL_KANA.has(reading.charAt(1)) && first === parts[0]) {
+        parts.shift();
+    }
+
+    const rises = (pitch.match(/LH/g) ?? []).length;
+    const drops = (pitch.match(/HL/g) ?? []).length;
+    const startsLow = first === 'L';
+    const startsHigh = !startsLow;
+    const endsLow = last === 'L';
+    const endsHigh = !endsLow;
+    const allHigh = !parts.includes('L');
+
+    if (reading.length === 1 && pitch === 'HL') return 'odaka';
+    if (startsHigh && drops === 1 && parts[0] === 'L') return 'atamadaka';
+    if (startsLow && endsLow && rises === 1) return 'nakadaka';
+    if (startsLow && rises === 1 && (endsLow || parts.length === 1)) return 'odaka';
+    if (startsLow && allHigh && endsHigh) return 'heiban';
+    if (rises > 1 || drops > 1) return 'kifuku';
+    return '';
+}
+
+function assignWordWithReading(token: JPDBToken): void {
+    const { card, rubies, start: offset } = token;
+    if (!rubies.length) return;
+
+    const word = Array.from(card.spelling);
+    for (let i = rubies.length - 1; i >= 0; i--) {
+        const { text, start, length } = rubies[i];
+        word.splice(start - offset + length, 0, `[${text}]`);
+    }
+    card.wordWithReading = word.join('');
+}

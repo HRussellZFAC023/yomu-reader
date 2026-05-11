@@ -1,3 +1,4 @@
+import { Logger } from './logger';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
 interface AudioCandidate {
@@ -8,6 +9,7 @@ interface AudioCandidate {
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
+const log = Logger.scope('Audio');
 
 export class AudioPlayer {
     private current?: HTMLAudioElement;
@@ -27,22 +29,35 @@ export class AudioPlayer {
         if (!sources.length) throw new Error('No audio sources configured.');
 
         this.stopCurrent();
+        const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: settings.audioViaBlob });
         const errors: string[] = [];
         for (const source of sources) {
-            if (requestId !== this.playRequestId) return;
+            if (requestId !== this.playRequestId) {
+                log.debug('Audio request superseded', { term: card.spelling, requestId });
+                done();
+                return;
+            }
             try {
-                if (await this.playFromSource(source, card, settings, requestId)) return;
+                if (await this.playFromSource(source, card, settings, requestId)) {
+                    log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
+                    done();
+                    return;
+                }
             } catch (error) {
+                log.debug('Audio source failed; trying next source', { term: card.spelling, source: source.type }, error);
                 errors.push(error instanceof Error ? error.message : String(error));
             }
         }
 
+        done();
+        log.warn('No playable audio found', { term: card.spelling, errors });
         throw new Error(errors.length ? `No playable audio found. ${errors[0]}` : 'No playable audio found.');
     }
 
     stop(): void {
         this.playRequestId++;
         this.stopCurrent();
+        log.debug('Audio stopped');
     }
 
     private stopCurrent(): void {
@@ -62,10 +77,12 @@ export class AudioPlayer {
         if (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') {
             if (requestId !== this.playRequestId) return true;
             await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
+            log.debug('Text-to-speech playback started', { source: source.type, voice: source.voice || 'auto' });
             return true;
         }
 
         const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs);
+        log.debug('Audio candidates resolved', { source: source.type, candidates: candidates.length });
         const bagKey = getAudioBagKey(source, card);
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
             try {
@@ -79,6 +96,7 @@ export class AudioPlayer {
                 await audio.play();
                 if (requestId !== this.playRequestId) audio.pause();
                 this.shuffledAudio.markPlayed(bagKey, id);
+                log.debug('Audio candidate playing', { source: source.type, viaBlob: audioUrl.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
                 return true;
             } catch {
                 // Try the next source or candidate.
@@ -101,6 +119,7 @@ export class AudioPlayer {
             throw new Error('JapanesePod101 has no audio for this term.');
         }
         this.lastBlobUrl = URL.createObjectURL(response);
+        log.debug('Audio blob URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size });
         return this.lastBlobUrl;
     }
 
@@ -345,6 +364,7 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
     const url = getProxyUrl(responseUrl);
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
+        log.debug('Audio request via userscript API', { responseType, host: safeHost(url) });
         return new Promise((resolve, reject) => {
             const handleLoad = (response: UserscriptHttpResponse) => {
                 if (response.status >= 200 && response.status < 300) {
@@ -368,6 +388,7 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
         });
     }
 
+    log.debug('Audio request via fetch', { responseType, host: safeHost(url) });
     return fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).then(async response => {
         if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
         return responseType === 'blob' ? await response.blob() : await response.text();
@@ -407,4 +428,12 @@ function getProxyUrl(url: string): string {
 
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function safeHost(value: string): string {
+    try {
+        return new URL(value, location.href).host;
+    } catch {
+        return 'invalid-url';
+    }
 }

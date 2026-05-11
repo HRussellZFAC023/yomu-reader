@@ -73,6 +73,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
                     ${select('theme', 'Theme', settings.theme, [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']])}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
+                    ${checkbox('enableLogging', 'Enable console logging', settings.enableLogging)}
                     ${input('accentColor', 'Accent color', sanitizeAccentColor(settings.accentColor), 'color')}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
@@ -363,6 +364,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['interfaceLanguage', 'settingsLanguage'],
         ['theme', 'theme'],
         ['popupMode', 'popupMode'],
+        ['enableLogging', 'enableLogging'],
         ['accentColor', 'accentColor'],
         ['wordColorNew', 'wordColorNew'],
         ['wordColorLearning', 'wordColorLearning'],
@@ -1228,6 +1230,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiMobileHandoff: has('ankiMobileHandoff'),
         studyTranslationEnabled: has('studyTranslationEnabled'),
         studyGrammarEnabled: has('studyGrammarEnabled'),
+        enableLogging: has('enableLogging'),
         theme: get('theme') as ReaderSettings['theme'],
         popupMode: get('popupMode') as ReaderSettings['popupMode'],
         miningDeck: get('miningDeck').trim() || 'forq',
