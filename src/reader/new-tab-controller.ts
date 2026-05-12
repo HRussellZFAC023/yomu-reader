@@ -418,7 +418,7 @@ export class NewTabController {
 
         if (slots.count) slots.count.textContent = `${this.index + 1} / ${this.visibleWords.length}`;
         if (slots.reveal) slots.reveal.textContent = this.state.revealAnswer ? 'Hide' : 'Reveal';
-        if (slots.status) slots.status.textContent = this.sourceLabel;
+        if (slots.status) slots.status.textContent = '';
     }
 
     private studySlots(root: HTMLElement): NewTabStudySlots {
