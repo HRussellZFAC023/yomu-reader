@@ -28,11 +28,12 @@ export const AUDIO_SOURCE_LABELS: Record<AudioSourceType, string> = {
     wiktionary: '(Commons) Wiktionary',
     'text-to-speech': 'Text-to-speech',
     'text-to-speech-reading': 'Text-to-speech (Kana reading)',
-    custom: 'Custom URL',
-    'custom-json': 'Custom URL (audio list)',
+    custom: 'Custom direct audio file URL',
+    'custom-json': 'Custom URL',
 };
 
 export const AUDIO_SOURCE_OPTIONS = Object.entries(AUDIO_SOURCE_LABELS) as [AudioSourceType, string][];
+export const AUDIO_SOURCE_UI_OPTIONS = AUDIO_SOURCE_OPTIONS.filter(([type]) => type !== 'custom');
 
 export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'jpod101', url: '', voice: '', enabled: true },
@@ -57,9 +58,18 @@ export const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
     enabled: true,
 };
 
+export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'copy',
+    label: 'Copy',
+    urlTemplate: '',
+    enabled: true,
+    action: 'copy',
+};
+
 export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     JPDB_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
+    COPY_LOOKUP_LINK,
 ];
 
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
@@ -317,6 +327,7 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
+        audioViaBlob: true,
         audioFallbackChimeEnabled: typeof value?.audioFallbackChimeEnabled === 'boolean' ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
         immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
@@ -680,7 +691,7 @@ export function normalizeDictionaryPreferences(value: unknown): DictionaryPrefer
     return value
         .map((item, index): DictionaryPreference | null => {
             if (!item || typeof item !== 'object') return null;
-            const record = item as Partial<DictionaryPreference> & { name?: unknown; alias?: unknown; enabled?: unknown; priority?: unknown };
+            const record = item as Partial<DictionaryPreference> & { name?: unknown; alias?: unknown; enabled?: unknown; priority?: unknown; type?: unknown };
             if (typeof record.name !== 'string' || !record.name.trim()) return null;
             return {
                 name: record.name,
@@ -688,6 +699,7 @@ export function normalizeDictionaryPreferences(value: unknown): DictionaryPrefer
                 enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
                 priority: Number.isFinite(Number(record.priority)) ? Number(record.priority) : index,
                 allowSecondarySearches: typeof record.allowSecondarySearches === 'boolean' ? record.allowSecondarySearches : false,
+                type: normalizeDictionaryType(record.type, record.name),
             };
         })
         .filter((item): item is DictionaryPreference => item !== null)
@@ -728,7 +740,7 @@ export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = fals
 
 export function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | null {
     if (!value || typeof value !== 'object') return null;
-    const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown };
+    const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown; action?: unknown };
     const id = typeof record.id === 'string' && record.id.trim()
         ? record.id.trim()
         : typeof record.label === 'string'
@@ -736,12 +748,15 @@ export function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupL
             : '';
     const label = typeof record.label === 'string' && record.label.trim() ? record.label.trim().slice(0, 24) : id;
     const urlTemplate = typeof record.urlTemplate === 'string' ? record.urlTemplate.trim() : '';
-    if (!id || !label || !urlTemplate || !isSafeLookupUrlTemplate(urlTemplate)) return null;
+    const action = record.action === 'copy' || id === 'copy' ? 'copy' : 'open';
+    if (!id || !label) return null;
+    if (action !== 'copy' && (!urlTemplate || !isSafeLookupUrlTemplate(urlTemplate))) return null;
     return {
         id,
         label,
         urlTemplate,
         enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+        action,
     };
 }
 
@@ -759,9 +774,10 @@ function isSafeLookupUrlTemplate(value: string): boolean {
     }
 }
 
-export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[]): DictionaryPreference[] {
+export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[], types: Record<string, DictionaryPreference['type']> = {}): DictionaryPreference[] {
     const merged = new Map(current.map(item => [item.name, item]));
     for (const name of names) {
+        const type = types[name] ?? inferDictionaryTypeFromName(name);
         if (!merged.has(name)) {
             merged.set(name, {
                 name,
@@ -769,10 +785,26 @@ export function mergeDictionaryPreferences(current: DictionaryPreference[], name
                 enabled: true,
                 priority: merged.size,
                 allowSecondarySearches: false,
+                type,
             });
+        } else {
+            const existing = merged.get(name);
+            if (existing && !existing.type) merged.set(name, { ...existing, type });
         }
     }
     return normalizeDictionaryPreferences([...merged.values()]);
+}
+
+function normalizeDictionaryType(value: unknown, name = ''): DictionaryPreference['type'] {
+    if (value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'metadata') return value;
+    return inferDictionaryTypeFromName(name);
+}
+
+function inferDictionaryTypeFromName(name: string): DictionaryPreference['type'] {
+    const normalized = name.toLowerCase();
+    if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return 'frequency';
+    if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return 'kanji';
+    return 'terms';
 }
 
 function settingsSummary(settings: ReaderSettings): Record<string, unknown> {

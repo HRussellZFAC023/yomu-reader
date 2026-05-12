@@ -15,6 +15,11 @@ const publicDir = path.join(root, 'public');
 const distDir = path.join(root, 'dist');
 const userscriptPath = path.join(distDir, 'yomu.user.js');
 const viteBin = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
+const metadataPath = '/yomu.meta.js';
+const installPath = '/yomu.user.js';
+const runtimePath = '/__yomu-dev-runtime.js';
+const versionPath = '/__yomu-dev-version.json';
+const autoReload = process.env.YOMU_DEV_AUTO_RELOAD !== '0';
 
 let closing = false;
 const builder = spawn(process.execPath, [viteBin, 'build', '--watch', '--mode', 'development'], {
@@ -33,7 +38,19 @@ const server = createServer(async (req, res) => {
             await proxy(url, res);
             return;
         }
-        if (url.pathname === '/yomu.user.js' || url.pathname === '/dist/yomu.user.js') {
+        if (url.pathname === metadataPath) {
+            await serveMetadata(res);
+            return;
+        }
+        if (url.pathname === runtimePath) {
+            await serveRuntime(res);
+            return;
+        }
+        if (url.pathname === versionPath) {
+            await serveVersion(res);
+            return;
+        }
+        if (url.pathname === installPath || url.pathname === '/dist/yomu.user.js') {
             await serveUserscript(res);
             return;
         }
@@ -57,6 +74,8 @@ server.on('error', error => {
 server.listen(port, host, () => {
     if (port !== preferredPort) console.log(`[dev] Port ${preferredPort} is busy; using ${port}.`);
     console.log(`[dev] Install userscript: ${origin}/yomu.user.js`);
+    console.log(`[dev] Runtime bundle:     ${origin}${runtimePath}`);
+    console.log(`[dev] Auto reload:        ${autoReload ? 'on' : 'off'}`);
     console.log(`[dev] Fixtures:           ${origin}/reader-test.html`);
 });
 
@@ -64,15 +83,241 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 async function serveUserscript(res) {
+    const { metadata } = await readDevUserscript();
+    sendNoStore(res, 200, `${metadata}\n${devBootstrap()}\n`, 'text/javascript; charset=utf-8');
+}
+
+async function serveMetadata(res) {
+    const { metadata } = await readDevUserscript();
+    sendNoStore(res, 200, `${metadata}\n`, 'text/javascript; charset=utf-8');
+}
+
+async function readDevUserscript() {
     const [info, raw] = await Promise.all([stat(userscriptPath), readFile(userscriptPath, 'utf8')]);
     const versionSuffix = Math.floor(info.mtimeMs / 1000);
-    const code = raw
+    const version = `${packageVersion(raw)}.${versionSuffix}`;
+    const devCode = raw
         .replace(/^\/\/ @name\s+.+$/m, '// @name         よむ dev')
         .replace(/^\/\/ @namespace\s+.+$/m, `// @namespace    ${origin}/dev`)
-        .replace(/^\/\/ @version\s+([^\s]+).*$/m, (_, version) => `// @version      ${version}.${versionSuffix}`)
-        .replace(/^\/\/ @downloadURL\s+.+$/m, `// @downloadURL  ${origin}/yomu.user.js`)
-        .replace(/^\/\/ @updateURL\s+.+$/m, `// @updateURL    ${origin}/yomu.user.js`);
-    send(res, 200, code, 'text/javascript; charset=utf-8');
+        .replace(/^\/\/ @version\s+([^\s]+).*$/m, `// @version      ${version}`)
+        .replace(/^\/\/ @downloadURL\s+.+$/m, `// @downloadURL  ${origin}${installPath}`)
+        .replace(/^\/\/ @updateURL\s+.+$/m, `// @updateURL    ${origin}${metadataPath}`);
+    const code = ensureMetadataGrants(devCode, [
+        'GM_addElement',
+        'unsafeWindow',
+    ]);
+    const metadata = code.match(/^\/\/ ==UserScript==[\s\S]*?^\/\/ ==\/UserScript==/m)?.[0];
+    if (!metadata) throw new Error('Userscript metadata block not found');
+    return { code, metadata, version, mtimeMs: info.mtimeMs };
+}
+
+async function serveRuntime(res) {
+    const { code } = await readDevUserscript();
+    sendNoStore(res, 200, code, 'text/javascript; charset=utf-8');
+}
+
+async function serveVersion(res) {
+    const { version, mtimeMs } = await readDevUserscript();
+    sendNoStore(res, 200, JSON.stringify({ version, mtimeMs, autoReload }), 'application/json; charset=utf-8');
+}
+
+function packageVersion(code) {
+    return code.match(/^\/\/ @version\s+([^\s]+).*$/m)?.[1] || '0.0.0';
+}
+
+function ensureMetadataGrants(code, grants) {
+    let next = code;
+    for (const grant of grants) {
+        const pattern = new RegExp(`^// @grant\\s+${escapeRegExp(grant)}\\s*$`, 'm');
+        if (pattern.test(next)) continue;
+        const line = `// @grant        ${grant}`;
+        if (/^\/\/ @run-at\s+/m.test(next)) next = next.replace(/^\/\/ @run-at\s+/m, `${line}\n$&`);
+        else next = next.replace(/^\/\/ ==\/UserScript==/m, `${line}\n$&`);
+    }
+    return next;
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function devBootstrap() {
+    return `\
+(function () {
+  'use strict';
+
+  const runtimeUrl = ${JSON.stringify(`${origin}${runtimePath}`)};
+  const versionUrl = ${JSON.stringify(`${origin}${versionPath}`)};
+  const autoReload = ${JSON.stringify(autoReload)};
+  const pollMs = 1500;
+  const reloadKey = '__yomu_dev_reload_version__';
+  let currentVersion = '';
+  let reloadStarted = false;
+
+  boot().catch(error => {
+    console.error('[yomu dev] Failed to load runtime bundle', error);
+  });
+
+  async function boot() {
+    const [version, source] = await Promise.all([readVersion(), requestText(runtimeUrl)]);
+    currentVersion = version;
+    window.__YOMU_DEV_VERSION__ = currentVersion;
+    if (sessionStorage.getItem(reloadKey) === currentVersion) sessionStorage.removeItem(reloadKey);
+    if (autoReload) window.setInterval(checkForUpdate, pollMs);
+    runRuntime(source);
+  }
+
+  async function checkForUpdate() {
+    if (reloadStarted) return;
+    const nextVersion = await readVersion().catch(() => '');
+    if (!nextVersion || !currentVersion || nextVersion === currentVersion) return;
+    reloadStarted = true;
+    console.debug('[yomu dev] Runtime changed; reloading page', { from: currentVersion, to: nextVersion });
+    sessionStorage.setItem(reloadKey, nextVersion);
+    location.reload();
+  }
+
+  async function readVersion() {
+    const text = await requestText(versionUrl);
+    const info = JSON.parse(text);
+    return String(info.version || '');
+  }
+
+  function runRuntime(source) {
+    if (typeof GM_addElement === 'function') {
+      runRuntimeWithInjectedScript(source);
+      return;
+    }
+    console.warn('[yomu dev] GM_addElement is unavailable; falling back to eval for this userscript manager.');
+    (0, eval)(source + '\\n//# sourceURL=' + runtimeUrl);
+  }
+
+  function runRuntimeWithInjectedScript(source) {
+    const page = pageWindow();
+    const bridgeKey = '__yomu_dev_bridge_' + randomId();
+    const mountedKey = '__monkeyWindow-yomu-dev-' + randomId();
+    page.__YOMU_DEV_VERSION__ = currentVersion;
+    page[bridgeKey] = userscriptApiBridge();
+    try {
+      const script = GM_addElement('script', {
+        textContent: wrappedRuntimeSource(source, bridgeKey, mountedKey),
+        type: 'text/javascript',
+      });
+      if (!script) throw new Error('GM_addElement did not return a script element');
+      if (typeof script.remove === 'function') script.remove();
+    } catch (error) {
+      try {
+        delete page[bridgeKey];
+      } catch {
+        page[bridgeKey] = undefined;
+      }
+      throw error;
+    }
+  }
+
+  function wrappedRuntimeSource(source, bridgeKey, mountedKey) {
+    return [
+      '(function () {',
+      '  \\'use strict\\';',
+      '  const bridgeKey = ' + JSON.stringify(bridgeKey) + ';',
+      '  const mountedKey = ' + JSON.stringify(mountedKey) + ';',
+      '  const bridge = window[bridgeKey] || {};',
+      '  try { delete window[bridgeKey]; } catch { window[bridgeKey] = undefined; }',
+      '  try { Object.defineProperty(document, mountedKey, { value: bridge, configurable: true }); } catch {}',
+      '  window.addEventListener(\\'pagehide\\', () => { try { delete document[mountedKey]; } catch {} }, { once: true });',
+      '  const GM = bridge.GM;',
+      '  const GM_xmlhttpRequest = bridge.GM_xmlhttpRequest;',
+      '  const GM_getValue = bridge.GM_getValue;',
+      '  const GM_setValue = bridge.GM_setValue;',
+      '  const GM_deleteValue = bridge.GM_deleteValue;',
+      '  const GM_addStyle = bridge.GM_addStyle;',
+      '  const GM_registerMenuCommand = bridge.GM_registerMenuCommand;',
+      source,
+      '})();',
+      '//# sourceURL=' + runtimeUrl,
+    ].join('\\n');
+  }
+
+  function userscriptApiBridge() {
+    const gm = typeof GM === 'object' && GM ? GM : undefined;
+    return {
+      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : undefined,
+      GM_getValue: typeof GM_getValue === 'function' ? GM_getValue : undefined,
+      GM_setValue: typeof GM_setValue === 'function' ? GM_setValue : undefined,
+      GM_deleteValue: typeof GM_deleteValue === 'function' ? GM_deleteValue : undefined,
+      GM_addStyle: typeof GM_addStyle === 'function' ? GM_addStyle : undefined,
+      GM_registerMenuCommand: typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : undefined,
+      GM: gm ? {
+        xmlHttpRequest: typeof gm.xmlHttpRequest === 'function' ? gm.xmlHttpRequest.bind(gm) : undefined,
+        xmlhttpRequest: typeof gm.xmlhttpRequest === 'function' ? gm.xmlhttpRequest.bind(gm) : undefined,
+      } : undefined,
+    };
+  }
+
+  function pageWindow() {
+    try {
+      if (typeof unsafeWindow === 'object' && unsafeWindow) return unsafeWindow;
+    } catch {}
+    return window;
+  }
+
+  function randomId() {
+    try {
+      const bytes = new Uint32Array(2);
+      crypto.getRandomValues(bytes);
+      return bytes[0].toString(36) + bytes[1].toString(36);
+    } catch {
+      return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+  }
+
+  function requestText(url) {
+    return new Promise((resolve, reject) => {
+      const request = userscriptRequest();
+      const href = cacheBust(url);
+      if (request) {
+        const details = {
+          method: 'GET',
+          url: href,
+          timeout: 15000,
+          headers: { 'Cache-Control': 'no-cache' },
+          onload: response => handleUserscriptResponse(response, resolve, reject, url),
+          onerror: () => reject(new Error('Request failed for ' + url)),
+          ontimeout: () => reject(new Error('Request timed out for ' + url)),
+        };
+        const result = request(details);
+        if (result && typeof result.then === 'function') {
+          result.then(response => handleUserscriptResponse(response, resolve, reject, url), reject);
+        }
+        return;
+      }
+      fetch(href, { cache: 'no-store' }).then(response => {
+        if (!response.ok) throw new Error('Request failed with HTTP ' + response.status + ' for ' + url);
+        return response.text();
+      }).then(resolve, reject);
+    });
+  }
+
+  function handleUserscriptResponse(response, resolve, reject, url) {
+    const status = Number(response && response.status || 0);
+    if (status >= 200 && status < 300) resolve(String(response.responseText || response.response || ''));
+    else reject(new Error('Request failed with HTTP ' + status + ' for ' + url));
+  }
+
+  function userscriptRequest() {
+    if (typeof GM_xmlhttpRequest === 'function') return GM_xmlhttpRequest;
+    if (typeof GM === 'object' && GM) {
+      if (typeof GM.xmlHttpRequest === 'function') return GM.xmlHttpRequest.bind(GM);
+      if (typeof GM.xmlhttpRequest === 'function') return GM.xmlhttpRequest.bind(GM);
+    }
+    return undefined;
+  }
+
+  function cacheBust(url) {
+    const separator = url.includes('?') ? '&' : '?';
+    return url + separator + 't=' + Date.now();
+  }
+})();`;
 }
 
 async function proxy(url, res) {
@@ -124,6 +369,15 @@ function send(res, status, body, type = 'text/plain; charset=utf-8') {
     res.statusCode = status;
     res.setHeader('Content-Type', type);
     res.end(body);
+}
+
+function sendNoStore(res, status, body, type = 'text/plain; charset=utf-8') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    send(res, status, body, type);
 }
 
 function contentType(filePath) {

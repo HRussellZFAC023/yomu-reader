@@ -400,6 +400,14 @@ function immersionAudioRequestCount(requests) {
     return requests.filter(request => request.url.includes('apiv2.immersionkit.com/download_media') && /mp3/i.test(request.url)).length;
 }
 
+function immersionSearchRequestCount(requests) {
+    return requests.filter(request => request.url.includes('apiv2.immersionkit.com/search')).length;
+}
+
+function jpdbParseRequestCount(requests) {
+    return requests.filter(request => request.url.includes('jpdb.io/api/v1/parse')).length;
+}
+
 async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
     const page = await context.newPage();
@@ -1161,7 +1169,17 @@ async function auditSettings(browser, server) {
     assertAudit(snapshot.fiveRows > 0 && snapshot.passFailRows === 0, 'five-grade and pass/fail shortcut settings are both visible');
     assertAudit(snapshot.localOcrHidden && snapshot.cloudOcrHidden, 'irrelevant OCR provider fields are visible by default');
     assertAudit(snapshot.hoverShortcut === 'Shift+H', 'shortcut field did not capture a pressed key combo');
-    assertAudit(snapshot.recommendedDownloads >= 1 && /JMdict/i.test(snapshot.recommendedDownloadText), 'JMdict starter dictionary download is missing from settings');
+    assertAudit(
+        snapshot.recommendedDownloads >= 7
+            && /JMdict/i.test(snapshot.recommendedDownloadText)
+            && /Jitendex/i.test(snapshot.recommendedDownloadText)
+            && /JMnedict/i.test(snapshot.recommendedDownloadText)
+            && /KANJIDIC/i.test(snapshot.recommendedDownloadText)
+            && /JPDBv2/i.test(snapshot.recommendedDownloadText)
+            && /BCCWJ/i.test(snapshot.recommendedDownloadText)
+            && /Jiten/i.test(snapshot.recommendedDownloadText),
+        'recommended dictionary downloads are missing from settings',
+    );
     assertAudit(snapshot.settingsTabs >= 6, 'settings are not organized into modular tabs');
     assertAudit(snapshot.dictionarySources >= 3, 'definition source ordering rows are missing');
     assertAudit(snapshot.supportLinks >= 4 && snapshot.hasMigakuComparison, 'support/donation links or free-vs-paid copy are missing');
@@ -1411,10 +1429,15 @@ async function auditHoverLookup(browser, server) {
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
     </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。明日は学校で勉強します。</p></body></html>`;
-    const { page } = await newAuditedPage(browser, {
+    const { page, requests } = await newAuditedPage(browser, {
         ...baseSettings,
         lookupOnClick: false,
         lookupOnHover: true,
+        audioEnabled: true,
+        autoPlayAudio: true,
+        audioViaBlob: false,
+        audioEnableDefaultSources: false,
+        audioSources: [{ type: 'custom', url: 'https://audio.test/{term}.mp3', voice: '', enabled: true }],
         hoverOpenDelayMs: 40,
         hoverCloseDelayMs: 140,
         localDictionariesEnabled: true,
@@ -1425,6 +1448,13 @@ async function auditHoverLookup(browser, server) {
             { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 2 },
         ],
         shortcuts: { ...baseSettings.shortcuts, hoverLookup: 'Shift' },
+    });
+    await page.addInitScript(() => {
+        window.__yomuAudioPlayCount = 0;
+        HTMLMediaElement.prototype.play = function play() {
+            window.__yomuAudioPlayCount += 1;
+            return Promise.resolve();
+        };
     });
     await page.route(`${server.origin}/hover-fixture.html`, route => route.fulfill({
         status: 200,
@@ -1442,10 +1472,31 @@ async function auditHoverLookup(browser, server) {
     await page.keyboard.down('Shift');
     await page.mouse.move(todayWord.x + todayWord.width / 2, todayWord.y + todayWord.height / 2);
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => window.__yomuAudioPlayCount > 0, 1500, 'hover lookup did not start term audio playback');
     const hoverHasBackdrop = await page.locator('.jpdb-reader-backdrop').count();
     assertAudit(hoverHasBackdrop === 0, 'hover lookup mounted a modal backdrop');
     const text = await page.locator('.jpdb-reader-popover').innerText();
     assertAudit(/JPDB|Add|Never|Blacklist/.test(text), 'hover popup did not render mining actions');
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'hover popup kept showing dictionary loading details');
+    await waitForAudit(page, () => {
+        const immersion = document.querySelector('[data-immersion-kit]');
+        return !immersion || immersion.dataset.immersionEmpty === 'true' || immersion.querySelector('.jpdb-reader-example-card');
+    }, 6000, 'hover popup Immersion Kit examples did not settle');
+    const stableBefore = await page.locator('.jpdb-reader-popover').boundingBox();
+    const searchesBeforeMove = immersionSearchRequestCount(requests);
+    const parsesBeforeMove = jpdbParseRequestCount(requests);
+    assertAudit(stableBefore, 'hover popup has no stable bounding box before movement');
+    for (const fraction of [0.25, 0.5, 0.75, 0.45, 0.6]) {
+        await page.mouse.move(todayWord.x + todayWord.width * fraction, todayWord.y + todayWord.height / 2, { steps: 3 });
+    }
+    await page.waitForTimeout(420);
+    const stableAfter = await page.locator('.jpdb-reader-popover').boundingBox();
+    assertAudit(stableAfter, 'hover popup disappeared after moving within the same word');
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'moving inside one hovered word remounted multiple popups');
+    assertAudit(await page.locator('[data-card-details-loading]').count() === 0, 'moving inside one hovered word restarted dictionary loading');
+    assertAudit(immersionSearchRequestCount(requests) === searchesBeforeMove, 'moving inside one hovered word re-requested Immersion Kit examples');
+    assertAudit(jpdbParseRequestCount(requests) === parsesBeforeMove, 'moving inside one hovered word re-parsed lookup content');
+    assertAudit(Math.abs(stableAfter.y - stableBefore.y) < 24, `hover popup jumped vertically while staying on one word: ${stableBefore.y} -> ${stableAfter.y}`);
     await assertTodayKanjiDrilldown(page);
     await page.keyboard.press('Escape');
     await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the hover popup');

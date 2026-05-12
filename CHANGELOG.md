@@ -6,6 +6,24 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [0.4.2] - 2026-05-12
+
+### Added
+
+- Added richer learner grammar cues for common particles, polite forms, conditionals, negatives, and verb endings, with matched sentence context and guide links.
+- Added local dictionary/new-tab and source-order improvements from the current workspace changes.
+
+### Changed
+
+- Bumped the package and userscript version to `0.4.2`.
+- Reworked translation and grammar study panels into compact learner rows instead of nested cards, with smaller typography and better ruby/furigana spacing.
+- Moved reader styles into the bundled stylesheet path while keeping the userscript self-contained.
+
+### Fixed
+
+- Removed the misleading “Pattern hints are best guesses from the full sentence shape.” note and the redundant grammar cue count.
+- Tightened grammar matching so forms such as `読みました` and `確認できます` show cleaner “Found in” text and `できます` is not mistaken for the particle `で`.
+
 ## [0.4.1] - 2026-05-12
 
 ### Fixed

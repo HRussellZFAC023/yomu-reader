@@ -165,7 +165,7 @@ http://127.0.0.1:5174/reader-video-test.html?apiKey=YOUR_JPDB_API_KEY
 http://127.0.0.1:5174/reader-ocr-test.html?apiKey=YOUR_JPDB_API_KEY
 ```
 
-`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves it as a local dev install named `よむ dev`. Its update URL points at the local server, so Tampermonkey can pull rebuilt copies when you check for updates. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
+`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Open pages also poll the harness and reload after rebuilds, so edits usually land with no Tampermonkey update click. Set `YOMU_DEV_AUTO_RELOAD=0 npm run dev` if you want to keep pages from refreshing automatically. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
 
 The production userscript is written to:
 
@@ -210,7 +210,7 @@ npm run publish:greasyfork
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
 - MPV support connects to a locally running [`mpv-subtitleminer`](https://github.com/friedrich-de/mpv-subtitleminer) bridge on the configured localhost ports. よむ does not bundle mpv, ffmpeg, or the Rust bridge binary, and the bridge is opt-in from settings, the userscript menu, or the subtitle overflow menu.
 - iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, and the new-tab study page, but desktop helpers such as AnkiConnect, MPV, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
-- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional, but they directly buy maintenance time and make it more realistic for me to keep building this. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
+- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
 
 ## Support
 
@@ -219,7 +219,7 @@ npm run publish:greasyfork
 - Discord: `henry281199`
 - Donate: https://paypal.me/HenryRussell163
 
-Donation note: feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ. Even a small donation helps keep the project alive.
+Donation note: feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ.
 
 ## Credits and References
 

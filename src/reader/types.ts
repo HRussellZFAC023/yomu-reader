@@ -63,6 +63,7 @@ export interface DictionaryPreference {
     enabled: boolean;
     priority: number;
     allowSecondarySearches?: boolean;
+    type?: 'terms' | 'kanji' | 'frequency' | 'metadata';
 }
 
 export interface DictionaryLookupLink {
@@ -70,6 +71,7 @@ export interface DictionaryLookupLink {
     label: string;
     urlTemplate: string;
     enabled: boolean;
+    action?: 'open' | 'copy';
 }
 
 export interface JPDBMeaning {

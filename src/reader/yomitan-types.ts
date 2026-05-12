@@ -44,6 +44,7 @@ export interface YomitanDictionaryInfo {
     enabled: boolean;
     priority: number;
     counts?: Record<string, unknown>;
+    type?: 'terms' | 'kanji' | 'frequency' | 'metadata';
     styles?: string;
     revision?: string;
     downloadUrl?: string;
@@ -60,6 +61,7 @@ export interface DictionarySummary {
 
 export interface ImportSummary {
     dictionaries: string[];
+    dictionaryTypes?: Record<string, YomitanDictionaryInfo['type']>;
     entries: number;
     terms: number;
     kanji: number;

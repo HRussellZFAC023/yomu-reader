@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
 import process from 'node:process';
+import { readFile } from 'node:fs/promises';
 
 const ORIGIN = process.env.YOMU_PROFILE_ORIGIN || 'http://127.0.0.1:5175';
 const SLOW_MS = Number(process.env.YOMU_PROFILE_SLOW_MS || 4500);
 const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
+const USERSCRIPT_PATH = new URL('../dist/yomu.user.js', import.meta.url);
 
 if (LIVE && !API_KEY) {
     console.error('Live profiling needs YOMU_PROFILE_API_KEY or YOMU_TEST_API_KEY so JPDB parse can run against the real API.');
@@ -48,8 +50,14 @@ const settings = {
     immersionKitShowImages: true,
     immersionKitAutoPlayAudio: true,
     immersionKitPlaybackRate: 1,
-    localDictionariesEnabled: false,
+    localDictionariesEnabled: true,
+    localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
+    dictionaryPreferences: [
+        { name: 'Profile Local', alias: 'Profile Local', enabled: true, priority: 0 },
+        { name: 'Profile Pitch', alias: 'Profile Pitch', enabled: true, priority: 1 },
+        { name: 'Profile Kanji', alias: 'Profile Kanji', enabled: true, priority: 2 },
+    ],
     lookupOnClick: true,
     lookupOnHover: true,
     popupActivationMode: 'click',
@@ -236,6 +244,14 @@ const profileUrl = new URL(`${ORIGIN}/reader-test.html`);
 profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');
 if (!LIVE) profileUrl.searchParams.set('audio', 'https://audio.profile.test/source?term={term}&reading={reading}');
 await page.goto(profileUrl.toString(), { waitUntil: 'domcontentloaded' });
+await page.evaluate(settings => {
+    localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify(settings));
+}, settings);
+await seedProfileDictionaries(page);
+await page.waitForTimeout(100);
+if (!await page.evaluate(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')))) {
+    await page.addScriptTag({ content: await readFile(USERSCRIPT_PATH, 'utf8') });
+}
 await page.waitForSelector('.jpdb-reader-word', { timeout: 10000 });
 
 const firstWord = page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first();
@@ -275,6 +291,17 @@ const clickAt = await page.evaluate(() => performance.now());
 await clickWord.click();
 await page.waitForSelector('.jpdb-reader-popover', { timeout: 10000 });
 const popoverAt = await page.evaluate(() => performance.now());
+const localDictionaryLoaded = await page.waitForFunction(() => /profile local (?:today|to read|read politely)/.test(document.querySelector('.jpdb-reader-popover')?.textContent || ''), null, { timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+const localDictionaryAt = localDictionaryLoaded ? await page.evaluate(() => performance.now()) : null;
+const localDictionaryDebug = localDictionaryLoaded ? null : await page.evaluate(() => ({
+    text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
+    dictionaries: [...document.querySelectorAll('.jpdb-reader-local-glossary')].map(node => ({
+        dictionary: node.getAttribute('data-dictionary'),
+        text: node.textContent?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '',
+    })),
+}));
 await page.waitForFunction(() => window.__yomuProfileEvents.some(event => event.name === 'audio.play' || event.name === 'audio.play.failed'), null, { timeout: 12000 }).catch(() => {});
 const audioAt = await page.evaluate(() => window.__yomuProfileEvents.find(event => event.name.startsWith('audio.play'))?.t ?? null);
 
@@ -311,6 +338,7 @@ console.log(JSON.stringify({
         hoverToAudioPlayAttempt: hoverAudioAt ? Math.round(hoverAudioAt - hoverAt) : null,
         hoverAwayToClose: hoverCloseAt ? Math.round(hoverCloseAt - hoverAwayAt) : null,
         clickToPopover: Math.round(popoverAt - clickAt),
+        clickToLocalDictionary: localDictionaryAt ? Math.round(localDictionaryAt - clickAt) : null,
         clickToAudioPlayAttempt: audioAt ? Math.round(audioAt - clickAt) : null,
         kanjiClickToShell: Math.round(kanjiShellAt - kanjiClickAt),
         kanjiClickToDetailsNotLoading: Math.round(kanjiDetailsAt - kanjiClickAt),
@@ -323,9 +351,75 @@ console.log(JSON.stringify({
     slowRequests,
     pendingSlowRequests,
     hoverCloseDebug,
+    localDictionaryDebug,
 }, null, 2));
 
 await browser.close();
+
+async function seedProfileDictionaries(page) {
+    await page.evaluate(async () => {
+        const DB_NAME = 'jpdb-popup-reader-yomitan';
+        const DB_VERSION = 2;
+        await new Promise(resolve => {
+            const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+            deleteRequest.onsuccess = () => resolve();
+            deleteRequest.onerror = () => resolve();
+            deleteRequest.onblocked = () => resolve();
+        });
+        const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                const ensureStore = (name, options) => db.objectStoreNames.contains(name)
+                    ? request.transaction.objectStore(name)
+                    : db.createObjectStore(name, options);
+                const ensureIndex = (store, name, keyPath) => {
+                    if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
+                };
+                const terms = ensureStore('terms', { keyPath: 'id', autoIncrement: true });
+                ensureIndex(terms, 'expression', 'expression');
+                ensureIndex(terms, 'reading', 'reading');
+                ensureIndex(terms, 'dictionary', 'dictionary');
+                const kanji = ensureStore('kanji', { keyPath: 'id', autoIncrement: true });
+                ensureIndex(kanji, 'character', 'character');
+                ensureIndex(kanji, 'dictionary', 'dictionary');
+                const termMeta = ensureStore('termMeta', { keyPath: 'id', autoIncrement: true });
+                ensureIndex(termMeta, 'expression', 'expression');
+                ensureIndex(termMeta, 'dictionary', 'dictionary');
+                const kanjiMeta = ensureStore('kanjiMeta', { keyPath: 'id', autoIncrement: true });
+                ensureIndex(kanjiMeta, 'character', 'character');
+                ensureIndex(kanjiMeta, 'dictionary', 'dictionary');
+                if (!db.objectStoreNames.contains('dictionaryInfo')) db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
+            tx.objectStore('dictionaryInfo').put({ title: 'Profile Local', alias: 'Profile Local', enabled: true, priority: 0, type: 'terms', counts: { terms: 8 } });
+            tx.objectStore('dictionaryInfo').put({ title: 'Profile Pitch', alias: 'Profile Pitch', enabled: true, priority: 1, type: 'metadata', counts: { termMeta: 2 } });
+            tx.objectStore('dictionaryInfo').put({ title: 'Profile Kanji', alias: 'Profile Kanji', enabled: true, priority: 2, type: 'kanji', counts: { kanji: 2 } });
+            const terms = tx.objectStore('terms');
+            [
+                { expression: '今日', reading: 'きょう', glossary: ['profile local today'], score: 100, dictionary: 'Profile Local' },
+                { expression: '読む', reading: 'よむ', glossary: ['profile local to read'], rules: 'v5m', score: 90, dictionary: 'Profile Local' },
+                { expression: '読みました', reading: 'よみました', glossary: ['profile local read politely'], rules: 'v5m', score: 80, dictionary: 'Profile Local' },
+                { expression: '日本語', reading: 'にほんご', glossary: ['profile local Japanese language'], score: 70, dictionary: 'Profile Local' },
+            ].forEach(entry => terms.add(entry));
+            const kanji = tx.objectStore('kanji');
+            kanji.add({ character: '今', onyomi: ['コン'], kunyomi: ['いま'], tags: [], meanings: ['now'], dictionary: 'Profile Kanji' });
+            kanji.add({ character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], tags: [], meanings: ['read'], dictionary: 'Profile Kanji' });
+            const termMeta = tx.objectStore('termMeta');
+            termMeta.add({ expression: '今日', mode: 'freq', data: { frequency: 100 }, dictionary: 'Profile Pitch' });
+            termMeta.add({ expression: '今日', mode: 'pitch', data: { reading: 'きょう', pitches: [{ position: 1 }] }, dictionary: 'Profile Pitch' });
+            tx.oncomplete = () => {
+                db.close();
+                resolve();
+            };
+            tx.onerror = () => reject(tx.error);
+        });
+    });
+}
 
 function mockParse(body) {
     const paragraphs = Array.isArray(body.text) ? body.text.map(String) : [];

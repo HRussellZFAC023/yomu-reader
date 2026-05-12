@@ -21,8 +21,8 @@ export interface SettingsSourceRow {
 }
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
-    return [
-        {
+    const builtInRows: SettingsSourceRow[] = [
+        ...(settings.jpdbDefinitionsEnabled ? [{
             id: JPDB_DEFINITION_SOURCE_ID,
             name: 'JPDB',
             alias: 'JPDB',
@@ -31,7 +31,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             prefix: 'jpdbDefinitions',
             readonly: true,
             help: 'Built-in JPDB meanings from the parsed card.',
-        },
+        }] : []),
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
             name: 'Translation',
@@ -62,13 +62,17 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             readonly: true,
             help: 'Example sentences, images, and audio for the looked-up word.',
         },
-        ...settings.dictionaryPreferences.map((preference, index) => ({
+    ];
+
+    return [
+        ...builtInRows,
+        ...settings.dictionaryPreferences.filter(preference => (preference.type ?? 'terms') === 'terms').map((preference, index) => ({
             id: preference.name,
             name: preference.name,
             alias: preference.alias,
             enabled: preference.enabled,
             priority: preference.priority,
-            prefix: `dictionaryPreferences.${index}`,
+            prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
             readonly: false,
             removable: true,
             help: '',
@@ -168,7 +172,9 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
             priority: settings.immersionKitPriority,
             name: 'Immersion Kit',
         },
-        ...dictionaryNames.map((name, index) => {
+        ...dictionaryNames
+        .filter(name => (preferences.get(name)?.type ?? 'terms') === 'terms')
+        .map((name, index) => {
             const preference = preferences.get(name);
             return {
                 id: name,

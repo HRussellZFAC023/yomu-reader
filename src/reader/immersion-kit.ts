@@ -16,6 +16,11 @@ const TITLE_OVERRIDES: Record<string, string> = {
     hunter_x_hunter: 'Hunter × Hunter',
     fullmetal_alchemist_brotherhood: 'Fullmetal Alchemist: Brotherhood',
     attack_on_titan: 'Attack on Titan',
+    angel_beats_: 'Angel Beats!',
+    durarara__: 'Durarara!!',
+    k_on_: 'K-On!',
+    kanon__2006_: 'Kanon (2006)',
+    new_game_: 'New Game!',
     demon_slayer: 'Demon Slayer',
     sound__euphonium: 'Sound! Euphonium',
     god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
@@ -98,17 +103,26 @@ export class ImmersionKitClient {
     }
 
     mediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
+        return this.mediaUrls(example, kind)[0] ?? '';
+    }
+
+    mediaUrls(example: ImmersionKitExample, kind: 'image' | 'sound'): string[] {
         const direct = kind === 'image' ? example.imageUrl : example.soundUrl;
-        if (direct) return direct;
+        if (direct) return [direct];
 
         const file = kind === 'image' ? example.imageFile : example.soundFile;
-        if (!file) return '';
+        if (!file) return [];
         const category = example.category || categoryFromId(example.id);
-        const title = example.sourceTitle || titleFromSlug(example.titleSlug || titleSlugFromId(example.id));
-        const path = `media/${category}/${title}/media/${file}`;
+        const titles = mediaTitleCandidates(example, file);
 
         // The API proxy mirrors the Immersion Kit app and avoids some CORS/object-store edge cases.
-        return `${API_BASE}/download_media?${new URLSearchParams({ path })}`;
+        return uniqueStrings(titles.flatMap(title => {
+            const path = `media/${category}/${title}/media/${file}`;
+            return [
+                `${API_BASE}/download_media?${new URLSearchParams({ path })}`,
+                `${OBJECT_STORE_BASE}/${path.split('/').map(encodeURIComponent).join('/')}`,
+            ];
+        }));
     }
 
     preload(term: string, settings: ReaderSettings): void {
@@ -121,9 +135,9 @@ export class ImmersionKitClient {
             .then(examples => {
                 log.debug('Preload search completed', { query, examples: examples.length });
                 for (const example of examples.slice(0, 2)) {
-                    const imageUrl = settings.immersionKitShowImages ? this.mediaUrl(example, 'image') : '';
-                    if (imageUrl) {
-                        void this.fetchBlobUrl(imageUrl, settings.audioTimeoutMs)
+                    const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
+                    if (imageUrls.length) {
+                        void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs)
                             .then(url => {
                                 const image = new Image();
                                 image.decoding = 'async';
@@ -135,31 +149,25 @@ export class ImmersionKitClient {
                             .catch(error => log.debug('Preload image failed quietly', { query, sourceTitle: example.sourceTitle }, error));
                     }
 
-                    const soundUrl = this.mediaUrl(example, 'sound');
-                    if (soundUrl) {
-                        if (settings.audioViaBlob) {
-                            void this.fetchBlobUrl(soundUrl, settings.audioTimeoutMs)
-                                .then(url => window.setTimeout(() => URL.revokeObjectURL(url), 30000))
-                                .catch(error => log.debug('Preload audio failed quietly', { query, sourceTitle: example.sourceTitle }, error));
-                        } else {
-                            const audio = new Audio(soundUrl);
-                            audio.preload = 'auto';
-                            audio.load();
-                        }
+                    const soundUrls = this.mediaUrls(example, 'sound');
+                    if (soundUrls.length) {
+                        void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs)
+                            .then(url => window.setTimeout(() => URL.revokeObjectURL(url), 30000))
+                            .catch(error => log.debug('Preload audio failed quietly', { query, sourceTitle: example.sourceTitle }, error));
                     }
                 }
             })
             .catch(error => log.debug('Preload search failed quietly', { query }, error));
     }
 
-    async fetchBlobUrl(url: string, timeoutMs: number): Promise<string> {
-        const blob = await requestBlob(url, timeoutMs);
+    async fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string> {
+        const blob = await requestFirstBlob(url, timeoutMs);
         log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
         return URL.createObjectURL(blob);
     }
 
-    async fetchDataUrl(url: string, timeoutMs: number): Promise<string> {
-        const blob = await requestBlob(url, timeoutMs);
+    async fetchDataUrl(url: string | string[], timeoutMs: number): Promise<string> {
+        const blob = await requestFirstBlob(url, timeoutMs);
         log.debug('Data URL media fetched', { host: safeHost(url), size: blob.size, type: blob.type });
         return blobToDataUrl(blob);
     }
@@ -228,6 +236,41 @@ function titleFromSlug(slug: string): string {
         .filter(Boolean)
         .map(part => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1))
         .join(' ');
+}
+
+function mediaTitleCandidates(example: ImmersionKitExample, file: string): string[] {
+    const slug = example.titleSlug || titleSlugFromId(example.id);
+    return uniqueStrings([
+        example.sourceTitle,
+        titleFromSlug(slug),
+        titleFromMediaFile(file),
+        slug,
+    ].filter(Boolean));
+}
+
+function titleFromMediaFile(file: string): string {
+    const stem = file.replace(/\.[^.]+$/u, '');
+    const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
+    const title = (episodeMatch?.[1] || stem)
+        .replace(/^A[_-]/, '')
+        .replace(/_/g, ' ')
+        .trim();
+    if (!title) return '';
+    return title
+        .replace(/\bKOn\b/u, 'K-On!')
+        .replace(/\bDurarara\b/u, 'Durarara!!')
+        .replace(/\bAngel Beats!?\b/u, 'Angel Beats!');
+}
+
+function uniqueStrings(values: string[]): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const value of values.map(item => item.trim()).filter(Boolean)) {
+        if (seen.has(value)) continue;
+        seen.add(value);
+        result.push(value);
+    }
+    return result;
 }
 
 function absoluteMediaUrl(value: string): string {
@@ -301,6 +344,10 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
                     reject(new Error(`Media returned HTTP ${response.status}.`));
                     return;
                 }
+                if (isErrorDocumentBlob(response.response)) {
+                    reject(new Error('Media request returned an error document instead of audio or image.'));
+                    return;
+                }
                 resolve(response.response);
             };
             const result = userscriptRequest({
@@ -324,8 +371,31 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
                 if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
                 return response.blob();
             })
+            .then(blob => {
+                if (isErrorDocumentBlob(blob)) throw new Error('Media request returned an error document instead of audio or image.');
+                return blob;
+            })
             .then(resolve, reject);
     });
+}
+
+async function requestFirstBlob(urls: string | string[], timeoutMs: number): Promise<Blob> {
+    const candidates = Array.isArray(urls) ? urls : [urls];
+    let lastError: unknown;
+    for (const url of candidates) {
+        try {
+            return await requestBlob(url, timeoutMs);
+        } catch (error) {
+            lastError = error;
+            log.debug('Media candidate failed; trying next', { host: safeHost(url) }, error);
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('No Immersion Kit media candidate could be loaded.');
+}
+
+function isErrorDocumentBlob(blob: Blob): boolean {
+    const type = blob.type.toLowerCase();
+    return type.includes('xml') || type.includes('html') || type.includes('json') || type.startsWith('text/');
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -337,9 +407,10 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     });
 }
 
-function safeHost(value: string): string {
+function safeHost(value: string | string[]): string {
     try {
-        return new URL(value, location.href).host;
+        const url = Array.isArray(value) ? value[0] : value;
+        return new URL(url, location.href).host;
     } catch {
         return 'invalid-url';
     }

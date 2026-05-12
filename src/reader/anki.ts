@@ -947,8 +947,15 @@ function formatMetaFrequency(value: unknown): string {
     if (typeof value === 'number' || typeof value === 'string') return `#${value}`;
     if (!value || typeof value !== 'object') return '';
     const record = value as Record<string, unknown>;
-    const display = record.displayValue ?? record.frequency ?? record.value;
-    return display == null ? '' : `#${String(display)}`;
+    const display = scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
+    return display == null ? '' : `#${display}`;
+}
+
+function scalarMetaValue(value: unknown): string | null {
+    if (typeof value === 'number' || typeof value === 'string') return String(value);
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    return scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
 }
 
 function formatMetaPitch(value: unknown): string {

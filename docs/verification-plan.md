@@ -158,7 +158,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] Defaults are JapanesePod101, LanguagePod101, Jisho, and browser text-to-speech; no custom URL
   row is preselected by default.
 - [ ] Users can add N sources, reorder them, enable/disable each, and choose source types.
-- [ ] Custom URL and Custom URL JSON support `{term}`, `{reading}`, and `{language}`.
+- [ ] Custom URL supports `{term}`, `{reading}`, and `{language}`.
 - [ ] Source-level "audio unavailable" is silent unless the user explicitly requests audio.
 - [ ] Random mode picks a random clip from the returned `audioSources` list inside one source, not
   merely a random source row.

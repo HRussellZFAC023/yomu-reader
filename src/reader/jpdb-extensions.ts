@@ -719,7 +719,8 @@ function renderImmersionPanel(
     settings: ReaderSettings,
 ): void {
     const example = examples[index];
-    const imageUrl = settings.immersionKitShowImages ? client.mediaUrl(example, 'image') : '';
+    const imageUrls = settings.immersionKitShowImages ? immersionMediaUrls(client, example, 'image') : [];
+    const imageUrl = imageUrls[0] ?? '';
     saveMiningContext(term, immersionContextFromExample(term, example, index, examples.length, imageUrl));
     const image = imageUrl ? `<img class="jpdb-reader-example-image" alt="" loading="lazy" data-yomu-immersion-image data-yomu-immersion-image-src="${escapeHtml(imageUrl)}">` : '';
     setInnerHtml(container, `
@@ -751,7 +752,7 @@ function renderImmersionPanel(
         container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
     };
     imageElement.addEventListener('error', hideImage, { once: true });
-    void client.fetchDataUrl(imageUrl, settings.audioTimeoutMs)
+    void client.fetchDataUrl(imageUrls, settings.audioTimeoutMs)
         .then(src => {
             if (container.isConnected && imageElement.isConnected) imageElement.src = src;
         })
@@ -793,7 +794,8 @@ function dictionaryLabel(name: string, settings: ReaderSettings): string {
 }
 
 function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClient, settings: ReaderSettings): void {
-    const url = client.mediaUrl(example, 'sound');
+    const urls = immersionMediaUrls(client, example, 'sound');
+    const url = urls[0] ?? '';
     if (!url) return;
     if (isImmersionAddonAudioBusy(url)) return;
 
@@ -821,11 +823,7 @@ function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClie
             if (requestId === immersionAddonAudioRequestId) clearImmersionAddonAudio();
         });
     };
-    if (!settings.audioViaBlob) {
-        play(url);
-        return;
-    }
-    void client.fetchBlobUrl(url, settings.audioTimeoutMs)
+    void client.fetchBlobUrl(urls, settings.audioTimeoutMs)
         .then(src => play(src, true))
         .catch(() => {
             if (requestId === immersionAddonAudioRequestId) clearImmersionAddonAudio();
@@ -841,6 +839,11 @@ function clearImmersionAddonAudio(): void {
         URL.revokeObjectURL(immersionAddonAudioBlobUrl);
         immersionAddonAudioBlobUrl = '';
     }
+}
+
+function immersionMediaUrls(client: ImmersionKitClient, example: ImmersionKitExample, kind: 'image' | 'sound'): string[] {
+    const compatibleClient = client as ImmersionKitClient & { mediaUrls?: (example: ImmersionKitExample, kind: 'image' | 'sound') => string[] };
+    return compatibleClient.mediaUrls?.(example, kind) ?? [compatibleClient.mediaUrl(example, kind)].filter(Boolean);
 }
 
 function isImmersionAddonAudioBusy(key: string): boolean {

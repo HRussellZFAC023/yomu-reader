@@ -1,7 +1,7 @@
 import type { AnkiConnectClient } from './anki';
 import { primaryCardState } from './card-state';
 import { APP_NAME, APP_PUCK, SUPPORT_LINKS } from './constants';
-import { escapeHtml, setInnerHtml } from './dom';
+import { el, fragment, replaceChildrenWith } from './dom-builder';
 import type { JpdbClient } from './jpdb';
 import { Logger } from './logger';
 import {
@@ -99,7 +99,7 @@ export class NewTabController {
         const hasReaderMarkup = !!root.querySelector('[data-newtab-card]') && root.dataset.standaloneNewtab !== 'true';
         if (isNew || !hasReaderMarkup) {
             delete root.dataset.standaloneNewtab;
-            root.innerHTML = this.renderEnabledMarkup();
+            root.replaceChildren(this.renderEnabledContent());
             this.syncControls(root);
         }
 
@@ -114,90 +114,107 @@ export class NewTabController {
         this.stateChannel.close();
     }
 
-    private renderEnabledMarkup(): string {
-        return `
-            <div class="jpdb-reader-newtab-shell">
-                <header class="jpdb-reader-newtab-topbar">
-                    <a class="jpdb-reader-newtab-brand" href="${SUPPORT_LINKS.docs}" aria-label="Open ${APP_NAME} home page">
-                        <span class="jpdb-reader-newtab-brand-mark">${APP_PUCK}</span>
-                        <span class="jpdb-reader-newtab-brand-text">
-                            <strong>${APP_NAME}</strong>
-                            <span>new tab</span>
-                        </span>
-                    </a>
-                    <div class="jpdb-reader-newtab-health" data-newtab-summary>Loading study sources...</div>
-                    <button class="jpdb-reader-newtab-icon-button" type="button" data-newtab-action="settings">Settings</button>
-                </header>
-                <div class="jpdb-reader-newtab-workspace">
-                    <section class="jpdb-reader-newtab-stage" aria-live="polite">
-                        <div class="jpdb-reader-newtab-card" data-newtab-card tabindex="0">
-                            <div class="jpdb-reader-newtab-card-head">
-                                <span data-newtab-card-kicker>Word</span>
-                                <span data-newtab-card-count>0 / 0</span>
-                            </div>
-                            <div class="jpdb-reader-newtab-visual" data-newtab-visual aria-hidden="true">読</div>
-                            <div class="jpdb-reader-newtab-word" data-newtab-expression lang="ja">読</div>
-                            <div class="jpdb-reader-newtab-answer" data-newtab-answer>
-                                <div class="jpdb-reader-newtab-reading" data-newtab-reading lang="ja"></div>
-                                <div class="jpdb-reader-newtab-meaning" data-newtab-meaning></div>
-                            </div>
-                            <div class="jpdb-reader-newtab-concealed" data-newtab-concealed>Recall it, then reveal.</div>
-                            <div class="jpdb-reader-newtab-meta" data-newtab-meta></div>
-                        </div>
-                        <div class="jpdb-reader-newtab-controls">
-                            <button class="jpdb-reader-newtab-button" type="button" data-newtab-action="reveal">Reveal</button>
-                            <button class="jpdb-reader-newtab-button primary" type="button" data-newtab-action="next">Next</button>
-                            <div class="jpdb-reader-newtab-status" data-newtab-status>Loading words...</div>
-                        </div>
-                    </section>
-                    <aside class="jpdb-reader-newtab-side" aria-label="Study controls">
-                        <section class="jpdb-reader-newtab-panel">
-                            <div class="jpdb-reader-newtab-panel-head">
-                                <span>Mode</span>
-                                <button type="button" data-newtab-action="reload">Refresh sources</button>
-                            </div>
-                            <div class="jpdb-reader-newtab-segmented" role="group" aria-label="Study mode">
-                                <button type="button" data-newtab-action="mode" data-mode="word">Word</button>
-                                <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
-                            </div>
-                            <div class="jpdb-reader-newtab-form-grid">
-                                <label>Source
-                                    <select data-newtab-source>
-                                        ${NEW_TAB_SOURCE_OPTIONS.map(option => `<option value="${option.value}">${option.label}</option>`).join('')}
-                                    </select>
-                                </label>
-                                <label>Sort
-                                    <select data-newtab-sort>
-                                        ${NEW_TAB_SORT_OPTIONS.map(option => `<option value="${option.value}">${option.label}</option>`).join('')}
-                                    </select>
-                                </label>
-                            </div>
-                            <label class="jpdb-reader-newtab-search">Search
-                                <input data-newtab-search type="search" aria-label="Search words" placeholder="Search spelling, reading, or meaning..." autocomplete="off">
-                            </label>
-                        </section>
-                        <section class="jpdb-reader-newtab-panel">
-                            <div class="jpdb-reader-newtab-panel-head">
-                                <span>Show only</span>
-                                <span data-newtab-filter-count>0 words</span>
-                            </div>
-                            <div class="jpdb-reader-newtab-filter-grid" data-newtab-filters>
-                                ${NEW_TAB_FILTERS.map(filter => `<button type="button" data-newtab-action="filter" data-filter="${filter.value}">${filter.label}</button>`).join('')}
-                            </div>
-                        </section>
-                        <section class="jpdb-reader-newtab-panel jpdb-reader-newtab-queue-panel">
-                            <div class="jpdb-reader-newtab-panel-head">
-                                <span>2D review tray</span>
-                                <span data-newtab-tray-note>Pick any word</span>
-                            </div>
-                            <div class="jpdb-reader-newtab-list" data-newtab-list></div>
-                        </section>
-                        <section class="jpdb-reader-newtab-source-note" data-newtab-source-note></section>
-                    </aside>
-                </div>
-            </div>
-            <button class="jpdb-reader-newtab-puck" type="button" data-newtab-action="settings" aria-label="Open ${APP_NAME} settings">${APP_PUCK}</button>
-        `;
+    private renderEnabledContent(): DocumentFragment {
+        return fragment(
+            el('div', { class: 'jpdb-reader-newtab-shell' },
+                el('header', { class: 'jpdb-reader-newtab-topbar' },
+                    el('a', { class: 'jpdb-reader-newtab-brand', href: SUPPORT_LINKS.docs, 'aria-label': `Open ${APP_NAME} home page` },
+                        el('span', { class: 'jpdb-reader-newtab-brand-mark' }, APP_PUCK),
+                        el('span', { class: 'jpdb-reader-newtab-brand-text' },
+                            el('strong', null, APP_NAME),
+                            el('span', null, 'new tab'),
+                        ),
+                    ),
+                    el('div', { class: 'jpdb-reader-newtab-health', dataset: { newtabSummary: true } }, 'Loading study sources...'),
+                    el('button', { class: 'jpdb-reader-newtab-icon-button', type: 'button', dataset: { newtabAction: 'settings' } }, 'Settings'),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-workspace' },
+                    this.renderStage(),
+                    this.renderSidePanel(),
+                ),
+            ),
+            el('button', {
+                class: 'jpdb-reader-newtab-puck',
+                type: 'button',
+                dataset: { newtabAction: 'settings' },
+                'aria-label': `Open ${APP_NAME} settings`,
+            }, APP_PUCK),
+        );
+    }
+
+    private renderStage(): HTMLElement {
+        return el('section', { class: 'jpdb-reader-newtab-stage', 'aria-live': 'polite' },
+            el('div', { class: 'jpdb-reader-newtab-card', dataset: { newtabCard: true }, tabIndex: 0 },
+                el('div', { class: 'jpdb-reader-newtab-card-head' },
+                    el('span', { dataset: { newtabCardKicker: true } }, 'Word'),
+                    el('span', { dataset: { newtabCardCount: true } }, '0 / 0'),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-visual', dataset: { newtabVisual: true }, 'aria-hidden': 'true' }, '読'),
+                el('div', { class: 'jpdb-reader-newtab-word', dataset: { newtabExpression: true }, lang: 'ja' }, '読'),
+                el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
+                    el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
+                    el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-concealed', dataset: { newtabConcealed: true } }, 'Recall it, then reveal.'),
+                el('div', { class: 'jpdb-reader-newtab-meta', dataset: { newtabMeta: true } }),
+            ),
+            el('div', { class: 'jpdb-reader-newtab-controls' },
+                el('button', { class: 'jpdb-reader-newtab-button', type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
+                el('button', { class: 'jpdb-reader-newtab-button primary', type: 'button', dataset: { newtabAction: 'next' } }, 'Next'),
+                el('div', { class: 'jpdb-reader-newtab-status', dataset: { newtabStatus: true } }, 'Loading words...'),
+            ),
+        );
+    }
+
+    private renderSidePanel(): HTMLElement {
+        return el('aside', { class: 'jpdb-reader-newtab-side', 'aria-label': 'Study controls' },
+            el('section', { class: 'jpdb-reader-newtab-panel' },
+                el('div', { class: 'jpdb-reader-newtab-panel-head' },
+                    el('span', null, 'Mode'),
+                    el('button', { type: 'button', dataset: { newtabAction: 'reload' } }, 'Refresh sources'),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-segmented', role: 'group', 'aria-label': 'Study mode' },
+                    el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, 'Word'),
+                    el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, 'Kanji'),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-form-grid' },
+                    el('label', null, 'Source', this.renderSelect('newtabSource', NEW_TAB_SOURCE_OPTIONS)),
+                    el('label', null, 'Sort', this.renderSelect('newtabSort', NEW_TAB_SORT_OPTIONS)),
+                ),
+                el('label', { class: 'jpdb-reader-newtab-search' }, 'Search',
+                    el('input', {
+                        dataset: { newtabSearch: true },
+                        type: 'search',
+                        'aria-label': 'Search words',
+                        placeholder: 'Search spelling, reading, or meaning...',
+                        autocomplete: 'off',
+                    }),
+                ),
+            ),
+            el('section', { class: 'jpdb-reader-newtab-panel' },
+                el('div', { class: 'jpdb-reader-newtab-panel-head' },
+                    el('span', null, 'Show only'),
+                    el('span', { dataset: { newtabFilterCount: true } }, '0 words'),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-filter-grid', dataset: { newtabFilters: true } },
+                    NEW_TAB_FILTERS.map(filter => el('button', { type: 'button', dataset: { newtabAction: 'filter', filter: filter.value } }, filter.label)),
+                ),
+            ),
+            el('section', { class: 'jpdb-reader-newtab-panel jpdb-reader-newtab-queue-panel' },
+                el('div', { class: 'jpdb-reader-newtab-panel-head' },
+                    el('span', null, '2D review tray'),
+                    el('span', { dataset: { newtabTrayNote: true } }, 'Pick any word'),
+                ),
+                el('div', { class: 'jpdb-reader-newtab-list', dataset: { newtabList: true } }),
+            ),
+            el('section', { class: 'jpdb-reader-newtab-source-note', dataset: { newtabSourceNote: true } }),
+        );
+    }
+
+    private renderSelect(datasetName: string, options: readonly { value: string; label: string }[]): HTMLSelectElement {
+        return el('select', { dataset: { [datasetName]: true } },
+            options.map(option => el('option', { value: option.value }, option.label)),
+        );
     }
 
     private bindRootEvents(root: HTMLElement): void {
@@ -559,20 +576,18 @@ export class NewTabController {
         const count = root.querySelector<HTMLElement>('[data-newtab-card-count]');
         const reveal = root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]');
         const state = primaryCardState(card.cardState);
-        const sourceClass = card.source === 'anki' ? 'anki' : 'jpdb';
-        const wordHtml = `<span class="jpdb-reader-word ${sourceClass}-${escapeHtml(state)}" data-vid="${card.vid}" data-sid="${card.sid}" data-sentence="${escapeHtml(card.spelling)}" tabindex="0">${escapeHtml(card.spelling)}</span>`;
 
         if (this.state.mode === 'kanji') {
             const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '字';
             if (kicker) kicker.textContent = 'Kanji recall';
             if (expression) expression.textContent = kanji;
             if (visual) visual.textContent = kanji;
-            if (reading) setInnerHtml(reading, wordHtml);
+            if (reading) replaceChildrenWith(reading, this.renderReaderWord(card, state));
             if (meaning) meaning.textContent = `${card.reading}${firstCardMeaning(card) ? ` · ${firstCardMeaning(card)}` : ''}`;
             if (concealed) concealed.textContent = 'Which word uses this kanji?';
         } else {
             if (kicker) kicker.textContent = 'Word recall';
-            if (expression) setInnerHtml(expression, wordHtml);
+            if (expression) replaceChildrenWith(expression, this.renderReaderWord(card, state));
             if (visual) visual.textContent = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '読';
             if (reading) reading.textContent = card.reading && card.reading !== card.spelling ? card.reading : 'Reading hidden';
             if (meaning) meaning.textContent = firstCardMeaning(card) || 'Open the word popup for local dictionary details.';
@@ -581,11 +596,11 @@ export class NewTabController {
 
         if (meta) {
             const frequency = card.frequencyRank ? `Top ${card.frequencyRank.toLocaleString()}` : 'No frequency';
-            meta.innerHTML = `
-                <span>${escapeHtml(cardStateLabel(card))}</span>
-                <span>${escapeHtml(sourceLabel(card))}</span>
-                <span>${escapeHtml(frequency)}</span>
-            `;
+            replaceChildrenWith(meta,
+                el('span', null, cardStateLabel(card)),
+                el('span', null, sourceLabel(card)),
+                el('span', null, frequency),
+            );
         }
         if (count) count.textContent = `${this.index + 1} / ${this.visibleCards.length}`;
         if (reveal) reveal.textContent = this.state.revealAnswer ? 'Hide answer' : 'Reveal';
@@ -600,16 +615,18 @@ export class NewTabController {
         if (!list) return;
         const activeKey = cardKey(activeCard);
         const items = this.visibleCards.slice(0, 18);
-        list.innerHTML = items.map(card => {
+        replaceChildrenWith(list, items.map(card => {
             const key = cardKey(card);
             const active = key === activeKey;
-            return `
-                <button class="jpdb-reader-newtab-list-item${active ? ' active' : ''}" type="button" data-newtab-card-key="${escapeHtml(key)}">
-                    <span lang="ja">${escapeHtml(card.spelling)}</span>
-                    <small>${escapeHtml(cardStateLabel(card))}</small>
-                </button>
-            `;
-        }).join('');
+            return el('button', {
+                class: `jpdb-reader-newtab-list-item${active ? ' active' : ''}`,
+                type: 'button',
+                dataset: { newtabCardKey: key },
+            },
+                el('span', { lang: 'ja' }, card.spelling),
+                el('small', null, cardStateLabel(card)),
+            );
+        }));
     }
 
     private renderSummary(root: HTMLElement): void {
@@ -624,7 +641,7 @@ export class NewTabController {
     private renderSourceNote(root: HTMLElement, notes: string[]): void {
         const note = root.querySelector<HTMLElement>('[data-newtab-source-note]');
         if (!note) return;
-        note.innerHTML = notes.filter(Boolean).slice(0, 4).map(item => `<p>${escapeHtml(item)}</p>`).join('');
+        replaceChildrenWith(note, notes.filter(Boolean).slice(0, 4).map(item => el('p', null, item)));
     }
 
     private renderEmptyCard(root: HTMLElement, title: string, message: string): void {
@@ -641,8 +658,25 @@ export class NewTabController {
         if (meaning) meaning.textContent = message;
         if (visual) visual.textContent = 'よ';
         if (concealed) concealed.textContent = message;
-        if (meta) meta.innerHTML = '<span>Dictionary fallback</span><span>JPDB optional</span><span>Anki optional</span>';
-        if (list) list.innerHTML = '';
+        if (meta) replaceChildrenWith(meta,
+            el('span', null, 'Dictionary fallback'),
+            el('span', null, 'JPDB optional'),
+            el('span', null, 'Anki optional'),
+        );
+        if (list) list.replaceChildren();
+    }
+
+    private renderReaderWord(card: JPDBCard, state: string): HTMLSpanElement {
+        const sourceClass = card.source === 'anki' ? 'anki' : 'jpdb';
+        return el('span', {
+            class: `jpdb-reader-word ${sourceClass}-${state}`,
+            dataset: {
+                vid: card.vid,
+                sid: card.sid,
+                sentence: card.spelling,
+            },
+            tabIndex: 0,
+        }, card.spelling);
     }
 
     private syncControls(root: HTMLElement): void {
