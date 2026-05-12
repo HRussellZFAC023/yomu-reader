@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/kotoba-reader
-// @version      0.4.0
+// @version      0.4.1
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      MIT
@@ -8416,6 +8416,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       scanVisiblePage: "Scan visible page on load",
       showFloatingButton: "Toggle floating puck on pages",
       showFurigana: "Enable furigana annotations",
+      furiganaMode: "Furigana",
+      furiganaDifficultKanji: "Difficult kanji only",
+      furiganaHideKnown: "Hide known words",
+      furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       wordHighlightMode: "Word highlight colors",
       highlightKnownStatus: "Known/mining status",
@@ -8736,6 +8740,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       scanVisiblePage: "読み込み時に見える範囲を読む",
       showFloatingButton: "浮動ボタンを切り替え",
       showFurigana: "ふりがなを表示",
+      furiganaMode: "ふりがな",
+      furiganaDifficultKanji: "難しい漢字のみ",
+      furiganaHideKnown: "既知単語を隠す",
+      furiganaAllParsed: "解析した全単語",
       showPitchAccent: "ピッチアクセントを表示",
       wordHighlightMode: "単語ハイライト色",
       highlightKnownStatus: "既知/採掘ステータス",
@@ -14754,10 +14762,9 @@ ${entry.reading}`);
                     ${checkbox("autoScanJapanese", "Auto-scan when Japanese is detected", settings.autoScanJapanese)}
                     ${checkbox("scanVisiblePage", "Scan visible page on load", settings.scanVisiblePage)}
                     ${checkbox("showFloatingButton", "Toggle floating puck on pages", settings.showFloatingButton)}
-                    ${checkbox("showFurigana", "Enable furigana annotations", settings.showFurigana)}
+                    ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide known words"], ["all", "All parsed words"], ["off", "Off"]])}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
-                    ${select("wordHighlightMode", "Word highlight colors", settings.wordHighlightMode, [["auto", "Automatic"], ["status", "Known/mining status"], ["pitch", "Pitch accent"]])}
-                    ${checkbox("hideKnownFurigana", "Hide furigana for known cards only", settings.hideKnownFurigana)}
+                    ${select("wordHighlightMode", "Word highlight colors", settings.wordHighlightMode, [["auto", "Automatic"], ["status", "Known/mining status"], ["pitch", "Pitch accent"], ["off", "Off"]])}
                 </div>
                 <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
             </fieldset>
@@ -15013,10 +15020,9 @@ ${entry.reading}`);
       ["autoScanJapanese", "autoScanJapanese"],
       ["scanVisiblePage", "scanVisiblePage"],
       ["showFloatingButton", "showFloatingButton"],
-      ["showFurigana", "showFurigana"],
+      ["furiganaMode", "furiganaMode"],
       ["showPitchAccent", "showPitchAccent"],
       ["wordHighlightMode", "wordHighlightMode"],
-      ["hideKnownFurigana", "hideKnownFurigana"],
       ["kanjivgEnabled", "kanjivgEnabled"],
       ["kanjiOriginsEnabled", "kanjiOriginsEnabled"],
       ["kanjiOriginKanjiMapEnabled", "kanjiOriginKanjiMapEnabled"],
@@ -15145,7 +15151,15 @@ ${entry.reading}`);
     setSelectOptionLabels(form, "wordHighlightMode", [
       ["auto", text2("automatic")],
       ["status", text2("highlightKnownStatus")],
-      ["pitch", text2("highlightPitchAccent")]
+      ["pitch", text2("highlightPitchAccent")],
+      ["off", text2("off")]
+    ]);
+    setSelectOptionLabels(form, "furiganaMode", [
+      ["auto", text2("automatic")],
+      ["difficult-kanji", text2("furiganaDifficultKanji")],
+      ["known-status", text2("furiganaHideKnown")],
+      ["all", text2("furiganaAllParsed")],
+      ["off", text2("off")]
     ]);
     setSelectOptionLabels(form, "newTabSource", [
       ["auto", text2("newTabAuto")],
@@ -15867,10 +15881,11 @@ ${entry.reading}`);
       newTabEnabled: has("newTabEnabled"),
       newTabSource: ["auto", "jpdb", "anki", "dictionary"].includes(get("newTabSource")) ? get("newTabSource") : current.newTabSource,
       newTabJpdbDeck: get("newTabJpdbDeck").trim() || current.newTabJpdbDeck,
-      showFurigana: has("showFurigana"),
+      showFurigana: get("furiganaMode") !== "off",
+      furiganaMode: ["auto", "all", "difficult-kanji", "known-status", "off"].includes(get("furiganaMode")) ? get("furiganaMode") : current.furiganaMode,
       showPitchAccent: has("showPitchAccent"),
-      wordHighlightMode: ["auto", "status", "pitch"].includes(get("wordHighlightMode")) ? get("wordHighlightMode") : current.wordHighlightMode,
-      hideKnownFurigana: has("hideKnownFurigana"),
+      wordHighlightMode: ["auto", "status", "pitch", "off"].includes(get("wordHighlightMode")) ? get("wordHighlightMode") : current.wordHighlightMode,
+      hideKnownFurigana: get("furiganaMode") === "known-status",
       ocrEnabled: has("ocrEnabled"),
       ocrAutoScanImages: has("ocrAutoScanImages"),
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
@@ -17038,6 +17053,13 @@ ${entry.reading}`);
   background: rgba(144,80,246,.14) !important;
   text-decoration-color: #9050f6 !important;
 }
+.jpdb-reader-highlight-off .jpdb-reader-word,
+.jpdb-reader-highlight-off .jpdb-reader-word:is(:hover,:focus,.jpdb-reader-hover) {
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  text-decoration-color: transparent !important;
+}
 .jpdb-reader-newtab-word .jpdb-reader-word {
   background: transparent !important;
   color: inherit !important;
@@ -17207,6 +17229,13 @@ ${entry.reading}`);
 .jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku,
 .jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-kifuku,
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku { color: #9050f6 !important; }
+.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word,
+.jpdb-reader-highlight-off .asbplayer-subtitles-container-bottom .jpdb-reader-word,
+.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word {
+  background: transparent !important;
+  color: inherit !important;
+  text-decoration-color: transparent !important;
+}
 
 .jpdb-reader-fab {
   position: fixed;
@@ -19655,6 +19684,11 @@ button.jpdb-reader-jpdb-pill {
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka { color: #fba840 !important; }
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka { color: #57ccb7 !important; }
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku { color: #9050f6 !important; }
+.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word {
+  background: transparent !important;
+  color: var(--subtitle-color) !important;
+  text-decoration-color: transparent !important;
+}
 .jpdb-subtitle-primary .jpdb-reader-furi { color: currentColor; opacity: .8; }
 .jpdb-reader-subtitle-preview {
   min-height: 94px;
@@ -20657,7 +20691,7 @@ button.jpdb-reader-jpdb-pill {
     }
     async renderParsedPrimary(text2) {
       const settings = this.options.getSettings();
-      const key = `${settings.showFurigana}:${settings.hideKnownFurigana}:${text2}`;
+      const key = `${settings.showFurigana}:${settings.furiganaMode}:${settings.hideKnownFurigana}:${settings.wordHighlightMode}:${text2}`;
       const serial = ++this.renderSerial;
       const cached = this.parsedHtmlCache.get(key);
       if (cached) {
@@ -21327,7 +21361,7 @@ button.jpdb-reader-jpdb-pill {
       const cue = this.cues[index];
       const target = (_a = this.transcriptPanel) == null ? void 0 : _a.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return;
-      const key = `${settings.showFurigana}:${settings.hideKnownFurigana}:${cue.text}`;
+      const key = `${settings.showFurigana}:${settings.furiganaMode}:${settings.hideKnownFurigana}:${settings.wordHighlightMode}:${cue.text}`;
       if (target.dataset.parsedKey === key) return;
       const cached = this.parsedHtmlCache.get(key);
       if (cached) {
@@ -22316,14 +22350,17 @@ button.jpdb-reader-jpdb-pill {
       this.applyWordColors();
       document.documentElement.classList.toggle("jpdb-reader-theme-dark", this.settings.theme === "dark");
       document.documentElement.classList.toggle("jpdb-reader-theme-light", this.settings.theme === "light");
-      document.documentElement.classList.toggle("jpdb-reader-hide-known", this.settings.hideKnownFurigana);
-      document.documentElement.classList.toggle("jpdb-reader-highlight-status", effectiveWordHighlightMode(this.settings) === "status");
-      document.documentElement.classList.toggle("jpdb-reader-highlight-pitch", effectiveWordHighlightMode(this.settings) === "pitch");
+      const furiganaMode = effectiveFuriganaMode(this.settings);
+      const wordHighlightMode = effectiveWordHighlightMode(this.settings);
+      document.documentElement.classList.toggle("jpdb-reader-hide-known", furiganaMode === "known-status");
+      document.documentElement.classList.toggle("jpdb-reader-highlight-status", wordHighlightMode === "status");
+      document.documentElement.classList.toggle("jpdb-reader-highlight-pitch", wordHighlightMode === "pitch");
+      document.documentElement.classList.toggle("jpdb-reader-highlight-off", wordHighlightMode === "off");
       log.debug("Theme applied", {
         theme: this.settings.theme,
         popupMode: this.settings.popupMode,
-        hideKnownFurigana: this.settings.hideKnownFurigana,
-        wordHighlightMode: effectiveWordHighlightMode(this.settings)
+        furiganaMode,
+        wordHighlightMode
       });
     }
     async refreshDictionaryStyles() {

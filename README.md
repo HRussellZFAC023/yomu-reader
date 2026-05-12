@@ -25,6 +25,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Yomitan dictionary imports: automatic JMdict starter download, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
+- Furigana and word-color modes for all parsed text: automatic, difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
 - Immersion Kit example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, browser text-to-speech, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.

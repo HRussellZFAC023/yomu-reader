@@ -8,7 +8,9 @@ Tap, select, or hover Japanese text to open a popup. The popup can show JPDB def
 
 ![Yomu popup lookup screenshot](./assets/screenshots/hover-lookup.png)
 
-JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, and optional context images. Word highlights can use mining status colors or pitch-accent colors; automatic mode uses pitch colors when no JPDB or Anki mining status source is active.
+JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, and optional context images.
+
+Furigana and word colors are separate controls. You can keep the automatic behavior, show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by JPDB/Anki state, color them by pitch accent, or turn highlight coloring off.
 
 ## Yomitan Dictionaries
 

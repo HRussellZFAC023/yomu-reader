@@ -71,6 +71,7 @@ import {
     DEFAULT_SETTINGS,
     accentToRgba,
     applyUrlBootstrapSettings,
+    effectiveFuriganaMode,
     effectiveWordHighlightMode,
     loadSettings,
     matchesShortcut,
@@ -475,14 +476,17 @@ export class ReaderApp {
         this.applyWordColors();
         document.documentElement.classList.toggle('jpdb-reader-theme-dark', this.settings.theme === 'dark');
         document.documentElement.classList.toggle('jpdb-reader-theme-light', this.settings.theme === 'light');
-        document.documentElement.classList.toggle('jpdb-reader-hide-known', this.settings.hideKnownFurigana);
-        document.documentElement.classList.toggle('jpdb-reader-highlight-status', effectiveWordHighlightMode(this.settings) === 'status');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-pitch', effectiveWordHighlightMode(this.settings) === 'pitch');
+        const furiganaMode = effectiveFuriganaMode(this.settings);
+        const wordHighlightMode = effectiveWordHighlightMode(this.settings);
+        document.documentElement.classList.toggle('jpdb-reader-hide-known', furiganaMode === 'known-status');
+        document.documentElement.classList.toggle('jpdb-reader-highlight-status', wordHighlightMode === 'status');
+        document.documentElement.classList.toggle('jpdb-reader-highlight-pitch', wordHighlightMode === 'pitch');
+        document.documentElement.classList.toggle('jpdb-reader-highlight-off', wordHighlightMode === 'off');
         log.debug('Theme applied', {
             theme: this.settings.theme,
             popupMode: this.settings.popupMode,
-            hideKnownFurigana: this.settings.hideKnownFurigana,
-            wordHighlightMode: effectiveWordHighlightMode(this.settings),
+            furiganaMode,
+            wordHighlightMode,
         });
     }
 
