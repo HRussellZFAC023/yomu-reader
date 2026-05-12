@@ -29,6 +29,7 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 - Treat external kanji/etymology sources as license-sensitive. Check `docs/kanji-source-research.md` before adding a source.
 - Keep visible product naming as `よむ` and the built userscript as `dist/yomu.user.js`.
 - Update `dist/yomu.user.js` by running the build when source changes affect the bundle.
+- For every task, boldly refactor and cleanup the codebase, fixing techdebt even when not asked, doing so eagerly and vigorosly, no scope is to big. You care about code quality and modularity and structure above all else.
 
 ## Definition of Done
 

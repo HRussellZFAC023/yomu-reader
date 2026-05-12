@@ -42,7 +42,7 @@ Recognized text stays lightweight: touch targets sit over the image without cove
 
 The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
 
-Local videos can also flow through an optional MPV bridge compatible with [mpv-subtitleminer](https://github.com/friedrich-de/mpv-subtitleminer), so a running mpv session can stream subtitles into よむ for lookup, mining, and line-audio replay. The MPV bridge is opt-in from the overflow menu or settings, which keeps ordinary website videos uncluttered.
+For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
 ![Yomu subtitle mining screenshot](./assets/screenshots/video-subtitles.png)
 

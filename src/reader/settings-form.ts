@@ -223,10 +223,6 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${input('subtitleFontFamily', 'Subtitle font family', settings.subtitleFontFamily)}
                     ${input('subtitleFontWeight', 'Subtitle font weight', String(settings.subtitleFontWeight), 'number')}
                     ${input('subtitleSeekPadding', 'Subtitle seek padding (seconds)', String(settings.subtitleSeekPadding), 'number')}
-                    ${checkbox('mpvSubtitleMiningEnabled', 'Enable MPV subtitle bridge', settings.mpvSubtitleMiningEnabled)}
-                    ${checkbox('mpvSubtitleAutoConnect', 'Connect to MPV automatically', settings.mpvSubtitleAutoConnect)}
-                    ${input('mpvSubtitleHost', 'MPV bridge host', settings.mpvSubtitleHost)}
-                    ${input('mpvSubtitlePorts', 'MPV bridge ports', settings.mpvSubtitlePorts)}
                 </div>
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
@@ -492,10 +488,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['subtitleFontFamily', 'subtitleFontFamily'],
         ['subtitleFontWeight', 'subtitleFontWeight'],
         ['subtitleSeekPadding', 'subtitleSeekPadding'],
-        ['mpvSubtitleMiningEnabled', 'mpvSubtitleMiningEnabled'],
-        ['mpvSubtitleAutoConnect', 'mpvSubtitleAutoConnect'],
-        ['mpvSubtitleHost', 'mpvSubtitleHost'],
-        ['mpvSubtitlePorts', 'mpvSubtitlePorts'],
         ['youtubeImmersionEnabled', 'youtubeImmersionEnabled'],
         ['youtubeShowFilterNotice', 'youtubeShowFilterNotice'],
         ['ankiEnabled', 'ankiEnabled'],
@@ -1460,10 +1452,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         subtitleFontWeight: Math.max(100, Math.min(900, number('subtitleFontWeight', current.subtitleFontWeight))),
         subtitleMiningPause: has('subtitleMiningPause'),
         subtitleSeekPadding: Math.max(-2, Math.min(2, number('subtitleSeekPadding', current.subtitleSeekPadding))),
-        mpvSubtitleMiningEnabled: has('mpvSubtitleMiningEnabled'),
-        mpvSubtitleAutoConnect: has('mpvSubtitleAutoConnect'),
-        mpvSubtitleHost: get('mpvSubtitleHost').trim() || current.mpvSubtitleHost,
-        mpvSubtitlePorts: get('mpvSubtitlePorts').trim() || current.mpvSubtitlePorts,
         youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
         youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
         ankiEnabled: has('ankiEnabled'),

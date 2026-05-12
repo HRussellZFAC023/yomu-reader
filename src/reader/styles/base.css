@@ -1,0 +1,73 @@
+:root {
+  --jpdb-reader-bg: #181b20;
+  --jpdb-reader-surface: #20242b;
+  --jpdb-reader-surface-2: #282e37;
+  --jpdb-reader-text: #f2f4f8;
+  --jpdb-reader-muted: #aab2c0;
+  --jpdb-reader-faint: #6f7a89;
+  --jpdb-reader-border: rgba(255,255,255,.12);
+  --jpdb-reader-accent: #5ea780;
+  --jpdb-reader-accent-readable: #76bd99;
+  --jpdb-reader-accent-soft: rgba(94,167,128,.18);
+  --jpdb-reader-hover: rgba(255,255,255,.08);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --jpdb-reader-bg: #ffffff;
+    --jpdb-reader-surface: #f7f8fa;
+    --jpdb-reader-surface-2: #eef1f4;
+    --jpdb-reader-text: #171a1f;
+    --jpdb-reader-muted: #596272;
+    --jpdb-reader-faint: #7b8493;
+    --jpdb-reader-border: rgba(20,30,45,.16);
+    --jpdb-reader-accent-readable: #25573d;
+    --jpdb-reader-hover: rgba(20,30,45,.07);
+  }
+}
+
+.jpdb-reader-theme-dark {
+  --jpdb-reader-bg: #181b20;
+  --jpdb-reader-surface: #20242b;
+  --jpdb-reader-surface-2: #282e37;
+  --jpdb-reader-text: #f2f4f8;
+  --jpdb-reader-muted: #aab2c0;
+  --jpdb-reader-faint: #6f7a89;
+  --jpdb-reader-border: rgba(255,255,255,.12);
+  --jpdb-reader-accent-readable: #76bd99;
+  --jpdb-reader-hover: rgba(255,255,255,.08);
+}
+
+.jpdb-reader-theme-light {
+  --jpdb-reader-bg: #ffffff;
+  --jpdb-reader-surface: #f7f8fa;
+  --jpdb-reader-surface-2: #eef1f4;
+  --jpdb-reader-text: #171a1f;
+  --jpdb-reader-muted: #596272;
+  --jpdb-reader-faint: #7b8493;
+  --jpdb-reader-border: rgba(20,30,45,.16);
+  --jpdb-reader-accent-readable: #25573d;
+  --jpdb-reader-hover: rgba(20,30,45,.07);
+}
+
+.jpdb-reader-middle-scan-active {
+  overscroll-behavior: none;
+  cursor: crosshair;
+}
+
+.jpdb-reader-middle-scan-active * {
+  cursor: crosshair !important;
+}
+
+[data-jpdb-reader-root],
+[data-jpdb-reader-root] * {
+  box-sizing: border-box;
+}
+[data-jpdb-reader-root] button,
+[data-jpdb-reader-root] input,
+[data-jpdb-reader-root] select,
+[data-jpdb-reader-root] textarea {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}

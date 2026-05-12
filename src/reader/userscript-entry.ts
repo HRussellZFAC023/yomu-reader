@@ -1,3 +1,3 @@
-import { bootReaderApp } from './main';
+import { bootReaderApp } from './reader-boot';
 
 bootReaderApp();

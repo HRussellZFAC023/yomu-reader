@@ -23,6 +23,7 @@ const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
+const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
 
 export class AudioPlayer {
@@ -85,7 +86,7 @@ export class AudioPlayer {
 
     preload(card: JPDBCard, options: AudioPreloadOptions = {}): void {
         const settings = this.getSettings();
-        if (!settings.audioEnabled || !settings.audioViaBlob) return;
+        if (!settings.audioEnabled) return;
         const sourceLimit = Math.max(1, options.sourceLimit ?? 1);
         const candidateLimit = Math.max(1, options.candidateLimit ?? 1);
         const sources = getOrderedAudioSources(settings)
@@ -101,6 +102,7 @@ export class AudioPlayer {
                         const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
                         if (triedUrls.has(candidateKey)) continue;
                         triedUrls.add(candidateKey);
+                        preconnectAudioUrl(candidate.url);
                         void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
                             .catch(error => log.debug('Audio preload failed quietly', { source: source.type, term: card.spelling, sourceHost: safeHost(candidate.sourceUrl) }, error));
                     }
@@ -189,6 +191,7 @@ export class AudioPlayer {
     private prepareAudioUrl(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean): Promise<string> {
         if (!shouldFetchCandidateAsBlob(candidate, audioViaBlob)) return Promise.resolve(candidate.url);
 
+        preconnectAudioUrl(candidate.url);
         const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
         return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
     }
@@ -214,9 +217,6 @@ export class AudioPlayer {
     private async createReadyAudio(audioUrl: string): Promise<HTMLAudioElement> {
         const audio = this.createAudioElement(audioUrl);
         audio.load?.();
-        await waitForAudioData(audio).catch(error => {
-            log.debug('Audio readiness check finished without preloaded data', { sourceHost: safeHost(audioUrl) }, error);
-        });
         return audio;
     }
 
@@ -359,38 +359,6 @@ export class AudioPlayer {
         }
         return true;
     }
-}
-
-function waitForAudioData(audio: HTMLAudioElement, timeoutMs = 800): Promise<void> {
-    if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve();
-    if (typeof audio.addEventListener !== 'function') return Promise.resolve();
-
-    return new Promise((resolve, reject) => {
-        let settled = false;
-        const cleanup = () => {
-            if (settled) return;
-            settled = true;
-            window.clearTimeout(timeout);
-            audio.removeEventListener('loadeddata', handleLoad);
-            audio.removeEventListener('canplay', handleLoad);
-            audio.removeEventListener('error', handleError);
-        };
-        const handleLoad = () => {
-            cleanup();
-            resolve();
-        };
-        const handleError = () => {
-            cleanup();
-            reject(audio.error ?? new Error('Could not load audio.'));
-        };
-        const timeout = window.setTimeout(() => {
-            cleanup();
-            resolve();
-        }, timeoutMs);
-        audio.addEventListener('loadeddata', handleLoad, { once: true });
-        audio.addEventListener('canplay', handleLoad, { once: true });
-        audio.addEventListener('error', handleError, { once: true });
-    });
 }
 
 export class ShuffledAudioDeck {
@@ -735,6 +703,25 @@ function uniqueAudioUrls(urls: string[]): string[] {
 
 function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
     return audioViaBlob && !candidate.url.startsWith('blob:') && !candidate.url.startsWith('data:audio/');
+}
+
+function preconnectAudioUrl(value: string): void {
+    let origin = '';
+    try {
+        origin = new URL(value, location.href).origin;
+    } catch {
+        return;
+    }
+    if (!origin || preconnectedAudioOrigins.has(origin)) return;
+    preconnectedAudioOrigins.add(origin);
+
+    for (const rel of ['preconnect', 'dns-prefetch']) {
+        const link = document.createElement('link');
+        link.rel = rel;
+        link.href = origin;
+        if (rel === 'preconnect') link.crossOrigin = 'anonymous';
+        document.head?.append(link);
+    }
 }
 
 function getProxyUrl(url: string): string {

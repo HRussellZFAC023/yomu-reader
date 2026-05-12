@@ -19,7 +19,7 @@ const metadataPath = '/yomu.meta.js';
 const installPath = '/yomu.user.js';
 const runtimePath = '/__yomu-dev-runtime.js';
 const versionPath = '/__yomu-dev-version.json';
-const autoReload = process.env.YOMU_DEV_AUTO_RELOAD !== '0';
+const autoReload = process.env.YOMU_DEV_AUTO_RELOAD === '1';
 
 let closing = false;
 const builder = spawn(process.execPath, [viteBin, 'build', '--watch', '--mode', 'development'], {

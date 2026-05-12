@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress';
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
+const userscriptUrl = `https://cdn.jsdelivr.net/gh/HRussellZFAC023/${repositoryName}@main/dist/yomu.user.js`;
 
 export default defineConfig({
     title: 'よむ',
@@ -17,6 +18,7 @@ export default defineConfig({
         ['meta', { property: 'og:title', content: 'よむ - Free Japanese popup reader' }],
         ['meta', { property: 'og:description', content: 'Install a friendly JPDB/Yomitan reader for lookup, mining, OCR, subtitles, and iPad-friendly study.' }],
         ['meta', { property: 'og:url', content: siteUrl }],
+        ['script', { src: userscriptUrl, defer: '' }],
     ],
     themeConfig: {
         logo: '/yomu-icon.svg',
@@ -26,6 +28,7 @@ export default defineConfig({
             { text: 'Local Audio', link: '/local-audio' },
             { text: 'Changelog', link: '/changelog' },
             { text: 'Support', link: '/support' },
+            { text: 'Video Player', link: '/video-player/index.html', target: '_self' },
             { text: 'Demo', link: '/newtab/index.html', target: '_self' },
         ],
         sidebar: [
@@ -36,6 +39,7 @@ export default defineConfig({
                     { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Features', link: '/features' },
                     { text: 'Local Audio', link: '/local-audio' },
+                    { text: 'Video Player', link: '/video-player/index.html' },
                 ],
             },
             {

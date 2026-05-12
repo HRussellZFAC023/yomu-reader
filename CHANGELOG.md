@@ -12,17 +12,21 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 - Added richer learner grammar cues for common particles, polite forms, conditionals, negatives, and verb endings, with matched sentence context and guide links.
 - Added local dictionary/new-tab and source-order improvements from the current workspace changes.
+- Added a hosted video-player page for local browser-supported media and subtitle files.
 
 ### Changed
 
 - Bumped the package and userscript version to `0.4.2`.
 - Reworked translation and grammar study panels into compact learner rows instead of nested cards, with smaller typography and better ruby/furigana spacing.
 - Moved reader styles into the bundled stylesheet path while keeping the userscript self-contained.
+- Tuned default subtitle appearance to be smaller, lighter, and closer to ASB-style captions.
+- Replaced the legacy subtitle-bridge menu action with an Open Video Player action that launches the GitHub Pages player.
 
 ### Fixed
 
 - Removed the misleading “Pattern hints are best guesses from the full sentence shape.” note and the redundant grammar cue count.
 - Tightened grammar matching so forms such as `読みました` and `確認できます` show cleaner “Found in” text and `できます` is not mistaken for the particle `で`.
+- Prevented detected page captions from stacking artificial DOM line breaks, and expanded the subtitle backing/shadow so furigana stays visually covered.
 
 ## [0.4.1] - 2026-05-12
 
@@ -37,7 +41,6 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 - Added automatic JMdict starter download for dictionary-backed new-tab cards when Anki and JPDB are unavailable.
 - Added a transcript panel for video subtitle mining, with active-line highlighting, auto-scroll, responsive left/right/below placement, and tappable lookup on visible transcript lines.
-- Added optional MPV subtitle bridge support inspired by `mpv-subtitleminer`, including live subtitle lines, replayable MPV line audio, and best-effort MPV frame capture for Anki context.
 - Added a Local Audio docs page covering hosted Ultimate Yomitan Audio, self-hosted audio files, local server setup, startup tasks, custom ports, and Tailscale access.
 - Added optional one-time Immersion Kit hover audio on desktop, with a setting to turn it off and manual replay kept available on every device.
 - Added deterministic Playwright plus axe/WCAG audits for product fixtures and GitHub Pages docs, a complexity audit, a local `.env.example`, and a live JPDB smoke test that reads secrets only from local `.env`.
@@ -50,7 +53,6 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Made JPDB mining actions independently configurable so users can keep a JPDB API key for popup lookup without showing add/Never Forget/blacklist actions.
 - Reworked video subtitle controls into compact icon buttons; transcript and track panels now share the same side-panel surface instead of competing popovers.
 - Reworked Immersion Kit example controls so navigation, audio, and count alignment stay compact inside the existing card instead of looking like separate panels.
-- Made the MPV bridge opt-in from settings, the userscript menu, or subtitle overflow so normal video pages stay quieter by default.
 - Expanded the docs and README with fuller feature descriptions, iPhone/iPad limitations, beginner-friendly local audio guidance, release links, and source credits.
 - Refreshed screenshots, docs contrast, new-tab accent theming, donation/support copy, and the homepage/new-tab assets.
 - Improved new-tab fallback behavior so the page can use Anki, JPDB, then top-ranked local dictionary words without showing a dead setup warning.

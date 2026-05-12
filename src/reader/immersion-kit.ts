@@ -6,6 +6,9 @@ import { getUserscriptHttpRequest } from './userscript';
 const API_BASE = 'https://apiv2.immersionkit.com';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
+const NAVIGATION_EXAMPLE_LIMIT = 24;
+const MIN_LEARNING_SENTENCE_LENGTH = 8;
+const DEFAULT_EXAMPLE_SORT = 'random';
 const log = Logger.scope('ImmersionKit');
 
 // Immersion Kit media paths use these canonical deck titles, while search results only include slugs.
@@ -133,11 +136,11 @@ export class ImmersionKitClient {
 
         const cacheKey = JSON.stringify({
             query,
-            limit: settings.immersionKitLimit,
-            min: settings.immersionKitMinLength,
+            limit: Math.max(settings.immersionKitLimit, NAVIGATION_EXAMPLE_LIMIT),
+            min: this.minimumSentenceLength(settings),
             max: settings.immersionKitMaxLength,
             category: settings.immersionKitCategory,
-            sort: settings.immersionKitSort,
+            sort: this.effectiveSort(settings),
             exact: settings.immersionKitExactMatch,
         });
         const cached = this.cache.get(cacheKey);
@@ -151,10 +154,11 @@ export class ImmersionKitClient {
             return inflight;
         }
 
+        const resultLimit = Math.max(settings.immersionKitLimit, NAVIGATION_EXAMPLE_LIMIT);
         const params = new URLSearchParams({
             q: query,
-            limit: String(Math.max(settings.immersionKitLimit * 4, settings.immersionKitLimit)),
-            sort: settings.immersionKitSort === 'random' ? 'sentence_length:asc' : settings.immersionKitSort,
+            limit: String(resultLimit * 4),
+            sort: this.apiSort(settings),
         });
         if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
         if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
@@ -165,13 +169,13 @@ export class ImmersionKitClient {
                 const examples = collectExamples(data)
                     .map(normalizeExample)
                     .filter((example): example is ImmersionKitExample => Boolean(example))
-                    .filter(example => sentenceLength(example.sentence) >= settings.immersionKitMinLength)
+                    .filter(example => sentenceLength(example.sentence) >= this.minimumSentenceLength(settings))
                     .filter(example => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength);
 
-                const ordered = settings.immersionKitSort === 'random'
+                const ordered = this.effectiveSort(settings) === 'random'
                     ? shuffle(examples)
                     : examples;
-                const result = ordered.slice(0, settings.immersionKitLimit);
+                const result = ordered.slice(0, resultLimit);
                 this.cache.set(cacheKey, result);
                 log.debug('Search completed', { query, rawExamples: examples.length, returned: result.length });
                 return result;
@@ -182,6 +186,19 @@ export class ImmersionKitClient {
             });
         this.inflight.set(cacheKey, promise);
         return promise;
+    }
+
+    private effectiveSort(settings: ReaderSettings): string {
+        return settings.immersionKitSort === 'sentence_length:asc' ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
+    }
+
+    private apiSort(settings: ReaderSettings): string {
+        const sort = this.effectiveSort(settings);
+        return sort === 'random' ? 'sentence_length:asc' : sort;
+    }
+
+    private minimumSentenceLength(settings: ReaderSettings): number {
+        return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
     }
 
     mediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {

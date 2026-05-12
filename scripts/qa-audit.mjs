@@ -2110,7 +2110,6 @@ async function auditVideoFixture(browser, server) {
             menuHidden: document.querySelector('.jpdb-subtitle-menu')?.hasAttribute('hidden'),
             visibleFileInputs: document.querySelectorAll('.jpdb-subtitle-player input[type="file"]:not([hidden])').length,
             transcriptVisible: Boolean(document.querySelector('.jpdb-subtitle-list:not([hidden])')),
-            mpvRailVisible: Boolean(document.querySelector('.jpdb-subtitle-rail button[data-action="mpv-connect"]:not([hidden])')),
             obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
             subtitleBackground: `${primaryStyle?.backgroundColor ?? ''} ${primaryStyle?.backgroundImage ?? ''}`,
@@ -2122,7 +2121,6 @@ async function auditVideoFixture(browser, server) {
     assertAudit(snapshot.buttons.some(button => button.action === 'list' && /transcript/i.test(button.label)) && snapshot.buttons.some(button => button.action === 'menu') && snapshot.buttons.some(button => button.action === 'tracks'), 'subtitle icon controls are missing');
     assertAudit(snapshot.visibleFileInputs === 0, 'subtitle file inputs are visible over the video');
     assertAudit(!snapshot.transcriptVisible, 'transcript panel should be off by default');
-    assertAudit(!snapshot.mpvRailVisible, 'MPV bridge control should stay out of the main rail until enabled');
     assertAudit(!snapshot.obsoleteStatusText, 'obsolete no-subtitle status text is visible over the controls');
     assertAudit(snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読'), 'subtitle fixture cue is not visible');
     assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');

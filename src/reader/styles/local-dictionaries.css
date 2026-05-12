@@ -1,0 +1,538 @@
+.jpdb-reader-local {
+  border-top: 1px solid var(--jpdb-reader-border);
+  margin-top: 12px;
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+.jpdb-reader-definition-stack {
+  display: grid;
+  gap: 0;
+  margin-top: 12px;
+}
+.jpdb-reader-definition-stack .jpdb-reader-local {
+  margin-top: 0;
+}
+.jpdb-reader-source-card,
+.jpdb-reader-study-source {
+  gap: 0;
+  padding-top: 0;
+  position: relative;
+}
+.jpdb-reader-source-card .jpdb-reader-meanings {
+  margin: 0;
+}
+.jpdb-reader-source-card > summary.jpdb-reader-local-title,
+.jpdb-reader-study-source > summary.jpdb-reader-local-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.jpdb-reader-source-card > summary.jpdb-reader-local-title::-webkit-details-marker,
+.jpdb-reader-study-source > summary.jpdb-reader-local-title::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-source-card > summary.jpdb-reader-local-title::after,
+.jpdb-reader-study-source > summary.jpdb-reader-local-title::after {
+  content: "+";
+  flex: 0 0 auto;
+  margin-left: 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 15px;
+  line-height: 1;
+}
+.jpdb-reader-source-card[open] > summary.jpdb-reader-local-title::after,
+.jpdb-reader-study-source[open] > summary.jpdb-reader-local-title::after {
+  content: "-";
+}
+.jpdb-reader-source-card[data-immersion-empty="true"] > summary.jpdb-reader-local-title {
+  cursor: default;
+}
+.jpdb-reader-source-card[data-immersion-empty="true"] > summary.jpdb-reader-local-title::after {
+  content: "";
+}
+.jpdb-reader-source-card > :not(summary) {
+  margin-left: 0;
+  margin-right: 0;
+}
+.jpdb-reader-source-card[open] > :last-child {
+  margin-bottom: 7px;
+}
+.jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: inline-flex;
+  width: 20px;
+  min-height: 20px;
+  padding: 0;
+  justify-content: center;
+}
+.jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary::after {
+  margin: 0;
+  font-size: 13px;
+}
+.jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary + .jpdb-reader-local-terms {
+  padding-top: 0;
+}
+.jpdb-reader-dictionary-source-list,
+.jpdb-reader-dictionaries-section .jpdb-reader-local-terms {
+  gap: 0;
+  margin-top: 0;
+  padding: 0;
+}
+.jpdb-reader-dictionary-source-list {
+  display: grid;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group {
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding: 0;
+  overflow: visible;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child {
+  border-top: 0;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+  padding: 6px 0;
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+  line-height: 1;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open] > .jpdb-reader-dictionary-source-title::after {
+  content: "-";
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-local-term {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 0 8px;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-local-term + .jpdb-reader-local-term,
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title + .jpdb-reader-local-terms {
+  border-top: 1px solid var(--jpdb-reader-border);
+}
+.jpdb-reader-study-source > .jpdb-reader-study-panel {
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+.jpdb-reader-local-title {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.jpdb-reader-source-status {
+  margin-left: auto;
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+}
+.jpdb-reader-local-entry {
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface);
+  padding: 6px;
+}
+.jpdb-reader-local-terms {
+  display: grid;
+  gap: 5px;
+}
+.jpdb-reader-local-term {
+  padding: 7px 8px;
+  padding-right: 32px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-reader-surface-2));
+}
+.jpdb-reader-local-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 700;
+}
+.jpdb-reader-local-expression {
+  min-width: 0;
+  color: var(--jpdb-reader-text);
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 850;
+}
+.jpdb-reader-local-reading,
+.jpdb-reader-local-dict {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.jpdb-reader-local-dict {
+  margin-left: auto;
+}
+.jpdb-reader-local-frequency {
+  margin-left: auto;
+  color: var(--jpdb-reader-accent-readable);
+  font-size: 11px;
+  font-weight: 800;
+}
+.jpdb-reader-local-senses {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+.jpdb-reader-local-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+.jpdb-reader-local-head + .jpdb-reader-local-tags {
+  margin-top: 5px;
+}
+.jpdb-reader-local-tags:empty {
+  display: none;
+}
+.jpdb-reader-dict-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35em;
+  padding: 0 0.38em;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent-readable);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.jpdb-reader-source-tag {
+  border-color: var(--jpdb-reader-border);
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-local-sense,
+.jpdb-reader-local-glossary-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.jpdb-reader-local-sense {
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  line-height: 1.3;
+}
+.jpdb-reader-local-sense > span:last-child,
+.jpdb-reader-local-glossary-entry > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.jpdb-reader-local-sense-index {
+  flex: 0 0 16px;
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+.jpdb-reader-local-glossary {
+  margin-top: 3px;
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  white-space: normal;
+  display: grid;
+  gap: 2px;
+  --font-size-no-units: 13;
+  --line-height: 1.45;
+  --list-padding1: 1.1em;
+  --list-padding2: 1.45em;
+  --compact-list-separator: " / ";
+}
+.jpdb-reader-local-more {
+  margin-top: 6px;
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding-top: 5px;
+}
+.jpdb-reader-local-glossary-entry.no-index {
+  display: block;
+}
+.jpdb-reader-local-glossary-entry.no-index > div {
+  min-width: 0;
+}
+.jpdb-reader-local-glossary-entry.no-index > div > div:first-child > :first-child {
+  margin-top: 0 !important;
+}
+.jpdb-reader-local-glossary-entry.no-index > div > div:last-child > :last-child {
+  margin-bottom: 0 !important;
+}
+.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,
+.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,
+.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol {
+  margin-top: 0.12em !important;
+  margin-bottom: 0.12em !important;
+}
+.jpdb-reader-local-glossary ul,
+.jpdb-reader-local-glossary ol {
+  margin: 2px 0 2px 18px;
+  padding: 0;
+}
+.jpdb-reader-local-glossary li {
+  margin: 1px 0;
+}
+.jpdb-reader-local-glossary table {
+  border-collapse: collapse;
+  width: 100%;
+  white-space: normal;
+  margin: 4px 0;
+}
+.jpdb-reader-local-glossary td,
+.jpdb-reader-local-glossary th {
+  border: 1px solid var(--jpdb-reader-border);
+  padding: 8px 6px 6px;
+  line-height: 1.45;
+}
+.jpdb-reader-dictionary-group {
+  padding: 0;
+  overflow: hidden;
+}
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head::after {
+  content: "+";
+  margin-left: 4px;
+  color: var(--jpdb-reader-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+.jpdb-reader-dictionary-group[open] > summary.jpdb-reader-local-head::after {
+  content: "-";
+}
+.jpdb-reader-dictionary-group > .jpdb-reader-local-glossary {
+  padding: 0 8px 8px;
+}
+.jpdb-reader-local-glossary .structured-content {
+  display: inline;
+  white-space: normal;
+  line-height: var(--line-height);
+}
+.jpdb-reader-local-glossary ruby {
+  display: ruby;
+  ruby-align: center;
+  ruby-position: over;
+  max-width: 100%;
+  margin: 0 0.03em;
+  color: inherit;
+  line-height: 1;
+  text-align: center;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.jpdb-reader-local-glossary rt {
+  display: ruby-text;
+  color: var(--jpdb-reader-muted);
+  font-size: 0.52em;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+.jpdb-reader-local-glossary rp {
+  display: none;
+}
+.jpdb-reader-local-glossary :is(.gloss-sc-div, .gloss-sc-ul, .gloss-sc-ol, .gloss-sc-li, .gloss-sc-details) {
+  white-space: normal;
+}
+.jpdb-reader-local-glossary .gloss-sc-ul,
+.jpdb-reader-local-glossary .gloss-sc-ol {
+  margin: 0.25em 0 0.25em var(--list-padding1);
+  padding: 0;
+}
+.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content="glossary"],
+.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content="glossary"] {
+  display: grid;
+  gap: 0.25em;
+}
+.jpdb-reader-local-glossary .gloss-sc-li {
+  margin: 0;
+  padding-left: 0.1em;
+}
+.jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ul,
+.jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ol {
+  margin-left: var(--list-padding2);
+}
+.jpdb-reader-local-glossary .gloss-sc-details {
+  margin: 0.35em 0;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
+}
+.jpdb-reader-local-glossary .gloss-sc-summary {
+  padding: 0.35em 0.55em;
+  cursor: pointer;
+  font-weight: 700;
+}
+.jpdb-reader-local-glossary .gloss-sc-details > :not(.gloss-sc-summary) {
+  padding: 0 0.55em 0.45em;
+}
+.jpdb-reader-local-glossary .gloss-sc-table-container {
+  display: block;
+  max-width: 100%;
+  margin: 0.35em 0;
+  overflow-x: auto;
+  white-space: normal;
+}
+.jpdb-reader-local-glossary .gloss-sc-table {
+  width: auto;
+  min-width: min(100%, 24rem);
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.jpdb-reader-local-glossary .gloss-sc-th,
+.jpdb-reader-local-glossary .gloss-sc-td {
+  border: 1px solid var(--jpdb-reader-border);
+  padding: 0.35em 0.45em;
+  vertical-align: top;
+}
+.jpdb-reader-local-glossary .gloss-sc-th {
+  background: var(--jpdb-reader-surface-2);
+  font-weight: 800;
+}
+.jpdb-reader-local-glossary .gloss-link {
+  color: var(--jpdb-reader-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.jpdb-reader-local-glossary .gloss-link-external-icon {
+  display: none;
+}
+.jpdb-reader-local-glossary [data-sc-content="part-of-speech-info"],
+.jpdb-reader-local-glossary [data-sc-class="tag"],
+.jpdb-reader-local-glossary [data-sc-class="pitch-accent-position"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.4em;
+  margin: 0 0.25em 0.15em 0;
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-muted);
+  font-size: 0.88em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.jpdb-reader-local-glossary .gloss-image-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  max-width: 100%;
+  margin: 0.15em 0;
+  color: var(--jpdb-reader-muted);
+  vertical-align: middle;
+}
+.jpdb-reader-local-glossary .gloss-image-container {
+  position: relative;
+  display: inline-block;
+  max-width: min(100%, 20rem);
+  min-width: 3rem;
+  overflow: hidden;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+  background: var(--jpdb-reader-surface-2);
+  vertical-align: middle;
+}
+.jpdb-reader-local-glossary .gloss-image-sizer {
+  display: block;
+}
+.jpdb-reader-local-glossary .gloss-image-background,
+.jpdb-reader-local-glossary .gloss-image-container-overlay {
+  position: absolute;
+  inset: 0;
+}
+.jpdb-reader-local-glossary .gloss-image-background {
+  background:
+    linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25% 75%, rgba(255,255,255,.06) 75%),
+    linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25% 75%, rgba(255,255,255,.06) 75%);
+  background-position: 0 0, 6px 6px;
+  background-size: 12px 12px;
+}
+.jpdb-reader-local-glossary .gloss-image-link-text,
+.jpdb-reader-local-glossary .gloss-image-description {
+  color: var(--jpdb-reader-muted);
+  font-size: 0.9em;
+}
+.jpdb-reader-anki-existing {
+  margin-top: 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  overflow: hidden;
+}
+.jpdb-reader-anki-existing summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  cursor: pointer;
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 800;
+  list-style: none;
+}
+.jpdb-reader-anki-existing summary::-webkit-details-marker { display: none; }
+.jpdb-reader-anki-existing summary small {
+  color: var(--jpdb-reader-muted);
+  font-weight: 600;
+  text-align: right;
+}
+.jpdb-reader-anki-card-preview {
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding: 9px 10px 10px;
+  display: grid;
+  gap: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.jpdb-reader-anki-card-preview div {
+  display: grid;
+  gap: 2px;
+}
+.jpdb-reader-anki-card-preview strong {
+  color: var(--jpdb-reader-text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.jpdb-reader-anki-card-preview span,
+.jpdb-reader-anki-card-preview small {
+  white-space: pre-wrap;
+}

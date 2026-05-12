@@ -1,0 +1,341 @@
+.jpdb-reader-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  background: rgba(12,16,22,.74);
+}
+
+.jpdb-reader-popover,
+.jpdb-reader-settings {
+  position: fixed;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  background: var(--jpdb-reader-bg);
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.34);
+  color: var(--jpdb-reader-text);
+  color-scheme: dark;
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.jpdb-reader-popover {
+  width: min(430px, calc(100vw - 16px));
+  max-height: min(540px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 14px;
+}
+
+.jpdb-reader-sheet-handle {
+  display: none;
+  width: 72px;
+  height: 28px;
+  border-radius: 999px;
+  background: transparent;
+  margin: -4px auto 6px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-sheet-handle::before {
+  content: "";
+  display: block;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  margin: 11px auto 0;
+  background: var(--jpdb-reader-faint);
+}
+.jpdb-reader-sheet-handle:active {
+  cursor: grabbing;
+}
+.jpdb-reader-sheet-handle:focus-visible::before {
+  background: var(--jpdb-reader-accent);
+}
+
+.jpdb-reader-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.jpdb-reader-heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.jpdb-reader-card-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: auto;
+}
+.jpdb-reader-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  flex: 0 0 auto;
+  padding: 0 !important;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 50%;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-icon-btn:hover,
+.jpdb-reader-icon-btn:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}
+
+.jpdb-reader-onboarding {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 24px));
+  overflow: auto;
+  padding: 54px 32px 32px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 18% 0%, var(--jpdb-reader-accent-soft), transparent 34%),
+    var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-text);
+  box-shadow: 0 26px 70px rgba(0,0,0,.4);
+  color-scheme: dark;
+  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-reader-onboarding-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+.jpdb-reader-onboarding h2 {
+  margin: 4px 0 10px;
+  color: var(--jpdb-reader-text);
+  font-size: clamp(38px, 8vw, 72px);
+  line-height: .95;
+  letter-spacing: 0;
+}
+.jpdb-reader-onboarding p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-onboarding-eyebrow {
+  color: var(--jpdb-reader-accent);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.jpdb-reader-onboarding-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+.jpdb-reader-onboarding-grid div {
+  display: grid;
+  gap: 5px;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-onboarding-grid strong {
+  color: var(--jpdb-reader-text);
+  font-size: 16px;
+}
+.jpdb-reader-onboarding-grid span,
+.jpdb-reader-onboarding-note {
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+}
+.jpdb-reader-onboarding-language {
+  display: grid;
+  gap: 6px;
+  max-width: 280px;
+  margin: 0 0 16px;
+  color: var(--jpdb-reader-muted);
+  font-weight: 750;
+  font-size: 13px;
+}
+.jpdb-reader-onboarding-language select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  padding: 8px 10px;
+  font: 750 14px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-reader-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.jpdb-reader-onboarding-actions .jpdb-reader-btn {
+  min-width: 150px;
+  min-height: 46px;
+}
+.jpdb-reader-icon-btn svg {
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.jpdb-reader-spelling {
+  color: var(--jpdb-reader-text);
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.16;
+  text-decoration: none;
+  word-break: keep-all;
+}
+.jpdb-reader-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+}
+.jpdb-reader-kanji-inline {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-kanji-inline:hover,
+.jpdb-reader-kanji-inline:focus-visible {
+  border-bottom-color: currentColor;
+  outline: none;
+}
+.jpdb-reader-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+  box-sizing: border-box;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: max-content !important;
+  height: auto !important;
+  min-height: 24px !important;
+  padding: 3px 8px !important;
+  border: 1px solid var(--chip-border, var(--jpdb-reader-border));
+  border-radius: 999px;
+  color: var(--chip-text, var(--jpdb-reader-text)) !important;
+  background: var(--chip-bg, var(--jpdb-reader-surface-2));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1 !important;
+  text-decoration: none;
+}
+a.jpdb-reader-action-pill,
+button.jpdb-reader-action-pill {
+  cursor: pointer;
+  font-family: inherit;
+}
+.jpdb-reader-action-pill:hover,
+.jpdb-reader-action-pill:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--chip-border, var(--jpdb-reader-accent)) 55%, transparent);
+  outline-offset: 1px;
+}
+.jpdb-reader-pill svg {
+  width: 12px !important;
+  height: 12px !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-reader-word-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.jpdb-reader-reading,
+.jpdb-reader-pos,
+.jpdb-reader-meta,
+.jpdb-reader-help {
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-reading { margin-top: 2px; font-size: 15px; }
+.jpdb-reader-title-row .jpdb-reader-reading {
+  margin-top: 0;
+  line-height: 1.2;
+}
+.jpdb-reader-pos { margin-top: 7px; font-size: 12px; line-height: 1.35; }
+.jpdb-reader-status-line { min-height: 22px; }
+.jpdb-reader-status-line[data-status-tone] {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-status-line[data-status-tone="pending"] {
+  color: var(--jpdb-reader-muted);
+}
+.jpdb-reader-status-line[data-status-tone="success"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 11%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-status-line[data-status-tone="error"] {
+  border-color: color-mix(in srgb, #e55353 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, #e55353 11%, var(--jpdb-reader-surface-2));
+  color: #ff8c8c;
+}
+.jpdb-reader-meanings { margin: 9px 0; display: grid; gap: 5px; }
+.jpdb-reader-meaning { color: var(--jpdb-reader-text); line-height: 1.35; }
+.jpdb-reader-meaning-pos { color: var(--jpdb-reader-faint); font-size: 11px; margin-right: 5px; font-style: italic; text-transform: none; }
+.jpdb-reader-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; }
+.jpdb-reader-inline-link { color: var(--jpdb-reader-accent); font-weight: 800; text-decoration: none; }
+.jpdb-reader-state-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--jpdb-reader-faint); margin-right: 4px; }
+.jpdb-reader-state-dot.jpdb-new,
+.jpdb-reader-state-dot.jpdb-suspended,
+.jpdb-reader-state-dot.jpdb-not-in-deck { background: var(--jpdb-reader-state-new, #58a6ff); }
+.jpdb-reader-state-dot.jpdb-learning { background: var(--jpdb-reader-state-learning, #ffd166); }
+.jpdb-reader-state-dot.jpdb-known,
+.jpdb-reader-state-dot.jpdb-never-forget,
+.jpdb-reader-state-dot.jpdb-redundant { background: var(--jpdb-reader-state-known, #7bd88f); }
+.jpdb-reader-state-dot.jpdb-due { background: var(--jpdb-reader-state-due, #ffb454); }
+.jpdb-reader-state-dot.jpdb-failed { background: var(--jpdb-reader-state-failed, #ff6b6b); }
+.jpdb-reader-state-dot.jpdb-blacklisted,
+.jpdb-reader-state-dot.jpdb-locked { background: var(--jpdb-reader-state-ignored, #b8a7ff); }

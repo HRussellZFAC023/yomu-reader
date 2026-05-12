@@ -31,7 +31,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR that works without setup through Google Lens, with Cloud Vision and local OCR app support for MangaOCR, PaddleOCR, and Apple Vision style results.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
-- Optional MPV subtitle bridge support for local videos played through `mpv-subtitleminer`, including live subtitle mining and replayable MPV line audio when the local bridge is running. It stays out of the main rail until you enable or connect it.
+- Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/` for opening browser-supported local video and subtitle files without a desktop bridge.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
 - Optional new-tab study page at `https://hrussellzfac023.github.io/yomu-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
 - Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
@@ -75,6 +75,16 @@ Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect a
 Context selection is metadata-first: よむ remembers the last useful sentence/source for a term without storing image blobs in localStorage. Immersion Kit mining uses the exact example currently selected in the popup, including its sentence and thumbnail. Subtitle and video cards can include a best-effort still image from the active video, and OCR/image cards can include the source image when browser security allows it. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin media source the way a full browser extension can.
 
 Anki mobile note: AnkiConnect is an Anki desktop add-on, so direct one-tap Anki mining is designed around desktop Anki reachable at a local or LAN/Tailscale URL. On iPad or Android, Yomu can still copy/look up/mine to JPDB; direct AnkiMobile/AnkiDroid card creation needs a desktop bridge or another reachable service.
+
+## Video Player
+
+Open the hosted video player from the userscript menu or this URL:
+
+```text
+https://hrussellzfac023.github.io/yomu-reader/video-player/
+```
+
+Drop a local video file into the page, add Japanese or native subtitle files, and よむ can read the resulting browser video/text tracks with the same overlay and transcript workflow used on streaming pages. The files stay local to the browser tab.
 
 ## New Tab
 
@@ -165,7 +175,7 @@ http://127.0.0.1:5174/reader-video-test.html?apiKey=YOUR_JPDB_API_KEY
 http://127.0.0.1:5174/reader-ocr-test.html?apiKey=YOUR_JPDB_API_KEY
 ```
 
-`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Open pages also poll the harness and reload after rebuilds, so edits usually land with no Tampermonkey update click. Set `YOMU_DEV_AUTO_RELOAD=0 npm run dev` if you want to keep pages from refreshing automatically. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
+`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Refresh the target page manually when you want to pick up the latest rebuild. Set `YOMU_DEV_AUTO_RELOAD=1 npm run dev` if you want open pages to poll the harness and reload after rebuilds. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
 
 The production userscript is written to:
 
@@ -208,8 +218,7 @@ npm run publish:greasyfork
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
-- MPV support connects to a locally running [`mpv-subtitleminer`](https://github.com/friedrich-de/mpv-subtitleminer) bridge on the configured localhost ports. よむ does not bundle mpv, ffmpeg, or the Rust bridge binary, and the bridge is opt-in from settings, the userscript menu, or the subtitle overflow menu.
-- iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, and the new-tab study page, but desktop helpers such as AnkiConnect, MPV, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
+- iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, the hosted video player, and the new-tab study page. Desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
 - Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
 
 ## Support
@@ -231,7 +240,6 @@ Donation note: feature requests left in the PayPal message get personal attentio
 - [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) for the JPDB-side idea of importing and displaying Yomitan-style dictionary entries on JPDB pages; used as product inspiration only, with no code copied.
 - [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) and EDRDG/JMdict for the starter dictionary package that users can download into local browser storage.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
-- [mpv-subtitleminer](https://github.com/friedrich-de/mpv-subtitleminer) for the MPV bridge workflow, replayable subtitle-line media idea, and local-video mining reference.
 - [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg) for kanji stroke-order SVG data.
 - [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) for radical images and structured kanji facts, used through runtime lookups and credited under CC BY 4.0.
@@ -261,7 +269,6 @@ Donation note: feature requests left in the PayPal message get personal attentio
 | [asbplayer](https://github.com/asbplayer/asbplayer) | MIT; used as a subtitle-mining and video-reader UX reference |
 | [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) | MIT; used as a JPDB reader behavior and parser-edge-case reference |
 | [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples) | MIT; copied/adapted JPDB-side Immersion Kit userscript behavior |
-| [mpv-subtitleminer](https://github.com/friedrich-de/mpv-subtitleminer) | GPL-3.0 license file; used for the optional MPV bridge workflow and interoperability reference |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/) / [source](https://github.com/FooSoft/anki-connect) | GPL-3.0-or-later; よむ talks to the local HTTP API and does not bundle AnkiConnect |
 | [YomiNinja](https://github.com/matt-m-o/YomiNinja) | GPL-3.0; used for OCR response-shape compatibility and UX reference only |
 | [NihongoTube](https://www.nihongotube.app/) | Reference only for Japanese-only YouTube filtering; no public project license found, and the website footer says all rights reserved |
