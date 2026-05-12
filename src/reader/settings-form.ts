@@ -1259,6 +1259,12 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const has = (key: string) => data.has(key);
     const number = (key: string, fallback: number) => readNumber(get(key), fallback);
     const audioSources = readAudioSources(data);
+    const furiganaMode = ['auto', 'all', 'difficult-kanji', 'known-status', 'off'].includes(get('furiganaMode'))
+        ? get('furiganaMode') as ReaderSettings['furiganaMode']
+        : current.furiganaMode;
+    const wordHighlightMode = ['auto', 'status', 'pitch', 'off'].includes(get('wordHighlightMode'))
+        ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode']
+        : current.wordHighlightMode;
     const settings: ReaderSettings = {
         ...current,
         apiKey: get('apiKey').trim(),
@@ -1332,11 +1338,11 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         newTabEnabled: has('newTabEnabled'),
         newTabSource: ['auto', 'jpdb', 'anki', 'dictionary'].includes(get('newTabSource')) ? get('newTabSource') as ReaderSettings['newTabSource'] : current.newTabSource,
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
-        showFurigana: get('furiganaMode') !== 'off',
-        furiganaMode: ['auto', 'all', 'difficult-kanji', 'known-status', 'off'].includes(get('furiganaMode')) ? get('furiganaMode') as ReaderSettings['furiganaMode'] : current.furiganaMode,
+        showFurigana: furiganaMode !== 'off',
+        furiganaMode,
         showPitchAccent: has('showPitchAccent'),
-        wordHighlightMode: ['auto', 'status', 'pitch', 'off'].includes(get('wordHighlightMode')) ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode'] : current.wordHighlightMode,
-        hideKnownFurigana: get('furiganaMode') === 'known-status',
+        wordHighlightMode,
+        hideKnownFurigana: furiganaMode === 'known-status',
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
