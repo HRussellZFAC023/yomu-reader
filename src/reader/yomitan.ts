@@ -10,6 +10,7 @@ import {
     dictionaryEnabled,
     dictionaryPriority,
     dictionaryRank,
+    extractFrequency,
     nonOverlappingMatches,
 } from './yomitan-ranking';
 import type {
@@ -307,6 +308,156 @@ export class YomitanDictionaryStore {
     async countEntries(): Promise<number> {
         const summary = await this.summary();
         return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
+    }
+
+    async listRandomTerms(limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+        const done = log.time('Random term listing', { limit, dictionaries: preferences.length });
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const reservoir: YomitanTermEntry[] = [];
+            const seen = new Set<string>();
+            let count = 0;
+
+            await new Promise<void>((resolve, reject) => {
+                const tx = db.transaction('terms', 'readonly');
+                const request = tx.objectStore('terms').openCursor();
+                request.onerror = () => reject(request.error ?? new Error('Could not list dictionary terms.'));
+                request.onsuccess = () => {
+                    const cursor = request.result;
+                    if (!cursor) {
+                        resolve();
+                        return;
+                    }
+                    const entry = cursor.value as YomitanTermEntry;
+                    if (
+                        entry.expression
+                        && JAPANESE_RE.test(entry.expression)
+                        && entry.expression.length <= 6
+                        && dictionaryEnabled(entry.dictionary, rank)
+                    ) {
+                        const key = `${entry.expression}\n${entry.reading}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            count++;
+                            if (reservoir.length < limit) {
+                                reservoir.push(entry);
+                            } else {
+                                const index = Math.floor(Math.random() * count);
+                                if (index < limit) reservoir[index] = entry;
+                            }
+                        }
+                    }
+                    cursor.continue();
+                };
+            });
+
+            log.debug('Random term listing completed', { limit, scanned: count, results: reservoir.length });
+            return reservoir;
+        } catch (error) {
+            log.warn('Random term listing failed', { limit, error });
+            return [];
+        } finally {
+            done();
+        }
+    }
+
+    async listRandomTopTerms(limit: number, maxRank: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+        const done = log.time('Random top term listing', { limit, maxRank, dictionaries: preferences.length });
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
+            const results = topTerms.size
+                ? await this.entriesForRandomExpressions(topTerms, limit, preferences)
+                : await this.listRandomCommonTerms(db, limit, rank);
+            if (!topTerms.size && !results.length) {
+                log.debug('No common dictionary terms found, falling back to fully random terms');
+                return await this.listRandomTerms(limit, preferences);
+            }
+            log.debug('Random top term listing completed', {
+                limit,
+                frequencyCandidates: topTerms.size,
+                results: results.length,
+                fallback: topTerms.size ? 'frequency' : 'common-tags',
+            });
+            return results;
+        } catch (error) {
+            log.warn('Random top term listing failed', { limit, error });
+            return [];
+        } finally {
+            done();
+        }
+    }
+
+    private async collectTopFrequencyTerms(db: IDBDatabase, maxRank: number, rank: Map<string, DictionaryPreference>): Promise<Map<string, number>> {
+        const expressions = new Map<string, number>();
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction('termMeta', 'readonly');
+            const request = tx.objectStore('termMeta').openCursor();
+            request.onerror = () => reject(request.error ?? new Error('Could not list dictionary term meta.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    resolve();
+                    return;
+                }
+                const entry = cursor.value as YomitanMetaEntry;
+                if (entry.mode === 'freq' && entry.expression && dictionaryEnabled(entry.dictionary, rank)) {
+                    const freq = extractFrequency(entry.data);
+                    if (freq !== undefined && freq <= maxRank) {
+                        expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
+                    }
+                }
+                cursor.continue();
+            };
+        });
+        return expressions;
+    }
+
+    private async entriesForRandomExpressions(expressions: Map<string, number>, limit: number, preferences: DictionaryPreference[]): Promise<YomitanTermEntry[]> {
+        const sampled = reservoirSample([...expressions.keys()], limit);
+        const results: YomitanTermEntry[] = [];
+        for (const expression of sampled) {
+            const entries = await this.lookup(expression, '', 1, preferences);
+            if (entries[0]) results.push({ ...entries[0], jpdbFrequency: expressions.get(expression) });
+        }
+        return results;
+    }
+
+    private async listRandomCommonTerms(db: IDBDatabase, limit: number, rank: Map<string, DictionaryPreference>): Promise<YomitanTermEntry[]> {
+        const reservoir: YomitanTermEntry[] = [];
+        const seen = new Set<string>();
+        let count = 0;
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction('terms', 'readonly');
+            const request = tx.objectStore('terms').openCursor();
+            request.onerror = () => reject(request.error ?? new Error('Could not list dictionary terms.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    resolve();
+                    return;
+                }
+                const entry = cursor.value as YomitanTermEntry;
+                if (isCommonDictionaryTerm(entry, rank)) {
+                    const key = `${entry.expression}\n${entry.reading}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        count++;
+                        if (reservoir.length < limit) {
+                            reservoir.push(entry);
+                        } else {
+                            const index = Math.floor(Math.random() * count);
+                            if (index < limit) reservoir[index] = entry;
+                        }
+                    }
+                }
+                cursor.continue();
+            };
+        });
+        log.debug('Random common term listing completed', { limit, scanned: count, results: reservoir.length });
+        return reservoir;
     }
 
     async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
@@ -835,105 +986,142 @@ async function streamDexieTables(
     }
 
     const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
-    let state: 'seek-table' | 'seek-rows' | 'rows' = 'seek-table';
-    let tableName = '';
-    let rowStart = -1;
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
+    const state: DexieStreamState = {
+        buffer: '',
+        mode: 'seek-table',
+        tableName: '',
+        rowStart: -1,
+        depth: 0,
+        inString: false,
+        escaped: false,
+    };
 
     while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        buffer += value;
+        state.buffer += value;
+        await processDexieStreamBuffer(state, handlers, onTable);
+    }
+}
 
-        let progress = true;
-        while (progress) {
-            progress = false;
-            if (state === 'seek-table') {
-                const tableIndex = buffer.indexOf('"tableName"');
-                if (tableIndex < 0) {
-                    buffer = buffer.slice(-32);
-                    break;
-                }
-                const colon = buffer.indexOf(':', tableIndex);
-                const quote = colon >= 0 ? buffer.indexOf('"', colon) : -1;
-                const end = quote >= 0 ? findJsonStringEnd(buffer, quote) : -1;
-                if (end < 0) break;
-                tableName = JSON.parse(buffer.slice(quote, end + 1)) as string;
-                buffer = buffer.slice(end + 1);
-                state = 'seek-rows';
-                progress = true;
-            }
+type DexieStreamMode = 'seek-table' | 'seek-rows' | 'rows';
 
-            if (state === 'seek-rows') {
-                const rowsIndex = buffer.indexOf('"rows"');
-                if (rowsIndex < 0) {
-                    buffer = buffer.slice(-32);
-                    break;
-                }
-                const arrayIndex = buffer.indexOf('[', rowsIndex);
-                if (arrayIndex < 0) break;
-                buffer = buffer.slice(arrayIndex + 1);
-                state = 'rows';
-                rowStart = -1;
-                depth = 0;
-                inString = false;
-                escaped = false;
-                onTable?.(tableName);
-                progress = true;
-            }
+interface DexieStreamState {
+    buffer: string;
+    mode: DexieStreamMode;
+    tableName: string;
+    rowStart: number;
+    depth: number;
+    inString: boolean;
+    escaped: boolean;
+}
 
-            if (state === 'rows') {
-                const handler = handlers[tableName];
-                for (let index = 0; index < buffer.length; index++) {
-                    const char = buffer[index];
-                    if (inString) {
-                        if (escaped) escaped = false;
-                        else if (char === '\\') escaped = true;
-                        else if (char === '"') inString = false;
-                        continue;
-                    }
-                    if (char === '"') {
-                        inString = true;
-                        continue;
-                    }
-                    if (char === '{') {
-                        if (depth === 0) rowStart = index;
-                        depth++;
-                        continue;
-                    }
-                    if (char === '}') {
-                        depth--;
-                        if (depth === 0 && rowStart >= 0) {
-                            if (handler) await handler(JSON.parse(buffer.slice(rowStart, index + 1)));
-                            buffer = buffer.slice(index + 1);
-                            index = -1;
-                            rowStart = -1;
-                            progress = true;
-                        }
-                        continue;
-                    }
-                    if (depth === 0 && char === ']') {
-                        buffer = buffer.slice(index + 1);
-                        state = 'seek-table';
-                        tableName = '';
-                        progress = true;
-                        break;
-                    }
-                }
+async function processDexieStreamBuffer(
+    state: DexieStreamState,
+    handlers: Partial<Record<string, (row: unknown) => Promise<void>>>,
+    onTable?: (table: string) => void,
+): Promise<void> {
+    let progress = true;
+    while (progress) {
+        progress = false;
+        if (state.mode === 'seek-table') progress = seekDexieTable(state);
+        if (state.mode === 'seek-rows') progress = seekDexieRows(state, onTable) || progress;
+        if (state.mode === 'rows') progress = await readDexieRows(state, handlers) || progress;
+    }
+}
 
-                if (!progress) {
-                    if (rowStart > 0) {
-                        buffer = buffer.slice(rowStart);
-                        rowStart = 0;
-                    } else if (depth === 0 && buffer.length > 4096) {
-                        buffer = buffer.slice(-4096);
-                    }
-                }
-            }
+function seekDexieTable(state: DexieStreamState): boolean {
+    const tableIndex = state.buffer.indexOf('"tableName"');
+    if (tableIndex < 0) {
+        state.buffer = state.buffer.slice(-32);
+        return false;
+    }
+    const colon = state.buffer.indexOf(':', tableIndex);
+    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
+    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
+    if (end < 0) return false;
+    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1)) as string;
+    state.buffer = state.buffer.slice(end + 1);
+    state.mode = 'seek-rows';
+    return true;
+}
+
+function seekDexieRows(state: DexieStreamState, onTable?: (table: string) => void): boolean {
+    const rowsIndex = state.buffer.indexOf('"rows"');
+    if (rowsIndex < 0) {
+        state.buffer = state.buffer.slice(-32);
+        return false;
+    }
+    const arrayIndex = state.buffer.indexOf('[', rowsIndex);
+    if (arrayIndex < 0) return false;
+    state.buffer = state.buffer.slice(arrayIndex + 1);
+    state.mode = 'rows';
+    resetDexieRowState(state);
+    onTable?.(state.tableName);
+    return true;
+}
+
+function resetDexieRowState(state: DexieStreamState): void {
+    state.rowStart = -1;
+    state.depth = 0;
+    state.inString = false;
+    state.escaped = false;
+}
+
+async function readDexieRows(
+    state: DexieStreamState,
+    handlers: Partial<Record<string, (row: unknown) => Promise<void>>>,
+): Promise<boolean> {
+    const handler = handlers[state.tableName];
+    let progress = false;
+    for (let index = 0; index < state.buffer.length; index++) {
+        const char = state.buffer[index];
+        if (advanceStringState(state, char)) continue;
+        if (char === '{') {
+            if (state.depth === 0) state.rowStart = index;
+            state.depth++;
+            continue;
         }
+        if (char === '}') {
+            state.depth--;
+            if (state.depth === 0 && state.rowStart >= 0) {
+                if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
+                state.buffer = state.buffer.slice(index + 1);
+                index = -1;
+                state.rowStart = -1;
+                progress = true;
+            }
+            continue;
+        }
+        if (state.depth === 0 && char === ']') {
+            state.buffer = state.buffer.slice(index + 1);
+            state.mode = 'seek-table';
+            state.tableName = '';
+            return true;
+        }
+    }
+    if (!progress) compactDexieRowBuffer(state);
+    return progress;
+}
+
+function advanceStringState(state: DexieStreamState, char: string): boolean {
+    if (state.inString) {
+        if (state.escaped) state.escaped = false;
+        else if (char === '\\') state.escaped = true;
+        else if (char === '"') state.inString = false;
+        return true;
+    }
+    if (char !== '"') return false;
+    state.inString = true;
+    return true;
+}
+
+function compactDexieRowBuffer(state: DexieStreamState): void {
+    if (state.rowStart > 0) {
+        state.buffer = state.buffer.slice(state.rowStart);
+        state.rowStart = 0;
+    } else if (state.depth === 0 && state.buffer.length > 4096) {
+        state.buffer = state.buffer.slice(-4096);
     }
 }
 
@@ -1292,6 +1480,28 @@ function isLoopbackPage(): boolean {
 function splitTags(value: unknown): string[] {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
     return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : [];
+}
+
+function reservoirSample<T>(items: T[], limit: number): T[] {
+    const reservoir: T[] = [];
+    let count = 0;
+    for (const item of items) {
+        count++;
+        if (reservoir.length < limit) {
+            reservoir.push(item);
+        } else {
+            const index = Math.floor(Math.random() * count);
+            if (index < limit) reservoir[index] = item;
+        }
+    }
+    return reservoir;
+}
+
+function isCommonDictionaryTerm(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
+    if (!entry.expression || !JAPANESE_RE.test(entry.expression) || entry.expression.length > 8 || !dictionaryEnabled(entry.dictionary, rank)) return false;
+    const tags = `${entry.definitionTags ?? ''} ${entry.termTags ?? ''} ${entry.rules ?? ''}`.toLowerCase();
+    if (/\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(tags)) return true;
+    return typeof entry.score === 'number' && entry.score >= 5;
 }
 
 function isKanji(value: string): boolean {

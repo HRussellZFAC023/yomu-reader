@@ -5,8 +5,8 @@
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      MIT
-// @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22yomu-bg%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%224%22%20y2%3D%2260%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%2320242b%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23181b20%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22yomu-rim%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%225%22%20y2%3D%2259%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%233a4350%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23282e37%22%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D%22soft-shadow%22%20x%3D%22-20%25%22%20y%3D%22-20%25%22%20width%3D%22140%25%22%20height%3D%22140%25%22%3E%3CfeDropShadow%20dx%3D%220%22%20dy%3D%221%22%20stdDeviation%3D%220.9%22%20flood-color%3D%22%23000000%22%20flood-opacity%3D%220.28%22%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23yomu-bg)%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%2256%22%20height%3D%2256%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22url(%23yomu-rim)%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2249.2%22%20cy%3D%2218.2%22%20r%3D%228.2%22%20fill%3D%22%235ea780%22%20opacity%3D%220.1%22%2F%3E%3Cpath%20d%3D%22M18.5%2051.6c5.1%201%2011.4.9%2016.6-.2%22%20fill%3D%22none%22%20stroke%3D%22%235ea780%22%20stroke-width%3D%222.35%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.95%22%2F%3E%3Ctext%0A%20%20%20%20x%3D%2229.4%22%0A%20%20%20%20y%3D%2248.2%22%0A%20%20%20%20text-anchor%3D%22middle%22%0A%20%20%20%20font-family%3D%22Hiragino%20Sans%2C%20Yu%20Gothic%2C%20Noto%20Sans%20JP%2C%20Meiryo%2C%20system-ui%2C%20sans-serif%22%0A%20%20%20%20font-size%3D%2240%22%0A%20%20%20%20font-weight%3D%22800%22%0A%20%20%20%20fill%3D%22%23f2f4f8%22%0A%20%20%20%20filter%3D%22url(%23soft-shadow)%22%3E%26%2312424%3B%3C%2Ftext%3E%3Cg%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20filter%3D%22url(%23soft-shadow)%22%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%224.1%22%2F%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23fe4b74%22%20stroke-width%3D%221.9%22%2F%3E%3Cg%20fill%3D%22%23fe4b74%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%220.8%22%3E%3Ccircle%20cx%3D%2242.1%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2247.2%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2250.6%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2256.4%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E
-// @icon64       data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22yomu-bg%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%224%22%20y2%3D%2260%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%2320242b%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23181b20%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22yomu-rim%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%225%22%20y2%3D%2259%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%233a4350%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23282e37%22%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D%22soft-shadow%22%20x%3D%22-20%25%22%20y%3D%22-20%25%22%20width%3D%22140%25%22%20height%3D%22140%25%22%3E%3CfeDropShadow%20dx%3D%220%22%20dy%3D%221%22%20stdDeviation%3D%220.9%22%20flood-color%3D%22%23000000%22%20flood-opacity%3D%220.28%22%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23yomu-bg)%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%2256%22%20height%3D%2256%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22url(%23yomu-rim)%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2249.2%22%20cy%3D%2218.2%22%20r%3D%228.2%22%20fill%3D%22%235ea780%22%20opacity%3D%220.1%22%2F%3E%3Cpath%20d%3D%22M18.5%2051.6c5.1%201%2011.4.9%2016.6-.2%22%20fill%3D%22none%22%20stroke%3D%22%235ea780%22%20stroke-width%3D%222.35%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.95%22%2F%3E%3Ctext%0A%20%20%20%20x%3D%2229.4%22%0A%20%20%20%20y%3D%2248.2%22%0A%20%20%20%20text-anchor%3D%22middle%22%0A%20%20%20%20font-family%3D%22Hiragino%20Sans%2C%20Yu%20Gothic%2C%20Noto%20Sans%20JP%2C%20Meiryo%2C%20system-ui%2C%20sans-serif%22%0A%20%20%20%20font-size%3D%2240%22%0A%20%20%20%20font-weight%3D%22800%22%0A%20%20%20%20fill%3D%22%23f2f4f8%22%0A%20%20%20%20filter%3D%22url(%23soft-shadow)%22%3E%26%2312424%3B%3C%2Ftext%3E%3Cg%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20filter%3D%22url(%23soft-shadow)%22%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%224.1%22%2F%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23fe4b74%22%20stroke-width%3D%221.9%22%2F%3E%3Cg%20fill%3D%22%23fe4b74%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%220.8%22%3E%3Ccircle%20cx%3D%2242.1%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2247.2%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2250.6%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2256.4%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E
+// @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22yomu-bg%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%224%22%20y2%3D%2260%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%2320242b%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23181b20%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22yomu-rim%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%225%22%20y2%3D%2259%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%233a4350%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23282e37%22%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D%22soft-shadow%22%20x%3D%22-20%25%22%20y%3D%22-20%25%22%20width%3D%22140%25%22%20height%3D%22140%25%22%3E%3CfeDropShadow%20dx%3D%220%22%20dy%3D%221%22%20stdDeviation%3D%220.9%22%20flood-color%3D%22%23000000%22%20flood-opacity%3D%220.28%22%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23yomu-bg)%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%2256%22%20height%3D%2256%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22url(%23yomu-rim)%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2249.2%22%20cy%3D%2218.2%22%20r%3D%228.2%22%20fill%3D%22%235ea780%22%20opacity%3D%220.1%22%2F%3E%3Cpath%20d%3D%22M18.5%2051.6c5.1%201%2011.4.9%2016.6-.2%22%20fill%3D%22none%22%20stroke%3D%22%235ea780%22%20stroke-width%3D%222.35%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.95%22%2F%3E%3Ctext%0A%20%20%20%20x%3D%2230.8%22%0A%20%20%20%20y%3D%2236.6%22%0A%20%20%20%20text-anchor%3D%22middle%22%0A%20%20%20%20dominant-baseline%3D%22central%22%0A%20%20%20%20font-family%3D%22Hiragino%20Sans%2C%20Yu%20Gothic%2C%20Noto%20Sans%20JP%2C%20Meiryo%2C%20system-ui%2C%20sans-serif%22%0A%20%20%20%20font-size%3D%2238%22%0A%20%20%20%20font-weight%3D%22800%22%0A%20%20%20%20fill%3D%22%23f2f4f8%22%0A%20%20%20%20filter%3D%22url(%23soft-shadow)%22%3E%26%2312424%3B%3C%2Ftext%3E%3Cg%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20filter%3D%22url(%23soft-shadow)%22%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%224.1%22%2F%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23fe4b74%22%20stroke-width%3D%221.9%22%2F%3E%3Cg%20fill%3D%22%23fe4b74%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%220.8%22%3E%3Ccircle%20cx%3D%2242.1%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2247.2%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2250.6%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2256.4%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E
+// @icon64       data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22yomu-bg%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%224%22%20y2%3D%2260%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%2320242b%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23181b20%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22yomu-rim%22%20x1%3D%228%22%20x2%3D%2256%22%20y1%3D%225%22%20y2%3D%2259%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%233a4350%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23282e37%22%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D%22soft-shadow%22%20x%3D%22-20%25%22%20y%3D%22-20%25%22%20width%3D%22140%25%22%20height%3D%22140%25%22%3E%3CfeDropShadow%20dx%3D%220%22%20dy%3D%221%22%20stdDeviation%3D%220.9%22%20flood-color%3D%22%23000000%22%20flood-opacity%3D%220.28%22%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23yomu-bg)%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%2256%22%20height%3D%2256%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22url(%23yomu-rim)%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2249.2%22%20cy%3D%2218.2%22%20r%3D%228.2%22%20fill%3D%22%235ea780%22%20opacity%3D%220.1%22%2F%3E%3Cpath%20d%3D%22M18.5%2051.6c5.1%201%2011.4.9%2016.6-.2%22%20fill%3D%22none%22%20stroke%3D%22%235ea780%22%20stroke-width%3D%222.35%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.95%22%2F%3E%3Ctext%0A%20%20%20%20x%3D%2230.8%22%0A%20%20%20%20y%3D%2236.6%22%0A%20%20%20%20text-anchor%3D%22middle%22%0A%20%20%20%20dominant-baseline%3D%22central%22%0A%20%20%20%20font-family%3D%22Hiragino%20Sans%2C%20Yu%20Gothic%2C%20Noto%20Sans%20JP%2C%20Meiryo%2C%20system-ui%2C%20sans-serif%22%0A%20%20%20%20font-size%3D%2238%22%0A%20%20%20%20font-weight%3D%22800%22%0A%20%20%20%20fill%3D%22%23f2f4f8%22%0A%20%20%20%20filter%3D%22url(%23soft-shadow)%22%3E%26%2312424%3B%3C%2Ftext%3E%3Cg%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20filter%3D%22url(%23soft-shadow)%22%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%224.1%22%2F%3E%3Cpath%20d%3D%22M42.1%2016.7h5.1l3.4%204.6h5.8%22%20stroke%3D%22%23fe4b74%22%20stroke-width%3D%221.9%22%2F%3E%3Cg%20fill%3D%22%23fe4b74%22%20stroke%3D%22%23181b20%22%20stroke-width%3D%220.8%22%3E%3Ccircle%20cx%3D%2242.1%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2247.2%22%20cy%3D%2216.7%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2250.6%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2256.4%22%20cy%3D%2221.3%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @homepage     https://hrussellzfac023.github.io/kotoba-reader/
 // @homepageURL  https://github.com/HRussellZFAC023/kotoba-reader
 // @source       https://github.com/HRussellZFAC023/kotoba-reader.git
@@ -851,6 +851,53 @@
       return "invalid-url";
     }
   }
+  const CARD_STATES = /* @__PURE__ */ new Set([
+    "new",
+    "learning",
+    "known",
+    "due",
+    "failed",
+    "locked",
+    "never-forget",
+    "blacklisted",
+    "suspended",
+    "not-in-deck",
+    "redundant"
+  ]);
+  const CARD_STATE_ALIASES = {
+    never_forget: "never-forget",
+    neverforget: "never-forget",
+    "never forget": "never-forget",
+    not_in_deck: "not-in-deck",
+    notindeck: "not-in-deck",
+    "not in deck": "not-in-deck",
+    blacklist: "blacklisted",
+    blacklisted: "blacklisted",
+    ignored: "blacklisted"
+  };
+  function normalizeCardState(value) {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return null;
+    const dashed = trimmed.replace(/[_\s]+/g, "-");
+    const compact = dashed.replace(/-/g, "");
+    const aliased = CARD_STATE_ALIASES[trimmed] ?? CARD_STATE_ALIASES[dashed] ?? CARD_STATE_ALIASES[compact];
+    if (aliased) return aliased;
+    if (CARD_STATES.has(dashed)) return dashed;
+    return null;
+  }
+  function normalizeCardStates(value, fallback = "not-in-deck") {
+    const rawStates = Array.isArray(value) ? value : [value];
+    const states = [];
+    for (const rawState of rawStates) {
+      const state = normalizeCardState(rawState);
+      if (state && !states.includes(state)) states.push(state);
+    }
+    return states.length ? states : [fallback];
+  }
+  function primaryCardState(value) {
+    return normalizeCardStates(value)[0] ?? "not-in-deck";
+  }
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const log$w = Logger.scope("Dom");
   let trustedHtmlPolicy;
@@ -1228,7 +1275,7 @@
   }
   function renderToken(surface, token, settings, options = {}) {
     const span = document.createElement("span");
-    const state = token.card.cardState[0] ?? "not-in-deck";
+    const state = primaryCardState(token.card.cardState);
     span.className = `jpdb-reader-word jpdb-${state}`;
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
@@ -1242,7 +1289,7 @@
     return span;
   }
   function renderTokenHtml(surface, token, settings) {
-    const state = token.card.cardState[0] ?? "not-in-deck";
+    const state = primaryCardState(token.card.cardState);
     const content = settings.showFurigana && token.rubies.length ? renderRuby(surface, token) : escapeHtml$1(surface);
     return `<span class="jpdb-reader-word jpdb-${state}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-sentence="${escapeHtml$1(token.sentence ?? "")}" tabindex="0">${content}</span>`;
   }
@@ -1303,20 +1350,26 @@
     if (text2.length <= 4 && ancestorClassLooksLikeUi(element2)) return true;
     if (isInsideControlLikeLink(element2, text2)) return true;
     const style = getComputedStyle(element2);
-    const display = style.display;
     const rect = element2.getBoundingClientRect();
     const compactLength = Array.from(text2.replace(/\s+/g, "")).length;
     const fontSize = cssPixels(style.fontSize);
     const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
+    const prose = isLikelyProseElement(element2);
+    if (fragileByTypography(element2, style, compactLength, fontSize, lineHeight, prose)) return true;
+    if (rect.width > 0 && text2.length <= 12 && rect.width < 180 && (style.textAlign === "center" || style.whiteSpace !== "normal")) return true;
+    return text2.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
+  }
+  function fragileByTypography(element2, style, compactLength, fontSize, lineHeight, prose) {
     const centered = style.textAlign === "center";
     const heading = DISPLAY_HEADING_RE.test(element2.tagName);
-    const prose = isLikelyProseElement(element2);
     if (heading && compactLength <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35)) return true;
-    if (!prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600)) return true;
-    if (rect.width > 0 && text2.length <= 12 && rect.width < 180 && (style.textAlign === "center" || style.whiteSpace !== "normal")) return true;
-    const hasUiBox = style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || Number(style.borderTopWidth.replace("px", "")) > 0 || Number(style.borderBottomWidth.replace("px", "")) > 0 || Number.parseFloat(style.borderRadius) > 0;
-    const inlineControlShape = display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
-    return text2.length <= 6 && hasUiBox && inlineControlShape && rect.width < 180;
+    return !prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600);
+  }
+  function hasUiBox(style) {
+    return style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || Number(style.borderTopWidth.replace("px", "")) > 0 || Number(style.borderBottomWidth.replace("px", "")) > 0 || Number.parseFloat(style.borderRadius) > 0;
+  }
+  function hasInlineControlShape(display) {
+    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
   }
   function isLikelyProseElement(element2) {
     if (PROSE_TAGS.has(element2.tagName)) return true;
@@ -4079,6 +4132,9 @@ ${candidate.depth}`;
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
     subtitleSecondaryVisible: true,
+    subtitleTranscriptVisible: false,
+    subtitleTranscriptPlacement: "right",
+    subtitleTranscriptAutoScroll: true,
     subtitleControlsMode: "auto",
     subtitleFontSize: 32,
     subtitleBottomOffset: 12,
@@ -4090,6 +4146,10 @@ ${candidate.depth}`;
     subtitleFontWeight: 850,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
+    mpvSubtitleMiningEnabled: true,
+    mpvSubtitleAutoConnect: false,
+    mpvSubtitleHost: "127.0.0.1",
+    mpvSubtitlePorts: "61777, 61778, 61779, 61780, 61781",
     youtubeImmersionEnabled: false,
     youtubeShowFilterNotice: true,
     ankiEnabled: false,
@@ -4191,12 +4251,15 @@ ${candidate.depth}`;
       ocrBackgroundOpacity: clampNumber(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
       ocrFontScale: clampNumber(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
       subtitleControlsMode: normalizeSubtitleControlsMode(value == null ? void 0 : value.subtitleControlsMode),
+      subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value == null ? void 0 : value.subtitleTranscriptPlacement),
       subtitleTextColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
       subtitleBackgroundOpacity: clampNumber(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
       subtitleFontFamily: typeof (value == null ? void 0 : value.subtitleFontFamily) === "string" && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
       subtitleFontWeight: clampNumber(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
+      mpvSubtitleHost: normalizeMpvHost(value == null ? void 0 : value.mpvSubtitleHost),
+      mpvSubtitlePorts: normalizeMpvPorts(value == null ? void 0 : value.mpvSubtitlePorts),
       jpdbKanjiEnabled: typeof (value == null ? void 0 : value.jpdbKanjiEnabled) === "boolean" ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
       jpdbKanjiPriority: clampNumber(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
       rtkPriority: clampNumber(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
@@ -4268,8 +4331,21 @@ ${candidate.depth}`;
   function normalizeSubtitleControlsMode(value) {
     return value === "always" || value === "hidden" || value === "auto" ? value : DEFAULT_SETTINGS.subtitleControlsMode;
   }
+  function normalizeSubtitleTranscriptPlacement(value) {
+    return value === "left" || value === "bottom" || value === "right" ? value : DEFAULT_SETTINGS.subtitleTranscriptPlacement;
+  }
+  function normalizeMpvHost(value) {
+    if (typeof value !== "string" || !value.trim()) return DEFAULT_SETTINGS.mpvSubtitleHost;
+    const normalized = value.trim().replace(/^wss?:\/\//i, "").replace(/\/.*$/, "");
+    return normalized || DEFAULT_SETTINGS.mpvSubtitleHost;
+  }
+  function normalizeMpvPorts(value) {
+    const raw = Array.isArray(value) ? value.join(",") : typeof value === "string" ? value : "";
+    const ports = raw.split(/[\s,]+/).map((port) => Number(port)).filter((port) => Number.isInteger(port) && port > 0 && port <= 65535);
+    return ports.length ? [...new Set(ports)].join(", ") : DEFAULT_SETTINGS.mpvSubtitlePorts;
+  }
   function normalizeNewTabSource(value) {
-    return value === "jpdb" || value === "anki" || value === "auto" ? value : DEFAULT_SETTINGS.newTabSource;
+    return value === "jpdb" || value === "anki" || value === "auto" || value === "dictionary" ? value : DEFAULT_SETTINGS.newTabSource;
   }
   function normalizeDeckIdSetting(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -4566,6 +4642,10 @@ ${candidate.depth}`;
       return aJpdb - bJpdb || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || frequencyRank(a.data) - frequencyRank(b.data) || a.dictionary.localeCompare(b.dictionary);
     }
     return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || a.dictionary.localeCompare(b.dictionary);
+  }
+  function extractFrequency(value) {
+    const rank = frequencyRank(value);
+    return Number.isFinite(rank) ? rank : void 0;
   }
   function nonOverlappingMatches(matches, limit) {
     const selected = [];
@@ -5095,6 +5175,144 @@ ${item.sequence ?? ""}`;
       const summary = await this.summary();
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
+    async listRandomTerms(limit, preferences = []) {
+      const done = log$r.time("Random term listing", { limit, dictionaries: preferences.length });
+      try {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const reservoir = [];
+        const seen = /* @__PURE__ */ new Set();
+        let count = 0;
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction("terms", "readonly");
+          const request = tx.objectStore("terms").openCursor();
+          request.onerror = () => reject(request.error ?? new Error("Could not list dictionary terms."));
+          request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor) {
+              resolve();
+              return;
+            }
+            const entry = cursor.value;
+            if (entry.expression && JAPANESE_RE$3.test(entry.expression) && entry.expression.length <= 6 && dictionaryEnabled(entry.dictionary, rank)) {
+              const key = `${entry.expression}
+${entry.reading}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                count++;
+                if (reservoir.length < limit) {
+                  reservoir.push(entry);
+                } else {
+                  const index = Math.floor(Math.random() * count);
+                  if (index < limit) reservoir[index] = entry;
+                }
+              }
+            }
+            cursor.continue();
+          };
+        });
+        log$r.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
+        return reservoir;
+      } catch (error) {
+        log$r.warn("Random term listing failed", { limit, error });
+        return [];
+      } finally {
+        done();
+      }
+    }
+    async listRandomTopTerms(limit, maxRank, preferences = []) {
+      const done = log$r.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      try {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
+        const results = topTerms.size ? await this.entriesForRandomExpressions(topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank);
+        if (!topTerms.size && !results.length) {
+          log$r.debug("No common dictionary terms found, falling back to fully random terms");
+          return await this.listRandomTerms(limit, preferences);
+        }
+        log$r.debug("Random top term listing completed", {
+          limit,
+          frequencyCandidates: topTerms.size,
+          results: results.length,
+          fallback: topTerms.size ? "frequency" : "common-tags"
+        });
+        return results;
+      } catch (error) {
+        log$r.warn("Random top term listing failed", { limit, error });
+        return [];
+      } finally {
+        done();
+      }
+    }
+    async collectTopFrequencyTerms(db, maxRank, rank) {
+      const expressions = /* @__PURE__ */ new Map();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("termMeta", "readonly");
+        const request = tx.objectStore("termMeta").openCursor();
+        request.onerror = () => reject(request.error ?? new Error("Could not list dictionary term meta."));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve();
+            return;
+          }
+          const entry = cursor.value;
+          if (entry.mode === "freq" && entry.expression && dictionaryEnabled(entry.dictionary, rank)) {
+            const freq = extractFrequency(entry.data);
+            if (freq !== void 0 && freq <= maxRank) {
+              expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
+            }
+          }
+          cursor.continue();
+        };
+      });
+      return expressions;
+    }
+    async entriesForRandomExpressions(expressions, limit, preferences) {
+      const sampled = reservoirSample([...expressions.keys()], limit);
+      const results = [];
+      for (const expression of sampled) {
+        const entries = await this.lookup(expression, "", 1, preferences);
+        if (entries[0]) results.push({ ...entries[0], jpdbFrequency: expressions.get(expression) });
+      }
+      return results;
+    }
+    async listRandomCommonTerms(db, limit, rank) {
+      const reservoir = [];
+      const seen = /* @__PURE__ */ new Set();
+      let count = 0;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("terms", "readonly");
+        const request = tx.objectStore("terms").openCursor();
+        request.onerror = () => reject(request.error ?? new Error("Could not list dictionary terms."));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve();
+            return;
+          }
+          const entry = cursor.value;
+          if (isCommonDictionaryTerm(entry, rank)) {
+            const key = `${entry.expression}
+${entry.reading}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              count++;
+              if (reservoir.length < limit) {
+                reservoir.push(entry);
+              } else {
+                const index = Math.floor(Math.random() * count);
+                if (index < limit) reservoir[index] = entry;
+              }
+            }
+          }
+          cursor.continue();
+        };
+      });
+      log$r.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
+      return reservoir;
+    }
     async importFile(file, onProgress, sourceUrl = "") {
       const done = log$r.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
@@ -5566,100 +5784,115 @@ ${item.sequence ?? ""}`;
       return;
     }
     const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = "";
-    let state = "seek-table";
-    let tableName = "";
-    let rowStart = -1;
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
+    const state = {
+      buffer: "",
+      mode: "seek-table",
+      tableName: "",
+      rowStart: -1,
+      depth: 0,
+      inString: false,
+      escaped: false
+    };
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      buffer += value;
-      let progress = true;
-      while (progress) {
-        progress = false;
-        if (state === "seek-table") {
-          const tableIndex = buffer.indexOf('"tableName"');
-          if (tableIndex < 0) {
-            buffer = buffer.slice(-32);
-            break;
-          }
-          const colon = buffer.indexOf(":", tableIndex);
-          const quote = colon >= 0 ? buffer.indexOf('"', colon) : -1;
-          const end = quote >= 0 ? findJsonStringEnd(buffer, quote) : -1;
-          if (end < 0) break;
-          tableName = JSON.parse(buffer.slice(quote, end + 1));
-          buffer = buffer.slice(end + 1);
-          state = "seek-rows";
-          progress = true;
-        }
-        if (state === "seek-rows") {
-          const rowsIndex = buffer.indexOf('"rows"');
-          if (rowsIndex < 0) {
-            buffer = buffer.slice(-32);
-            break;
-          }
-          const arrayIndex = buffer.indexOf("[", rowsIndex);
-          if (arrayIndex < 0) break;
-          buffer = buffer.slice(arrayIndex + 1);
-          state = "rows";
-          rowStart = -1;
-          depth = 0;
-          inString = false;
-          escaped = false;
-          onTable == null ? void 0 : onTable(tableName);
-          progress = true;
-        }
-        if (state === "rows") {
-          const handler = handlers[tableName];
-          for (let index = 0; index < buffer.length; index++) {
-            const char = buffer[index];
-            if (inString) {
-              if (escaped) escaped = false;
-              else if (char === "\\") escaped = true;
-              else if (char === '"') inString = false;
-              continue;
-            }
-            if (char === '"') {
-              inString = true;
-              continue;
-            }
-            if (char === "{") {
-              if (depth === 0) rowStart = index;
-              depth++;
-              continue;
-            }
-            if (char === "}") {
-              depth--;
-              if (depth === 0 && rowStart >= 0) {
-                if (handler) await handler(JSON.parse(buffer.slice(rowStart, index + 1)));
-                buffer = buffer.slice(index + 1);
-                index = -1;
-                rowStart = -1;
-                progress = true;
-              }
-              continue;
-            }
-            if (depth === 0 && char === "]") {
-              buffer = buffer.slice(index + 1);
-              state = "seek-table";
-              tableName = "";
-              progress = true;
-              break;
-            }
-          }
-          if (!progress) {
-            if (rowStart > 0) {
-              buffer = buffer.slice(rowStart);
-              rowStart = 0;
-            } else if (depth === 0 && buffer.length > 4096) {
-              buffer = buffer.slice(-4096);
-            }
-          }
-        }
+      state.buffer += value;
+      await processDexieStreamBuffer(state, handlers, onTable);
+    }
+  }
+  async function processDexieStreamBuffer(state, handlers, onTable) {
+    let progress = true;
+    while (progress) {
+      progress = false;
+      if (state.mode === "seek-table") progress = seekDexieTable(state);
+      if (state.mode === "seek-rows") progress = seekDexieRows(state, onTable) || progress;
+      if (state.mode === "rows") progress = await readDexieRows(state, handlers) || progress;
+    }
+  }
+  function seekDexieTable(state) {
+    const tableIndex = state.buffer.indexOf('"tableName"');
+    if (tableIndex < 0) {
+      state.buffer = state.buffer.slice(-32);
+      return false;
+    }
+    const colon = state.buffer.indexOf(":", tableIndex);
+    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
+    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
+    if (end < 0) return false;
+    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1));
+    state.buffer = state.buffer.slice(end + 1);
+    state.mode = "seek-rows";
+    return true;
+  }
+  function seekDexieRows(state, onTable) {
+    const rowsIndex = state.buffer.indexOf('"rows"');
+    if (rowsIndex < 0) {
+      state.buffer = state.buffer.slice(-32);
+      return false;
+    }
+    const arrayIndex = state.buffer.indexOf("[", rowsIndex);
+    if (arrayIndex < 0) return false;
+    state.buffer = state.buffer.slice(arrayIndex + 1);
+    state.mode = "rows";
+    resetDexieRowState(state);
+    onTable == null ? void 0 : onTable(state.tableName);
+    return true;
+  }
+  function resetDexieRowState(state) {
+    state.rowStart = -1;
+    state.depth = 0;
+    state.inString = false;
+    state.escaped = false;
+  }
+  async function readDexieRows(state, handlers) {
+    const handler = handlers[state.tableName];
+    let progress = false;
+    for (let index = 0; index < state.buffer.length; index++) {
+      const char = state.buffer[index];
+      if (advanceStringState(state, char)) continue;
+      if (char === "{") {
+        if (state.depth === 0) state.rowStart = index;
+        state.depth++;
+        continue;
       }
+      if (char === "}") {
+        state.depth--;
+        if (state.depth === 0 && state.rowStart >= 0) {
+          if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
+          state.buffer = state.buffer.slice(index + 1);
+          index = -1;
+          state.rowStart = -1;
+          progress = true;
+        }
+        continue;
+      }
+      if (state.depth === 0 && char === "]") {
+        state.buffer = state.buffer.slice(index + 1);
+        state.mode = "seek-table";
+        state.tableName = "";
+        return true;
+      }
+    }
+    if (!progress) compactDexieRowBuffer(state);
+    return progress;
+  }
+  function advanceStringState(state, char) {
+    if (state.inString) {
+      if (state.escaped) state.escaped = false;
+      else if (char === "\\") state.escaped = true;
+      else if (char === '"') state.inString = false;
+      return true;
+    }
+    if (char !== '"') return false;
+    state.inString = true;
+    return true;
+  }
+  function compactDexieRowBuffer(state) {
+    if (state.rowStart > 0) {
+      state.buffer = state.buffer.slice(state.rowStart);
+      state.rowStart = 0;
+    } else if (state.depth === 0 && state.buffer.length > 4096) {
+      state.buffer = state.buffer.slice(-4096);
     }
   }
   function findJsonArrayEnd(text2, start) {
@@ -5973,6 +6206,26 @@ ${item.sequence ?? ""}`;
   function splitTags(value) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
     return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
+  }
+  function reservoirSample(items, limit) {
+    const reservoir = [];
+    let count = 0;
+    for (const item of items) {
+      count++;
+      if (reservoir.length < limit) {
+        reservoir.push(item);
+      } else {
+        const index = Math.floor(Math.random() * count);
+        if (index < limit) reservoir[index] = item;
+      }
+    }
+    return reservoir;
+  }
+  function isCommonDictionaryTerm(entry, rank) {
+    if (!entry.expression || !JAPANESE_RE$3.test(entry.expression) || entry.expression.length > 8 || !dictionaryEnabled(entry.dictionary, rank)) return false;
+    const tags = `${entry.definitionTags ?? ""} ${entry.termTags ?? ""} ${entry.rules ?? ""}`.toLowerCase();
+    if (/\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(tags)) return true;
+    return typeof entry.score === "number" && entry.score >= 5;
   }
   function isKanji(value) {
     const code = value.codePointAt(0) ?? 0;
@@ -6374,9 +6627,10 @@ ${item.sequence ?? ""}`;
     return value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean);
   }
   function imageFromDataUrl(dataUrl, card) {
-    const match = /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/i.exec(dataUrl);
+    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
     if (!match) return null;
-    const extension = match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+    const rawExtension = match[1].toLowerCase();
+    const extension = rawExtension === "jpeg" ? "jpg" : rawExtension === "svg+xml" ? "svg" : rawExtension;
     const safeName = card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
     return {
       filename: `yomu_${safeName}_${Date.now()}.${extension}`,
@@ -6857,6 +7111,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return key.toLowerCase();
   }
   function positionPopover(popover, anchor, fallbackRect) {
+    const scrollTop = popover.scrollTop;
     const selection = window.getSelection();
     const rect = (anchor == null ? void 0 : anchor.getBoundingClientRect()) ?? fallbackRect ?? ((selection == null ? void 0 : selection.rangeCount) ? selection.getRangeAt(0).getBoundingClientRect() : void 0);
     const margin = 8;
@@ -6870,6 +7125,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (!rect) {
       popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, viewportWidth - width - margin))}px`;
       popover.style.top = `${Math.max(margin, Math.min(fallbackTop, viewportHeight - height - margin))}px`;
+      if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
       log$p.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
       return;
     }
@@ -6904,6 +7160,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const placement = candidates[0];
     popover.style.left = `${placement.left}px`;
     popover.style.top = `${placement.top}px`;
+    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
     log$p.debugThrottled("position-popover", 1e3, "Popover positioned", {
       left: Math.round(placement.left),
       top: Math.round(placement.top),
@@ -7329,7 +7586,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         glosses,
         partOfSpeech: meaningsPartOfSpeech[index] ?? []
       })),
-      cardState: (cardState == null ? void 0 : cardState.length) ? cardState : ["not-in-deck"],
+      cardState: normalizeCardStates(cardState),
       pitchAccent: pitchAccent ?? [],
       wordWithReading: null,
       source: "jpdb"
@@ -7993,9 +8250,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       enableLogging: "Enable console logging",
       accentColor: "Accent color",
       newTab: "New tab",
-      newTabEnabled: "Enable Yomu new tab page",
+      newTabEnabled: "Use Yomu new tab study page",
       newTabSource: "New tab word source",
-      newTabAuto: "Auto: Anki, then JPDB",
+      newTabAuto: "Auto: Anki, JPDB, then dictionary",
       newTabUrl: "New tab address",
       newTabJpdbDeck: "New tab JPDB deck",
       openNewTabPage: "Open new tab page",
@@ -8103,8 +8360,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
       subtitleSecondaryVisible: "Show native subtitles when available",
+      subtitleTranscriptVisible: "Open transcript panel by default",
+      subtitleTranscriptPlacement: "Transcript panel position",
+      subtitleTranscriptAutoScroll: "Scroll transcript with playback",
       subtitleMiningPause: "Pause video when mining subtitle",
       subtitleControlsMode: "Subtitle controls",
+      right: "Right",
+      left: "Left",
+      bottom: "Below",
       showWhenNeeded: "Compact controls",
       hideControls: "Hide controls",
       alwaysVisible: "Always visible",
@@ -8117,6 +8380,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       subtitleFontFamily: "Subtitle font family",
       subtitleFontWeight: "Subtitle font weight",
       subtitleSeekPadding: "Subtitle seek padding (seconds)",
+      mpvSubtitleMiningEnabled: "Enable MPV subtitle bridge",
+      mpvSubtitleAutoConnect: "Connect to MPV automatically",
+      mpvSubtitleHost: "MPV bridge host",
+      mpvSubtitlePorts: "MPV bridge ports",
       subtitlePreview: "Live subtitle preview",
       youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
       youtubeShowFilterNotice: "Show reveal control for hidden videos",
@@ -8155,13 +8422,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
-      recommendedDownloads: "Recommended dictionary downloads",
-      downloadMissingRecommended: "Download missing recommended",
+      recommendedDownloads: "Starter dictionary",
+      downloadMissingRecommended: "Download JMdict",
       refreshInstalledList: "Refresh installed list",
       homepage: "Homepage",
       download: "Download",
       update: "Update",
-      noLocalDictionaries: "No local dictionaries imported yet.",
+      noLocalDictionaries: "No local dictionary installed yet. JMdict downloads automatically when よむ needs dictionary study words.",
       checkingDictionaries: "Checking imported dictionaries...",
       dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
       decksLoaded: "Decks are loaded from your JPDB account.",
@@ -8190,7 +8457,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       gradePass: "Pass/fail: PASS",
       supportTitle: "Free Japanese reading and mining tools",
       supportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
-      supportDonation: "Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.",
+      supportDonation: "Donations are optional, but they genuinely help. If you donate and leave a よむ feature request in the message, I will personally read it and implement it when it is feasible, legal, and within project scope.",
       documentation: "Documentation",
       donate: "Donate",
       reportIssue: "Report issue",
@@ -8297,9 +8564,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       enableLogging: "コンソールログを有効化",
       accentColor: "アクセント色",
       newTab: "新規タブ",
-      newTabEnabled: "Yomu新規タブページを有効化",
+      newTabEnabled: "Yomu新規タブ学習ページを使う",
       newTabSource: "新規タブの単語ソース",
-      newTabAuto: "自動: Anki、次にJPDB",
+      newTabAuto: "自動: Anki、JPDB、辞書",
       newTabUrl: "新規タブのアドレス",
       newTabJpdbDeck: "新規タブのJPDBデッキ",
       openNewTabPage: "新規タブページを開く",
@@ -8407,8 +8674,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       subtitleAutoDetect: "ページ字幕を自動検出",
       subtitleOverlayVisible: "字幕オーバーレイを表示",
       subtitleSecondaryVisible: "利用可能なら母語字幕も表示",
+      subtitleTranscriptVisible: "文字起こしパネルを最初から開く",
+      subtitleTranscriptPlacement: "文字起こしパネル位置",
+      subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
       subtitleMiningPause: "字幕から採掘する時に一時停止",
       subtitleControlsMode: "字幕コントロール",
+      right: "右",
+      left: "左",
+      bottom: "下",
       showWhenNeeded: "コンパクト表示",
       hideControls: "隠す",
       alwaysVisible: "常に表示",
@@ -8421,6 +8694,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       subtitleFontFamily: "字幕フォント",
       subtitleFontWeight: "字幕の太さ",
       subtitleSeekPadding: "字幕移動の余白 (秒)",
+      mpvSubtitleMiningEnabled: "MPV字幕ブリッジを有効化",
+      mpvSubtitleAutoConnect: "MPVへ自動接続",
+      mpvSubtitleHost: "MPVブリッジのホスト",
+      mpvSubtitlePorts: "MPVブリッジのポート",
       subtitlePreview: "字幕プレビュー",
       youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
       youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
@@ -8459,13 +8736,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       importDictionaries: "辞書をインポート",
       exportDictionaries: "辞書をエクスポート",
       dictionaryImportHelp: "Yomitan設定JSON、Yomitan辞書ZIP、またはエクスポートした辞書バックアップに対応しています。",
-      recommendedDownloads: "おすすめ辞書のダウンロード",
-      downloadMissingRecommended: "未導入のおすすめをダウンロード",
+      recommendedDownloads: "スターター辞書",
+      downloadMissingRecommended: "JMdictをダウンロード",
       refreshInstalledList: "導入済み一覧を更新",
       homepage: "ホームページ",
       download: "ダウンロード",
       update: "更新",
-      noLocalDictionaries: "ローカル辞書はまだインポートされていません。",
+      noLocalDictionaries: "ローカル辞書はまだありません。辞書の学習カードが必要な時はJMdictを自動でダウンロードします。",
       checkingDictionaries: "インポート済み辞書を確認中...",
       dictionaryOnlyJpdb: "現在の定義ソースはJPDBのみです。Yomitan辞書をインポートすると、ローカル辞書や母語辞書の定義を追加できます。",
       decksLoaded: "デッキはJPDBアカウントから読み込みました。",
@@ -8494,7 +8771,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       gradePass: "PASS評価",
       supportTitle: "無料の日本語リーダー・採掘ツール",
       supportCopy: "よむはポップアップ辞書、JPDB採掘、インポート辞書、字幕、画像読み取り、Anki出力を1つの無料ユーザースクリプトにまとめます。Migakuのような学習スイートは月$10からの有料プランを案内していますが、よむは同じ中心的な読解・採掘ワークフローを無料で提供します。",
-      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間を支える助けになります。",
+      supportDonation: "寄付は任意ですが、本当に助けになります。寄付メッセージによむの機能リクエストを書いてくれた場合、実現可能で合法かつプロジェクト範囲内なら私が直接読んで実装します。",
       documentation: "ドキュメント",
       donate: "寄付",
       reportIssue: "不具合報告",
@@ -9278,12 +9555,14 @@ ${entry.reading}`;
     return "odaka";
   }
   const ROOT_ATTR = "data-yomu-jpdb-addon";
+  const JPDB_KANJI_ID = "yomu-jpdb-kanji-info";
   const UCHISEN_ID = "yomu-jpdb-uchisen";
   const RTK_ID = "yomu-jpdb-rtk";
   const IMMERSION_ID = "yomu-jpdb-immersion";
   const DOODLE_ROOT_ID = "yomu-jpdb-doodle-root";
   const DOODLE_PREVIEW_ID = "yomu-jpdb-doodle-preview";
   const DOODLE_STORAGE_KEY = "yomu-jpdb-doodle-current-drawing";
+  const SOURCE_STATE_STORAGE_PREFIX = "yomu-jpdb-source-open:";
   const UCHISEN_STAR_PREFIX = "yomu-jpdb-uchisen-star:";
   const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
   const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
@@ -9301,8 +9580,10 @@ ${entry.reading}`;
       __publicField(this, "lastUrl", "");
       __publicField(this, "rtkKanji", "");
       __publicField(this, "uchisenKanji", "");
+      __publicField(this, "jpdbKanji", "");
       __publicField(this, "immersionKey", "");
       __publicField(this, "localDictionaryKeys", /* @__PURE__ */ new Set());
+      __publicField(this, "sourceOpenOverrides", /* @__PURE__ */ new Map());
       __publicField(this, "currentObjectUrl", "");
       this.options = options;
     }
@@ -9338,7 +9619,8 @@ ${entry.reading}`;
       log$h.debugThrottled("run", 2500, "JPDB page add-ons scan", {
         isKanjiPage: isKanjiPage(),
         isReviewPage: isReviewPage(),
-        isReviewAnswer: isReviewAnswer()
+        isReviewAnswer: isReviewAnswer(),
+        reviewCard: currentReviewCardState()
       });
       document.documentElement.classList.toggle("yomu-jpdb-review-compact-nav", isReviewPage() && settings.jpdbReviewUiEnabled);
       if (settings.jpdbReviewUiEnabled) {
@@ -9347,6 +9629,8 @@ ${entry.reading}`;
       } else this.restoreReviewUiTweak();
       if (settings.jpdbAutoRevealSentenceEnabled) this.revealAnswerSentence();
       const kanji = extractCurrentKanji();
+      if (settings.jpdbKanjiEnabled && kanji && (isKanjiPage() || isReviewPage())) this.renderJpdbKanjiInfo(kanji);
+      else removeElement(JPDB_KANJI_ID);
       if (settings.jpdbUchisenEnabled && kanji) this.renderUchisen(kanji);
       else removeElement(UCHISEN_ID);
       if (settings.jpdbRtkEnabled && settings.rtkEnabled && kanji) this.renderRtk(kanji);
@@ -9355,20 +9639,25 @@ ${entry.reading}`;
       else removeElement(IMMERSION_ID);
       if (settings.jpdbLocalDictionariesEnabled && settings.localDictionariesEnabled) this.renderLocalDictionaries();
       else this.removeLocalDictionaries();
+      if (settings.audioEnabled) this.renderAudioOffers();
+      else this.removeAudioOffers();
       if (settings.jpdbKanjiDoodleEnabled && isReviewPage()) this.renderDoodle();
       else this.removeDoodle();
     }
     removeAll() {
+      removeElement(JPDB_KANJI_ID);
       removeElement(UCHISEN_ID);
       removeElement(RTK_ID);
       removeElement(IMMERSION_ID);
       this.removeLocalDictionaries();
+      this.removeAudioOffers();
       this.restoreReviewUiTweak();
       this.removeDoodle();
     }
     resetSeenKeys() {
       this.rtkKanji = "";
       this.uchisenKanji = "";
+      this.jpdbKanji = "";
       this.immersionKey = "";
       this.localDictionaryKeys.clear();
     }
@@ -9410,6 +9699,30 @@ ${entry.reading}`;
       var _a;
       if (!isReviewAnswer()) return;
       (_a = document.querySelector(".sentence.blur")) == null ? void 0 : _a.classList.remove("blur");
+    }
+    async renderJpdbKanjiInfo(kanji) {
+      if (this.jpdbKanji === kanji && document.getElementById(JPDB_KANJI_ID)) return;
+      this.jpdbKanji = kanji;
+      removeElement(JPDB_KANJI_ID);
+      const anchor = findKanjiSectionAnchor();
+      if (!anchor) return;
+      const container = createAddonCard(JPDB_KANJI_ID, "JPDB kanji info");
+      setInnerHtml(container, `
+            <div class="yomu-jpdb-card-title">JPDB kanji info</div>
+            <div class="jpdb-reader-help">Loading readings and components...</div>
+        `);
+      insertAfter(anchor, container);
+      const info = await this.options.jpdbKanji.lookup(kanji).catch((error) => {
+        log$h.warn("JPDB add-on kanji info lookup failed", { kanji }, error);
+        return null;
+      });
+      if (!container.isConnected || this.jpdbKanji !== kanji) return;
+      if (!info) {
+        container.remove();
+        return;
+      }
+      log$h.debug("JPDB add-on kanji info rendered", { kanji });
+      setInnerHtml(container, renderJpdbKanjiPanel(info));
     }
     async renderRtk(kanji) {
       if (this.rtkKanji === kanji && document.getElementById(RTK_ID)) return;
@@ -9590,7 +9903,12 @@ ${entry.reading}`;
         const container = createAddonCard("", "Imported dictionaries");
         container.classList.add("yomu-jpdb-local-dictionaries");
         container.dataset.yomuLocalKey = key;
-        setInnerHtml(container, renderLocalDictionaryPanel(entries, settings));
+        setInnerHtml(container, renderLocalDictionaryPanel(
+          entries,
+          settings,
+          (dictionary) => this.sourceStateAttributes(`dictionary:${dictionary}`)
+        ));
+        this.installSourceStateTracking(container);
         insertAfter(target.anchor, container);
         log$h.debug("JPDB add-on local dictionaries rendered", { term: target.term, entries: entries.length });
       }
@@ -9598,6 +9916,56 @@ ${entry.reading}`;
     removeLocalDictionaries() {
       this.localDictionaryKeys.clear();
       document.querySelectorAll(".yomu-jpdb-local-dictionaries").forEach((node) => node.remove());
+    }
+    renderAudioOffers() {
+      var _a;
+      for (const target of currentAudioTargets()) {
+        if ((_a = target.link.parentElement) == null ? void 0 : _a.querySelector(".yomu-jpdb-audio-button")) continue;
+        const button2 = document.createElement("button");
+        button2.type = "button";
+        button2.className = "yomu-jpdb-audio-button";
+        button2.dataset.term = target.term;
+        button2.dataset.reading = target.reading;
+        button2.title = "Play with Yomu audio instead";
+        button2.setAttribute("aria-label", `Play ${target.term} with Yomu audio`);
+        setInnerHtml(button2, `${speakerIcon()}<span>Yomu</span>`);
+        button2.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void this.playYomuAudio(target.term, target.reading);
+        });
+        target.link.insertAdjacentElement("afterend", button2);
+      }
+    }
+    removeAudioOffers() {
+      document.querySelectorAll(".yomu-jpdb-audio-button").forEach((node) => node.remove());
+    }
+    async playYomuAudio(term, reading) {
+      const card = jpdbAudioCard(term, reading);
+      try {
+        await this.options.audio.play(card);
+        log$h.debug("JPDB page Yomu audio started", { term });
+      } catch (error) {
+        log$h.warn("JPDB page Yomu audio failed", { term }, error);
+      }
+    }
+    sourceStateAttributes(key, fallback = this.options.getSettings().dictionarySourcesInitiallyExpanded) {
+      return `data-yomu-source-state-key="${escapeHtml$1(key)}"${this.isSourceOpen(key, fallback) ? " open" : ""}`;
+    }
+    isSourceOpen(key, fallback) {
+      return this.sourceOpenOverrides.get(key) ?? storageGetBooleanSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, fallback);
+    }
+    installSourceStateTracking(root) {
+      if (root.dataset.yomuSourceTracking === "true") return;
+      root.dataset.yomuSourceTracking = "true";
+      root.addEventListener("toggle", (event) => {
+        const details = event.target instanceof HTMLDetailsElement ? event.target : null;
+        const key = details == null ? void 0 : details.dataset.yomuSourceStateKey;
+        if (!details || !key) return;
+        this.sourceOpenOverrides.set(key, details.open);
+        storageSetSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, details.open);
+        log$h.debug("JPDB add-on source open state remembered", { key, open: details.open });
+      }, true);
     }
     renderDoodle() {
       if (isKanjiReviewFront()) {
@@ -9613,8 +9981,9 @@ ${entry.reading}`;
       this.removeDoodle();
     }
     installDoodleCanvas() {
+      var _a, _b;
       if (document.getElementById(DOODLE_ROOT_ID)) return;
-      const mount = document.querySelector(".bugfix") ?? document.querySelector(".answer-box");
+      const mount = findDoodleCanvasMount();
       if (!mount) return;
       const glyph = extractCurrentKanji() || firstReviewGlyph(document.body.textContent || "") || "";
       const root = document.createElement("div");
@@ -9630,7 +9999,9 @@ ${entry.reading}`;
                 <button class="jpdb-reader-btn" type="button" data-doodle-ghost>Ghost: On</button>
             </div>
         `;
-      mount.appendChild(root);
+      (_a = mount.querySelector(":scope > .hbox")) == null ? void 0 : _a.insertAdjacentElement("afterend", root);
+      if (!root.isConnected) (_b = mount.querySelector(".yomu-jpdb-addon-card")) == null ? void 0 : _b.before(root);
+      if (!root.isConnected) mount.appendChild(root);
       installDoodle(root, glyph);
     }
     removeDoodleCanvas() {
@@ -9644,13 +10015,17 @@ ${entry.reading}`;
       if (document.getElementById(DOODLE_PREVIEW_ID)) return;
       const drawing = localStorage.getItem(DOODLE_STORAGE_KEY);
       if (!drawing) return;
-      const mount = document.querySelector(".hbox") ?? document.querySelector(".answer-box");
+      const mount = findDoodlePreviewMount();
       if (!mount) return;
       const preview = document.createElement("div");
       preview.id = DOODLE_PREVIEW_ID;
       preview.setAttribute(ROOT_ATTR, "doodle-preview");
-      preview.innerHTML = `<img src="${escapeHtml$1(drawing)}" alt="Your kanji drawing">`;
-      mount.appendChild(preview);
+      preview.innerHTML = `
+            <div class="yomu-doodle-preview-label">Your drawing</div>
+            <img src="${escapeHtml$1(drawing)}" alt="Your kanji drawing">
+        `;
+      if (mount.matches("a.kanji.plain, .kanji.plain")) mount.insertAdjacentElement("afterend", preview);
+      else mount.appendChild(preview);
       localStorage.removeItem(DOODLE_STORAGE_KEY);
     }
     removeDoodle() {
@@ -9698,6 +10073,29 @@ ${entry.reading}`;
         ${info.koohiiStories.length ? `<section><h6>Koohii stories</h6>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</section>` : ""}
     `;
   }
+  function renderJpdbKanjiPanel(info) {
+    const facts = [
+      info.keyword ? ["Keyword", info.keyword] : null,
+      info.frequency ? ["Frequency", info.frequency] : null,
+      info.type ? ["Type", info.type] : null,
+      info.kanken ? ["Kanken", info.kanken] : null,
+      info.heisig ? ["Heisig", info.heisig] : null
+    ].filter((item) => item !== null);
+    return `
+        <div class="yomu-jpdb-card-title">
+            <span>JPDB kanji info</span>
+            <a href="https://jpdb.io/kanji/${encodeURIComponent(info.kanji)}" target="_blank" rel="noopener">Open</a>
+        </div>
+        ${facts.length ? `<div class="yomu-jpdb-facts">${facts.map(([label, value]) => `<span><strong>${escapeHtml$1(label)}</strong>${escapeHtml$1(value)}</span>`).join("")}</div>` : ""}
+        ${info.readings.length ? `<div class="yomu-jpdb-chip-row" aria-label="Readings">${info.readings.slice(0, 10).map((reading) => `<span class="${reading.common ? "common" : ""}">${escapeHtml$1(reading.reading)}${reading.share ? ` <small>${escapeHtml$1(reading.share)}</small>` : ""}</span>`).join("")}</div>` : ""}
+        ${info.components.length ? `<div class="yomu-jpdb-component-row" aria-label="Components">
+            ${info.components.map((component) => `<a href="https://jpdb.io/kanji/${encodeURIComponent(component.kanji)}" class="yomu-jpdb-component" target="_blank" rel="noopener"><strong>${escapeHtml$1(component.kanji)}</strong><span>${escapeHtml$1(component.keyword)}</span></a>`).join("")}
+        </div>` : ""}
+        ${info.vocabulary.length ? `<div class="yomu-jpdb-used-words" aria-label="Common words using ${escapeHtml$1(info.kanji)}">
+            ${info.vocabulary.slice(0, 5).map((word) => `<a href="${escapeHtml$1(word.url)}" target="_blank" rel="noopener"><span>${escapeHtml$1(word.expression)}</span><small>${escapeHtml$1(word.reading || word.meaning)}</small></a>`).join("")}
+        </div>` : ""}
+    `;
+  }
   function renderImmersionPanel(container, examples, index, term, client, settings) {
     const example = examples[index];
     const imageUrl = settings.immersionKitShowImages ? client.mediaUrl(example, "image") : "";
@@ -9739,7 +10137,7 @@ ${entry.reading}`;
       if (container.isConnected && imageElement.isConnected) imageElement.src = imageUrl;
     });
   }
-  function renderLocalDictionaryPanel(entries, settings) {
+  function renderLocalDictionaryPanel(entries, settings, sourceStateAttributes) {
     const byDictionary = /* @__PURE__ */ new Map();
     for (const entry of entries) {
       const list = byDictionary.get(entry.dictionary) ?? [];
@@ -9749,7 +10147,7 @@ ${entry.reading}`;
     return `
         <div class="yomu-jpdb-card-title">Imported dictionaries</div>
         ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries]) => `
-            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${settings.dictionarySourcesInitiallyExpanded ? "open" : ""}>
+            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceStateAttributes(dictionary)}>
                 <summary class="jpdb-reader-local-head">
                     <span>${escapeHtml$1(dictionaryLabel(dictionary, settings))}</span>
                     <span class="jpdb-reader-local-dict">${dictionaryEntries.length}</span>
@@ -9758,7 +10156,7 @@ ${entry.reading}`;
                     ${dictionaryEntries.slice(0, 3).map((entry) => `
                         <div>
                             <strong>${escapeHtml$1(entry.expression)}</strong>${entry.reading && entry.reading !== entry.expression ? ` <span class="jpdb-reader-local-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
-                            ${entry.glossary.slice(0, 3).map((item) => `<div>${glossaryToHtml(item, entry.dictionary)}</div>`).join("")}
+                            ${entry.glossary.slice(0, 3).map((item) => `<div>${glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })}</div>`).join("")}
                         </div>
                     `).join("")}
                 </div>
@@ -9887,7 +10285,10 @@ ${entry.reading}`;
       drawing = true;
       pointerId = event.pointerId;
       current = [point(event)];
-      (_a2 = canvas.setPointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      try {
+        (_a2 = canvas.setPointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      } catch {
+      }
       redraw();
     }, { passive: false });
     add(canvas, "pointermove", (event) => {
@@ -9908,12 +10309,18 @@ ${entry.reading}`;
       current = [];
       drawing = false;
       pointerId = -1;
-      (_a2 = canvas.releasePointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      try {
+        (_a2 = canvas.releasePointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      } catch {
+      }
       redraw();
       save();
     };
     add(canvas, "pointerup", finish, { passive: false });
     add(canvas, "pointercancel", finish, { passive: false });
+    add(canvas, "lostpointercapture", finish, { passive: false });
+    add(window, "pointerup", finish, { passive: false });
+    add(window, "pointercancel", finish, { passive: false });
     (_a = root.querySelector("[data-doodle-clear]")) == null ? void 0 : _a.addEventListener("click", (event) => {
       event.preventDefault();
       strokes = [];
@@ -9960,6 +10367,34 @@ ${entry.reading}`;
     if (!target) return [];
     return [{ term: target.term, reading: extractReadingFromUrl() || target.term, anchor: target.anchor }];
   }
+  function currentAudioTargets() {
+    const targets = [];
+    const seen = /* @__PURE__ */ new Set();
+    document.querySelectorAll("a.vocabulary-audio[data-audio]").forEach((link) => {
+      if (seen.has(link) || link.closest(`[${ROOT_ATTR}], [data-jpdb-reader-root]`)) return;
+      const root = link.closest(".result.vocabulary, .answer-box, .review-hidden, .subsection-headword, .plain") ?? link.parentElement;
+      if (!root) return;
+      const term = extractTermFromElement(root) ?? extractTermFromAudioLink(link);
+      if (!(term == null ? void 0 : term.term)) return;
+      seen.add(link);
+      targets.push({ ...term, link });
+    });
+    return targets.slice(0, 12);
+  }
+  function extractTermFromAudioLink(link) {
+    const root = link.closest(".result.vocabulary, .answer-box") ?? link.parentElement;
+    if (!root) return null;
+    const linkToVocabulary = root.querySelector('a[href^="/vocabulary/"]');
+    if (linkToVocabulary) {
+      const parts = linkToVocabulary.pathname.split("/").filter(Boolean);
+      if (parts[0] === "vocabulary" && parts[2]) {
+        const term = decodePathPart$2(parts[2]);
+        return { term, reading: decodePathPart$2(parts[3] ?? "") || term };
+      }
+    }
+    const text2 = cleanText$4(extractBaseText(root));
+    return text2 && JAPANESE_RE$2.test(text2) ? { term: firstJapaneseRun(text2), reading: firstJapaneseRun(text2) } : null;
+  }
   function extractCurrentTerm() {
     const fromUrl = extractTermFromUrl();
     if (fromUrl) return fromUrl;
@@ -9975,6 +10410,13 @@ ${entry.reading}`;
   function extractReadingFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
     return parts[0] === "vocabulary" && parts[3] ? decodeURIComponent(parts[3]) : "";
+  }
+  function decodePathPart$2(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
   }
   function extractTermFromElement(root) {
     const candidates = [
@@ -10034,8 +10476,8 @@ ${entry.reading}`;
   }
   function findKanjiSectionAnchor() {
     var _a;
-    const uchisen = document.getElementById(UCHISEN_ID);
-    if (uchisen) return uchisen;
+    const existingAddon = lastConnectedElement([RTK_ID, UCHISEN_ID, JPDB_KANJI_ID]);
+    if (existingAddon) return existingAddon;
     const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
     const mnemonic = labels.find((label) => {
       var _a2;
@@ -10043,6 +10485,18 @@ ${entry.reading}`;
     });
     if ((mnemonic == null ? void 0 : mnemonic.nextElementSibling) instanceof HTMLElement) return mnemonic.nextElementSibling;
     return ((_a = document.querySelector(".mnemonic")) == null ? void 0 : _a.closest(".subsection")) ?? document.querySelector(".result.kanji") ?? document.querySelector(".answer-box") ?? document.querySelector("main");
+  }
+  function lastConnectedElement(ids) {
+    return ids.map((id) => document.getElementById(id)).filter((element2) => Boolean(element2 == null ? void 0 : element2.isConnected)).sort((a, b) => {
+      if (a === b) return 0;
+      return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    }).at(-1) ?? null;
+  }
+  function findDoodleCanvasMount() {
+    return document.querySelector(".result.kanji > .vbox") ?? document.querySelector(".answer-box") ?? document.querySelector(".bugfix");
+  }
+  function findDoodlePreviewMount() {
+    return document.querySelector(".result.kanji a.kanji.plain") ?? document.querySelector(".answer-box .kanji, .answer-box .plain") ?? document.querySelector(".result.kanji .hbox") ?? document.querySelector(".hbox") ?? document.querySelector(".answer-box");
   }
   function createAddonCard(id, label) {
     const container = document.createElement("section");
@@ -10078,10 +10532,27 @@ ${entry.reading}`;
     return isReviewPage() && (/[?&]r=/.test(location.search) || Boolean(document.querySelector(".review-reveal, .kanji, .subsection-meanings")));
   }
   function isKanjiReviewFront() {
-    return isReviewPage() && Boolean(document.querySelector(".kanji-keyword")) && !document.querySelector(".kanji");
+    const state = currentReviewCardState();
+    return state.isKanji && state.phase === "before";
   }
   function isKanjiReviewBack() {
-    return isReviewPage() && Boolean(document.querySelector(".kanji"));
+    const state = currentReviewCardState();
+    return state.isKanji && state.phase === "after";
+  }
+  function parseJpdbReviewCardValue(value, response = null) {
+    const parts = (value ?? "").split(",");
+    const kind = (parts[0] ?? "").trim();
+    const kanji = firstReviewGlyph(parts.slice(1).join(",")) ?? "";
+    const isKanji2 = kind.startsWith("k") && Boolean(kanji);
+    const phase = !isKanji2 ? "none" : response === "1" ? "after" : "before";
+    return { kind, kanji, isKanji: isKanji2, phase };
+  }
+  function currentReviewCardState() {
+    var _a;
+    if (!isReviewPage()) return { kind: "", kanji: "", isKanji: false, phase: "none" };
+    const response = new URLSearchParams(location.search).get("r");
+    const cardValue = new URLSearchParams(location.search).get("c") ?? ((_a = document.querySelector('input[name="c"]')) == null ? void 0 : _a.value) ?? "";
+    return parseJpdbReviewCardValue(cardValue, response);
   }
   function decodeEntities(value) {
     const textarea = document.createElement("textarea");
@@ -10107,6 +10578,26 @@ ${entry.reading}`;
   }
   function cleanText$4(value) {
     return value.replace(/\s+/g, " ").trim();
+  }
+  function firstJapaneseRun(value) {
+    var _a;
+    return ((_a = value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)) == null ? void 0 : _a[0]) ?? cleanText$4(value);
+  }
+  function jpdbAudioCard(term, reading) {
+    return {
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: term,
+      reading: reading || term,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "local"
+    };
   }
   function kanjiVgUrl(glyph) {
     var _a;
@@ -10183,6 +10674,20 @@ ${entry.reading}`;
     }
     localStorage.setItem(key, JSON.stringify(value));
   }
+  function storageGetBooleanSync(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value == null ? fallback : JSON.parse(value) === true;
+    } catch {
+      return fallback;
+    }
+  }
+  function storageSetSync(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+    }
+  }
   async function storageDelete(key) {
     if (typeof GM_deleteValue === "function") {
       await GM_deleteValue(key);
@@ -10240,7 +10745,7 @@ ${entry.reading}`;
       kanji,
       keyword,
       frequency: infoRows.get("Frequency") ?? "",
-      type: [infoRows.get("Type"), infoRows.get("")].filter(Boolean).join(", "),
+      type: infoRows.get("Type") ?? "",
       kanken: infoRows.get("Kanken") ?? "",
       heisig: infoRows.get("Heisig") ?? "",
       oldForms: oldForms(doc),
@@ -11246,12 +11751,12 @@ ${normalizedReading}`;
   }
   function buildNewTabPalette(accentColor) {
     const background = sanitizeAccentColor(accentColor);
-    const backgroundText = contrastRatio(background, "#ffffff") >= contrastRatio(background, "#111111") ? "#ffffff" : "#111111";
+    const backgroundText = readableOn("#ffffff", background, 4.5);
     const surface = "#ffffff";
     const surfaceText = "#15171c";
     const accentText = readableOn(background, surface, 4.5);
-    const border = contrastRatio(background, "#ffffff") >= 3 ? "#ffffff" : readableOn(background, background, 3);
-    const shadow = contrastRatio(background, "#111111") > 4 ? "rgba(0,0,0,.24)" : "rgba(20,24,30,.16)";
+    const border = "#ffffff";
+    const shadow = "rgba(0,0,0,.24)";
     const palette = { background, backgroundText, surface, surfaceText, accentText, border, shadow };
     log$b.debug("Built new tab palette", { accentColor: background, backgroundText, accentText });
     return palette;
@@ -11277,24 +11782,6 @@ ${normalizedReading}`;
     const meanings = card.meanings ?? [];
     const first2 = meanings.find((meaning) => meaning.glosses.some((gloss) => gloss.trim()));
     return (first2 == null ? void 0 : first2.glosses.filter(Boolean).join("; ")) ?? "";
-  }
-  function renderDisabledNewTabMarkup() {
-    log$b.debug("Rendering disabled new tab markup");
-    return `
-        <div class="jpdb-reader-newtab-shell">
-            <div class="jpdb-reader-newtab-topbar">
-                <div class="jpdb-reader-newtab-brand">よむ</div>
-                <div class="jpdb-reader-newtab-status">${escapeHtml$1(NEW_TAB_PAGE_URL)}</div>
-            </div>
-            <section class="jpdb-reader-newtab-stage">
-                <div class="jpdb-reader-newtab-empty">
-                    <div class="jpdb-reader-newtab-empty-title">New tab is off</div>
-                    <p>Enable the Yomu new tab page in settings, then use this address on desktop or iPad.</p>
-                    <button class="jpdb-reader-newtab-button primary" type="button" data-newtab-action="settings">Settings</button>
-                </div>
-            </section>
-        </div>
-    `;
   }
   function readableOn(color, background, targetContrast) {
     const safe = sanitizeAccentColor(color);
@@ -11345,23 +11832,39 @@ ${normalizedReading}`;
       return isYomuNewTabUrl(location.href);
     }
     async renderPage() {
-      const settings = this.dependencies.getSettings();
       document.title = `${APP_NAME} New Tab`;
       document.documentElement.classList.add("jpdb-reader-newtab-document");
+      const settings = this.dependencies.getSettings();
+      if (!settings.newTabEnabled) {
+        settings.newTabEnabled = true;
+        await this.dependencies.onSettingsChange();
+      }
       this.applyPalette();
-      const root = document.createElement("main");
-      root.className = "jpdb-reader-newtab";
-      root.dataset.jpdbReaderRoot = "true";
-      root.innerHTML = settings.newTabEnabled ? this.renderEnabledMarkup() : renderDisabledNewTabMarkup();
-      document.body.replaceChildren(root);
-      this.bindRootEvents(root);
-      if (settings.newTabEnabled) await this.loadCardsInto(root);
+      let root = document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
+      const isNew = !root;
+      if (!root) {
+        root = document.createElement("main");
+        root.className = "jpdb-reader-newtab";
+        root.dataset.jpdbReaderRoot = "true";
+        document.body.replaceChildren(root);
+      }
+      if (root.dataset.newtabBound !== "true") {
+        this.bindRootEvents(root);
+        root.dataset.newtabBound = "true";
+      }
+      const hasReaderMarkup = !!root.querySelector("[data-newtab-card]");
+      if (isNew || !hasReaderMarkup) {
+        root.innerHTML = this.renderEnabledMarkup();
+      }
+      if (isNew || !hasReaderMarkup || this.cards.length === 0) {
+        await this.loadCardsInto(root);
+      }
     }
     renderEnabledMarkup() {
       return `
-            <div class="jpdb-reader-newtab-shell">
+                <div class="jpdb-reader-newtab-shell">
                 <div class="jpdb-reader-newtab-topbar">
-                    <div class="jpdb-reader-newtab-brand">${APP_NAME}</div>
+                    <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/kotoba-reader/">${APP_NAME}</a>
                     <div class="jpdb-reader-newtab-actions">
                         <button class="jpdb-reader-newtab-button" type="button" data-newtab-action="settings">Settings</button>
                     </div>
@@ -11423,13 +11926,13 @@ ${normalizedReading}`;
       };
       try {
         setStatus("Loading words...");
-        const result = await this.loadCards();
+        const result = await this.loadCards(setStatus);
         this.cards = shuffleCards(result.cards);
         this.index = 0;
         this.sourceLabel = result.sourceLabel;
         this.dependencies.parser.cacheCards(this.cards);
         if (!this.cards.length) {
-          setStatus("No words found. Check the new tab source in settings.");
+          setStatus("No study words found yet.");
           this.renderEmptyCard(root);
           return;
         }
@@ -11441,20 +11944,44 @@ ${normalizedReading}`;
         this.renderEmptyCard(root);
       }
     }
-    async loadCards() {
+    async loadCards(onProgress) {
       const settings = this.dependencies.getSettings();
-      const sourceOrder = settings.newTabSource === "auto" ? ["anki", "jpdb"] : [settings.newTabSource];
+      const sourceOrder = settings.newTabSource === "auto" ? ["anki", "jpdb", "dictionary"] : [settings.newTabSource];
       for (const source of sourceOrder) {
         if (source === "anki") {
-          const cards = await this.dependencies.anki.listNewTabCards(80);
+          const cards = await this.dependencies.anki.listNewTabCards(80).catch((error) => {
+            log$a.debug("Anki new tab source unavailable", error);
+            return [];
+          });
           if (cards.length) return { cards, sourceLabel: `Anki: ${settings.ankiDeck}` };
         }
         if (source === "jpdb") {
           const result = await this.loadJpdbCards();
           if (result.cards.length) return result;
         }
+        if (source === "dictionary") {
+          const result = await this.loadDictionaryCards(onProgress);
+          if (result.cards.length) return result;
+        }
       }
       return { cards: [], sourceLabel: "No source" };
+    }
+    async loadDictionaryCards(onProgress) {
+      const settings = this.dependencies.getSettings();
+      try {
+        let entries = await this.dependencies.dictionaries.listRandomTopTerms(80, 2e3, settings.dictionaryPreferences);
+        if (!entries.length) {
+          onProgress == null ? void 0 : onProgress("Downloading JMdict starter dictionary...");
+          const installed = await this.dependencies.ensureStarterDictionary((message) => onProgress == null ? void 0 : onProgress(message));
+          if (installed) entries = await this.dependencies.dictionaries.listRandomTopTerms(80, 2e3, settings.dictionaryPreferences);
+        }
+        if (!entries.length) return { cards: [], sourceLabel: "Dictionaries: no words" };
+        const cards = entries.map((entry) => this.dependencies.parser.localCardFromEntry(entry));
+        return { cards, sourceLabel: "Dictionaries" };
+      } catch (error) {
+        log$a.debug("Dictionary card load failed", error);
+        return { cards: [], sourceLabel: "Dictionaries: error" };
+      }
     }
     async loadJpdbCards() {
       const settings = this.dependencies.getSettings();
@@ -11496,7 +12023,7 @@ ${normalizedReading}`;
       const expression = root.querySelector("[data-newtab-expression]");
       const reading = root.querySelector("[data-newtab-reading]");
       const meaning = root.querySelector("[data-newtab-meaning]");
-      const state = card.cardState[0] ?? "not-in-deck";
+      const state = primaryCardState(card.cardState);
       if (expression) {
         setInnerHtml(expression, `<span class="jpdb-reader-word jpdb-${escapeHtml$1(state)}" data-vid="${card.vid}" data-sid="${card.sid}" data-sentence="${escapeHtml$1(card.spelling)}" tabindex="0">${escapeHtml$1(card.spelling)}</span>`);
       }
@@ -11509,7 +12036,7 @@ ${normalizedReading}`;
       const meaning = root.querySelector("[data-newtab-meaning]");
       if (expression) expression.textContent = "よむ";
       if (reading) reading.textContent = "";
-      if (meaning) meaning.textContent = "Open settings to choose Anki or JPDB words.";
+      if (meaning) meaning.textContent = "Open settings or try again after JMdict finishes downloading.";
     }
   }
   const log$9 = Logger.scope("Onboarding");
@@ -12833,54 +13360,15 @@ ${normalizedReading}`;
   }
   const RECOMMENDED_JAPANESE_DICTIONARIES = [
     {
-      id: "jitendex",
+      id: "jmdict",
       category: "terms",
-      name: "Jitendex",
-      description: "Japanese to English dictionary with examples, usage notes, etymology, cross references, and definition notes.",
-      homepage: "https://jitendex.org",
-      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
-    },
-    {
-      id: "jmnedict",
-      category: "terms",
-      name: "JMnedict",
-      description: "Japanese proper names maintained by the Electronic Dictionary Research and Development Group.",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
-    },
-    {
-      id: "kanjidic",
-      category: "kanji",
-      name: "KANJIDIC",
-      description: "Kanji readings, meanings, stroke data, grade level, JLPT level, and frequency.",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
-    },
-    {
-      id: "jpdbv2-kana",
-      category: "frequency",
-      name: "JPDBv2㋕",
-      description: "Frequency data based on the JPDB corpus. よむ shows this first when sorting local frequency chips.",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
-    },
-    {
-      id: "bccwj",
-      category: "frequency",
-      name: "BCCWJ",
-      description: "Frequency data from the Balanced Corpus of Contemporary Written Japanese.",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
-    },
-    {
-      id: "jiten",
-      category: "frequency",
-      name: "Jiten",
-      description: "Frequency data from the media stats database at jiten.moe.",
-      homepage: "https://jiten.moe/other",
-      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+      name: "JMdict",
+      description: "Starter Japanese-English dictionary maintained by EDRDG and packaged for Yomitan. よむ downloads this automatically when dictionary words are needed and no local dictionary is installed.",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
     }
   ];
+  const STARTER_DICTIONARY_IDS = ["jmdict"];
   function findRecommendedDictionary(id) {
     return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
@@ -13068,7 +13556,7 @@ ${entry.reading}`);
         rid: 0,
         spelling: entry.expression,
         reading: entry.reading || entry.expression,
-        frequencyRank: null,
+        frequencyRank: entry.jpdbFrequency ?? null,
         partOfSpeech: [],
         meanings: [{
           glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),
@@ -13298,7 +13786,7 @@ ${entry.reading}`);
             <div>
                 <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
                 <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                <p>Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.</p>
+                <p>Donations are optional, but they genuinely help. If you donate and leave a よむ feature request in the message, I will personally read it and implement it when it is feasible, legal, and within project scope.</p>
             </div>
             <div class="jpdb-reader-support-actions">
                 <a class="jpdb-reader-btn primary" href="${SUPPORT_LINKS.docs}" target="_blank" rel="noopener" data-support-link="docs">Documentation</a>
@@ -13370,15 +13858,15 @@ ${entry.reading}`);
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">New tab</div>
                     <div class="grid">
-                        ${checkbox("newTabEnabled", "Enable Yomu new tab page", settings.newTabEnabled)}
-                        ${select("newTabSource", "New tab word source", settings.newTabSource, [["auto", "Auto: Anki, then JPDB"], ["jpdb", "JPDB"], ["anki", "Anki"]])}
+                        ${checkbox("newTabEnabled", "Use Yomu new tab study page", settings.newTabEnabled)}
+                        ${select("newTabSource", "New tab word source", settings.newTabSource, [["auto", "Auto: Anki, then JPDB, then Dictionary"], ["jpdb", "JPDB"], ["anki", "Anki"], ["dictionary", "Dictionary (Top 2000)"]])}
                         <label>New tab address<input name="newTabUrl" type="text" value="${escapeHtml$1(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. The page only shows study words after this option is enabled.</div>
+                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Opening the page turns the study screen on automatically.</div>
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Word colors</div>
@@ -13485,6 +13973,9 @@ ${entry.reading}`);
                     ${checkbox("subtitleAutoDetect", "Auto-detect page subtitles", settings.subtitleAutoDetect)}
                     ${checkbox("subtitleOverlayVisible", "Show subtitle overlay", settings.subtitleOverlayVisible)}
                     ${checkbox("subtitleSecondaryVisible", "Show native subtitles when available", settings.subtitleSecondaryVisible)}
+                    ${checkbox("subtitleTranscriptVisible", "Open transcript panel by default", settings.subtitleTranscriptVisible)}
+                    ${select("subtitleTranscriptPlacement", "Transcript panel position", settings.subtitleTranscriptPlacement, [["right", "Right of video"], ["left", "Left of video"], ["bottom", "Below video"]])}
+                    ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
                     ${select("subtitleControlsMode", "Subtitle controls", settings.subtitleControlsMode, [["auto", "Compact controls"], ["hidden", "Hide controls"], ["always", "Always visible"]])}
                     ${input("subtitleFontSize", "Subtitle font size", String(settings.subtitleFontSize), "number")}
@@ -13496,6 +13987,10 @@ ${entry.reading}`);
                     ${input("subtitleFontFamily", "Subtitle font family", settings.subtitleFontFamily)}
                     ${input("subtitleFontWeight", "Subtitle font weight", String(settings.subtitleFontWeight), "number")}
                     ${input("subtitleSeekPadding", "Subtitle seek padding (seconds)", String(settings.subtitleSeekPadding), "number")}
+                    ${checkbox("mpvSubtitleMiningEnabled", "Enable MPV subtitle bridge", settings.mpvSubtitleMiningEnabled)}
+                    ${checkbox("mpvSubtitleAutoConnect", "Connect to MPV automatically", settings.mpvSubtitleAutoConnect)}
+                    ${input("mpvSubtitleHost", "MPV bridge host", settings.mpvSubtitleHost)}
+                    ${input("mpvSubtitlePorts", "MPV bridge ports", settings.mpvSubtitlePorts)}
                 </div>
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
@@ -13607,7 +14102,7 @@ ${entry.reading}`);
     return `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"${attributeHtml}></label>`;
   }
   function shortcutInput(name, label, value, placeholder = "Press keys") {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none"></label>`;
+    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$1(label)}"></label>`;
   }
   function checkbox(name, label, checked) {
     return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}>${label}</label>`;
@@ -13735,6 +14230,9 @@ ${entry.reading}`);
       ["subtitleAutoDetect", "subtitleAutoDetect"],
       ["subtitleOverlayVisible", "subtitleOverlayVisible"],
       ["subtitleSecondaryVisible", "subtitleSecondaryVisible"],
+      ["subtitleTranscriptVisible", "subtitleTranscriptVisible"],
+      ["subtitleTranscriptPlacement", "subtitleTranscriptPlacement"],
+      ["subtitleTranscriptAutoScroll", "subtitleTranscriptAutoScroll"],
       ["subtitleMiningPause", "subtitleMiningPause"],
       ["subtitleControlsMode", "subtitleControlsMode"],
       ["subtitleFontSize", "subtitleFontSize"],
@@ -13746,6 +14244,10 @@ ${entry.reading}`);
       ["subtitleFontFamily", "subtitleFontFamily"],
       ["subtitleFontWeight", "subtitleFontWeight"],
       ["subtitleSeekPadding", "subtitleSeekPadding"],
+      ["mpvSubtitleMiningEnabled", "mpvSubtitleMiningEnabled"],
+      ["mpvSubtitleAutoConnect", "mpvSubtitleAutoConnect"],
+      ["mpvSubtitleHost", "mpvSubtitleHost"],
+      ["mpvSubtitlePorts", "mpvSubtitlePorts"],
       ["youtubeImmersionEnabled", "youtubeImmersionEnabled"],
       ["youtubeShowFilterNotice", "youtubeShowFilterNotice"],
       ["ankiEnabled", "ankiEnabled"],
@@ -13809,7 +14311,8 @@ ${entry.reading}`);
     setSelectOptionLabels(form, "newTabSource", [
       ["auto", text2("newTabAuto")],
       ["jpdb", "JPDB"],
-      ["anki", "Anki"]
+      ["anki", "Anki"],
+      ["dictionary", "Dictionary"]
     ]);
     setSelectOptionLabels(form, "twoButtonReviews", [
       ["false", text2("fivePoint")],
@@ -13861,6 +14364,11 @@ ${entry.reading}`);
       ["auto", text2("showWhenNeeded")],
       ["hidden", text2("hideControls")],
       ["always", text2("alwaysVisible")]
+    ]);
+    setSelectOptionLabels(form, "subtitleTranscriptPlacement", [
+      ["right", text2("right")],
+      ["left", text2("left")],
+      ["bottom", text2("bottom")]
     ]);
     setSelectOptionLabels(form, "ankiTemplateMode", [
       ["recognition", text2("wordFirst")],
@@ -14391,9 +14899,9 @@ ${entry.reading}`);
       ["frequency", "Frequency dictionaries"]
     ];
     return `
-        <div class="jpdb-reader-recommended-title">Recommended dictionary downloads</div>
+        <div class="jpdb-reader-recommended-title">Starter dictionary</div>
         <div class="jpdb-reader-settings-actions">
-            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download missing recommended</button>
+            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download JMdict</button>
             <button class="jpdb-reader-btn" type="button" data-action="refresh-dictionaries">Refresh installed list</button>
         </div>
         ${groups.map(([category, label]) => {
@@ -14516,7 +15024,7 @@ ${entry.reading}`);
       scanVisiblePage: has("scanVisiblePage"),
       showFloatingButton: has("showFloatingButton"),
       newTabEnabled: has("newTabEnabled"),
-      newTabSource: ["auto", "jpdb", "anki"].includes(get("newTabSource")) ? get("newTabSource") : current.newTabSource,
+      newTabSource: ["auto", "jpdb", "anki", "dictionary"].includes(get("newTabSource")) ? get("newTabSource") : current.newTabSource,
       newTabJpdbDeck: get("newTabJpdbDeck").trim() || current.newTabJpdbDeck,
       showFurigana: has("showFurigana"),
       showPitchAccent: has("showPitchAccent"),
@@ -14549,6 +15057,9 @@ ${entry.reading}`);
       subtitleAutoDetect: has("subtitleAutoDetect"),
       subtitleOverlayVisible: has("subtitleOverlayVisible"),
       subtitleSecondaryVisible: has("subtitleSecondaryVisible"),
+      subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
+      subtitleTranscriptPlacement: ["right", "left", "bottom"].includes(get("subtitleTranscriptPlacement")) ? get("subtitleTranscriptPlacement") : current.subtitleTranscriptPlacement,
+      subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
       subtitleControlsMode: ["auto", "always", "hidden"].includes(get("subtitleControlsMode")) ? get("subtitleControlsMode") : current.subtitleControlsMode,
       subtitleFontSize: Math.max(16, Math.min(64, number("subtitleFontSize", current.subtitleFontSize))),
       subtitleBottomOffset: Math.max(2, Math.min(40, number("subtitleBottomOffset", current.subtitleBottomOffset))),
@@ -14560,6 +15071,10 @@ ${entry.reading}`);
       subtitleFontWeight: Math.max(100, Math.min(900, number("subtitleFontWeight", current.subtitleFontWeight))),
       subtitleMiningPause: has("subtitleMiningPause"),
       subtitleSeekPadding: Math.max(-2, Math.min(2, number("subtitleSeekPadding", current.subtitleSeekPadding))),
+      mpvSubtitleMiningEnabled: has("mpvSubtitleMiningEnabled"),
+      mpvSubtitleAutoConnect: has("mpvSubtitleAutoConnect"),
+      mpvSubtitleHost: get("mpvSubtitleHost").trim() || current.mpvSubtitleHost,
+      mpvSubtitlePorts: get("mpvSubtitlePorts").trim() || current.mpvSubtitlePorts,
       youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
       youtubeShowFilterNotice: has("youtubeShowFilterNotice"),
       ankiEnabled: has("ankiEnabled"),
@@ -14905,6 +15420,7 @@ ${entry.reading}`);
   --jpdb-reader-faint: #6f7a89;
   --jpdb-reader-border: rgba(255,255,255,.12);
   --jpdb-reader-accent: #5ea780;
+  --jpdb-reader-accent-readable: #76bd99;
   --jpdb-reader-accent-soft: rgba(94,167,128,.18);
   --jpdb-reader-hover: rgba(255,255,255,.08);
 }
@@ -14918,6 +15434,7 @@ ${entry.reading}`);
     --jpdb-reader-muted: #596272;
     --jpdb-reader-faint: #7b8493;
     --jpdb-reader-border: rgba(20,30,45,.16);
+    --jpdb-reader-accent-readable: #25573d;
     --jpdb-reader-hover: rgba(20,30,45,.07);
   }
 }
@@ -14930,6 +15447,7 @@ ${entry.reading}`);
   --jpdb-reader-muted: #aab2c0;
   --jpdb-reader-faint: #6f7a89;
   --jpdb-reader-border: rgba(255,255,255,.12);
+  --jpdb-reader-accent-readable: #76bd99;
   --jpdb-reader-hover: rgba(255,255,255,.08);
 }
 
@@ -14941,6 +15459,7 @@ ${entry.reading}`);
   --jpdb-reader-muted: #596272;
   --jpdb-reader-faint: #7b8493;
   --jpdb-reader-border: rgba(20,30,45,.16);
+  --jpdb-reader-accent-readable: #25573d;
   --jpdb-reader-hover: rgba(20,30,45,.07);
 }
 
@@ -15004,10 +15523,14 @@ ${entry.reading}`);
 }
 
 .jpdb-reader-newtab-brand {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
   color: var(--jpdb-newtab-bg-text, #111);
   font-size: 22px;
   line-height: 1;
   font-weight: 900;
+  text-decoration: none;
 }
 
 .jpdb-reader-newtab-actions,
@@ -15085,8 +15608,8 @@ ${entry.reading}`);
   background: transparent !important;
   color: inherit;
   text-decoration-color: currentColor !important;
-  text-decoration-thickness: 4px;
-  text-underline-offset: .08em;
+  text-decoration-thickness: 4px !important;
+  text-underline-offset: .08em !important;
 }
 
 .jpdb-reader-newtab-reading {
@@ -15170,17 +15693,17 @@ ${entry.reading}`);
   border-radius: 3px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  text-decoration-line: underline;
-  text-decoration-style: solid;
-  text-decoration-color: transparent;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
+  text-decoration-line: underline !important;
+  text-decoration-style: solid !important;
+  text-decoration-color: transparent !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
   transition: background .12s ease, text-decoration-color .12s ease;
 }
 
 .jpdb-reader-word:hover,
 .jpdb-reader-word:focus {
-  background: var(--jpdb-reader-hover);
+  background: var(--jpdb-reader-hover) !important;
   outline: none;
 }
 
@@ -15189,36 +15712,41 @@ ${entry.reading}`);
 .jpdb-reader-word.jpdb-not-in-deck,
 .jpdb-reader-word.anki-new,
 .jpdb-reader-word.anki-suspended {
-  background: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16));
-  text-decoration-color: var(--jpdb-reader-state-new, #58a6ff);
+  background: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16)) !important;
+  text-decoration-color: var(--jpdb-reader-state-new, #58a6ff) !important;
 }
 .jpdb-reader-word.jpdb-learning,
 .jpdb-reader-word.anki-learning {
-  background: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16));
-  text-decoration-color: var(--jpdb-reader-state-learning, #ffd166);
+  background: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16)) !important;
+  text-decoration-color: var(--jpdb-reader-state-learning, #ffd166) !important;
 }
 .jpdb-reader-word.jpdb-known,
 .jpdb-reader-word.jpdb-never-forget,
 .jpdb-reader-word.jpdb-redundant,
 .jpdb-reader-word.anki-known {
-  background: transparent;
-  text-decoration-color: var(--jpdb-reader-state-known, #7bd88f);
+  background: transparent !important;
+  text-decoration-color: var(--jpdb-reader-state-known, #7bd88f) !important;
 }
 .jpdb-reader-word.jpdb-due,
 .jpdb-reader-word.anki-due {
-  background: var(--jpdb-reader-state-due-soft, rgba(255,180,84,.16));
-  text-decoration-color: var(--jpdb-reader-state-due, #ffb454);
+  background: var(--jpdb-reader-state-due-soft, rgba(255,180,84,.16)) !important;
+  text-decoration-color: var(--jpdb-reader-state-due, #ffb454) !important;
 }
 .jpdb-reader-word.jpdb-failed,
 .jpdb-reader-word.anki-failed {
-  background: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16));
-  text-decoration-color: var(--jpdb-reader-state-failed, #ff6b6b);
+  background: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16)) !important;
+  text-decoration-color: var(--jpdb-reader-state-failed, #ff6b6b) !important;
 }
 .jpdb-reader-word.jpdb-blacklisted,
 .jpdb-reader-word.jpdb-locked {
-  background: var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16));
-  text-decoration-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  opacity: .82;
+  background: var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16)) !important;
+  text-decoration-color: var(--jpdb-reader-state-ignored, #b8a7ff) !important;
+  opacity: .82 !important;
+}
+.jpdb-reader-newtab-word .jpdb-reader-word {
+  background: transparent !important;
+  color: inherit !important;
+  text-decoration-color: currentColor !important;
 }
 .jpdb-reader-furi { font-size: .55em; color: var(--jpdb-reader-muted); line-height: 1; user-select: none; }
 .jpdb-reader-word ruby {
@@ -15313,8 +15841,8 @@ ${entry.reading}`);
 }
 .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
-  text-decoration: none;
-  color: inherit;
+  text-decoration: none !important;
+  color: inherit !important;
   pointer-events: none;
   cursor: pointer;
   line-height: 1.08;
@@ -15329,15 +15857,15 @@ ${entry.reading}`);
 }
 .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,
 .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff); }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166); }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff) !important; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166) !important; }
 .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,
 .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f); }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454); }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b); }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f) !important; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454) !important; }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b) !important; }
 .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff); }
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff) !important; }
 .jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi {
   bottom: calc(100% + 1px);
   color: currentColor;
@@ -15351,19 +15879,19 @@ ${entry.reading}`);
 .asbplayer-subtitles-container-bottom { z-index: 2147483644 !important; }
 .asbplayer-subtitles-container-bottom .jpdb-reader-word {
   background: transparent !important;
-  text-decoration: none;
+  text-decoration: none !important;
 }
 .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-new,
 .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-suspended,
-.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff); }
-.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166); }
+.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff) !important; }
+.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166) !important; }
 .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-known,
 .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-never-forget,
-.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f); }
-.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454); }
-.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b); }
+.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f) !important; }
+.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454) !important; }
+.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b) !important; }
 .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-blacklisted,
-.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff); }
+.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff) !important; }
 
 .jpdb-reader-fab {
   position: fixed;
@@ -15631,11 +16159,11 @@ ${entry.reading}`);
   align-items: center;
   align-self: center;
   gap: 4px;
-  min-height: 22px;
-  padding: 1px 7px;
+  min-height: 24px;
+  padding: 2px 8px;
   border: 1px solid currentColor;
   border-radius: 999px;
-  color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
   background: var(--jpdb-reader-accent-soft);
   font-size: 10px;
   font-weight: 850;
@@ -16050,21 +16578,20 @@ button.jpdb-reader-jpdb-pill {
 .jpdb-reader-anki-card-preview small {
   white-space: pre-wrap;
 }
-.jpdb-reader-immersion[open] {
-  gap: 8px;
-}
+
 .yomu-jpdb-addon-card {
   display: grid;
   gap: 9px;
   margin: 14px 0;
-  padding: 12px;
-  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.22));
+  padding: 11px 12px;
+  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.20));
   border-radius: 8px;
-  background: var(--jpdb-reader-surface, color-mix(in srgb, Canvas 94%, CanvasText 6%));
+  background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 92%, transparent);
   color: var(--jpdb-reader-text, inherit);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.42;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--jpdb-reader-border, rgba(127,137,152,.18)) 70%, transparent);
 }
 .yomu-jpdb-addon-card,
 .yomu-jpdb-addon-card * {
@@ -16154,8 +16681,111 @@ button.jpdb-reader-jpdb-pill {
   display: grid;
   gap: 5px;
 }
+.yomu-jpdb-chip-row,
+.yomu-jpdb-component-row,
+.yomu-jpdb-used-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.yomu-jpdb-chip-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 27px;
+  padding: 3px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  font-weight: 750;
+}
+.yomu-jpdb-chip-row span.common {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 45%, var(--jpdb-reader-border));
+  background: var(--jpdb-reader-accent-soft);
+}
+.yomu-jpdb-chip-row small {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+.yomu-jpdb-component,
+.yomu-jpdb-used-words a {
+  display: inline-grid;
+  gap: 1px;
+  min-width: 70px;
+  padding: 7px 9px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text) !important;
+  text-decoration: none !important;
+}
+.yomu-jpdb-component:hover,
+.yomu-jpdb-component:focus-visible,
+.yomu-jpdb-used-words a:hover,
+.yomu-jpdb-used-words a:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
+}
+.yomu-jpdb-component strong {
+  color: var(--jpdb-reader-text);
+  font-size: 22px;
+  line-height: 1;
+}
+.yomu-jpdb-component span,
+.yomu-jpdb-used-words small {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.yomu-jpdb-used-words a span {
+  font-weight: 800;
+}
 .yomu-jpdb-local-dictionaries .jpdb-reader-local-entry {
   background: var(--jpdb-reader-surface-2);
+}
+.yomu-jpdb-local-dictionaries {
+  gap: 7px;
+}
+.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group {
+  border-radius: 8px;
+}
+.yomu-jpdb-local-dictionaries .jpdb-reader-local-head {
+  min-height: 38px;
+}
+.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary {
+  line-height: 1.45;
+}
+.yomu-jpdb-audio-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 24px;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.35));
+  border-radius: 999px;
+  background: var(--jpdb-reader-accent-soft, rgba(94,167,128,.16));
+  color: var(--jpdb-reader-accent, currentColor);
+  cursor: pointer;
+  font: 800 10px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+}
+.yomu-jpdb-audio-button:hover,
+.yomu-jpdb-audio-button:focus-visible {
+  border-color: var(--jpdb-reader-accent, currentColor);
+  outline: none;
+}
+.yomu-jpdb-audio-button svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),
 .yomu-jpdb-review-compact-nav .menu-icon {
@@ -16169,12 +16799,17 @@ button.jpdb-reader-jpdb-pill {
   display: grid;
   place-items: center;
   gap: 10px;
-  margin: 12px auto;
+  width: min(100%, 320px);
+  margin: 14px auto 8px;
+  padding: 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 88%, transparent);
   color: var(--jpdb-reader-text);
 }
 .yomu-doodle-stage {
   position: relative;
-  width: min(92vw, 420px);
+  width: min(76vw, 230px);
   aspect-ratio: 1;
   touch-action: none;
 }
@@ -16187,10 +16822,14 @@ button.jpdb-reader-jpdb-pill {
 }
 .yomu-doodle-canvas {
   z-index: 1;
-  border: 3px solid var(--jpdb-reader-text);
+  border: 2px solid color-mix(in srgb, var(--jpdb-reader-text) 82%, var(--jpdb-reader-border));
   border-radius: 8px;
   cursor: crosshair;
   touch-action: none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size: 25% 25%;
 }
 .yomu-doodle-ghost {
   z-index: 0;
@@ -16217,15 +16856,42 @@ button.jpdb-reader-jpdb-pill {
   stroke-linejoin: round !important;
 }
 #yomu-jpdb-doodle-preview {
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  margin-left: 12px;
+  gap: 5px;
+  min-width: 132px;
+  margin-left: 14px;
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 90%, transparent);
+  vertical-align: top;
+}
+.yomu-doodle-preview-label {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+  text-transform: uppercase;
 }
 #yomu-jpdb-doodle-preview img {
-  width: min(200px, 34vw);
+  width: min(180px, 30vw);
   height: auto;
   border-radius: 8px;
   border: 1px solid var(--jpdb-reader-border);
+  background: var(--jpdb-reader-bg);
+}
+#yomu-jpdb-doodle-root .jpdb-reader-btn {
+  min-height: 44px;
+  padding-inline: 14px;
+}
+@media (min-height: 960px) and (min-width: 700px) {
+  #yomu-jpdb-doodle-root {
+    width: min(100%, 410px);
+  }
+  #yomu-jpdb-doodle-root .yomu-doodle-stage {
+    width: min(78vw, 320px);
+  }
 }
 .jpdb-reader-settings-subsection {
   display: grid;
@@ -16262,22 +16928,25 @@ button.jpdb-reader-jpdb-pill {
 .jpdb-reader-example-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "source controls"
+    "query controls";
   align-items: center;
   gap: 7px 10px;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 750;
 }
-.jpdb-reader-example-meta.has-query {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-}
 .jpdb-reader-example-source {
+  grid-area: source;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .jpdb-reader-example-query {
+  grid-area: query;
+  justify-self: start;
   max-width: 120px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 46%, var(--jpdb-reader-border));
@@ -16288,10 +16957,16 @@ button.jpdb-reader-jpdb-pill {
   white-space: nowrap;
 }
 .jpdb-reader-example-controls {
+  grid-area: controls;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
+  align-self: start;
   gap: 8px;
+  padding: 2px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
 }
 .jpdb-reader-example-count {
   color: var(--jpdb-reader-muted);
@@ -16313,15 +16988,15 @@ button.jpdb-reader-jpdb-pill {
 }
 .jpdb-reader-example-actions {
   display: flex;
-  gap: 5px;
+  gap: 4px;
 }
 .jpdb-reader-example-actions .jpdb-reader-icon-mini {
-  width: 32px !important;
-  min-width: 32px !important;
-  max-width: 32px !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
 }
 .jpdb-reader-example-actions svg {
   width: 15px;
@@ -16343,18 +17018,10 @@ button.jpdb-reader-jpdb-pill {
   .jpdb-reader-example-meta {
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .jpdb-reader-example-meta.has-query {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
   .jpdb-reader-example-query {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-self: start;
     max-width: 100%;
   }
   .jpdb-reader-example-controls {
-    grid-column: 2;
-    grid-row: 1;
     gap: 6px;
   }
 }
@@ -17173,12 +17840,12 @@ button.jpdb-reader-jpdb-pill {
 .jpdb-reader-btn:hover { background: var(--jpdb-reader-hover); }
 .jpdb-reader-btn:disabled { opacity: .45; cursor: progress; }
 .jpdb-reader-btn.primary {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   border-color: var(--jpdb-reader-accent);
   background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent);
 }
-.jpdb-reader-btn.add { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
-.jpdb-reader-btn.nf { color: var(--jpdb-reader-accent); border-color: var(--jpdb-reader-accent); }
+.jpdb-reader-btn.add { color: var(--jpdb-reader-accent-readable); border-color: var(--jpdb-reader-accent); }
+.jpdb-reader-btn.nf { color: var(--jpdb-reader-accent-readable); border-color: var(--jpdb-reader-accent); }
 .jpdb-reader-btn.blacklist {
   color: var(--jpdb-reader-state-ignored, #b8a7ff);
   border-color: var(--jpdb-reader-state-ignored, #b8a7ff);
@@ -17252,7 +17919,7 @@ button.jpdb-reader-jpdb-pill {
 }
 .jpdb-reader-settings-tab[aria-selected="true"] {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   background: var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings-scroll {
@@ -17349,7 +18016,7 @@ button.jpdb-reader-jpdb-pill {
   padding-inline: 18px;
   font-size: 13px;
 }
-.jpdb-reader-settings a { color: var(--jpdb-reader-accent) !important; text-decoration: underline; text-underline-offset: 3px; }
+.jpdb-reader-settings a { color: var(--jpdb-reader-accent-readable) !important; text-decoration: underline; text-underline-offset: 3px; }
 .jpdb-reader-settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
 .jpdb-reader-support-card {
   display: grid;
@@ -17593,8 +18260,8 @@ button.jpdb-reader-jpdb-pill {
 }
 .jpdb-subtitle-primary .jpdb-reader-word {
   background: transparent !important;
-  color: var(--subtitle-color);
-  text-decoration: none;
+  color: var(--subtitle-color) !important;
+  text-decoration: none !important;
   text-shadow:
     0 2px 2px var(--subtitle-outline),
     0 0 2px var(--subtitle-outline),
@@ -17609,15 +18276,15 @@ button.jpdb-reader-jpdb-pill {
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-new,
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-suspended,
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff); }
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166); }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166) !important; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-known,
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-never-forget,
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f); }
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454); }
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b); }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b) !important; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-blacklisted,
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff); }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff) !important; }
 .jpdb-subtitle-primary .jpdb-reader-furi { color: currentColor; opacity: .8; }
 .jpdb-reader-subtitle-preview {
   min-height: 94px;
@@ -17690,20 +18357,25 @@ button.jpdb-reader-jpdb-pill {
   display: inline-grid;
   place-items: center;
   min-width: 38px;
+  width: 38px;
   height: 36px;
-  padding: 0 10px;
+  padding: 0;
   flex: 0 0 auto;
   white-space: nowrap;
   transition: opacity .14s ease, visibility .14s ease, border-color .14s ease, color .14s ease, background .14s ease;
 }
-.jpdb-subtitle-rail button[data-action="list"],
-.jpdb-subtitle-rail button[data-action="tracks"] {
-  min-width: 68px;
-}
 .jpdb-subtitle-toggle {
-  min-width: 58px !important;
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, rgba(255,255,255,.22)) !important;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 22%, rgba(24,27,32,.72)) !important;
+}
+.jpdb-subtitle-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .jpdb-subtitle-toggle[aria-pressed="false"] {
   color: rgba(255,255,255,.72);
@@ -17775,7 +18447,7 @@ button.jpdb-reader-jpdb-pill {
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, rgba(255,255,255,.05));
 }
 .jpdb-subtitle-list {
-  position: absolute;
+  position: fixed;
   right: max(10px, env(safe-area-inset-right));
   top: 50px;
   width: min(460px, calc(100vw - 24px));
@@ -17789,16 +18461,36 @@ button.jpdb-reader-jpdb-pill {
   color: #fff;
   box-shadow: 0 14px 34px rgba(0,0,0,.32);
   pointer-events: auto;
+  backdrop-filter: blur(18px);
 }
 .jpdb-subtitle-list-head {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   padding: 9px;
   border-bottom: 1px solid rgba(255,255,255,.12);
   color: rgba(255,255,255,.78);
   font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-subtitle-placement {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.jpdb-subtitle-placement button {
+  min-width: 28px;
+  width: 28px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0;
+  text-align: center;
+  box-shadow: none;
+}
+.jpdb-subtitle-placement button[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, rgba(255,255,255,.05));
 }
 .jpdb-subtitle-close {
   width: 30px;
@@ -17815,16 +18507,37 @@ button.jpdb-reader-jpdb-pill {
   display: grid;
   gap: 2px;
   padding: 6px;
+  overscroll-behavior: contain;
 }
 .jpdb-subtitle-list-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255,255,255,.025);
+}
+.jpdb-subtitle-row-main {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
+  width: 100%;
   min-height: 38px;
   padding: 8px;
   text-align: left;
-  box-shadow: none;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.jpdb-subtitle-row-replay {
+  align-self: center;
+  min-width: 42px;
+  min-height: 32px;
+  margin: 4px 6px 4px 0;
+  padding: 0 8px;
+  box-shadow: none !important;
 }
 .jpdb-subtitle-list-row.active {
   border-color: rgba(94,167,128,.88);
@@ -17836,9 +18549,22 @@ button.jpdb-reader-jpdb-pill {
 }
 .jpdb-subtitle-list-row strong {
   min-width: 0;
+  grid-column: 2;
   overflow-wrap: anywhere;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.48;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.jpdb-subtitle-list-row em {
+  grid-column: 2;
+  min-width: 0;
+  margin-top: 3px;
+  color: rgba(255,255,255,.68);
+  overflow-wrap: anywhere;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.4;
 }
 .jpdb-subtitle-track-row {
   display: grid;
@@ -17875,7 +18601,7 @@ button.jpdb-reader-jpdb-pill {
 }
 .jpdb-subtitle-track-tools {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 4px;
 }
@@ -18022,18 +18748,21 @@ button.jpdb-reader-jpdb-pill {
   .jpdb-subtitle-rail button {
     height: 38px;
     min-width: 38px;
-    padding: 0 8px;
+    width: 38px;
+    padding: 0;
     font-size: 11px;
   }
-  .jpdb-subtitle-rail button[data-action="list"],
-  .jpdb-subtitle-rail button[data-action="tracks"] {
-    min-width: 58px;
-  }
-  .jpdb-subtitle-menu,
-  .jpdb-subtitle-list {
+  .jpdb-subtitle-menu {
     top: calc(52px + env(safe-area-inset-top));
     right: 8px;
     bottom: auto;
+  }
+  .jpdb-subtitle-list {
+    left: 8px !important;
+    right: auto !important;
+    width: calc(100vw - 16px) !important;
+    max-height: min(48vh, 390px) !important;
+    border-radius: 12px 12px 0 0;
   }
 }
 `;
@@ -18167,6 +18896,8 @@ button.jpdb-reader-jpdb-pill {
     '[data-testid*="subtitle"]'
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
+  const MPV_TRACK_ID = "mpv-live";
+  const MAX_MPV_CUES = 2e3;
   const log$2 = Logger.scope("Subtitles");
   class SubtitlePlayerController {
     constructor(options) {
@@ -18194,6 +18925,15 @@ button.jpdb-reader-jpdb-pill {
       __publicField(this, "renderSerial", 0);
       __publicField(this, "panelMode", "lines");
       __publicField(this, "lastMenuSignature", "");
+      __publicField(this, "lastTranscriptSignature", "");
+      __publicField(this, "transcriptScrollFrame");
+      __publicField(this, "mpvSockets", /* @__PURE__ */ new Map());
+      __publicField(this, "mpvConnectedPorts", /* @__PURE__ */ new Set());
+      __publicField(this, "mpvMediaRequests", /* @__PURE__ */ new Map());
+      __publicField(this, "mpvMediaCache", /* @__PURE__ */ new Map());
+      __publicField(this, "mpvConnecting", false);
+      __publicField(this, "mpvReconnectTimer");
+      __publicField(this, "mpvAudio");
       this.options = options;
     }
     init() {
@@ -18205,19 +18945,68 @@ button.jpdb-reader-jpdb-pill {
       this.observer.observe(document.body, { childList: true, subtree: true });
       document.addEventListener("keydown", (event) => this.handleKeydown(event));
       window.addEventListener("scroll", () => this.scheduleAlignToVideo(), { passive: true });
-      window.addEventListener("resize", () => this.scheduleAlignToVideo(), { passive: true });
+      window.addEventListener("resize", () => {
+        this.scheduleAlignToVideo();
+        this.positionTranscriptPanel();
+      }, { passive: true });
       this.discoverVideo();
+      if (this.options.getSettings().mpvSubtitleMiningEnabled && this.options.getSettings().mpvSubtitleAutoConnect) {
+        window.setTimeout(() => this.connectMpv(false), 600);
+      }
       this.tick();
       log$2.info("Subtitle controller initialized");
     }
+    connectMpv(manual = true) {
+      const settings = this.options.getSettings();
+      if (!settings.mpvSubtitleMiningEnabled) {
+        settings.mpvSubtitleMiningEnabled = true;
+        this.options.onSettingsChange();
+      }
+      if (this.mpvConnecting || this.mpvConnectedPorts.size) {
+        this.refresh();
+        return;
+      }
+      const ports = parseMpvPorts(settings.mpvSubtitlePorts);
+      if (!ports.length) {
+        this.options.onToast("No MPV bridge ports are configured.");
+        return;
+      }
+      this.mpvConnecting = true;
+      this.ensureMpvTrack();
+      this.refresh();
+      ports.forEach((port) => this.openMpvSocket(settings.mpvSubtitleHost, port, manual));
+      log$2.info("MPV subtitle bridge connect requested", { host: settings.mpvSubtitleHost, ports });
+    }
+    disconnectMpv() {
+      window.clearTimeout(this.mpvReconnectTimer);
+      this.mpvReconnectTimer = void 0;
+      this.mpvConnecting = false;
+      this.mpvConnectedPorts.clear();
+      this.mpvSockets.forEach((socket) => socket.close());
+      this.mpvSockets.clear();
+      this.rejectMpvMediaRequests();
+      this.refresh();
+      log$2.info("MPV subtitle bridge disconnected");
+    }
+    async captureCurrentMpvFrame(sentence) {
+      const cue = this.findMpvCueForSentence(sentence);
+      if (!cue) return void 0;
+      return this.requestMpvMedia(cue, "thumbnail");
+    }
     refresh() {
+      var _a;
       if (!this.root) return;
       const settings = this.options.getSettings();
-      this.root.hidden = !settings.subtitlePlayerEnabled || !this.video && !this.cues.length;
+      const mpvActive = settings.mpvSubtitleMiningEnabled && (this.mpvConnecting || this.mpvConnectedPorts.size > 0 || this.selectedTrackId === MPV_TRACK_ID);
+      this.root.hidden = !settings.subtitlePlayerEnabled || !this.video && !this.cues.length && !mpvActive;
       this.root.classList.toggle("jpdb-subtitle-hidden", !settings.subtitleOverlayVisible);
       this.root.classList.toggle("jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
+      this.root.classList.toggle("jpdb-subtitle-mpv-connected", this.mpvConnectedPorts.size > 0);
+      this.root.classList.toggle("jpdb-subtitle-transcript-right", settings.subtitleTranscriptPlacement === "right");
+      this.root.classList.toggle("jpdb-subtitle-transcript-left", settings.subtitleTranscriptPlacement === "left");
+      this.root.classList.toggle("jpdb-subtitle-transcript-bottom", settings.subtitleTranscriptPlacement === "bottom");
       this.root.style.setProperty("--subtitle-font-size", `${settings.subtitleFontSize}px`);
       this.root.style.setProperty("--subtitle-bottom", `${settings.subtitleBottomOffset}%`);
       this.root.style.setProperty("--subtitle-color", settings.subtitleTextColor);
@@ -18225,6 +19014,12 @@ button.jpdb-reader-jpdb-pill {
       this.root.style.setProperty("--subtitle-background-rgba", accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
       this.root.style.setProperty("--subtitle-family", settings.subtitleFontFamily);
       this.root.style.setProperty("--subtitle-weight", String(settings.subtitleFontWeight));
+      if (settings.subtitleTranscriptVisible && this.cues.length && ((_a = this.transcriptPanel) == null ? void 0 : _a.hidden)) {
+        this.panelMode = "lines";
+        this.transcriptPanel.hidden = false;
+        this.renderTranscriptPanel(true);
+      }
+      this.positionTranscriptPanel();
       this.syncControls();
       this.render();
       log$2.debugThrottled("refresh", 2500, "Subtitle player refreshed", {
@@ -18242,18 +19037,19 @@ button.jpdb-reader-jpdb-pill {
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
-                <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">Subs</button>
+                <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">${subtitleIcon("eye")}</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
-                <button type="button" data-action="list" title="Subtitle lines">Lines</button>
+                <button type="button" data-action="list" title="Open transcript" aria-label="Open transcript">${subtitleIcon("transcript")}</button>
                 <span class="jpdb-subtitle-status" data-role="status" hidden></span>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
-                <button type="button" data-action="tracks" title="Subtitle tracks">Tracks</button>
-                <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">...</button>
+                <button type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon("tracks")}</button>
+                <button type="button" data-action="mpv-connect" title="Connect to MPV subtitle bridge" aria-label="Connect to MPV subtitle bridge">${subtitleIcon("plug")}</button>
+                <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">${subtitleIcon("menu")}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
-            <input hidden type="file" data-file="primary" accept=".srt,.vtt,text/vtt">
-            <input hidden type="file" data-file="secondary" accept=".srt,.vtt,text/vtt">
+            <input hidden type="file" data-file="primary" accept=".srt,.vtt,.ass,.ssa,text/vtt">
+            <input hidden type="file" data-file="secondary" accept=".srt,.vtt,.ass,.ssa,text/vtt">
         `);
       root.addEventListener("click", (event) => this.handleClick(event));
       this.subtitleEl = root.querySelector(".jpdb-subtitle-text");
@@ -18327,6 +19123,7 @@ button.jpdb-reader-jpdb-pill {
         if (!this.secondaryCues.length) this.secondaryCues = readTrackCues(track);
       }
       this.render();
+      this.renderTranscriptPanel();
       this.syncControls();
     }
     tick() {
@@ -18352,7 +19149,10 @@ button.jpdb-reader-jpdb-pill {
       }
     }
     alignToVideo() {
-      if (!this.root || !this.video) return;
+      if (!this.root || !this.video) {
+        this.positionTranscriptPanel();
+        return;
+      }
       const rect = this.video.getBoundingClientRect();
       if (rect.width < 120 || rect.height < 80) {
         this.root.style.left = "0";
@@ -18361,6 +19161,7 @@ button.jpdb-reader-jpdb-pill {
         this.root.style.bottom = "auto";
         this.root.style.width = "100%";
         this.root.style.height = "100%";
+        this.positionTranscriptPanel();
         return;
       }
       this.root.style.left = `${rect.left}px`;
@@ -18369,9 +19170,11 @@ button.jpdb-reader-jpdb-pill {
       this.root.style.bottom = "auto";
       this.root.style.width = `${Math.max(260, rect.width)}px`;
       this.root.style.height = `${Math.max(160, rect.height)}px`;
+      this.positionTranscriptPanel();
     }
     updateFromLoadedCues() {
       if (!this.video) return;
+      if (this.selectedTrackId === MPV_TRACK_ID) return;
       const time = this.video.currentTime;
       const cue = this.cues.find((item) => time >= item.start && time <= item.end);
       const secondary = this.secondaryCues.find((item) => time >= item.start && time <= item.end);
@@ -18386,6 +19189,7 @@ button.jpdb-reader-jpdb-pill {
       }
       if (changed) {
         this.render();
+        this.renderTranscriptPanel();
         this.syncControls();
       }
     }
@@ -18398,6 +19202,7 @@ button.jpdb-reader-jpdb-pill {
       const now = ((_a = this.video) == null ? void 0 : _a.currentTime) ?? 0;
       this.currentCue = { start: now, end: now + 4, text: text2 };
       this.render();
+      this.renderTranscriptPanel();
       this.syncControls();
     }
     render() {
@@ -18439,7 +19244,7 @@ button.jpdb-reader-jpdb-pill {
       if (primary) setInnerHtml(primary, html);
     }
     handleClick(event) {
-      var _a, _b, _c, _d, _e, _f;
+      var _a, _b, _c, _d, _e, _f, _g;
       const action = (_a = event.target.closest("[data-action]")) == null ? void 0 : _a.dataset.action;
       if (!action) return;
       event.preventDefault();
@@ -18449,12 +19254,17 @@ button.jpdb-reader-jpdb-pill {
       if (action === "previous") this.seekSubtitle(-1);
       if (action === "next") this.seekSubtitle(1);
       if (action === "copy") void this.copySubtitle();
-      if (action === "load") (_c = this.primaryFileInput) == null ? void 0 : _c.click();
-      if (action === "load-secondary") (_d = this.secondaryFileInput) == null ? void 0 : _d.click();
+      if (action === "replay-cue") void this.replayCue(Number((_c = event.target.closest("[data-index]")) == null ? void 0 : _c.dataset.index));
+      if (action === "load") (_d = this.primaryFileInput) == null ? void 0 : _d.click();
+      if (action === "load-secondary") (_e = this.secondaryFileInput) == null ? void 0 : _e.click();
       if (action === "list") this.toggleTranscriptPanel();
       if (action === "tracks") this.toggleTrackPanel();
-      if (action === "primary-track") void this.choosePrimaryTrack((_e = event.target.closest("[data-track-id]")) == null ? void 0 : _e.dataset.trackId);
-      if (action === "secondary-track") void this.chooseSecondaryTrack((_f = event.target.closest("[data-track-id]")) == null ? void 0 : _f.dataset.trackId);
+      if (action === "mpv-connect") this.mpvConnectedPorts.size ? this.disconnectMpv() : this.connectMpv();
+      if (action === "transcript-left") this.setTranscriptPlacement("left");
+      if (action === "transcript-right") this.setTranscriptPlacement("right");
+      if (action === "transcript-bottom") this.setTranscriptPlacement("bottom");
+      if (action === "primary-track") void this.choosePrimaryTrack((_f = event.target.closest("[data-track-id]")) == null ? void 0 : _f.dataset.trackId);
+      if (action === "secondary-track") void this.chooseSecondaryTrack((_g = event.target.closest("[data-track-id]")) == null ? void 0 : _g.dataset.trackId);
       if (action === "menu") this.toggleMenu();
       if (action === "toggle") this.toggleSubtitles();
       if (action === "toggle-secondary") this.toggleSecondarySubtitles();
@@ -18514,7 +19324,7 @@ button.jpdb-reader-jpdb-pill {
       const cues = parseSubtitleText(text2);
       const track = {
         id: `file-${kind}-${Date.now()}`,
-        label: file.name.replace(/\.(srt|vtt)$/i, ""),
+        label: file.name.replace(/\.(srt|vtt|ass|ssa)$/i, ""),
         kind: "file",
         cues
       };
@@ -18548,6 +19358,9 @@ button.jpdb-reader-jpdb-pill {
         this.cues = parseSubtitleText(text2);
         selected.cues = this.cues;
       }
+      if ((selected == null ? void 0 : selected.kind) === "mpv" && this.cues.length) {
+        this.currentCue = this.cues[this.cues.length - 1];
+      }
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.render();
@@ -18580,6 +19393,173 @@ button.jpdb-reader-jpdb-pill {
       this.renderTrackPanel();
       this.syncControls();
       log$2.info("Secondary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.secondaryCues.length });
+    }
+    ensureMpvTrack() {
+      let track = this.tracks.find((option) => option.id === MPV_TRACK_ID);
+      if (!track) {
+        track = { id: MPV_TRACK_ID, label: "MPV live subtitles", kind: "mpv", cues: [] };
+        this.tracks.unshift(track);
+      }
+      return track;
+    }
+    openMpvSocket(host, port, manual) {
+      if (this.mpvSockets.has(port)) return;
+      const socket = new WebSocket(`ws://${host}:${port}`);
+      this.mpvSockets.set(port, socket);
+      socket.addEventListener("open", () => {
+        var _a;
+        this.mpvConnecting = false;
+        this.mpvConnectedPorts.add(port);
+        this.ensureMpvTrack();
+        if (!this.video && !this.selectedTrackId) {
+          this.selectedTrackId = MPV_TRACK_ID;
+          this.cues = ((_a = this.tracks.find((track) => track.id === MPV_TRACK_ID)) == null ? void 0 : _a.cues) ?? [];
+        }
+        this.options.onToast(`MPV subtitles connected on ${port}.`);
+        this.refresh();
+        log$2.info("MPV subtitle bridge connected", { port });
+      });
+      socket.addEventListener("message", (event) => this.handleMpvMessage(event.data, port));
+      socket.addEventListener("close", () => {
+        this.mpvSockets.delete(port);
+        this.mpvConnectedPorts.delete(port);
+        this.resolveMpvMediaRequestsForPort(port, void 0);
+        this.mpvConnecting = this.mpvSockets.size > 0 && this.mpvConnectedPorts.size === 0;
+        this.refresh();
+        if (!manual && this.options.getSettings().mpvSubtitleAutoConnect && this.options.getSettings().mpvSubtitleMiningEnabled) this.scheduleMpvReconnect();
+        log$2.debug("MPV subtitle bridge socket closed", { port });
+      });
+      socket.addEventListener("error", () => {
+        log$2.debug("MPV subtitle bridge socket error", { port });
+      });
+    }
+    scheduleMpvReconnect() {
+      if (this.mpvReconnectTimer) return;
+      this.mpvReconnectTimer = window.setTimeout(() => {
+        this.mpvReconnectTimer = void 0;
+        if (!this.mpvConnectedPorts.size && this.options.getSettings().mpvSubtitleAutoConnect) this.connectMpv(false);
+      }, 8e3);
+    }
+    handleMpvMessage(data, port) {
+      if (typeof data !== "string") return;
+      let message;
+      try {
+        message = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!message || typeof message !== "object") return;
+      const record = message;
+      if (record.type === "subtitle") {
+        this.receiveMpvSubtitle(record, port);
+        return;
+      }
+      if (record.type === "audio" || record.type === "thumbnail") {
+        this.receiveMpvMedia(record, port, record.type);
+      }
+    }
+    receiveMpvSubtitle(record, port) {
+      const id = Number(record.id);
+      const text2 = typeof record.subtitle === "string" ? record.subtitle.trim() : "";
+      const start = Number(record.sub_start);
+      const end = Number(record.sub_end);
+      if (!Number.isFinite(id) || !text2 || !Number.isFinite(start) || !Number.isFinite(end)) return;
+      const track = this.ensureMpvTrack();
+      const cues = track.cues ?? [];
+      track.cues = cues;
+      const cueId = `mpv-${port}-${id}`;
+      let cue = cues.find((item) => item.id === cueId);
+      if (!cue) {
+        cue = { id: cueId, source: "mpv", mpvId: id, mpvPort: port, start, end, text: text2 };
+        cues.push(cue);
+        cues.sort((a, b) => a.start - b.start || (a.mpvId ?? 0) - (b.mpvId ?? 0));
+        if (cues.length > MAX_MPV_CUES) cues.splice(0, cues.length - MAX_MPV_CUES);
+      } else {
+        cue.start = start;
+        cue.end = end;
+        cue.text = text2;
+      }
+      if (!this.video || this.selectedTrackId === MPV_TRACK_ID || !this.selectedTrackId) {
+        this.selectedTrackId = MPV_TRACK_ID;
+        this.cues = cues;
+        this.currentCue = cue;
+        this.secondaryCue = void 0;
+        this.render();
+        this.renderTranscriptPanel();
+      }
+      this.syncControls();
+      log$2.debug("MPV subtitle received", { port, id, length: text2.length });
+    }
+    receiveMpvMedia(record, port, type) {
+      const id = Number(record.id);
+      const rawData = typeof record.data === "string" ? record.data : "";
+      if (!Number.isFinite(id)) return;
+      const key = mpvMediaKey(type, port, id);
+      const dataUrl = rawData ? mpvDataUrl(type, rawData) : void 0;
+      if (dataUrl) this.mpvMediaCache.set(key, dataUrl);
+      const pending = this.mpvMediaRequests.get(key);
+      if (!pending) return;
+      window.clearTimeout(pending.timeout);
+      this.mpvMediaRequests.delete(key);
+      pending.resolve(dataUrl);
+    }
+    requestMpvMedia(cue, type) {
+      if (cue.source !== "mpv" || typeof cue.mpvId !== "number" || typeof cue.mpvPort !== "number" || !Number.isFinite(cue.mpvId) || !Number.isFinite(cue.mpvPort)) return Promise.resolve(void 0);
+      const port = cue.mpvPort;
+      const id = cue.mpvId;
+      const key = mpvMediaKey(type, port, id);
+      const cached = this.mpvMediaCache.get(key);
+      if (cached) return Promise.resolve(cached);
+      const socket = this.mpvSockets.get(port);
+      if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.resolve(void 0);
+      return new Promise((resolve) => {
+        const timeout = window.setTimeout(() => {
+          this.mpvMediaRequests.delete(key);
+          resolve(void 0);
+        }, 12e3);
+        this.mpvMediaRequests.set(key, { resolve, timeout, type });
+        socket.send(JSON.stringify({ request: type, id }));
+      });
+    }
+    async replayCue(index) {
+      var _a;
+      const cue = Number.isFinite(index) ? this.cues[index] : this.currentCue;
+      if (!cue || cue.source !== "mpv") return;
+      const dataUrl = await this.requestMpvMedia(cue, "audio");
+      if (!dataUrl) {
+        this.options.onToast("MPV audio was not available for that line.");
+        return;
+      }
+      (_a = this.mpvAudio) == null ? void 0 : _a.pause();
+      this.mpvAudio = new Audio(dataUrl);
+      await this.mpvAudio.play().catch((error) => {
+        log$2.warn("MPV audio playback failed", error);
+        this.options.onToast("Browser blocked MPV audio playback.");
+      });
+    }
+    findMpvCueForSentence(sentence) {
+      var _a;
+      const clean = sentence == null ? void 0 : sentence.replace(/\s+/g, " ").trim();
+      if (clean) {
+        const matching = this.cues.find((cue) => cue.source === "mpv" && cue.text.replace(/\s+/g, " ").trim() === clean);
+        if (matching) return matching;
+      }
+      return ((_a = this.currentCue) == null ? void 0 : _a.source) === "mpv" ? this.currentCue : this.cues.slice().reverse().find((cue) => cue.source === "mpv");
+    }
+    rejectMpvMediaRequests() {
+      this.mpvMediaRequests.forEach((request) => {
+        window.clearTimeout(request.timeout);
+        request.resolve(void 0);
+      });
+      this.mpvMediaRequests.clear();
+    }
+    resolveMpvMediaRequestsForPort(port, value) {
+      [...this.mpvMediaRequests.entries()].forEach(([key, request]) => {
+        if (!key.includes(`:${port}:`)) return;
+        window.clearTimeout(request.timeout);
+        this.mpvMediaRequests.delete(key);
+        request.resolve(value);
+      });
     }
     setNativeTrackModes() {
       for (const option of this.tracks) {
@@ -18615,50 +19595,83 @@ button.jpdb-reader-jpdb-pill {
       this.syncControls();
     }
     syncControls() {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
+      var _a, _b, _c, _d, _e, _f, _g, _h;
       const settings = this.options.getSettings();
-      (_b = this.root) == null ? void 0 : _b.classList.toggle("jpdb-subtitle-menu-open", !((_a = this.menuEl) == null ? void 0 : _a.hidden));
-      (_d = this.root) == null ? void 0 : _d.classList.toggle("jpdb-subtitle-panel-open", !((_c = this.transcriptPanel) == null ? void 0 : _c.hidden));
-      (_f = this.root) == null ? void 0 : _f.classList.toggle("jpdb-subtitle-has-lines", Boolean(this.cues.length || ((_e = this.currentCue) == null ? void 0 : _e.text)));
-      (_h = this.root) == null ? void 0 : _h.classList.toggle("jpdb-subtitle-has-track", Boolean(this.selectedTrackId || this.cues.length || ((_g = this.currentCue) == null ? void 0 : _g.text)));
+      const hasLines = Boolean(this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text));
+      (_c = this.root) == null ? void 0 : _c.classList.toggle("jpdb-subtitle-menu-open", !((_b = this.menuEl) == null ? void 0 : _b.hidden));
+      (_e = this.root) == null ? void 0 : _e.classList.toggle("jpdb-subtitle-panel-open", !((_d = this.transcriptPanel) == null ? void 0 : _d.hidden));
+      (_f = this.root) == null ? void 0 : _f.classList.toggle("jpdb-subtitle-has-lines", hasLines);
+      (_g = this.root) == null ? void 0 : _g.classList.toggle("jpdb-subtitle-has-track", Boolean(this.selectedTrackId || hasLines));
       if (this.menuEl && !this.menuEl.hidden) this.renderMenu();
-      const secondaryToggle = (_i = this.menuEl) == null ? void 0 : _i.querySelector('[data-action="toggle-secondary"]');
+      const secondaryToggle = (_h = this.menuEl) == null ? void 0 : _h.querySelector('[data-action="toggle-secondary"]');
       if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off";
-      const subtitleToggle = (_j = this.root) == null ? void 0 : _j.querySelector(".jpdb-subtitle-toggle");
-      if (subtitleToggle) {
-        subtitleToggle.textContent = settings.subtitleOverlayVisible ? "Hide" : "Show";
-        subtitleToggle.setAttribute("aria-pressed", String(settings.subtitleOverlayVisible));
-        subtitleToggle.title = settings.subtitleOverlayVisible ? "Hide subtitles" : "Show subtitles";
-        subtitleToggle.setAttribute("aria-label", subtitleToggle.title);
+      this.syncSubtitleToggle(settings);
+      this.syncLineNavigationButtons(hasLines);
+      this.syncTranscriptButton(hasLines);
+      this.syncTrackButton();
+      this.syncMpvButton(settings);
+      this.syncStatusText();
+    }
+    syncSubtitleToggle(settings) {
+      var _a;
+      const subtitleToggle = (_a = this.root) == null ? void 0 : _a.querySelector(".jpdb-subtitle-toggle");
+      if (!subtitleToggle) return;
+      setInnerHtml(subtitleToggle, subtitleIcon(settings.subtitleOverlayVisible ? "eye-off" : "eye"));
+      subtitleToggle.setAttribute("aria-pressed", String(settings.subtitleOverlayVisible));
+      subtitleToggle.title = settings.subtitleOverlayVisible ? "Hide subtitles" : "Show subtitles";
+      subtitleToggle.setAttribute("aria-label", subtitleToggle.title);
+    }
+    syncLineNavigationButtons(hasLines) {
+      var _a;
+      for (const action of ["previous", "next"]) {
+        const button2 = (_a = this.root) == null ? void 0 : _a.querySelector(`[data-action="${action}"]`);
+        if (!button2) continue;
+        button2.hidden = !hasLines;
+        button2.disabled = !this.video || !hasLines;
       }
-      const previous = (_k = this.root) == null ? void 0 : _k.querySelector('[data-action="previous"]');
-      const next = (_l = this.root) == null ? void 0 : _l.querySelector('[data-action="next"]');
-      const list = (_m = this.root) == null ? void 0 : _m.querySelector('[data-action="list"]');
-      const tracks = (_n = this.root) == null ? void 0 : _n.querySelector('[data-action="tracks"]');
-      const hasLines = Boolean(this.cues.length || ((_o = this.currentCue) == null ? void 0 : _o.text));
-      if (previous) {
-        previous.hidden = !hasLines;
-        previous.disabled = !this.video || !hasLines;
-      }
-      if (next) {
-        next.hidden = !hasLines;
-        next.disabled = !this.video || !hasLines;
-      }
-      if (list) {
-        list.hidden = !hasLines;
-        list.textContent = "Lines";
-      }
-      if (tracks) {
-        tracks.hidden = false;
-        tracks.textContent = this.selectedTrackId ? "Tracks" : "Choose subs";
-        tracks.setAttribute("aria-pressed", String(Boolean(this.selectedTrackId)));
-      }
+    }
+    syncTranscriptButton(hasLines) {
+      var _a, _b, _c;
+      const list = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="list"]');
+      if (!list) return;
+      list.hidden = !hasLines;
+      setInnerHtml(list, subtitleIcon("transcript"));
+      list.title = ((_b = this.transcriptPanel) == null ? void 0 : _b.hidden) || this.panelMode !== "lines" ? "Open transcript" : "Close transcript";
+      list.setAttribute("aria-label", list.title);
+      list.setAttribute("aria-pressed", String(!((_c = this.transcriptPanel) == null ? void 0 : _c.hidden) && this.panelMode === "lines"));
+    }
+    syncTrackButton() {
+      var _a;
+      const tracks = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="tracks"]');
+      if (!tracks) return;
+      tracks.hidden = false;
+      setInnerHtml(tracks, subtitleIcon("tracks"));
+      tracks.title = this.selectedTrackId ? "Subtitle tracks" : "Choose subtitles";
+      tracks.setAttribute("aria-label", tracks.title);
+      tracks.setAttribute("aria-pressed", String(Boolean(this.selectedTrackId)));
+    }
+    syncMpvButton(settings) {
+      var _a;
+      const mpv = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="mpv-connect"]');
+      if (!mpv) return;
+      mpv.hidden = !settings.mpvSubtitleMiningEnabled && !this.mpvConnectedPorts.size;
+      setInnerHtml(mpv, subtitleIcon(this.mpvConnectedPorts.size ? "plug-on" : "plug"));
+      mpv.title = this.mpvConnectedPorts.size ? `Disconnect MPV bridge (${[...this.mpvConnectedPorts].join(", ")})` : this.mpvConnecting ? "Connecting to MPV bridge" : "Connect to MPV subtitle bridge";
+      mpv.setAttribute("aria-label", mpv.title);
+      mpv.setAttribute("aria-pressed", String(this.mpvConnectedPorts.size > 0));
+    }
+    syncStatusText() {
+      var _a;
       if (!this.statusEl) return;
-      if (this.cues.length) {
+      if (this.selectedTrackId === MPV_TRACK_ID && this.mpvConnectedPorts.size) {
+        const index = this.currentCue ? this.cues.findIndex((cue) => cue === this.currentCue) + 1 : 0;
+        this.statusEl.textContent = index > 0 ? `MPV ${index}/${this.cues.length}` : `MPV ${this.cues.length}`;
+        this.statusEl.hidden = false;
+      } else if (this.cues.length) {
         const index = this.currentCue ? this.cues.findIndex((cue) => cue === this.currentCue) + 1 : 0;
         this.statusEl.textContent = index > 0 ? `${index}/${this.cues.length}` : `${this.cues.length}`;
         this.statusEl.hidden = false;
-      } else if ((_p = this.currentCue) == null ? void 0 : _p.text) {
+      } else if ((_a = this.currentCue) == null ? void 0 : _a.text) {
         this.statusEl.textContent = "Page captions";
         this.statusEl.hidden = false;
       } else {
@@ -18667,14 +19680,18 @@ button.jpdb-reader-jpdb-pill {
       }
     }
     renderMenu() {
-      var _a, _b;
+      var _a, _b, _c, _d, _e, _f;
       if (!this.menuEl) return;
       const hasLines = Boolean(this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text));
       const hasSecondary = Boolean(this.secondaryTrackId || this.secondaryCues.length || ((_b = this.secondaryCue) == null ? void 0 : _b.text));
       const signature = [
         hasLines,
         hasSecondary,
-        this.options.getSettings().subtitleSecondaryVisible
+        this.options.getSettings().subtitleSecondaryVisible,
+        ((_c = this.currentCue) == null ? void 0 : _c.source) === "mpv",
+        this.mpvConnectedPorts.size,
+        (_d = this.transcriptPanel) == null ? void 0 : _d.hidden,
+        this.panelMode
       ].join(":");
       if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
       this.lastMenuSignature = signature;
@@ -18685,7 +19702,10 @@ button.jpdb-reader-jpdb-pill {
             </div>
             <button type="button" data-action="load">Load Japanese subtitles</button>
             <button type="button" data-action="load-secondary">Load native subtitles</button>
+            <button type="button" data-action="mpv-connect">${this.mpvConnectedPorts.size ? "Disconnect MPV bridge" : "Connect MPV bridge"}</button>
+            ${hasLines ? `<button type="button" data-action="list">${((_e = this.transcriptPanel) == null ? void 0 : _e.hidden) || this.panelMode !== "lines" ? "Open transcript panel" : "Close transcript panel"}</button>` : ""}
             ${hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : ""}
+            ${((_f = this.currentCue) == null ? void 0 : _f.source) === "mpv" ? '<button type="button" data-action="replay-cue">Replay current MPV line</button>' : ""}
             ${hasSecondary ? `<button type="button" data-action="toggle-secondary" aria-pressed="${this.options.getSettings().subtitleSecondaryVisible}">${this.options.getSettings().subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off"}</button>` : ""}
         `);
     }
@@ -18720,18 +19740,26 @@ button.jpdb-reader-jpdb-pill {
       const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== "lines";
       this.panelMode = "lines";
       this.transcriptPanel.hidden = !shouldOpen;
+      this.options.getSettings().subtitleTranscriptVisible = shouldOpen;
+      this.options.onSettingsChange();
       if (!this.transcriptPanel.hidden && this.menuEl) this.menuEl.hidden = true;
-      this.renderTranscriptPanel();
+      this.renderTranscriptPanel(true);
+      this.positionTranscriptPanel();
     }
     toggleTrackPanel() {
       if (!this.transcriptPanel) return;
       const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== "tracks";
       this.panelMode = "tracks";
       this.transcriptPanel.hidden = !shouldOpen;
+      if (shouldOpen) {
+        this.options.getSettings().subtitleTranscriptVisible = false;
+        this.options.onSettingsChange();
+      }
       if (this.menuEl) this.menuEl.hidden = true;
       this.renderTrackPanel();
+      this.positionTranscriptPanel();
     }
-    renderTranscriptPanel() {
+    renderTranscriptPanel(force = false) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
       if (!this.cues.length) {
         this.panelMode = "tracks";
@@ -18739,25 +19767,67 @@ button.jpdb-reader-jpdb-pill {
         return;
       }
       const currentIndex = this.currentCue ? this.cues.findIndex((cue) => cue === this.currentCue) : -1;
-      const start = Math.max(0, currentIndex - 12);
-      const visible = this.cues.slice(start, start + 28);
+      const signature = [
+        this.cues.length,
+        this.secondaryCues.length,
+        currentIndex,
+        this.options.getSettings().subtitleTranscriptPlacement,
+        this.mpvConnectedPorts.size ? [...this.mpvConnectedPorts].join(",") : ""
+      ].join(":");
+      if (!force && this.lastTranscriptSignature === signature) {
+        this.updateTranscriptActiveLine(currentIndex);
+        return;
+      }
+      this.lastTranscriptSignature = signature;
+      const placement = this.options.getSettings().subtitleTranscriptPlacement;
       setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
-                <span>Subtitle lines</span>
+                <span>Transcript</span>
+                <div class="jpdb-subtitle-placement" aria-label="Transcript position">
+                    <button type="button" data-action="transcript-left" aria-pressed="${placement === "left"}" title="Move transcript left">L</button>
+                    <button type="button" data-action="transcript-right" aria-pressed="${placement === "right"}" title="Move transcript right">R</button>
+                    <button type="button" data-action="transcript-bottom" aria-pressed="${placement === "bottom"}" title="Move transcript below">B</button>
+                </div>
                 <button class="jpdb-subtitle-close" type="button" data-action="list" aria-label="Close subtitle lines">×</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
-                ${visible.map((cue, offset) => {
-      const index = start + offset;
-      return `
-                        <button class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" type="button" data-action="cue" data-index="${index}">
-                            <span>${formatSubtitleTime(cue.start)}</span>
-                            <strong>${escapeHtml$1(cue.text)}</strong>
-                        </button>
-                    `;
-    }).join("")}
+                ${this.cues.map((cue, index) => this.renderTranscriptRow(cue, index, currentIndex)).join("")}
             </div>
         `);
+      this.positionTranscriptPanel();
+      this.scrollTranscriptToActive();
+    }
+    renderTranscriptRow(cue, index, currentIndex) {
+      var _a;
+      const secondary = (_a = findAlignedCue(this.secondaryCues, cue)) == null ? void 0 : _a.text.trim();
+      const replay = cue.source === "mpv" ? `<button class="jpdb-subtitle-row-replay" type="button" data-action="replay-cue" data-index="${index}" title="Replay MPV audio">Play</button>` : "";
+      return `
+            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-row-index="${index}">
+                <button class="jpdb-subtitle-row-main" type="button" data-action="cue" data-index="${index}">
+                    <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
+                    <strong>${escapeWithBreaks(cue.text)}</strong>
+                    ${secondary ? `<em>${escapeWithBreaks(secondary)}</em>` : ""}
+                </button>
+                ${replay}
+            </div>
+        `;
+    }
+    updateTranscriptActiveLine(currentIndex) {
+      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
+      this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active").forEach((row) => row.classList.remove("active"));
+      const active = this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
+      if (active) active.classList.add("active");
+      this.scrollTranscriptToActive();
+    }
+    scrollTranscriptToActive() {
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden) return;
+      if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
+      this.transcriptScrollFrame = requestAnimationFrame(() => {
+        var _a;
+        this.transcriptScrollFrame = void 0;
+        const active = (_a = this.transcriptPanel) == null ? void 0 : _a.querySelector(".jpdb-subtitle-list-row.active");
+        active == null ? void 0 : active.scrollIntoView({ block: "center", inline: "nearest" });
+      });
     }
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "tracks") return;
@@ -18771,6 +19841,7 @@ button.jpdb-reader-jpdb-pill {
                 <div class="jpdb-subtitle-track-tools">
                     <button type="button" data-action="load">Load Japanese subtitles</button>
                     <button type="button" data-action="load-secondary">Load native subtitles</button>
+                    <button type="button" data-action="mpv-connect">${this.mpvConnectedPorts.size ? "Disconnect MPV" : "Connect MPV"}</button>
                 </div>
                 ${tracks.length ? tracks.map((track) => `
                     <div class="jpdb-subtitle-track-row ${track.id === this.selectedTrackId || track.id === this.secondaryTrackId ? "active" : ""}" data-track-id="${escapeHtml$1(track.id)}">
@@ -18793,6 +19864,83 @@ button.jpdb-reader-jpdb-pill {
       if (!id) return;
       await this.selectSecondaryTrack(id);
     }
+    setTranscriptPlacement(placement) {
+      const settings = this.options.getSettings();
+      settings.subtitleTranscriptPlacement = placement;
+      this.options.onSettingsChange();
+      this.lastTranscriptSignature = "";
+      this.renderTranscriptPanel(true);
+      this.positionTranscriptPanel();
+      this.syncControls();
+      log$2.info("Subtitle transcript placement changed", { placement });
+    }
+    positionTranscriptPanel() {
+      var _a, _b;
+      if (!this.transcriptPanel || this.transcriptPanel.hidden) return;
+      const panel = this.transcriptPanel;
+      const placement = this.options.getSettings().subtitleTranscriptPlacement;
+      const margin = 10;
+      const viewportWidth = Math.max(320, window.innerWidth);
+      const viewportHeight = Math.max(240, window.innerHeight);
+      const compactPanel = viewportWidth <= 700 || ((_a = window.matchMedia) == null ? void 0 : _a.call(window, "(pointer: coarse)").matches);
+      const videoRect = (_b = this.video) == null ? void 0 : _b.getBoundingClientRect();
+      const hasVideoRect = Boolean(videoRect && videoRect.width >= 120 && videoRect.height >= 80);
+      const anchor = hasVideoRect && videoRect ? videoRect : new DOMRect(0, 0, viewportWidth, viewportHeight);
+      let left = margin;
+      let top = Math.max(margin, anchor.top);
+      let width = Math.min(460, viewportWidth - margin * 2);
+      let height = Math.min(Math.max(280, anchor.height), viewportHeight - top - margin);
+      if (compactPanel) {
+        left = margin;
+        width = viewportWidth - margin * 2;
+        top = Math.max(margin, viewportHeight - Math.min(390, viewportHeight * 0.48) - margin);
+        height = viewportHeight - top - margin;
+      } else if (placement === "right" && hasVideoRect && videoRect) {
+        const availableRight = viewportWidth - videoRect.right - margin * 2;
+        if (availableRight >= 280) {
+          left = videoRect.right + margin;
+          width = Math.min(460, availableRight);
+          top = Math.max(margin, videoRect.top);
+          height = Math.min(videoRect.height, viewportHeight - top - margin);
+        } else {
+          left = Math.max(margin, viewportWidth - width - margin);
+        }
+      } else if (placement === "left" && hasVideoRect && videoRect) {
+        const availableLeft = videoRect.left - margin * 2;
+        if (availableLeft >= 280) {
+          width = Math.min(460, availableLeft);
+          left = Math.max(margin, videoRect.left - width - margin);
+          top = Math.max(margin, videoRect.top);
+          height = Math.min(videoRect.height, viewportHeight - top - margin);
+        }
+      } else if (placement === "bottom" && hasVideoRect && videoRect) {
+        left = Math.max(margin, Math.min(videoRect.left, viewportWidth - width - margin));
+        width = Math.min(Math.max(320, videoRect.width), viewportWidth - margin * 2);
+        top = videoRect.bottom + margin;
+        const below = viewportHeight - top - margin;
+        if (below < 180) top = Math.max(margin, viewportHeight - Math.min(360, viewportHeight * 0.42) - margin);
+        height = Math.min(360, viewportHeight - top - margin);
+      } else if (placement === "left") {
+        left = margin;
+        top = 68;
+        height = viewportHeight - top - margin;
+      } else if (placement === "bottom") {
+        left = margin;
+        top = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
+        width = viewportWidth - margin * 2;
+        height = viewportHeight - top - margin;
+      } else {
+        left = Math.max(margin, viewportWidth - width - margin);
+        top = 68;
+        height = viewportHeight - top - margin;
+      }
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.width = `${Math.round(Math.max(260, Math.min(width, viewportWidth - margin * 2)))}px`;
+      panel.style.maxHeight = `${Math.round(Math.max(180, height))}px`;
+    }
     scheduleAlignToVideo() {
       if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
       this.alignFrame = requestAnimationFrame(() => {
@@ -18801,9 +19949,22 @@ button.jpdb-reader-jpdb-pill {
       });
     }
   }
+  function subtitleIcon(name) {
+    const paths = {
+      eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+      "eye-off": '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
+      menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
+      plug: '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/>',
+      "plug-on": '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/><path d="M18 5l2-2"/><path d="M20 9h2"/>',
+      tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
+      transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'
+    };
+    return `<svg class="jpdb-subtitle-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;
+  }
   function formatTrackKind(kind) {
     if (kind === "native") return "page track";
     if (kind === "youtube") return "YouTube captions";
+    if (kind === "mpv") return "MPV bridge";
     return "loaded file";
   }
   function getCueText(cue) {
@@ -18828,6 +19989,7 @@ button.jpdb-reader-jpdb-pill {
     });
   }
   function parseSubtitleText(text2) {
+    if (/^\s*\[Script Info\]/im.test(text2) || /^\s*Dialogue:/im.test(text2)) return parseAssSubtitleText(text2);
     const blocks = text2.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
     const cues = [];
     for (const block of blocks) {
@@ -18841,6 +20003,53 @@ button.jpdb-reader-jpdb-pill {
       if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
     }
     return cues.sort((a, b) => a.start - b.start);
+  }
+  function parseAssSubtitleText(text2) {
+    const cues = [];
+    let inEvents = false;
+    let format = ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"];
+    for (const rawLine of text2.replace(/\r/g, "").split("\n")) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith(";")) continue;
+      if (/^\[Events\]/i.test(line)) {
+        inEvents = true;
+        continue;
+      }
+      if (/^\[.+\]/.test(line)) {
+        inEvents = false;
+        continue;
+      }
+      if (!inEvents && !/^Dialogue:/i.test(line)) continue;
+      if (/^Format:/i.test(line)) {
+        format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
+        continue;
+      }
+      if (!/^Dialogue:/i.test(line)) continue;
+      const values = splitAssDialogue(line.slice(line.indexOf(":") + 1), format.length);
+      const startIndex = format.indexOf("start");
+      const endIndex = format.indexOf("end");
+      const textIndex = format.indexOf("text");
+      const start = parseSubtitleTime(values[startIndex] ?? "");
+      const end = parseSubtitleTime(values[endIndex] ?? "");
+      const cueText = cleanAssSubtitleText(values.slice(textIndex >= 0 ? textIndex : values.length - 1).join(","));
+      if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
+    }
+    return cues.sort((a, b) => a.start - b.start);
+  }
+  function splitAssDialogue(value, fieldCount) {
+    const parts = [];
+    let start = 0;
+    const maxSplits = Math.max(0, fieldCount - 1);
+    for (let index = 0; index < value.length && parts.length < maxSplits; index++) {
+      if (value[index] !== ",") continue;
+      parts.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+    parts.push(value.slice(start).trim());
+    return parts;
+  }
+  function cleanAssSubtitleText(value) {
+    return value.replace(/\{[^}]*}/g, "").replace(/\\[Nn]/g, "\n").replace(/\\h/g, " ").replace(/<[^>]+>/g, "").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
   }
   function readPageCaptionText(video, readerRoot) {
     const direct = collectCaptionTexts(
@@ -18859,15 +20068,32 @@ button.jpdb-reader-jpdb-pill {
     );
   }
   function parseSubtitleTime(value) {
-    const match = value.match(/(?:(\d+):)?(\d{2}):(\d{2})[,.](\d{3})/);
+    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})[,.](\d{1,3})/);
     if (!match) return Number.NaN;
-    const [, hours = "0", minutes, seconds, millis] = match;
-    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(millis) / 1e3;
+    const [, hours = "0", minutes, seconds, fraction] = match;
+    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1e3;
   }
   function formatSubtitleTime(value) {
     const minutes = Math.floor(value / 60);
     const seconds = Math.floor(value % 60).toString().padStart(2, "0");
     return `${minutes}:${seconds}`;
+  }
+  function findAlignedCue(cues, cue) {
+    var _a;
+    return (_a = cues.map((item) => ({
+      item,
+      overlap: Math.max(0, Math.min(cue.end, item.end) - Math.max(cue.start, item.start)),
+      startDistance: Math.abs(cue.start - item.start)
+    })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]) == null ? void 0 : _a.item;
+  }
+  function parseMpvPorts(value) {
+    return [...new Set(value.split(/[\s,]+/).map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0 && item <= 65535))];
+  }
+  function mpvMediaKey(type, port, id) {
+    return `${type}:${port}:${id}`;
+  }
+  function mpvDataUrl(type, base64) {
+    return type === "audio" ? `data:audio/mpeg;base64,${base64}` : `data:image/jpeg;base64,${base64}`;
   }
   function isJapaneseTrack(label = "", language = "") {
     return /(^|\b)(ja|jpn|japanese|日本語)(\b|$)/i.test(`${label} ${language}`);
@@ -19369,6 +20595,9 @@ button.jpdb-reader-jpdb-pill {
   }
   class ReaderApp {
     constructor() {
+      __publicField(this, "abortController", new AbortController());
+      __publicField(this, "isDemo", false);
+      __publicField(this, "isDestroyed", false);
       __publicField(this, "settings", DEFAULT_SETTINGS);
       __publicField(this, "jpdb", new JpdbClient(() => this.settings.apiKey.trim()));
       __publicField(this, "jpdbKanji", new JpdbKanjiClient());
@@ -19390,6 +20619,9 @@ button.jpdb-reader-jpdb-pill {
         anki: this.anki,
         jpdb: this.jpdb,
         parser: this.parser,
+        dictionaries: this.dictionaries,
+        ensureStarterDictionary: (onProgress) => this.ensureStarterDictionaryInstalled(onProgress),
+        onSettingsChange: () => saveSettings(this.settings),
         showSettings: (panel) => this.showSettings(panel),
         dismiss: (options) => this.dismiss(options)
       }));
@@ -19397,7 +20629,9 @@ button.jpdb-reader-jpdb-pill {
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
         immersionKit: this.immersionKit,
-        rtk: this.rtk
+        jpdbKanji: this.jpdbKanji,
+        rtk: this.rtk,
+        audio: this.audio
       }));
       __publicField(this, "onboarding", new OnboardingController({
         getSettings: () => this.settings,
@@ -19468,11 +20702,16 @@ button.jpdb-reader-jpdb-pill {
       __publicField(this, "suppressWordClickUntil", 0);
       __publicField(this, "pressLookup");
       __publicField(this, "suppressMiddleAuxClickUntil", 0);
+      __publicField(this, "starterDictionaryDownload");
       configureLogger({ settingsProvider: () => this.settings });
     }
-    async init() {
+    async init(options) {
       const done = log.time("init", { href: location.href, devMode: Logger.isDevMode() });
       this.settings = await loadSettings();
+      if (options == null ? void 0 : options.isDemo) {
+        this.settings.onboardingSeen = true;
+        this.isDemo = true;
+      }
       this.settings = applyUrlBootstrapSettings(this.settings);
       log.info("Settings loaded", loggingSettingsSummary(this.settings));
       this.installStyles();
@@ -19502,6 +20741,7 @@ button.jpdb-reader-jpdb-pill {
         GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
         GM_registerMenuCommand(`${APP_NAME} scan visible page`, () => this.scanVisiblePage());
         GM_registerMenuCommand(`${APP_NAME} scan nearby images`, () => this.ocr.scanVisible());
+        GM_registerMenuCommand(`${APP_NAME} connect MPV subtitles`, () => this.subtitles.connectMpv());
         GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
         GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
           this.settings.showFloatingButton = !this.settings.showFloatingButton;
@@ -19680,6 +20920,31 @@ button.jpdb-reader-jpdb-pill {
         restoredPosition: this.settings.puckPositionX !== void 0 && this.settings.puckPositionY !== void 0
       });
     }
+    destroy() {
+      var _a, _b, _c, _d, _e, _f;
+      this.isDestroyed = true;
+      this.abortController.abort();
+      (_a = this.autoScanObserver) == null ? void 0 : _a.disconnect();
+      window.clearTimeout(this.autoScanTimer);
+      window.clearTimeout(this.asbScanTimer);
+      window.clearTimeout(this.selectionTimer);
+      window.clearTimeout(this.hoverLookupTimer);
+      window.clearTimeout(this.hoverCloseTimer);
+      (_b = this.activePopoverResizeObserver) == null ? void 0 : _b.disconnect();
+      (_c = this.fab) == null ? void 0 : _c.remove();
+      (_d = this.activePopover) == null ? void 0 : _d.remove();
+      (_e = this.activeBackdrop) == null ? void 0 : _e.remove();
+      document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
+        if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
+          const text2 = document.createTextNode(el.textContent || "");
+          el.replaceWith(text2);
+        } else {
+          el.remove();
+        }
+      });
+      (_f = this.dictionaryStyleElement) == null ? void 0 : _f.remove();
+      document.querySelectorAll("[data-jpdb-reader-root]").forEach((el) => el.remove());
+    }
     setupAutoScan() {
       var _a;
       (_a = this.autoScanObserver) == null ? void 0 : _a.disconnect();
@@ -19709,6 +20974,7 @@ button.jpdb-reader-jpdb-pill {
       }
     }
     scheduleAutoScan(delay) {
+      if (this.isDestroyed) return;
       if (!this.settings.autoScanJapanese || !this.canParseJapanese()) return;
       const deadline = Date.now() + delay;
       if (this.autoScanTimer && this.autoScanDeadline <= deadline) return;
@@ -19726,6 +20992,7 @@ button.jpdb-reader-jpdb-pill {
       log.debugThrottled("auto-scan-scheduled", 2500, "Auto-scan scheduled", { delay });
     }
     scheduleAsbPlayerScan(delay) {
+      if (this.isDestroyed) return;
       if (!this.settings.autoScanJapanese || !this.canParseJapanese()) return;
       window.clearTimeout(this.asbScanTimer);
       this.asbScanTimer = window.setTimeout(() => void this.scanAsbPlayerSubtitles(), delay);
@@ -19734,6 +21001,7 @@ button.jpdb-reader-jpdb-pill {
       log.debug("Binding reader event handlers");
       document.addEventListener("click", (event) => {
         var _a, _b, _c, _d;
+        if (this.isDestroyed) return;
         if ((_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, "[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]")) return;
         const word = (_d = (_c = event.target).closest) == null ? void 0 : _d.call(_c, ".jpdb-reader-word");
         if (!word) {
@@ -19763,11 +21031,13 @@ button.jpdb-reader-jpdb-pill {
         void this.showWord(word, { trigger: "click" });
       }, { capture: true });
       document.addEventListener("mousedown", (event) => {
+        if (this.isDestroyed) return;
         if (!this.shouldCaptureMiddleMouseLookup(event)) return;
         event.preventDefault();
         event.stopPropagation();
       }, { capture: true, passive: false });
       document.addEventListener("auxclick", (event) => {
+        if (this.isDestroyed) return;
         if (event.button !== 1 || Date.now() > this.suppressMiddleAuxClickUntil) return;
         event.preventDefault();
         event.stopPropagation();
@@ -19794,22 +21064,26 @@ button.jpdb-reader-jpdb-pill {
         this.handleHoverPointerOut(event);
       }, { capture: true });
       document.addEventListener("keyup", () => {
+        if (this.isDestroyed) return;
         if (!this.settings.parseSelection) return;
         window.clearTimeout(this.selectionTimer);
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), 120);
       });
       document.addEventListener("mouseup", () => {
+        if (this.isDestroyed) return;
         if (!this.settings.parseSelection) return;
         window.clearTimeout(this.selectionTimer);
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), 140);
       });
       document.addEventListener("touchend", () => {
+        if (this.isDestroyed) return;
         if (!this.settings.parseSelection) return;
         window.clearTimeout(this.selectionTimer);
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), 180);
       }, { passive: true });
       document.addEventListener("keydown", (event) => {
         var _a, _b, _c;
+        if (this.isDestroyed) return;
         this.pressedKeys.add(normalizePressedKey(event.key));
         if (isEditableTarget(event.target)) return;
         const escapeClose = this.settings.shortcuts.closePopup.trim().toLowerCase() === "escape" && event.key === "Escape";
@@ -19905,6 +21179,7 @@ button.jpdb-reader-jpdb-pill {
       return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
     }
     beginPressLookup(event) {
+      if (this.isDestroyed) return;
       if (this.isInsideActivePopover(event.target)) return;
       const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
       if (!isMiddleScan) {
@@ -19925,6 +21200,7 @@ button.jpdb-reader-jpdb-pill {
       if (isMiddleScan) this.updatePressLookup(event);
     }
     updatePressLookup(event) {
+      if (this.isDestroyed) return;
       const pressLookup = this.pressLookup;
       if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
@@ -19957,6 +21233,7 @@ button.jpdb-reader-jpdb-pill {
       void this.showWord(word, { trigger: "hover" });
     }
     endPressLookup(event) {
+      if (this.isDestroyed) return;
       const pressLookup = this.pressLookup;
       if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
       if (pressLookup.active) {
@@ -20038,6 +21315,7 @@ button.jpdb-reader-jpdb-pill {
     }
     handleHoverPointer(event) {
       var _a, _b, _c;
+      if (this.isDestroyed) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
       if (((_a = this.pressLookup) == null ? void 0 : _a.source) === "middle") return;
       if (event.pointerType === "touch") return;
@@ -20061,6 +21339,7 @@ button.jpdb-reader-jpdb-pill {
     }
     handleHoverPointerOut(event) {
       var _a, _b;
+      if (this.isDestroyed) return;
       const related = event.relatedTarget;
       if (this.isInsideActivePopover(event.target)) {
         if (this.isInsideActivePopover(related) || this.activeHoverWord && this.isInsideNode(related, this.activeHoverWord)) return;
@@ -20082,6 +21361,7 @@ button.jpdb-reader-jpdb-pill {
     }
     scheduleHoverLookupAtPointer(event) {
       var _a;
+      if (this.isDestroyed) return;
       if (!this.lastPointerPosition) return;
       const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
       const word = (_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, ".jpdb-reader-word");
@@ -20186,6 +21466,7 @@ button.jpdb-reader-jpdb-pill {
     }
     async lookupSelection() {
       var _a, _b;
+      if (this.isDestroyed) return;
       if (Date.now() < this.suppressSelectionLookupUntil) return;
       const selected = getSelectionText();
       if (selected.length < 1 || selected.length > 120 || !HAS_JAPANESE.test(selected)) return;
@@ -20458,7 +21739,8 @@ button.jpdb-reader-jpdb-pill {
       var _a, _b;
       const requestId = ++this.cardRenderRequest;
       this.lastCard = card;
-      const state = card.cardState[0] ?? "not-in-deck";
+      const cardStates = normalizeCardStates(card.cardState);
+      const state = primaryCardState(cardStates);
       const popover = this.createPopover();
       const trigger = options.trigger === "hover" ? "hover" : "modal";
       this.updateWordNavigation(card, sentence, trigger, options.navigation ?? "reset");
@@ -20467,31 +21749,7 @@ button.jpdb-reader-jpdb-pill {
         this.rememberPageMiningContext(card, sentence, anchor);
       }
       if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
-      const localEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
-        return [];
-      }) : Promise.resolve([]);
-      const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
-        return [];
-      }) : Promise.resolve([]);
-      const metaEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
-        return [];
-      }) : Promise.resolve([]);
-      const jpdbPublicPitchPromise = this.settings.showPitchAccent && !card.pitchAccent.length ? this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
-        return [];
-      }) : Promise.resolve([]);
-      const ankiLookupPromise = this.settings.ankiEnabled ? this.anki.findExistingCards(card) : Promise.resolve({ state: "not-in-deck", notes: [], primary: null });
-      const [localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup] = await Promise.all([
-        localEntriesPromise,
-        kanjiEntriesPromise,
-        metaEntriesPromise,
-        jpdbPublicPitchPromise,
-        ankiLookupPromise
-      ]);
-      if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
+      const { localEntries, kanjiEntries, metaEntries, ankiLookup } = await this.loadCardRenderData(card);
       this.lastAnkiLookup = ankiLookup;
       this.applyAnkiLookupToRenderedWords(card, ankiLookup);
       const storedContext = loadMiningContext(card.spelling);
@@ -20503,8 +21761,8 @@ button.jpdb-reader-jpdb-pill {
       const jpdbActionRow = hasJpdb ? `
                 <div class="jpdb-reader-row" style="--cols: 3">
                     <button class="jpdb-reader-btn add" data-action="add">${uiText(language, "add")}</button>
-                    <button class="jpdb-reader-btn nf" data-action="neverforget" title="${uiText(language, "neverHint")}">${card.cardState.includes("never-forget") ? uiText(language, "forget") : uiText(language, "never")}</button>
-                    <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${uiText(language, "blacklistHint")}">${card.cardState.includes("blacklisted") ? uiText(language, "unlist") : uiText(language, "blacklist")}</button>
+                    <button class="jpdb-reader-btn nf" data-action="neverforget" title="${uiText(language, "neverHint")}">${cardStates.includes("never-forget") ? uiText(language, "forget") : uiText(language, "never")}</button>
+                    <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${uiText(language, "blacklistHint")}">${cardStates.includes("blacklisted") ? uiText(language, "unlist") : uiText(language, "blacklist")}</button>
                 </div>
             ` : "";
       const reviewButtons = this.settings.enableReviews && (hasJpdb || ((_b = ankiLookup.primary) == null ? void 0 : _b.primaryCardId)) ? this.renderReviewButtons(ankiLookup.primary) : "";
@@ -20546,6 +21804,50 @@ button.jpdb-reader-jpdb-pill {
         done();
         return;
       }
+      this.installCardPopoverHandlers(popover, card, sentence, anchor, trigger);
+      log.debug("Card rendered", {
+        term: card.spelling,
+        localEntries: localEntries.length,
+        kanjiEntries: kanjiEntries.length,
+        metaEntries: metaEntries.length,
+        ankiState: ankiLookup.state,
+        hasJpdb
+      });
+      this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition ?? (trigger === "modal" && (options.navigation ?? "reset") !== "reset") });
+      void this.parsePopoverJapanese(popover);
+      void this.loadImmersionKitExamples(popover, card);
+      this.installStudyTranslationLoader(popover, sentence);
+      done();
+    }
+    async loadCardRenderData(card) {
+      const localEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
+        log.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
+        return [];
+      }) : Promise.resolve([]);
+      const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
+        log.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
+        return [];
+      }) : Promise.resolve([]);
+      const metaEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch((error) => {
+        log.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
+        return [];
+      }) : Promise.resolve([]);
+      const jpdbPublicPitchPromise = this.settings.showPitchAccent && !card.pitchAccent.length ? this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
+        log.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
+        return [];
+      }) : Promise.resolve([]);
+      const ankiLookupPromise = this.settings.ankiEnabled ? this.anki.findExistingCards(card) : Promise.resolve({ state: "not-in-deck", notes: [], primary: null });
+      const [localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup] = await Promise.all([
+        localEntriesPromise,
+        kanjiEntriesPromise,
+        metaEntriesPromise,
+        jpdbPublicPitchPromise,
+        ankiLookupPromise
+      ]);
+      if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
+      return { localEntries, kanjiEntries, metaEntries, ankiLookup };
+    }
+    installCardPopoverHandlers(popover, card, sentence, anchor, trigger) {
       popover.addEventListener("click", (event) => {
         if (this.handleDictionaryLookupLink(event, anchor, trigger)) return;
         const kanjiButton = event.target.closest('[data-action="kanji"]');
@@ -20565,19 +21867,6 @@ button.jpdb-reader-jpdb-pill {
         }
         void this.handleCardAction(button2, card, sentence);
       });
-      log.debug("Card rendered", {
-        term: card.spelling,
-        localEntries: localEntries.length,
-        kanjiEntries: kanjiEntries.length,
-        metaEntries: metaEntries.length,
-        ankiState: ankiLookup.state,
-        hasJpdb
-      });
-      this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition ?? (trigger === "modal" && (options.navigation ?? "reset") !== "reset") });
-      void this.parsePopoverJapanese(popover);
-      void this.loadImmersionKitExamples(popover, card);
-      this.installStudyTranslationLoader(popover, sentence);
-      done();
     }
     updateWordNavigation(card, sentence, trigger, mode) {
       if (trigger !== "modal") {
@@ -21260,9 +22549,9 @@ button.jpdb-reader-jpdb-pill {
                         <div class="jpdb-reader-example-controls">
                             <span class="jpdb-reader-example-count">${index + 1}/${examples.length}</span>
                             <div class="jpdb-reader-example-actions">
-                                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}">‹</button>
-                                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, "playExampleAudio")}">${speakerIcon()}</button>
-                                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, "nextExample")}">›</button>
+                                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}" aria-label="${uiText(language, "previousExample")}">‹</button>
+                                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, "playExampleAudio")}" aria-label="${uiText(language, "playExampleAudio")}">${speakerIcon()}</button>
+                                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, "nextExample")}" aria-label="${uiText(language, "nextExample")}">›</button>
                             </div>
                         </div>
                     </div>
@@ -21535,7 +22824,7 @@ button.jpdb-reader-jpdb-pill {
       }
       const sourceKind = inferMiningSourceKind({
         isImageSource: Boolean(anchor == null ? void 0 : anchor.closest(".jpdb-ocr-line")),
-        hasVideo: Boolean(document.querySelector("video")),
+        hasVideo: Boolean(anchor == null ? void 0 : anchor.closest(".jpdb-subtitle-player")) || Boolean(document.querySelector("video")),
         hostname: location.hostname
       });
       const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
@@ -21751,15 +23040,19 @@ button.jpdb-reader-jpdb-pill {
       const activeContext = ((_a = this.activeMiningContext) == null ? void 0 : _a.term) === card.spelling ? this.activeMiningContext : void 0;
       const storedImmersionContext = this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
       const anchor = this.activePopoverAnchor;
+      const mpvImageDataUrl = this.settings.ankiCaptureScreenshot && (anchor == null ? void 0 : anchor.closest(".jpdb-subtitle-player")) ? await this.subtitles.captureCurrentMpvFrame(sentence) : void 0;
       const context = await resolveMiningContext({
         term: card.spelling,
         sentence,
         settings: this.settings,
         activeContext,
         storedContext: storedImmersionContext,
-        sourceKind: inferMiningSourceKind({ hostname: location.hostname }),
+        sourceKind: inferMiningSourceKind({
+          hostname: location.hostname,
+          hasVideo: Boolean(anchor == null ? void 0 : anchor.closest(".jpdb-subtitle-player")) || Boolean(document.querySelector("video"))
+        }),
         imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : void 0,
-        videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : void 0,
+        videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() ?? mpvImageDataUrl : void 0,
         fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs)
       });
       log.debug("Mining context resolved", {
@@ -21772,7 +23065,7 @@ button.jpdb-reader-jpdb-pill {
       return context;
     }
     async toggleDeck(card, state, deck) {
-      if (card.cardState.includes(state)) {
+      if (normalizeCardStates(card.cardState).includes(state)) {
         await this.jpdb.removeFromDeck(deck, card);
         log.info("Card removed from deck", { term: card.spelling, deck, state });
         this.toast("Removed from deck.");
@@ -21953,217 +23246,259 @@ button.jpdb-reader-jpdb-pill {
         if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
       }
     }
+    async ensureStarterDictionaryInstalled(onProgress, force = false) {
+      if (this.starterDictionaryDownload) return this.starterDictionaryDownload;
+      this.starterDictionaryDownload = this.downloadStarterDictionaries(onProgress, force).finally(() => {
+        this.starterDictionaryDownload = void 0;
+      });
+      return this.starterDictionaryDownload;
+    }
+    async downloadStarterDictionaries(onProgress, force = false) {
+      const summary = await this.dictionaries.summary();
+      const missing = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => STARTER_DICTIONARY_IDS.includes(dictionary.id)).filter((dictionary) => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
+      if (!missing.length || !force && summary.terms > 0) return false;
+      let importedEntries = 0;
+      for (const [index, dictionary] of missing.entries()) {
+        onProgress == null ? void 0 : onProgress(`Downloading ${dictionary.name} (${index + 1}/${missing.length})...`);
+        log.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
+        const imported = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => onProgress == null ? void 0 : onProgress(message));
+        importedEntries += imported.entries;
+        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries);
+        this.settings.localDictionariesEnabled = true;
+        await saveSettings(this.settings);
+        await this.refreshDictionaryStyles();
+        this.scheduleDictionaryRescan();
+      }
+      onProgress == null ? void 0 : onProgress(`JMdict ready: ${importedEntries.toLocaleString()} records imported.`);
+      log.info("Starter dictionaries downloaded", { dictionaries: missing.length, importedEntries });
+      return true;
+    }
     async handleSettingsAction(form, action, control) {
       const status = form.querySelector("[data-import-status]");
       const setStatus = (message) => {
         if (status) status.textContent = message;
       };
       try {
-        if (action === "settings-panel") {
-          log.debug("Settings panel selected", { panel: (control == null ? void 0 : control.dataset.panel) ?? "basics" });
-          activateSettingsPanel(form, (control == null ? void 0 : control.dataset.panel) ?? "basics");
-          return;
-        }
-        if (action === "dictionary-source-up" || action === "dictionary-source-down") {
-          log.debug("Dictionary source order changed", { action });
-          updateDictionarySourceEditor(form, action, control);
-          return;
-        }
-        if (action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down") {
-          log.debug("Audio source editor changed", { action });
-          updateAudioSourceEditor(form, action, control);
-          localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-          return;
-        }
-        if (action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down") {
-          log.debug("Lookup link editor changed", { action });
-          updateDictionaryLookupLinkEditor(form, action, control);
-          localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-          return;
-        }
-        if (action === "refresh-dictionaries") {
-          log.info("Refreshing dictionary status from settings");
-          setStatus("Refreshing installed dictionaries...");
-          await this.refreshDictionaryStatus(form);
-          setStatus("Dictionary list refreshed.");
-          return;
-        }
-        if (action === "delete-yomitan-dictionary") {
-          const dictionary = control == null ? void 0 : control.dataset.dictionaryName;
-          if (!dictionary) throw new Error("Dictionary not found.");
-          if (!window.confirm(`Remove "${dictionary}" and all of its imported entries?`)) return;
-          control == null ? void 0 : control.setAttribute("disabled", "true");
-          setStatus(`Removing ${dictionary}...`);
-          await this.dictionaries.deleteDictionary(dictionary);
-          this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-          await saveSettings(this.settings);
-          await this.refreshDictionaryStyles();
-          this.scheduleDictionaryRescan();
-          await this.refreshDictionaryStatus(form);
-          setStatus(`Removed ${dictionary}.`);
-          log.info("Dictionary removed", { dictionary });
-          return;
-        }
-        if (action === "download-starter-dictionaries") {
-          const summary = await this.dictionaries.summary();
-          const missing = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
-          if (!missing.length) {
-            setStatus("Recommended dictionaries are already installed.");
-            await this.refreshDictionaryStatus(form);
-            return;
-          }
-          control == null ? void 0 : control.setAttribute("disabled", "true");
-          let importedEntries = 0;
-          for (const [index, dictionary] of missing.entries()) {
-            setStatus(`Downloading ${index + 1}/${missing.length}: ${dictionary.name}...`);
-            log.info("Downloading recommended dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
-            const imported = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(`${index + 1}/${missing.length} ${message}`));
-            importedEntries += imported.entries;
-            this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries);
-            await saveSettings(this.settings);
-            await this.refreshDictionaryStyles();
-            this.scheduleDictionaryRescan();
-          }
-          setStatus(`Downloaded ${missing.length} dictionaries: ${importedEntries.toLocaleString()} records imported.`);
-          await this.refreshDictionaryStatus(form);
-          log.info("Recommended dictionaries downloaded", { dictionaries: missing.length, importedEntries });
-          return;
-        }
-        if (action === "import-yomitan-settings") {
-          const file = await pickFile(form, "settings");
-          if (!file) return;
-          const json = JSON.parse(await file.text());
-          const readerSettings = getReaderSettingsExport(json);
-          if (readerSettings) {
-            this.settings = { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } };
-          } else {
-            const imported = parseYomitanSettingsExport(json);
-            this.settings = {
-              ...this.settings,
-              ...imported.settings,
-              shortcuts: {
-                ...this.settings.shortcuts,
-                ...imported.settings.shortcuts ?? {}
-              }
-            };
-          }
-          const importedNames = (await this.dictionaries.summary().catch(() => ({ dictionaries: [] }))).dictionaries.map((item) => item.title);
-          this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames);
-          await saveSettings(this.settings);
-          setStatus("Settings imported.");
-          this.applyTheme();
-          void this.refreshDictionaryStyles();
-          this.scheduleDictionaryRescan();
-          this.installFab();
-          this.subtitles.refresh();
-          this.youtube.refresh();
-          this.jpdbExtensions.refresh();
-          this.settingsPreviewOriginalAccent = void 0;
-          log.info("Settings imported", loggingSettingsSummary(this.settings));
-          this.showSettings();
-          return;
-        }
-        if (action === "export-reader-settings") {
-          downloadBlob(new Blob([JSON.stringify({
-            formatName: "yomu-reader-settings",
-            formatVersion: 1,
-            exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            settings: this.settings
-          }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
-          setStatus("Settings exported.");
-          log.info("Settings exported");
-          return;
-        }
-        if (action === "import-yomitan-dictionary") {
-          const file = await pickFile(form, "dictionary");
-          if (!file) return;
-          const summary = await this.dictionaries.importFile(file, (message) => setStatus(message));
-          this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries);
-          await saveSettings(this.settings);
-          await this.refreshDictionaryStyles();
-          this.scheduleDictionaryRescan();
-          setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
-          log.info("Dictionary file imported", summary);
-          await this.refreshDictionaryStatus(form);
-          return;
-        }
-        if (action === "download-recommended-dictionary") {
-          const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
-          const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : void 0;
-          if (!dictionary) throw new Error("Recommended dictionary not found.");
-          control == null ? void 0 : control.setAttribute("disabled", "true");
-          setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
-          log.info("Downloading selected dictionary", { dictionary: dictionary.name });
-          const summary = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
-          this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries);
-          await saveSettings(this.settings);
-          await this.refreshDictionaryStyles();
-          this.scheduleDictionaryRescan();
-          setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
-          await this.refreshDictionaryStatus(form);
-          log.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
-          return;
-        }
-        if (action === "test-anki") {
-          const ankiStatus = form.querySelector("[data-anki-status]");
-          const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-          const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
-          const setAnkiStatus = (message, tone) => {
-            if (!ankiStatus) return;
-            ankiStatus.textContent = message;
-            ankiStatus.dataset.statusTone = tone;
-          };
-          const previous = this.settings;
-          this.settings = readFormSettings(new FormData(form), this.settings);
-          button2 == null ? void 0 : button2.setAttribute("disabled", "true");
-          setAnkiStatus(uiText(language, "ankiTesting"), "pending");
-          try {
-            const connected = await this.anki.isConnected();
-            if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
-            await this.anki.ensureDeckAndModel();
-            const readyMessage = resolveUiLanguage(language) === "ja" ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。` : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
-            setAnkiStatus(readyMessage, "success");
-            log.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
-          } catch (error) {
-            const message = error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
-            log.warn("Anki settings test failed", error);
-            setAnkiStatus(message, "error");
-            this.toast(message);
-          } finally {
-            this.settings = previous;
-            button2 == null ? void 0 : button2.removeAttribute("disabled");
-          }
-          return;
-        }
-        if (action === "copy-discord") {
-          await copyText(SUPPORT_LINKS.discordUsername);
-          log.debug("Support Discord username copied");
-          this.toast(`Copied Discord username: ${SUPPORT_LINKS.discordUsername}`);
-          return;
-        }
-        if (action === "copy-newtab-url") {
-          await copyText(NEW_TAB_PAGE_URL);
-          log.debug("New tab URL copied");
-          this.toast("New tab address copied.");
-          return;
-        }
-        if (action === "export-yomitan-dictionary") {
-          const blob = await this.dictionaries.exportJson();
-          downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
-          setStatus("Dictionaries exported.");
-          log.info("Dictionaries exported");
-        }
+        if (this.handleSettingsEditorAction(form, action, control)) return;
+        if (await this.handleSettingsDictionaryAction(form, action, control, setStatus)) return;
+        if (await this.handleSettingsImportExportAction(form, action, setStatus)) return;
+        if (await this.handleSettingsConnectionAction(form, action, control)) return;
+        await this.handleSettingsSupportAction(action, setStatus);
       } catch (error) {
         log.warn("Settings action failed", { action }, error);
         if (action === "download-recommended-dictionary" || action === "download-starter-dictionaries" || action === "delete-yomitan-dictionary") control == null ? void 0 : control.removeAttribute("disabled");
         setStatus(error instanceof Error ? error.message : "Import failed.");
       }
     }
+    handleSettingsEditorAction(form, action, control) {
+      if (action === "settings-panel") {
+        log.debug("Settings panel selected", { panel: (control == null ? void 0 : control.dataset.panel) ?? "basics" });
+        activateSettingsPanel(form, (control == null ? void 0 : control.dataset.panel) ?? "basics");
+        return true;
+      }
+      if (action === "dictionary-source-up" || action === "dictionary-source-down") {
+        log.debug("Dictionary source order changed", { action });
+        updateDictionarySourceEditor(form, action, control);
+        return true;
+      }
+      if (action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down") {
+        log.debug("Audio source editor changed", { action });
+        updateAudioSourceEditor(form, action, control);
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        return true;
+      }
+      if (action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down") {
+        log.debug("Lookup link editor changed", { action });
+        updateDictionaryLookupLinkEditor(form, action, control);
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        return true;
+      }
+      return false;
+    }
+    async handleSettingsDictionaryAction(form, action, control, setStatus) {
+      if (action === "refresh-dictionaries") {
+        log.info("Refreshing dictionary status from settings");
+        setStatus("Refreshing installed dictionaries...");
+        await this.refreshDictionaryStatus(form);
+        setStatus("Dictionary list refreshed.");
+        return true;
+      }
+      if (action === "delete-yomitan-dictionary") {
+        await this.deleteDictionaryFromSettings(form, control, setStatus);
+        return true;
+      }
+      if (action === "download-starter-dictionaries") {
+        control == null ? void 0 : control.setAttribute("disabled", "true");
+        const installed = await this.ensureStarterDictionaryInstalled(setStatus, true);
+        if (!installed) setStatus("JMdict is already installed.");
+        await this.refreshDictionaryStatus(form);
+        return true;
+      }
+      if (action === "import-yomitan-dictionary") {
+        await this.importDictionaryFromSettings(form, setStatus);
+        return true;
+      }
+      if (action === "download-recommended-dictionary") {
+        await this.downloadRecommendedDictionaryFromSettings(form, control, setStatus);
+        return true;
+      }
+      if (action === "export-yomitan-dictionary") {
+        const blob = await this.dictionaries.exportJson();
+        downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
+        setStatus("Dictionaries exported.");
+        log.info("Dictionaries exported");
+        return true;
+      }
+      return false;
+    }
+    async handleSettingsImportExportAction(form, action, setStatus) {
+      if (action === "import-yomitan-settings") {
+        await this.importReaderSettingsFromFile(form, setStatus);
+        return true;
+      }
+      if (action === "export-reader-settings") {
+        downloadBlob(new Blob([JSON.stringify({
+          formatName: "yomu-reader-settings",
+          formatVersion: 1,
+          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          settings: this.settings
+        }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
+        setStatus("Settings exported.");
+        log.info("Settings exported");
+        return true;
+      }
+      return false;
+    }
+    async handleSettingsConnectionAction(form, action, control) {
+      if (action !== "test-anki") return false;
+      const ankiStatus = form.querySelector("[data-anki-status]");
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
+      const setAnkiStatus = (message, tone) => {
+        if (!ankiStatus) return;
+        ankiStatus.textContent = message;
+        ankiStatus.dataset.statusTone = tone;
+      };
+      const previous = this.settings;
+      this.settings = readFormSettings(new FormData(form), this.settings);
+      button2 == null ? void 0 : button2.setAttribute("disabled", "true");
+      setAnkiStatus(uiText(language, "ankiTesting"), "pending");
+      try {
+        const connected = await this.anki.isConnected();
+        if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
+        await this.anki.ensureDeckAndModel();
+        const readyMessage = resolveUiLanguage(language) === "ja" ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。` : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+        setAnkiStatus(readyMessage, "success");
+        log.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
+        log.warn("Anki settings test failed", error);
+        setAnkiStatus(message, "error");
+        this.toast(message);
+      } finally {
+        this.settings = previous;
+        button2 == null ? void 0 : button2.removeAttribute("disabled");
+      }
+      return true;
+    }
+    async handleSettingsSupportAction(action, setStatus) {
+      if (action === "copy-discord") {
+        await copyText(SUPPORT_LINKS.discordUsername);
+        log.debug("Support Discord username copied");
+        this.toast(`Copied Discord username: ${SUPPORT_LINKS.discordUsername}`);
+        return true;
+      }
+      if (action === "copy-newtab-url") {
+        await copyText(NEW_TAB_PAGE_URL);
+        log.debug("New tab URL copied");
+        this.toast("New tab address copied.");
+        return true;
+      }
+      setStatus("");
+      return false;
+    }
+    async deleteDictionaryFromSettings(form, control, setStatus) {
+      const dictionary = control == null ? void 0 : control.dataset.dictionaryName;
+      if (!dictionary) throw new Error("Dictionary not found.");
+      if (!window.confirm(`Remove "${dictionary}" and all of its imported entries?`)) return;
+      control == null ? void 0 : control.setAttribute("disabled", "true");
+      setStatus(`Removing ${dictionary}...`);
+      await this.dictionaries.deleteDictionary(dictionary);
+      this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
+      await saveSettings(this.settings);
+      await this.refreshDictionaryStyles();
+      this.scheduleDictionaryRescan();
+      await this.refreshDictionaryStatus(form);
+      setStatus(`Removed ${dictionary}.`);
+      log.info("Dictionary removed", { dictionary });
+    }
+    async importDictionaryFromSettings(form, setStatus) {
+      const file = await pickFile(form, "dictionary");
+      if (!file) return;
+      const summary = await this.dictionaries.importFile(file, (message) => setStatus(message));
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries);
+      await saveSettings(this.settings);
+      await this.refreshDictionaryStyles();
+      this.scheduleDictionaryRescan();
+      setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
+      log.info("Dictionary file imported", summary);
+      await this.refreshDictionaryStatus(form);
+    }
+    async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
+      const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
+      const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : void 0;
+      if (!dictionary) throw new Error("Recommended dictionary not found.");
+      control == null ? void 0 : control.setAttribute("disabled", "true");
+      setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
+      log.info("Downloading selected dictionary", { dictionary: dictionary.name });
+      const summary = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries);
+      await saveSettings(this.settings);
+      await this.refreshDictionaryStyles();
+      this.scheduleDictionaryRescan();
+      setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
+      await this.refreshDictionaryStatus(form);
+      log.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+    }
+    async importReaderSettingsFromFile(form, setStatus) {
+      const file = await pickFile(form, "settings");
+      if (!file) return;
+      const json = JSON.parse(await file.text());
+      const readerSettings = getReaderSettingsExport(json);
+      if (readerSettings) {
+        this.settings = { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } };
+      } else {
+        const imported = parseYomitanSettingsExport(json);
+        this.settings = {
+          ...this.settings,
+          ...imported.settings,
+          shortcuts: {
+            ...this.settings.shortcuts,
+            ...imported.settings.shortcuts ?? {}
+          }
+        };
+      }
+      const importedNames = (await this.dictionaries.summary().catch(() => ({ dictionaries: [] }))).dictionaries.map((item) => item.title);
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames);
+      await saveSettings(this.settings);
+      setStatus("Settings imported.");
+      this.applyTheme();
+      void this.refreshDictionaryStyles();
+      this.scheduleDictionaryRescan();
+      this.installFab();
+      this.subtitles.refresh();
+      this.youtube.refresh();
+      this.jpdbExtensions.refresh();
+      this.settingsPreviewOriginalAccent = void 0;
+      log.info("Settings imported", loggingSettingsSummary(this.settings));
+      this.showSettings();
+    }
     createPopover() {
       const popover = document.createElement("div");
       popover.className = "jpdb-reader-popover";
       popover.dataset.jpdbReaderRoot = "true";
       popover.setAttribute("role", "dialog");
+      popover.setAttribute("aria-label", `${APP_NAME} lookup`);
       popover.setAttribute("aria-modal", "true");
       popover.tabIndex = -1;
       if (this.shouldUseSheet()) popover.classList.add("jpdb-reader-sheet");
@@ -22442,14 +23777,35 @@ button.jpdb-reader-jpdb-pill {
       return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
     });
   }
-  const bootWindow = window;
-  if (!bootWindow.__yomuReaderAppInitialized) {
+  function bootReaderApp() {
+    const bootWindow = window;
+    const isRealExtension = typeof GM_getValue === "function";
+    if (bootWindow.__yomuReaderAppInitialized && bootWindow.__yomuDemoApp && isRealExtension) {
+      bootWindow.__yomuDemoApp.destroy();
+      delete bootWindow.__yomuDemoApp;
+      bootWindow.__yomuReaderAppInitialized = false;
+    }
+    if (bootWindow.__yomuReaderAppInitialized) return;
     bootWindow.__yomuReaderAppInitialized = true;
     bootWindow.__jpdbPopupReaderInitialized = true;
-    void new ReaderApp().init().catch((error) => {
+    const app = new ReaderApp();
+    if (isRealExtension) {
+      bootWindow.__yomuRealApp = app;
+      window.dispatchEvent(new CustomEvent("yomu-extension-loaded"));
+    } else {
+      bootWindow.__yomuDemoApp = app;
+      window.addEventListener("yomu-extension-loaded", () => {
+        if (bootWindow.__yomuDemoApp === app) {
+          app.destroy();
+          delete bootWindow.__yomuDemoApp;
+        }
+      });
+    }
+    void app.init().catch((error) => {
       log.error("Initialization failed", error);
       throw error;
     });
   }
+  bootReaderApp();
 
 })();

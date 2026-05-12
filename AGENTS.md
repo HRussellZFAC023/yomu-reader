@@ -15,9 +15,11 @@ Use the browser QA audit for fixture coverage:
 
 ```bash
 npm run qa:audit
+npm run qa:docs-a11y
+npm run qa:complexity
 ```
 
-The audit mocks JPDB and kanji-source network calls for deterministic local runs. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you specifically need the secret-leak guard to check that key handling path.
+The audit mocks JPDB and kanji-source network calls for deterministic local runs. Use `.env` for local-only API keys; it is ignored by Git. `npm run qa:jpdb-live` is the narrow live JPDB key smoke test.
 
 ## Constraints
 
@@ -36,11 +38,14 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 - `npm run check` passes.
 - Browser-impacting changes have screenshot or DOM evidence from `scripts/qa-audit.mjs`, a local fixture, or a clearly described manual/browser flow.
 - README claims match implemented behavior.
+- Main README and GitHub Pages docs are updated together for user-facing behavior, install steps, credits, and limitations.
 - New external data/source usage is documented with license and attribution.
 
 ## Changelog and Docs
 
 - Keep `CHANGELOG.md` up to date for every user-facing release. The website changelog includes this file directly through `docs/changelog.md`, so do not duplicate release notes elsewhere.
+- Before finishing user-facing work, check that `README.md`, the relevant `docs/` page, and credits/license notes all describe the same behavior.
+- Before finishing large UI work, run the Playwright screenshots plus axe/docs accessibility and complexity checks, or record why a check could not run.
 - Put beginner-facing docs in `docs/` and keep install guidance plain enough for someone who has never used a userscript manager.
 - When screenshots need refreshing, run `npm run qa:audit` and copy the relevant Playwright screenshots from `qa-artifacts/` into `docs/assets/screenshots/`.
 - Run `npm run docs:build` after documentation or VitePress theme changes.

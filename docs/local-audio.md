@@ -1,9 +1,9 @@
 # Local Audio
 
-よむ can use any Yomitan-compatible custom audio source. You can either use a hosted Ultimate Yomitan Audio URL, or run a local Rust audio server on your own computer and point よむ at it.
+よむ can use any Yomitan-compatible custom audio source. The friendly path is hosted Ultimate Yomitan Audio. The power-user path is running a small local audio server on your own computer.
 
 <div class="yomu-callout">
-  <strong>Short version:</strong> run the server on your computer, copy a URL like <code>http://localhost:9393/?term={term}&amp;reading={reading}</code>, paste it into Settings &gt; Audio as a Custom URL JSON source, and save.
+  <strong>Short version:</strong> use the hosted URL from Ultimate Yomitan Audio if you can. Only self-host if you are comfortable keeping a helper app running on your computer.
 </div>
 
 ## Hosted Option
@@ -23,13 +23,23 @@ This is the most convenient route if you want good TTS fallback and do not want 
 
 ## Self-Hosted Option
 
-If you want everything local, run the Rust server from our fork:
+Self-hosting means three things:
+
+1. You download the audio files.
+2. You put them in one folder on a computer that stays awake.
+3. You run a small server app so よむ can ask that computer for word audio.
+
+Files for self-hosting: [nyaa.si/view/1957972](https://nyaa.si/view/1957972)
+
+Server app:
 
 [HRussellZFAC023/yomichan_audio_server](https://github.com/HRussellZFAC023/yomichan_audio_server)
 
 The original server is [aramrw/yomichan_audio_server](https://github.com/aramrw/yomichan_audio_server). We use our fork because large local audio folders should answer quickly, and the caching/lookup improvements used here were not merged upstream.
 
-The server expects one `audio` folder with source folders inside it:
+If the server page does not offer a normal app download for your computer, this path currently requires command-line setup. In that case, the hosted option above is the practical choice for non-technical users.
+
+Put the downloaded folders inside one folder named `audio`. The finished folder should look roughly like this:
 
 ```text
 yomitan-audio/
@@ -43,21 +53,25 @@ yomitan-audio/
 └── yomichan_audio_server
 ```
 
-If you downloaded audio from Ultimate Yomitan Audio or from the upstream release assets, keep the source folder names the same and point the server at the parent `audio` folder.
+Keep the source folder names the same. The server should point at the parent `audio` folder, not at each individual source folder.
 
-## Pick a Port
+## Run the Server
 
-The original server defaults to `8080`, but many local development tools also use `localhost:8080`. Use a quieter port such as `9393`:
+Use port `9393` so it is less likely to clash with other apps.
+
+On macOS or Linux, open Terminal in the folder with the server and run:
 
 ```bash
 yomichan_audio_server --port 9393 --audio ./audio --log full
 ```
 
-On Windows, the same idea looks like:
+On Windows, open PowerShell in that folder and run:
 
 ```powershell
 .\yomichan_audio_server.exe --port 9393 --audio .\audio --log full
 ```
+
+Leave that window open. If you close it, local audio stops.
 
 The URL you paste into よむ must use the same port:
 

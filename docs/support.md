@@ -1,6 +1,10 @@
 # Support
 
-よむ is free. Donations are optional, but they help cover testing devices, services, and maintenance time.
+よむ is free. Donations are optional, but they genuinely matter: they help cover testing devices, services, and maintenance time.
+
+<div class="yomu-callout">
+  <strong>Feature request promise:</strong> if you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within the project’s scope.
+</div>
 
 ## Links
 

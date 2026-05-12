@@ -94,7 +94,7 @@ export class ReaderParser {
             rid: 0,
             spelling: entry.expression,
             reading: entry.reading || entry.expression,
-            frequencyRank: null,
+            frequencyRank: entry.jpdbFrequency ?? null,
             partOfSpeech: [],
             meanings: [{
                 glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),

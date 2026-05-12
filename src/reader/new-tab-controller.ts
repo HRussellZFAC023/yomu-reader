@@ -1,4 +1,5 @@
 import type { AnkiConnectClient } from './anki';
+import { primaryCardState } from './card-state';
 import { APP_NAME } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import type { JpdbClient } from './jpdb';
@@ -7,18 +8,21 @@ import {
     buildNewTabPalette,
     firstCardMeaning,
     isYomuNewTabUrl,
-    renderDisabledNewTabMarkup,
     shuffleCards,
     uniqueStrings,
 } from './new-tab';
 import type { ReaderParser } from './reader-parser';
 import type { JPDBCard, ReaderSettings } from './types';
+import type { YomitanDictionaryStore } from './yomitan';
 
 interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
     anki: AnkiConnectClient;
     jpdb: JpdbClient;
     parser: ReaderParser;
+    dictionaries: YomitanDictionaryStore;
+    ensureStarterDictionary: (onProgress?: (message: string) => void) => Promise<boolean>;
+    onSettingsChange: () => Promise<void> | void;
     showSettings: (tab?: string) => void;
     dismiss: (options?: { suppressHoverTarget?: boolean }) => void;
 }
@@ -37,27 +41,43 @@ export class NewTabController {
     }
 
     async renderPage(): Promise<void> {
-        const settings = this.dependencies.getSettings();
         document.title = `${APP_NAME} New Tab`;
         document.documentElement.classList.add('jpdb-reader-newtab-document');
+        const settings = this.dependencies.getSettings();
+        if (!settings.newTabEnabled) {
+            settings.newTabEnabled = true;
+            await this.dependencies.onSettingsChange();
+        }
         this.applyPalette();
 
-        const root = document.createElement('main');
-        root.className = 'jpdb-reader-newtab';
-        root.dataset.jpdbReaderRoot = 'true';
-        root.innerHTML = settings.newTabEnabled ? this.renderEnabledMarkup() : renderDisabledNewTabMarkup();
+        let root = document.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
+        const isNew = !root;
+        if (!root) {
+            root = document.createElement('main');
+            root.className = 'jpdb-reader-newtab';
+            root.dataset.jpdbReaderRoot = 'true';
+            document.body.replaceChildren(root);
+        }
+        if (root.dataset.newtabBound !== 'true') {
+            this.bindRootEvents(root);
+            root.dataset.newtabBound = 'true';
+        }
 
-        document.body.replaceChildren(root);
-        this.bindRootEvents(root);
+        const hasReaderMarkup = !!root.querySelector('[data-newtab-card]');
+        if (isNew || !hasReaderMarkup) {
+            root.innerHTML = this.renderEnabledMarkup();
+        }
 
-        if (settings.newTabEnabled) await this.loadCardsInto(root);
+        if (isNew || !hasReaderMarkup || this.cards.length === 0) {
+            await this.loadCardsInto(root);
+        }
     }
 
     private renderEnabledMarkup(): string {
         return `
-            <div class="jpdb-reader-newtab-shell">
+                <div class="jpdb-reader-newtab-shell">
                 <div class="jpdb-reader-newtab-topbar">
-                    <div class="jpdb-reader-newtab-brand">${APP_NAME}</div>
+                    <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/kotoba-reader/">${APP_NAME}</a>
                     <div class="jpdb-reader-newtab-actions">
                         <button class="jpdb-reader-newtab-button" type="button" data-newtab-action="settings">Settings</button>
                     </div>
@@ -122,13 +142,13 @@ export class NewTabController {
 
         try {
             setStatus('Loading words...');
-            const result = await this.loadCards();
+            const result = await this.loadCards(setStatus);
             this.cards = shuffleCards(result.cards);
             this.index = 0;
             this.sourceLabel = result.sourceLabel;
             this.dependencies.parser.cacheCards(this.cards);
             if (!this.cards.length) {
-                setStatus('No words found. Check the new tab source in settings.');
+                setStatus('No study words found yet.');
                 this.renderEmptyCard(root);
                 return;
             }
@@ -141,22 +161,47 @@ export class NewTabController {
         }
     }
 
-    private async loadCards(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> {
+    private async loadCards(onProgress?: (message: string) => void): Promise<{ cards: JPDBCard[]; sourceLabel: string }> {
         const settings = this.dependencies.getSettings();
         const sourceOrder = settings.newTabSource === 'auto'
-            ? ['anki', 'jpdb'] as const
+            ? ['anki', 'jpdb', 'dictionary'] as const
             : [settings.newTabSource] as const;
         for (const source of sourceOrder) {
             if (source === 'anki') {
-                const cards = await this.dependencies.anki.listNewTabCards(80);
+                const cards = await this.dependencies.anki.listNewTabCards(80).catch(error => {
+                    log.debug('Anki new tab source unavailable', error);
+                    return [];
+                });
                 if (cards.length) return { cards, sourceLabel: `Anki: ${settings.ankiDeck}` };
             }
             if (source === 'jpdb') {
                 const result = await this.loadJpdbCards();
                 if (result.cards.length) return result;
             }
+            if (source === 'dictionary') {
+                const result = await this.loadDictionaryCards(onProgress);
+                if (result.cards.length) return result;
+            }
         }
         return { cards: [], sourceLabel: 'No source' };
+    }
+
+    private async loadDictionaryCards(onProgress?: (message: string) => void): Promise<{ cards: JPDBCard[]; sourceLabel: string }> {
+        const settings = this.dependencies.getSettings();
+        try {
+            let entries = await this.dependencies.dictionaries.listRandomTopTerms(80, 2000, settings.dictionaryPreferences);
+            if (!entries.length) {
+                onProgress?.('Downloading JMdict starter dictionary...');
+                const installed = await this.dependencies.ensureStarterDictionary(message => onProgress?.(message));
+                if (installed) entries = await this.dependencies.dictionaries.listRandomTopTerms(80, 2000, settings.dictionaryPreferences);
+            }
+            if (!entries.length) return { cards: [], sourceLabel: 'Dictionaries: no words' };
+            const cards = entries.map(entry => this.dependencies.parser.localCardFromEntry(entry));
+            return { cards, sourceLabel: 'Dictionaries' };
+        } catch (error) {
+            log.debug('Dictionary card load failed', error);
+            return { cards: [], sourceLabel: 'Dictionaries: error' };
+        }
     }
 
     private async loadJpdbCards(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> {
@@ -202,7 +247,7 @@ export class NewTabController {
         const expression = root.querySelector<HTMLElement>('[data-newtab-expression]');
         const reading = root.querySelector<HTMLElement>('[data-newtab-reading]');
         const meaning = root.querySelector<HTMLElement>('[data-newtab-meaning]');
-        const state = card.cardState[0] ?? 'not-in-deck';
+        const state = primaryCardState(card.cardState);
         if (expression) {
             setInnerHtml(expression, `<span class="jpdb-reader-word jpdb-${escapeHtml(state)}" data-vid="${card.vid}" data-sid="${card.sid}" data-sentence="${escapeHtml(card.spelling)}" tabindex="0">${escapeHtml(card.spelling)}</span>`);
         }
@@ -216,6 +261,6 @@ export class NewTabController {
         const meaning = root.querySelector<HTMLElement>('[data-newtab-meaning]');
         if (expression) expression.textContent = 'よむ';
         if (reading) reading.textContent = '';
-        if (meaning) meaning.textContent = 'Open settings to choose Anki or JPDB words.';
+        if (meaning) meaning.textContent = 'Open settings or try again after JMdict finishes downloading.';
     }
 }

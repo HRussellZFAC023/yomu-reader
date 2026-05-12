@@ -45,7 +45,7 @@ export default defineConfig({
             },
         },
         monkey({
-            entry: 'src/reader/main.ts',
+            entry: 'src/reader/userscript-entry.ts',
             userscript: {
                 name: 'よむ',
                 namespace: repoUrl,

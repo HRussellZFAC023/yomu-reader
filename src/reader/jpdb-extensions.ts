@@ -1,20 +1,24 @@
 import { escapeHtml, setInnerHtml } from './dom';
+import { AudioPlayer } from './audio';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
+import { type JpdbKanjiInfo, JpdbKanjiClient } from './jpdb-kanji';
 import { Logger } from './logger';
 import { immersionContextFromExample, loadMiningContext, saveMiningContext } from './mining-context';
 import { speakerIcon } from './popup-render';
 import { RtkClient, type RtkInfo } from './rtk';
-import type { ReaderSettings } from './types';
+import type { JPDBCard, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 import { YomitanDictionaryStore, glossaryToHtml, type YomitanTermEntry } from './yomitan';
 
 const ROOT_ATTR = 'data-yomu-jpdb-addon';
+const JPDB_KANJI_ID = 'yomu-jpdb-kanji-info';
 const UCHISEN_ID = 'yomu-jpdb-uchisen';
 const RTK_ID = 'yomu-jpdb-rtk';
 const IMMERSION_ID = 'yomu-jpdb-immersion';
 const DOODLE_ROOT_ID = 'yomu-jpdb-doodle-root';
 const DOODLE_PREVIEW_ID = 'yomu-jpdb-doodle-preview';
 const DOODLE_STORAGE_KEY = 'yomu-jpdb-doodle-current-drawing';
+const SOURCE_STATE_STORAGE_PREFIX = 'yomu-jpdb-source-open:';
 const UCHISEN_STAR_PREFIX = 'yomu-jpdb-uchisen-star:';
 const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
 const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
@@ -35,7 +39,9 @@ interface JpdbExtensionsOptions {
     getSettings: () => ReaderSettings;
     dictionaries: YomitanDictionaryStore;
     immersionKit: ImmersionKitClient;
+    jpdbKanji: JpdbKanjiClient;
     rtk: RtkClient;
+    audio: AudioPlayer;
 }
 
 interface DoodleState {
@@ -49,8 +55,10 @@ export class JpdbExtensionsController {
     private lastUrl = '';
     private rtkKanji = '';
     private uchisenKanji = '';
+    private jpdbKanji = '';
     private immersionKey = '';
     private localDictionaryKeys = new Set<string>();
+    private sourceOpenOverrides = new Map<string, boolean>();
     private currentObjectUrl = '';
 
     constructor(private options: JpdbExtensionsOptions) {}
@@ -91,6 +99,7 @@ export class JpdbExtensionsController {
             isKanjiPage: isKanjiPage(),
             isReviewPage: isReviewPage(),
             isReviewAnswer: isReviewAnswer(),
+            reviewCard: currentReviewCardState(),
         });
 
         document.documentElement.classList.toggle('yomu-jpdb-review-compact-nav', isReviewPage() && settings.jpdbReviewUiEnabled);
@@ -103,6 +112,9 @@ export class JpdbExtensionsController {
         if (settings.jpdbAutoRevealSentenceEnabled) this.revealAnswerSentence();
 
         const kanji = extractCurrentKanji();
+        if (settings.jpdbKanjiEnabled && kanji && (isKanjiPage() || isReviewPage())) this.renderJpdbKanjiInfo(kanji);
+        else removeElement(JPDB_KANJI_ID);
+
         if (settings.jpdbUchisenEnabled && kanji) this.renderUchisen(kanji);
         else removeElement(UCHISEN_ID);
 
@@ -115,15 +127,20 @@ export class JpdbExtensionsController {
         if (settings.jpdbLocalDictionariesEnabled && settings.localDictionariesEnabled) this.renderLocalDictionaries();
         else this.removeLocalDictionaries();
 
+        if (settings.audioEnabled) this.renderAudioOffers();
+        else this.removeAudioOffers();
+
         if (settings.jpdbKanjiDoodleEnabled && isReviewPage()) this.renderDoodle();
         else this.removeDoodle();
     }
 
     private removeAll(): void {
+        removeElement(JPDB_KANJI_ID);
         removeElement(UCHISEN_ID);
         removeElement(RTK_ID);
         removeElement(IMMERSION_ID);
         this.removeLocalDictionaries();
+        this.removeAudioOffers();
         this.restoreReviewUiTweak();
         this.removeDoodle();
     }
@@ -131,6 +148,7 @@ export class JpdbExtensionsController {
     private resetSeenKeys(): void {
         this.rtkKanji = '';
         this.uchisenKanji = '';
+        this.jpdbKanji = '';
         this.immersionKey = '';
         this.localDictionaryKeys.clear();
     }
@@ -174,6 +192,34 @@ export class JpdbExtensionsController {
     private revealAnswerSentence(): void {
         if (!isReviewAnswer()) return;
         document.querySelector<HTMLElement>('.sentence.blur')?.classList.remove('blur');
+    }
+
+    private async renderJpdbKanjiInfo(kanji: string): Promise<void> {
+        if (this.jpdbKanji === kanji && document.getElementById(JPDB_KANJI_ID)) return;
+        this.jpdbKanji = kanji;
+        removeElement(JPDB_KANJI_ID);
+
+        const anchor = findKanjiSectionAnchor();
+        if (!anchor) return;
+
+        const container = createAddonCard(JPDB_KANJI_ID, 'JPDB kanji info');
+        setInnerHtml(container, `
+            <div class="yomu-jpdb-card-title">JPDB kanji info</div>
+            <div class="jpdb-reader-help">Loading readings and components...</div>
+        `);
+        insertAfter(anchor, container);
+
+        const info = await this.options.jpdbKanji.lookup(kanji).catch(error => {
+            log.warn('JPDB add-on kanji info lookup failed', { kanji }, error);
+            return null;
+        });
+        if (!container.isConnected || this.jpdbKanji !== kanji) return;
+        if (!info) {
+            container.remove();
+            return;
+        }
+        log.debug('JPDB add-on kanji info rendered', { kanji });
+        setInnerHtml(container, renderJpdbKanjiPanel(info));
     }
 
     private async renderRtk(kanji: string): Promise<void> {
@@ -373,7 +419,12 @@ export class JpdbExtensionsController {
             const container = createAddonCard('', 'Imported dictionaries');
             container.classList.add('yomu-jpdb-local-dictionaries');
             container.dataset.yomuLocalKey = key;
-            setInnerHtml(container, renderLocalDictionaryPanel(entries, settings));
+            setInnerHtml(container, renderLocalDictionaryPanel(
+                entries,
+                settings,
+                dictionary => this.sourceStateAttributes(`dictionary:${dictionary}`),
+            ));
+            this.installSourceStateTracking(container);
             insertAfter(target.anchor, container);
             log.debug('JPDB add-on local dictionaries rendered', { term: target.term, entries: entries.length });
         }
@@ -382,6 +433,61 @@ export class JpdbExtensionsController {
     private removeLocalDictionaries(): void {
         this.localDictionaryKeys.clear();
         document.querySelectorAll<HTMLElement>('.yomu-jpdb-local-dictionaries').forEach(node => node.remove());
+    }
+
+    private renderAudioOffers(): void {
+        for (const target of currentAudioTargets()) {
+            if (target.link.parentElement?.querySelector('.yomu-jpdb-audio-button')) continue;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'yomu-jpdb-audio-button';
+            button.dataset.term = target.term;
+            button.dataset.reading = target.reading;
+            button.title = 'Play with Yomu audio instead';
+            button.setAttribute('aria-label', `Play ${target.term} with Yomu audio`);
+            setInnerHtml(button, `${speakerIcon()}<span>Yomu</span>`);
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                void this.playYomuAudio(target.term, target.reading);
+            });
+            target.link.insertAdjacentElement('afterend', button);
+        }
+    }
+
+    private removeAudioOffers(): void {
+        document.querySelectorAll<HTMLElement>('.yomu-jpdb-audio-button').forEach(node => node.remove());
+    }
+
+    private async playYomuAudio(term: string, reading: string): Promise<void> {
+        const card = jpdbAudioCard(term, reading);
+        try {
+            await this.options.audio.play(card);
+            log.debug('JPDB page Yomu audio started', { term });
+        } catch (error) {
+            log.warn('JPDB page Yomu audio failed', { term }, error);
+        }
+    }
+
+    private sourceStateAttributes(key: string, fallback = this.options.getSettings().dictionarySourcesInitiallyExpanded): string {
+        return `data-yomu-source-state-key="${escapeHtml(key)}"${this.isSourceOpen(key, fallback) ? ' open' : ''}`;
+    }
+
+    private isSourceOpen(key: string, fallback: boolean): boolean {
+        return this.sourceOpenOverrides.get(key) ?? storageGetBooleanSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, fallback);
+    }
+
+    private installSourceStateTracking(root: HTMLElement): void {
+        if (root.dataset.yomuSourceTracking === 'true') return;
+        root.dataset.yomuSourceTracking = 'true';
+        root.addEventListener('toggle', event => {
+            const details = event.target instanceof HTMLDetailsElement ? event.target : null;
+            const key = details?.dataset.yomuSourceStateKey;
+            if (!details || !key) return;
+            this.sourceOpenOverrides.set(key, details.open);
+            storageSetSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, details.open);
+            log.debug('JPDB add-on source open state remembered', { key, open: details.open });
+        }, true);
     }
 
     private renderDoodle(): void {
@@ -400,7 +506,7 @@ export class JpdbExtensionsController {
 
     private installDoodleCanvas(): void {
         if (document.getElementById(DOODLE_ROOT_ID)) return;
-        const mount = document.querySelector<HTMLElement>('.bugfix') ?? document.querySelector<HTMLElement>('.answer-box');
+        const mount = findDoodleCanvasMount();
         if (!mount) return;
 
         const glyph = extractCurrentKanji() || firstReviewGlyph(document.body.textContent || '') || '';
@@ -417,7 +523,9 @@ export class JpdbExtensionsController {
                 <button class="jpdb-reader-btn" type="button" data-doodle-ghost>Ghost: On</button>
             </div>
         `;
-        mount.appendChild(root);
+        mount.querySelector<HTMLElement>(':scope > .hbox')?.insertAdjacentElement('afterend', root);
+        if (!root.isConnected) mount.querySelector<HTMLElement>('.yomu-jpdb-addon-card')?.before(root);
+        if (!root.isConnected) mount.appendChild(root);
         installDoodle(root, glyph);
     }
 
@@ -432,13 +540,17 @@ export class JpdbExtensionsController {
         if (document.getElementById(DOODLE_PREVIEW_ID)) return;
         const drawing = localStorage.getItem(DOODLE_STORAGE_KEY);
         if (!drawing) return;
-        const mount = document.querySelector<HTMLElement>('.hbox') ?? document.querySelector<HTMLElement>('.answer-box');
+        const mount = findDoodlePreviewMount();
         if (!mount) return;
         const preview = document.createElement('div');
         preview.id = DOODLE_PREVIEW_ID;
         preview.setAttribute(ROOT_ATTR, 'doodle-preview');
-        preview.innerHTML = `<img src="${escapeHtml(drawing)}" alt="Your kanji drawing">`;
-        mount.appendChild(preview);
+        preview.innerHTML = `
+            <div class="yomu-doodle-preview-label">Your drawing</div>
+            <img src="${escapeHtml(drawing)}" alt="Your kanji drawing">
+        `;
+        if (mount.matches('a.kanji.plain, .kanji.plain')) mount.insertAdjacentElement('afterend', preview);
+        else mount.appendChild(preview);
         localStorage.removeItem(DOODLE_STORAGE_KEY);
     }
 
@@ -487,6 +599,30 @@ function renderRtkPanel(info: RtkInfo): string {
         ${info.heisigStory ? `<section><h6>Heisig story</h6><p>${escapeHtml(info.heisigStory)}</p></section>` : ''}
         ${info.heisigComment ? `<section><h6>Heisig comment</h6><p>${escapeHtml(info.heisigComment)}</p></section>` : ''}
         ${info.koohiiStories.length ? `<section><h6>Koohii stories</h6>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</section>` : ''}
+    `;
+}
+
+function renderJpdbKanjiPanel(info: JpdbKanjiInfo): string {
+    const facts = [
+        info.keyword ? ['Keyword', info.keyword] : null,
+        info.frequency ? ['Frequency', info.frequency] : null,
+        info.type ? ['Type', info.type] : null,
+        info.kanken ? ['Kanken', info.kanken] : null,
+        info.heisig ? ['Heisig', info.heisig] : null,
+    ].filter((item): item is [string, string] => item !== null);
+    return `
+        <div class="yomu-jpdb-card-title">
+            <span>JPDB kanji info</span>
+            <a href="https://jpdb.io/kanji/${encodeURIComponent(info.kanji)}" target="_blank" rel="noopener">Open</a>
+        </div>
+        ${facts.length ? `<div class="yomu-jpdb-facts">${facts.map(([label, value]) => `<span><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`).join('')}</div>` : ''}
+        ${info.readings.length ? `<div class="yomu-jpdb-chip-row" aria-label="Readings">${info.readings.slice(0, 10).map(reading => `<span class="${reading.common ? 'common' : ''}">${escapeHtml(reading.reading)}${reading.share ? ` <small>${escapeHtml(reading.share)}</small>` : ''}</span>`).join('')}</div>` : ''}
+        ${info.components.length ? `<div class="yomu-jpdb-component-row" aria-label="Components">
+            ${info.components.map(component => `<a href="https://jpdb.io/kanji/${encodeURIComponent(component.kanji)}" class="yomu-jpdb-component" target="_blank" rel="noopener"><strong>${escapeHtml(component.kanji)}</strong><span>${escapeHtml(component.keyword)}</span></a>`).join('')}
+        </div>` : ''}
+        ${info.vocabulary.length ? `<div class="yomu-jpdb-used-words" aria-label="Common words using ${escapeHtml(info.kanji)}">
+            ${info.vocabulary.slice(0, 5).map(word => `<a href="${escapeHtml(word.url)}" target="_blank" rel="noopener"><span>${escapeHtml(word.expression)}</span><small>${escapeHtml(word.reading || word.meaning)}</small></a>`).join('')}
+        </div>` : ''}
     `;
 }
 
@@ -540,7 +676,7 @@ function renderImmersionPanel(
         });
 }
 
-function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings: ReaderSettings): string {
+function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings: ReaderSettings, sourceStateAttributes: (dictionary: string) => string): string {
     const byDictionary = new Map<string, YomitanTermEntry[]>();
     for (const entry of entries) {
         const list = byDictionary.get(entry.dictionary) ?? [];
@@ -550,7 +686,7 @@ function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings: Reade
     return `
         <div class="yomu-jpdb-card-title">Imported dictionaries</div>
         ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries]) => `
-            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${settings.dictionarySourcesInitiallyExpanded ? 'open' : ''}>
+            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceStateAttributes(dictionary)}>
                 <summary class="jpdb-reader-local-head">
                     <span>${escapeHtml(dictionaryLabel(dictionary, settings))}</span>
                     <span class="jpdb-reader-local-dict">${dictionaryEntries.length}</span>
@@ -559,7 +695,7 @@ function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings: Reade
                     ${dictionaryEntries.slice(0, 3).map(entry => `
                         <div>
                             <strong>${escapeHtml(entry.expression)}</strong>${entry.reading && entry.reading !== entry.expression ? ` <span class="jpdb-reader-local-reading">${escapeHtml(entry.reading)}</span>` : ''}
-                            ${entry.glossary.slice(0, 3).map(item => `<div>${glossaryToHtml(item, entry.dictionary)}</div>`).join('')}
+                            ${entry.glossary.slice(0, 3).map(item => `<div>${glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })}</div>`).join('')}
                         </div>
                     `).join('')}
                 </div>
@@ -702,7 +838,11 @@ function installDoodle(root: HTMLElement, glyph: string): void {
         drawing = true;
         pointerId = event.pointerId;
         current = [point(event)];
-        canvas.setPointerCapture?.(event.pointerId);
+        try {
+            canvas.setPointerCapture?.(event.pointerId);
+        } catch {
+            // Some browsers only allow capture for trusted pointer streams.
+        }
         redraw();
     }, { passive: false });
     add(canvas, 'pointermove', event => {
@@ -722,12 +862,19 @@ function installDoodle(root: HTMLElement, glyph: string): void {
         current = [];
         drawing = false;
         pointerId = -1;
-        canvas.releasePointerCapture?.(event.pointerId);
+        try {
+            canvas.releasePointerCapture?.(event.pointerId);
+        } catch {
+            // The pointer might already be released after stylus/browser handoff.
+        }
         redraw();
         save();
     };
     add(canvas, 'pointerup', finish, { passive: false });
     add(canvas, 'pointercancel', finish, { passive: false });
+    add(canvas, 'lostpointercapture', finish, { passive: false });
+    add(window, 'pointerup', finish, { passive: false });
+    add(window, 'pointercancel', finish, { passive: false });
     root.querySelector<HTMLButtonElement>('[data-doodle-clear]')?.addEventListener('click', event => {
         event.preventDefault();
         strokes = [];
@@ -795,6 +942,36 @@ function currentLocalDictionaryTargets(): Array<{ term: string; reading: string;
     return [{ term: target.term, reading: extractReadingFromUrl() || target.term, anchor: target.anchor }];
 }
 
+function currentAudioTargets(): Array<{ term: string; reading: string; link: HTMLElement }> {
+    const targets: Array<{ term: string; reading: string; link: HTMLElement }> = [];
+    const seen = new Set<HTMLElement>();
+    document.querySelectorAll<HTMLElement>('a.vocabulary-audio[data-audio]').forEach(link => {
+        if (seen.has(link) || link.closest(`[${ROOT_ATTR}], [data-jpdb-reader-root]`)) return;
+        const root = link.closest<HTMLElement>('.result.vocabulary, .answer-box, .review-hidden, .subsection-headword, .plain') ?? link.parentElement;
+        if (!root) return;
+        const term = extractTermFromElement(root) ?? extractTermFromAudioLink(link);
+        if (!term?.term) return;
+        seen.add(link);
+        targets.push({ ...term, link });
+    });
+    return targets.slice(0, 12);
+}
+
+function extractTermFromAudioLink(link: HTMLElement): { term: string; reading: string } | null {
+    const root = link.closest<HTMLElement>('.result.vocabulary, .answer-box') ?? link.parentElement;
+    if (!root) return null;
+    const linkToVocabulary = root.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"]');
+    if (linkToVocabulary) {
+        const parts = linkToVocabulary.pathname.split('/').filter(Boolean);
+        if (parts[0] === 'vocabulary' && parts[2]) {
+            const term = decodePathPart(parts[2]);
+            return { term, reading: decodePathPart(parts[3] ?? '') || term };
+        }
+    }
+    const text = cleanText(extractBaseText(root));
+    return text && JAPANESE_RE.test(text) ? { term: firstJapaneseRun(text), reading: firstJapaneseRun(text) } : null;
+}
+
 function extractCurrentTerm(): string {
     const fromUrl = extractTermFromUrl();
     if (fromUrl) return fromUrl;
@@ -812,6 +989,14 @@ function extractTermFromUrl(): string {
 function extractReadingFromUrl(): string {
     const parts = location.pathname.split('/').filter(Boolean);
     return parts[0] === 'vocabulary' && parts[3] ? decodeURIComponent(parts[3]) : '';
+}
+
+function decodePathPart(value: string): string {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
 }
 
 function extractTermFromElement(root: ParentNode): { term: string; reading: string } | null {
@@ -873,8 +1058,8 @@ function firstReviewGlyph(text: string): string | null {
 }
 
 function findKanjiSectionAnchor(): HTMLElement | null {
-    const uchisen = document.getElementById(UCHISEN_ID);
-    if (uchisen) return uchisen;
+    const existingAddon = lastConnectedElement([RTK_ID, UCHISEN_ID, JPDB_KANJI_ID]);
+    if (existingAddon) return existingAddon;
     const labels = Array.from(document.querySelectorAll<HTMLElement>('h6.subsection-label'));
     const mnemonic = labels.find(label => label.textContent?.trim().toLowerCase().startsWith('mnemonic'));
     if (mnemonic?.nextElementSibling instanceof HTMLElement) return mnemonic.nextElementSibling;
@@ -882,6 +1067,31 @@ function findKanjiSectionAnchor(): HTMLElement | null {
         ?? document.querySelector<HTMLElement>('.result.kanji')
         ?? document.querySelector<HTMLElement>('.answer-box')
         ?? document.querySelector<HTMLElement>('main');
+}
+
+function lastConnectedElement(ids: string[]): HTMLElement | null {
+    return ids
+        .map(id => document.getElementById(id))
+        .filter((element): element is HTMLElement => Boolean(element?.isConnected))
+        .sort((a, b) => {
+            if (a === b) return 0;
+            return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+        })
+        .at(-1) ?? null;
+}
+
+function findDoodleCanvasMount(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('.result.kanji > .vbox')
+        ?? document.querySelector<HTMLElement>('.answer-box')
+        ?? document.querySelector<HTMLElement>('.bugfix');
+}
+
+function findDoodlePreviewMount(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('.result.kanji a.kanji.plain')
+        ?? document.querySelector<HTMLElement>('.answer-box .kanji, .answer-box .plain')
+        ?? document.querySelector<HTMLElement>('.result.kanji .hbox')
+        ?? document.querySelector<HTMLElement>('.hbox')
+        ?? document.querySelector<HTMLElement>('.answer-box');
 }
 
 function createAddonCard(id: string, label: string): HTMLElement {
@@ -925,11 +1135,38 @@ function isReviewAnswer(): boolean {
 }
 
 function isKanjiReviewFront(): boolean {
-    return isReviewPage() && Boolean(document.querySelector('.kanji-keyword')) && !document.querySelector('.kanji');
+    const state = currentReviewCardState();
+    return state.isKanji && state.phase === 'before';
 }
 
 function isKanjiReviewBack(): boolean {
-    return isReviewPage() && Boolean(document.querySelector('.kanji'));
+    const state = currentReviewCardState();
+    return state.isKanji && state.phase === 'after';
+}
+
+export interface JpdbReviewCardState {
+    kind: string;
+    kanji: string;
+    isKanji: boolean;
+    phase: 'before' | 'after' | 'none';
+}
+
+export function parseJpdbReviewCardValue(value: string | null | undefined, response: string | null | undefined = null): JpdbReviewCardState {
+    const parts = (value ?? '').split(',');
+    const kind = (parts[0] ?? '').trim();
+    const kanji = firstReviewGlyph(parts.slice(1).join(',')) ?? '';
+    const isKanji = kind.startsWith('k') && Boolean(kanji);
+    const phase = !isKanji ? 'none' : response === '1' ? 'after' : 'before';
+    return { kind, kanji, isKanji, phase };
+}
+
+function currentReviewCardState(): JpdbReviewCardState {
+    if (!isReviewPage()) return { kind: '', kanji: '', isKanji: false, phase: 'none' };
+    const response = new URLSearchParams(location.search).get('r');
+    const cardValue = new URLSearchParams(location.search).get('c')
+        ?? document.querySelector<HTMLInputElement>('input[name="c"]')?.value
+        ?? '';
+    return parseJpdbReviewCardValue(cardValue, response);
 }
 
 function decodeEntities(value: string): string {
@@ -958,6 +1195,27 @@ function canonicalUchisenUrl(value: string): string {
 
 function cleanText(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
+}
+
+function firstJapaneseRun(value: string): string {
+    return value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)?.[0] ?? cleanText(value);
+}
+
+function jpdbAudioCard(term: string, reading: string): JPDBCard {
+    return {
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: term,
+        reading: reading || term,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'local',
+    };
 }
 
 function kanjiVgUrl(glyph: string): string {
@@ -1038,6 +1296,23 @@ async function storageSet(key: string, value: unknown): Promise<void> {
         return;
     }
     localStorage.setItem(key, JSON.stringify(value));
+}
+
+function storageGetBooleanSync(key: string, fallback: boolean): boolean {
+    try {
+        const value = localStorage.getItem(key);
+        return value == null ? fallback : JSON.parse(value) === true;
+    } catch {
+        return fallback;
+    }
+}
+
+function storageSetSync(key: string, value: boolean): void {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        // Ignore storage failures; the open state still lives for this page.
+    }
 }
 
 async function storageDelete(key: string): Promise<void> {
