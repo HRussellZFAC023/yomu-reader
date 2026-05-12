@@ -46,6 +46,10 @@ export type AnkiTemplateMode = 'recognition' | 'context';
 
 export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
 
+export type WordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
+
+export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' | 'off';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -85,7 +89,7 @@ export interface JPDBCard {
     cardState: CardState[];
     pitchAccent: string[];
     wordWithReading: string | null;
-    source?: 'jpdb' | 'local';
+    source?: 'jpdb' | 'local' | 'anki';
 }
 
 export interface JPDBDeck {
@@ -153,6 +157,7 @@ export interface ReaderSettings {
     jpdbUchisenEnabled: boolean;
     jpdbRtkEnabled: boolean;
     jpdbImmersionKitEnabled: boolean;
+    jpdbImmersionKitAutoPlayReviewAudio: boolean;
     jpdbLocalDictionariesEnabled: boolean;
     jpdbReviewUiEnabled: boolean;
     jpdbAutoRevealSentenceEnabled: boolean;
@@ -192,6 +197,7 @@ export interface ReaderSettings {
     immersionKitShowTranslation: boolean;
     immersionKitShowImages: boolean;
     immersionKitAutoPlayAudio: boolean;
+    immersionKitPlayOnHover: boolean;
     immersionKitPlaybackRate: number;
     parseSelection: boolean;
     lookupOnClick: boolean;
@@ -210,7 +216,9 @@ export interface ReaderSettings {
     puckPositionX?: number;
     puckPositionY?: number;
     showFurigana: boolean;
+    furiganaMode: FuriganaMode;
     showPitchAccent: boolean;
+    wordHighlightMode: WordHighlightMode;
     hideKnownFurigana: boolean;
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;
@@ -278,6 +286,7 @@ export interface ReaderSettings {
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     miningDeck: string;
+    jpdbMiningEnabled: boolean;
     neverForgetDeck: string;
     blacklistDeck: string;
     addToForq: boolean;

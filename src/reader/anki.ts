@@ -439,7 +439,7 @@ function postJson<T>(url: string, body: string): Promise<T> {
 
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {
     const dictionaryPreferences = context.dictionaryPreferences ?? [];
-    const jpdbUrl = card.source === 'local' ? '' : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
+    const jpdbUrl = card.source === 'local' || card.source === 'anki' ? '' : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
     const sourceUrl = context.sourceUrl ?? '';
     const sourceTitle = context.sourceTitle ?? '';
     return {
@@ -452,7 +452,11 @@ export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: Anki
         PartOfSpeech: escapeHtml(formatPartOfSpeech(card.partOfSpeech) || formatPartOfSpeechDetails(card.partOfSpeech)),
         Image: '',
         JPDB: jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : '',
-        Status: card.source === 'local' ? '<span class="yomu-chip">local dictionary</span>' : card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' '),
+        Status: card.source === 'local'
+            ? '<span class="yomu-chip">local dictionary</span>'
+            : card.source === 'anki'
+                ? '<span class="yomu-chip">Anki</span>'
+                : card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' '),
         Pitch: renderPitchField(card, context.metaEntries ?? [], dictionaryPreferences),
         DictionaryDefinitions: renderDictionaryDefinitions(context.localEntries ?? [], dictionaryPreferences),
         Kanji: renderKanjiDefinitions(context.kanjiEntries ?? [], dictionaryPreferences),
@@ -590,7 +594,7 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | n
         cardState: [state],
         pitchAccent: [],
         wordWithReading: null,
-        source: 'local',
+        source: 'anki',
     };
 }
 

@@ -89,7 +89,7 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 
 - Dictionaries: よむ downloads the lightweight JMdict starter automatically when it needs dictionary study words and no local dictionary is installed yet. You can still import other Yomitan ZIP dictionaries or a Yomitan settings export later.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
-- Video: enable subtitles to mine words from Japanese subtitle lines. On iPhone, the transcript opens as a bottom panel so it does not crush the video.
+- Video: enable subtitles to mine words from Japanese subtitle lines. On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
 - Anki: enable Anki mining when Anki desktop and AnkiConnect are available.
 - New tab: use the よむ new-tab URL as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
@@ -102,7 +102,7 @@ iPhone and iPad Safari can run よむ through a userscript app, but local deskto
 
 Localhost on iPhone means the phone itself, not your desktop. If you run AnkiConnect, MPV, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Safari can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
 
-If a setup step mentions leaving a terminal window or local server running, treat it as optional power-user setup. The hosted audio path and JPDB mining are simpler on mobile.
+If a setup step mentions leaving a terminal window or local server running, treat it as optional power-user setup. The hosted audio path, JPDB mining, imported dictionaries, and the new-tab page are simpler on mobile.
 
 ## 8. Back Up Settings
 

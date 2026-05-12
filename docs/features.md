@@ -4,11 +4,11 @@
 
 ## Popup Lookup And Mining
 
-Tap, select, or hover Japanese text to open a popup. The popup can show JPDB definitions, imported local dictionary entries, pitch and frequency data, audio, example sentences, kanji details, and mining actions.
+Tap, select, or hover Japanese text to open a popup. The popup can show JPDB definitions, imported local dictionary entries, pitch and frequency data, audio, example sentences, kanji details, and optional mining actions.
 
 ![Yomu popup lookup screenshot](./assets/screenshots/hover-lookup.png)
 
-JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, and optional context images.
+JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, and optional context images. Word highlights can use mining status colors or pitch-accent colors; automatic mode uses pitch colors when no JPDB or Anki mining status source is active.
 
 ## Yomitan Dictionaries
 
@@ -38,7 +38,9 @@ Recognized text stays lightweight: touch targets sit over the image without cove
 
 よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into tappable words, native-language subtitle tracks can be shown as a secondary line, and the transcript panel can sit left, right, or below the video with the active line highlighted while you read.
 
-Local videos can also flow through an optional MPV bridge compatible with [mpv-subtitleminer](https://github.com/friedrich-de/mpv-subtitleminer), so a running mpv session can stream subtitles into よむ for lookup, mining, and line-audio replay.
+The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
+
+Local videos can also flow through an optional MPV bridge compatible with [mpv-subtitleminer](https://github.com/friedrich-de/mpv-subtitleminer), so a running mpv session can stream subtitles into よむ for lookup, mining, and line-audio replay. The MPV bridge is opt-in from the overflow menu or settings, which keeps ordinary website videos uncluttered.
 
 ![Yomu subtitle mining screenshot](./assets/screenshots/video-subtitles.png)
 
@@ -46,11 +48,11 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 ## Immersion Kit Examples
 
-Immersion Kit examples can appear directly inside word popups. Example sentences are tappable too, so you can jump from one unknown word to the next without leaving the flow.
+Immersion Kit examples can appear directly inside word popups. On desktop, the first example can play its audio once when you hover the card; it will not keep replaying unless you press the speaker button. Example sentences are tappable too, so you can jump from one unknown word to the next without leaving the flow.
 
 ![Yomu Immersion Kit examples screenshot](./assets/screenshots/immersion-kit.png)
 
-You can choose example categories, length limits, image visibility, translation visibility, and playback speed.
+You can choose example categories, length limits, image visibility, translation visibility, playback speed, and whether that one-time hover audio is enabled. On iPhone and iPad, use the speaker button because touch screens do not have hover and Safari limits autoplay.
 
 ## YouTube Immersion Mode
 

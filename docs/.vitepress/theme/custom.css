@@ -82,10 +82,19 @@
 
 .vp-doc img[src*="screenshots"] {
   width: 100%;
-  border: 1px solid var(--vp-c-divider);
+  border: 1px solid rgba(255, 255, 255, .12);
   border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .16);
+  background: #11171d;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .26);
+}
+
+.yomu-shot-grid figure,
+.vp-doc figure:has(img[src*="screenshots"]) {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  background: #10161c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
 }
 
 .yomu-callout {
@@ -118,7 +127,7 @@
 .yomu-shot-grid figcaption,
 .yomu-caption {
   margin-top: 8px;
-  color: var(--vp-c-text-2);
+  color: #dce4ef;
   font-size: 13px;
   line-height: 1.45;
 }

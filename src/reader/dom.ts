@@ -1,8 +1,14 @@
 import { Logger } from './logger';
 import { primaryCardState } from './card-state';
+import { effectiveFuriganaMode, effectiveWordHighlightMode } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+const KANJI_RE = /[\u3400-\u9fff]/u;
+const EASY_FURIGANA_KANJI = new Set(
+    '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
+        .split(''),
+);
 const log = Logger.scope('Dom');
 type TrustedTypesFactory = {
     createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
@@ -239,13 +245,14 @@ export function collectFragmentTextTargetsIn(
     limit = 40,
     visibleOnly = true,
     excludeSelector = '',
+    options: { allowUiText?: boolean; minLength?: number } = {},
 ): FragmentTextTarget[] {
     const done = log.time('Collect fragment text targets', { limit, visibleOnly, root: nodeLabel(root), hasExcludeSelector: Boolean(excludeSelector) });
     const targets: FragmentTextTarget[] = [];
     const fragments: TextFragment[] = [];
 
-    function currentText(): string {
-        return fragments.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
+    function fragmentText(items: TextFragment[]): string {
+        return items.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
     }
 
     function flush(): void {
@@ -254,11 +261,14 @@ export function collectFragmentTextTargetsIn(
             return;
         }
 
-        const text = currentText();
-        if (HAS_JAPANESE.test(text) && text.replace(/\s+/g, '').length >= 2) {
-            const parent = fragments[0]?.node.parentElement;
+        const trimmedFragments = trimTextFragments(fragments);
+        const text = fragmentText(trimmedFragments);
+        const compactText = text.replace(/\s+/g, '');
+        const hasNativeRuby = trimmedFragments.some(fragment => fragment.hasNativeRuby);
+        if (HAS_JAPANESE.test(text) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
+            const parent = trimmedFragments[0]?.node.parentElement;
             if (parent) {
-                targets.push({ text, parent, fragments: fragments.map(fragment => ({ ...fragment })) });
+                targets.push({ text, parent, fragments: trimmedFragments });
             }
         }
         fragments.length = 0;
@@ -287,12 +297,12 @@ export function collectFragmentTextTargetsIn(
             return;
         }
         const text = element.textContent?.trim() ?? '';
-        if (text && isFragileUiText(element, text)) {
+        if (!options.allowUiText && text && isFragileUiText(element, text)) {
             flush();
             return;
         }
 
-        const isBlock = isParagraphBoundary(element);
+        const isBlock = isParagraphBoundary(element) && !isInlineSentenceListItem(element);
         if (isBlock) flush();
 
         const nextHasNativeRuby = hasNativeRuby || tagName === 'RUBY' || tagName === 'RB';
@@ -309,6 +319,27 @@ export function collectFragmentTextTargetsIn(
     log.debug('Collected fragment text targets', { count: targets.length, limit, root: nodeLabel(root) });
     done();
     return targets;
+}
+
+function isInlineSentenceListItem(element: HTMLElement): boolean {
+    return element.tagName === 'LI' && Boolean(element.closest('.japanese_sentence'));
+}
+
+function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
+    const trimmed = fragments.map(fragment => ({ ...fragment }));
+    while (trimmed.length) {
+        const first = trimmed[0];
+        while (first.start < first.end && /\s/u.test(first.node.data[first.start] ?? '')) first.start += 1;
+        if (first.start < first.end) break;
+        trimmed.shift();
+    }
+    while (trimmed.length) {
+        const last = trimmed[trimmed.length - 1];
+        while (last.end > last.start && /\s/u.test(last.node.data[last.end - 1] ?? '')) last.end -= 1;
+        if (last.start < last.end) break;
+        trimmed.pop();
+    }
+    return trimmed;
 }
 
 export function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {
@@ -467,13 +498,14 @@ function renderToken(
 ): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
-    span.className = `jpdb-reader-word jpdb-${state}`;
+    span.className = readerWordClassName(state, token, settings);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
+    span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? '';
     span.tabIndex = 0;
 
-    if (settings.showFurigana && token.rubies.length && options.allowRuby !== false) {
+    if (shouldRenderRuby(surface, token, settings, options.allowRuby)) {
         setInnerHtml(span, renderRuby(surface, token));
     } else {
         span.textContent = surface;
@@ -483,8 +515,37 @@ function renderToken(
 
 function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings): string {
     const state = primaryCardState(token.card.cardState);
-    const content = settings.showFurigana && token.rubies.length ? renderRuby(surface, token) : escapeHtml(surface);
-    return `<span class="jpdb-reader-word jpdb-${state}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
+    const content = shouldRenderRuby(surface, token, settings) ? renderRuby(surface, token) : escapeHtml(surface);
+    return `<span class="${readerWordClassName(state, token, settings)}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
+}
+
+function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
+    if (!allowRuby || !token.rubies.length) return false;
+    const mode = effectiveFuriganaMode(settings);
+    if (mode === 'off') return false;
+    if (mode === 'difficult-kanji') return hasDifficultKanji(surface);
+    return true;
+}
+
+function hasDifficultKanji(surface: string): boolean {
+    for (const char of surface) {
+        if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+    }
+    return false;
+}
+
+function readerWordClassName(state: string, token: JPDBToken, settings: ReaderSettings): string {
+    const classes = ['jpdb-reader-word', `jpdb-${state}`];
+    if (effectiveWordHighlightMode(settings) === 'pitch') {
+        classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+    }
+    return classes.join(' ');
+}
+
+function safePitchClass(value: string): string {
+    return value === 'heiban' || value === 'atamadaka' || value === 'nakadaka' || value === 'odaka' || value === 'kifuku'
+        ? value
+        : 'unknown';
 }
 
 export function renderRuby(surface: string, token: JPDBToken): string {
@@ -543,8 +604,10 @@ function isVisible(element: HTMLElement): boolean {
 }
 
 function isParagraphBoundary(element: HTMLElement): boolean {
-    if (BLOCK_TAGS.has(element.tagName)) return true;
     const display = getComputedStyle(element).display;
+    if (element.tagName === 'BR') return true;
+    if (display === 'inline' || display === 'contents' || display === 'inline-block' || display === 'inline-flex' || display === 'inline-grid') return false;
+    if (BLOCK_TAGS.has(element.tagName)) return true;
     return display === 'block'
         || display === 'flow-root'
         || display === 'grid'

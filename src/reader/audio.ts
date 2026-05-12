@@ -10,6 +10,7 @@ interface AudioCandidate {
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
+const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const log = Logger.scope('Audio');
 
 export class AudioPlayer {
@@ -19,6 +20,7 @@ export class AudioPlayer {
     private lastBlobUrl?: string;
     private playRequestId = 0;
     private shuffledAudio = new ShuffledAudioDeck();
+    private candidateCache = new Map<string, { expiresAt: number; promise: Promise<AudioCandidate[]> }>();
 
     constructor(private getSettings: () => ReaderSettings) {}
 
@@ -92,7 +94,7 @@ export class AudioPlayer {
             return true;
         }
 
-        const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs);
+        const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
         log.debug('Audio candidates resolved', { source: source.type, candidates: candidates.length });
         const bagKey = getAudioBagKey(source, card);
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
@@ -120,6 +122,26 @@ export class AudioPlayer {
             }
         }
         return false;
+    }
+
+    private getCachedAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
+        const key = getAudioCandidateCacheKey(source, card);
+        const now = Date.now();
+        const cached = this.candidateCache.get(key);
+        if (cached && cached.expiresAt > now) {
+            log.debug('Audio candidate cache hit', { source: source.type, term: card.spelling });
+            return cached.promise.then(cloneAudioCandidates);
+        }
+
+        let promise!: Promise<AudioCandidate[]>;
+        promise = getAudioCandidates(source, card, timeoutMs)
+            .then(candidates => cloneAudioCandidates(candidates))
+            .catch(error => {
+                if (this.candidateCache.get(key)?.promise === promise) this.candidateCache.delete(key);
+                throw error;
+            });
+        this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
+        return promise.then(cloneAudioCandidates);
     }
 
     private async fetchAudioAsBlobUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
@@ -373,6 +395,20 @@ function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): string {
         card.spelling,
         card.reading,
     ].join('\u0001');
+}
+
+function getAudioCandidateCacheKey(source: AudioSourceSetting, card: JPDBCard): string {
+    return [
+        source.type,
+        source.url.trim(),
+        source.voice.trim(),
+        card.spelling,
+        card.reading,
+    ].join('\u0001');
+}
+
+function cloneAudioCandidates(candidates: AudioCandidate[]): AudioCandidate[] {
+    return candidates.map(candidate => ({ ...candidate }));
 }
 
 function getJapanesePod101Url(card: JPDBCard): string {
