@@ -51,7 +51,7 @@ For the free route, install Userscripts, open the app once, choose a folder when
 
 Until the GreasyFork page is live, install from the built file on GitHub:
 
-[Install よむ userscript](https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js)
+[Install よむ userscript](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
 
 What should happen:
 

@@ -66,7 +66,7 @@ import {
 } from './popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from './recommended-dictionaries';
 import { RtkClient, type RtkInfo } from './rtk';
-import { ReaderParser } from './reader-parser';
+import { ReaderParser, fallbackLookupTermAtOffset } from './reader-parser';
 import {
     DEFAULT_SETTINGS,
     accentToRgba,
@@ -333,7 +333,7 @@ export class ReaderApp {
             this.settings = settings;
             this.applyTheme();
         },
-        showSettings: () => this.showSettings(),
+        showSettings: panel => this.showSettings(panel),
     });
     private subtitles = new SubtitlePlayerController({
         getSettings: () => this.settings,
@@ -1321,7 +1321,8 @@ export class ReaderApp {
                     void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition });
                     return;
                 }
-                log.debug('Lookup found no entries', { selected });
+                log.debug('Lookup found no entries; showing fallback card', { selected });
+                void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition });
                 return;
             }
             log.debug('Lookup selected token', { selected, term: selectedToken.card.spelling, source: selectedToken.card.source ?? 'jpdb' });
@@ -1332,7 +1333,10 @@ export class ReaderApp {
                 ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
                 : [];
             if (localEntries.length) void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition });
-            else this.toast(error instanceof Error ? error.message : 'JPDB lookup failed.');
+            else {
+                this.toast(error instanceof Error ? error.message : 'JPDB lookup failed.');
+                void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition });
+            }
         } finally {
             done();
         }
@@ -1429,6 +1433,12 @@ export class ReaderApp {
             const entry = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
             if (entry) {
                 await this.showCard(this.parser.localCardFromEntry(entry), sentence, candidate.anchor, { trigger, navigation: options.navigation ?? 'reset', preservePosition: options.preservePosition });
+                return;
+            }
+            const fallbackTerm = fallbackLookupTermAtOffset(candidate.text, candidate.offset);
+            if (fallbackTerm) {
+                log.debug('Pointer text lookup found no entries; showing fallback card', { fallbackTerm, offset: candidate.offset });
+                await this.showCard(this.parser.fallbackCardFromText(fallbackTerm), sentence, candidate.anchor, { trigger, navigation: options.navigation ?? 'reset', preservePosition: options.preservePosition });
                 return;
             }
             log.debug('Pointer text lookup found no local entry', { offset: candidate.offset });
@@ -2294,19 +2304,41 @@ export class ReaderApp {
 
     private renderDefinitionSources(card: JPDBCard, entries: YomitanTermEntry[], sentence?: string): string {
         const grouped = groupTermEntriesByDictionary(entries);
-        const sections = orderedDefinitionSourceIds(this.settings, [...grouped.keys()])
+        const setup = this.renderFallbackSetupSource(card);
+        const sections = [
+            setup,
+            ...orderedDefinitionSourceIds(this.settings, [...grouped.keys()])
             .map(sourceId => {
-                if ((card.source === 'local' || card.source === 'anki') && sourceId === JPDB_DEFINITION_SOURCE_ID) return '';
+                if ((card.source === 'local' || card.source === 'anki' || card.source === 'fallback') && sourceId === JPDB_DEFINITION_SOURCE_ID) return '';
                 if (sourceId === JPDB_DEFINITION_SOURCE_ID) return this.renderJpdbDefinitionSource(card);
                 if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.renderStudyTranslationSource(sentence);
                 if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.renderStudyGrammarSource(sentence);
                 if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
                 return this.renderLocalDefinitionSource(sourceId, grouped.get(sourceId) ?? []);
-            })
+            }),
+        ]
             .filter(Boolean);
         return sections.length
             ? `<div class="jpdb-reader-definition-stack">${sections.join('')}</div>`
             : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${uiText(this.settings.interfaceLanguage, 'noDefinitions')}</div>`;
+    }
+
+    private renderFallbackSetupSource(card: JPDBCard): string {
+        if (card.source !== 'fallback') return '';
+        if (this.settings.apiKey.trim() || this.settings.dictionaryPreferences.length) return '';
+        const language = this.settings.interfaceLanguage;
+        return `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-fallback-setup" open>
+                <summary class="jpdb-reader-local-title">${uiText(language, 'fallbackSetupTitle')}</summary>
+                <div class="jpdb-reader-local-entry">
+                    <div class="jpdb-reader-help">${uiText(language, 'fallbackSetupCopy')}</div>
+                    <div class="jpdb-reader-row" style="--cols: 2">
+                        <button class="jpdb-reader-btn add" type="button" data-action="setup-dictionaries">${uiText(language, 'fallbackSetupDictionaries')}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="setup-jpdb">${uiText(language, 'fallbackSetupJpdb')}</button>
+                    </div>
+                </div>
+            </details>
+        `;
     }
 
     private renderImmersionKitMount(): string {
@@ -3028,6 +3060,12 @@ export class ReaderApp {
                 return false;
             case 'audio':
                 await this.playAudio(card);
+                return false;
+            case 'setup-dictionaries':
+                this.showSettings('dictionaries');
+                return false;
+            case 'setup-jpdb':
+                this.showSettings('basics');
                 return false;
             case 'add':
                 await this.addToJpdb(card, sentence);

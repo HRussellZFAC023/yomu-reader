@@ -89,7 +89,7 @@ export interface JPDBCard {
     cardState: CardState[];
     pitchAccent: string[];
     wordWithReading: string | null;
-    source?: 'jpdb' | 'local' | 'anki';
+    source?: 'jpdb' | 'local' | 'anki' | 'fallback';
 }
 
 export interface JPDBDeck {

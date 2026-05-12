@@ -5,8 +5,9 @@ import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 
-const repoUrl = 'https://github.com/HRussellZFAC023/kotoba-reader';
-const rawUserscriptUrl = 'https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js';
+const githubOwner = 'HRussellZFAC023';
+const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
+const rawUserscriptUrl = `https://raw.githubusercontent.com/${githubOwner}/${pkg.name}/main/dist/yomu.user.js`;
 const userscriptIconSvg = readFileSync(new URL('./src/reader/assets/yomu-icon.svg', import.meta.url), 'utf8')
     .replace(/>\s+</g, '><')
     .replace(/\s+\/>/g, '/>')

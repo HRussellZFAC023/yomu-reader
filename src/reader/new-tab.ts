@@ -1,3 +1,4 @@
+import { APP_REPOSITORY_NAME } from './constants';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
 import type { CardState, JPDBCard, NewTabWordSource } from './types';
@@ -72,9 +73,9 @@ export function isYomuNewTabUrl(value: string): boolean {
         const url = new URL(value);
         if (url.searchParams.has('yomu-newtab')) return true;
         const path = url.pathname.replace(/\/index\.html$/, '/');
-        if (url.hostname === 'hrussellzfac023.github.io') return path === '/kotoba-reader/newtab/';
+        if (url.hostname === 'hrussellzfac023.github.io') return path === `/${APP_REPOSITORY_NAME}/newtab/`;
         if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname)) return path.endsWith('/newtab/');
-        return path.endsWith('/kotoba-reader/newtab/') || path.endsWith('/newtab/');
+        return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith('/newtab/');
     } catch {
         return false;
     }

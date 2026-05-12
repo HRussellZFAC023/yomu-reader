@@ -53,7 +53,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ### Install, update, and publishing
 
-- [ ] `dist/yomu.user.js` is the only script users need; no old `kotoba` naming remains in metadata,
+- [ ] `dist/yomu.user.js` is the only script users need; no old app naming remains in metadata,
   docs, UI, storage labels, or generated filenames.
 - [ ] Userscript metadata includes the correct `@match`, `@grant`, `@connect`, name,
   description, version, icon, homepage, support URL, update URL, and download URL.
@@ -323,10 +323,8 @@ For each release candidate, run these as written and save screenshots:
 A build should not be published until:
 
 - `npm run check` passes.
-- `YOMU_TEST_API_KEY=<test key> npm run qa:audit` passes.
-- `npm run qa:docs-a11y` passes for desktop and iPhone docs pages.
-- `npm run qa:complexity` passes with the default threshold.
-- `npm run qa:jpdb-live` passes when a local `.env` contains a JPDB test key.
+- `YOMU_TEST_API_KEY=<test key> npm run qa` passes.
+- `npm run qa:live` passes when a local `.env` contains a JPDB test key.
 - A production-userscript smoke run passes on at least Bloomee, NHK Easy, YouTube, and CI Japanese.
 - The manual QA scripts above are checked for any feature touched in the release.
 - Any failed source integration has a clear disabled/fallback state rather than a broken UI.

@@ -1343,7 +1343,7 @@ function isReaderDictionaryExport(value: unknown): value is {
 } {
     return !!value
         && typeof value === 'object'
-        && ['yomu-yomitan-dictionaries', 'kotoba-yomitan-dictionaries', 'jpdb-reader-yomitan-dictionaries'].includes((value as { formatName?: string }).formatName ?? '')
+        && ['yomu-yomitan-dictionaries', 'jpdb-reader-yomitan-dictionaries'].includes((value as { formatName?: string }).formatName ?? '')
         && (
             Array.isArray((value as { entries?: unknown }).entries)
             || Array.isArray((value as { terms?: unknown }).terms)

@@ -67,7 +67,7 @@ The optional YouTube mode hides non-Japanese-looking recommendation cards, searc
 よむ includes an optional new-tab page at:
 
 ```text
-https://hrussellzfac023.github.io/kotoba-reader/newtab/
+https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
 Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words, so a new install can still become useful after JMdict finishes downloading.

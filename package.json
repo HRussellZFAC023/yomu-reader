@@ -7,12 +7,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HRussellZFAC023/kotoba-reader.git"
+    "url": "git+https://github.com/HRussellZFAC023/yomu-reader.git"
   },
   "bugs": {
-    "url": "https://github.com/HRussellZFAC023/kotoba-reader/issues"
+    "url": "https://github.com/HRussellZFAC023/yomu-reader/issues"
   },
-  "homepage": "https://hrussellzfac023.github.io/kotoba-reader/",
+  "homepage": "https://hrussellzfac023.github.io/yomu-reader/",
   "keywords": [
     "userscript",
     "jpdb",
@@ -23,21 +23,17 @@
     "tampermonkey"
   ],
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev.mjs",
     "build": "vite build",
-    "check": "npm run typecheck && npm run test && npm run build && npm run verify:userscript && npm run docs:build",
-    "docs:dev": "vitepress dev docs --host 127.0.0.1",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs --host 127.0.0.1",
-    "qa:audit": "npm run build && node scripts/qa-audit.mjs",
-    "qa:docs-a11y": "npm run docs:build && node scripts/docs-a11y-audit.mjs",
-    "qa:complexity": "node scripts/complexity-audit.mjs",
-    "qa:jpdb-live": "node scripts/jpdb-live-smoke.mjs",
-    "qa:full": "npm run check && npm run qa:audit && npm run qa:docs-a11y && npm run qa:complexity",
-    "prefill:greasyfork": "node scripts/open-greasyfork-prefill.cjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verify:userscript": "node scripts/verify-userscript.cjs"
+    "verify": "node scripts/verify-userscript.cjs",
+    "check": "npm run typecheck && npm run test && npm run build && npm run verify && npm run docs:build",
+    "docs": "vitepress dev docs --host 127.0.0.1",
+    "docs:build": "vitepress build docs",
+    "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
+    "qa:live": "node scripts/jpdb-live-smoke.mjs",
+    "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
   },
   "dependencies": {
     "jszip": "^3.10.1"

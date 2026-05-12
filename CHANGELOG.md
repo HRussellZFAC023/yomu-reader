@@ -2,9 +2,9 @@
 
 All notable user-facing changes should be recorded here. The documentation site includes this file directly, so updating this changelog also updates the website.
 
-Releases: https://github.com/HRussellZFAC023/kotoba-reader/releases
+Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
-Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
+Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
 ## [0.4.1] - 2026-05-12
 

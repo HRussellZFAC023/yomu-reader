@@ -19,7 +19,7 @@ import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr'
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { mergeSimilarKanjiWords, renderKanjiOrigins, renderPitch, summarizeLearnerGlossary } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
-import { ReaderParser } from '../../src/reader/reader-parser';
+import { ReaderParser, fallbackLookupTermAtOffset } from '../../src/reader/reader-parser';
 import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveWordHighlightMode, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { detectGrammarHints } from '../../src/reader/study-tools';
@@ -175,13 +175,35 @@ describe('reader helpers', () => {
             .toContain('<rt class="jpdb-reader-furi">かんじ</rt>');
     });
 
+    it('creates a useful fallback card before JPDB or dictionaries are configured', () => {
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: { getCard: vi.fn(() => undefined) } as never,
+            dictionaries: {} as never,
+        });
+
+        const card = parser.fallbackCardFromText(' 日本語がある場所ならどこでも ');
+
+        expect(card).toMatchObject({
+            spelling: '日本語がある場所ならどこでも',
+            reading: '日本語がある場所ならどこでも',
+            source: 'fallback',
+            meanings: [],
+            cardState: ['not-in-deck'],
+        });
+        expect(parser.getCachedCard(card.vid, card.sid)).toBe(card);
+        expect(fallbackLookupTermAtOffset('日本語がある場所ならどこでも', 1)).toBe('日本語');
+        expect(fallbackLookupTermAtOffset('日本語がある場所ならどこでも', 5)).toBe('がある');
+        expect(fallbackLookupTermAtOffset('辞書カード', 3)).toBe('カード');
+    });
+
     it('formats Yomitan-compatible audio URLs', () => {
         expect(formatAudioUrl('http://x.test/?term={term}&reading={reading}&language={language}', card))
             .toBe('http://x.test/?term=%E9%A3%9F%E3%81%B9%E3%82%8B&reading=%E3%81%9F%E3%81%B9%E3%82%8B&language=ja');
     });
 
     it('recognizes the Yomu new tab URL and adjusts accent colors for contrast', () => {
-        expect(isYomuNewTabUrl('https://hrussellzfac023.github.io/kotoba-reader/newtab/')).toBe(true);
+        expect(isYomuNewTabUrl('https://hrussellzfac023.github.io/yomu-reader/newtab/')).toBe(true);
         expect(isYomuNewTabUrl('https://example.com/?yomu-newtab=1')).toBe(true);
         expect(isYomuNewTabUrl('https://example.com/reader')).toBe(false);
         expect(buildNewTabPalette('#ffb6c1').accentText).not.toBe('#ffb6c1');
