@@ -1875,6 +1875,7 @@ export class ReaderApp {
                 targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             });
             this.preloadImmersionKitForTokens(parsed.flat());
+            this.preloadAudioForTokens(parsed.flat());
             void this.enrichAnkiWords(parsed.flat());
             log.debugThrottled('visible-page-scan-applied', 2500, 'Visible page scan applied tokens', {
                 targets: targets.length,
@@ -1902,6 +1903,7 @@ export class ReaderApp {
                 targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             });
             this.preloadImmersionKitForTokens(parsed.flat());
+            this.preloadAudioForTokens(parsed.flat());
             void this.enrichAnkiWords(parsed.flat());
             log.debugThrottled('asb-scan', 2500, 'ASB subtitles scanned', {
                 targets: targets.length,
@@ -2077,7 +2079,7 @@ export class ReaderApp {
         });
         this.repositionActivePopover();
         void this.parsePopoverJapanese(popover);
-        void this.loadImmersionKitExamples(popover, card);
+        void this.loadImmersionKitExamples(popover, card, trigger);
         this.installStudyTranslationLoader(popover, sentence);
         done();
     }
@@ -2832,7 +2834,10 @@ export class ReaderApp {
                 <summary class="jpdb-reader-local-title">Translation</summary>
                 <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
                     <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
-                        <div class="jpdb-reader-study-label">Japanese</div>
+                        <div class="jpdb-reader-study-label-row">
+                            <div class="jpdb-reader-study-label">Japanese</div>
+                            <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="Read sentence aloud" aria-label="Read sentence aloud">${speakerIcon()}</button>
+                        </div>
                         <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
                     </div>
                     <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
@@ -2899,7 +2904,7 @@ export class ReaderApp {
         }
     }
 
-    private async loadImmersionKitExamples(popover: HTMLElement, card: JPDBCard): Promise<void> {
+    private async loadImmersionKitExamples(popover: HTMLElement, card: JPDBCard, trigger: 'modal' | 'hover' = 'modal'): Promise<void> {
         const container = popover.querySelector<HTMLElement>('[data-immersion-kit]');
         if (!container) return;
 
@@ -2932,16 +2937,15 @@ export class ReaderApp {
                 if (action === 'next') render(index + 1, this.settings.immersionKitAutoPlayAudio);
                 if (action === 'audio') void this.playImmersionKitExample(examples[index]);
             });
-            container.addEventListener('pointerover', event => {
+            container.addEventListener('pointerenter', event => {
                 if (hoverAudioPlayed || !this.settings.immersionKitPlayOnHover) return;
                 const canHover = window.matchMedia?.('(hover: hover)').matches ?? true;
                 if (event.pointerType === 'touch' || !canHover) return;
-                const cardElement = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-example-card');
-                if (!cardElement || cardElement.contains(event.relatedTarget as Node | null)) return;
+                if (container.contains(event.relatedTarget as Node | null)) return;
                 hoverAudioPlayed = true;
                 void this.playImmersionKitExample(examples[index], true);
             });
-            render(index, this.settings.immersionKitAutoPlayAudio);
+            render(index, trigger !== 'hover' && this.settings.immersionKitAutoPlayAudio);
         } catch (error) {
             log.warn('Immersion Kit examples failed', { term: card.spelling }, error);
             if (!popover.isConnected || !container.isConnected) return;
@@ -3184,7 +3188,6 @@ export class ReaderApp {
             this.audio.stop();
             const src = await this.immersionKit.fetchBlobUrl(urls, this.settings.audioTimeoutMs);
             if (requestId !== this.immersionKitAudioRequestId || this.immersionKitAudioKey !== url) {
-                URL.revokeObjectURL(src);
                 return;
             }
 
@@ -3224,10 +3227,7 @@ export class ReaderApp {
         this.immersionKitAudio = undefined;
         this.immersionKitAudioKey = '';
         this.immersionKitAudioLoadingKey = '';
-        if (this.immersionKitAudioBlobUrl) {
-            URL.revokeObjectURL(this.immersionKitAudioBlobUrl);
-            this.immersionKitAudioBlobUrl = undefined;
-        }
+        this.immersionKitAudioBlobUrl = undefined;
     }
 
     private isImmersionKitAudioBusy(key: string): boolean {
@@ -3246,6 +3246,7 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             const tokens = parsed.flat();
+            this.preloadAudioForTokens(tokens);
             void this.enrichAnkiWords(tokens);
             log.debug('Popover nested text parsed', { targets: targets.length, tokens: tokens.length });
         } catch (error) {
@@ -3284,6 +3285,21 @@ export class ReaderApp {
         if (queued) log.debugThrottled('immersion-preload', 2500, 'Immersion Kit preloads queued', { queued });
     }
 
+    private preloadAudioForTokens(tokens: JPDBToken[]): void {
+        if (!this.settings.audioEnabled) return;
+        let queued = 0;
+        const seen = new Set<string>();
+        for (const token of tokens) {
+            const key = cardKey(token.card);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            this.audio.preload(token.card);
+            queued++;
+            if (queued >= 8) break;
+        }
+        if (queued) log.debugThrottled('audio-preload', 2500, 'Audio preloads queued', { queued });
+    }
+
     private renderJpdbDefinitionSource(card: JPDBCard): string {
         const meanings = card.meanings.slice(0, 6)
             .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning.glosses.join('; '))}</div>`)
@@ -3297,53 +3313,63 @@ export class ReaderApp {
         `;
     }
 
-    private renderLocalDefinitionSource(dictionary: string, entries: YomitanTermEntry[], reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
-        if (!entries.length) return '';
-        const groups = groupTermEntriesByHeadword(entries);
-        const status = this.localDefinitionSourceStatus(groups);
-        const title = [this.dictionaryLabel(dictionary), status].filter(Boolean).join(' · ');
-        return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-source-card" data-source="${escapeHtml(dictionary)}" data-dictionary="${escapeHtml(dictionary)}" ${this.dictionarySourceAttributes(this.localDictionaryStateKey(dictionary))}>
-                <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
-                    <span>${escapeHtml(this.dictionaryLabel(dictionary))}</span>
-                    ${status ? `<span class="jpdb-reader-source-status">${escapeHtml(status)}</span>` : ''}
-                </summary>
-                <div class="jpdb-reader-local-terms">
-                    ${groups.map(group => this.renderLocalTermGroup(dictionary, group, reference)).join('')}
-                </div>
-            </details>
-        `;
-    }
-
     private renderLocalDefinitionSourcesSection(dictionaries: string[], grouped: Map<string, YomitanTermEntry[]>, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
-        const dictionaryCards = dictionaries
-            .map(dictionary => this.renderLocalDefinitionSource(dictionary, grouped.get(dictionary) ?? [], reference))
+        const groupsByDictionary = dictionaries
+            .map(dictionary => ({
+                dictionary,
+                groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []),
+            }))
+            .filter(source => source.groups.length);
+        const dictionarySections = groupsByDictionary
+            .map(source => this.renderLocalDictionaryGroup(source.dictionary, source.groups, reference))
             .filter(Boolean);
-        if (!dictionaryCards.length) return '';
+        if (!dictionarySections.length) return '';
         const language = this.settings.interfaceLanguage;
-        const sourceCount = dictionaryCards.length;
+        const sourceCount = groupsByDictionary.length;
+        const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
+        const status = [
+            `${sourceCount} source${sourceCount === 1 ? '' : 's'}`,
+            `${termCount} entr${termCount === 1 ? 'y' : 'ies'}`,
+        ].join(' · ');
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${this.dictionarySourceAttributes(this.definitionSourceStateKey(LOCAL_DICTIONARIES_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">
                     <span>${uiText(language, 'dictionaries')}</span>
-                    <span class="jpdb-reader-source-status">${sourceCount} source${sourceCount === 1 ? '' : 's'}</span>
+                    <span class="jpdb-reader-source-status">${escapeHtml(status)}</span>
                 </summary>
                 <div class="jpdb-reader-dictionary-source-list">
-                    ${dictionaryCards.join('')}
+                    ${dictionarySections.join('')}
                 </div>
             </details>
         `;
     }
 
-    private renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
+    private renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
+        const entryCount = groups.length;
+        return `
+            <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${this.dictionarySourceAttributes(this.localDictionaryStateKey(dictionary))}>
+                <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(this.dictionaryLabel(dictionary))}">
+                    <span>${escapeHtml(this.dictionaryLabel(dictionary))}</span>
+                    <span class="jpdb-reader-source-status">${entryCount} entr${entryCount === 1 ? 'y' : 'ies'}</span>
+                </summary>
+                <div class="jpdb-reader-local-terms">
+                    ${groups.map(group => this.renderLocalTermGroup(dictionary, group, reference, { showDictionaryTag: false })).join('')}
+                </div>
+            </details>
+        `;
+    }
+
+    private renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>, options: { showDictionaryTag?: boolean } = {}): string {
         const repeatsLookupHeadword = Boolean(reference)
             && group.expression === reference?.spelling
             && (!reference.reading || group.reading === reference.reading || group.reading === group.expression);
         const tags = localTermTags(group.entries);
-        const tagHtml = `<div class="jpdb-reader-local-tags">
-            <span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(this.dictionaryLabel(dictionary))}</span>
-            ${tags.map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`).join('')}
-        </div>`;
+        const showDictionaryTag = options.showDictionaryTag ?? true;
+        const tagItems = [
+            showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(this.dictionaryLabel(dictionary))}</span>` : '',
+            ...tags.map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`),
+        ].filter(Boolean);
+        const tagHtml = tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
         const showFullGlossary = group.entries.some(entry => this.hasAdditionalLocalDictionaryText(entry));
         const meaningHtml = showFullGlossary
             ? this.renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false })
@@ -3405,18 +3431,6 @@ export class ReaderApp {
             if (!text || text === summary) return false;
             return HAS_JAPANESE.test(text);
         });
-    }
-
-    private localDefinitionSourceStatus(groups: LearnerTermGroup[]): string {
-        const senseCount = groups.reduce((count, group) => count + (group.meanings.length || group.entries.length), 0);
-        const wordCount = groups.length;
-        const wordLabel = `${wordCount} ${uiText(this.settings.interfaceLanguage, wordCount === 1 ? 'localWordSingular' : 'localWordPlural')}`;
-        const senseLabel = senseCount > 0
-            ? `${senseCount} ${uiText(this.settings.interfaceLanguage, senseCount === 1 ? 'localSenseSingular' : 'localSensePlural')}`
-            : '';
-        if (wordCount > 1 && senseLabel && senseCount !== wordCount) return `${wordLabel} · ${senseLabel}`;
-        if (wordCount > 1) return wordLabel;
-        return senseLabel;
     }
 
     private renderKanjiDefinitions(entries: YomitanKanjiEntry[]): string {
@@ -3666,6 +3680,9 @@ export class ReaderApp {
             case 'study-grammar':
                 await this.renderStudyToolResult(button, action, sentence);
                 return false;
+            case 'study-read-sentence':
+                await this.playSentenceAudio(sentence);
+                return false;
             case 'copy-word':
                 await copyText(card.spelling);
                 this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord'));
@@ -3833,6 +3850,17 @@ export class ReaderApp {
             log.warn('Term audio playback failed', { term: card.spelling }, error);
             this.toast(error instanceof Error ? error.message : 'Audio playback failed.');
         }
+    }
+
+    private async playSentenceAudio(sentence?: string): Promise<void> {
+        const text = sentence?.trim();
+        if (!text) throw new Error('No sentence to read aloud.');
+        const voice = this.settings.audioSources.find(source =>
+            source.enabled && (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') && source.voice.trim()
+        )?.voice.trim() ?? '';
+        this.stopImmersionKitAudio();
+        await this.audio.playJapaneseText(text, voice);
+        log.debug('Sentence text-to-speech playback started', { sentenceLength: text.length, voice: voice || 'auto' });
     }
 
     private showSettings(panel?: string): void {
@@ -4299,7 +4327,16 @@ export class ReaderApp {
         popover.setAttribute('aria-modal', 'true');
         popover.tabIndex = -1;
         if (this.shouldUseSheet()) popover.classList.add('jpdb-reader-sheet');
+        else this.applyPopoverSizeSettings(popover);
         return popover;
+    }
+
+    private applyPopoverSizeSettings(popover: HTMLElement): void {
+        popover.style.width = `${this.settings.popoverWidth}px`;
+    }
+
+    private getPopoverMaxHeightSetting(): number | undefined {
+        return this.settings.popoverHeightMode === 'fixed' ? this.settings.popoverHeight : undefined;
     }
 
     private mountPopover(
@@ -4374,7 +4411,10 @@ export class ReaderApp {
             this.activePopover,
             this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined,
             this.activePopoverAnchorRect,
-            { followPoint: shouldFollowPointer ? this.hoverPopoverPointerPosition : undefined },
+            {
+                followPoint: shouldFollowPointer ? this.hoverPopoverPointerPosition : undefined,
+                maxHeight: this.getPopoverMaxHeightSetting(),
+            },
         );
     }
 
@@ -4390,7 +4430,9 @@ export class ReaderApp {
         const left = Math.max(margin, Math.min(rect.left, maxLeft));
         popover.style.left = `${left}px`;
         popover.style.top = `${top}px`;
-        popover.style.maxHeight = `${Math.max(minHeight, viewportHeight - top - margin)}px`;
+        const configuredMaxHeight = this.getPopoverMaxHeightSetting();
+        const availableHeight = Math.max(minHeight, viewportHeight - top - margin);
+        popover.style.maxHeight = `${configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight}px`;
     }
 
     private installDictionarySourceStateTracking(popover: HTMLElement): void {
@@ -4549,6 +4591,8 @@ export class ReaderApp {
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
         this.hoverLookupInFlightKey = '';
+        this.audio.stop();
+        this.stopImmersionKitAudio();
         const suppressTarget = this.activePopoverMode === 'hover' ? this.activeHoverWord : this.activePopoverAnchor;
         if (options.suppressHoverTarget && suppressTarget?.isConnected && suppressTarget.classList.contains('jpdb-reader-word')) {
             this.suppressedHoverWord = suppressTarget;

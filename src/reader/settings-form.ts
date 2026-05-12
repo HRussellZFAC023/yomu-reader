@@ -85,6 +85,9 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
                     ${select('theme', 'Theme', settings.theme, [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']])}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
+                    ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
+                    ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
+                    ${select('popoverHeightMode', 'Popover height', settings.popoverHeightMode, [['available', 'Grow to available space'], ['fixed', 'Use height setting']])}
                     ${checkbox('enableLogging', 'Enable console logging', settings.enableLogging)}
                     ${input('accentColor', 'Accent color', sanitizeAccentColor(settings.accentColor), 'color')}
                 </div>
@@ -405,6 +408,9 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['interfaceLanguage', 'settingsLanguage'],
         ['theme', 'theme'],
         ['popupMode', 'popupMode'],
+        ['popoverWidth', 'popoverWidth'],
+        ['popoverHeight', 'popoverHeight'],
+        ['popoverHeightMode', 'popoverHeightMode'],
         ['enableLogging', 'enableLogging'],
         ['accentColor', 'accentColor'],
         ['newTabEnabled', 'newTabEnabled'],
@@ -552,6 +558,10 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('auto')],
         ['sheet', text('bottomSheet')],
         ['popover', text('popover')],
+    ]);
+    setSelectOptionLabels(form, 'popoverHeightMode', [
+        ['available', text('popoverHeightAvailable')],
+        ['fixed', text('popoverHeightFixed')],
     ]);
     setSelectOptionLabels(form, 'wordHighlightMode', [
         ['auto', text('automatic')],
@@ -1476,6 +1486,9 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         enableLogging: has('enableLogging'),
         theme: get('theme') as ReaderSettings['theme'],
         popupMode: get('popupMode') as ReaderSettings['popupMode'],
+        popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
+        popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
+        popoverHeightMode: get('popoverHeightMode') === 'fixed' ? 'fixed' : 'available',
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',

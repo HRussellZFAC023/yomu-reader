@@ -287,6 +287,9 @@ export interface ReaderSettings {
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
+    popoverWidth: number;
+    popoverHeight: number;
+    popoverHeightMode: 'available' | 'fixed';
     miningDeck: string;
     jpdbMiningEnabled: boolean;
     neverForgetDeck: string;

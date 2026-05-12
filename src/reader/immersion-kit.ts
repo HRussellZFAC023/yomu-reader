@@ -4,6 +4,7 @@ import { getUserscriptHttpRequest } from './userscript';
 
 const API_BASE = 'https://apiv2.immersionkit.com';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
+const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const log = Logger.scope('ImmersionKit');
 
 const TITLE_OVERRIDES: Record<string, string> = {
@@ -24,6 +25,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
     demon_slayer: 'Demon Slayer',
     sound__euphonium: 'Sound! Euphonium',
     god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
+    re_zero___starting_life_in_another_world: 'Re Zero − Starting Life in Another World',
 };
 
 export interface ImmersionKitExample {
@@ -44,6 +46,7 @@ export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
     private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
     private preloadKeys = new Set<string>();
+    private mediaBlobUrlCache = new Map<string, { expiresAt: number; promise: Promise<string> }>();
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
         const query = term.trim();
@@ -142,8 +145,6 @@ export class ImmersionKitClient {
                                 const image = new Image();
                                 image.decoding = 'async';
                                 image.loading = 'eager';
-                                image.onload = () => window.setTimeout(() => URL.revokeObjectURL(url), 30000);
-                                image.onerror = () => URL.revokeObjectURL(url);
                                 image.src = url;
                             })
                             .catch(error => log.debug('Preload image failed quietly', { query, sourceTitle: example.sourceTitle }, error));
@@ -152,7 +153,7 @@ export class ImmersionKitClient {
                     const soundUrls = this.mediaUrls(example, 'sound');
                     if (soundUrls.length) {
                         void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs)
-                            .then(url => window.setTimeout(() => URL.revokeObjectURL(url), 30000))
+                            .then(() => undefined)
                             .catch(error => log.debug('Preload audio failed quietly', { query, sourceTitle: example.sourceTitle }, error));
                     }
                 }
@@ -161,9 +162,34 @@ export class ImmersionKitClient {
     }
 
     async fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string> {
-        const blob = await requestFirstBlob(url, timeoutMs);
-        log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
-        return URL.createObjectURL(blob);
+        const urls = Array.isArray(url) ? url : [url];
+        const key = urls.join('\u0001');
+        const now = Date.now();
+        const cached = this.mediaBlobUrlCache.get(key);
+        if (cached && cached.expiresAt > now) {
+            log.debug('Blob URL cache hit', { host: safeHost(url) });
+            return cached.promise;
+        }
+
+        let promise!: Promise<string>;
+        promise = requestFirstBlob(url, timeoutMs)
+            .then(blob => {
+                const blobUrl = URL.createObjectURL(blob);
+                log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
+                const timeout = window.setTimeout(() => {
+                    if (this.mediaBlobUrlCache.get(key)?.promise !== promise) return;
+                    this.mediaBlobUrlCache.delete(key);
+                    URL.revokeObjectURL(blobUrl);
+                }, MEDIA_BLOB_CACHE_TTL_MS);
+                (timeout as unknown as { unref?: () => void }).unref?.();
+                return blobUrl;
+            })
+            .catch(error => {
+                if (this.mediaBlobUrlCache.get(key)?.promise === promise) this.mediaBlobUrlCache.delete(key);
+                throw error;
+            });
+        this.mediaBlobUrlCache.set(key, { expiresAt: now + MEDIA_BLOB_CACHE_TTL_MS, promise });
+        return promise;
     }
 
     async fetchDataUrl(url: string | string[], timeoutMs: number): Promise<string> {

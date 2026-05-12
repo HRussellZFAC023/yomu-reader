@@ -11,16 +11,17 @@ const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-1
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
+const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const log = Logger.scope('Audio');
 
 export class AudioPlayer {
     private current?: HTMLAudioElement;
     private utterance?: SpeechSynthesisUtterance;
     private fallbackChimeContext?: AudioContext;
-    private lastBlobUrl?: string;
     private playRequestId = 0;
     private shuffledAudio = new ShuffledAudioDeck();
     private candidateCache = new Map<string, { expiresAt: number; promise: Promise<AudioCandidate[]> }>();
+    private blobUrlCache = new Map<string, { expiresAt: number; promise: Promise<string> }>();
 
     constructor(private getSettings: () => ReaderSettings) {}
 
@@ -63,10 +64,45 @@ export class AudioPlayer {
         await this.playMissingAudioFallback(settings, requestId);
     }
 
+    preload(card: JPDBCard): void {
+        const settings = this.getSettings();
+        if (!settings.audioEnabled) return;
+        const sources = getOrderedAudioSources(settings)
+            .filter(source => source.type !== 'text-to-speech' && source.type !== 'text-to-speech-reading')
+            .slice(0, 2);
+        if (!sources.length) return;
+
+        for (const source of sources) {
+            void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs)
+                .then(candidates => {
+                    const triedUrls = new Set<string>();
+                    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, 2)) {
+                        const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
+                        if (triedUrls.has(candidateKey)) continue;
+                        triedUrls.add(candidateKey);
+                        void this.prepareAudioUrl(candidate, settings.audioTimeoutMs, settings.audioSelectionMode)
+                            .catch(error => log.debug('Audio preload failed quietly', { source: source.type, term: card.spelling, sourceHost: safeHost(candidate.sourceUrl) }, error));
+                    }
+                })
+                .catch(error => log.debug('Audio candidate preload failed quietly', { source: source.type, term: card.spelling }, error));
+        }
+    }
+
     stop(): void {
         this.playRequestId++;
         this.stopCurrent();
         log.debug('Audio stopped');
+    }
+
+    async playJapaneseText(text: string, voiceName = ''): Promise<void> {
+        const requestId = ++this.playRequestId;
+        const trimmed = text.trim();
+        if (!trimmed) throw new Error('No text to read aloud.');
+
+        this.stopCurrent();
+        await this.playTextToSpeech(trimmed, voiceName);
+        if (requestId !== this.playRequestId) this.stopCurrent();
+        log.debug('Japanese text-to-speech playback started', { textLength: trimmed.length, voice: voiceName || 'auto' });
     }
 
     private stopCurrent(): void {
@@ -79,10 +115,6 @@ export class AudioPlayer {
         if (this.fallbackChimeContext) {
             void this.fallbackChimeContext.close().catch(() => undefined);
             this.fallbackChimeContext = undefined;
-        }
-        if (this.lastBlobUrl) {
-            URL.revokeObjectURL(this.lastBlobUrl);
-            this.lastBlobUrl = undefined;
         }
     }
 
@@ -105,9 +137,7 @@ export class AudioPlayer {
             }
             triedUrls.add(candidateKey);
             try {
-                const audioUrl = shouldFetchCandidateAsBlob(candidate)
-                    ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode)
-                    : candidate.url;
+                const audioUrl = await this.prepareAudioUrl(candidate, settings.audioTimeoutMs, settings.audioSelectionMode);
                 if (requestId !== this.playRequestId) return true;
                 await this.playAudioUrl(audioUrl, requestId);
                 this.shuffledAudio.markPlayed(bagKey, id);
@@ -118,6 +148,40 @@ export class AudioPlayer {
             }
         }
         return false;
+    }
+
+    private prepareAudioUrl(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
+        if (!shouldFetchCandidateAsBlob(candidate)) return Promise.resolve(candidate.url);
+
+        const key = [
+            normalizeAttemptedAudioUrl(candidate.url),
+            normalizeAttemptedAudioUrl(candidate.sourceUrl),
+            mode,
+        ].join('\u0001');
+        const now = Date.now();
+        const cached = this.blobUrlCache.get(key);
+        if (cached && cached.expiresAt > now) {
+            log.debug('Audio blob cache hit', { sourceHost: safeHost(candidate.sourceUrl) });
+            return cached.promise;
+        }
+
+        let promise!: Promise<string>;
+        promise = this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode)
+            .then(blobUrl => {
+                const timeout = window.setTimeout(() => {
+                    if (this.blobUrlCache.get(key)?.promise !== promise) return;
+                    this.blobUrlCache.delete(key);
+                    URL.revokeObjectURL(blobUrl);
+                }, AUDIO_BLOB_CACHE_TTL_MS);
+                (timeout as unknown as { unref?: () => void }).unref?.();
+                return blobUrl;
+            })
+            .catch(error => {
+                if (this.blobUrlCache.get(key)?.promise === promise) this.blobUrlCache.delete(key);
+                throw error;
+            });
+        this.blobUrlCache.set(key, { expiresAt: now + AUDIO_BLOB_CACHE_TTL_MS, promise });
+        return promise;
     }
 
     private async playAudioUrl(audioUrl: string, requestId: number): Promise<void> {
@@ -161,9 +225,9 @@ export class AudioPlayer {
         if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
             throw new Error('JapanesePod101 has no audio for this term.');
         }
-        this.lastBlobUrl = URL.createObjectURL(response);
+        const blobUrl = URL.createObjectURL(response);
         log.debug('Audio blob URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size });
-        return this.lastBlobUrl;
+        return blobUrl;
     }
 
     private playTextToSpeech(text: string, voiceName: string): Promise<void> {

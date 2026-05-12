@@ -1418,42 +1418,55 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary + .jpdb-reader-local-terms {
   padding-top: 0;
 }
-.jpdb-reader-dictionary-source-list {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 7px;
-}
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-card {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  padding: 0;
-  overflow: hidden;
-}
-.jpdb-reader-source-card > summary.jpdb-reader-dictionary-source-title {
-  min-height: 36px;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 78%, var(--jpdb-reader-surface-2));
-  font-size: 12px;
-  text-transform: none;
-}
-.jpdb-reader-dictionary-source-card[open] > summary.jpdb-reader-dictionary-source-title {
-  border-bottom: 1px solid var(--jpdb-reader-border);
-}
+.jpdb-reader-dictionary-source-list,
 .jpdb-reader-dictionaries-section .jpdb-reader-local-terms {
   gap: 0;
   margin-top: 0;
   padding: 0;
 }
+.jpdb-reader-dictionary-source-list {
+  display: grid;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group {
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding: 0;
+  overflow: visible;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child {
+  border-top: 0;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+  padding: 6px 0;
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+  line-height: 1;
+}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open] > .jpdb-reader-dictionary-source-title::after {
+  content: "-";
+}
 .jpdb-reader-dictionaries-section .jpdb-reader-local-term {
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 8px 10px;
+  padding: 7px 0 8px;
 }
-.jpdb-reader-dictionaries-section .jpdb-reader-local-term + .jpdb-reader-local-term {
+.jpdb-reader-dictionaries-section .jpdb-reader-local-term + .jpdb-reader-local-term,
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title + .jpdb-reader-local-terms {
   border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-study-source > .jpdb-reader-study-panel {
@@ -1498,15 +1511,15 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-local-expression {
   min-width: 0;
   color: var(--jpdb-reader-text);
-  font-size: 18px;
-  line-height: 1.15;
+  font-size: 16px;
+  line-height: 1.25;
   font-weight: 850;
 }
 .jpdb-reader-local-reading,
 .jpdb-reader-local-dict {
   color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 650;
 }
 .jpdb-reader-local-dict {
   margin-left: auto;
@@ -1526,10 +1539,13 @@ button.jpdb-reader-action-pill {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin: 0 0 5px;
+  margin: 0 0 4px;
 }
 .jpdb-reader-local-head + .jpdb-reader-local-tags {
-  margin-top: 7px;
+  margin-top: 5px;
+}
+.jpdb-reader-local-tags:empty {
+  display: none;
 }
 .jpdb-reader-dict-tag {
   display: inline-flex;
@@ -1574,7 +1590,7 @@ button.jpdb-reader-action-pill {
   text-align: right;
 }
 .jpdb-reader-local-glossary {
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--jpdb-reader-text);
   font-size: 13px;
   white-space: normal;
@@ -1661,6 +1677,31 @@ button.jpdb-reader-action-pill {
   display: inline;
   white-space: normal;
   line-height: var(--line-height);
+}
+.jpdb-reader-local-glossary ruby {
+  display: inline-flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 100%;
+  margin: 0 0.03em;
+  color: inherit;
+  line-height: 1.08;
+  text-align: center;
+  vertical-align: text-bottom;
+  white-space: nowrap;
+}
+.jpdb-reader-local-glossary rt {
+  display: block;
+  color: var(--jpdb-reader-muted);
+  font-size: 0.56em;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+.jpdb-reader-local-glossary rp {
+  display: none;
 }
 .jpdb-reader-local-glossary :is(.gloss-sc-div, .gloss-sc-ul, .gloss-sc-ol, .gloss-sc-li, .gloss-sc-details) {
   white-space: normal;
@@ -2379,6 +2420,21 @@ button.jpdb-reader-action-pill {
   letter-spacing: 0;
   line-height: 1.2;
   text-transform: uppercase;
+}
+.jpdb-reader-study-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.jpdb-reader-study-label-row .jpdb-reader-icon-mini {
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
 }
 .jpdb-reader-study-original {
   margin: 0;
