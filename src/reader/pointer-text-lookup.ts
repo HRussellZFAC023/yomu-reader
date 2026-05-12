@@ -22,6 +22,18 @@ const POINTER_TEXT_SKIP_SELECTOR = [
     '[data-jpdb-reader-root]',
 ].join(',');
 const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
+const YOUTUBE_METADATA_SELECTOR = [
+    '#metadata',
+    '#metadata-line',
+    '#metadata-text',
+    '#video-info',
+    '#stats',
+    'ytd-video-meta-block',
+    'yt-content-metadata-view-model',
+    '.inline-metadata-item',
+    '.badge-style-type-simple',
+].join(',');
+const METADATA_TOKEN_RE = /^(?:[\d０-９][\d０-９,.，]*\s*)?(?:万|億)?(?:回視聴|視聴|再生|回再生|件|コメント|高評価|日前|時間前|分前|秒前|か月前|ヶ月前|週間前|年前|ライブ配信中|新着)$/u;
 
 export interface PointerTextLookup {
     text: string;
@@ -74,6 +86,19 @@ export function pointerTextCharacterOffset(node: Text, caretOffset: number, x: n
     const candidates = [clamped, clamped - 1, clamped + 1]
         .filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
     return candidates.find(offset => textCharacterContainsPoint(node, offset, x, y)) ?? null;
+}
+
+export function isLowValuePointerText(text: string, parent?: HTMLElement | null): boolean {
+    const compact = text.replace(/\s+/g, '');
+    if (!compact) return true;
+    if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
+
+    const parts = compact
+        .split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u)
+        .map(part => part.trim())
+        .filter(Boolean);
+    if (!parts.length) return false;
+    return parts.every(part => METADATA_TOKEN_RE.test(part));
 }
 
 function isPointerTextParentEligible(parent: HTMLElement): boolean {

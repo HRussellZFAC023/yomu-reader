@@ -1138,7 +1138,7 @@ export function syncSubtitlePreview(form: HTMLFormElement): void {
     preview.style.setProperty('--subtitle-outline', sanitizeAccentColor(value('subtitleOutlineColor', '#000000'), '#000000'));
     preview.style.setProperty(
         '--subtitle-background-rgba',
-        accentToRgba(sanitizeAccentColor(value('subtitleBackgroundColor', '#181b20'), '#181b20'), Math.max(0, Math.min(1, numberValue('subtitleBackgroundOpacity', 0.18)))),
+        accentToRgba(sanitizeAccentColor(value('subtitleBackgroundColor', '#181b20'), '#181b20'), Math.max(0, Math.min(1, numberValue('subtitleBackgroundOpacity', 0)))),
     );
     preview.style.setProperty('--subtitle-family', value('subtitleFontFamily', 'system-ui'));
     preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 760)))));

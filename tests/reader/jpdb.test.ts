@@ -30,7 +30,7 @@ import { definitionSourceRows } from '../../src/reader/source-sections';
 import { detectGrammarHints } from '../../src/reader/study-tools';
 import { READER_CSS } from '../../src/reader/styles';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
-import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
+import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText, readYouTubeCardVideoId } from '../../src/reader/youtube';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
@@ -174,6 +174,25 @@ function mockHtmlAudioPlayback(played: string[]): () => void {
         playSpy.mockRestore();
         pauseSpy.mockRestore();
         loadSpy.mockRestore();
+    };
+}
+
+function mockAppleMobileBrowser(): () => void {
+    const ownUserAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+    const ownPlatform = Object.getOwnPropertyDescriptor(navigator, 'platform');
+    Object.defineProperty(navigator, 'userAgent', {
+        configurable: true,
+        value: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
+    });
+    Object.defineProperty(navigator, 'platform', {
+        configurable: true,
+        value: 'iPad',
+    });
+    return () => {
+        if (ownUserAgent) Object.defineProperty(navigator, 'userAgent', ownUserAgent);
+        else delete (navigator as unknown as Record<string, unknown>).userAgent;
+        if (ownPlatform) Object.defineProperty(navigator, 'platform', ownPlatform);
+        else delete (navigator as unknown as Record<string, unknown>).platform;
     };
 }
 
@@ -885,7 +904,7 @@ describe('reader helpers', () => {
 
             await player.play(card);
 
-            expect(played).toEqual(['blob:http://localhost/audio.mp3']);
+            expect(played).toEqual(['http://x.test/audio.mp3']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -957,7 +976,7 @@ describe('reader helpers', () => {
             await player.play(card);
 
             expect(sourceRequests).toBe(1);
-            expect(played).toEqual(['blob:http://localhost/audio.mp3', 'blob:http://localhost/audio.mp3']);
+            expect(played).toEqual(['http://x.test/audio.mp3', 'http://x.test/audio.mp3']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -975,6 +994,7 @@ describe('reader helpers', () => {
     it('reuses preloaded audio blobs for immediate playback', async () => {
         const played: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
+        const restoreAppleMobile = mockAppleMobileBrowser();
         let blobRequests = 0;
         class FakeAudio {
             preload = '';
@@ -1032,6 +1052,7 @@ describe('reader helpers', () => {
                 value: originalRevokeObjectUrl,
             });
             restoreMedia();
+            restoreAppleMobile();
             vi.unstubAllGlobals();
         }
     });
@@ -1104,6 +1125,7 @@ describe('reader helpers', () => {
     it('plays custom audio candidates through userscript blob fetch', async () => {
         const played: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
+        const restoreAppleMobile = mockAppleMobileBrowser();
         class FakeAudio {
             preload = '';
             constructor(public src: string) {}
@@ -1169,6 +1191,7 @@ describe('reader helpers', () => {
                 value: originalRevokeObjectUrl,
             });
             restoreMedia();
+            restoreAppleMobile();
             vi.unstubAllGlobals();
         }
     });
@@ -1367,26 +1390,28 @@ describe('reader helpers', () => {
         const playSpy = vi.fn(async () => undefined);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            loadImmersionKitExamples(popover: HTMLElement, card: JPDBCard): Promise<void>;
-            searchImmersionKitExamples(card: JPDBCard): Promise<unknown>;
             parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
-            playImmersionKitExample(example: unknown, quiet?: boolean): Promise<void>;
-            immersionMediaUrls(example: unknown, kind: 'image' | 'sound'): string[];
+            immersionPopover: {
+                loadExamples(popover: HTMLElement, card: JPDBCard): Promise<void>;
+                searchExamples(card: JPDBCard): Promise<unknown>;
+                playExampleAudio(example: unknown, quiet?: boolean): Promise<void>;
+                mediaUrls(example: unknown, kind: 'image' | 'sound'): string[];
+            };
         };
         internals.settings = { ...DEFAULT_SETTINGS, immersionKitAutoPlayAudio: true, immersionKitShowImages: true };
-        internals.searchImmersionKitExamples = vi.fn(async () => ({
+        internals.immersionPopover.searchExamples = vi.fn(async () => ({
             examples: [example],
             query: '発音',
             usedFallback: false,
             triedQueries: ['発音'],
         }));
         internals.parseJapanese = vi.fn(async () => []);
-        internals.playImmersionKitExample = playSpy;
-        internals.immersionMediaUrls = vi.fn((_, kind) => kind === 'image'
+        internals.immersionPopover.playExampleAudio = playSpy;
+        internals.immersionPopover.mediaUrls = vi.fn((_, kind) => kind === 'image'
             ? ['https://media.test/bad.jpg', 'https://media.test/good.jpg']
             : ['https://media.test/line.mp3']);
 
-        await internals.loadImmersionKitExamples(popover, card);
+        await internals.immersionPopover.loadExamples(popover, card);
 
         const image = container.querySelector<HTMLImageElement>('[data-immersion-image]');
         expect(playSpy).not.toHaveBeenCalled();
@@ -1424,11 +1449,13 @@ describe('reader helpers', () => {
         const playSpy = vi.fn(async () => undefined);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            loadImmersionKitExamples(popover: HTMLElement, card: JPDBCard, trigger?: 'modal' | 'hover'): Promise<void>;
-            searchImmersionKitExamples(card: JPDBCard): Promise<unknown>;
             parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
-            playImmersionKitExample(example: unknown, quiet?: boolean): Promise<void>;
-            immersionMediaUrls(example: unknown, kind: 'image' | 'sound'): string[];
+            immersionPopover: {
+                loadExamples(popover: HTMLElement, card: JPDBCard): Promise<void>;
+                searchExamples(card: JPDBCard): Promise<unknown>;
+                playExampleAudio(example: unknown, quiet?: boolean, isCurrent?: () => boolean): Promise<void>;
+                mediaUrls(example: unknown, kind: 'image' | 'sound'): string[];
+            };
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -1436,17 +1463,17 @@ describe('reader helpers', () => {
             immersionKitPlayOnHover: true,
             immersionKitShowImages: true,
         };
-        internals.searchImmersionKitExamples = vi.fn(async () => ({
+        internals.immersionPopover.searchExamples = vi.fn(async () => ({
             examples: [example],
             query: '発音',
             usedFallback: false,
             triedQueries: ['発音'],
         }));
         internals.parseJapanese = vi.fn(async () => []);
-        internals.playImmersionKitExample = playSpy;
-        internals.immersionMediaUrls = vi.fn(() => ['https://media.test/line.mp3']);
+        internals.immersionPopover.playExampleAudio = playSpy;
+        internals.immersionPopover.mediaUrls = vi.fn(() => ['https://media.test/line.mp3']);
 
-        await internals.loadImmersionKitExamples(popover, card, 'hover');
+        await internals.immersionPopover.loadExamples(popover, card);
 
         expect(playSpy).not.toHaveBeenCalled();
         await new Promise(resolve => requestAnimationFrame(resolve));
@@ -1480,6 +1507,14 @@ describe('reader helpers', () => {
     it('defaults hover lookup to immediate open with a short close grace', () => {
         expect(DEFAULT_SETTINGS.hoverOpenDelayMs).toBe(0);
         expect(DEFAULT_SETTINGS.hoverCloseDelayMs).toBeLessThanOrEqual(100);
+    });
+
+    it('does not show subtitles by default until a track is selected', () => {
+        expect(DEFAULT_SETTINGS.subtitlePlayerEnabled).toBe(true);
+        expect(DEFAULT_SETTINGS.subtitleAutoDetect).toBe(true);
+        expect(DEFAULT_SETTINGS.subtitleOverlayVisible).toBe(false);
+        expect(DEFAULT_SETTINGS.subtitleSecondaryVisible).toBe(false);
+        expect(DEFAULT_SETTINGS.subtitleBackgroundOpacity).toBe(0);
     });
 
     it('positions hover popovers near the cursor without covering it', () => {
@@ -1592,6 +1627,35 @@ describe('reader helpers', () => {
         });
         withPointerTextLookupMock(srOnly.firstChild as Text, 0, [{ left: 20, top: 60, width: 40, height: 28 }], () => {
             expect(lookupCandidateFromPoint(app, 32, 70, srOnly)).toBeNull();
+        });
+    });
+
+    it('does not use YouTube video metadata counters for fallback pointer lookup', () => {
+        document.body.innerHTML = '<ytd-video-meta-block><span id="metadata-line">66万回視聴</span></ytd-video-meta-block>';
+        const metadata = document.querySelector('span')!;
+        const node = metadata.firstChild as Text;
+        const app = new ReaderApp();
+
+        withPointerTextLookupMock(node, 1, [{ left: 20, top: 20, width: 90, height: 24 }], () => {
+            expect(lookupCandidateFromPoint(app, 48, 30, metadata)).toBeNull();
+        });
+    });
+
+    it('does not use standalone metadata words for fallback pointer lookup', () => {
+        document.body.innerHTML = '<p>新着</p><p>新卒エンジニア</p>';
+        const [metadata, title] = Array.from(document.querySelectorAll('p'));
+        const app = new ReaderApp();
+
+        withPointerTextLookupMock(metadata.firstChild as Text, 0, [{ left: 20, top: 20, width: 36, height: 24 }], () => {
+            expect(lookupCandidateFromPoint(app, 28, 30, metadata)).toBeNull();
+        });
+        withPointerTextLookupMock(title.firstChild as Text, 0, [{ left: 20, top: 60, width: 120, height: 24 }], () => {
+            expect(lookupCandidateFromPoint(app, 28, 70, title)).toMatchObject({
+                text: '新卒エンジニア',
+                start: 0,
+                end: 7,
+                anchor: title,
+            });
         });
     });
 
@@ -2831,11 +2895,31 @@ describe('reader helpers', () => {
         expect(readPageCaptionText(video)).toBe('エンジニア プログラミング する');
     });
 
+    it('does not treat asbplayer helper DOM as page captions', () => {
+        document.body.innerHTML = `
+            <video></video>
+            <div class="asbplayer-offscreen">新卒エンジニア仕事</div>
+            <div class="asbplayer-subtitles-container-bottom"><span>新卒エンジニア仕事</span></div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 840, top: 0, bottom: 480, width: 840, height: 480 }),
+        });
+        for (const element of Array.from(document.querySelectorAll<HTMLElement>('div, span'))) {
+            Object.defineProperty(element, 'innerText', { value: element.textContent ?? '' });
+            Object.defineProperty(element, 'getBoundingClientRect', {
+                value: () => ({ left: 100, right: 740, top: 360, bottom: 420, width: 640, height: 60 }),
+            });
+        }
+
+        expect(readPageCaptionText(video)).toBe('');
+    });
+
     it('identifies Japanese-looking YouTube cards without showing English-only cards', () => {
         document.body.innerHTML = `
-            <ytd-rich-item-renderer><a id="video-title" aria-label="今日は花を見ます">今日は花を見ます</a></ytd-rich-item-renderer>
-            <ytd-rich-item-renderer><a id="video-title" aria-label="10 habits for learning Japanese">10 habits for learning Japanese</a></ytd-rich-item-renderer>
-            <ytd-rich-item-renderer><a id="video-title" aria-label="study with me">study with me</a><div id="channel-name">日本語チャンネル</div></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer><a id="video-title" href="/watch?v=jp" aria-label="今日は花を見ます">今日は花を見ます</a></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer><a id="video-title" href="/watch?v=en" aria-label="10 habits for learning Japanese">10 habits for learning Japanese</a></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer><a id="video-title" href="/watch?v=channel" aria-label="study with me">study with me</a><div id="channel-name">日本語チャンネル</div></ytd-rich-item-renderer>
         `;
         const cards = collectYouTubeVideoCards(document);
 
@@ -2843,6 +2927,50 @@ describe('reader helpers', () => {
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(true);
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(false);
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[2]))).toBe(false);
+    });
+
+    it('aligns YouTube title detection with NihongoTube kana filtering', () => {
+        expect(isProbablyJapaneseYouTubeText('アニメで日本語')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('東京日記')).toBe(false);
+        expect(isProbablyJapaneseYouTubeText('fypシ Japanese study')).toBe(false);
+        expect(isProbablyJapaneseYouTubeText('今日のアニメ感想☆')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('アニメ☆')).toBe(false);
+    });
+
+    it('collects current Shorts cards without treating the whole shelf as a video', () => {
+        document.body.innerHTML = `
+            <ytd-rich-shelf-renderer>
+                <ytm-shorts-lockup-view-model-v2 data-case="short-en">
+                    <a class="shortsLockupViewModelHostEndpoint" href="/shorts/en1">
+                        <h3 class="shortsLockupViewModelHostMetadataTitle"><span>English short</span></h3>
+                    </a>
+                </ytm-shorts-lockup-view-model-v2>
+                <ytm-shorts-lockup-view-model-v2 data-case="short-jp">
+                    <a class="shortsLockupViewModelHostEndpoint" href="/shorts/jp1">
+                        <h3 class="shortsLockupViewModelHostMetadataTitle"><span>日本語で話そう</span></h3>
+                    </a>
+                </ytm-shorts-lockup-view-model-v2>
+            </ytd-rich-shelf-renderer>
+        `;
+        const cards = collectYouTubeVideoCards(document);
+
+        expect(cards.map(card => card.dataset.case)).toEqual(['short-en', 'short-jp']);
+        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(false);
+        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(true);
+    });
+
+    it('extracts watch and Shorts ids for original-title lookups', () => {
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer data-case="watch"><a id="video-title" href="/watch?v=abc123&t=20">Translated title</a></ytd-rich-item-renderer>
+            <ytm-shorts-lockup-view-model-v2 data-case="short">
+                <a class="shortsLockupViewModelHostEndpoint" href="/shorts/short123?feature=share">
+                    <h3 class="shortsLockupViewModelHostMetadataTitle"><span>Translated short</span></h3>
+                </a>
+            </ytm-shorts-lockup-view-model-v2>
+        `;
+        const cards = collectYouTubeVideoCards(document);
+
+        expect(cards.map(card => readYouTubeCardVideoId(card))).toEqual(['abc123', 'short123']);
     });
 
     it('normalizes structured OCR responses for image overlays', () => {

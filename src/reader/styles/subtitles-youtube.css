@@ -10,7 +10,7 @@
   --subtitle-bottom: 12%;
   --subtitle-color: #fff;
   --subtitle-outline: #000;
-  --subtitle-background-rgba: rgba(24,27,32,.18);
+  --subtitle-background-rgba: transparent;
   --subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --subtitle-weight: 760;
 }
@@ -35,12 +35,10 @@
 }
 .jpdb-subtitle-primary {
   display: inline;
-  padding: .3em .36em .2em;
-  border-radius: 6px;
+  padding: 0 .06em;
+  border-radius: 3px;
   background: var(--subtitle-background-rgba);
-  box-shadow:
-    0 8px 22px rgba(0,0,0,.28),
-    0 1px 2px rgba(0,0,0,.34);
+  box-shadow: none;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   line-height: 1.58;
@@ -513,12 +511,26 @@
   overflow-wrap: anywhere;
   font-size: 13px;
 }
+.jpdb-subtitle-track-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.jpdb-subtitle-track-title span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.72);
+  font-size: 10px;
+  text-transform: uppercase;
+}
 .jpdb-subtitle-track-row span {
   color: rgba(255,255,255,.62);
   font-size: 11px;
   font-weight: 700;
 }
-.jpdb-subtitle-track-row div {
+.jpdb-subtitle-track-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
@@ -537,6 +549,15 @@
 .jpdb-subtitle-track-tools button {
   min-height: 36px;
   box-shadow: none;
+}
+.jpdb-subtitle-track-summary {
+  margin: 0 0 4px;
+  padding: 8px 9px;
+  border: 1px dashed rgba(255,255,255,.16);
+  border-radius: 8px;
+  color: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.025);
+  font: 750 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 .jpdb-subtitle-list-empty {
   padding: 12px;

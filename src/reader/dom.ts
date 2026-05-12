@@ -703,7 +703,7 @@ function shouldSuppressInjectedRuby(element: HTMLElement): boolean {
 
 function isClippedLineBox(element: HTMLElement): boolean {
     const style = getComputedStyle(element);
-    const webkitLineClamp = style.getPropertyValue('-webkit-line-clamp') || style.webkitLineClamp;
+    const webkitLineClamp = style.getPropertyValue('-webkit-line-clamp') || (style as CSSStyleDeclaration & { webkitLineClamp?: string }).webkitLineClamp;
     if (webkitLineClamp && webkitLineClamp !== 'none' && webkitLineClamp !== '0') return true;
 
     const overflow = `${style.overflow} ${style.overflowX} ${style.overflowY}`;
