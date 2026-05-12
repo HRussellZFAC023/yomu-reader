@@ -149,6 +149,7 @@ export class NewTabController {
 
     private bindRootEvents(root: HTMLElement): void {
         root.addEventListener('click', event => {
+            if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
             const target = event.target as HTMLElement;
             const action = target.closest<HTMLElement>('[data-newtab-action]')?.dataset.newtabAction;
             if (action === 'settings') {
@@ -185,6 +186,7 @@ export class NewTabController {
         });
 
         root.addEventListener('keydown', event => {
+            if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
             const target = event.target as HTMLElement | null;
             if (target?.matches('input, select, textarea')) return;
             if (event.key === 'ArrowRight' || event.key === 'n') {
