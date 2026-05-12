@@ -14,6 +14,7 @@ interface SubtitleTrackOption {
     id: string;
     label: string;
     kind: 'native' | 'file' | 'youtube';
+    language?: string;
     track?: TextTrack;
     cues?: SubtitleCue[];
     url?: string;
@@ -30,8 +31,6 @@ const CAPTION_SELECTOR_LIST = [
     '.caption-visual-line',
     '.captions-text span',
     '[data-purpose="captions-text"]',
-    '.asbplayer-subtitles-container-bottom span',
-    '.asbplayer-subtitle',
     '[class*="subtitle"]',
     '[class*="caption"]',
     '[data-testid*="subtitle"]',
@@ -201,13 +200,11 @@ export class SubtitlePlayerController {
         if (this.tracks.some(item => item.track === track)) return;
         const id = `native-${this.tracks.length}`;
         const label = track.label || track.language || `Subtitle ${this.tracks.length + 1}`;
-        this.tracks.push({ id, label, kind: 'native', track });
+        this.tracks.push({ id, label, kind: 'native', language: track.language, track });
         log.debug('Native subtitle track added', { id, label, language: track.language });
 
         track.addEventListener('cuechange', () => this.updateFromNativeTrack(track));
         window.setTimeout(() => {
-            if (!this.selectedTrackId && (isJapaneseTrack(label, track.language) || this.tracks.length === 1)) void this.selectTrack(id);
-            if (this.options.getSettings().subtitleSecondaryVisible && !this.secondaryTrackId && !isJapaneseTrack(label, track.language)) void this.selectSecondaryTrack(id);
             this.setNativeTrackModes();
             this.syncControls();
         }, 0);
@@ -306,6 +303,7 @@ export class SubtitlePlayerController {
 
     private updateFromDomCaptions(): void {
         if (this.cues.length || this.selectedTrackId) return;
+        if (!this.options.getSettings().subtitleOverlayVisible) return;
         const text = readPageCaptionText(this.video, this.root);
         if (!text || text === this.lastDomCaption) return;
 
@@ -544,15 +542,10 @@ export class SubtitlePlayerController {
 
         for (const track of tracks) {
             if (this.tracks.some(existing => existing.kind === 'youtube' && existing.url === track.url)) continue;
-            this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: 'youtube', url: track.url });
+            this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: 'youtube', language: track.language, url: track.url });
         }
         log.debug('YouTube caption tracks discovered', { tracks: tracks.length });
 
-        const primary = this.tracks.find(track => track.kind === 'youtube' && isJapaneseTrack(track.label))
-            ?? this.tracks.find(track => track.kind === 'youtube');
-        const secondary = this.tracks.find(track => track.kind === 'youtube' && !isJapaneseTrack(track.label));
-        if (primary && !this.selectedTrackId) await this.selectTrack(primary.id);
-        if (secondary && this.options.getSettings().subtitleSecondaryVisible && !this.secondaryTrackId) await this.selectSecondaryTrack(secondary.id);
         this.syncControls();
     }
 
@@ -916,6 +909,7 @@ export class SubtitlePlayerController {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'tracks') return;
         const tracks = this.tracks;
         const placement = this.options.getSettings().subtitleTranscriptPlacement;
+        const autoDetected = tracks.filter(track => track.kind === 'youtube' || track.kind === 'native').length;
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
@@ -927,16 +921,20 @@ export class SubtitlePlayerController {
                     <button type="button" data-action="load">Load Japanese subtitles</button>
                     <button type="button" data-action="load-secondary">Load native subtitles</button>
                 </div>
+                <div class="jpdb-subtitle-track-summary">${autoDetected ? `${autoDetected} auto-detected option${autoDetected === 1 ? '' : 's'}` : 'Auto-detected YouTube/native tracks will appear here.'}</div>
                 ${tracks.length ? tracks.map(track => `
                     <div class="jpdb-subtitle-track-row ${track.id === this.selectedTrackId || track.id === this.secondaryTrackId ? 'active' : ''}" data-track-id="${escapeHtml(track.id)}">
-                        <strong>${escapeHtml(track.label)}</strong>
-                        <span>${formatTrackKind(track.kind)}${track.id === this.selectedTrackId ? ' · Japanese overlay' : ''}${track.id === this.secondaryTrackId ? ' · native overlay' : ''}</span>
-                        <div>
-                            <button type="button" data-action="primary-track" aria-pressed="${track.id === this.selectedTrackId}">Japanese</button>
-                            <button type="button" data-action="secondary-track" aria-pressed="${track.id === this.secondaryTrackId}">Native</button>
+                        <div class="jpdb-subtitle-track-title">
+                            <strong>${escapeHtml(track.label)}</strong>
+                            <span>${escapeHtml(formatTrackKind(track.kind))}</span>
+                        </div>
+                        <span>${escapeHtml(track.language ? track.language.toUpperCase() : 'Detected')}${track.id === this.selectedTrackId ? ' · Japanese overlay' : ''}${track.id === this.secondaryTrackId ? ' · native overlay' : ''}</span>
+                        <div class="jpdb-subtitle-track-actions">
+                            <button type="button" data-action="primary-track" aria-pressed="${track.id === this.selectedTrackId}">Use as Japanese</button>
+                            <button type="button" data-action="secondary-track" aria-pressed="${track.id === this.secondaryTrackId}">Use as native</button>
                         </div>
                     </div>
-                `).join('') : '<div class="jpdb-subtitle-list-empty">No subtitle tracks found yet. Load a file, turn on captions, or play the video for a moment.</div>'}
+                `).join('') : '<div class="jpdb-subtitle-list-empty">No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.</div>'}
             </div>
             <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize subtitle tracks" aria-label="Resize subtitle tracks panel"></button>
         `);
@@ -1392,7 +1390,21 @@ function isLikelyCaptionElement(element: HTMLElement, video?: HTMLVideoElement, 
 function isCaptionElementExcluded(element: HTMLElement, readerRoot?: HTMLElement): boolean {
     return !element.isConnected
         || Boolean(readerRoot && (element === readerRoot || readerRoot.contains(element)))
-        || Boolean(element.closest('[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button'));
+        || Boolean(element.closest([
+            '[data-jpdb-reader-root]',
+            '.asbplayer-offscreen',
+            '.asbplayer-subtitles-container-bottom',
+            '.asbplayer-subtitle',
+            '.asbplayer-drag-zone',
+            '.asbplayer-overlay-container',
+            'script',
+            'style',
+            'noscript',
+            'textarea',
+            'input',
+            'select',
+            'button',
+        ].join(',')));
 }
 
 function isCaptionTextShape(element: HTMLElement, text: string): boolean {
@@ -1442,25 +1454,62 @@ function getYouTubeVideoId(): string {
     return url.searchParams.get('v') ?? url.pathname.match(/\/shorts\/([^/?]+)/)?.[1] ?? '';
 }
 
-function getYouTubeCaptionTracks(): Array<{ label: string; url: string }> {
+function getYouTubeCaptionTracks(): Array<{ label: string; language?: string; url: string }> {
+    const playerTracks = getYouTubePlayerCaptionTracks();
     const response = getYouTubePlayerResponse();
     const rawTracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-    if (!Array.isArray(rawTracks)) return [];
+    return uniqueYouTubeCaptionTracks([
+        ...playerTracks,
+        ...(Array.isArray(rawTracks) ? rawTracks : []),
+    ]);
+}
 
-    return rawTracks
-        .map(track => {
-            const record = track as {
-                baseUrl?: string;
-                languageCode?: string;
-                name?: { simpleText?: string; runs?: Array<{ text?: string }> };
-            };
-            const label = record.name?.simpleText
-                ?? record.name?.runs?.map(run => run.text ?? '').join('')
-                ?? record.languageCode
-                ?? 'YouTube subtitles';
-            return typeof record.baseUrl === 'string' ? { label: `${label} ${record.languageCode ?? ''}`.trim(), url: record.baseUrl } : null;
-        })
-        .filter((track): track is { label: string; url: string } => track !== null);
+function getYouTubePlayerCaptionTracks(): unknown[] {
+    const player = document.querySelector('#movie_player') as {
+        getVideoData?: () => { video_id?: string };
+        getAudioTrack?: () => { captionTracks?: unknown[] };
+    } | null;
+    const videoId = getYouTubeVideoId();
+    const playerVideoId = player?.getVideoData?.()?.video_id;
+    const tracks = player?.getAudioTrack?.()?.captionTracks;
+    return (!playerVideoId || !videoId || playerVideoId === videoId) && Array.isArray(tracks) ? tracks : [];
+}
+
+function uniqueYouTubeCaptionTracks(rawTracks: unknown[]): Array<{ label: string; language?: string; url: string }> {
+    const tracks: Array<{ label: string; language?: string; url: string }> = [];
+    const seen = new Set<string>();
+    for (const track of rawTracks) {
+        const parsed = parseYouTubeCaptionTrack(track);
+        if (!parsed) continue;
+        const key = `${parsed.language ?? ''}:${parsed.label}:${parsed.url}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        tracks.push(parsed);
+    }
+    return tracks;
+}
+
+function parseYouTubeCaptionTrack(track: unknown): { label: string; language?: string; url: string } | null {
+    const record = track as {
+        url?: string;
+        baseUrl?: string;
+        languageCode?: string;
+        displayName?: string;
+        languageName?: string;
+        name?: { simpleText?: string; runs?: Array<{ text?: string }> };
+    };
+    const rawUrl = typeof record.url === 'string' ? record.url : typeof record.baseUrl === 'string' ? record.baseUrl : '';
+    if (!rawUrl) return null;
+    const url = new URL(rawUrl, location.href);
+    if (!url.searchParams.has('fmt')) url.searchParams.set('fmt', 'vtt');
+    const language = record.languageCode;
+    const label = record.name?.simpleText
+        ?? record.name?.runs?.map(run => run.text ?? '').join('')
+        ?? record.displayName
+        ?? record.languageName
+        ?? language
+        ?? 'YouTube subtitles';
+    return { label: `${label}${language ? ` (${language})` : ''}`, language, url: url.toString() };
 }
 
 function getYouTubePlayerResponse(): { captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: unknown[] } } } | null {

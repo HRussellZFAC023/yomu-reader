@@ -189,15 +189,17 @@ export class AudioPlayer {
     }
 
     private prepareAudioUrl(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean): Promise<string> {
-        if (!shouldFetchCandidateAsBlob(candidate, audioViaBlob)) return Promise.resolve(candidate.url);
+        const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
+        if (!fetchAsBlob) return Promise.resolve(candidate.url);
 
         preconnectAudioUrl(candidate.url);
-        const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
+        const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
         return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
     }
 
     private preparePlayableAudio(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean): Promise<HTMLAudioElement> {
-        const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
+        const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
+        const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
         const now = Date.now();
         const cached = this.readyAudioCache.get(key);
         if (cached && cached.expiresAt > now) return cached.promise;
@@ -702,7 +704,15 @@ function uniqueAudioUrls(urls: string[]): string[] {
 }
 
 function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
-    return audioViaBlob && !candidate.url.startsWith('blob:') && !candidate.url.startsWith('data:audio/');
+    if (!audioViaBlob || candidate.url.startsWith('blob:') || candidate.url.startsWith('data:audio/')) return false;
+    return isAppleMobileBrowser() || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
+}
+
+function isAppleMobileBrowser(): boolean {
+    const userAgent = navigator.userAgent;
+    const platform = navigator.platform;
+    return /iPad|iPhone|iPod/i.test(userAgent)
+        || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 function preconnectAudioUrl(value: string): void {
