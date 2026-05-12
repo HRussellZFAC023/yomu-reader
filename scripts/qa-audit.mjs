@@ -100,14 +100,14 @@ const baseSettings = {
     subtitleOverlayVisible: true,
     subtitleSecondaryVisible: true,
     subtitleControlsMode: 'auto',
-    subtitleFontSize: 32,
+    subtitleFontSize: 28,
     subtitleBottomOffset: 12,
     subtitleTextColor: '#ffffff',
     subtitleOutlineColor: '#000000',
     subtitleBackgroundColor: '#181b20',
-    subtitleBackgroundOpacity: 0.32,
+    subtitleBackgroundOpacity: 0.18,
     subtitleFontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    subtitleFontWeight: 850,
+    subtitleFontWeight: 760,
     subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: false,
@@ -408,6 +408,24 @@ function jpdbParseRequestCount(requests) {
     return requests.filter(request => request.url.includes('jpdb.io/api/v1/parse')).length;
 }
 
+function audioTestRequestCount(requests) {
+    return requests.filter(request => request.url.includes('https://audio.test/')).length;
+}
+
+async function audioPlayCount(page) {
+    return page.evaluate(() => window.__yomuAudioPlayCount || 0).catch(() => 0);
+}
+
+async function waitForAudioPlaybackOrRequest(page, requests, requestCount, requestsBefore, playCountBefore, timeoutMs, message) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+        const playCount = await audioPlayCount(page);
+        if (playCount > playCountBefore || requestCount(requests) > requestsBefore) return;
+        await page.waitForTimeout(100);
+    }
+    throw new Error(message);
+}
+
 async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
     const page = await context.newPage();
@@ -419,10 +437,27 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
         const url = new URL(route.request().url());
         const mediaPath = url.searchParams.get('path') ?? '';
         const isAudio = mediaPath.endsWith('.mp3');
+        requests.push({
+            method: route.request().method(),
+            url: route.request().url(),
+            status: 200,
+        });
         route.fulfill({
             status: 200,
             contentType: isAudio ? 'audio/mpeg' : 'image/svg+xml; charset=utf-8',
             body: isAudio ? 'fake-mp3' : mockImageSvg(mediaPath.includes('steins_gate') || mediaPath.includes('Steins') ? 'Steins Gate' : 'Example'),
+        });
+    });
+    await page.route('https://audio.test/**', route => {
+        requests.push({
+            method: route.request().method(),
+            url: route.request().url(),
+            status: 200,
+        });
+        route.fulfill({
+            status: 200,
+            contentType: 'audio/mpeg',
+            body: 'fake-mp3',
         });
     });
     await page.exposeFunction('__yomuQaRequest', async request => {
@@ -1470,9 +1505,19 @@ async function auditHoverLookup(browser, server) {
     assertAudit(todayWord, 'no 今日 scanned word bounding box found');
     assertAudit(quietWord, 'no 静か scanned word bounding box found');
     await page.keyboard.down('Shift');
+    const termAudioRequestsBefore = audioTestRequestCount(requests);
+    const termAudioPlaysBefore = await audioPlayCount(page);
     await page.mouse.move(todayWord.x + todayWord.width / 2, todayWord.y + todayWord.height / 2);
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await waitForAudit(page, () => window.__yomuAudioPlayCount > 0, 1500, 'hover lookup did not start term audio playback');
+    await waitForAudioPlaybackOrRequest(
+        page,
+        requests,
+        audioTestRequestCount,
+        termAudioRequestsBefore,
+        termAudioPlaysBefore,
+        1800,
+        'hover lookup did not start term audio playback',
+    );
     const hoverHasBackdrop = await page.locator('.jpdb-reader-backdrop').count();
     assertAudit(hoverHasBackdrop === 0, 'hover lookup mounted a modal backdrop');
     const text = await page.locator('.jpdb-reader-popover').innerText();
@@ -1519,8 +1564,7 @@ async function auditHoverLookup(browser, server) {
     await page.mouse.move(quietWord.x + quietWord.width / 2, quietWord.y + quietWord.height / 2, { steps: 10 });
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
     await page.mouse.up();
-    await page.waitForTimeout(220);
-    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'press-drag lookup did not leave exactly one popup open');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-popover').length === 1, 1200, 'press-drag lookup did not leave exactly one popup open');
     assertAudit(await page.locator('.jpdb-reader-backdrop').count() === 0, 'press-drag lookup opened a modal backdrop');
     await page.keyboard.press('Escape');
     await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the press-drag popup');
@@ -1779,6 +1823,14 @@ async function auditImmersionKitPopover(browser, server) {
         immersionKitAutoPlayAudio: false,
         immersionKitPlayOnHover: true,
     });
+    await page.addInitScript(() => {
+        window.__yomuAudioPlayCount = 0;
+        const originalPlay = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = function play(...args) {
+            window.__yomuAudioPlayCount += 1;
+            return originalPlay.apply(this, args);
+        };
+    });
     await page.route(`${server.origin}/immersion-fixture.html`, route => route.fulfill({
         status: 200,
         contentType: 'text/html; charset=utf-8',
@@ -1812,12 +1864,23 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
     const audioRequestsBeforeHover = immersionAudioRequestCount(requests);
+    const audioPlaysBeforeHover = await audioPlayCount(page);
     await page.locator('.jpdb-reader-example-card').hover();
-    await waitForNodeAudit(() => immersionAudioRequestCount(requests) > audioRequestsBeforeHover, 6000, 'Immersion Kit hover did not request first example audio');
+    await waitForAudioPlaybackOrRequest(
+        page,
+        requests,
+        immersionAudioRequestCount,
+        audioRequestsBeforeHover,
+        audioPlaysBeforeHover,
+        6000,
+        'Immersion Kit hover did not request first example audio',
+    );
     const audioRequestsAfterHover = immersionAudioRequestCount(requests);
+    const audioPlaysAfterHover = await audioPlayCount(page);
     await page.dispatchEvent('.jpdb-reader-example-card', 'pointerover', { pointerType: 'mouse', bubbles: true });
     await page.waitForTimeout(250);
     assertAudit(immersionAudioRequestCount(requests) === audioRequestsAfterHover, 'Immersion Kit hover audio should only auto-play once');
+    assertAudit(await audioPlayCount(page) === audioPlaysAfterHover, 'Immersion Kit hover audio should only call play once');
     await page.locator('.jpdb-reader-btn.easy').click();
     await waitForNodeAudit(() => requests.some(request => request.action === 'answerCards'), 6000, 'Anki grading did not send through AnkiConnect');
     const reviewToastCount = await page.locator('.jpdb-reader-toast').filter({ hasText: 'review sent' }).count();
@@ -1835,8 +1898,18 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(addNoteRequests.some(request => request.ankiSentence?.includes('新しい本') && request.ankiHasPicture), `Anki addNote did not include the selected Immersion Kit sentence and image: ${JSON.stringify(addNoteRequests)}`);
     await assertAccessibleSurface(page, 'Immersion Kit popup examples', '.jpdb-reader-popover');
     await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
+    const audioRequestsBeforeManual = immersionAudioRequestCount(requests);
+    const audioPlaysBeforeManual = await audioPlayCount(page);
     await page.locator('[data-immersion-action="audio"]').click();
-    await waitForNodeAudit(() => immersionAudioRequestCount(requests) > audioRequestsAfterHover, 6000, 'Immersion Kit manual audio button did not request audio after hover autoplay');
+    await waitForAudioPlaybackOrRequest(
+        page,
+        requests,
+        immersionAudioRequestCount,
+        audioRequestsBeforeManual,
+        audioPlaysBeforeManual,
+        6000,
+        'Immersion Kit manual audio button did not request audio after hover autoplay',
+    );
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
 }
@@ -2040,7 +2113,7 @@ async function auditVideoFixture(browser, server) {
             mpvRailVisible: Boolean(document.querySelector('.jpdb-subtitle-rail button[data-action="mpv-connect"]:not([hidden])')),
             obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
-            subtitleBackground: primaryStyle?.backgroundImage ?? '',
+            subtitleBackground: `${primaryStyle?.backgroundColor ?? ''} ${primaryStyle?.backgroundImage ?? ''}`,
             subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
         };
     });

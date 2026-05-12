@@ -149,6 +149,7 @@ export interface TextTarget {
     text: string;
     parent: HTMLElement;
     hasNativeRuby?: boolean;
+    suppressRuby?: boolean;
 }
 
 export interface TextFragment {
@@ -156,6 +157,7 @@ export interface TextFragment {
     start: number;
     end: number;
     hasNativeRuby: boolean;
+    suppressRuby: boolean;
 }
 
 export interface FragmentTextTarget {
@@ -163,6 +165,7 @@ export interface FragmentTextTarget {
     parent: HTMLElement;
     fragments: TextFragment[];
     parserId?: string;
+    suppressRuby?: boolean;
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
@@ -232,6 +235,7 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true,
             text,
             parent,
             hasNativeRuby: Boolean(parent.closest('ruby')),
+            suppressRuby: shouldSuppressInjectedRuby(parent),
         });
     }
     return targets;
@@ -261,10 +265,11 @@ export function collectFragmentTextTargetsIn(
         const text = fragmentText(trimmedFragments);
         const compactText = text.replace(/\s+/g, '');
         const hasNativeRuby = trimmedFragments.some(fragment => fragment.hasNativeRuby);
+        const suppressRuby = trimmedFragments.some(fragment => fragment.suppressRuby);
         if (HAS_JAPANESE.test(text) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
             const parent = trimmedFragments[0]?.node.parentElement;
             if (parent) {
-                targets.push({ text, parent, fragments: trimmedFragments });
+                targets.push({ text, parent, fragments: trimmedFragments, suppressRuby });
             }
         }
         fragments.length = 0;
@@ -275,7 +280,14 @@ export function collectFragmentTextTargetsIn(
 
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent ?? '';
-            if (text) fragments.push({ node: node as Text, start: 0, end: text.length, hasNativeRuby });
+            const parent = node.parentElement;
+            if (text) fragments.push({
+                node: node as Text,
+                start: 0,
+                end: text.length,
+                hasNativeRuby,
+                suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false,
+            });
             return;
         }
 
@@ -392,7 +404,7 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
             fragment.append(document.createTextNode(text.slice(offset, token.start)));
         }
         fragment.append(renderToken(text.slice(token.start, token.end), token, settings, {
-            allowRuby: !target.hasNativeRuby,
+            allowRuby: !target.hasNativeRuby && !target.suppressRuby,
         }));
         offset = token.end;
     }
@@ -441,7 +453,7 @@ export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: 
             const surface = nodeText.slice(localStart, localEnd);
             const fullTokenInFragment = overlapStart === token.start && overlapEnd === token.end;
             replacement.append(renderToken(surface, { ...token, sentence: token.sentence ?? sentence }, settings, {
-                allowRuby: fullTokenInFragment && !fragmentInfo.hasNativeRuby,
+                allowRuby: fullTokenInFragment && !fragmentInfo.hasNativeRuby && !fragmentInfo.suppressRuby && !target.suppressRuby,
             }));
             localOffset = localEnd;
         }
@@ -473,6 +485,36 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
     return html;
 }
 
+export function renderHighlightedTextHtml(text: string, targets: string[], className: string): string {
+    const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
+    if (!text || !needles.length) return escapeHtml(text);
+
+    let html = '';
+    let offset = 0;
+    while (offset < text.length) {
+        let matchIndex = -1;
+        let matchNeedle = '';
+        for (const needle of needles) {
+            const index = text.indexOf(needle, offset);
+            if (index < 0) continue;
+            if (matchIndex < 0 || index < matchIndex || (index === matchIndex && needle.length > matchNeedle.length)) {
+                matchIndex = index;
+                matchNeedle = needle;
+            }
+        }
+        if (matchIndex < 0 || !matchNeedle) break;
+        if (matchIndex > offset) html += escapeHtml(text.slice(offset, matchIndex));
+        html += `<mark class="${escapeHtml(className)}">${escapeHtml(text.slice(matchIndex, matchIndex + matchNeedle.length))}</mark>`;
+        offset = matchIndex + matchNeedle.length;
+    }
+    if (offset < text.length) html += escapeHtml(text.slice(offset));
+    return html;
+}
+
+function uniqueNonEmptyStrings(values: string[]): string[] {
+    return [...new Set(values.map(value => value.trim()).filter(Boolean))];
+}
+
 function nonOverlappingTokens(tokens: JPDBToken[], textLength: number): JPDBToken[] {
     const safe: JPDBToken[] = [];
     let offset = 0;
@@ -499,7 +541,9 @@ function renderToken(
     span.dataset.sentence = token.sentence ?? '';
     span.tabIndex = 0;
 
-    if (shouldRenderRuby(surface, token, settings, options.allowRuby)) {
+    const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby);
+    if (hasRuby) {
+        span.classList.add('jpdb-reader-has-furi');
         setInnerHtml(span, renderRuby(surface, token));
     } else {
         span.textContent = surface;
@@ -509,8 +553,10 @@ function renderToken(
 
 function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings): string {
     const state = primaryCardState(token.card.cardState);
-    const content = shouldRenderRuby(surface, token, settings) ? renderRuby(surface, token) : escapeHtml(surface);
-    return `<span class="${readerWordClassName(state, token, settings)}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
+    const hasRuby = shouldRenderRuby(surface, token, settings);
+    const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
+    const classes = [readerWordClassName(state, token, settings), hasRuby ? 'jpdb-reader-has-furi' : ''].filter(Boolean).join(' ');
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
 }
 
 function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
@@ -644,6 +690,29 @@ function fragileByTypography(
 
 function isReadableArticleHeading(element: HTMLElement, compactLength: number): boolean {
     return compactLength >= 4 && Boolean(element.closest('article, main, [role="main"]'));
+}
+
+function shouldSuppressInjectedRuby(element: HTMLElement): boolean {
+    let current: HTMLElement | null = element;
+    while (current && current !== document.body) {
+        if (DISPLAY_HEADING_RE.test(current.tagName) || isClippedLineBox(current)) return true;
+        current = current.parentElement;
+    }
+    return false;
+}
+
+function isClippedLineBox(element: HTMLElement): boolean {
+    const style = getComputedStyle(element);
+    const webkitLineClamp = style.getPropertyValue('-webkit-line-clamp') || style.webkitLineClamp;
+    if (webkitLineClamp && webkitLineClamp !== 'none' && webkitLineClamp !== '0') return true;
+
+    const overflow = `${style.overflow} ${style.overflowX} ${style.overflowY}`;
+    if (!/(hidden|clip)/.test(overflow)) return false;
+
+    const maxHeight = cssPixels(style.maxHeight);
+    const explicitHeight = cssPixels(style.height);
+    const lineHeight = cssPixels(style.lineHeight) || cssPixels(style.fontSize) * 1.25;
+    return lineHeight > 0 && ((maxHeight > 0 && maxHeight <= lineHeight * 4) || (explicitHeight > 0 && explicitHeight <= lineHeight * 4));
 }
 
 function hasUiBox(style: CSSStyleDeclaration): boolean {

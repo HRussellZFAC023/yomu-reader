@@ -1560,27 +1560,46 @@ function collectCaptionTexts(elements: HTMLElement[], video?: HTMLVideoElement, 
         lines.push(text);
         if (lines.length >= 3) break;
     }
-    return lines.join('\n').trim();
+    return lines.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function isLikelyCaptionElement(element: HTMLElement, video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): boolean {
-    if (!element.isConnected) return false;
-    if (readerRoot && (element === readerRoot || readerRoot.contains(element))) return false;
-    if (element.closest('[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button')) return false;
-
+    if (isCaptionElementExcluded(element, readerRoot)) return false;
     const text = normalizeCaptionText(element.innerText || element.textContent || '');
-    if (text.length < 2 || text.length > 180 || !/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) return false;
-    if (text.split('\n').length > 4) return false;
-    if ([...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ''))) return false;
+    if (!isCaptionTextShape(element, text)) return false;
 
     const rect = element.getBoundingClientRect();
-    if (rect.width < 24 || rect.height < 10 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
-    const style = getComputedStyle(element);
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) return false;
+    if (!isVisibleCaptionRect(element, rect)) return false;
 
     if (!video) return !nearVideoOnly;
     const videoRect = video.getBoundingClientRect();
     if (videoRect.width < 120 || videoRect.height < 80) return !nearVideoOnly;
+    return isCaptionNearVideo(rect, videoRect);
+}
+
+function isCaptionElementExcluded(element: HTMLElement, readerRoot?: HTMLElement): boolean {
+    return !element.isConnected
+        || Boolean(readerRoot && (element === readerRoot || readerRoot.contains(element)))
+        || Boolean(element.closest('[data-jpdb-reader-root], script, style, noscript, textarea, input, select, button'));
+}
+
+function isCaptionTextShape(element: HTMLElement, text: string): boolean {
+    return text.length >= 2
+        && text.length <= 180
+        && /[\u3040-\u30ff\u3400-\u9fff]/.test(text)
+        && text.split('\n').length <= 4
+        && ![...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ''));
+}
+
+function isVisibleCaptionRect(element: HTMLElement, rect: DOMRect): boolean {
+    if (rect.width < 24 || rect.height < 10 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    const style = getComputedStyle(element);
+    return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && Number(style.opacity || '1') > 0;
+}
+
+function isCaptionNearVideo(rect: DOMRect, videoRect: DOMRect): boolean {
     const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
     const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;
@@ -1595,7 +1614,7 @@ function normalizeCaptionText(value: string): string {
         .split('\n')
         .map(line => line.replace(/\s+/g, ' ').trim())
         .filter(Boolean)
-        .join('\n');
+        .join(' ');
 }
 
 function escapeWithBreaks(value: string): string {

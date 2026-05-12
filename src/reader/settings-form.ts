@@ -1141,15 +1141,15 @@ export function syncSubtitlePreview(form: HTMLFormElement): void {
         const number = Number(value(name, String(fallback)));
         return Number.isFinite(number) ? number : fallback;
     };
-    preview.style.setProperty('--subtitle-font-size', `${Math.max(16, Math.min(64, numberValue('subtitleFontSize', 32)))}px`);
+    preview.style.setProperty('--subtitle-font-size', `${Math.max(16, Math.min(64, numberValue('subtitleFontSize', 28)))}px`);
     preview.style.setProperty('--subtitle-color', sanitizeAccentColor(value('subtitleTextColor', '#ffffff'), '#ffffff'));
     preview.style.setProperty('--subtitle-outline', sanitizeAccentColor(value('subtitleOutlineColor', '#000000'), '#000000'));
     preview.style.setProperty(
         '--subtitle-background-rgba',
-        accentToRgba(sanitizeAccentColor(value('subtitleBackgroundColor', '#181b20'), '#181b20'), Math.max(0, Math.min(1, numberValue('subtitleBackgroundOpacity', 0.32)))),
+        accentToRgba(sanitizeAccentColor(value('subtitleBackgroundColor', '#181b20'), '#181b20'), Math.max(0, Math.min(1, numberValue('subtitleBackgroundOpacity', 0.18)))),
     );
     preview.style.setProperty('--subtitle-family', value('subtitleFontFamily', 'system-ui'));
-    preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 850)))));
+    preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 760)))));
 }
 
 export function renderDeckControls(settings: ReaderSettings, decks: JPDBDeck[], hasApiKey: boolean): string {
@@ -1337,17 +1337,13 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const has = (key: string) => data.has(key);
     const number = (key: string, fallback: number) => readNumber(get(key), fallback);
     const audioSources = readAudioSources(data);
-    const furiganaMode = ['auto', 'all', 'difficult-kanji', 'known-status', 'off'].includes(get('furiganaMode'))
-        ? get('furiganaMode') as ReaderSettings['furiganaMode']
-        : current.furiganaMode;
-    const wordHighlightMode = ['auto', 'status', 'pitch', 'off'].includes(get('wordHighlightMode'))
-        ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode']
-        : current.wordHighlightMode;
+    const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'off'] as const, current.furiganaMode);
+    const wordHighlightMode = readOption(get('wordHighlightMode'), ['auto', 'status', 'pitch', 'off'] as const, current.wordHighlightMode);
     const jpdbDefinitionsRowPresent = has('jpdbDefinitions.name') || has('jpdbDefinitions.priority') || has('jpdbDefinitions.enabled');
     const settings: ReaderSettings = {
         ...current,
         apiKey: get('apiKey').trim(),
-        interfaceLanguage: ['auto', 'en', 'ja'].includes(get('interfaceLanguage')) ? get('interfaceLanguage') as ReaderSettings['interfaceLanguage'] : current.interfaceLanguage,
+        interfaceLanguage: readOption(get('interfaceLanguage'), ['auto', 'en', 'ja'] as const, current.interfaceLanguage),
         jpdbDefinitionsEnabled: has('jpdbDefinitionsEnabled') && (!jpdbDefinitionsRowPresent || has('jpdbDefinitions.enabled')),
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
         jpdbExtensionsEnabled: has('jpdbExtensionsEnabled'),
@@ -1386,17 +1382,17 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         wordColorDue: sanitizeAccentColor(get('wordColorDue'), current.wordColorDue),
         wordColorFailed: sanitizeAccentColor(get('wordColorFailed'), current.wordColorFailed),
         wordColorIgnored: sanitizeAccentColor(get('wordColorIgnored'), current.wordColorIgnored),
-        audioViaBlob: true,
+        audioViaBlob: current.audioViaBlob,
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
-        audioSelectionMode: (get('audioSelectionMode') === 'random' ? 'random' : 'first') as ReaderSettings['audioSelectionMode'],
+        audioSelectionMode: readOption(get('audioSelectionMode'), ['first', 'random'] as const, current.audioSelectionMode),
         immersionKitEnabled: has('immersionKitEnabled') && has('immersionKit.enabled'),
         immersionKitPriority: Math.max(0, Math.min(999, number('immersionKit.priority', current.immersionKitPriority))),
         immersionKitLimit: Math.max(1, Math.min(12, number('immersionKitLimit', current.immersionKitLimit))),
         immersionKitMinLength: Math.max(0, Math.min(120, number('immersionKitMinLength', current.immersionKitMinLength))),
         immersionKitMaxLength: Math.max(0, Math.min(240, number('immersionKitMaxLength', current.immersionKitMaxLength))),
-        immersionKitCategory: ['all', 'anime', 'drama', 'games'].includes(get('immersionKitCategory')) ? get('immersionKitCategory') as ReaderSettings['immersionKitCategory'] : current.immersionKitCategory,
-        immersionKitSort: ['sentence_length:asc', 'sentence_length:desc', 'random'].includes(get('immersionKitSort')) ? get('immersionKitSort') as ReaderSettings['immersionKitSort'] : current.immersionKitSort,
+        immersionKitCategory: readOption(get('immersionKitCategory'), ['all', 'anime', 'drama', 'games'] as const, current.immersionKitCategory),
+        immersionKitSort: readOption(get('immersionKitSort'), ['sentence_length:asc', 'sentence_length:desc', 'random'] as const, current.immersionKitSort),
         immersionKitExactMatch: has('immersionKitExactMatch'),
         immersionKitShowTranslation: has('immersionKitShowTranslation'),
         immersionKitShowImages: has('immersionKitShowImages'),
@@ -1415,7 +1411,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         scanVisiblePage: has('scanVisiblePage'),
         showFloatingButton: has('showFloatingButton'),
         newTabEnabled: has('newTabEnabled'),
-        newTabSource: ['auto', 'jpdb', 'anki', 'dictionary'].includes(get('newTabSource')) ? get('newTabSource') as ReaderSettings['newTabSource'] : current.newTabSource,
+        newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         showFurigana: furiganaMode !== 'off',
         furiganaMode,
@@ -1451,9 +1447,9 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         subtitleOverlayVisible: has('subtitleOverlayVisible'),
         subtitleSecondaryVisible: has('subtitleSecondaryVisible'),
         subtitleTranscriptVisible: has('subtitleTranscriptVisible'),
-        subtitleTranscriptPlacement: ['right', 'left', 'bottom'].includes(get('subtitleTranscriptPlacement')) ? get('subtitleTranscriptPlacement') as ReaderSettings['subtitleTranscriptPlacement'] : current.subtitleTranscriptPlacement,
+        subtitleTranscriptPlacement: readOption(get('subtitleTranscriptPlacement'), ['right', 'left', 'bottom'] as const, current.subtitleTranscriptPlacement),
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
-        subtitleControlsMode: ['auto', 'always', 'hidden'].includes(get('subtitleControlsMode')) ? get('subtitleControlsMode') as ReaderSettings['subtitleControlsMode'] : current.subtitleControlsMode,
+        subtitleControlsMode: readOption(get('subtitleControlsMode'), ['auto', 'always', 'hidden'] as const, current.subtitleControlsMode),
         subtitleFontSize: Math.max(16, Math.min(64, number('subtitleFontSize', current.subtitleFontSize))),
         subtitleBottomOffset: Math.max(2, Math.min(40, number('subtitleBottomOffset', current.subtitleBottomOffset))),
         subtitleTextColor: sanitizeAccentColor(get('subtitleTextColor'), current.subtitleTextColor),
@@ -1474,7 +1470,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiConnectUrl: get('ankiConnectUrl').trim() || current.ankiConnectUrl,
         ankiDeck: get('ankiDeck').trim() || current.ankiDeck,
         ankiModel: get('ankiModel').trim() || current.ankiModel,
-        ankiTemplateMode: get('ankiTemplateMode') === 'context' ? 'context' : 'recognition',
+        ankiTemplateMode: readOption(get('ankiTemplateMode'), ['recognition', 'context'] as const, current.ankiTemplateMode),
         ankiTags: get('ankiTags').trim(),
         ankiMineWithJpdb: has('ankiMineWithJpdb'),
         ankiCaptureScreenshot: has('ankiCaptureScreenshot'),
@@ -1484,11 +1480,11 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         studyGrammarEnabled: has('studyGrammar.enabled'),
         studyGrammarPriority: Math.max(0, Math.min(999, number('studyGrammar.priority', current.studyGrammarPriority))),
         enableLogging: has('enableLogging'),
-        theme: get('theme') as ReaderSettings['theme'],
-        popupMode: get('popupMode') as ReaderSettings['popupMode'],
+        theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
+        popupMode: readOption(get('popupMode'), ['auto', 'sheet', 'popover'] as const, current.popupMode),
         popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
         popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
-        popoverHeightMode: get('popoverHeightMode') === 'fixed' ? 'fixed' : 'available',
+        popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',
@@ -1534,6 +1530,10 @@ function readNumber(value: string, fallback: number): number {
     if (!value.trim()) return fallback;
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
+}
+
+function readOption<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
+    return allowed.includes(value as T) ? value as T : fallback;
 }
 
 function readDictionaryPreferences(data: FormData, current: DictionaryPreference[]): DictionaryPreference[] {

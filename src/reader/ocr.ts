@@ -897,40 +897,40 @@ function offsetLineToRegion(line: OcrLine, region: OcrRect, width: number, heigh
 function normalizeBox(value: unknown, width: number, height: number): OcrRect | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    const position = record.position as Record<string, unknown> | undefined;
-    const dimensions = record.dimensions as Record<string, unknown> | undefined;
-    if (position && dimensions) {
-        const left = numberFrom(position.left);
-        const top = numberFrom(position.top);
-        const boxWidth = numberFrom(dimensions.width);
-        const boxHeight = numberFrom(dimensions.height);
-        if (left !== null && top !== null && boxWidth !== null && boxHeight !== null) {
-            return clampBox({
-                left: left / 100 * width,
-                top: top / 100 * height,
-                width: boxWidth / 100 * width,
-                height: boxHeight / 100 * height,
-            }, width, height);
-        }
-    }
+    return normalizePositionDimensionsBox(record, width, height)
+        ?? normalizeDirectBox(record, width, height)
+        ?? normalizePointBox(record, width, height);
+}
 
-    const directLeft = numberFrom(record.left ?? record.x);
-    const directTop = numberFrom(record.top ?? record.y);
-    const directWidth = numberFrom(record.width ?? record.w);
-    const directHeight = numberFrom(record.height ?? record.h);
-    if (directLeft !== null && directTop !== null && directWidth !== null && directHeight !== null) {
-        const percent = directLeft <= 1 && directTop <= 1 && directWidth <= 1 && directHeight <= 1;
-        return clampBox({
-            left: percent ? directLeft * width : directLeft,
-            top: percent ? directTop * height : directTop,
-            width: percent ? directWidth * width : directWidth,
-            height: percent ? directHeight * height : directHeight,
-        }, width, height);
-    }
+function normalizePositionDimensionsBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
+    const position = asRecord(record.position);
+    const dimensions = asRecord(record.dimensions);
+    if (!position || !dimensions) return null;
 
+    return boxFromNumbers({
+        left: numberFrom(position.left),
+        top: numberFrom(position.top),
+        width: numberFrom(dimensions.width),
+        height: numberFrom(dimensions.height),
+    }, width, height, 'percent-100');
+}
+
+function normalizeDirectBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
+    const box = {
+        left: numberFrom(record.left ?? record.x),
+        top: numberFrom(record.top ?? record.y),
+        width: numberFrom(record.width ?? record.w),
+        height: numberFrom(record.height ?? record.h),
+    };
+    const values = Object.values(box);
+    const scale = values.every(value => value !== null && value <= 1) ? 'fraction' : 'pixels';
+    return boxFromNumbers(box, width, height, scale);
+}
+
+function normalizePointBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
     const points = ['top_left', 'top_right', 'bottom_right', 'bottom_left']
-        .map(key => record[key] as Record<string, unknown> | undefined)
-        .filter(Boolean);
+        .map(key => asRecord(record[key]))
+        .filter((point): point is Record<string, unknown> => Boolean(point));
     if (points.length < 2) return null;
     const xs = points.map(point => numberFrom(point?.x)).filter((item): item is number => item !== null);
     const ys = points.map(point => numberFrom(point?.y)).filter((item): item is number => item !== null);
@@ -941,6 +941,23 @@ function normalizeBox(value: unknown, width: number, height: number): OcrRect | 
     const left = Math.min(...scaledXs);
     const top = Math.min(...scaledYs);
     return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+}
+
+function boxFromNumbers(
+    box: { left: number | null; top: number | null; width: number | null; height: number | null },
+    imageWidth: number,
+    imageHeight: number,
+    scale: 'pixels' | 'fraction' | 'percent-100',
+): OcrRect | null {
+    if (box.left === null || box.top === null || box.width === null || box.height === null) return null;
+    const factor = scale === 'percent-100' ? 100 : 1;
+    const fractional = scale !== 'pixels';
+    return clampBox({
+        left: fractional ? box.left / factor * imageWidth : box.left,
+        top: fractional ? box.top / factor * imageHeight : box.top,
+        width: fractional ? box.width / factor * imageWidth : box.width,
+        height: fractional ? box.height / factor * imageHeight : box.height,
+    }, imageWidth, imageHeight);
 }
 
 function clampBox(box: OcrRect, width: number, height: number): OcrRect | null {
@@ -1286,6 +1303,10 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 function stringFrom(value: unknown): string {
     return typeof value === 'string' ? value.replace(/\s+/g, '').trim() : '';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
 }
 
 function numberFrom(value: unknown): number | null {

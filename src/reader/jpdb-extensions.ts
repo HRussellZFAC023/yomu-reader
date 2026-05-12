@@ -1,4 +1,4 @@
-import { escapeHtml, setInnerHtml } from './dom';
+import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
 import { AudioPlayer } from './audio';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
 import { type JpdbKanjiInfo, JpdbKanjiClient } from './jpdb-kanji';
@@ -722,33 +722,37 @@ function renderImmersionPanel(
     const imageUrls = settings.immersionKitShowImages ? immersionMediaUrls(client, example, 'image') : [];
     const imageUrl = imageUrls[0] ?? '';
     saveMiningContext(term, immersionContextFromExample(term, example, index, examples.length, imageUrl));
-    const image = imageUrl ? `<img class="jpdb-reader-example-image" alt="" loading="lazy" data-yomu-immersion-image data-yomu-immersion-image-src="${escapeHtml(imageUrl)}">` : '';
+    const sentenceHtml = renderHighlightedTextHtml(example.sentence, [term], 'jpdb-reader-example-target');
+    const image = imageUrl ? `<div class="jpdb-reader-example-media"><img class="jpdb-reader-example-image" alt="" loading="lazy" data-yomu-immersion-image data-yomu-immersion-image-src="${escapeHtml(imageUrl)}"></div>` : '';
     setInnerHtml(container, `
         <div class="yomu-jpdb-card-title">
             <span>Immersion Kit</span>
             <a href="https://www.immersionkit.com/dictionary?keyword=${encodeURIComponent(term)}" target="_blank" rel="noopener">Open</a>
         </div>
         <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}">
-            ${image}
-            <div class="jpdb-reader-example-body">
+            <div class="jpdb-reader-example-topline">
                 <div class="jpdb-reader-example-meta">
-                    <span>${escapeHtml(example.sourceTitle)}</span>
-                    <span>${index + 1}/${examples.length}</span>
+                    <span class="jpdb-reader-example-source">${escapeHtml(example.sourceTitle)}</span>
+                    <span class="jpdb-reader-example-count">${index + 1}/${examples.length}</span>
                 </div>
-                <div class="jpdb-reader-example-sentence">${escapeHtml(example.sentence)}</div>
-                ${settings.immersionKitShowTranslation && example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
-                <div class="jpdb-reader-example-actions">
+                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
                     <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="previous" title="Previous">‹</button>
                     <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="audio" title="Play audio">${speakerIcon()}</button>
                     <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="next" title="Next">›</button>
                 </div>
+            </div>
+            <div class="jpdb-reader-example-body">
+                <div class="jpdb-reader-example-sentence">${sentenceHtml}</div>
+                ${image}
+                ${settings.immersionKitShowTranslation && example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
             </div>
         </div>
     `);
     const imageElement = container.querySelector<HTMLImageElement>('[data-yomu-immersion-image]');
     if (!imageElement) return;
     const hideImage = () => {
-        imageElement.remove();
+        imageElement.closest('.jpdb-reader-example-media')?.remove();
+        if (imageElement.isConnected) imageElement.remove();
         container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
     };
     imageElement.addEventListener('error', hideImage, { once: true });

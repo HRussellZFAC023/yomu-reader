@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { ObjectUrlCache } from './object-url-cache';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -7,11 +8,21 @@ interface AudioCandidate {
     sourceUrl: string;
 }
 
+interface AudioPlaybackOptions {
+    isCurrent?: () => boolean;
+}
+
+interface AudioPreloadOptions {
+    sourceLimit?: number;
+    candidateLimit?: number;
+}
+
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
+const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
 const log = Logger.scope('Audio');
 
 export class AudioPlayer {
@@ -21,37 +32,44 @@ export class AudioPlayer {
     private playRequestId = 0;
     private shuffledAudio = new ShuffledAudioDeck();
     private candidateCache = new Map<string, { expiresAt: number; promise: Promise<AudioCandidate[]> }>();
-    private blobUrlCache = new Map<string, { expiresAt: number; promise: Promise<string> }>();
+    private blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, 'audio');
+    private readyAudioCache = new Map<string, { expiresAt: number; promise: Promise<HTMLAudioElement> }>();
 
     constructor(private getSettings: () => ReaderSettings) {}
 
-    async play(card: JPDBCard): Promise<void> {
+    async play(card: JPDBCard, options: AudioPlaybackOptions = {}): Promise<boolean> {
         const requestId = ++this.playRequestId;
+        const isCurrent = options.isCurrent ?? (() => true);
         const settings = this.getSettings();
         if (!settings.audioEnabled) throw new Error('Audio playback is disabled.');
+        if (!isCurrent()) return false;
 
         const sources = getOrderedAudioSources(settings);
         this.stopCurrent();
         if (!sources.length) {
             log.warn('No audio sources configured', { term: card.spelling });
-            await this.playMissingAudioFallback(settings, requestId);
-            return;
+            return await this.playMissingAudioFallback(settings, requestId, isCurrent);
         }
 
         const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: true });
         const errors: string[] = [];
         const triedUrls = new Set<string>();
         for (const source of sources) {
-            if (requestId !== this.playRequestId) {
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) {
                 log.debug('Audio request superseded', { term: card.spelling, requestId });
                 done();
-                return;
+                return false;
             }
             try {
-                if (await this.playFromSource(source, card, settings, requestId, triedUrls)) {
+                const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
+                if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+                    done();
+                    return false;
+                }
+                if (played) {
                     log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
                     done();
-                    return;
+                    return true;
                 }
             } catch (error) {
                 log.debug('Audio source failed; trying next source', { term: card.spelling, source: source.type }, error);
@@ -60,27 +78,30 @@ export class AudioPlayer {
         }
 
         done();
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         log.warn('No playable audio found', { term: card.spelling, errors });
-        await this.playMissingAudioFallback(settings, requestId);
+        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
 
-    preload(card: JPDBCard): void {
+    preload(card: JPDBCard, options: AudioPreloadOptions = {}): void {
         const settings = this.getSettings();
-        if (!settings.audioEnabled) return;
+        if (!settings.audioEnabled || !settings.audioViaBlob) return;
+        const sourceLimit = Math.max(1, options.sourceLimit ?? 1);
+        const candidateLimit = Math.max(1, options.candidateLimit ?? 1);
         const sources = getOrderedAudioSources(settings)
             .filter(source => source.type !== 'text-to-speech' && source.type !== 'text-to-speech-reading')
-            .slice(0, 2);
+            .slice(0, sourceLimit);
         if (!sources.length) return;
 
         for (const source of sources) {
             void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs)
                 .then(candidates => {
                     const triedUrls = new Set<string>();
-                    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, 2)) {
+                    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
                         const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
                         if (triedUrls.has(candidateKey)) continue;
                         triedUrls.add(candidateKey);
-                        void this.prepareAudioUrl(candidate, settings.audioTimeoutMs, settings.audioSelectionMode)
+                        void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
                             .catch(error => log.debug('Audio preload failed quietly', { source: source.type, term: card.spelling, sourceHost: safeHost(candidate.sourceUrl) }, error));
                     }
                 })
@@ -118,15 +139,23 @@ export class AudioPlayer {
         }
     }
 
-    private async playFromSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number, triedUrls: Set<string>): Promise<boolean> {
+    private async playFromSource(
+        source: AudioSourceSetting,
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        triedUrls: Set<string>,
+        isCurrent: () => boolean,
+    ): Promise<boolean> {
         if (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') {
-            if (requestId !== this.playRequestId) return true;
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
             await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
             log.debug('Text-to-speech playback started', { source: source.type, voice: source.voice || 'auto' });
-            return true;
+            return this.isPlaybackCurrent(requestId, isCurrent);
         }
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         log.debug('Audio candidates resolved', { source: source.type, candidates: candidates.length });
         const bagKey = getAudioBagKey(source, card);
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
@@ -137,11 +166,14 @@ export class AudioPlayer {
             }
             triedUrls.add(candidateKey);
             try {
-                const audioUrl = await this.prepareAudioUrl(candidate, settings.audioTimeoutMs, settings.audioSelectionMode);
-                if (requestId !== this.playRequestId) return true;
-                await this.playAudioUrl(audioUrl, requestId);
+                const audio = settings.audioViaBlob
+                    ? await this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
+                    : this.createAudioElement(candidate.url);
+                if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+                const played = await this.playPreparedAudio(audio, requestId, isCurrent);
+                if (!played) return false;
                 this.shuffledAudio.markPlayed(bagKey, id);
-                log.debug('Audio candidate playing', { source: source.type, viaBlob: audioUrl.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
+                log.debug('Audio candidate playing', { source: source.type, viaBlob: audio.src.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
                 return true;
             } catch (error) {
                 log.debug('Audio candidate failed', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) }, error);
@@ -150,46 +182,65 @@ export class AudioPlayer {
         return false;
     }
 
-    private prepareAudioUrl(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
-        if (!shouldFetchCandidateAsBlob(candidate)) return Promise.resolve(candidate.url);
+    private isPlaybackCurrent(requestId: number, isCurrent: () => boolean): boolean {
+        return requestId === this.playRequestId && isCurrent();
+    }
 
-        const key = [
-            normalizeAttemptedAudioUrl(candidate.url),
-            normalizeAttemptedAudioUrl(candidate.sourceUrl),
-            mode,
-        ].join('\u0001');
+    private prepareAudioUrl(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean): Promise<string> {
+        if (!shouldFetchCandidateAsBlob(candidate, audioViaBlob)) return Promise.resolve(candidate.url);
+
+        const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
+        return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
+    }
+
+    private preparePlayableAudio(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean): Promise<HTMLAudioElement> {
+        const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
         const now = Date.now();
-        const cached = this.blobUrlCache.get(key);
-        if (cached && cached.expiresAt > now) {
-            log.debug('Audio blob cache hit', { sourceHost: safeHost(candidate.sourceUrl) });
-            return cached.promise;
-        }
+        const cached = this.readyAudioCache.get(key);
+        if (cached && cached.expiresAt > now) return cached.promise;
+        if (cached) this.readyAudioCache.delete(key);
 
-        let promise!: Promise<string>;
-        promise = this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode)
-            .then(blobUrl => {
-                const timeout = window.setTimeout(() => {
-                    if (this.blobUrlCache.get(key)?.promise !== promise) return;
-                    this.blobUrlCache.delete(key);
-                    URL.revokeObjectURL(blobUrl);
-                }, AUDIO_BLOB_CACHE_TTL_MS);
-                (timeout as unknown as { unref?: () => void }).unref?.();
-                return blobUrl;
-            })
+        let promise!: Promise<HTMLAudioElement>;
+        promise = this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob)
+            .then(audioUrl => this.createReadyAudio(audioUrl))
             .catch(error => {
-                if (this.blobUrlCache.get(key)?.promise === promise) this.blobUrlCache.delete(key);
+                if (this.readyAudioCache.get(key)?.promise === promise) this.readyAudioCache.delete(key);
                 throw error;
             });
-        this.blobUrlCache.set(key, { expiresAt: now + AUDIO_BLOB_CACHE_TTL_MS, promise });
+        this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
         return promise;
     }
 
-    private async playAudioUrl(audioUrl: string, requestId: number): Promise<void> {
-        const audio = new Audio(audioUrl);
+    private async createReadyAudio(audioUrl: string): Promise<HTMLAudioElement> {
+        const audio = this.createAudioElement(audioUrl);
+        audio.load?.();
+        await waitForAudioData(audio).catch(error => {
+            log.debug('Audio readiness check finished without preloaded data', { sourceHost: safeHost(audioUrl) }, error);
+        });
+        return audio;
+    }
+
+    private createAudioElement(audioUrl: string): HTMLAudioElement {
+        const audio = document.createElement('audio');
+        audio.src = audioUrl;
         audio.preload = 'auto';
+        return audio;
+    }
+
+    private async playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         this.current = audio;
+        try {
+            if (audio.readyState > HTMLMediaElement.HAVE_NOTHING) audio.currentTime = 0;
+        } catch {
+            // Some direct remote audio URLs do not allow seeking before metadata loads.
+        }
         await audio.play();
-        if (requestId !== this.playRequestId) audio.pause();
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+            audio.pause();
+            return false;
+        }
+        return true;
     }
 
     private getCachedAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
@@ -245,30 +296,33 @@ export class AudioPlayer {
         });
     }
 
-    private async playMissingAudioFallback(settings: ReaderSettings, requestId: number): Promise<void> {
+    private async playMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
         if (!settings.audioFallbackChimeEnabled) {
             log.debug('Missing-audio fallback is silent');
-            return;
+            return false;
         }
-        if (requestId !== this.playRequestId) return;
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
 
         try {
-            await this.playSoftChime(requestId);
+            const played = await this.playSoftChime(requestId, isCurrent);
+            if (!played) return false;
             log.debug('Missing-audio fallback chime played');
+            return true;
         } catch (error) {
             log.debug('Missing-audio fallback chime unavailable', {}, error);
+            return false;
         }
     }
 
-    private async playSoftChime(requestId: number): Promise<void> {
+    private async playSoftChime(requestId: number, isCurrent: () => boolean): Promise<boolean> {
         const AudioContextCtor = window.AudioContext
             ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextCtor) return;
+        if (!AudioContextCtor) return false;
 
         const context = new AudioContextCtor();
         this.fallbackChimeContext = context;
         if (context.state === 'suspended') await context.resume().catch(() => undefined);
-        if (requestId !== this.playRequestId) return;
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
 
         const start = context.currentTime + 0.015;
         const filter = context.createBiquadFilter();
@@ -303,7 +357,40 @@ export class AudioPlayer {
             this.fallbackChimeContext = undefined;
             await context.close().catch(() => undefined);
         }
+        return true;
     }
+}
+
+function waitForAudioData(audio: HTMLAudioElement, timeoutMs = 800): Promise<void> {
+    if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve();
+    if (typeof audio.addEventListener !== 'function') return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeout);
+            audio.removeEventListener('loadeddata', handleLoad);
+            audio.removeEventListener('canplay', handleLoad);
+            audio.removeEventListener('error', handleError);
+        };
+        const handleLoad = () => {
+            cleanup();
+            resolve();
+        };
+        const handleError = () => {
+            cleanup();
+            reject(audio.error ?? new Error('Could not load audio.'));
+        };
+        const timeout = window.setTimeout(() => {
+            cleanup();
+            resolve();
+        }, timeoutMs);
+        audio.addEventListener('loadeddata', handleLoad, { once: true });
+        audio.addEventListener('canplay', handleLoad, { once: true });
+        audio.addEventListener('error', handleError, { once: true });
+    });
 }
 
 export class ShuffledAudioDeck {
@@ -488,6 +575,15 @@ function getAudioCandidateCacheKey(source: AudioSourceSetting, card: JPDBCard): 
     ].join('\u0001');
 }
 
+function preparedAudioCacheKey(candidate: AudioCandidate, mode: AudioSelectionMode, audioViaBlob: boolean): string {
+    return [
+        normalizeAttemptedAudioUrl(candidate.url),
+        normalizeAttemptedAudioUrl(candidate.sourceUrl),
+        mode,
+        audioViaBlob ? 'blob' : 'direct',
+    ].join('\u0001');
+}
+
 function cloneAudioCandidates(candidates: AudioCandidate[]): AudioCandidate[] {
     return candidates.map(candidate => ({ ...candidate }));
 }
@@ -637,8 +733,8 @@ function uniqueAudioUrls(urls: string[]): string[] {
     });
 }
 
-function shouldFetchCandidateAsBlob(candidate: AudioCandidate): boolean {
-    return !candidate.url.startsWith('blob:');
+function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
+    return audioViaBlob && !candidate.url.startsWith('blob:') && !candidate.url.startsWith('data:audio/');
 }
 
 function getProxyUrl(url: string): string {

@@ -13,6 +13,7 @@ import {
     escapeHtml,
     getSelectionSentence,
     getSelectionText,
+    renderHighlightedTextHtml,
     renderTokensToHtml,
     setInnerHtml,
     unwrapReaderWords,
@@ -223,6 +224,7 @@ interface CardDisplayOptions {
     navigation?: CardNavigationMode;
     preservePosition?: boolean;
     hoverLookupKey?: string;
+    hoverLookupGeneration?: number;
     pointerTextLookup?: ActivePointerTextLookup;
 }
 
@@ -586,6 +588,7 @@ export class ReaderApp {
     private hoverPendingWord?: HTMLElement;
     private hoverPendingLookupKey = '';
     private hoverLookupInFlightKey = '';
+    private hoverLookupGeneration = 0;
     private activeHoverWord?: HTMLElement;
     private activeHoverLookupKey = '';
     private activePointerTextLookup?: ActivePointerTextLookup;
@@ -1144,21 +1147,13 @@ export class ReaderApp {
         document.addEventListener('keyup', event => {
             this.pressedKeys.delete(normalizePressedKey(event.key));
             if ((this.settings.shortcuts.hoverLookup ?? '').trim() && !this.shouldLookupOnHover(event)) {
-                window.clearTimeout(this.hoverLookupTimer);
-                this.hoverLookupTimer = undefined;
-                this.hoverPendingWord = undefined;
-                this.hoverPendingLookupKey = '';
-                this.hoverLookupInFlightKey = '';
+                this.cancelPendingHoverLookup();
                 if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
             }
         });
         window.addEventListener('blur', () => {
             this.pressedKeys.clear();
-            window.clearTimeout(this.hoverLookupTimer);
-            this.hoverLookupTimer = undefined;
-            this.hoverPendingWord = undefined;
-            this.hoverPendingLookupKey = '';
-            this.hoverLookupInFlightKey = '';
+            this.cancelPendingHoverLookup();
             if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
         });
     }
@@ -1247,7 +1242,8 @@ export class ReaderApp {
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
         if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
-        void this.showWord(word, { trigger: 'hover' });
+        const hoverLookupGeneration = this.nextHoverLookupGeneration();
+        void this.showWord(word, { trigger: 'hover', hoverLookupGeneration });
     }
 
     private endPressLookup(event: PointerEvent): void {
@@ -1328,6 +1324,11 @@ export class ReaderApp {
         return null;
     }
 
+    private preloadHoverWordAudio(word: HTMLElement): void {
+        const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        if (card) this.audio.preload(card, { sourceLimit: 1, candidateLimit: 1 });
+    }
+
     private canLookupReaderWord(word: HTMLElement): boolean {
         if (!word.closest('[data-jpdb-reader-root]')) return true;
         return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-popover'));
@@ -1360,6 +1361,7 @@ export class ReaderApp {
                 this.scheduleActivePopoverReposition();
                 return;
             }
+            if (!candidate) this.cancelPendingHoverLookup();
             if (this.activePopoverMode === 'hover' && !this.isHoverContextActive({ ignoreCssHover: true })) {
                 this.scheduleHoverClose(undefined, { ignoreCssHover: true });
             }
@@ -1384,6 +1386,7 @@ export class ReaderApp {
             return;
         }
         if (!this.shouldLookupOnHover(event)) return;
+        this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
     }
 
@@ -1399,10 +1402,10 @@ export class ReaderApp {
 
         const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
         if (!word || (related && word.contains(related))) return;
-        window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
-        if (this.hoverPendingWord === word) this.hoverPendingWord = undefined;
-        if (this.hoverPendingLookupKey === hoverLookupKey) this.hoverPendingLookupKey = '';
+        if (this.hoverPendingWord === word || this.hoverPendingLookupKey === hoverLookupKey || this.hoverLookupInFlightKey === hoverLookupKey) {
+            this.cancelPendingHoverLookup();
+        }
         if (this.suppressedHoverWord === word) this.suppressedHoverWord = undefined;
         if (this.suppressedHoverLookupKey === hoverLookupKey) this.suppressedHoverLookupKey = '';
 
@@ -1441,6 +1444,20 @@ export class ReaderApp {
         this.hoverPopoverPointerPosition = { x: event.clientX, y: event.clientY };
     }
 
+    private nextHoverLookupGeneration(): number {
+        this.hoverLookupGeneration++;
+        return this.hoverLookupGeneration;
+    }
+
+    private cancelPendingHoverLookup(): void {
+        window.clearTimeout(this.hoverLookupTimer);
+        this.hoverLookupTimer = undefined;
+        this.hoverPendingWord = undefined;
+        this.hoverPendingLookupKey = '';
+        this.hoverLookupInFlightKey = '';
+        this.nextHoverLookupGeneration();
+    }
+
     private scheduleActivePopoverReposition(): void {
         if (this.activePopoverMode !== 'hover' || !this.activePopover || this.activePopover.classList.contains('jpdb-reader-sheet')) return;
         if (this.popoverRepositionFrame !== undefined) return;
@@ -1461,11 +1478,14 @@ export class ReaderApp {
         if ((this.hoverPendingWord === word || (hoverLookupKey && this.hoverPendingLookupKey === hoverLookupKey)) && this.hoverLookupTimer) return;
         if (hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey) return;
 
+        this.preloadHoverWordAudio(word);
         this.cancelHoverClose();
         window.clearTimeout(this.hoverLookupTimer);
+        const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = word;
         this.hoverPendingLookupKey = hoverLookupKey;
         const runLookup = () => {
+            if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
             this.hoverLookupTimer = undefined;
             this.hoverPendingWord = undefined;
             this.hoverPendingLookupKey = '';
@@ -1484,8 +1504,8 @@ export class ReaderApp {
             if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
             if (activeWord.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
             if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-            void this.showWord(activeWord, { trigger: 'hover' }).finally(() => {
-                if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
+            void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
+                if (this.hoverLookupGeneration === hoverLookupGeneration && this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
             });
         };
         const delay = Math.max(0, this.settings.hoverOpenDelayMs);
@@ -1506,16 +1526,18 @@ export class ReaderApp {
         if (hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey) return;
         this.cancelHoverClose();
         window.clearTimeout(this.hoverLookupTimer);
+        const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = hoverLookupKey;
         const runLookup = () => {
+            if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
             this.hoverLookupTimer = undefined;
             this.hoverPendingLookupKey = '';
             if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
             if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
             if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-            void this.showLookupCandidate(candidate, 'hover').finally(() => {
-                if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
+            void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => {
+                if (this.hoverLookupGeneration === hoverLookupGeneration && this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
             });
         };
         const delay = Math.max(0, this.settings.hoverOpenDelayMs);
@@ -1777,7 +1799,7 @@ export class ReaderApp {
         ].join(',')));
     }
 
-    private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean } = {}): Promise<void> {
+    private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number } = {}): Promise<void> {
         const sentence = candidate.text.replace(/\s+/g, ' ').trim();
         if (!sentence || !HAS_JAPANESE.test(sentence)) return;
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
@@ -1794,6 +1816,7 @@ export class ReaderApp {
                     navigation: options.navigation ?? 'reset',
                     preservePosition: options.preservePosition,
                     hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, token.start, token.end, token.card) : undefined,
+                    hoverLookupGeneration: options.hoverLookupGeneration,
                     pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
                 });
                 return;
@@ -1808,6 +1831,7 @@ export class ReaderApp {
                     navigation: options.navigation ?? 'reset',
                     preservePosition: options.preservePosition,
                     hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, localMatch.start, localMatch.end, card) : undefined,
+                    hoverLookupGeneration: options.hoverLookupGeneration,
                     pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
                 });
                 return;
@@ -1822,6 +1846,7 @@ export class ReaderApp {
                     navigation: options.navigation ?? 'reset',
                     preservePosition: options.preservePosition,
                     hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, candidate.start, candidate.end, card) : undefined,
+                    hoverLookupGeneration: options.hoverLookupGeneration,
                     pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
                 });
                 return;
@@ -1875,7 +1900,6 @@ export class ReaderApp {
                 targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             });
             this.preloadImmersionKitForTokens(parsed.flat());
-            this.preloadAudioForTokens(parsed.flat());
             void this.enrichAnkiWords(parsed.flat());
             log.debugThrottled('visible-page-scan-applied', 2500, 'Visible page scan applied tokens', {
                 targets: targets.length,
@@ -1903,7 +1927,6 @@ export class ReaderApp {
                 targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             });
             this.preloadImmersionKitForTokens(parsed.flat());
-            this.preloadAudioForTokens(parsed.flat());
             void this.enrichAnkiWords(parsed.flat());
             log.debugThrottled('asb-scan', 2500, 'ASB subtitles scanned', {
                 targets: targets.length,
@@ -1915,7 +1938,7 @@ export class ReaderApp {
         }
     }
 
-    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode } = {}): Promise<void> {
+    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number } = {}): Promise<void> {
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
         const card = this.getCachedCard(vid, sid);
@@ -1941,7 +1964,14 @@ export class ReaderApp {
             return;
         }
         log.debug('Showing word card from rendered token', { term: card.spelling, trigger, source: card.source ?? 'jpdb' });
-        await this.showCard(card, word.dataset.sentence || undefined, anchor, { trigger, navigation, preservePosition: insideReaderPopup, hoverLookupKey });
+        if (trigger === 'hover') this.audio.preload(card, { sourceLimit: 1, candidateLimit: 1 });
+        await this.showCard(card, word.dataset.sentence || undefined, anchor, {
+            trigger,
+            navigation,
+            preservePosition: insideReaderPopup,
+            hoverLookupKey,
+            hoverLookupGeneration: options.hoverLookupGeneration,
+        });
     }
 
     private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition'> = {}): void {
@@ -2006,6 +2036,8 @@ export class ReaderApp {
         const popover = this.createPopover();
         const trigger = options.trigger === 'hover' ? 'hover' : 'modal';
         const navigation = options.navigation ?? 'reset';
+        const hoverLookupGeneration = trigger === 'hover' ? options.hoverLookupGeneration : undefined;
+        const isCurrentHoverCard = () => hoverLookupGeneration === undefined || this.hoverLookupGeneration === hoverLookupGeneration;
         this.updateWordNavigation(card, sentence, trigger, navigation);
         const done = log.time('showCard', { term: card.spelling, source: card.source ?? 'jpdb', trigger });
         if (this.activeMiningContext?.term !== card.spelling || this.activeMiningContext.sentence !== (sentence || '').replace(/\s+/g, ' ').trim()) {
@@ -2015,6 +2047,11 @@ export class ReaderApp {
         this.lastAnkiLookup = fallbackAnkiLookup;
         const renderData = this.loadCardRenderData(card);
         const instantLocalEntries = await waitForInstantData(renderData.localEntries, INSTANT_DICTIONARY_RENDER_WAIT_MS);
+        if (!isCurrentHoverCard()) {
+            log.debug('Discarding stale hover card before mount', { term: card.spelling, hoverLookupGeneration });
+            done();
+            return;
+        }
         const initialData: CardRenderData & { loading: boolean } = {
             localEntries: instantLocalEntries ?? [],
             kanjiEntries: [],
@@ -2032,13 +2069,15 @@ export class ReaderApp {
         });
         const requestId = ++this.cardRenderRequest;
         log.debug('Card shell mounted', { term: card.spelling, trigger, instantLocalEntries: instantLocalEntries?.length ?? 0 });
-        if (options.autoPlay !== false && this.shouldAutoPlay(card)) void this.playAudio(card);
+        if (options.autoPlay !== false && isCurrentHoverCard() && this.shouldAutoPlay(card)) {
+            void this.playAudio(card, { hoverLookupGeneration });
+        }
         if (instantLocalEntries?.length) void this.parsePopoverJapanese(popover);
 
         let fullRenderCompleted = false;
         if (!instantLocalEntries) {
             void renderData.localEntries.then(localEntries => {
-                if (fullRenderCompleted || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) return;
+                if (!isCurrentHoverCard() || fullRenderCompleted || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) return;
                 setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, {
                     localEntries,
                     kanjiEntries: [],
@@ -2054,7 +2093,7 @@ export class ReaderApp {
 
         const { localEntries, kanjiEntries, metaEntries, ankiLookup } = await renderData.all;
         fullRenderCompleted = true;
-        if (requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) {
+        if (!isCurrentHoverCard() || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) {
             log.debug('Discarding stale card render', { term: card.spelling, requestId });
             done();
             return;
@@ -2344,7 +2383,8 @@ export class ReaderApp {
                 const title = link.id === 'jpdb'
                     ? (overrideQuery ? uiText(language, 'openKanjiOnJpdb') : uiText(language, 'openOnJpdb'))
                     : `Open on ${link.label}`;
-                return `<a class="jpdb-reader-pill jpdb-reader-action-pill" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="${style}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+                const classes = `jpdb-reader-pill jpdb-reader-action-pill${link.id === 'jpdb' ? ' jpdb-reader-jpdb-pill' : ''}`;
+                return `<a class="${classes}" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="${style}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
             })
             .filter(Boolean);
         const frequencyPills = bestFrequencyEntries(metaEntries)
@@ -2922,10 +2962,15 @@ export class ReaderApp {
             let index = this.immersionStartIndex(card, examples);
             let renderRequest = 0;
             let hoverAudioPlayed = false;
-            const render = (nextIndex: number, playAudio: boolean) => {
+            let hoverAudioArmed = false;
+            let hoverAudioActive = false;
+            requestAnimationFrame(() => {
+                hoverAudioArmed = true;
+            });
+            const render = (nextIndex: number, playAudio: boolean, promoteMiningContext = false) => {
                 const requestId = ++renderRequest;
                 index = (nextIndex + examples.length) % examples.length;
-                this.renderImmersionKitExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest);
+                this.renderImmersionKitExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
             };
             container.addEventListener('click', event => {
                 const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-immersion-action]');
@@ -2933,17 +2978,29 @@ export class ReaderApp {
                 event.preventDefault();
                 event.stopPropagation();
                 const action = button.dataset.immersionAction;
-                if (action === 'previous') render(index - 1, this.settings.immersionKitAutoPlayAudio);
-                if (action === 'next') render(index + 1, this.settings.immersionKitAutoPlayAudio);
+                if (action === 'previous') render(index - 1, this.settings.immersionKitAutoPlayAudio, true);
+                if (action === 'next') render(index + 1, this.settings.immersionKitAutoPlayAudio, true);
                 if (action === 'audio') void this.playImmersionKitExample(examples[index]);
             });
-            container.addEventListener('pointerenter', event => {
-                if (hoverAudioPlayed || !this.settings.immersionKitPlayOnHover) return;
-                const canHover = window.matchMedia?.('(hover: hover)').matches ?? true;
-                if (event.pointerType === 'touch' || !canHover) return;
-                if (container.contains(event.relatedTarget as Node | null)) return;
+            const handleImmersionHover = (event: MouseEvent | PointerEvent) => {
+                if (!hoverAudioArmed || hoverAudioPlayed || !this.settings.immersionKitPlayOnHover) return;
+                const cannotHover = window.matchMedia?.('(hover: none)').matches ?? false;
+                const pointerType = 'pointerType' in event ? event.pointerType : 'mouse';
+                if (pointerType === 'touch' || cannotHover) return;
+                if (!(event.target instanceof Element)) return;
+                const cardElement = event.target.closest<HTMLElement>('.jpdb-reader-example-card');
+                if (!cardElement) return;
                 hoverAudioPlayed = true;
-                void this.playImmersionKitExample(examples[index], true);
+                hoverAudioActive = true;
+                void this.playImmersionKitExample(examples[index], true, () => hoverAudioActive && cardElement.isConnected && cardElement.matches(':hover'));
+            };
+            container.addEventListener('pointerover', handleImmersionHover);
+            container.addEventListener('mouseover', handleImmersionHover);
+            container.addEventListener('pointerleave', () => {
+                hoverAudioActive = false;
+            });
+            container.addEventListener('mouseleave', () => {
+                hoverAudioActive = false;
             });
             render(index, trigger !== 'hover' && this.settings.immersionKitAutoPlayAudio);
         } catch (error) {
@@ -3074,6 +3131,7 @@ export class ReaderApp {
         playAudio: boolean,
         searchQuery = card.spelling,
         isCurrent: () => boolean = () => true,
+        promoteMiningContext = false,
     ): void {
         const example = examples[index];
         const language = this.settings.interfaceLanguage;
@@ -3082,20 +3140,23 @@ export class ReaderApp {
         const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, examples.length, imageUrl));
         if (storedContext) {
             this.immersionContextByCardKey.set(cardKey(card), storedContext);
-            this.activeMiningContext = storedContext;
+            if (promoteMiningContext || !this.activeMiningContext || this.activeMiningContext.term !== card.spelling) {
+                this.activeMiningContext = storedContext;
+            }
             log.debug('Immersion mining context stored', {
                 term: card.spelling,
                 sourceTitle: storedContext.sourceTitle,
                 index,
                 total: examples.length,
+                active: this.activeMiningContext === storedContext,
             });
         }
-        const sentenceHtml = escapeHtml(example.sentence);
+        const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading], 'jpdb-reader-example-target');
         const translation = this.settings.immersionKitShowTranslation && example.translation
             ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>`
             : '';
         const image = imageUrl
-            ? `<img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}" alt="" loading="eager" decoding="async">`
+            ? `<div class="jpdb-reader-example-media"><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}" alt="" loading="eager" decoding="async"></div>`
             : '';
         const hasFallbackQuery = queryKey(searchQuery) !== queryKey(card.spelling);
         const fallbackQuery = hasFallbackQuery
@@ -3106,19 +3167,21 @@ export class ReaderApp {
         setInnerHtml(container, `
             <summary class="jpdb-reader-local-title">${uiText(language, 'immersionKit')}</summary>
             <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
-                ${image}
-                <div class="jpdb-reader-example-body">
+                <div class="jpdb-reader-example-topline">
                     <div class="jpdb-reader-example-meta ${hasFallbackQuery ? 'has-query' : ''}">
                         <span class="jpdb-reader-example-source">${escapeHtml(example.sourceTitle)}</span>
                         ${fallbackQuery}
                         <span class="jpdb-reader-example-count">${index + 1}/${examples.length}</span>
                     </div>
-                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
                     <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
                         <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
                     </div>
+                </div>
+                <div class="jpdb-reader-example-body">
+                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
+                    ${image}
                     ${translation}
                 </div>
             </div>
@@ -3126,7 +3189,8 @@ export class ReaderApp {
 
         const hideBrokenImage = (imageElement: HTMLImageElement): void => {
             if (!imageElement.isConnected) return;
-            imageElement.remove();
+            imageElement.closest('.jpdb-reader-example-media')?.remove();
+            if (imageElement.isConnected) imageElement.remove();
             container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
             this.repositionActivePopover();
         };
@@ -3157,6 +3221,7 @@ export class ReaderApp {
                 const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
                 if (!sentence) return;
                 setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens ?? [], this.settings));
+                this.highlightImmersionTarget(sentence, card);
                 void this.parsePopoverJapanese(container);
                 void this.enrichAnkiWords(tokens ?? []);
                 this.repositionActivePopover();
@@ -3165,7 +3230,20 @@ export class ReaderApp {
         if (playAudio) void this.playImmersionKitExample(example, true);
     }
 
-    private async playImmersionKitExample(example: ImmersionKitExample, quiet = false): Promise<void> {
+    private highlightImmersionTarget(sentence: HTMLElement, card: JPDBCard): void {
+        const cardVid = String(card.vid);
+        const cardSid = String(card.sid);
+        const targets = [card.spelling, card.reading].map(value => value.trim()).filter(Boolean);
+        sentence.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+            const surface = word.textContent?.replace(/\s+/g, '') ?? '';
+            if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)
+                || targets.some(target => surface.includes(target))) {
+                word.classList.add('jpdb-reader-example-target');
+            }
+        });
+    }
+
+    private async playImmersionKitExample(example: ImmersionKitExample, quiet = false, isCurrent: () => boolean = () => true): Promise<void> {
         const urls = this.immersionMediaUrls(example, 'sound');
         const url = urls[0] ?? '';
         if (!url) {
@@ -3187,7 +3265,8 @@ export class ReaderApp {
             this.immersionKitAudioLoadingKey = url;
             this.audio.stop();
             const src = await this.immersionKit.fetchBlobUrl(urls, this.settings.audioTimeoutMs);
-            if (requestId !== this.immersionKitAudioRequestId || this.immersionKitAudioKey !== url) {
+            if (requestId !== this.immersionKitAudioRequestId || this.immersionKitAudioKey !== url || !isCurrent()) {
+                if (requestId === this.immersionKitAudioRequestId && this.immersionKitAudioKey === url) this.clearImmersionKitAudio();
                 return;
             }
 
@@ -3203,7 +3282,15 @@ export class ReaderApp {
             };
             audio.addEventListener('ended', cleanup, { once: true });
             audio.addEventListener('error', cleanup, { once: true });
+            if (!isCurrent()) {
+                this.clearImmersionKitAudio();
+                return;
+            }
             await audio.play();
+            if (!isCurrent()) {
+                this.clearImmersionKitAudio();
+                return;
+            }
             log.debug('Immersion Kit audio playing', { sourceTitle: example.sourceTitle, viaBlob: true });
         } catch (error) {
             if (!requestId || requestId === this.immersionKitAudioRequestId) this.clearImmersionKitAudio();
@@ -3246,7 +3333,6 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             const tokens = parsed.flat();
-            this.preloadAudioForTokens(tokens);
             void this.enrichAnkiWords(tokens);
             log.debug('Popover nested text parsed', { targets: targets.length, tokens: tokens.length });
         } catch (error) {
@@ -3283,21 +3369,6 @@ export class ReaderApp {
             if (queued >= 2) break;
         }
         if (queued) log.debugThrottled('immersion-preload', 2500, 'Immersion Kit preloads queued', { queued });
-    }
-
-    private preloadAudioForTokens(tokens: JPDBToken[]): void {
-        if (!this.settings.audioEnabled) return;
-        let queued = 0;
-        const seen = new Set<string>();
-        for (const token of tokens) {
-            const key = cardKey(token.card);
-            if (seen.has(key)) continue;
-            seen.add(key);
-            this.audio.preload(token.card);
-            queued++;
-            if (queued >= 8) break;
-        }
-        if (queued) log.debugThrottled('audio-preload', 2500, 'Audio preloads queued', { queued });
     }
 
     private renderJpdbDefinitionSource(card: JPDBCard): string {
@@ -3841,10 +3912,13 @@ export class ReaderApp {
         }
     }
 
-    private async playAudio(card: JPDBCard): Promise<void> {
+    private async playAudio(card: JPDBCard, options: { hoverLookupGeneration?: number } = {}): Promise<void> {
+        const isCurrent = options.hoverLookupGeneration === undefined
+            ? undefined
+            : () => this.hoverLookupGeneration === options.hoverLookupGeneration;
         try {
             this.stopImmersionKitAudio();
-            await this.audio.play(card);
+            await this.audio.play(card, { isCurrent });
             log.debug('Term audio playback started', { term: card.spelling });
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);
@@ -4357,7 +4431,7 @@ export class ReaderApp {
         const anchorRect = resolvedRect && (resolvedRect.width > 0 || resolvedRect.height > 0)
             ? resolvedRect
             : previousRect;
-        this.dismiss({ suppressHoverTarget: false, preserveNavigation: true });
+        this.dismiss({ suppressHoverTarget: false, preserveNavigation: true, preserveHoverGeneration: mode === 'hover' });
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (backdrop) document.body.append(backdrop, popover);
         else document.body.append(popover);
@@ -4366,7 +4440,8 @@ export class ReaderApp {
         this.activePopoverMode = mode;
         this.activePopoverAnchor = resolvedAnchor;
         this.activePopoverAnchorRect = anchorRect;
-        this.activePopoverPositionLocked = mode !== 'hover' && Boolean(previousPopoverRect && !popover.classList.contains('jpdb-reader-sheet'));
+        const shouldLockPopoverPosition = mode !== 'hover' && !popover.classList.contains('jpdb-reader-sheet');
+        this.activePopoverPositionLocked = shouldLockPopoverPosition && Boolean(previousPopoverRect);
         this.activeHoverWord = mode === 'hover' ? resolvedAnchor : undefined;
         this.activeHoverLookupKey = mode === 'hover' ? options.hoverLookupKey ?? '' : '';
         this.activePointerTextLookup = mode === 'hover' ? options.pointerTextLookup : undefined;
@@ -4379,6 +4454,7 @@ export class ReaderApp {
             this.activePopoverResizeObserver.observe(popover);
             if (previousPopoverRect) this.placePopoverAtViewportPosition(popover, previousPopoverRect);
             else this.repositionActivePopover();
+            this.activePopoverPositionLocked = shouldLockPopoverPosition;
             requestAnimationFrame(() => this.repositionActivePopover());
         } else {
             this.installSheetHandle(popover);
@@ -4574,7 +4650,7 @@ export class ReaderApp {
         return window.innerWidth <= 768 || matchMedia('(pointer: coarse)').matches;
     }
 
-    private dismiss(options: { suppressHoverTarget?: boolean; preserveNavigation?: boolean } = { suppressHoverTarget: true }): void {
+    private dismiss(options: { suppressHoverTarget?: boolean; preserveNavigation?: boolean; preserveHoverGeneration?: boolean } = { suppressHoverTarget: true }): void {
         const hadDialog = Boolean(this.activePopover || this.activeBackdrop);
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
         window.clearTimeout(this.hoverLookupTimer);
@@ -4591,6 +4667,7 @@ export class ReaderApp {
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
         this.hoverLookupInFlightKey = '';
+        if (!options.preserveHoverGeneration) this.nextHoverLookupGeneration();
         this.audio.stop();
         this.stopImmersionKitAudio();
         const suppressTarget = this.activePopoverMode === 'hover' ? this.activeHoverWord : this.activePopoverAnchor;
