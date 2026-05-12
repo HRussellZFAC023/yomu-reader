@@ -24,6 +24,7 @@ export default defineConfig({
             { text: 'Local Audio', link: '/local-audio' },
             { text: 'Changelog', link: '/changelog' },
             { text: 'Support', link: '/support' },
+            { text: 'New Tab', link: '/newtab/' },
         ],
         sidebar: [
             {

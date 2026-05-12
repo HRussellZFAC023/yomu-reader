@@ -1,7 +1,7 @@
 :root {
-  --vp-c-brand-1: #438463;
-  --vp-c-brand-2: #5ea780;
-  --vp-c-brand-3: #76bd99;
+  --vp-c-brand-1: #25573d;
+  --vp-c-brand-2: #3f7659;
+  --vp-c-brand-3: #5ea780;
   --vp-c-brand-soft: rgba(94, 167, 128, .16);
   --vp-c-bg: #ffffff;
   --vp-c-bg-alt: #f7f8fa;
@@ -10,17 +10,20 @@
   --vp-c-text-2: #596272;
   --vp-c-divider: rgba(20, 30, 45, .16);
   --vp-font-family-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --vp-button-brand-border: #5ea780;
-  --vp-button-brand-bg: #5ea780;
-  --vp-button-brand-hover-border: #76bd99;
-  --vp-button-brand-hover-bg: #76bd99;
+  --vp-button-brand-border: #25573d;
+  --vp-button-brand-bg: #25573d;
+  --vp-button-brand-hover-border: #3f7659;
+  --vp-button-brand-hover-bg: #3f7659;
   --vp-button-alt-border: rgba(20, 30, 45, .18);
   --vp-button-alt-bg: #eef1f4;
   --vp-button-alt-hover-bg: #e3e8ed;
-  --vp-home-hero-name-color: #5ea780;
+  --vp-home-hero-name-color: #25573d;
 }
 
 .dark {
+  --vp-c-brand-1: #76bd99;
+  --vp-c-brand-2: #5ea780;
+  --vp-c-brand-3: #9cd8b8;
   --vp-c-bg: #181b20;
   --vp-c-bg-alt: #20242b;
   --vp-c-bg-soft: #282e37;
@@ -32,6 +35,15 @@
   --vp-button-alt-hover-bg: #323946;
 }
 
+.vp-doc a,
+.VPNavBarMenuLink.active,
+.VPNavBarMenuLink:hover,
+.VPSidebarItem.is-active > .item .text,
+.VPDocAsideOutline .active,
+.pager-link .title {
+  color: var(--vp-c-brand-1);
+}
+
 .VPImage.logo {
   border-radius: 8px;
 }
@@ -40,6 +52,27 @@
   width: min(240px, 48vw);
   border-radius: 24px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, .22);
+}
+
+.VPSwitchAppearance {
+  min-height: 24px;
+}
+
+.VPSwitch {
+  min-height: 24px;
+}
+
+.VPSkipLink {
+  min-height: 24px;
+  padding-block: 4px;
+}
+
+.vp-doc div[class*="language-"] > span.lang {
+  color: var(--vp-c-text-1);
+}
+
+.vp-doc pre code span {
+  color: inherit !important;
 }
 
 .vp-doc h2 {

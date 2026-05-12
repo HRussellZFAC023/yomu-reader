@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { primaryCardState } from './card-state';
 import type { JPDBToken, ReaderSettings } from './types';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
@@ -465,7 +466,7 @@ function renderToken(
     options: { allowRuby?: boolean } = {},
 ): HTMLElement {
     const span = document.createElement('span');
-    const state = token.card.cardState[0] ?? 'not-in-deck';
+    const state = primaryCardState(token.card.cardState);
     span.className = `jpdb-reader-word jpdb-${state}`;
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
@@ -481,7 +482,7 @@ function renderToken(
 }
 
 function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings): string {
-    const state = token.card.cardState[0] ?? 'not-in-deck';
+    const state = primaryCardState(token.card.cardState);
     const content = settings.showFurigana && token.rubies.length ? renderRuby(surface, token) : escapeHtml(surface);
     return `<span class="jpdb-reader-word jpdb-${state}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
 }
@@ -559,26 +560,40 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
     if (isInsideControlLikeLink(element, text)) return true;
 
     const style = getComputedStyle(element);
-    const display = style.display;
     const rect = element.getBoundingClientRect();
     const compactLength = Array.from(text.replace(/\s+/g, '')).length;
     const fontSize = cssPixels(style.fontSize);
     const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
+    const prose = isLikelyProseElement(element);
+    if (fragileByTypography(element, style, compactLength, fontSize, lineHeight, prose)) return true;
+    if (rect.width > 0 && text.length <= 12 && rect.width < 180 && (style.textAlign === 'center' || style.whiteSpace !== 'normal')) return true;
+    return text.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
+}
+
+function fragileByTypography(
+    element: HTMLElement,
+    style: CSSStyleDeclaration,
+    compactLength: number,
+    fontSize: number,
+    lineHeight: number,
+    prose: boolean,
+): boolean {
     const centered = style.textAlign === 'center';
     const heading = DISPLAY_HEADING_RE.test(element.tagName);
-    const prose = isLikelyProseElement(element);
-
     if (heading && compactLength <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35)) return true;
-    if (!prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600)) return true;
+    return !prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600);
+}
 
-    if (rect.width > 0 && text.length <= 12 && rect.width < 180 && (style.textAlign === 'center' || style.whiteSpace !== 'normal')) return true;
-    const hasUiBox = style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+function hasUiBox(style: CSSStyleDeclaration): boolean {
+    return style.backgroundColor !== 'rgba(0, 0, 0, 0)'
         || style.borderTopStyle !== 'none'
         || Number(style.borderTopWidth.replace('px', '')) > 0
         || Number(style.borderBottomWidth.replace('px', '')) > 0
         || Number.parseFloat(style.borderRadius) > 0;
-    const inlineControlShape = display === 'inline-flex' || display === 'inline-grid' || display === 'inline-block' || display === 'flex';
-    return text.length <= 6 && hasUiBox && inlineControlShape && rect.width < 180;
+}
+
+function hasInlineControlShape(display: string): boolean {
+    return display === 'inline-flex' || display === 'inline-grid' || display === 'inline-block' || display === 'flex';
 }
 
 function isLikelyProseElement(element: HTMLElement): boolean {

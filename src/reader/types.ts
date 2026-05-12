@@ -34,6 +34,8 @@ export type ScanModifierKey = 'shift' | 'alt' | 'ctrl' | 'meta';
 
 export type SubtitleControlsMode = 'auto' | 'always' | 'hidden';
 
+export type SubtitleTranscriptPlacement = 'right' | 'left' | 'bottom';
+
 export type InterfaceLanguage = 'auto' | 'en' | 'ja';
 
 export type ImmersionKitCategory = 'all' | 'anime' | 'drama' | 'games';
@@ -42,7 +44,7 @@ export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 
 
 export type AnkiTemplateMode = 'recognition' | 'context';
 
-export type NewTabWordSource = 'auto' | 'jpdb' | 'anki';
+export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
 
 export interface AudioSourceSetting {
     type: AudioSourceType;
@@ -118,7 +120,7 @@ export type JPDBRawVocabulary = [
     string[],
     string[][],
     string[][],
-    CardState[] | null,
+    string[] | null,
     string[] | null,
 ];
 
@@ -239,6 +241,9 @@ export interface ReaderSettings {
     subtitleAutoDetect: boolean;
     subtitleOverlayVisible: boolean;
     subtitleSecondaryVisible: boolean;
+    subtitleTranscriptVisible: boolean;
+    subtitleTranscriptPlacement: SubtitleTranscriptPlacement;
+    subtitleTranscriptAutoScroll: boolean;
     subtitleControlsMode: SubtitleControlsMode;
     subtitleFontSize: number;
     subtitleBottomOffset: number;
@@ -250,6 +255,10 @@ export interface ReaderSettings {
     subtitleFontWeight: number;
     subtitleMiningPause: boolean;
     subtitleSeekPadding: number;
+    mpvSubtitleMiningEnabled: boolean;
+    mpvSubtitleAutoConnect: boolean;
+    mpvSubtitleHost: string;
+    mpvSubtitlePorts: string;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
     ankiEnabled: boolean;

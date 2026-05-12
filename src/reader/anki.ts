@@ -465,9 +465,10 @@ function tagsFromString(value: string): string[] {
 }
 
 function imageFromDataUrl(dataUrl: string, card: JPDBCard): AnkiPicture | null {
-    const match = /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/i.exec(dataUrl);
+    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
     if (!match) return null;
-    const extension = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+    const rawExtension = match[1].toLowerCase();
+    const extension = rawExtension === 'jpeg' ? 'jpg' : rawExtension === 'svg+xml' ? 'svg' : rawExtension;
     const safeName = card.spelling.replace(/[^\p{L}\p{N}-]+/gu, '_').slice(0, 24) || 'yomu';
     return {
         filename: `yomu_${safeName}_${Date.now()}.${extension}`,

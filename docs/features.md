@@ -12,7 +12,7 @@ JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send 
 
 ## Yomitan Dictionaries
 
-よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. You can reorder sources so JPDB, local dictionaries, Immersion Kit examples, translation, and grammar hints appear in the order you prefer.
+よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page. It downloads JMdict as a starter dictionary automatically when dictionary study words are needed and no local dictionary is installed yet.
 
 ![Yomu dictionary settings screenshot](./assets/screenshots/settings.png)
 
@@ -36,11 +36,13 @@ Recognized text stays lightweight: touch targets sit over the image without cove
 
 ## Video Subtitle Mining
 
-よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into tappable words, and native-language subtitle tracks can be shown as a secondary line.
+よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into tappable words, native-language subtitle tracks can be shown as a secondary line, and the transcript panel can sit left, right, or below the video with the active line highlighted while you read.
+
+Local videos can also flow through an optional MPV bridge compatible with [mpv-subtitleminer](https://github.com/friedrich-de/mpv-subtitleminer), so a running mpv session can stream subtitles into よむ for lookup, mining, and line-audio replay.
 
 ![Yomu subtitle mining screenshot](./assets/screenshots/video-subtitles.png)
 
-You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. This makes YouTube, local fixtures, and compatible video pages easier to turn into study material.
+You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and can be opened from the subtitle controls or overflow menu. On phones it becomes a bottom panel so the video stays usable.
 
 ## Immersion Kit Examples
 
@@ -64,7 +66,11 @@ The optional YouTube mode hides non-Japanese-looking recommendation cards, searc
 https://hrussellzfac023.github.io/kotoba-reader/newtab/
 ```
 
-Enable it in settings, then use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and can show study words from Anki when reachable, otherwise from JPDB.
+Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words, so a new install can still become useful after JMdict finishes downloading.
+
+![Yomu new-tab study page screenshot](./assets/screenshots/newtab-dictionary.png)
+
+On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, JMdict-backed dictionary words keep the page useful.
 
 ## Help And Support In Settings
 

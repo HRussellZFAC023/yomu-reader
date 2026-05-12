@@ -168,6 +168,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
     subtitleSecondaryVisible: true,
+    subtitleTranscriptVisible: false,
+    subtitleTranscriptPlacement: 'right',
+    subtitleTranscriptAutoScroll: true,
     subtitleControlsMode: 'auto',
     subtitleFontSize: 32,
     subtitleBottomOffset: 12,
@@ -179,6 +182,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleFontWeight: 850,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
+    mpvSubtitleMiningEnabled: true,
+    mpvSubtitleAutoConnect: false,
+    mpvSubtitleHost: '127.0.0.1',
+    mpvSubtitlePorts: '61777, 61778, 61779, 61780, 61781',
     youtubeImmersionEnabled: false,
     youtubeShowFilterNotice: true,
     ankiEnabled: false,
@@ -282,12 +289,15 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
         ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
         subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
+        subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
         subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
         subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
         subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
         subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
         subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
         subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
+        mpvSubtitleHost: normalizeMpvHost(value?.mpvSubtitleHost),
+        mpvSubtitlePorts: normalizeMpvPorts(value?.mpvSubtitlePorts),
         jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === 'boolean' ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
         jpdbKanjiPriority: clampNumber(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
         rtkPriority: clampNumber(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
@@ -374,8 +384,27 @@ function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitle
     return value === 'always' || value === 'hidden' || value === 'auto' ? value : DEFAULT_SETTINGS.subtitleControlsMode;
 }
 
+function normalizeSubtitleTranscriptPlacement(value: unknown): ReaderSettings['subtitleTranscriptPlacement'] {
+    return value === 'left' || value === 'bottom' || value === 'right' ? value : DEFAULT_SETTINGS.subtitleTranscriptPlacement;
+}
+
+function normalizeMpvHost(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) return DEFAULT_SETTINGS.mpvSubtitleHost;
+    const normalized = value.trim().replace(/^wss?:\/\//i, '').replace(/\/.*$/, '');
+    return normalized || DEFAULT_SETTINGS.mpvSubtitleHost;
+}
+
+function normalizeMpvPorts(value: unknown): string {
+    const raw = Array.isArray(value) ? value.join(',') : typeof value === 'string' ? value : '';
+    const ports = raw
+        .split(/[\s,]+/)
+        .map(port => Number(port))
+        .filter(port => Number.isInteger(port) && port > 0 && port <= 65535);
+    return ports.length ? [...new Set(ports)].join(', ') : DEFAULT_SETTINGS.mpvSubtitlePorts;
+}
+
 function normalizeNewTabSource(value: unknown): ReaderSettings['newTabSource'] {
-    return value === 'jpdb' || value === 'anki' || value === 'auto' ? value : DEFAULT_SETTINGS.newTabSource;
+    return value === 'jpdb' || value === 'anki' || value === 'auto' || value === 'dictionary' ? value : DEFAULT_SETTINGS.newTabSource;
 }
 
 function normalizeDeckIdSetting(value: unknown, fallback: string): string {

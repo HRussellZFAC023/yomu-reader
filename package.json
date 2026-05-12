@@ -30,6 +30,10 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs --host 127.0.0.1",
     "qa:audit": "npm run build && node scripts/qa-audit.mjs",
+    "qa:docs-a11y": "npm run docs:build && node scripts/docs-a11y-audit.mjs",
+    "qa:complexity": "node scripts/complexity-audit.mjs",
+    "qa:jpdb-live": "node scripts/jpdb-live-smoke.mjs",
+    "qa:full": "npm run check && npm run qa:audit && npm run qa:docs-a11y && npm run qa:complexity",
     "prefill:greasyfork": "node scripts/open-greasyfork-prefill.cjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -39,7 +43,9 @@
     "jszip": "^3.10.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@types/node": "^25.1.0",
+    "axe-core": "^4.11.4",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^24.0.0",
     "playwright": "^1.56.1",

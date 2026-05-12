@@ -1,5 +1,6 @@
 import { Logger } from './logger';
-import type { CardState, JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
+import { normalizeCardStates } from './card-state';
+import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
 
 const SMALL_KANA = new Set('ゃゅょァィゥェォッャュョ');
 const log = Logger.scope('JpdbParser');
@@ -29,7 +30,7 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
             glosses,
             partOfSpeech: meaningsPartOfSpeech[index] ?? [],
         })),
-        cardState: (cardState?.length ? cardState : ['not-in-deck']) as CardState[],
+        cardState: normalizeCardStates(cardState),
         pitchAccent: pitchAccent ?? [],
         wordWithReading: null,
         source: 'jpdb' as const,

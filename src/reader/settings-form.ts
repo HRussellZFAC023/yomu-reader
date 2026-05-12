@@ -17,7 +17,7 @@ export function renderSupportPanel(): string {
             <div>
                 <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
                 <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                <p>Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.</p>
+                <p>Donations are optional, but they genuinely help. If you donate and leave a よむ feature request in the message, I will personally read it and implement it when it is feasible, legal, and within project scope.</p>
             </div>
             <div class="jpdb-reader-support-actions">
                 <a class="jpdb-reader-btn primary" href="${SUPPORT_LINKS.docs}" target="_blank" rel="noopener" data-support-link="docs">Documentation</a>
@@ -90,15 +90,15 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">New tab</div>
                     <div class="grid">
-                        ${checkbox('newTabEnabled', 'Enable Yomu new tab page', settings.newTabEnabled)}
-                        ${select('newTabSource', 'New tab word source', settings.newTabSource, [['auto', 'Auto: Anki, then JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki']])}
+                        ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
+                        ${select('newTabSource', 'New tab word source', settings.newTabSource, [['auto', 'Auto: Anki, then JPDB, then Dictionary'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary (Top 2000)']])}
                         <label>New tab address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. The page only shows study words after this option is enabled.</div>
+                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Opening the page turns the study screen on automatically.</div>
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Word colors</div>
@@ -205,6 +205,9 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('subtitleAutoDetect', 'Auto-detect page subtitles', settings.subtitleAutoDetect)}
                     ${checkbox('subtitleOverlayVisible', 'Show subtitle overlay', settings.subtitleOverlayVisible)}
                     ${checkbox('subtitleSecondaryVisible', 'Show native subtitles when available', settings.subtitleSecondaryVisible)}
+                    ${checkbox('subtitleTranscriptVisible', 'Open transcript panel by default', settings.subtitleTranscriptVisible)}
+                    ${select('subtitleTranscriptPlacement', 'Transcript panel position', settings.subtitleTranscriptPlacement, [['right', 'Right of video'], ['left', 'Left of video'], ['bottom', 'Below video']])}
+                    ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
                     ${checkbox('subtitleMiningPause', 'Pause video when mining subtitle', settings.subtitleMiningPause)}
                     ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
                     ${input('subtitleFontSize', 'Subtitle font size', String(settings.subtitleFontSize), 'number')}
@@ -216,6 +219,10 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${input('subtitleFontFamily', 'Subtitle font family', settings.subtitleFontFamily)}
                     ${input('subtitleFontWeight', 'Subtitle font weight', String(settings.subtitleFontWeight), 'number')}
                     ${input('subtitleSeekPadding', 'Subtitle seek padding (seconds)', String(settings.subtitleSeekPadding), 'number')}
+                    ${checkbox('mpvSubtitleMiningEnabled', 'Enable MPV subtitle bridge', settings.mpvSubtitleMiningEnabled)}
+                    ${checkbox('mpvSubtitleAutoConnect', 'Connect to MPV automatically', settings.mpvSubtitleAutoConnect)}
+                    ${input('mpvSubtitleHost', 'MPV bridge host', settings.mpvSubtitleHost)}
+                    ${input('mpvSubtitlePorts', 'MPV bridge ports', settings.mpvSubtitlePorts)}
                 </div>
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
@@ -331,7 +338,7 @@ export function input(name: string, label: string, value: string, type = 'text',
 }
 
 export function shortcutInput(name: string, label: string, value: string, placeholder = 'Press keys'): string {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" inputmode="none"></label>`;
+    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml(label)}"></label>`;
 }
 
 export function checkbox(name: string, label: string, checked: boolean): string {
@@ -463,6 +470,9 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['subtitleAutoDetect', 'subtitleAutoDetect'],
         ['subtitleOverlayVisible', 'subtitleOverlayVisible'],
         ['subtitleSecondaryVisible', 'subtitleSecondaryVisible'],
+        ['subtitleTranscriptVisible', 'subtitleTranscriptVisible'],
+        ['subtitleTranscriptPlacement', 'subtitleTranscriptPlacement'],
+        ['subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScroll'],
         ['subtitleMiningPause', 'subtitleMiningPause'],
         ['subtitleControlsMode', 'subtitleControlsMode'],
         ['subtitleFontSize', 'subtitleFontSize'],
@@ -474,6 +484,10 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['subtitleFontFamily', 'subtitleFontFamily'],
         ['subtitleFontWeight', 'subtitleFontWeight'],
         ['subtitleSeekPadding', 'subtitleSeekPadding'],
+        ['mpvSubtitleMiningEnabled', 'mpvSubtitleMiningEnabled'],
+        ['mpvSubtitleAutoConnect', 'mpvSubtitleAutoConnect'],
+        ['mpvSubtitleHost', 'mpvSubtitleHost'],
+        ['mpvSubtitlePorts', 'mpvSubtitlePorts'],
         ['youtubeImmersionEnabled', 'youtubeImmersionEnabled'],
         ['youtubeShowFilterNotice', 'youtubeShowFilterNotice'],
         ['ankiEnabled', 'ankiEnabled'],
@@ -541,6 +555,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('newTabAuto')],
         ['jpdb', 'JPDB'],
         ['anki', 'Anki'],
+        ['dictionary', 'Dictionary'],
     ]);
     setSelectOptionLabels(form, 'twoButtonReviews', [
         ['false', text('fivePoint')],
@@ -592,6 +607,11 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('showWhenNeeded')],
         ['hidden', text('hideControls')],
         ['always', text('alwaysVisible')],
+    ]);
+    setSelectOptionLabels(form, 'subtitleTranscriptPlacement', [
+        ['right', text('right')],
+        ['left', text('left')],
+        ['bottom', text('bottom')],
     ]);
     setSelectOptionLabels(form, 'ankiTemplateMode', [
         ['recognition', text('wordFirst')],
@@ -1160,9 +1180,9 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
     ];
 
     return `
-        <div class="jpdb-reader-recommended-title">Recommended dictionary downloads</div>
+        <div class="jpdb-reader-recommended-title">Starter dictionary</div>
         <div class="jpdb-reader-settings-actions">
-            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download missing recommended</button>
+            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download JMdict</button>
             <button class="jpdb-reader-btn" type="button" data-action="refresh-dictionaries">Refresh installed list</button>
         </div>
         ${groups.map(([category, label]) => {
@@ -1290,7 +1310,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         scanVisiblePage: has('scanVisiblePage'),
         showFloatingButton: has('showFloatingButton'),
         newTabEnabled: has('newTabEnabled'),
-        newTabSource: ['auto', 'jpdb', 'anki'].includes(get('newTabSource')) ? get('newTabSource') as ReaderSettings['newTabSource'] : current.newTabSource,
+        newTabSource: ['auto', 'jpdb', 'anki', 'dictionary'].includes(get('newTabSource')) ? get('newTabSource') as ReaderSettings['newTabSource'] : current.newTabSource,
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         showFurigana: has('showFurigana'),
         showPitchAccent: has('showPitchAccent'),
@@ -1323,6 +1343,9 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         subtitleAutoDetect: has('subtitleAutoDetect'),
         subtitleOverlayVisible: has('subtitleOverlayVisible'),
         subtitleSecondaryVisible: has('subtitleSecondaryVisible'),
+        subtitleTranscriptVisible: has('subtitleTranscriptVisible'),
+        subtitleTranscriptPlacement: ['right', 'left', 'bottom'].includes(get('subtitleTranscriptPlacement')) ? get('subtitleTranscriptPlacement') as ReaderSettings['subtitleTranscriptPlacement'] : current.subtitleTranscriptPlacement,
+        subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
         subtitleControlsMode: ['auto', 'always', 'hidden'].includes(get('subtitleControlsMode')) ? get('subtitleControlsMode') as ReaderSettings['subtitleControlsMode'] : current.subtitleControlsMode,
         subtitleFontSize: Math.max(16, Math.min(64, number('subtitleFontSize', current.subtitleFontSize))),
         subtitleBottomOffset: Math.max(2, Math.min(40, number('subtitleBottomOffset', current.subtitleBottomOffset))),
@@ -1334,6 +1357,10 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         subtitleFontWeight: Math.max(100, Math.min(900, number('subtitleFontWeight', current.subtitleFontWeight))),
         subtitleMiningPause: has('subtitleMiningPause'),
         subtitleSeekPadding: Math.max(-2, Math.min(2, number('subtitleSeekPadding', current.subtitleSeekPadding))),
+        mpvSubtitleMiningEnabled: has('mpvSubtitleMiningEnabled'),
+        mpvSubtitleAutoConnect: has('mpvSubtitleAutoConnect'),
+        mpvSubtitleHost: get('mpvSubtitleHost').trim() || current.mpvSubtitleHost,
+        mpvSubtitlePorts: get('mpvSubtitlePorts').trim() || current.mpvSubtitlePorts,
         youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
         youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
         ankiEnabled: has('ankiEnabled'),

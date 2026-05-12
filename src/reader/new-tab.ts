@@ -1,5 +1,3 @@
-import { NEW_TAB_PAGE_URL } from './constants';
-import { escapeHtml } from './dom';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
 import type { JPDBCard } from './types';
@@ -31,12 +29,12 @@ export function isYomuNewTabUrl(value: string): boolean {
 
 export function buildNewTabPalette(accentColor: string): NewTabPalette {
     const background = sanitizeAccentColor(accentColor);
-    const backgroundText = contrastRatio(background, '#ffffff') >= contrastRatio(background, '#111111') ? '#ffffff' : '#111111';
+    const backgroundText = readableOn('#ffffff', background, 4.5);
     const surface = '#ffffff';
     const surfaceText = '#15171c';
     const accentText = readableOn(background, surface, 4.5);
-    const border = contrastRatio(background, '#ffffff') >= 3 ? '#ffffff' : readableOn(background, background, 3);
-    const shadow = contrastRatio(background, '#111111') > 4 ? 'rgba(0,0,0,.24)' : 'rgba(20,24,30,.16)';
+    const border = '#ffffff';
+    const shadow = 'rgba(0,0,0,.24)';
     const palette = { background, backgroundText, surface, surfaceText, accentText, border, shadow };
     log.debug('Built new tab palette', { accentColor: background, backgroundText, accentText });
     return palette;
@@ -67,25 +65,6 @@ export function firstCardMeaning(card: JPDBCard): string {
     const meanings = card.meanings ?? [];
     const first = meanings.find(meaning => meaning.glosses.some(gloss => gloss.trim()));
     return first?.glosses.filter(Boolean).join('; ') ?? '';
-}
-
-export function renderDisabledNewTabMarkup(): string {
-    log.debug('Rendering disabled new tab markup');
-    return `
-        <div class="jpdb-reader-newtab-shell">
-            <div class="jpdb-reader-newtab-topbar">
-                <div class="jpdb-reader-newtab-brand">よむ</div>
-                <div class="jpdb-reader-newtab-status">${escapeHtml(NEW_TAB_PAGE_URL)}</div>
-            </div>
-            <section class="jpdb-reader-newtab-stage">
-                <div class="jpdb-reader-newtab-empty">
-                    <div class="jpdb-reader-newtab-empty-title">New tab is off</div>
-                    <p>Enable the Yomu new tab page in settings, then use this address on desktop or iPad.</p>
-                    <button class="jpdb-reader-newtab-button primary" type="button" data-newtab-action="settings">Settings</button>
-                </div>
-            </section>
-        </div>
-    `;
 }
 
 function readableOn(color: string, background: string, targetContrast: number): string {

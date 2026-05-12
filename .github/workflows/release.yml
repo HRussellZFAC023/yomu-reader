@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release, for example v0.3.0
+        required: true
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Prepare release notes
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          node - "$VERSION" <<'NODE'
+          const fs = require('node:fs');
+          const version = process.argv[2];
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const match = changelog.match(new RegExp(`## \\[${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\][\\s\\S]*?(?=\\n## \\[|$)`));
+          const notes = (match?.[0] ?? `## ${version}\n\nSee CHANGELOG.md for details.`)
+            + '\n\nInstall/update userscript: https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js\n';
+          fs.writeFileSync('release-notes.md', notes);
+          NODE
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release create "$TAG" dist/yomu.user.js --title "$TAG" --notes-file release-notes.md --latest

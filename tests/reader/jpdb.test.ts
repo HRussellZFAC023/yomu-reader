@@ -7,7 +7,8 @@ import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflec
 import { applyTokensToScanTarget, applyTokensToTextNode, collectTextTargetsIn, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
 import { ImmersionKitClient } from '../../src/reader/immersion-kit';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
-import { parseUchisenImages } from '../../src/reader/jpdb-extensions';
+import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
+import { parseJpdbReviewCardValue, parseUchisenImages } from '../../src/reader/jpdb-extensions';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
 import { parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
@@ -17,10 +18,11 @@ import { buildNewTabPalette, isYomuNewTabUrl } from '../../src/reader/new-tab';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { mergeSimilarKanjiWords, renderKanjiOrigins, renderPitch, summarizeLearnerGlossary } from '../../src/reader/popup-render';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { detectGrammarHints } from '../../src/reader/study-tools';
+import { READER_CSS } from '../../src/reader/styles';
 import { parseSubtitleText, readPageCaptionText } from '../../src/reader/subtitles';
 import { collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText } from '../../src/reader/youtube';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
@@ -41,6 +43,36 @@ const card: JPDBCard = {
 };
 
 describe('reader helpers', () => {
+    it('normalizes JPDB card states before using them for reader word classes', () => {
+        const [neverForget, fallback] = jpdbVocabularyToCards([
+            [1, 2, 3, '読む', 'よむ', 100, [], [], [], ['never_forget'], []],
+            [4, 5, 6, '未知語', 'みちご', null, [], [], [], ['mystery-state'], []],
+        ]);
+
+        expect(neverForget.cardState).toEqual(['never-forget']);
+        expect(fallback.cardState).toEqual(['not-in-deck']);
+
+        const html = renderTokensToHtml('読む', [{
+            card: { ...card, cardState: ['never_forget'] as unknown as JPDBCard['cardState'], spelling: '読む', reading: 'よむ' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '読む',
+        }], DEFAULT_SETTINGS);
+
+        expect(html).toContain('jpdb-reader-word jpdb-never-forget');
+    });
+
+    it('marks reader word visual styling as important so page CSS resets cannot hide clickable words', () => {
+        expect(READER_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-line:\s*underline\s*!important;/);
+        expect(READER_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-color:\s*transparent\s*!important;/);
+        expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-new,[\s\S]*?background:\s*var\(--jpdb-reader-state-new-soft,[^;]+!important;/);
+        expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-known,[\s\S]*?text-decoration-color:\s*var\(--jpdb-reader-state-known,[^;]+!important;/);
+        expect(READER_CSS).toMatch(/\.jpdb-ocr-line \.jpdb-reader-word\s*\{[^}]*text-decoration:\s*none\s*!important;/);
+    });
+
     it('formats Yomitan-compatible audio URLs', () => {
         expect(formatAudioUrl('http://x.test/?term={term}&reading={reading}&language={language}', card))
             .toBe('http://x.test/?term=%E9%A3%9F%E3%81%B9%E3%82%8B&reading=%E3%81%9F%E3%81%B9%E3%82%8B&language=ja');
@@ -325,17 +357,12 @@ describe('reader helpers', () => {
         }
     });
 
-    it('ships direct Japanese recommended dictionary downloads from Yomitan', () => {
-        expect(findRecommendedDictionary('jitendex')?.downloadUrl).toContain('jitendex-yomitan.zip');
-        expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
-        expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
-            'Jitendex',
-            'JMnedict',
-            'KANJIDIC',
-            'JPDBv2㋕',
-            'BCCWJ',
-            'Jiten',
-        ]);
+    it('ships the JMdict starter dictionary download from Yomitan', () => {
+        const starter = findRecommendedDictionary('jmdict');
+        expect(starter?.downloadUrl).toContain('JMdict_english.zip');
+        expect(starter?.homepage).toContain('jmdict-yomitan');
+        expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual(['JMdict']);
+        expect(STARTER_DICTIONARY_IDS).toEqual(['jmdict']);
     });
 
     it('downloads dictionaries through lowercase GM.xmlhttpRequest when that is the exposed userscript API', async () => {
@@ -791,6 +818,25 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('detects JPDB kanji review card phases from the hidden card value', () => {
+        expect(parseJpdbReviewCardValue('kb,読')).toEqual({
+            kind: 'kb',
+            kanji: '読',
+            isKanji: true,
+            phase: 'before',
+        });
+        expect(parseJpdbReviewCardValue('kb,%E8%AA%AD', '1')).toMatchObject({
+            kanji: '読',
+            isKanji: true,
+            phase: 'after',
+        });
+        expect(parseJpdbReviewCardValue('vf,1227560,665431007')).toMatchObject({
+            kind: 'vf',
+            isKanji: false,
+            phase: 'none',
+        });
+    });
+
     it('sanitizes stroke-order SVGs before embedding them', () => {
         const info = parseKanjiVGSvg(`
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
@@ -998,6 +1044,18 @@ describe('reader helpers', () => {
 
         expect(japanese).toMatchObject([{ start: 1, end: 3, text: '今日は本を読む。' }]);
         expect(native).toMatchObject([{ start: 1, end: 3, text: 'Today I read a book.' }]);
+    });
+
+    it('parses ASS subtitle dialogue with styling stripped', () => {
+        const cues = parseSubtitleText(`
+            [Script Info]
+            Title: sample
+            [Events]
+            Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+            Dialogue: 0,0:00:01.25,0:00:03.50,Default,,0,0,0,,{\\i1}今日は\\N本を読む。
+        `);
+
+        expect(cues).toMatchObject([{ start: 1.25, end: 3.5, text: '今日は\n本を読む。' }]);
     });
 
     it('renders subtitle words as tappable JPDB spans with status classes', () => {
@@ -1456,6 +1514,34 @@ describe('reader helpers', () => {
             { name: 'Pitch', alias: 'Pitch', enabled: true, priority: 1 },
         ]);
         expect(entries.map(entry => entry.dictionary)).toEqual(['JPDBv2㋕', 'BCCWJ', 'Pitch']);
+    });
+
+    it('loads new-tab dictionary words from top frequency data or common JMdict-style tags', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const zip = new JSZip();
+        zip.file('index.json', JSON.stringify({ title: 'Tiny JMdict', format: 3 }));
+        zip.file('term_bank_1.json', JSON.stringify([
+            ['読む', 'よむ', 'common', '', 10, ['to read'], 1, 'ichi1'],
+            ['珍語', 'ちんご', '', '', 0, ['rare word'], 2, ''],
+            ['行く', 'いく', '', '', 8, ['to go'], 3, 'news1'],
+        ]));
+        await store.importFile(new File([await zip.generateAsync({ type: 'blob' })], 'tiny-jmdict.zip', { type: 'application/zip' }));
+
+        const common = await store.listRandomTopTerms(10, 2000);
+        expect(common.map(entry => entry.expression).sort()).toEqual(['行く', '読む']);
+
+        const freq = new JSZip();
+        freq.file('index.json', JSON.stringify({ title: 'Tiny Frequency', format: 3 }));
+        freq.file('term_meta_bank_1.json', JSON.stringify([
+            ['読む', 'freq', { frequency: 400 }],
+            ['珍語', 'freq', { frequency: 3000 }],
+        ]));
+        await store.importFile(new File([await freq.generateAsync({ type: 'blob' })], 'tiny-frequency.zip', { type: 'application/zip' }));
+
+        const top = await store.listRandomTopTerms(10, 2000);
+        expect(top).toHaveLength(1);
+        expect(top[0]).toMatchObject({ expression: '読む', jpdbFrequency: 400 });
     });
 
     it('downloads and imports a recommended dictionary ZIP via userscript requests', async () => {

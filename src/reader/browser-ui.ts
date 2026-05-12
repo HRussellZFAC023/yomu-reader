@@ -50,6 +50,7 @@ export function normalizePressedKey(key: string): string {
 }
 
 export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fallbackRect?: DOMRect): void {
+    const scrollTop = popover.scrollTop;
     const selection = window.getSelection();
     const rect = anchor?.getBoundingClientRect()
         ?? fallbackRect
@@ -65,6 +66,7 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
     if (!rect) {
         popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, viewportWidth - width - margin))}px`;
         popover.style.top = `${Math.max(margin, Math.min(fallbackTop, viewportHeight - height - margin))}px`;
+        if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
         log.debugThrottled('position-popover', 1000, 'Popover positioned without anchor', { width, height, viewportWidth, viewportHeight });
         return;
     }
@@ -112,6 +114,7 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
     const placement = candidates[0];
     popover.style.left = `${placement.left}px`;
     popover.style.top = `${placement.top}px`;
+    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
     log.debugThrottled('position-popover', 1000, 'Popover positioned', {
         left: Math.round(placement.left),
         top: Math.round(placement.top),

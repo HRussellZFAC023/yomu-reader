@@ -76,7 +76,7 @@ export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo |
         kanji,
         keyword,
         frequency: infoRows.get('Frequency') ?? '',
-        type: [infoRows.get('Type'), infoRows.get('')].filter(Boolean).join(', '),
+        type: infoRows.get('Type') ?? '',
         kanken: infoRows.get('Kanken') ?? '',
         heisig: infoRows.get('Heisig') ?? '',
         oldForms: oldForms(doc),

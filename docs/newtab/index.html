@@ -9,48 +9,113 @@
     :root {
       color-scheme: light dark;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #5ea780;
-      color: #111;
+      --jpdb-newtab-bg: #5ea780;
+      --jpdb-newtab-bg-text: #15171c;
+      --jpdb-newtab-border: #ffffff;
     }
 
     body {
       min-height: 100vh;
       min-height: 100dvh;
       margin: 0;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: #5ea780;
+      background: var(--jpdb-newtab-bg);
+      color: var(--jpdb-newtab-bg-text);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      overflow: hidden;
     }
 
-    main {
-      max-width: 560px;
+    .jpdb-reader-newtab-shell {
+      width: min(920px, calc(100vw - 32px));
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: clamp(16px, 4vh, 42px);
+      padding: max(18px, env(safe-area-inset-top)) 0 max(22px, env(safe-area-inset-bottom));
+    }
+
+    .jpdb-reader-newtab-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+    }
+
+    .jpdb-reader-newtab-brand {
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      color: inherit;
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .jpdb-reader-newtab-stage {
+      display: grid;
+      align-content: center;
+      gap: 18px;
+      padding-bottom: min(8vh, 72px);
+    }
+
+    .jpdb-reader-newtab-empty {
       display: grid;
       gap: 14px;
-      border: 4px solid #fff;
-      padding: 28px;
-      background: #fff;
-      color: #15171c;
+      justify-items: center;
+      padding: 34px;
+      border: 4px dashed var(--jpdb-newtab-border);
+      text-align: center;
     }
 
-    h1 {
-      margin: 0;
-      font-size: clamp(40px, 12vw, 86px);
+    .jpdb-reader-newtab-empty-title {
+      font-size: clamp(30px, 7vw, 72px);
       line-height: 1;
+      font-weight: 900;
     }
 
-    p {
+    .jpdb-reader-newtab-empty p {
+      max-width: 560px;
       margin: 0;
-      font-size: 17px;
+      font-size: 16px;
       line-height: 1.5;
-      font-weight: 650;
+      font-weight: 700;
+    }
+
+    @media (max-width: 700px) {
+      .jpdb-reader-newtab-shell {
+        width: min(100vw - 22px, 620px);
+        gap: 14px;
+      }
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Yomu</h1>
-    <p>Install the Yomu userscript and enable the new tab page in settings. Yomu will replace this page with your Anki or JPDB words.</p>
+  <main class="jpdb-reader-newtab" data-jpdb-reader-root="true">
+    <div class="jpdb-reader-newtab-shell">
+        <div class="jpdb-reader-newtab-topbar">
+            <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/kotoba-reader/">よむ</a>
+        </div>
+        <section class="jpdb-reader-newtab-stage">
+            <div class="jpdb-reader-newtab-empty">
+                <div class="jpdb-reader-newtab-empty-title">Loading...</div>
+                <p>Preparing your study cards.</p>
+            </div>
+        </section>
+    </div>
   </main>
+  <script>
+    window.setTimeout(() => {
+      const root = document.querySelector('.jpdb-reader-newtab[data-jpdb-reader-root]');
+      if (!root || root.querySelector('[data-newtab-card]')) return;
+      const title = root.querySelector('.jpdb-reader-newtab-empty-title');
+      const message = root.querySelector('.jpdb-reader-newtab-empty p');
+      if (title) title.textContent = 'Ready for よむ';
+      if (message) message.textContent = 'Install or enable the よむ userscript here to turn this page into your study new tab.';
+    }, 2400);
+  </script>
 </body>
 </html>

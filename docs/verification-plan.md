@@ -28,7 +28,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
   and on mobile touch the word directly. It also treats dictionaries, audio sources, and Anki as
   configurable modules. See https://yomitan.wiki/getting-started/ and
   https://yomitan.wiki/advanced/.
-- Yomitan dictionary management expects recommended downloads, bulk import/export, and local
+- Yomitan dictionary management expects the JMdict starter download, bulk import/export, and local
   dictionary storage. See https://yomitan.wiki/dictionaries/.
 - ASBPlayer sets the video-mining expectation: auto-detected or user-loaded subtitle tracks,
   selectable subtitles, dual tracks, subtitle styling, keyboard shortcuts, Anki export, and
@@ -41,6 +41,13 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - AnkiConnect sets the Anki integration boundary: desktop Anki exposes deck/model/note/media actions
   over a local HTTP API; mobile support needs a reachable bridge or fallback export path. See
   https://foosoft.net/projects/anki-connect/ and the AnkiConnect API ecosystem.
+- JPDB Immersion Kit Examples is the concrete JPDB-side Immersion Kit userscript precedent copied and
+  adapted for the JPDB add-on flow. See https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples and
+  https://greasyfork.org/en/scripts/507408-jpdb-immersion-kit-examples.
+- The Kanji Map sets the graph/source-attribution expectation for compact kanji exploration. See
+  https://thekanjimap.com/ and https://github.com/gabor-kovacs/the-kanji-map.
+- NihongoTube is a reference-only anchor for Japanese-only YouTube filtering and page controls. See
+  https://www.nihongotube.app/.
 
 ## Feature checklist
 
@@ -48,13 +55,13 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 - [ ] `dist/yomu.user.js` is the only script users need; no old `kotoba` naming remains in metadata,
   docs, UI, storage labels, or generated filenames.
-- [ ] Userscript metadata includes the correct `@match`, `@exclude`, `@grant`, `@connect`, name,
+- [ ] Userscript metadata includes the correct `@match`, `@grant`, `@connect`, name,
   description, version, icon, homepage, support URL, update URL, and download URL.
 - [ ] JPDB API keys and local audio URLs used in testing are never committed or bundled.
 - [ ] Production build works on pages with strict CSP/Trusted Types, especially YouTube.
 - [ ] GreasyFork copy is current: summary, description, support links, privacy notes, screenshots,
   and update instructions.
-- [ ] GitHub Actions run typecheck, unit tests, build, userscript verification, and QA audit.
+- [ ] GitHub Actions run typecheck, unit tests, build, userscript verification, docs build, docs deployment, and release asset publishing.
 
 ### First-run onboarding
 
@@ -137,9 +144,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] Yomitan dictionary ZIP import supports term, kanji, term meta, kanji meta, pitch, frequency,
   structured glossary content, tags, and dictionary metadata.
 - [ ] Dexie/Yomitan dictionary collection import/export works after a page refresh.
-- [ ] Recommended downloads include Jitendex, JMnedict, KANJIDIC, BCCWJ, JPDBv2㋕, and Jiten with
-  install/update status.
-- [ ] Multiple dictionary downloads show per-dictionary progress and final success/failure.
+- [ ] The starter download includes JMdict with install/update status.
+- [ ] Dictionary downloads show progress and final success/failure.
 - [ ] Installed dictionaries can be enabled/disabled, updated/refreshed, reordered, renamed, and
   removed.
 - [ ] Definition-source priority can put JPDB first, later, or disabled entirely.
@@ -149,8 +155,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ### Audio
 
-- [ ] Defaults are JapanesePod101, LanguagePod101, and Jisho; no custom URL row is preselected by
-  default.
+- [ ] Defaults are JapanesePod101, LanguagePod101, Jisho, and browser text-to-speech; no custom URL
+  row is preselected by default.
 - [ ] Users can add N sources, reorder them, enable/disable each, and choose source types.
 - [ ] Custom URL and Custom URL JSON support `{term}`, `{reading}`, and `{language}`.
 - [ ] Source-level "audio unavailable" is silent unless the user explicitly requests audio.
@@ -221,8 +227,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] Component split is shown compactly and explains function/form where data supports it.
 - [ ] Related words exclude the current word, are not arbitrarily capped at 3, and can be opened.
 - [ ] Local KANJIDIC/imported kanji dictionaries appear according to priority.
-- [ ] Optional origins panel shows compact, attributed Kanji Map/Kanji Alive facts, Wiktionary notes,
-  radical images, and a 2D component graph without overwhelming the popup.
+- [ ] Optional origins panel shows compact, attributed Kanji Map/Kanji Alive facts, radical images,
+  and a 2D component graph without overwhelming the popup.
 - [ ] Unsupported/proprietary sources such as Outlier, Genetic Kanji, and Okjiten are not scraped or
   copied without a clear license/API path.
 
@@ -275,8 +281,8 @@ Keep this document as the source of truth. Any new feature must add:
 
 ### 2. Automated test layers
 
-- Unit tests: parsing, dictionary normalization, JPDB response mapping, RTK/KanjiVG/KanjiMap/Wiktionary
-  parsing, audio source selection, OCR box normalization, subtitle parsing, Anki field generation.
+- Unit tests: parsing, dictionary normalization, JPDB response mapping, RTK/KanjiVG/KanjiMap parsing,
+  audio source selection, OCR box normalization, subtitle parsing, Anki field generation.
 - Contract tests: mocked JPDB, mocked AnkiConnect, mocked Google Lens/Cloud Vision/local OCR, mocked
   dictionary downloads, mocked YouTube cards/caption metadata.
 - Browser fixture tests: local pages for article text, NHK-style ruby, forms/buttons, manga images,
@@ -297,8 +303,8 @@ For each release candidate, run these as written and save screenshots:
    grade shortcuts, audio shortcut, and mobile touch.
 3. Popup/mining: open a new word, known word, never-forget word, blacklisted word, verb with long
    definitions, and kanji word; mine to JPDB and verify state/underline changes.
-4. Dictionaries: import the supplied Yomitan settings and dictionary exports, download recommended
-   dictionaries, reorder sources, disable JPDB definitions, refresh, and confirm local results remain.
+4. Dictionaries: import the supplied Yomitan settings and dictionary exports, download the JMdict
+   starter, reorder sources, disable JPDB definitions, refresh, and confirm local results remain.
 5. Audio: JapanesePod101 hit, JapanesePod101 miss, Jisho fallback, LanguagePod101 fallback, custom JSON
    list with random clip, iOS blob path, autoplay once.
 6. OCR: Bloomee default Google Lens path, embedded OCR fixture, local OCR fixture, Cloud Vision mock,
@@ -318,6 +324,9 @@ A build should not be published until:
 
 - `npm run check` passes.
 - `YOMU_TEST_API_KEY=<test key> npm run qa:audit` passes.
+- `npm run qa:docs-a11y` passes for desktop and iPhone docs pages.
+- `npm run qa:complexity` passes with the default threshold.
+- `npm run qa:jpdb-live` passes when a local `.env` contains a JPDB test key.
 - A production-userscript smoke run passes on at least Bloomee, NHK Easy, YouTube, and CI Japanese.
 - The manual QA scripts above are checked for any feature touched in the release.
 - Any failed source integration has a clear disabled/fallback state rather than a broken UI.
@@ -347,4 +356,3 @@ A build should not be published until:
   visible in the wrong mode.
 - Prefer presets over more toggles: beginner mode should show fewer settings; advanced mode can reveal
   the full modular controls.
-

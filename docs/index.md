@@ -48,6 +48,6 @@ It is meant for learners who want the useful parts of paid reading suites withou
 
 - [Getting Started](/getting-started) walks through installing a userscript manager, installing よむ, and doing your first lookup.
 - [Features](/features) explains the main tools with screenshots and plain-language examples.
-- [Local Audio](/local-audio) shows how to use hosted Ultimate Yomitan Audio, run a local Rust audio server, and share it to iPad with Tailscale.
+- [Local Audio](/local-audio) shows the hosted Ultimate Yomitan Audio path first, then the self-hosted server path for people who want local files.
 - [Support](/support) has GitHub issues, Discord, donations, and the current install links.
 - [Changelog](/changelog) shows what changed in each release. It is generated from the repository changelog.
