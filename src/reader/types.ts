@@ -265,10 +265,6 @@ export interface ReaderSettings {
     subtitleFontWeight: number;
     subtitleMiningPause: boolean;
     subtitleSeekPadding: number;
-    mpvSubtitleMiningEnabled: boolean;
-    mpvSubtitleAutoConnect: boolean;
-    mpvSubtitleHost: string;
-    mpvSubtitlePorts: string;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
     ankiEnabled: boolean;

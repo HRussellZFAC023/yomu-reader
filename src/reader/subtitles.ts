@@ -8,34 +8,21 @@ interface SubtitleCue {
     start: number;
     end: number;
     text: string;
-    source?: 'page' | 'mpv';
-    id?: string;
-    mpvId?: number;
-    mpvPort?: number;
 }
 
 interface SubtitleTrackOption {
     id: string;
     label: string;
-    kind: 'native' | 'file' | 'youtube' | 'mpv';
+    kind: 'native' | 'file' | 'youtube';
     track?: TextTrack;
     cues?: SubtitleCue[];
     url?: string;
-}
-
-type MpvMediaType = 'audio' | 'thumbnail';
-
-interface MpvMediaRequest {
-    resolve: (dataUrl: string | undefined) => void;
-    timeout: number;
-    type: MpvMediaType;
 }
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string) => Promise<JPDBToken[]>;
     onSettingsChange: () => void;
-    onToast: (message: string) => void;
 }
 
 const CAPTION_SELECTOR_LIST = [
@@ -51,8 +38,6 @@ const CAPTION_SELECTOR_LIST = [
 ];
 
 const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
-const MPV_TRACK_ID = 'mpv-live';
-const MAX_MPV_CUES = 2000;
 const log = Logger.scope('Subtitles');
 
 export class SubtitlePlayerController {
@@ -84,13 +69,7 @@ export class SubtitlePlayerController {
     private transcriptScrollFrame?: number;
     private transcriptHydrateFrame?: number;
     private transcriptHydrationSerial = 0;
-    private mpvSockets = new Map<number, WebSocket>();
-    private mpvConnectedPorts = new Set<number>();
-    private mpvMediaRequests = new Map<string, MpvMediaRequest>();
-    private mpvMediaCache = new Map<string, string>();
-    private mpvConnecting = false;
-    private mpvReconnectTimer?: number;
-    private mpvAudio?: HTMLAudioElement;
+    private transcriptPanelSize = loadTranscriptPanelSize();
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -108,65 +87,18 @@ export class SubtitlePlayerController {
             this.positionTranscriptPanel();
         }, { passive: true });
         this.discoverVideo();
-        if (this.options.getSettings().mpvSubtitleMiningEnabled && this.options.getSettings().mpvSubtitleAutoConnect) {
-            window.setTimeout(() => this.connectMpv(false), 600);
-        }
         this.tick();
         log.info('Subtitle controller initialized');
-    }
-
-    connectMpv(manual = true): void {
-        const settings = this.options.getSettings();
-        if (!settings.mpvSubtitleMiningEnabled) {
-            settings.mpvSubtitleMiningEnabled = true;
-            this.options.onSettingsChange();
-        }
-        if (this.mpvConnecting || this.mpvConnectedPorts.size) {
-            this.refresh();
-            return;
-        }
-
-        const ports = parseMpvPorts(settings.mpvSubtitlePorts);
-        if (!ports.length) {
-            this.options.onToast('No MPV bridge ports are configured.');
-            return;
-        }
-
-        this.mpvConnecting = true;
-        this.ensureMpvTrack();
-        this.refresh();
-        ports.forEach(port => this.openMpvSocket(settings.mpvSubtitleHost, port, manual));
-        log.info('MPV subtitle bridge connect requested', { host: settings.mpvSubtitleHost, ports });
-    }
-
-    disconnectMpv(): void {
-        window.clearTimeout(this.mpvReconnectTimer);
-        this.mpvReconnectTimer = undefined;
-        this.mpvConnecting = false;
-        this.mpvConnectedPorts.clear();
-        this.mpvSockets.forEach(socket => socket.close());
-        this.mpvSockets.clear();
-        this.rejectMpvMediaRequests();
-        this.refresh();
-        log.info('MPV subtitle bridge disconnected');
-    }
-
-    async captureCurrentMpvFrame(sentence?: string): Promise<string | undefined> {
-        const cue = this.findMpvCueForSentence(sentence);
-        if (!cue) return undefined;
-        return this.requestMpvMedia(cue, 'thumbnail');
     }
 
     refresh(): void {
         if (!this.root) return;
         const settings = this.options.getSettings();
-        const mpvActive = settings.mpvSubtitleMiningEnabled && (this.mpvConnecting || this.mpvConnectedPorts.size > 0 || this.selectedTrackId === MPV_TRACK_ID);
-        this.root.hidden = !settings.subtitlePlayerEnabled || (!this.video && !this.cues.length && !mpvActive);
+        this.root.hidden = !settings.subtitlePlayerEnabled || (!this.video && !this.cues.length);
         this.root.classList.toggle('jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
         this.root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
         this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
-        this.root.classList.toggle('jpdb-subtitle-mpv-connected', this.mpvConnectedPorts.size > 0);
         this.root.classList.toggle('jpdb-subtitle-transcript-right', settings.subtitleTranscriptPlacement === 'right');
         this.root.classList.toggle('jpdb-subtitle-transcript-left', settings.subtitleTranscriptPlacement === 'left');
         this.root.classList.toggle('jpdb-subtitle-transcript-bottom', settings.subtitleTranscriptPlacement === 'bottom');
@@ -208,7 +140,6 @@ export class SubtitlePlayerController {
                 <span class="jpdb-subtitle-status" data-role="status" hidden></span>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
                 <button type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon('tracks')}</button>
-                <button type="button" data-action="mpv-connect" title="Connect to MPV subtitle bridge" aria-label="Connect to MPV subtitle bridge">${subtitleIcon('plug')}</button>
                 <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">${subtitleIcon('menu')}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
@@ -354,7 +285,6 @@ export class SubtitlePlayerController {
 
     private updateFromLoadedCues(): void {
         if (!this.video) return;
-        if (this.selectedTrackId === MPV_TRACK_ID) return;
         const time = this.video.currentTime;
         const cue = this.cues.find(item => time >= item.start && time <= item.end);
         const secondary = this.secondaryCues.find(item => time >= item.start && time <= item.end);
@@ -442,12 +372,10 @@ export class SubtitlePlayerController {
         if (action === 'previous') this.seekSubtitle(-1);
         if (action === 'next') this.seekSubtitle(1);
         if (action === 'copy') void this.copySubtitle();
-        if (action === 'replay-cue') void this.replayCue(Number((event.target as HTMLElement).closest<HTMLElement>('[data-index]')?.dataset.index));
         if (action === 'load') this.primaryFileInput?.click();
         if (action === 'load-secondary') this.secondaryFileInput?.click();
         if (action === 'list') this.toggleTranscriptPanel();
         if (action === 'tracks') this.toggleTrackPanel();
-        if (action === 'mpv-connect') this.mpvConnectedPorts.size ? this.disconnectMpv() : this.connectMpv();
         if (action === 'transcript-left') this.setTranscriptPlacement('left');
         if (action === 'transcript-right') this.setTranscriptPlacement('right');
         if (action === 'transcript-bottom') this.setTranscriptPlacement('bottom');
@@ -552,9 +480,6 @@ export class SubtitlePlayerController {
             this.cues = parseSubtitleText(text);
             selected.cues = this.cues;
         }
-        if (selected?.kind === 'mpv' && this.cues.length) {
-            this.currentCue = this.cues[this.cues.length - 1];
-        }
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
         this.render();
@@ -589,183 +514,6 @@ export class SubtitlePlayerController {
         this.renderTrackPanel();
         this.syncControls();
         log.info('Secondary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.secondaryCues.length });
-    }
-
-    private ensureMpvTrack(): SubtitleTrackOption {
-        let track = this.tracks.find(option => option.id === MPV_TRACK_ID);
-        if (!track) {
-            track = { id: MPV_TRACK_ID, label: 'MPV live subtitles', kind: 'mpv', cues: [] };
-            this.tracks.unshift(track);
-        }
-        return track;
-    }
-
-    private openMpvSocket(host: string, port: number, manual: boolean): void {
-        if (this.mpvSockets.has(port)) return;
-        const socket = new WebSocket(`ws://${host}:${port}`);
-        this.mpvSockets.set(port, socket);
-        socket.addEventListener('open', () => {
-            this.mpvConnecting = false;
-            this.mpvConnectedPorts.add(port);
-            this.ensureMpvTrack();
-            if (!this.video && !this.selectedTrackId) {
-                this.selectedTrackId = MPV_TRACK_ID;
-                this.cues = this.tracks.find(track => track.id === MPV_TRACK_ID)?.cues ?? [];
-            }
-            this.options.onToast(`MPV subtitles connected on ${port}.`);
-            this.refresh();
-            log.info('MPV subtitle bridge connected', { port });
-        });
-        socket.addEventListener('message', event => this.handleMpvMessage(event.data, port));
-        socket.addEventListener('close', () => {
-            this.mpvSockets.delete(port);
-            this.mpvConnectedPorts.delete(port);
-            this.resolveMpvMediaRequestsForPort(port, undefined);
-            this.mpvConnecting = this.mpvSockets.size > 0 && this.mpvConnectedPorts.size === 0;
-            this.refresh();
-            if (!manual && this.options.getSettings().mpvSubtitleAutoConnect && this.options.getSettings().mpvSubtitleMiningEnabled) this.scheduleMpvReconnect();
-            log.debug('MPV subtitle bridge socket closed', { port });
-        });
-        socket.addEventListener('error', () => {
-            log.debug('MPV subtitle bridge socket error', { port });
-        });
-    }
-
-    private scheduleMpvReconnect(): void {
-        if (this.mpvReconnectTimer) return;
-        this.mpvReconnectTimer = window.setTimeout(() => {
-            this.mpvReconnectTimer = undefined;
-            if (!this.mpvConnectedPorts.size && this.options.getSettings().mpvSubtitleAutoConnect) this.connectMpv(false);
-        }, 8000);
-    }
-
-    private handleMpvMessage(data: unknown, port: number): void {
-        if (typeof data !== 'string') return;
-        let message: unknown;
-        try {
-            message = JSON.parse(data);
-        } catch {
-            return;
-        }
-        if (!message || typeof message !== 'object') return;
-        const record = message as Record<string, unknown>;
-        if (record.type === 'subtitle') {
-            this.receiveMpvSubtitle(record, port);
-            return;
-        }
-        if (record.type === 'audio' || record.type === 'thumbnail') {
-            this.receiveMpvMedia(record, port, record.type);
-        }
-    }
-
-    private receiveMpvSubtitle(record: Record<string, unknown>, port: number): void {
-        const id = Number(record.id);
-        const text = typeof record.subtitle === 'string' ? record.subtitle.trim() : '';
-        const start = Number(record.sub_start);
-        const end = Number(record.sub_end);
-        if (!Number.isFinite(id) || !text || !Number.isFinite(start) || !Number.isFinite(end)) return;
-
-        const track = this.ensureMpvTrack();
-        const cues = track.cues ?? [];
-        track.cues = cues;
-        const cueId = `mpv-${port}-${id}`;
-        let cue = cues.find(item => item.id === cueId);
-        if (!cue) {
-            cue = { id: cueId, source: 'mpv', mpvId: id, mpvPort: port, start, end, text };
-            cues.push(cue);
-            cues.sort((a, b) => a.start - b.start || (a.mpvId ?? 0) - (b.mpvId ?? 0));
-            if (cues.length > MAX_MPV_CUES) cues.splice(0, cues.length - MAX_MPV_CUES);
-        } else {
-            cue.start = start;
-            cue.end = end;
-            cue.text = text;
-        }
-
-        if (!this.video || this.selectedTrackId === MPV_TRACK_ID || !this.selectedTrackId) {
-            this.selectedTrackId = MPV_TRACK_ID;
-            this.cues = cues;
-            this.currentCue = cue;
-            this.secondaryCue = undefined;
-            this.render();
-            this.renderTranscriptPanel();
-        }
-        this.syncControls();
-        log.debug('MPV subtitle received', { port, id, length: text.length });
-    }
-
-    private receiveMpvMedia(record: Record<string, unknown>, port: number, type: MpvMediaType): void {
-        const id = Number(record.id);
-        const rawData = typeof record.data === 'string' ? record.data : '';
-        if (!Number.isFinite(id)) return;
-        const key = mpvMediaKey(type, port, id);
-        const dataUrl = rawData ? mpvDataUrl(type, rawData) : undefined;
-        if (dataUrl) this.mpvMediaCache.set(key, dataUrl);
-        const pending = this.mpvMediaRequests.get(key);
-        if (!pending) return;
-        window.clearTimeout(pending.timeout);
-        this.mpvMediaRequests.delete(key);
-        pending.resolve(dataUrl);
-    }
-
-    private requestMpvMedia(cue: SubtitleCue, type: MpvMediaType): Promise<string | undefined> {
-        if (cue.source !== 'mpv' || typeof cue.mpvId !== 'number' || typeof cue.mpvPort !== 'number' || !Number.isFinite(cue.mpvId) || !Number.isFinite(cue.mpvPort)) return Promise.resolve(undefined);
-        const port = cue.mpvPort;
-        const id = cue.mpvId;
-        const key = mpvMediaKey(type, port, id);
-        const cached = this.mpvMediaCache.get(key);
-        if (cached) return Promise.resolve(cached);
-        const socket = this.mpvSockets.get(port);
-        if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.resolve(undefined);
-        return new Promise(resolve => {
-            const timeout = window.setTimeout(() => {
-                this.mpvMediaRequests.delete(key);
-                resolve(undefined);
-            }, 12000);
-            this.mpvMediaRequests.set(key, { resolve, timeout, type });
-            socket.send(JSON.stringify({ request: type, id }));
-        });
-    }
-
-    private async replayCue(index: number): Promise<void> {
-        const cue = Number.isFinite(index) ? this.cues[index] : this.currentCue;
-        if (!cue || cue.source !== 'mpv') return;
-        const dataUrl = await this.requestMpvMedia(cue, 'audio');
-        if (!dataUrl) {
-            this.options.onToast('MPV audio was not available for that line.');
-            return;
-        }
-        this.mpvAudio?.pause();
-        this.mpvAudio = new Audio(dataUrl);
-        await this.mpvAudio.play().catch(error => {
-            log.warn('MPV audio playback failed', error);
-            this.options.onToast('Browser blocked MPV audio playback.');
-        });
-    }
-
-    private findMpvCueForSentence(sentence?: string): SubtitleCue | undefined {
-        const clean = sentence?.replace(/\s+/g, ' ').trim();
-        if (clean) {
-            const matching = this.cues.find(cue => cue.source === 'mpv' && cue.text.replace(/\s+/g, ' ').trim() === clean);
-            if (matching) return matching;
-        }
-        return this.currentCue?.source === 'mpv' ? this.currentCue : this.cues.slice().reverse().find(cue => cue.source === 'mpv');
-    }
-
-    private rejectMpvMediaRequests(): void {
-        this.mpvMediaRequests.forEach(request => {
-            window.clearTimeout(request.timeout);
-            request.resolve(undefined);
-        });
-        this.mpvMediaRequests.clear();
-    }
-
-    private resolveMpvMediaRequestsForPort(port: number, value: string | undefined): void {
-        [...this.mpvMediaRequests.entries()].forEach(([key, request]) => {
-            if (!key.includes(`:${port}:`)) return;
-            window.clearTimeout(request.timeout);
-            this.mpvMediaRequests.delete(key);
-            request.resolve(value);
-        });
     }
 
     private setNativeTrackModes(): void {
@@ -822,7 +570,6 @@ export class SubtitlePlayerController {
         this.syncLineNavigationButtons(hasLines);
         this.syncTranscriptButton(hasLines);
         this.syncTrackButton();
-        this.syncMpvButton(settings);
         this.syncStatusText();
     }
 
@@ -864,26 +611,10 @@ export class SubtitlePlayerController {
         tracks.setAttribute('aria-pressed', String(Boolean(this.selectedTrackId)));
     }
 
-    private syncMpvButton(settings: ReaderSettings): void {
-        const mpv = this.root?.querySelector<HTMLButtonElement>('[data-action="mpv-connect"]');
-        if (!mpv) return;
-        mpv.hidden = !settings.mpvSubtitleMiningEnabled && !this.mpvConnectedPorts.size;
-        setInnerHtml(mpv, subtitleIcon(this.mpvConnectedPorts.size ? 'plug-on' : 'plug'));
-        mpv.title = this.mpvConnectedPorts.size
-            ? `Disconnect MPV bridge (${[...this.mpvConnectedPorts].join(', ')})`
-            : this.mpvConnecting ? 'Connecting to MPV bridge' : 'Connect to MPV subtitle bridge';
-        mpv.setAttribute('aria-label', mpv.title);
-        mpv.setAttribute('aria-pressed', String(this.mpvConnectedPorts.size > 0));
-    }
-
     private syncStatusText(): void {
         if (!this.statusEl) return;
 
-        if (this.selectedTrackId === MPV_TRACK_ID && this.mpvConnectedPorts.size) {
-            const index = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) + 1 : 0;
-            this.statusEl.textContent = index > 0 ? `MPV ${index}/${this.cues.length}` : `MPV ${this.cues.length}`;
-            this.statusEl.hidden = false;
-        } else if (this.cues.length) {
+        if (this.cues.length) {
             const index = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) + 1 : 0;
             this.statusEl.textContent = index > 0 ? `${index}/${this.cues.length}` : `${this.cues.length}`;
             this.statusEl.hidden = false;
@@ -904,8 +635,6 @@ export class SubtitlePlayerController {
             hasLines,
             hasSecondary,
             this.options.getSettings().subtitleSecondaryVisible,
-            this.currentCue?.source === 'mpv',
-            this.mpvConnectedPorts.size,
             this.transcriptPanel?.hidden,
             this.panelMode,
         ].join(':');
@@ -918,10 +647,8 @@ export class SubtitlePlayerController {
             </div>
             <button type="button" data-action="load">Load Japanese subtitles</button>
             <button type="button" data-action="load-secondary">Load native subtitles</button>
-            <button type="button" data-action="mpv-connect">${this.mpvConnectedPorts.size ? 'Disconnect MPV bridge' : 'Connect MPV bridge'}</button>
             ${hasLines ? `<button type="button" data-action="list">${this.transcriptPanel?.hidden || this.panelMode !== 'lines' ? 'Open transcript panel' : 'Close transcript panel'}</button>` : ''}
             ${hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : ''}
-            ${this.currentCue?.source === 'mpv' ? '<button type="button" data-action="replay-cue">Replay current MPV line</button>' : ''}
             ${hasSecondary ? `<button type="button" data-action="toggle-secondary" aria-pressed="${this.options.getSettings().subtitleSecondaryVisible}">${this.options.getSettings().subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>` : ''}
         `);
     }
@@ -994,7 +721,6 @@ export class SubtitlePlayerController {
             this.secondaryCues.length,
             currentIndex,
             this.options.getSettings().subtitleTranscriptPlacement,
-            this.mpvConnectedPorts.size ? [...this.mpvConnectedPorts].join(',') : '',
         ].join(':');
         if (!force && this.lastTranscriptSignature === signature) {
             this.updateTranscriptActiveLine(currentIndex);
@@ -1005,18 +731,16 @@ export class SubtitlePlayerController {
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Transcript</span>
-                <div class="jpdb-subtitle-placement" aria-label="Transcript position">
-                    <button type="button" data-action="transcript-left" aria-pressed="${placement === 'left'}" title="Move transcript left" aria-label="Move transcript left">${subtitleIcon('panel-left')}</button>
-                    <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move transcript right" aria-label="Move transcript right">${subtitleIcon('panel-right')}</button>
-                    <button type="button" data-action="transcript-bottom" aria-pressed="${placement === 'bottom'}" title="Move transcript below" aria-label="Move transcript below">${subtitleIcon('panel-bottom')}</button>
-                </div>
+                ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Close subtitle lines" aria-label="Close subtitle lines">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${this.cues.map((cue, index) => this.renderTranscriptRow(cue, index, currentIndex)).join('')}
             </div>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize transcript" aria-label="Resize transcript panel"></button>
         `);
         this.bindTranscriptScroller();
+        this.bindTranscriptResizeHandle();
         this.positionTranscriptPanel();
         this.scrollTranscriptToActive();
         this.scheduleTranscriptHydration(currentIndex);
@@ -1024,9 +748,6 @@ export class SubtitlePlayerController {
 
     private renderTranscriptRow(cue: SubtitleCue, index: number, currentIndex: number): string {
         const secondary = findAlignedCue(this.secondaryCues, cue)?.text.trim();
-        const replay = cue.source === 'mpv'
-            ? `<button class="jpdb-subtitle-row-replay" type="button" data-action="replay-cue" data-index="${index}" title="Replay MPV audio" aria-label="Replay MPV audio">${subtitleIcon('play')}</button>`
-            : '';
         return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-action="cue" data-index="${index}" data-row-index="${index}">
                 <button class="jpdb-subtitle-row-seek" type="button" data-action="cue" data-index="${index}" title="Jump to ${formatSubtitleTime(cue.start)}" aria-label="Jump to subtitle at ${formatSubtitleTime(cue.start)}">${subtitleIcon('play')}</button>
@@ -1035,7 +756,6 @@ export class SubtitlePlayerController {
                     <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}">${escapeWithBreaks(cue.text)}</strong>
                     ${secondary ? `<em class="jpdb-subtitle-row-translation">${escapeWithBreaks(secondary)}</em>` : ''}
                 </div>
-                ${replay}
             </div>
         `;
     }
@@ -1065,6 +785,52 @@ export class SubtitlePlayerController {
         if (!scroller || scroller.dataset.transcriptHydrationBound === 'true') return;
         scroller.dataset.transcriptHydrationBound = 'true';
         scroller.addEventListener('scroll', () => this.scheduleTranscriptHydration(), { passive: true });
+    }
+
+    private bindTranscriptResizeHandle(): void {
+        const handle = this.transcriptPanel?.querySelector<HTMLElement>('[data-resize-transcript]');
+        if (!handle || handle.dataset.transcriptResizeBound === 'true') return;
+        handle.dataset.transcriptResizeBound = 'true';
+        handle.addEventListener('pointerdown', event => this.startTranscriptResize(event));
+    }
+
+    private startTranscriptResize(event: PointerEvent): void {
+        if (!this.transcriptPanel) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const placement = this.options.getSettings().subtitleTranscriptPlacement;
+        const panelRect = this.transcriptPanel.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const startWidth = panelRect.width;
+        const startHeight = panelRect.height;
+        (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+
+        const onMove = (moveEvent: PointerEvent) => {
+            if (placement === 'bottom' || window.innerWidth <= 700 || window.matchMedia?.('(pointer: coarse)').matches) {
+                const nextHeight = clampNumber(startHeight + startY - moveEvent.clientY, 150, Math.max(150, window.innerHeight - TRANSCRIPT_PANEL_MARGIN * 3));
+                this.transcriptPanelSize.bottomHeight = Math.round(nextHeight);
+                const bottom = Math.min(window.innerHeight - TRANSCRIPT_PANEL_MARGIN, panelRect.bottom);
+                this.transcriptPanel?.style.setProperty('top', `${Math.max(TRANSCRIPT_PANEL_MARGIN, bottom - nextHeight)}px`);
+                this.transcriptPanel?.style.setProperty('height', `${Math.round(nextHeight)}px`);
+                this.transcriptPanel?.style.setProperty('max-height', `${Math.round(nextHeight)}px`);
+            } else {
+                const delta = placement === 'left' ? moveEvent.clientX - startX : startX - moveEvent.clientX;
+                const nextWidth = clampNumber(startWidth + delta, 260, Math.max(260, window.innerWidth - TRANSCRIPT_PANEL_MARGIN * 3));
+                this.transcriptPanelSize.sideWidth = Math.round(nextWidth);
+                if (placement === 'right') this.transcriptPanel?.style.setProperty('left', `${Math.max(TRANSCRIPT_PANEL_MARGIN, panelRect.right - nextWidth)}px`);
+                this.transcriptPanel?.style.setProperty('width', `${Math.round(nextWidth)}px`);
+            }
+            saveTranscriptPanelSize(this.transcriptPanelSize);
+        };
+
+        const onUp = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp, { once: true });
     }
 
     private scheduleTranscriptHydration(preferredIndex = this.activeTranscriptIndex()): void {
@@ -1149,16 +915,17 @@ export class SubtitlePlayerController {
     private renderTrackPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'tracks') return;
         const tracks = this.tracks;
+        const placement = this.options.getSettings().subtitleTranscriptPlacement;
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
+                ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
                     <button type="button" data-action="load">Load Japanese subtitles</button>
                     <button type="button" data-action="load-secondary">Load native subtitles</button>
-                    <button type="button" data-action="mpv-connect">${this.mpvConnectedPorts.size ? 'Disconnect MPV' : 'Connect MPV'}</button>
                 </div>
                 ${tracks.length ? tracks.map(track => `
                     <div class="jpdb-subtitle-track-row ${track.id === this.selectedTrackId || track.id === this.secondaryTrackId ? 'active' : ''}" data-track-id="${escapeHtml(track.id)}">
@@ -1171,7 +938,9 @@ export class SubtitlePlayerController {
                     </div>
                 `).join('') : '<div class="jpdb-subtitle-list-empty">No subtitle tracks found yet. Load a file, turn on captions, or play the video for a moment.</div>'}
             </div>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize subtitle tracks" aria-label="Resize subtitle tracks panel"></button>
         `);
+        this.bindTranscriptResizeHandle();
     }
 
     private async choosePrimaryTrack(id?: string): Promise<void> {
@@ -1207,7 +976,7 @@ export class SubtitlePlayerController {
             viewportHeight,
             compactPanel: viewportWidth <= 700 || window.matchMedia?.('(pointer: coarse)').matches,
         });
-        applyTranscriptPanelLayout(panel, layout);
+        applyTranscriptPanelLayout(panel, resizeTranscriptPanelLayout(layout, this.transcriptPanelSize));
     }
 
     private scheduleAlignToVideo(): void {
@@ -1228,15 +997,23 @@ interface TranscriptPanelLayoutOptions {
 }
 
 interface TranscriptPanelLayout {
+    placement: ReaderSettings['subtitleTranscriptPlacement'];
     left: number;
     top: number;
     width: number;
     height: number;
     viewportWidth: number;
+    viewportHeight: number;
     margin: number;
 }
 
 const TRANSCRIPT_PANEL_MARGIN = 10;
+const TRANSCRIPT_PANEL_SIZE_KEY = 'jpdb-reader-transcript-panel-size';
+
+interface TranscriptPanelSize {
+    sideWidth?: number;
+    bottomHeight?: number;
+}
 
 function computeTranscriptPanelLayout(options: TranscriptPanelLayoutOptions): TranscriptPanelLayout {
     const margin = TRANSCRIPT_PANEL_MARGIN;
@@ -1251,11 +1028,13 @@ function computeTranscriptPanelLayout(options: TranscriptPanelLayoutOptions): Tr
 function compactTranscriptPanelLayout(viewportWidth: number, viewportHeight: number, margin: number): TranscriptPanelLayout {
     const top = Math.max(margin, viewportHeight - Math.min(390, viewportHeight * 0.48) - margin);
     return {
+        placement: 'bottom',
         left: margin,
         top,
         width: viewportWidth - margin * 2,
         height: viewportHeight - top - margin,
         viewportWidth,
+        viewportHeight,
         margin,
     };
 }
@@ -1291,15 +1070,15 @@ function shouldUseBottomTranscriptFallback(
 function rightTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableRight: number): TranscriptPanelLayout {
     const width = Math.min(460, viewportWidth - margin * 2);
     if (availableRight < 280) {
-        return { left: Math.max(margin, viewportWidth - width - margin), top: Math.max(margin, videoRect.top), width, height: Math.min(Math.max(280, videoRect.height), viewportHeight - margin), viewportWidth, margin };
+        return { placement: 'right', left: Math.max(margin, viewportWidth - width - margin), top: Math.max(margin, videoRect.top), width, height: Math.min(Math.max(280, videoRect.height), viewportHeight - margin), viewportWidth, viewportHeight, margin };
     }
     const top = Math.max(margin, videoRect.top);
-    return { left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, margin };
+    return { placement: 'right', left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
 }
 
 function leftTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableLeft: number): TranscriptPanelLayout {
     const top = Math.max(margin, videoRect.top);
-    const fallback = { left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, margin };
+    const fallback = { placement: 'left' as const, left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
     if (availableLeft < 280) return fallback;
     const width = Math.min(460, availableLeft);
     return { ...fallback, left: Math.max(margin, videoRect.left - width - margin), width };
@@ -1313,7 +1092,7 @@ function bottomTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, 
     const top = below < 150
         ? Math.max(margin, viewportHeight - Math.min(360, viewportHeight * 0.42) - margin)
         : preferredTop;
-    return { left, top, width, height: Math.min(360, viewportHeight - top - margin), viewportWidth, margin };
+    return { placement: 'bottom', left, top, width, height: Math.min(360, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
 }
 
 function viewportTranscriptPanelLayout(
@@ -1325,11 +1104,28 @@ function viewportTranscriptPanelLayout(
     const width = placement === 'bottom' ? viewportWidth - margin * 2 : Math.min(460, viewportWidth - margin * 2);
     if (placement === 'bottom') {
         const top = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
-        return { left: margin, top, width, height: viewportHeight - top - margin, viewportWidth, margin };
+        return { placement, left: margin, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
     }
     const top = 68;
     const left = placement === 'left' ? margin : Math.max(margin, viewportWidth - width - margin);
-    return { left, top, width, height: viewportHeight - top - margin, viewportWidth, margin };
+    return { placement, left, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
+}
+
+function resizeTranscriptPanelLayout(layout: TranscriptPanelLayout, size: TranscriptPanelSize): TranscriptPanelLayout {
+    const maxWidth = layout.viewportWidth - layout.margin * 2;
+    if (layout.placement === 'bottom') {
+        const maxHeight = Math.max(150, layout.viewportHeight - layout.margin * 2);
+        const height = size.bottomHeight ? clampNumber(size.bottomHeight, 150, maxHeight) : layout.height;
+        const top = Math.max(layout.margin, Math.min(layout.top, layout.viewportHeight - height - layout.margin));
+        return { ...layout, top, height };
+    }
+
+    const width = size.sideWidth ? clampNumber(size.sideWidth, 260, Math.max(260, maxWidth)) : layout.width;
+    if (layout.placement === 'right') {
+        const right = Math.min(layout.viewportWidth - layout.margin, layout.left + layout.width);
+        return { ...layout, left: Math.max(layout.margin, right - width), width };
+    }
+    return { ...layout, width };
 }
 
 function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelLayout): void {
@@ -1338,14 +1134,50 @@ function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelL
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
     panel.style.width = `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`;
+    panel.style.height = `${Math.round(Math.max(150, layout.height))}px`;
     panel.style.maxHeight = `${Math.round(Math.max(150, layout.height))}px`;
+}
+
+function renderTranscriptPlacementControls(placement: ReaderSettings['subtitleTranscriptPlacement']): string {
+    return `
+        <div class="jpdb-subtitle-placement" aria-label="Panel position">
+            <button type="button" data-action="transcript-left" aria-pressed="${placement === 'left'}" title="Move panel left" aria-label="Move panel left">${subtitleIcon('panel-left')}</button>
+            <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move panel right" aria-label="Move panel right">${subtitleIcon('panel-right')}</button>
+            <button type="button" data-action="transcript-bottom" aria-pressed="${placement === 'bottom'}" title="Move panel below" aria-label="Move panel below">${subtitleIcon('panel-bottom')}</button>
+        </div>
+    `;
+}
+
+function loadTranscriptPanelSize(): TranscriptPanelSize {
+    try {
+        const raw = localStorage.getItem(TRANSCRIPT_PANEL_SIZE_KEY);
+        const parsed = raw ? JSON.parse(raw) as TranscriptPanelSize : {};
+        return {
+            sideWidth: Number.isFinite(parsed.sideWidth) ? parsed.sideWidth : undefined,
+            bottomHeight: Number.isFinite(parsed.bottomHeight) ? parsed.bottomHeight : undefined,
+        };
+    } catch {
+        return {};
+    }
+}
+
+function saveTranscriptPanelSize(size: TranscriptPanelSize): void {
+    try {
+        localStorage.setItem(TRANSCRIPT_PANEL_SIZE_KEY, JSON.stringify(size));
+    } catch {
+        // Best-effort preference only.
+    }
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 function usableVideoRect(rect?: DOMRect): rect is DOMRect {
     return Boolean(rect && rect.width >= 120 && rect.height >= 80);
 }
 
-type SubtitleIconName = 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'plug' | 'plug-on' | 'tracks' | 'transcript';
+type SubtitleIconName = 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'tracks' | 'transcript';
 
 function subtitleIcon(name: SubtitleIconName): string {
     const paths: Record<SubtitleIconName, string> = {
@@ -1356,8 +1188,6 @@ function subtitleIcon(name: SubtitleIconName): string {
         'panel-left': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
         'panel-right': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
         play: '<path d="M8 5v14l11-7-11-7Z"/>',
-        plug: '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/>',
-        'plug-on': '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/><path d="M18 5l2-2"/><path d="M20 9h2"/>',
         tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
         transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
     };
@@ -1371,7 +1201,6 @@ function closeIcon(): string {
 function formatTrackKind(kind: SubtitleTrackOption['kind']): string {
     if (kind === 'native') return 'page track';
     if (kind === 'youtube') return 'YouTube captions';
-    if (kind === 'mpv') return 'MPV bridge';
     return 'loaded file';
 }
 
@@ -1526,23 +1355,6 @@ function findAlignedCue(cues: SubtitleCue[], cue: SubtitleCue): SubtitleCue | un
         }))
         .filter(candidate => candidate.overlap > 0 || candidate.startDistance <= 0.45)
         .sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]?.item;
-}
-
-function parseMpvPorts(value: string): number[] {
-    return [...new Set(value
-        .split(/[\s,]+/)
-        .map(item => Number(item))
-        .filter(item => Number.isInteger(item) && item > 0 && item <= 65535))];
-}
-
-function mpvMediaKey(type: MpvMediaType, port: number, id: number): string {
-    return `${type}:${port}:${id}`;
-}
-
-function mpvDataUrl(type: MpvMediaType, base64: string): string {
-    return type === 'audio'
-        ? `data:audio/mpeg;base64,${base64}`
-        : `data:image/jpeg;base64,${base64}`;
 }
 
 function isJapaneseTrack(label = '', language = ''): boolean {

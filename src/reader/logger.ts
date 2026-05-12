@@ -341,30 +341,49 @@ function sanitizeForConsole(value: unknown, depth = 0, seen = new WeakSet<object
     if (value === null || value === undefined) return value;
     if (typeof value === 'string') return redactString(value);
     if (typeof value !== 'object') return value;
-    if (value instanceof Error) return { name: value.name, message: value.message, stack: value.stack };
-    if (typeof URL !== 'undefined' && value instanceof URL) return value.href;
-    if (typeof Blob !== 'undefined' && value instanceof Blob) return { type: value.type, size: value.size };
-    if (typeof Element !== 'undefined' && value instanceof Element) return value;
-    if (typeof Event !== 'undefined' && value instanceof Event) return {
-        type: value.type,
-        target: typeof Element !== 'undefined' && value.target instanceof Element ? describeElement(value.target) : String(value.target),
-    };
-    if (typeof FormData !== 'undefined' && value instanceof FormData) {
-        const record: Record<string, unknown> = {};
-        for (const [key, item] of value.entries()) {
-            record[key] = shouldRedactEntry(key, item)
-                ? REDACTED
-                : typeof File !== 'undefined' && item instanceof File
-                    ? { name: item.name, size: item.size, type: item.type }
-                    : sanitizeForConsole(item, depth + 1, seen);
-        }
-        return record;
-    }
+    const special = sanitizeSpecialConsoleValue(value, depth, seen);
+    if (special.handled) return special.value;
     if (seen.has(value)) return '[circular]';
     seen.add(value);
     if (depth >= 5) return `[${value.constructor?.name || 'Object'}]`;
     if (Array.isArray(value)) return value.map(item => sanitizeForConsole(item, depth + 1, seen));
 
+    return sanitizeRecordForConsole(value, depth, seen);
+}
+
+function sanitizeSpecialConsoleValue(value: object, depth: number, seen: WeakSet<object>): { handled: boolean; value?: unknown } {
+    if (value instanceof Error) return { handled: true, value: { name: value.name, message: value.message, stack: value.stack } };
+    if (typeof URL !== 'undefined' && value instanceof URL) return { handled: true, value: value.href };
+    if (typeof Blob !== 'undefined' && value instanceof Blob) return { handled: true, value: { type: value.type, size: value.size } };
+    if (typeof Element !== 'undefined' && value instanceof Element) return { handled: true, value };
+    if (typeof Event !== 'undefined' && value instanceof Event) {
+        return {
+            handled: true,
+            value: {
+                type: value.type,
+                target: typeof Element !== 'undefined' && value.target instanceof Element ? describeElement(value.target) : String(value.target),
+            },
+        };
+    }
+    if (typeof FormData !== 'undefined' && value instanceof FormData) {
+        return { handled: true, value: sanitizeFormDataForConsole(value, depth, seen) };
+    }
+    return { handled: false };
+}
+
+function sanitizeFormDataForConsole(value: FormData, depth: number, seen: WeakSet<object>): Record<string, unknown> {
+    const record: Record<string, unknown> = {};
+    for (const [key, item] of value.entries()) {
+        record[key] = shouldRedactEntry(key, item)
+            ? REDACTED
+            : typeof File !== 'undefined' && item instanceof File
+                ? { name: item.name, size: item.size, type: item.type }
+                : sanitizeForConsole(item, depth + 1, seen);
+    }
+    return record;
+}
+
+function sanitizeRecordForConsole(value: object, depth: number, seen: WeakSet<object>): Record<string, unknown> {
     const record = value as Record<string, unknown>;
     const result: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(record)) {

@@ -1,0 +1,702 @@
+.jpdb-subtitle-player {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2147483644;
+  pointer-events: none;
+  --subtitle-font-size: 28px;
+  --subtitle-bottom: 12%;
+  --subtitle-color: #fff;
+  --subtitle-outline: #000;
+  --subtitle-background-rgba: rgba(24,27,32,.18);
+  --subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --subtitle-weight: 760;
+}
+.jpdb-subtitle-text {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: var(--subtitle-bottom);
+  color: var(--subtitle-color);
+  text-align: center;
+  font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
+  text-shadow:
+    0 1px 2px var(--subtitle-outline),
+    0 0 3px var(--subtitle-outline),
+    0 0 8px rgba(0,0,0,.92),
+    0 3px 12px rgba(0,0,0,.72);
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-subtitle-primary {
+  display: inline;
+  padding: .3em .36em .2em;
+  border-radius: 6px;
+  background: var(--subtitle-background-rgba);
+  box-shadow:
+    0 8px 22px rgba(0,0,0,.28),
+    0 1px 2px rgba(0,0,0,.34);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  line-height: 1.58;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
+  paint-order: stroke fill;
+}
+.jpdb-subtitle-secondary {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255,255,255,.82);
+  font-size: .62em;
+  font-weight: 650;
+  line-height: 1.25;
+  text-shadow: 0 2px 2px #000, 0 0 7px rgba(0,0,0,.86);
+}
+.jpdb-subtitle-primary .jpdb-reader-word {
+  background: transparent !important;
+  color: var(--subtitle-color) !important;
+  --jpdb-reader-word-underline: transparent;
+  text-decoration: none !important;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px var(--subtitle-outline),
+    0 0 3px var(--subtitle-outline),
+    0 0 8px rgba(0,0,0,.92),
+    0 3px 12px rgba(0,0,0,.72);
+  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
+  paint-order: stroke fill;
+}
+.jpdb-subtitle-primary .jpdb-reader-word:hover,
+.jpdb-subtitle-primary .jpdb-reader-word:focus-visible {
+  background: rgba(255,255,255,.14) !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1.48;
+}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-new,
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-suspended,
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known,
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-never-forget,
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #ffb454) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-blacklisted,
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff) !important; }
+.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word { color: var(--subtitle-color) !important; }
+.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-heiban { color: #359eff !important; }
+.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-atamadaka { color: #fe4b74 !important; }
+.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka { color: #fba840 !important; }
+.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka { color: #57ccb7 !important; }
+.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku { color: #9050f6 !important; }
+.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word {
+  background: transparent !important;
+  color: var(--subtitle-color) !important;
+  --jpdb-reader-word-underline: transparent;
+  text-decoration-color: transparent !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-furi {
+  color: currentColor;
+  opacity: .82;
+  text-shadow:
+    0 1px 1px var(--subtitle-outline),
+    0 0 3px var(--subtitle-outline),
+    0 0 7px rgba(0,0,0,.86);
+}
+.jpdb-reader-subtitle-preview {
+  min-height: 94px;
+  padding: 18px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.10) 25%, transparent 25% 50%, rgba(255,255,255,.10) 50% 75%, transparent 75%) 0 0 / 28px 28px,
+    #1c222b;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  overflow: hidden;
+  color: var(--subtitle-color);
+  font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
+  text-shadow:
+    0 1px 2px var(--subtitle-outline),
+    0 0 3px var(--subtitle-outline),
+    0 0 8px rgba(0,0,0,.86);
+}
+.jpdb-reader-subtitle-preview .jpdb-subtitle-primary {
+  display: inline;
+}
+.jpdb-subtitle-rail {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 20px);
+  padding: 4px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: rgba(18,22,28,.56);
+  box-shadow: 0 12px 30px rgba(0,0,0,.28);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+  opacity: .78;
+  transition: opacity .14s ease, background .14s ease, border-color .14s ease;
+}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-list {
+  display: none !important;
+}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
+  opacity: .12;
+}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within {
+  opacity: 1;
+}
+.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
+.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],
+.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="next"],
+.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="list"],
+.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) .jpdb-subtitle-status {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.jpdb-subtitle-controls-always .jpdb-subtitle-rail {
+  opacity: 1;
+}
+.jpdb-subtitle-rail:hover,
+.jpdb-subtitle-menu-open .jpdb-subtitle-rail,
+.jpdb-subtitle-panel-open .jpdb-subtitle-rail {
+  opacity: 1;
+}
+.jpdb-subtitle-rail button,
+.jpdb-subtitle-menu button,
+.jpdb-subtitle-list button {
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 8px;
+  background: rgba(24,27,32,.78);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,.28);
+  font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  pointer-events: auto;
+}
+.jpdb-subtitle-rail button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  transition: opacity .14s ease, visibility .14s ease, border-color .14s ease, color .14s ease, background .14s ease;
+}
+.jpdb-subtitle-toggle {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, rgba(255,255,255,.22)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 22%, rgba(24,27,32,.72)) !important;
+}
+.jpdb-subtitle-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-subtitle-toggle[aria-pressed="false"] {
+  color: rgba(255,255,255,.72);
+  border-color: rgba(255,255,255,.18) !important;
+  background: rgba(24,27,32,.72) !important;
+}
+.jpdb-subtitle-rail button[hidden],
+.jpdb-subtitle-status[hidden],
+.jpdb-subtitle-menu button[hidden] {
+  display: none !important;
+}
+.jpdb-subtitle-rail button:disabled {
+  opacity: .45;
+}
+.jpdb-subtitle-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 36px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255,255,255,.78);
+  border: 0;
+  box-shadow: none;
+  font: 850 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: opacity .14s ease, visibility .14s ease;
+}
+.jpdb-subtitle-compact-video .jpdb-subtitle-rail {
+  top: 8px;
+  right: 8px;
+  gap: 3px;
+  padding: 3px;
+}
+.jpdb-subtitle-compact-video .jpdb-subtitle-rail button {
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+}
+.jpdb-subtitle-compact-video .jpdb-subtitle-status {
+  min-width: 30px;
+  padding-inline: 2px;
+}
+.jpdb-subtitle-menu {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  top: 50px;
+  display: grid;
+  gap: 6px;
+  width: min(230px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 10px;
+  background: rgba(24,27,32,.88);
+  box-shadow: 0 14px 34px rgba(0,0,0,.32);
+  pointer-events: auto;
+}
+.jpdb-subtitle-menu[hidden],
+.jpdb-subtitle-list[hidden] { display: none; }
+.jpdb-subtitle-menu-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 0 2px;
+  color: rgba(255,255,255,.78);
+  font: 800 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-subtitle-menu button {
+  min-height: 36px;
+  text-align: left;
+  padding: 0 10px;
+  box-shadow: none;
+}
+.jpdb-subtitle-menu button[aria-pressed="true"],
+.jpdb-subtitle-track-row button[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, rgba(255,255,255,.05));
+}
+.jpdb-subtitle-list {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  top: 50px;
+  width: min(460px, calc(100vw - 24px));
+  max-height: min(62vh, 520px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 10px;
+  background: rgba(24,27,32,.92);
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(0,0,0,.32);
+  pointer-events: auto;
+  backdrop-filter: blur(18px);
+}
+.jpdb-subtitle-resize {
+  position: absolute;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  touch-action: none;
+}
+.jpdb-subtitle-resize::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255,255,255,.22);
+  opacity: .42;
+}
+.jpdb-subtitle-resize:hover::after,
+.jpdb-subtitle-resize:focus-visible::after {
+  background: var(--jpdb-reader-accent);
+  opacity: 1;
+}
+.jpdb-subtitle-transcript-right .jpdb-subtitle-resize {
+  left: -7px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: ew-resize;
+}
+.jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
+  right: -7px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: ew-resize;
+}
+.jpdb-subtitle-transcript-right .jpdb-subtitle-resize::after,
+.jpdb-subtitle-transcript-left .jpdb-subtitle-resize::after {
+  top: 16px;
+  bottom: 16px;
+  left: 6px;
+  width: 2px;
+}
+.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize {
+  left: 0;
+  right: 0;
+  top: -7px;
+  height: 14px;
+  cursor: ns-resize;
+}
+.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize::after {
+  left: 16px;
+  right: 16px;
+  top: 6px;
+  height: 2px;
+}
+.jpdb-subtitle-list-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.78);
+  font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-subtitle-placement {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.jpdb-subtitle-placement button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  width: 28px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0;
+  text-align: center;
+  box-shadow: none;
+}
+.jpdb-subtitle-placement button[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, rgba(255,255,255,.05));
+}
+.jpdb-subtitle-list-scroll {
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  overscroll-behavior: contain;
+}
+.jpdb-subtitle-list-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255,255,255,.025);
+  cursor: pointer;
+}
+.jpdb-subtitle-row-seek {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  margin-top: 1px;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+.jpdb-subtitle-row-body {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 3px 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0;
+  text-align: left;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.jpdb-subtitle-row-replay {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+.jpdb-subtitle-list-row.active {
+  border-color: rgba(94,167,128,.88);
+  background: rgba(94,167,128,.2);
+}
+.jpdb-subtitle-row-time {
+  color: rgba(255,255,255,.55);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.jpdb-subtitle-row-text {
+  min-width: 0;
+  grid-column: 2;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  line-height: 1.48;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.jpdb-subtitle-row-text .jpdb-reader-word {
+  color: inherit;
+  background: transparent;
+  border-radius: 4px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.jpdb-subtitle-row-text .jpdb-reader-word:hover,
+.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible {
+  background: rgba(255,255,255,.14);
+  outline: 1px solid rgba(255,255,255,.28);
+}
+.jpdb-subtitle-row-translation {
+  grid-column: 2;
+  min-width: 0;
+  margin-top: 3px;
+  color: rgba(255,255,255,.68);
+  overflow-wrap: anywhere;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.jpdb-subtitle-track-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 8px;
+  background: rgba(255,255,255,.05);
+}
+.jpdb-subtitle-track-row.active {
+  border-color: rgba(94,167,128,.82);
+  background: rgba(94,167,128,.18);
+}
+.jpdb-subtitle-track-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.jpdb-subtitle-track-row span {
+  color: rgba(255,255,255,.62);
+  font-size: 11px;
+  font-weight: 700;
+}
+.jpdb-subtitle-track-row div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.jpdb-subtitle-track-row button {
+  min-height: 34px;
+  text-align: center;
+  box-shadow: none;
+}
+.jpdb-subtitle-track-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.jpdb-subtitle-track-tools button {
+  min-height: 36px;
+  box-shadow: none;
+}
+.jpdb-subtitle-list-empty {
+  padding: 12px;
+  color: rgba(255,255,255,.72);
+  font: 700 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
+
+.jpdb-youtube-filtered {
+  display: none !important;
+}
+.jpdb-youtube-filter-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-muted);
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
+  font: 750 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-youtube-filter-bar span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-youtube-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.jpdb-youtube-filter-bar button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--jpdb-reader-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.jpdb-youtube-filter-bar [data-action="turn-off"] {
+  border-color: var(--jpdb-reader-border);
+  color: var(--jpdb-reader-muted);
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .jpdb-reader-popover.jpdb-reader-sheet {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100%;
+    max-height: min(70vh, 620px);
+    border-radius: 16px 16px 0 0;
+    padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
+    max-height: min(92vh, 840px);
+    max-height: min(92svh, 840px);
+  }
+  .jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }
+  .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
+  .jpdb-reader-settings { inset: auto 0 0 0; transform: none; width: 100%; max-height: 88vh; max-height: 88svh; border-radius: 16px 16px 0 0; }
+  .jpdb-reader-settings-head { padding: 18px 20px 0; }
+  .jpdb-reader-settings-scroll { padding: 0 20px 106px; }
+  .jpdb-reader-settings .footer {
+    justify-content: stretch;
+    gap: 12px;
+    padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+  }
+  .jpdb-reader-settings .footer .jpdb-reader-btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
+  .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
+  .jpdb-reader-support-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .jpdb-reader-recommended-item { grid-template-columns: 1fr; }
+  .jpdb-reader-template-preview-grid { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding {
+    inset: auto 0 0 0;
+    transform: none;
+    width: 100%;
+    max-height: 88vh;
+    max-height: 88svh;
+    border-radius: 16px 16px 0 0;
+    padding: 54px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .jpdb-reader-onboarding-close {
+    top: 12px;
+    right: 16px;
+  }
+  .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
+  .jpdb-youtube-filter-bar {
+    bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
+    border-radius: 12px;
+  }
+  .jpdb-reader-dictionary-head { display: none; }
+  .jpdb-reader-dictionary-row,
+  .jpdb-reader-dictionary-row.compact { grid-template-columns: 52px 1fr; }
+  .jpdb-reader-dictionary-row input[name$=".alias"],
+  .jpdb-reader-dictionary-row .jpdb-reader-row-tools,
+  .jpdb-reader-dictionary-row-help { grid-column: 2; }
+  .jpdb-reader-dictionary-row .jpdb-reader-row-tools { justify-content: flex-start; }
+  .jpdb-reader-audio-source-head { display: none; }
+  .jpdb-reader-audio-source-row,
+  .jpdb-reader-lookup-link-row { grid-template-columns: 52px 1fr; }
+  .jpdb-reader-audio-source-choice { grid-column: 2; }
+  .jpdb-reader-audio-source-fields { grid-column: 1 / -1; }
+  .jpdb-reader-lookup-link-row input[name$=".urlTemplate"] { grid-column: 1 / -1; }
+  .jpdb-reader-audio-source-row .jpdb-reader-row-tools {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-tools {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .jpdb-ocr-line { min-width: 38px; min-height: 38px; border-radius: 8px; }
+  .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
+  .jpdb-subtitle-rail {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: auto;
+    gap: 3px;
+  }
+  .jpdb-subtitle-compact-video.jpdb-subtitle-panel-open .jpdb-subtitle-rail,
+  .jpdb-subtitle-compact-video.jpdb-subtitle-menu-open .jpdb-subtitle-rail {
+    top: -44px;
+  }
+  .jpdb-subtitle-rail button {
+    height: 34px;
+    min-width: 34px;
+    width: 34px;
+    padding: 0;
+    font-size: 11px;
+  }
+  .jpdb-subtitle-menu {
+    top: calc(52px + env(safe-area-inset-top));
+    right: 8px;
+    bottom: auto;
+  }
+  .jpdb-subtitle-list {
+    left: 8px !important;
+    right: auto !important;
+    width: calc(100vw - 16px) !important;
+    max-height: min(48vh, 390px) !important;
+    border-radius: 12px 12px 0 0;
+  }
+}

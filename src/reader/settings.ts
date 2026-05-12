@@ -123,10 +123,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     immersionKitEnabled: true,
     immersionKitPriority: 80,
     immersionKitLimit: 3,
-    immersionKitMinLength: 4,
+    immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
     immersionKitCategory: 'all',
-    immersionKitSort: 'sentence_length:asc',
+    immersionKitSort: 'random',
     immersionKitExactMatch: false,
     immersionKitShowTranslation: false,
     immersionKitShowImages: true,
@@ -196,10 +196,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
-    mpvSubtitleMiningEnabled: false,
-    mpvSubtitleAutoConnect: false,
-    mpvSubtitleHost: '127.0.0.1',
-    mpvSubtitlePorts: '61777, 61778, 61779, 61780, 61781',
     youtubeImmersionEnabled: false,
     youtubeShowFilterNotice: true,
     ankiEnabled: false,
@@ -251,26 +247,57 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
 };
 
 function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
-    const hasSavedAudioSources = value && Object.prototype.hasOwnProperty.call(value, 'audioSources');
+    const audio = normalizeAudioSettings(value);
+    return {
+        ...DEFAULT_SETTINGS,
+        ...(value ?? {}),
+        ...normalizeLookupSettings(value),
+        ...normalizeNewTabSettings(value),
+        ...normalizeReaderDisplaySettings(value),
+        ...audio,
+        ...normalizeMediaSettings(value),
+        ...normalizeSubtitleSettings(value),
+        ...normalizeKanjiSettings(value),
+        ...normalizeAnkiAndStudySettings(value),
+        ...normalizePresentationSettings(value),
+        ...normalizeMiningSettings(value),
+        dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
+        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(value),
+        shortcuts: normalizeShortcutSettings(value),
+    };
+}
+
+function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'audioSources' | 'audioSourceUrl'> {
+    const hasSavedAudioSources = hasOwn(value, 'audioSources');
     const audioSources = hasSavedAudioSources || value?.audioSourceUrl
         ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
+    return {
+        audioSources,
+        audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
+    };
+}
+
+function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): ReaderSettings['shortcuts'] {
     const shortcuts = {
         ...DEFAULT_SETTINGS.shortcuts,
         ...(value?.shortcuts ?? {}),
     };
-    if (value && value.shortcuts && !Object.prototype.hasOwnProperty.call(value.shortcuts, 'hoverLookup')) {
+    if (value?.shortcuts && !hasOwn(value.shortcuts, 'hoverLookup')) {
         shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
     }
-    const hasSavedLookupLinks = Boolean(value && Object.prototype.hasOwnProperty.call(value, 'dictionaryLookupLinks'));
-    const dictionaryLookupLinks = normalizeDictionaryLookupLinks(
+    return shortcuts;
+}
+
+function normalizeDictionaryLookupLinkSettings(value: Partial<ReaderSettings> | null): ReaderSettings['dictionaryLookupLinks'] {
+    return normalizeDictionaryLookupLinks(
         value?.dictionaryLookupLinks,
-        !hasSavedLookupLinks && Boolean(value?.apiKey?.trim()),
+        !hasOwn(value, 'dictionaryLookupLinks') && Boolean(value?.apiKey?.trim()),
     );
-    const audioSourceUrl = audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL;
+}
+
+function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        ...DEFAULT_SETTINGS,
-        ...(value ?? {}),
         interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
         jpdbDefinitionsPriority: clampNumber(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
         lookupOnClick: typeof value?.lookupOnClick === 'boolean' ? value.lookupOnClick : true,
@@ -278,9 +305,19 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         lookupOnMiddleMouse: typeof value?.lookupOnMiddleMouse === 'boolean' ? value.lookupOnMiddleMouse : true,
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
+    };
+}
+
+function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
         newTabEnabled: typeof value?.newTabEnabled === 'boolean' ? value.newTabEnabled : DEFAULT_SETTINGS.newTabEnabled,
         newTabSource: normalizeNewTabSource(value?.newTabSource),
         newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
+    };
+}
+
+function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
         accentColor: sanitizeAccentColor(value?.accentColor),
         wordColorNew: sanitizeAccentColor(value?.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
         wordColorLearning: sanitizeAccentColor(value?.wordColorLearning, DEFAULT_SETTINGS.wordColorLearning),
@@ -294,10 +331,11 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         furiganaMode: normalizeFuriganaMode(value?.furiganaMode, value),
         hideKnownFurigana: typeof value?.hideKnownFurigana === 'boolean' ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
         wordHighlightMode: normalizeWordHighlightMode(value?.wordHighlightMode),
-        audioSources,
-        audioSourceUrl,
-        ...normalizeMediaSettings(value),
-        ...normalizeSubtitleSettings(value),
+    };
+}
+
+function normalizeKanjiSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
         jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === 'boolean' ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
         jpdbKanjiPriority: clampNumber(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
         rtkPriority: clampNumber(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
@@ -306,6 +344,11 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         kanjiDictionariesPriority: clampNumber(value?.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
         similarKanjiWordsPriority: clampNumber(value?.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
         similarKanjiWordLimit: clampNumber(value?.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit),
+    };
+}
+
+function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
         ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
         ankiModel: normalizeAnkiName(value?.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
@@ -316,20 +359,29 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         studyGrammarEnabled: typeof value?.studyGrammarEnabled === 'boolean' ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
         studyGrammarPriority: clampNumber(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
         enableLogging: typeof value?.enableLogging === 'boolean' ? value.enableLogging : DEFAULT_SETTINGS.enableLogging,
+    };
+}
+
+function normalizePresentationSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
         theme: normalizeTheme(value?.theme),
         popupMode: normalizePopupMode(value?.popupMode),
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
         popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
         popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
+    };
+}
+
+function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
         ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
         jpdbMiningEnabled: typeof value?.jpdbMiningEnabled === 'boolean' ? value.jpdbMiningEnabled : DEFAULT_SETTINGS.jpdbMiningEnabled,
         miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-        dictionarySourcesInitiallyExpanded: typeof value?.dictionarySourcesInitiallyExpanded === 'boolean' ? value.dictionarySourcesInitiallyExpanded : DEFAULT_SETTINGS.dictionarySourcesInitiallyExpanded,
-        dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
-        dictionaryLookupLinks,
-        shortcuts,
+        dictionarySourcesInitiallyExpanded: typeof value?.dictionarySourcesInitiallyExpanded === 'boolean'
+            ? value.dictionarySourcesInitiallyExpanded
+            : DEFAULT_SETTINGS.dictionarySourcesInitiallyExpanded,
     };
 }
 
@@ -368,14 +420,16 @@ function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Parti
         subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
         subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
         subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
-        mpvSubtitleHost: normalizeMpvHost(value?.mpvSubtitleHost),
-        mpvSubtitlePorts: normalizeMpvPorts(value?.mpvSubtitlePorts),
     };
 }
 
 function normalizeOptionalCoordinate(value: unknown): number | undefined {
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : undefined;
+}
+
+function hasOwn(value: unknown, key: PropertyKey): boolean {
+    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
 
 function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string): string {
@@ -444,21 +498,6 @@ function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitle
 
 function normalizeSubtitleTranscriptPlacement(value: unknown): ReaderSettings['subtitleTranscriptPlacement'] {
     return value === 'left' || value === 'bottom' || value === 'right' ? value : DEFAULT_SETTINGS.subtitleTranscriptPlacement;
-}
-
-function normalizeMpvHost(value: unknown): string {
-    if (typeof value !== 'string' || !value.trim()) return DEFAULT_SETTINGS.mpvSubtitleHost;
-    const normalized = value.trim().replace(/^wss?:\/\//i, '').replace(/\/.*$/, '');
-    return normalized || DEFAULT_SETTINGS.mpvSubtitleHost;
-}
-
-function normalizeMpvPorts(value: unknown): string {
-    const raw = Array.isArray(value) ? value.join(',') : typeof value === 'string' ? value : '';
-    const ports = raw
-        .split(/[\s,]+/)
-        .map(port => Number(port))
-        .filter(port => Number.isInteger(port) && port > 0 && port <= 65535);
-    return ports.length ? [...new Set(ports)].join(', ') : DEFAULT_SETTINGS.mpvSubtitlePorts;
 }
 
 function normalizeNewTabSource(value: unknown): ReaderSettings['newTabSource'] {

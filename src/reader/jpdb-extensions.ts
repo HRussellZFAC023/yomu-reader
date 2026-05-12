@@ -423,6 +423,11 @@ export class JpdbExtensionsController {
 
         let index = savedImmersionIndex(query, examples.length);
         const render = () => renderImmersionPanel(container, examples, index, query, this.options.immersionKit, this.options.getSettings());
+        let hoverAudioCanPlay = false;
+        let hoverAudioActive = false;
+        requestAnimationFrame(() => {
+            hoverAudioCanPlay = !container.matches(':hover');
+        });
         container.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-yomu-immersion-action]')?.dataset.yomuImmersionAction;
             if (!action) return;
@@ -430,14 +435,33 @@ export class JpdbExtensionsController {
             if (action === 'previous') index = (index - 1 + examples.length) % examples.length;
             if (action === 'next') index = (index + 1) % examples.length;
             if (action === 'audio') playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings());
-            if (action !== 'audio') render();
+            if (action !== 'audio') {
+                render();
+                playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings());
+            }
+        });
+        const handleImageHover = (event: MouseEvent | PointerEvent) => {
+            const media = (event.target as HTMLElement).closest?.('.jpdb-reader-example-media');
+            if (!media || !hoverAudioCanPlay || !this.options.getSettings().immersionKitPlayOnHover) return;
+            const cannotHover = window.matchMedia?.('(hover: none)').matches ?? false;
+            const pointerType = 'pointerType' in event ? event.pointerType : 'mouse';
+            if (pointerType === 'touch' || cannotHover) return;
+            if (media.contains(event.relatedTarget as Node | null)) return;
+            hoverAudioActive = true;
+            playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings(), () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(':hover'));
+        };
+        container.addEventListener('pointerover', handleImageHover);
+        container.addEventListener('mouseover', handleImageHover);
+        container.addEventListener('pointerleave', () => {
+            hoverAudioCanPlay = true;
+            hoverAudioActive = false;
+        });
+        container.addEventListener('mouseleave', () => {
+            hoverAudioCanPlay = true;
+            hoverAudioActive = false;
         });
         render();
         const settings = this.options.getSettings();
-        if (settings.jpdbImmersionKitAutoPlayReviewAudio && isReviewAnswer() && this.reviewImmersionAutoPlayKey !== key) {
-            this.reviewImmersionAutoPlayKey = key;
-            playExampleAudio(examples[index], this.options.immersionKit, settings);
-        }
     }
 
     private async renderLocalDictionaries(): Promise<void> {
@@ -733,7 +757,6 @@ function renderImmersionPanel(
             <div class="jpdb-reader-example-topline">
                 <div class="jpdb-reader-example-meta">
                     <span class="jpdb-reader-example-source">${escapeHtml(example.sourceTitle)}</span>
-                    <span class="jpdb-reader-example-count">${index + 1}/${examples.length}</span>
                 </div>
                 <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
                     <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="previous" title="Previous">‹</button>
@@ -742,8 +765,8 @@ function renderImmersionPanel(
                 </div>
             </div>
             <div class="jpdb-reader-example-body">
-                <div class="jpdb-reader-example-sentence">${sentenceHtml}</div>
                 ${image}
+                <div class="jpdb-reader-example-sentence">${sentenceHtml}</div>
                 ${settings.immersionKitShowTranslation && example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
             </div>
         </div>
@@ -797,7 +820,7 @@ function dictionaryLabel(name: string, settings: ReaderSettings): string {
     return settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
 }
 
-function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClient, settings: ReaderSettings): void {
+function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClient, settings: ReaderSettings, isCurrent: () => boolean = () => true): void {
     const urls = immersionMediaUrls(client, example, 'sound');
     const url = urls[0] ?? '';
     if (!url) return;
@@ -809,7 +832,7 @@ function playExampleAudio(example: ImmersionKitExample, client: ImmersionKitClie
     immersionAddonAudioLoadingKey = url;
 
     const play = (src: string, isBlob = false) => {
-        if (requestId !== immersionAddonAudioRequestId || immersionAddonAudioKey !== url) {
+        if (!isCurrent() || requestId !== immersionAddonAudioRequestId || immersionAddonAudioKey !== url) {
             if (isBlob) URL.revokeObjectURL(src);
             return;
         }

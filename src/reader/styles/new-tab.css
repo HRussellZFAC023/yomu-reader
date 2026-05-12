@@ -1,0 +1,252 @@
+.jpdb-reader-newtab-document,
+.jpdb-reader-newtab-document body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--jpdb-newtab-bg, var(--jpdb-reader-accent));
+}
+
+.jpdb-reader-newtab {
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--jpdb-newtab-bg, var(--jpdb-reader-accent));
+  color: var(--jpdb-newtab-bg-text, #111);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.jpdb-reader-newtab button {
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jpdb-reader-newtab-shell {
+  width: min(880px, calc(100vw - 28px));
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(16px, 3vh, 28px);
+  padding: max(14px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
+}
+
+.jpdb-reader-newtab-topbar {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.jpdb-reader-newtab-brand,
+.jpdb-reader-newtab-overflow {
+  width: 40px;
+  height: 40px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-newtab-bg-text, #111) 18%, transparent);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--jpdb-newtab-surface, #fff) 78%, transparent);
+  color: var(--jpdb-newtab-bg-text, #111);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--jpdb-newtab-shadow, rgba(0,0,0,.16)) 62%, transparent);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.jpdb-reader-newtab-overflow {
+  padding-bottom: 6px;
+  font-size: 20px;
+}
+
+.jpdb-reader-newtab-mode {
+  justify-self: center;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-newtab-bg-text, #111) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-newtab-surface, #fff) 64%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.jpdb-reader-newtab-mode button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--jpdb-newtab-bg-text, #111);
+  font-size: 12px;
+  font-weight: 820;
+  cursor: pointer;
+}
+
+.jpdb-reader-newtab-mode button[data-active="true"] {
+  background: var(--jpdb-newtab-surface, #fff);
+  color: var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--jpdb-newtab-shadow, rgba(0,0,0,.12)) 48%, transparent);
+}
+
+.jpdb-reader-newtab-study {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  justify-items: center;
+  gap: clamp(10px, 2.2vh, 20px);
+  cursor: pointer;
+  user-select: none;
+}
+
+.jpdb-reader-newtab-count,
+.jpdb-reader-newtab-status {
+  color: color-mix(in srgb, var(--jpdb-newtab-bg-text, #111) 72%, transparent);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 760;
+  text-align: center;
+}
+
+.jpdb-reader-newtab-prompt {
+  max-width: 100%;
+  color: var(--jpdb-newtab-bg-text, #111);
+  font-size: clamp(62px, 15vw, 164px);
+  font-weight: 900;
+  line-height: .96;
+  text-align: center;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.jpdb-reader-newtab-prompt .jpdb-reader-word {
+  background: transparent !important;
+  color: inherit;
+  text-decoration-color: transparent !important;
+}
+
+.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-size: clamp(92px, 24vw, 260px);
+  font-weight: 800;
+}
+
+.jpdb-reader-newtab-answer {
+  min-height: clamp(72px, 12vh, 128px);
+  max-width: min(620px, 100%);
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  transition: opacity .16s ease, transform .16s ease, filter .16s ease;
+}
+
+.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(4px);
+  pointer-events: none;
+}
+
+.jpdb-reader-newtab-reading {
+  max-width: 100%;
+  color: var(--jpdb-newtab-bg-text, #111);
+  font-size: clamp(24px, 5vw, 54px);
+  font-weight: 780;
+  line-height: 1.1;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-reading .jpdb-reader-word {
+  background: transparent !important;
+  color: inherit;
+  text-decoration-color: transparent !important;
+}
+
+.jpdb-reader-newtab-meaning {
+  max-width: min(520px, 100%);
+  color: color-mix(in srgb, var(--jpdb-newtab-bg-text, #111) 78%, transparent);
+  font-size: clamp(15px, 2.4vw, 22px);
+  font-weight: 650;
+  line-height: 1.42;
+  text-align: center;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.jpdb-reader-newtab-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.jpdb-reader-newtab-controls button {
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-newtab-bg-text, #111) 16%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-newtab-surface, #fff) 72%, transparent);
+  color: var(--jpdb-newtab-bg-text, #111);
+  font-size: 13px;
+  font-weight: 820;
+  cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--jpdb-newtab-shadow, rgba(0,0,0,.14)) 42%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
+  background: var(--jpdb-newtab-bg-text, #111);
+  border-color: transparent;
+  color: var(--jpdb-newtab-bg, #fff);
+}
+
+.jpdb-reader-newtab-brand:hover,
+.jpdb-reader-newtab-brand:focus-visible,
+.jpdb-reader-newtab-overflow:hover,
+.jpdb-reader-newtab-overflow:focus-visible,
+.jpdb-reader-newtab-mode button:hover,
+.jpdb-reader-newtab-mode button:focus-visible,
+.jpdb-reader-newtab-controls button:hover,
+.jpdb-reader-newtab-controls button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--jpdb-newtab-bg-text, #111) 34%, transparent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .jpdb-reader-newtab-shell {
+    width: min(100vw - 18px, 560px);
+    gap: 14px;
+  }
+
+  .jpdb-reader-newtab-mode {
+    grid-template-columns: repeat(2, minmax(62px, 1fr));
+  }
+
+  .jpdb-reader-newtab-mode button {
+    padding: 0 10px;
+  }
+
+  .jpdb-reader-newtab-prompt {
+    font-size: clamp(50px, 17vw, 102px);
+  }
+
+  .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
+    font-size: clamp(88px, 34vw, 180px);
+  }
+
+  .jpdb-reader-newtab-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .jpdb-reader-newtab-controls button {
+    min-height: 42px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+}

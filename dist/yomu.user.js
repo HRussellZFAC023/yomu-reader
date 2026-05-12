@@ -309,25 +309,41 @@
     if (value === null || value === void 0) return value;
     if (typeof value === "string") return redactString(value);
     if (typeof value !== "object") return value;
-    if (value instanceof Error) return { name: value.name, message: value.message, stack: value.stack };
-    if (typeof URL !== "undefined" && value instanceof URL) return value.href;
-    if (typeof Blob !== "undefined" && value instanceof Blob) return { type: value.type, size: value.size };
-    if (typeof Element !== "undefined" && value instanceof Element) return value;
-    if (typeof Event !== "undefined" && value instanceof Event) return {
-      type: value.type,
-      target: typeof Element !== "undefined" && value.target instanceof Element ? describeElement(value.target) : String(value.target)
-    };
-    if (typeof FormData !== "undefined" && value instanceof FormData) {
-      const record2 = {};
-      for (const [key, item] of value.entries()) {
-        record2[key] = shouldRedactEntry(key, item) ? REDACTED : typeof File !== "undefined" && item instanceof File ? { name: item.name, size: item.size, type: item.type } : sanitizeForConsole(item, depth + 1, seen);
-      }
-      return record2;
-    }
+    const special = sanitizeSpecialConsoleValue(value, depth, seen);
+    if (special.handled) return special.value;
     if (seen.has(value)) return "[circular]";
     seen.add(value);
     if (depth >= 5) return `[${((_a = value.constructor) == null ? void 0 : _a.name) || "Object"}]`;
     if (Array.isArray(value)) return value.map((item) => sanitizeForConsole(item, depth + 1, seen));
+    return sanitizeRecordForConsole(value, depth, seen);
+  }
+  function sanitizeSpecialConsoleValue(value, depth, seen) {
+    if (value instanceof Error) return { handled: true, value: { name: value.name, message: value.message, stack: value.stack } };
+    if (typeof URL !== "undefined" && value instanceof URL) return { handled: true, value: value.href };
+    if (typeof Blob !== "undefined" && value instanceof Blob) return { handled: true, value: { type: value.type, size: value.size } };
+    if (typeof Element !== "undefined" && value instanceof Element) return { handled: true, value };
+    if (typeof Event !== "undefined" && value instanceof Event) {
+      return {
+        handled: true,
+        value: {
+          type: value.type,
+          target: typeof Element !== "undefined" && value.target instanceof Element ? describeElement(value.target) : String(value.target)
+        }
+      };
+    }
+    if (typeof FormData !== "undefined" && value instanceof FormData) {
+      return { handled: true, value: sanitizeFormDataForConsole(value, depth, seen) };
+    }
+    return { handled: false };
+  }
+  function sanitizeFormDataForConsole(value, depth, seen) {
+    const record = {};
+    for (const [key, item] of value.entries()) {
+      record[key] = shouldRedactEntry(key, item) ? REDACTED : typeof File !== "undefined" && item instanceof File ? { name: item.name, size: item.size, type: item.type } : sanitizeForConsole(item, depth + 1, seen);
+    }
+    return record;
+  }
+  function sanitizeRecordForConsole(value, depth, seen) {
     const record = value;
     const result = {};
     for (const [key, item] of Object.entries(record)) {
@@ -358,733 +374,6 @@
   if (typeof window !== "undefined") {
     window.__YOMU_LOGGER__ = Logger;
     window.YomuLogger = Logger;
-  }
-  const log$z = Logger.scope("ObjectUrlCache");
-  class ObjectUrlCache {
-    constructor(ttlMs, label) {
-      __publicField(this, "entries", /* @__PURE__ */ new Map());
-      this.ttlMs = ttlMs;
-      this.label = label;
-    }
-    getOrCreate(key, createUrl) {
-      const now = Date.now();
-      const cached = this.entries.get(key);
-      if (cached && cached.expiresAt > now) {
-        log$z.debug("Object URL cache hit", { label: this.label });
-        return cached.promise;
-      }
-      if (cached) this.delete(key);
-      const entry = {
-        expiresAt: now + this.ttlMs,
-        promise: Promise.resolve().then(createUrl).then((url) => {
-          entry.url = url;
-          entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
-          return url;
-        }).catch((error) => {
-          if (this.entries.get(key) === entry) this.entries.delete(key);
-          throw error;
-        })
-      };
-      this.entries.set(key, entry);
-      return entry.promise;
-    }
-    clear() {
-      for (const key of this.entries.keys()) {
-        this.delete(key);
-      }
-    }
-    expire(key, entry) {
-      if (this.entries.get(key) !== entry) return;
-      this.delete(key);
-    }
-    delete(key) {
-      const entry = this.entries.get(key);
-      if (!entry) return;
-      if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
-      this.entries.delete(key);
-      if (entry.url) URL.revokeObjectURL(entry.url);
-    }
-  }
-  var _monkeyWindow = /* @__PURE__ */ (() => window)();
-  const log$y = Logger.scope("Userscript");
-  function getUserscriptHttpRequest() {
-    for (const source of userscriptRequestSources()) {
-      const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
-      if (directRequest) {
-        log$y.debug("Userscript HTTP request resolved", { source: sourceLabel$1(source), path: "GM_xmlhttpRequest" });
-        return directRequest.bind(source);
-      }
-      const gm = source.GM;
-      const gmRequest = asUserscriptRequest(gm == null ? void 0 : gm.xmlHttpRequest) ?? asUserscriptRequest(gm == null ? void 0 : gm.xmlhttpRequest);
-      if (gmRequest) {
-        log$y.debug("Userscript HTTP request resolved", { source: sourceLabel$1(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
-        return gmRequest.bind(gm);
-      }
-    }
-    log$y.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
-    return void 0;
-  }
-  function userscriptRequestSources() {
-    const sources = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (value) => {
-      if (!isRequestSource(value) || seen.has(value)) return;
-      seen.add(value);
-      sources.push(value);
-    };
-    for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(_monkeyWindow);
-    add(globalThis);
-    if (typeof window !== "undefined") add(window);
-    return sources;
-  }
-  function mountedMonkeyWindows() {
-    if (typeof document === "undefined") return [];
-    const record = document;
-    const windows = Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => record[key]);
-    log$y.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
-    return windows;
-  }
-  function isRequestSource(value) {
-    return Boolean(value) && (typeof value === "object" || typeof value === "function");
-  }
-  function asUserscriptRequest(value) {
-    return typeof value === "function" ? value : void 0;
-  }
-  function sourceLabel$1(source) {
-    if (typeof window !== "undefined" && source === window) return "window";
-    if (source === globalThis) return "globalThis";
-    if (source === _monkeyWindow) return "monkeyWindow";
-    return "mountedMonkeyWindow";
-  }
-  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "text-to-speech"];
-  const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
-  const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
-  const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1e3;
-  const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
-  const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
-  const log$x = Logger.scope("Audio");
-  class AudioPlayer {
-    constructor(getSettings) {
-      __publicField(this, "current");
-      __publicField(this, "utterance");
-      __publicField(this, "fallbackChimeContext");
-      __publicField(this, "playRequestId", 0);
-      __publicField(this, "shuffledAudio", new ShuffledAudioDeck());
-      __publicField(this, "candidateCache", /* @__PURE__ */ new Map());
-      __publicField(this, "blobUrlCache", new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, "audio"));
-      __publicField(this, "readyAudioCache", /* @__PURE__ */ new Map());
-      this.getSettings = getSettings;
-    }
-    async play(card, options = {}) {
-      const requestId = ++this.playRequestId;
-      const isCurrent = options.isCurrent ?? (() => true);
-      const settings = this.getSettings();
-      if (!settings.audioEnabled) throw new Error("Audio playback is disabled.");
-      if (!isCurrent()) return false;
-      const sources = getOrderedAudioSources(settings);
-      this.stopCurrent();
-      if (!sources.length) {
-        log$x.warn("No audio sources configured", { term: card.spelling });
-        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
-      }
-      const done = log$x.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
-      const errors = [];
-      const triedUrls = /* @__PURE__ */ new Set();
-      for (const source of sources) {
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-          log$x.debug("Audio request superseded", { term: card.spelling, requestId });
-          done();
-          return false;
-        }
-        try {
-          const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
-          if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-            done();
-            return false;
-          }
-          if (played) {
-            log$x.debug("Audio source succeeded", { term: card.spelling, source: source.type });
-            done();
-            return true;
-          }
-        } catch (error) {
-          log$x.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
-          errors.push(error instanceof Error ? error.message : String(error));
-        }
-      }
-      done();
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$x.warn("No playable audio found", { term: card.spelling, errors });
-      return await this.playMissingAudioFallback(settings, requestId, isCurrent);
-    }
-    preload(card, options = {}) {
-      const settings = this.getSettings();
-      if (!settings.audioEnabled || !settings.audioViaBlob) return;
-      const sourceLimit = Math.max(1, options.sourceLimit ?? 1);
-      const candidateLimit = Math.max(1, options.candidateLimit ?? 1);
-      const sources = getOrderedAudioSources(settings).filter((source) => source.type !== "text-to-speech" && source.type !== "text-to-speech-reading").slice(0, sourceLimit);
-      if (!sources.length) return;
-      for (const source of sources) {
-        void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs).then((candidates) => {
-          const triedUrls = /* @__PURE__ */ new Set();
-          for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
-            const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-            if (triedUrls.has(candidateKey2)) continue;
-            triedUrls.add(candidateKey2);
-            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$x.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
-          }
-        }).catch((error) => log$x.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
-      }
-    }
-    stop() {
-      this.playRequestId++;
-      this.stopCurrent();
-      log$x.debug("Audio stopped");
-    }
-    async playJapaneseText(text2, voiceName = "") {
-      const requestId = ++this.playRequestId;
-      const trimmed = text2.trim();
-      if (!trimmed) throw new Error("No text to read aloud.");
-      this.stopCurrent();
-      await this.playTextToSpeech(trimmed, voiceName);
-      if (requestId !== this.playRequestId) this.stopCurrent();
-      log$x.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
-    }
-    stopCurrent() {
-      var _a;
-      (_a = this.current) == null ? void 0 : _a.pause();
-      this.current = void 0;
-      if (this.utterance) {
-        speechSynthesis.cancel();
-        this.utterance = void 0;
-      }
-      if (this.fallbackChimeContext) {
-        void this.fallbackChimeContext.close().catch(() => void 0);
-        this.fallbackChimeContext = void 0;
-      }
-    }
-    async playFromSource(source, card, settings, requestId, triedUrls, isCurrent) {
-      if (source.type === "text-to-speech" || source.type === "text-to-speech-reading") {
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-        await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
-        log$x.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
-        return this.isPlaybackCurrent(requestId, isCurrent);
-      }
-      const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$x.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
-      const bagKey = getAudioBagKey(source, card);
-      for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
-        const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-        if (triedUrls.has(candidateKey2)) {
-          log$x.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
-          continue;
-        }
-        triedUrls.add(candidateKey2);
-        try {
-          const audio = settings.audioViaBlob ? await this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob) : this.createAudioElement(candidate.url);
-          if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-          const played = await this.playPreparedAudio(audio, requestId, isCurrent);
-          if (!played) return false;
-          this.shuffledAudio.markPlayed(bagKey, id);
-          log$x.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
-          return true;
-        } catch (error) {
-          log$x.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
-        }
-      }
-      return false;
-    }
-    isPlaybackCurrent(requestId, isCurrent) {
-      return requestId === this.playRequestId && isCurrent();
-    }
-    prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob) {
-      if (!shouldFetchCandidateAsBlob(candidate, audioViaBlob)) return Promise.resolve(candidate.url);
-      const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
-      return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
-    }
-    preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob) {
-      const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
-      const now = Date.now();
-      const cached = this.readyAudioCache.get(key);
-      if (cached && cached.expiresAt > now) return cached.promise;
-      if (cached) this.readyAudioCache.delete(key);
-      let promise;
-      promise = this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl)).catch((error) => {
-        var _a;
-        if (((_a = this.readyAudioCache.get(key)) == null ? void 0 : _a.promise) === promise) this.readyAudioCache.delete(key);
-        throw error;
-      });
-      this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
-      return promise;
-    }
-    async createReadyAudio(audioUrl) {
-      var _a;
-      const audio = this.createAudioElement(audioUrl);
-      (_a = audio.load) == null ? void 0 : _a.call(audio);
-      await waitForAudioData(audio).catch((error) => {
-        log$x.debug("Audio readiness check finished without preloaded data", { sourceHost: safeHost$6(audioUrl) }, error);
-      });
-      return audio;
-    }
-    createAudioElement(audioUrl) {
-      const audio = document.createElement("audio");
-      audio.src = audioUrl;
-      audio.preload = "auto";
-      return audio;
-    }
-    async playPreparedAudio(audio, requestId, isCurrent) {
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      this.current = audio;
-      try {
-        if (audio.readyState > HTMLMediaElement.HAVE_NOTHING) audio.currentTime = 0;
-      } catch {
-      }
-      await audio.play();
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-        audio.pause();
-        return false;
-      }
-      return true;
-    }
-    getCachedAudioCandidates(source, card, timeoutMs) {
-      const key = getAudioCandidateCacheKey(source, card);
-      const now = Date.now();
-      const cached = this.candidateCache.get(key);
-      if (cached && cached.expiresAt > now) {
-        log$x.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
-        return cached.promise.then(cloneAudioCandidates);
-      }
-      let promise;
-      promise = getAudioCandidates(source, card, timeoutMs).then((candidates) => cloneAudioCandidates(candidates)).catch((error) => {
-        var _a;
-        if (((_a = this.candidateCache.get(key)) == null ? void 0 : _a.promise) === promise) this.candidateCache.delete(key);
-        throw error;
-      });
-      this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
-      return promise.then(cloneAudioCandidates);
-    }
-    async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
-      const response = await requestUrl(url, "blob", timeoutMs);
-      if (response instanceof Blob && response.type.includes("json")) {
-        const json = JSON.parse(await response.text());
-        const nestedUrl = findAudioUrl(json, sourceUrl, mode);
-        if (!nestedUrl) throw new Error("Audio JSON did not include a playable URL.");
-        return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
-      }
-      if (!(response instanceof Blob)) throw new Error("Audio source did not return audio.");
-      if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
-        throw new Error("JapanesePod101 has no audio for this term.");
-      }
-      const blobUrl = URL.createObjectURL(response);
-      log$x.debug("Audio blob URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size });
-      return blobUrl;
-    }
-    playTextToSpeech(text2, voiceName) {
-      if (!("speechSynthesis" in window)) throw new Error("Text-to-speech is not available in this browser.");
-      return new Promise((resolve, reject) => {
-        const utterance = new SpeechSynthesisUtterance(text2);
-        utterance.lang = "ja-JP";
-        utterance.voice = speechSynthesis.getVoices().find(
-          (voice) => voice.name === voiceName || voice.lang.toLowerCase().startsWith("ja")
-        ) ?? null;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => reject(new Error("Text-to-speech failed."));
-        this.utterance = utterance;
-        speechSynthesis.speak(utterance);
-      });
-    }
-    async playMissingAudioFallback(settings, requestId, isCurrent) {
-      if (!settings.audioFallbackChimeEnabled) {
-        log$x.debug("Missing-audio fallback is silent");
-        return false;
-      }
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      try {
-        const played = await this.playSoftChime(requestId, isCurrent);
-        if (!played) return false;
-        log$x.debug("Missing-audio fallback chime played");
-        return true;
-      } catch (error) {
-        log$x.debug("Missing-audio fallback chime unavailable", {}, error);
-        return false;
-      }
-    }
-    async playSoftChime(requestId, isCurrent) {
-      const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
-      if (!AudioContextCtor) return false;
-      const context = new AudioContextCtor();
-      this.fallbackChimeContext = context;
-      if (context.state === "suspended") await context.resume().catch(() => void 0);
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      const start = context.currentTime + 0.015;
-      const filter = context.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(1800, start);
-      const master = context.createGain();
-      master.gain.setValueAtTime(0.72, start);
-      filter.connect(master);
-      master.connect(context.destination);
-      [
-        { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
-        { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
-      ].forEach((note) => {
-        const noteStart = start + note.offset;
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(note.frequency, noteStart);
-        gain.gain.setValueAtTime(1e-4, noteStart);
-        gain.gain.exponentialRampToValueAtTime(note.gain, noteStart + 0.018);
-        gain.gain.exponentialRampToValueAtTime(1e-4, noteStart + note.duration);
-        oscillator.connect(gain);
-        gain.connect(filter);
-        oscillator.start(noteStart);
-        oscillator.stop(noteStart + note.duration + 0.03);
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 460));
-      if (this.fallbackChimeContext === context) {
-        this.fallbackChimeContext = void 0;
-        await context.close().catch(() => void 0);
-      }
-      return true;
-    }
-  }
-  function waitForAudioData(audio, timeoutMs = 800) {
-    if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve();
-    if (typeof audio.addEventListener !== "function") return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const cleanup = () => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        audio.removeEventListener("loadeddata", handleLoad);
-        audio.removeEventListener("canplay", handleLoad);
-        audio.removeEventListener("error", handleError);
-      };
-      const handleLoad = () => {
-        cleanup();
-        resolve();
-      };
-      const handleError = () => {
-        cleanup();
-        reject(audio.error ?? new Error("Could not load audio."));
-      };
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        resolve();
-      }, timeoutMs);
-      audio.addEventListener("loadeddata", handleLoad, { once: true });
-      audio.addEventListener("canplay", handleLoad, { once: true });
-      audio.addEventListener("error", handleError, { once: true });
-    });
-  }
-  class ShuffledAudioDeck {
-    constructor(random = Math.random) {
-      __publicField(this, "bags", /* @__PURE__ */ new Map());
-      this.random = random;
-    }
-    order(key, ids) {
-      if (ids.length < 2) return ids;
-      const signature = ids.join("\0");
-      const current = this.bags.get(key);
-      if (!current || current.signature !== signature || !current.remaining.length) {
-        const next = this.shuffle(ids);
-        const lastPlayed = (current == null ? void 0 : current.signature) === signature ? current.lastPlayed : void 0;
-        if (lastPlayed && next.length > 1 && next[0] === lastPlayed) {
-          next.push(next.shift());
-        }
-        this.bags.set(key, { signature, remaining: next, lastPlayed });
-        return [...next];
-      }
-      return [...current.remaining];
-    }
-    markPlayed(key, id) {
-      const current = this.bags.get(key);
-      if (!current) return;
-      const index = current.remaining.indexOf(id);
-      if (index >= 0) current.remaining.splice(index, 1);
-      current.lastPlayed = id;
-    }
-    shuffle(values) {
-      const shuffled = [...values];
-      for (let index = shuffled.length - 1; index > 0; index--) {
-        const swapIndex = Math.floor(this.random() * (index + 1));
-        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-      }
-      return shuffled;
-    }
-  }
-  function formatAudioUrl(template, card) {
-    const replacements = {
-      term: card.spelling,
-      reading: card.reading,
-      language: "ja"
-    };
-    return template.replace(
-      /\{(term|reading|language)\}/g,
-      (_, key) => encodeURIComponent(replacements[key] ?? "")
-    );
-  }
-  function findAudioUrl(value, sourceUrl, mode = "first") {
-    const urls = findAudioUrls(value, sourceUrl);
-    if (!urls.length) return null;
-    return mode === "random" ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
-  }
-  function findAudioUrls(value, sourceUrl) {
-    if (!value) return [];
-    if (typeof value === "string") {
-      if (value.startsWith("data:audio/")) return [value];
-      if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
-      return [];
-    }
-    if (Array.isArray(value)) {
-      return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
-    }
-    if (typeof value === "object") {
-      const record = value;
-      const preferred = [
-        ...findAudioUrls(record.audioSources, sourceUrl),
-        ...findAudioUrls(record.sources, sourceUrl),
-        ...findAudioUrls(record.audio, sourceUrl),
-        ...findAudioUrls(record.audioUrl, sourceUrl),
-        ...findAudioUrls(record.src, sourceUrl),
-        ...findAudioUrls(record.source, sourceUrl)
-      ];
-      const directUrl = typeof record.url === "string" && isLikelyAudioRecord(record) ? findAudioUrls(record.url, sourceUrl) : [];
-      const known = uniqueAudioUrls([...preferred, ...directUrl]);
-      if (known.length) return known;
-      return uniqueAudioUrls(Object.entries(record).filter(([key]) => !["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"].includes(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
-    }
-    return [];
-  }
-  async function isUnavailableJapanesePod101Audio(blob) {
-    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
-    try {
-      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
-      const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
-      return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
-    } catch {
-      return true;
-    }
-  }
-  function getOrderedAudioSources(settings) {
-    const sources = settings.audioSources.filter((source) => source.enabled);
-    if (!settings.audioEnableDefaultSources) return sources;
-    const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
-    return [
-      ...sources,
-      ...REQUIRED_JA_AUDIO_SOURCES.filter((type) => !configuredTypes.has(type)).map((type) => ({ type, url: "", voice: "", enabled: true }))
-    ];
-  }
-  async function getAudioCandidates(source, card, timeoutMs) {
-    switch (source.type) {
-      case "custom":
-        if (!source.url.trim()) return [];
-        return [{ url: formatAudioUrl(source.url, card), sourceUrl: formatAudioUrl(source.url, card) }];
-      case "custom-json": {
-        if (!source.url.trim()) return [];
-        const sourceUrl = formatAudioUrl(source.url, card);
-        const response = await requestUrl(sourceUrl, "text", timeoutMs);
-        const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-        return urls.map((url) => ({ url, sourceUrl }));
-      }
-      case "jpod101":
-      case "language-pod-101":
-        return [{ url: getJapanesePod101Url(card), sourceUrl: getJapanesePod101Url(card) }];
-      case "jisho":
-        return (await getJishoAudioUrls(card, timeoutMs)).map((url) => ({ url, sourceUrl: url }));
-      case "lingua-libre":
-        return (await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs)).map((url) => ({ url, sourceUrl: url }));
-      case "wiktionary":
-        return (await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs)).map((url) => ({ url, sourceUrl: url }));
-      default:
-        return [];
-    }
-  }
-  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-    const entries = candidates.map((candidate, index) => ({
-      candidate,
-      id: `${index}\0${candidate.url}\0${candidate.sourceUrl}`
-    }));
-    if (mode !== "random" || entries.length < 2) return entries;
-    const byId = new Map(entries.map((entry) => [entry.id, entry]));
-    return shuffledAudio.order(bagKey, entries.map((entry) => entry.id)).map((id) => byId.get(id)).filter((entry) => Boolean(entry));
-  }
-  function getAudioBagKey(source, card) {
-    return [
-      source.type,
-      source.url,
-      source.voice,
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function getAudioCandidateCacheKey(source, card) {
-    return [
-      source.type,
-      source.url.trim(),
-      source.voice.trim(),
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
-    return [
-      normalizeAttemptedAudioUrl(candidate.url),
-      normalizeAttemptedAudioUrl(candidate.sourceUrl),
-      mode,
-      audioViaBlob ? "blob" : "direct"
-    ].join("");
-  }
-  function cloneAudioCandidates(candidates) {
-    return candidates.map((candidate) => ({ ...candidate }));
-  }
-  function getJapanesePod101Url(card) {
-    const params = new URLSearchParams();
-    if (card.spelling !== card.reading) params.set("kanji", card.spelling);
-    params.set("kana", card.reading);
-    return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
-  }
-  function isJapanesePod101Url(value) {
-    try {
-      const url = new URL(value);
-      return url.hostname === "assets.languagepod101.com" && url.pathname.endsWith("/audiomp3.php");
-    } catch {
-      return false;
-    }
-  }
-  async function getJishoAudioUrls(card, timeoutMs) {
-    var _a;
-    const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestUrl(url, "text", timeoutMs);
-    if (typeof response !== "string") return [];
-    const doc = new DOMParser().parseFromString(response, "text/html");
-    const audio = doc.getElementById(`audio_${card.spelling}:${card.reading}`) ?? doc.querySelector("audio");
-    const source = (_a = audio == null ? void 0 : audio.querySelector("source")) == null ? void 0 : _a.getAttribute("src");
-    return source ? [new URL(source, url).href] : [];
-  }
-  async function getCommonsAudioUrls(term, source, timeoutMs) {
-    var _a, _b, _c, _d;
-    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$1(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$1(term)}[0123456789]*.ogg/i`;
-    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
-    const response = await requestUrl(apiUrl, "text", timeoutMs);
-    if (typeof response !== "string") return [];
-    const pages = ((_a = JSON.parse(response).query) == null ? void 0 : _a.search) ?? [];
-    const urls = [];
-    for (const page of pages.slice(0, 6)) {
-      if (!page.title) continue;
-      const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(page.title)}`;
-      const info = await requestUrl(infoUrl, "text", timeoutMs).catch(() => null);
-      if (typeof info !== "string") continue;
-      const filePages = ((_b = JSON.parse(info).query) == null ? void 0 : _b.pages) ?? {};
-      for (const filePage of Object.values(filePages)) {
-        const fileUrl = (_d = (_c = filePage.imageinfo) == null ? void 0 : _c[0]) == null ? void 0 : _d.url;
-        if (fileUrl) urls.push(fileUrl);
-      }
-    }
-    return urls;
-  }
-  function requestUrl(responseUrl, responseType, timeoutMs) {
-    const url = getProxyUrl(responseUrl);
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-      log$x.debug("Audio request via userscript API", { responseType, host: safeHost$6(url) });
-      return new Promise((resolve, reject) => {
-        const handleLoad = (response) => {
-          if (response.status >= 200 && response.status < 300) {
-            resolve(response.response ?? response.responseText ?? "");
-          } else {
-            reject(new Error(`Audio request failed (${response.status}).`));
-          }
-        };
-        const result = userscriptRequest({
-          method: "GET",
-          url,
-          responseType,
-          timeout: timeoutMs,
-          onload: handleLoad,
-          onerror: reject,
-          ontimeout: () => reject(new Error("Audio request timed out."))
-        });
-        if (result && typeof result.then === "function") {
-          result.then(handleLoad, reject);
-        }
-      });
-    }
-    log$x.debug("Audio request via fetch", { responseType, host: safeHost$6(url) });
-    return fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).then(async (response) => {
-      if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
-      return responseType === "blob" ? await response.blob() : await response.text();
-    });
-  }
-  function normalizeAudioUrl(value, sourceUrl) {
-    try {
-      const nested = new URL(value);
-      if (!sourceUrl) return nested.href.replace(/\\/g, "/");
-      const source = new URL(sourceUrl);
-      const nestedIsLoopback = ["localhost", "127.0.0.1", "::1"].includes(nested.hostname);
-      const sourceIsLoopback = ["localhost", "127.0.0.1", "::1"].includes(source.hostname);
-      if (nestedIsLoopback && !sourceIsLoopback && nested.port === source.port) {
-        nested.protocol = source.protocol;
-        nested.hostname = source.hostname;
-      }
-      return nested.href.replace(/\\/g, "/");
-    } catch {
-      return value.replace(/\\/g, "/");
-    }
-  }
-  function normalizeAttemptedAudioUrl(value) {
-    try {
-      const url = new URL(value, location.href);
-      url.hash = "";
-      return url.href;
-    } catch {
-      return value;
-    }
-  }
-  function isLikelyAudioRecord(record) {
-    return typeof record.url === "string" && (isLikelyAudioUrl(record.url) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string");
-  }
-  function isLikelyAudioUrl(value) {
-    if (value.startsWith("data:audio/")) return true;
-    try {
-      const url = new URL(value, location.href);
-      const pathname = url.pathname.toLowerCase();
-      return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/.test(pathname) || /(^|[-_/])(audio|sound|voice|pronunciation)([-_/]|$)/i.test(pathname);
-    } catch {
-      return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)(?:$|[?#])/i.test(value);
-    }
-  }
-  function uniqueAudioUrls(urls) {
-    const seen = /* @__PURE__ */ new Set();
-    return urls.filter((url) => {
-      const key = normalizeAttemptedAudioUrl(url);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function shouldFetchCandidateAsBlob(candidate, audioViaBlob) {
-    return audioViaBlob && !candidate.url.startsWith("blob:") && !candidate.url.startsWith("data:audio/");
-  }
-  function getProxyUrl(url) {
-    if (getUserscriptHttpRequest()) return url;
-    if (!["localhost", "127.0.0.1"].includes(location.hostname)) return url;
-    if (!/^https?:\/\//.test(url)) return url;
-    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
-  }
-  function escapeRegExp$1(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function safeHost$6(value) {
-    try {
-      return new URL(value, location.href).host;
-    } catch {
-      return "invalid-url";
-    }
   }
   const CARD_STATES = /* @__PURE__ */ new Set([
     "new",
@@ -1134,7 +423,7 @@
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
   const STORAGE_KEY = "jpdb-popup-reader-settings";
-  const log$w = Logger.scope("Settings");
+  const log$C = Logger.scope("Settings");
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = "#5ea780";
   const DEFAULT_WORD_COLORS = {
@@ -1240,10 +529,10 @@
     immersionKitEnabled: true,
     immersionKitPriority: 80,
     immersionKitLimit: 3,
-    immersionKitMinLength: 4,
+    immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
     immersionKitCategory: "all",
-    immersionKitSort: "sentence_length:asc",
+    immersionKitSort: "random",
     immersionKitExactMatch: false,
     immersionKitShowTranslation: false,
     immersionKitShowImages: true,
@@ -1313,10 +602,6 @@
     subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
-    mpvSubtitleMiningEnabled: false,
-    mpvSubtitleAutoConnect: false,
-    mpvSubtitleHost: "127.0.0.1",
-    mpvSubtitlePorts: "61777, 61778, 61779, 61780, 61781",
     youtubeImmersionEnabled: false,
     youtubeShowFilterNotice: true,
     ankiEnabled: false,
@@ -1367,35 +652,71 @@
     }
   };
   function mergeSettings(value) {
-    var _a, _b;
-    const hasSavedAudioSources = value && Object.prototype.hasOwnProperty.call(value, "audioSources");
+    const audio = normalizeAudioSettings(value);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...value ?? {},
+      ...normalizeLookupSettings(value),
+      ...normalizeNewTabSettings(value),
+      ...normalizeReaderDisplaySettings(value),
+      ...audio,
+      ...normalizeMediaSettings(value),
+      ...normalizeSubtitleSettings(value),
+      ...normalizeKanjiSettings(value),
+      ...normalizeAnkiAndStudySettings(value),
+      ...normalizePresentationSettings(value),
+      ...normalizeMiningSettings(value),
+      dictionaryPreferences: normalizeDictionaryPreferences(value == null ? void 0 : value.dictionaryPreferences),
+      dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(value),
+      shortcuts: normalizeShortcutSettings(value)
+    };
+  }
+  function normalizeAudioSettings(value) {
+    var _a;
+    const hasSavedAudioSources = hasOwn(value, "audioSources");
     const audioSources = hasSavedAudioSources || (value == null ? void 0 : value.audioSourceUrl) ? normalizeAudioSources(value == null ? void 0 : value.audioSources, value == null ? void 0 : value.audioSourceUrl) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+    return {
+      audioSources,
+      audioSourceUrl: ((_a = audioSources.find((source) => source.url)) == null ? void 0 : _a.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL
+    };
+  }
+  function normalizeShortcutSettings(value) {
     const shortcuts = {
       ...DEFAULT_SETTINGS.shortcuts,
       ...(value == null ? void 0 : value.shortcuts) ?? {}
     };
-    if (value && value.shortcuts && !Object.prototype.hasOwnProperty.call(value.shortcuts, "hoverLookup")) {
+    if ((value == null ? void 0 : value.shortcuts) && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
-    const hasSavedLookupLinks = Boolean(value && Object.prototype.hasOwnProperty.call(value, "dictionaryLookupLinks"));
-    const dictionaryLookupLinks = normalizeDictionaryLookupLinks(
+    return shortcuts;
+  }
+  function normalizeDictionaryLookupLinkSettings(value) {
+    var _a;
+    return normalizeDictionaryLookupLinks(
       value == null ? void 0 : value.dictionaryLookupLinks,
-      !hasSavedLookupLinks && Boolean((_a = value == null ? void 0 : value.apiKey) == null ? void 0 : _a.trim())
+      !hasOwn(value, "dictionaryLookupLinks") && Boolean((_a = value == null ? void 0 : value.apiKey) == null ? void 0 : _a.trim())
     );
-    const audioSourceUrl = ((_b = audioSources.find((source) => source.url)) == null ? void 0 : _b.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL;
+  }
+  function normalizeLookupSettings(value) {
     return {
-      ...DEFAULT_SETTINGS,
-      ...value ?? {},
       interfaceLanguage: normalizeInterfaceLanguage(value == null ? void 0 : value.interfaceLanguage),
-      jpdbDefinitionsPriority: clampNumber(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+      jpdbDefinitionsPriority: clampNumber$1(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
       lookupOnClick: typeof (value == null ? void 0 : value.lookupOnClick) === "boolean" ? value.lookupOnClick : true,
       lookupOnHover: typeof (value == null ? void 0 : value.lookupOnHover) === "boolean" ? value.lookupOnHover : (value == null ? void 0 : value.popupActivationMode) !== "click",
       lookupOnMiddleMouse: typeof (value == null ? void 0 : value.lookupOnMiddleMouse) === "boolean" ? value.lookupOnMiddleMouse : true,
-      hoverOpenDelayMs: clampNumber(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-      hoverCloseDelayMs: clampNumber(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs),
+      hoverOpenDelayMs: clampNumber$1(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+      hoverCloseDelayMs: clampNumber$1(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+    };
+  }
+  function normalizeNewTabSettings(value) {
+    return {
       newTabEnabled: typeof (value == null ? void 0 : value.newTabEnabled) === "boolean" ? value.newTabEnabled : DEFAULT_SETTINGS.newTabEnabled,
       newTabSource: normalizeNewTabSource(value == null ? void 0 : value.newTabSource),
-      newTabJpdbDeck: normalizeDeckIdSetting(value == null ? void 0 : value.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
+      newTabJpdbDeck: normalizeDeckIdSetting(value == null ? void 0 : value.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck)
+    };
+  }
+  function normalizeReaderDisplaySettings(value) {
+    return {
       accentColor: sanitizeAccentColor(value == null ? void 0 : value.accentColor),
       wordColorNew: sanitizeAccentColor(value == null ? void 0 : value.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
       wordColorLearning: sanitizeAccentColor(value == null ? void 0 : value.wordColorLearning, DEFAULT_SETTINGS.wordColorLearning),
@@ -1408,56 +729,65 @@
       showFurigana: typeof (value == null ? void 0 : value.showFurigana) === "boolean" ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
       furiganaMode: normalizeFuriganaMode(value == null ? void 0 : value.furiganaMode, value),
       hideKnownFurigana: typeof (value == null ? void 0 : value.hideKnownFurigana) === "boolean" ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
-      wordHighlightMode: normalizeWordHighlightMode(value == null ? void 0 : value.wordHighlightMode),
-      audioSources,
-      audioSourceUrl,
-      ...normalizeMediaSettings(value),
-      ...normalizeSubtitleSettings(value),
+      wordHighlightMode: normalizeWordHighlightMode(value == null ? void 0 : value.wordHighlightMode)
+    };
+  }
+  function normalizeKanjiSettings(value) {
+    return {
       jpdbKanjiEnabled: typeof (value == null ? void 0 : value.jpdbKanjiEnabled) === "boolean" ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
-      jpdbKanjiPriority: clampNumber(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
-      rtkPriority: clampNumber(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
-      kanjivgPriority: clampNumber(value == null ? void 0 : value.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
-      kanjiOriginsPriority: clampNumber(value == null ? void 0 : value.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
-      kanjiDictionariesPriority: clampNumber(value == null ? void 0 : value.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
-      similarKanjiWordsPriority: clampNumber(value == null ? void 0 : value.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
-      similarKanjiWordLimit: clampNumber(value == null ? void 0 : value.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit),
+      jpdbKanjiPriority: clampNumber$1(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
+      rtkPriority: clampNumber$1(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
+      kanjivgPriority: clampNumber$1(value == null ? void 0 : value.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
+      kanjiOriginsPriority: clampNumber$1(value == null ? void 0 : value.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
+      kanjiDictionariesPriority: clampNumber$1(value == null ? void 0 : value.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
+      similarKanjiWordsPriority: clampNumber$1(value == null ? void 0 : value.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
+      similarKanjiWordLimit: clampNumber$1(value == null ? void 0 : value.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
+    };
+  }
+  function normalizeAnkiAndStudySettings(value) {
+    return {
       ankiConnectUrl: normalizeUrl(value == null ? void 0 : value.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
       ankiDeck: normalizeAnkiName(value == null ? void 0 : value.ankiDeck, DEFAULT_SETTINGS.ankiDeck, "Yomu"),
       ankiModel: normalizeAnkiName(value == null ? void 0 : value.ankiModel, DEFAULT_SETTINGS.ankiModel, "Yomu Japanese"),
       ankiTemplateMode: normalizeAnkiTemplateMode(value == null ? void 0 : value.ankiTemplateMode),
       ankiMobileHandoff: typeof (value == null ? void 0 : value.ankiMobileHandoff) === "boolean" ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
       studyTranslationEnabled: typeof (value == null ? void 0 : value.studyTranslationEnabled) === "boolean" ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
-      studyTranslationPriority: clampNumber(value == null ? void 0 : value.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
+      studyTranslationPriority: clampNumber$1(value == null ? void 0 : value.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
       studyGrammarEnabled: typeof (value == null ? void 0 : value.studyGrammarEnabled) === "boolean" ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
-      studyGrammarPriority: clampNumber(value == null ? void 0 : value.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
-      enableLogging: typeof (value == null ? void 0 : value.enableLogging) === "boolean" ? value.enableLogging : DEFAULT_SETTINGS.enableLogging,
+      studyGrammarPriority: clampNumber$1(value == null ? void 0 : value.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
+      enableLogging: typeof (value == null ? void 0 : value.enableLogging) === "boolean" ? value.enableLogging : DEFAULT_SETTINGS.enableLogging
+    };
+  }
+  function normalizePresentationSettings(value) {
+    return {
       theme: normalizeTheme(value == null ? void 0 : value.theme),
       popupMode: normalizePopupMode(value == null ? void 0 : value.popupMode),
-      popoverWidth: clampNumber(value == null ? void 0 : value.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-      popoverHeight: clampNumber(value == null ? void 0 : value.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
-      popoverHeightMode: normalizePopoverHeightMode(value == null ? void 0 : value.popoverHeightMode),
+      popoverWidth: clampNumber$1(value == null ? void 0 : value.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+      popoverHeight: clampNumber$1(value == null ? void 0 : value.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+      popoverHeightMode: normalizePopoverHeightMode(value == null ? void 0 : value.popoverHeightMode)
+    };
+  }
+  function normalizeMiningSettings(value) {
+    return {
       ankiTags: typeof (value == null ? void 0 : value.ankiTags) === "string" ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
       jpdbMiningEnabled: typeof (value == null ? void 0 : value.jpdbMiningEnabled) === "boolean" ? value.jpdbMiningEnabled : DEFAULT_SETTINGS.jpdbMiningEnabled,
       miningDeck: normalizeDeckIdSetting(value == null ? void 0 : value.miningDeck, DEFAULT_SETTINGS.miningDeck),
       neverForgetDeck: normalizeDeckIdSetting(value == null ? void 0 : value.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value == null ? void 0 : value.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-      dictionarySourcesInitiallyExpanded: typeof (value == null ? void 0 : value.dictionarySourcesInitiallyExpanded) === "boolean" ? value.dictionarySourcesInitiallyExpanded : DEFAULT_SETTINGS.dictionarySourcesInitiallyExpanded,
-      dictionaryPreferences: normalizeDictionaryPreferences(value == null ? void 0 : value.dictionaryPreferences),
-      dictionaryLookupLinks,
-      shortcuts
+      dictionarySourcesInitiallyExpanded: typeof (value == null ? void 0 : value.dictionarySourcesInitiallyExpanded) === "boolean" ? value.dictionarySourcesInitiallyExpanded : DEFAULT_SETTINGS.dictionarySourcesInitiallyExpanded
     };
   }
   function normalizeMediaSettings(value) {
     return {
       audioViaBlob: typeof (value == null ? void 0 : value.audioViaBlob) === "boolean" ? value.audioViaBlob : DEFAULT_SETTINGS.audioViaBlob,
       audioFallbackChimeEnabled: typeof (value == null ? void 0 : value.audioFallbackChimeEnabled) === "boolean" ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
-      immersionKitPriority: clampNumber(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-      immersionKitLimit: clampNumber(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-      immersionKitMinLength: clampNumber(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-      immersionKitMaxLength: clampNumber(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+      immersionKitPriority: clampNumber$1(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+      immersionKitLimit: clampNumber$1(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+      immersionKitMinLength: clampNumber$1(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+      immersionKitMaxLength: clampNumber$1(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
       immersionKitCategory: normalizeImmersionKitCategory(value == null ? void 0 : value.immersionKitCategory),
       immersionKitSort: normalizeImmersionKitSort(value == null ? void 0 : value.immersionKitSort),
-      immersionKitPlaybackRate: clampNumber(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+      immersionKitPlaybackRate: clampNumber$1(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
       jpdbImmersionKitAutoPlayReviewAudio: typeof (value == null ? void 0 : value.jpdbImmersionKitAutoPlayReviewAudio) === "boolean" ? value.jpdbImmersionKitAutoPlayReviewAudio : DEFAULT_SETTINGS.jpdbImmersionKitAutoPlayReviewAudio,
       immersionKitPlayOnHover: typeof (value == null ? void 0 : value.immersionKitPlayOnHover) === "boolean" ? value.immersionKitPlayOnHover : DEFAULT_SETTINGS.immersionKitPlayOnHover,
       ocrProvider: normalizeOcrProvider(value == null ? void 0 : value.ocrProvider),
@@ -1465,8 +795,8 @@
       ocrTextColor: sanitizeAccentColor(value == null ? void 0 : value.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
       ocrBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-      ocrBackgroundOpacity: clampNumber(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-      ocrFontScale: clampNumber(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+      ocrBackgroundOpacity: clampNumber$1(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+      ocrFontScale: clampNumber$1(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
     };
   }
   function normalizeSubtitleSettings(value) {
@@ -1476,16 +806,17 @@
       subtitleTextColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-      subtitleBackgroundOpacity: clampNumber(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+      subtitleBackgroundOpacity: clampNumber$1(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
       subtitleFontFamily: typeof (value == null ? void 0 : value.subtitleFontFamily) === "string" && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
-      subtitleFontWeight: clampNumber(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
-      mpvSubtitleHost: normalizeMpvHost(value == null ? void 0 : value.mpvSubtitleHost),
-      mpvSubtitlePorts: normalizeMpvPorts(value == null ? void 0 : value.mpvSubtitlePorts)
+      subtitleFontWeight: clampNumber$1(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
     };
   }
   function normalizeOptionalCoordinate(value) {
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : void 0;
+  }
+  function hasOwn(value, key) {
+    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
   }
   function normalizeAnkiName(value, fallback, oldDefault) {
     if (typeof value !== "string") return fallback;
@@ -1528,7 +859,7 @@
     if (value === "meta") return "Meta";
     return value === "shift" ? "Shift" : "";
   }
-  function clampNumber(value, min, max, fallback) {
+  function clampNumber$1(value, min, max, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
   }
@@ -1537,16 +868,6 @@
   }
   function normalizeSubtitleTranscriptPlacement(value) {
     return value === "left" || value === "bottom" || value === "right" ? value : DEFAULT_SETTINGS.subtitleTranscriptPlacement;
-  }
-  function normalizeMpvHost(value) {
-    if (typeof value !== "string" || !value.trim()) return DEFAULT_SETTINGS.mpvSubtitleHost;
-    const normalized = value.trim().replace(/^wss?:\/\//i, "").replace(/\/.*$/, "");
-    return normalized || DEFAULT_SETTINGS.mpvSubtitleHost;
-  }
-  function normalizeMpvPorts(value) {
-    const raw = Array.isArray(value) ? value.join(",") : typeof value === "string" ? value : "";
-    const ports = raw.split(/[\s,]+/).map((port) => Number(port)).filter((port) => Number.isInteger(port) && port > 0 && port <= 65535);
-    return ports.length ? [...new Set(ports)].join(", ") : DEFAULT_SETTINGS.mpvSubtitlePorts;
   }
   function normalizeNewTabSource(value) {
     return value === "jpdb" || value === "anki" || value === "auto" || value === "dictionary" ? value : DEFAULT_SETTINGS.newTabSource;
@@ -1600,7 +921,7 @@
     const audio = (_b = params.get("audio")) == null ? void 0 : _b.trim();
     const ocr = (_c = params.get("ocr")) == null ? void 0 : _c.trim();
     if (!apiKey && !audio && !ocr) return settings;
-    log$w.info("Applying URL bootstrap settings", {
+    log$C.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(apiKey),
       hasAudio: Boolean(audio),
       hasOcr: Boolean(ocr)
@@ -1635,19 +956,19 @@
     if (typeof GM_getValue === "function") {
       try {
         const settings = mergeSettings(await GM_getValue(STORAGE_KEY, null));
-        log$w.debug("Loaded settings from userscript storage", settingsSummary(settings));
+        log$C.debug("Loaded settings from userscript storage", settingsSummary(settings));
         return settings;
       } catch (error) {
-        log$w.warn("Userscript settings load failed, using defaults", { error });
+        log$C.warn("Userscript settings load failed, using defaults", { error });
         return mergeSettings(null);
       }
     }
     try {
       const settings = mergeSettings(JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"));
-      log$w.debug("Loaded settings from localStorage", settingsSummary(settings));
+      log$C.debug("Loaded settings from localStorage", settingsSummary(settings));
       return settings;
     } catch (error) {
-      log$w.warn("Local settings load failed, using defaults", { error });
+      log$C.warn("Local settings load failed, using defaults", { error });
       return mergeSettings(null);
     }
   }
@@ -1655,18 +976,18 @@
     if (typeof GM_setValue === "function") {
       try {
         await GM_setValue(STORAGE_KEY, settings);
-        log$w.debug("Saved settings to userscript storage", settingsSummary(settings));
+        log$C.debug("Saved settings to userscript storage", settingsSummary(settings));
         return;
       } catch (error) {
-        log$w.warn("Userscript settings save failed", { error });
+        log$C.warn("Userscript settings save failed", { error });
         throw error;
       }
     }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-      log$w.debug("Saved settings to localStorage", settingsSummary(settings));
+      log$C.debug("Saved settings to localStorage", settingsSummary(settings));
     } catch (error) {
-      log$w.warn("Local settings save failed", { error });
+      log$C.warn("Local settings save failed", { error });
       throw error;
     }
   }
@@ -1874,7 +1195,7 @@
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const log$v = Logger.scope("Dom");
+  const log$B = Logger.scope("Dom");
   let trustedHtmlPolicy;
   const SKIP_SELECTOR = [
     "script",
@@ -2167,7 +1488,7 @@
       word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
     }
     parents.forEach((parent) => parent.normalize());
-    log$v.debug("Unwrapped reader words", { count: words.length });
+    log$B.debug("Unwrapped reader words", { count: words.length });
     return words.length;
   }
   function readerWordSurfaceText(element2) {
@@ -2204,7 +1525,7 @@
       fragment2.append(document.createTextNode(text2.slice(offset)));
     }
     target.node.replaceWith(fragment2);
-    log$v.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
+    log$B.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
   }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!tokens.length || !target.fragments.length) return;
@@ -2242,7 +1563,7 @@
       if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
       fragmentInfo.node.replaceWith(replacement);
     }
-    log$v.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
+    log$B.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
       tokens: safeTokens.length,
       fragments: target.fragments.length,
       textLength: target.text.length,
@@ -2260,7 +1581,7 @@
       offset = token.end;
     }
     if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
-    log$v.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
+    log$B.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
     return html;
   }
   function renderHighlightedTextHtml(text2, targets, className) {
@@ -2479,6 +1800,1697 @@
     const linkTextLength = Array.from((link.textContent ?? "").replace(/\s+/g, "")).length;
     const controlShape = style.display.includes("flex") || style.display.includes("grid") || style.display === "inline-block" || Number.parseFloat(style.borderRadius) > 0 || style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
     return controlShape && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
+  }
+  const log$A = Logger.scope("ObjectUrlCache");
+  class ObjectUrlCache {
+    constructor(ttlMs, label) {
+      __publicField(this, "entries", /* @__PURE__ */ new Map());
+      this.ttlMs = ttlMs;
+      this.label = label;
+    }
+    getOrCreate(key, createUrl) {
+      const now = Date.now();
+      const cached = this.entries.get(key);
+      if (cached && cached.expiresAt > now) {
+        log$A.debug("Object URL cache hit", { label: this.label });
+        return cached.promise;
+      }
+      if (cached) this.delete(key);
+      const entry = {
+        expiresAt: now + this.ttlMs,
+        promise: Promise.resolve().then(createUrl).then((url) => {
+          entry.url = url;
+          entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
+          return url;
+        }).catch((error) => {
+          if (this.entries.get(key) === entry) this.entries.delete(key);
+          throw error;
+        })
+      };
+      this.entries.set(key, entry);
+      return entry.promise;
+    }
+    clear() {
+      for (const key of this.entries.keys()) {
+        this.delete(key);
+      }
+    }
+    expire(key, entry) {
+      if (this.entries.get(key) !== entry) return;
+      this.delete(key);
+    }
+    delete(key) {
+      const entry = this.entries.get(key);
+      if (!entry) return;
+      if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
+      this.entries.delete(key);
+      if (entry.url) URL.revokeObjectURL(entry.url);
+    }
+  }
+  var _monkeyWindow = /* @__PURE__ */ (() => window)();
+  const log$z = Logger.scope("Userscript");
+  function getUserscriptHttpRequest() {
+    for (const source of userscriptRequestSources()) {
+      const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
+      if (directRequest) {
+        log$z.debug("Userscript HTTP request resolved", { source: sourceLabel(source), path: "GM_xmlhttpRequest" });
+        return directRequest.bind(source);
+      }
+      const gm = source.GM;
+      const gmRequest = asUserscriptRequest(gm == null ? void 0 : gm.xmlHttpRequest) ?? asUserscriptRequest(gm == null ? void 0 : gm.xmlhttpRequest);
+      if (gmRequest) {
+        log$z.debug("Userscript HTTP request resolved", { source: sourceLabel(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
+        return gmRequest.bind(gm);
+      }
+    }
+    log$z.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
+    return void 0;
+  }
+  function userscriptRequestSources() {
+    const sources = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (value) => {
+      if (!isRequestSource(value) || seen.has(value)) return;
+      seen.add(value);
+      sources.push(value);
+    };
+    for (const mounted of mountedMonkeyWindows()) add(mounted);
+    add(_monkeyWindow);
+    add(globalThis);
+    if (typeof window !== "undefined") add(window);
+    return sources;
+  }
+  function mountedMonkeyWindows() {
+    if (typeof document === "undefined") return [];
+    const record = document;
+    const windows = Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => record[key]);
+    log$z.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
+    return windows;
+  }
+  function isRequestSource(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function");
+  }
+  function asUserscriptRequest(value) {
+    return typeof value === "function" ? value : void 0;
+  }
+  function sourceLabel(source) {
+    if (typeof window !== "undefined" && source === window) return "window";
+    if (source === globalThis) return "globalThis";
+    if (source === _monkeyWindow) return "monkeyWindow";
+    return "mountedMonkeyWindow";
+  }
+  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "text-to-speech"];
+  const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
+  const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
+  const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1e3;
+  const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
+  const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
+  const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
+  const log$y = Logger.scope("Audio");
+  class AudioPlayer {
+    constructor(getSettings) {
+      __publicField(this, "current");
+      __publicField(this, "utterance");
+      __publicField(this, "fallbackChimeContext");
+      __publicField(this, "playRequestId", 0);
+      __publicField(this, "shuffledAudio", new ShuffledAudioDeck());
+      __publicField(this, "candidateCache", /* @__PURE__ */ new Map());
+      __publicField(this, "blobUrlCache", new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, "audio"));
+      __publicField(this, "readyAudioCache", /* @__PURE__ */ new Map());
+      this.getSettings = getSettings;
+    }
+    async play(card, options = {}) {
+      const requestId = ++this.playRequestId;
+      const isCurrent = options.isCurrent ?? (() => true);
+      const settings = this.getSettings();
+      if (!settings.audioEnabled) throw new Error("Audio playback is disabled.");
+      if (!isCurrent()) return false;
+      const sources = getOrderedAudioSources(settings);
+      this.stopCurrent();
+      if (!sources.length) {
+        log$y.warn("No audio sources configured", { term: card.spelling });
+        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+      }
+      const done = log$y.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
+      const errors = [];
+      const triedUrls = /* @__PURE__ */ new Set();
+      for (const source of sources) {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+          log$y.debug("Audio request superseded", { term: card.spelling, requestId });
+          done();
+          return false;
+        }
+        try {
+          const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
+          if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+            done();
+            return false;
+          }
+          if (played) {
+            log$y.debug("Audio source succeeded", { term: card.spelling, source: source.type });
+            done();
+            return true;
+          }
+        } catch (error) {
+          log$y.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
+          errors.push(error instanceof Error ? error.message : String(error));
+        }
+      }
+      done();
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      log$y.warn("No playable audio found", { term: card.spelling, errors });
+      return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+    }
+    preload(card, options = {}) {
+      const settings = this.getSettings();
+      if (!settings.audioEnabled) return;
+      const sourceLimit = Math.max(1, options.sourceLimit ?? 1);
+      const candidateLimit = Math.max(1, options.candidateLimit ?? 1);
+      const sources = getOrderedAudioSources(settings).filter((source) => source.type !== "text-to-speech" && source.type !== "text-to-speech-reading").slice(0, sourceLimit);
+      if (!sources.length) return;
+      for (const source of sources) {
+        void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs).then((candidates) => {
+          const triedUrls = /* @__PURE__ */ new Set();
+          for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
+            const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+            if (triedUrls.has(candidateKey2)) continue;
+            triedUrls.add(candidateKey2);
+            preconnectAudioUrl(candidate.url);
+            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$y.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
+          }
+        }).catch((error) => log$y.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
+      }
+    }
+    stop() {
+      this.playRequestId++;
+      this.stopCurrent();
+      log$y.debug("Audio stopped");
+    }
+    async playJapaneseText(text2, voiceName = "") {
+      const requestId = ++this.playRequestId;
+      const trimmed = text2.trim();
+      if (!trimmed) throw new Error("No text to read aloud.");
+      this.stopCurrent();
+      await this.playTextToSpeech(trimmed, voiceName);
+      if (requestId !== this.playRequestId) this.stopCurrent();
+      log$y.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
+    }
+    stopCurrent() {
+      var _a;
+      (_a = this.current) == null ? void 0 : _a.pause();
+      this.current = void 0;
+      if (this.utterance) {
+        speechSynthesis.cancel();
+        this.utterance = void 0;
+      }
+      if (this.fallbackChimeContext) {
+        void this.fallbackChimeContext.close().catch(() => void 0);
+        this.fallbackChimeContext = void 0;
+      }
+    }
+    async playFromSource(source, card, settings, requestId, triedUrls, isCurrent) {
+      if (source.type === "text-to-speech" || source.type === "text-to-speech-reading") {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
+        log$y.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
+        return this.isPlaybackCurrent(requestId, isCurrent);
+      }
+      const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      log$y.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
+      const bagKey = getAudioBagKey(source, card);
+      for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
+        const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+        if (triedUrls.has(candidateKey2)) {
+          log$y.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
+          continue;
+        }
+        triedUrls.add(candidateKey2);
+        try {
+          const audio = settings.audioViaBlob ? await this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob) : this.createAudioElement(candidate.url);
+          if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+          const played = await this.playPreparedAudio(audio, requestId, isCurrent);
+          if (!played) return false;
+          this.shuffledAudio.markPlayed(bagKey, id);
+          log$y.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
+          return true;
+        } catch (error) {
+          log$y.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
+        }
+      }
+      return false;
+    }
+    isPlaybackCurrent(requestId, isCurrent) {
+      return requestId === this.playRequestId && isCurrent();
+    }
+    prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob) {
+      if (!shouldFetchCandidateAsBlob(candidate, audioViaBlob)) return Promise.resolve(candidate.url);
+      preconnectAudioUrl(candidate.url);
+      const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
+      return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
+    }
+    preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob) {
+      const key = preparedAudioCacheKey(candidate, mode, audioViaBlob);
+      const now = Date.now();
+      const cached = this.readyAudioCache.get(key);
+      if (cached && cached.expiresAt > now) return cached.promise;
+      if (cached) this.readyAudioCache.delete(key);
+      let promise;
+      promise = this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl)).catch((error) => {
+        var _a;
+        if (((_a = this.readyAudioCache.get(key)) == null ? void 0 : _a.promise) === promise) this.readyAudioCache.delete(key);
+        throw error;
+      });
+      this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
+      return promise;
+    }
+    async createReadyAudio(audioUrl) {
+      var _a;
+      const audio = this.createAudioElement(audioUrl);
+      (_a = audio.load) == null ? void 0 : _a.call(audio);
+      return audio;
+    }
+    createAudioElement(audioUrl) {
+      const audio = document.createElement("audio");
+      audio.src = audioUrl;
+      audio.preload = "auto";
+      return audio;
+    }
+    async playPreparedAudio(audio, requestId, isCurrent) {
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      this.current = audio;
+      try {
+        if (audio.readyState > HTMLMediaElement.HAVE_NOTHING) audio.currentTime = 0;
+      } catch {
+      }
+      await audio.play();
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+        audio.pause();
+        return false;
+      }
+      return true;
+    }
+    getCachedAudioCandidates(source, card, timeoutMs) {
+      const key = getAudioCandidateCacheKey(source, card);
+      const now = Date.now();
+      const cached = this.candidateCache.get(key);
+      if (cached && cached.expiresAt > now) {
+        log$y.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
+        return cached.promise.then(cloneAudioCandidates);
+      }
+      let promise;
+      promise = getAudioCandidates(source, card, timeoutMs).then((candidates) => cloneAudioCandidates(candidates)).catch((error) => {
+        var _a;
+        if (((_a = this.candidateCache.get(key)) == null ? void 0 : _a.promise) === promise) this.candidateCache.delete(key);
+        throw error;
+      });
+      this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
+      return promise.then(cloneAudioCandidates);
+    }
+    async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
+      const response = await requestUrl(url, "blob", timeoutMs);
+      if (response instanceof Blob && response.type.includes("json")) {
+        const json = JSON.parse(await response.text());
+        const nestedUrl = findAudioUrl(json, sourceUrl, mode);
+        if (!nestedUrl) throw new Error("Audio JSON did not include a playable URL.");
+        return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
+      }
+      if (!(response instanceof Blob)) throw new Error("Audio source did not return audio.");
+      if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
+        throw new Error("JapanesePod101 has no audio for this term.");
+      }
+      const blobUrl = URL.createObjectURL(response);
+      log$y.debug("Audio blob URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size });
+      return blobUrl;
+    }
+    playTextToSpeech(text2, voiceName) {
+      if (!("speechSynthesis" in window)) throw new Error("Text-to-speech is not available in this browser.");
+      return new Promise((resolve, reject) => {
+        const utterance = new SpeechSynthesisUtterance(text2);
+        utterance.lang = "ja-JP";
+        utterance.voice = speechSynthesis.getVoices().find(
+          (voice) => voice.name === voiceName || voice.lang.toLowerCase().startsWith("ja")
+        ) ?? null;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => reject(new Error("Text-to-speech failed."));
+        this.utterance = utterance;
+        speechSynthesis.speak(utterance);
+      });
+    }
+    async playMissingAudioFallback(settings, requestId, isCurrent) {
+      if (!settings.audioFallbackChimeEnabled) {
+        log$y.debug("Missing-audio fallback is silent");
+        return false;
+      }
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      try {
+        const played = await this.playSoftChime(requestId, isCurrent);
+        if (!played) return false;
+        log$y.debug("Missing-audio fallback chime played");
+        return true;
+      } catch (error) {
+        log$y.debug("Missing-audio fallback chime unavailable", {}, error);
+        return false;
+      }
+    }
+    async playSoftChime(requestId, isCurrent) {
+      const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
+      if (!AudioContextCtor) return false;
+      const context = new AudioContextCtor();
+      this.fallbackChimeContext = context;
+      if (context.state === "suspended") await context.resume().catch(() => void 0);
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      const start = context.currentTime + 0.015;
+      const filter = context.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1800, start);
+      const master = context.createGain();
+      master.gain.setValueAtTime(0.72, start);
+      filter.connect(master);
+      master.connect(context.destination);
+      [
+        { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
+        { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
+      ].forEach((note) => {
+        const noteStart = start + note.offset;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+        gain.gain.setValueAtTime(1e-4, noteStart);
+        gain.gain.exponentialRampToValueAtTime(note.gain, noteStart + 0.018);
+        gain.gain.exponentialRampToValueAtTime(1e-4, noteStart + note.duration);
+        oscillator.connect(gain);
+        gain.connect(filter);
+        oscillator.start(noteStart);
+        oscillator.stop(noteStart + note.duration + 0.03);
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 460));
+      if (this.fallbackChimeContext === context) {
+        this.fallbackChimeContext = void 0;
+        await context.close().catch(() => void 0);
+      }
+      return true;
+    }
+  }
+  class ShuffledAudioDeck {
+    constructor(random = Math.random) {
+      __publicField(this, "bags", /* @__PURE__ */ new Map());
+      this.random = random;
+    }
+    order(key, ids) {
+      if (ids.length < 2) return ids;
+      const signature = ids.join("\0");
+      const current = this.bags.get(key);
+      if (!current || current.signature !== signature || !current.remaining.length) {
+        const next = this.shuffle(ids);
+        const lastPlayed = (current == null ? void 0 : current.signature) === signature ? current.lastPlayed : void 0;
+        if (lastPlayed && next.length > 1 && next[0] === lastPlayed) {
+          next.push(next.shift());
+        }
+        this.bags.set(key, { signature, remaining: next, lastPlayed });
+        return [...next];
+      }
+      return [...current.remaining];
+    }
+    markPlayed(key, id) {
+      const current = this.bags.get(key);
+      if (!current) return;
+      const index = current.remaining.indexOf(id);
+      if (index >= 0) current.remaining.splice(index, 1);
+      current.lastPlayed = id;
+    }
+    shuffle(values) {
+      const shuffled = [...values];
+      for (let index = shuffled.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(this.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      return shuffled;
+    }
+  }
+  function formatAudioUrl(template, card) {
+    const replacements = {
+      term: card.spelling,
+      reading: card.reading,
+      language: "ja"
+    };
+    return template.replace(
+      /\{(term|reading|language)\}/g,
+      (_, key) => encodeURIComponent(replacements[key] ?? "")
+    );
+  }
+  function findAudioUrl(value, sourceUrl, mode = "first") {
+    const urls = findAudioUrls(value, sourceUrl);
+    if (!urls.length) return null;
+    return mode === "random" ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
+  }
+  function findAudioUrls(value, sourceUrl) {
+    if (!value) return [];
+    if (typeof value === "string") {
+      if (value.startsWith("data:audio/")) return [value];
+      if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
+    }
+    if (typeof value === "object") {
+      const record = value;
+      const preferred = [
+        ...findAudioUrls(record.audioSources, sourceUrl),
+        ...findAudioUrls(record.sources, sourceUrl),
+        ...findAudioUrls(record.audio, sourceUrl),
+        ...findAudioUrls(record.audioUrl, sourceUrl),
+        ...findAudioUrls(record.src, sourceUrl),
+        ...findAudioUrls(record.source, sourceUrl)
+      ];
+      const directUrl = typeof record.url === "string" && isLikelyAudioRecord(record) ? findAudioUrls(record.url, sourceUrl) : [];
+      const known = uniqueAudioUrls([...preferred, ...directUrl]);
+      if (known.length) return known;
+      return uniqueAudioUrls(Object.entries(record).filter(([key]) => !["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"].includes(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
+    }
+    return [];
+  }
+  async function isUnavailableJapanesePod101Audio(blob) {
+    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+      const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+      return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
+    } catch {
+      return true;
+    }
+  }
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source) => source.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
+    return [
+      ...sources,
+      ...REQUIRED_JA_AUDIO_SOURCES.filter((type) => !configuredTypes.has(type)).map((type) => ({ type, url: "", voice: "", enabled: true }))
+    ];
+  }
+  async function getAudioCandidates(source, card, timeoutMs) {
+    switch (source.type) {
+      case "custom":
+        if (!source.url.trim()) return [];
+        return [{ url: formatAudioUrl(source.url, card), sourceUrl: formatAudioUrl(source.url, card) }];
+      case "custom-json": {
+        if (!source.url.trim()) return [];
+        const sourceUrl = formatAudioUrl(source.url, card);
+        const response = await requestUrl(sourceUrl, "text", timeoutMs);
+        const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
+        return urls.map((url) => ({ url, sourceUrl }));
+      }
+      case "jpod101":
+      case "language-pod-101":
+        return [{ url: getJapanesePod101Url(card), sourceUrl: getJapanesePod101Url(card) }];
+      case "jisho":
+        return (await getJishoAudioUrls(card, timeoutMs)).map((url) => ({ url, sourceUrl: url }));
+      case "lingua-libre":
+        return (await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs)).map((url) => ({ url, sourceUrl: url }));
+      case "wiktionary":
+        return (await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs)).map((url) => ({ url, sourceUrl: url }));
+      default:
+        return [];
+    }
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    const entries = candidates.map((candidate, index) => ({
+      candidate,
+      id: `${index}\0${candidate.url}\0${candidate.sourceUrl}`
+    }));
+    if (mode !== "random" || entries.length < 2) return entries;
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    return shuffledAudio.order(bagKey, entries.map((entry) => entry.id)).map((id) => byId.get(id)).filter((entry) => Boolean(entry));
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function getAudioCandidateCacheKey(source, card) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim(),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      mode,
+      audioViaBlob ? "blob" : "direct"
+    ].join("");
+  }
+  function cloneAudioCandidates(candidates) {
+    return candidates.map((candidate) => ({ ...candidate }));
+  }
+  function getJapanesePod101Url(card) {
+    const params = new URLSearchParams();
+    if (card.spelling !== card.reading) params.set("kanji", card.spelling);
+    params.set("kana", card.reading);
+    return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
+  }
+  function isJapanesePod101Url(value) {
+    try {
+      const url = new URL(value);
+      return url.hostname === "assets.languagepod101.com" && url.pathname.endsWith("/audiomp3.php");
+    } catch {
+      return false;
+    }
+  }
+  async function getJishoAudioUrls(card, timeoutMs) {
+    var _a;
+    const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const response = await requestUrl(url, "text", timeoutMs);
+    if (typeof response !== "string") return [];
+    const doc = new DOMParser().parseFromString(response, "text/html");
+    const audio = doc.getElementById(`audio_${card.spelling}:${card.reading}`) ?? doc.querySelector("audio");
+    const source = (_a = audio == null ? void 0 : audio.querySelector("source")) == null ? void 0 : _a.getAttribute("src");
+    return source ? [new URL(source, url).href] : [];
+  }
+  async function getCommonsAudioUrls(term, source, timeoutMs) {
+    var _a, _b, _c, _d;
+    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$1(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$1(term)}[0123456789]*.ogg/i`;
+    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
+    const response = await requestUrl(apiUrl, "text", timeoutMs);
+    if (typeof response !== "string") return [];
+    const pages = ((_a = JSON.parse(response).query) == null ? void 0 : _a.search) ?? [];
+    const urls = [];
+    for (const page of pages.slice(0, 6)) {
+      if (!page.title) continue;
+      const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(page.title)}`;
+      const info = await requestUrl(infoUrl, "text", timeoutMs).catch(() => null);
+      if (typeof info !== "string") continue;
+      const filePages = ((_b = JSON.parse(info).query) == null ? void 0 : _b.pages) ?? {};
+      for (const filePage of Object.values(filePages)) {
+        const fileUrl = (_d = (_c = filePage.imageinfo) == null ? void 0 : _c[0]) == null ? void 0 : _d.url;
+        if (fileUrl) urls.push(fileUrl);
+      }
+    }
+    return urls;
+  }
+  function requestUrl(responseUrl, responseType, timeoutMs) {
+    const url = getProxyUrl(responseUrl);
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+      log$y.debug("Audio request via userscript API", { responseType, host: safeHost$6(url) });
+      return new Promise((resolve, reject) => {
+        const handleLoad = (response) => {
+          if (response.status >= 200 && response.status < 300) {
+            resolve(response.response ?? response.responseText ?? "");
+          } else {
+            reject(new Error(`Audio request failed (${response.status}).`));
+          }
+        };
+        const result = userscriptRequest({
+          method: "GET",
+          url,
+          responseType,
+          timeout: timeoutMs,
+          onload: handleLoad,
+          onerror: reject,
+          ontimeout: () => reject(new Error("Audio request timed out."))
+        });
+        if (result && typeof result.then === "function") {
+          result.then(handleLoad, reject);
+        }
+      });
+    }
+    log$y.debug("Audio request via fetch", { responseType, host: safeHost$6(url) });
+    return fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).then(async (response) => {
+      if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
+      return responseType === "blob" ? await response.blob() : await response.text();
+    });
+  }
+  function normalizeAudioUrl(value, sourceUrl) {
+    try {
+      const nested = new URL(value);
+      if (!sourceUrl) return nested.href.replace(/\\/g, "/");
+      const source = new URL(sourceUrl);
+      const nestedIsLoopback = ["localhost", "127.0.0.1", "::1"].includes(nested.hostname);
+      const sourceIsLoopback = ["localhost", "127.0.0.1", "::1"].includes(source.hostname);
+      if (nestedIsLoopback && !sourceIsLoopback && nested.port === source.port) {
+        nested.protocol = source.protocol;
+        nested.hostname = source.hostname;
+      }
+      return nested.href.replace(/\\/g, "/");
+    } catch {
+      return value.replace(/\\/g, "/");
+    }
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function isLikelyAudioRecord(record) {
+    return typeof record.url === "string" && (isLikelyAudioUrl(record.url) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string");
+  }
+  function isLikelyAudioUrl(value) {
+    if (value.startsWith("data:audio/")) return true;
+    try {
+      const url = new URL(value, location.href);
+      const pathname = url.pathname.toLowerCase();
+      return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/.test(pathname) || /(^|[-_/])(audio|sound|voice|pronunciation)([-_/]|$)/i.test(pathname);
+    } catch {
+      return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)(?:$|[?#])/i.test(value);
+    }
+  }
+  function uniqueAudioUrls(urls) {
+    const seen = /* @__PURE__ */ new Set();
+    return urls.filter((url) => {
+      const key = normalizeAttemptedAudioUrl(url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function shouldFetchCandidateAsBlob(candidate, audioViaBlob) {
+    return audioViaBlob && !candidate.url.startsWith("blob:") && !candidate.url.startsWith("data:audio/");
+  }
+  function preconnectAudioUrl(value) {
+    var _a;
+    let origin = "";
+    try {
+      origin = new URL(value, location.href).origin;
+    } catch {
+      return;
+    }
+    if (!origin || preconnectedAudioOrigins.has(origin)) return;
+    preconnectedAudioOrigins.add(origin);
+    for (const rel of ["preconnect", "dns-prefetch"]) {
+      const link = document.createElement("link");
+      link.rel = rel;
+      link.href = origin;
+      if (rel === "preconnect") link.crossOrigin = "anonymous";
+      (_a = document.head) == null ? void 0 : _a.append(link);
+    }
+  }
+  function getProxyUrl(url) {
+    if (getUserscriptHttpRequest()) return url;
+    if (!["localhost", "127.0.0.1"].includes(location.hostname)) return url;
+    if (!/^https?:\/\//.test(url)) return url;
+    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+  }
+  function escapeRegExp$1(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function safeHost$6(value) {
+    try {
+      return new URL(value, location.href).host;
+    } catch {
+      return "invalid-url";
+    }
+  }
+  const CONTEXT_PREFIX = "yomu-mining-context:";
+  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
+  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
+  const log$x = Logger.scope("MiningContext");
+  function normalizeMiningSentence(sentence) {
+    return (sentence ?? "").replace(/\s+/g, " ").trim();
+  }
+  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
+    if (isImageSource) return "image";
+    if (hasVideo) return "video";
+    if (hostname === "jpdb.io") return "jpdb";
+    return "page";
+  }
+  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
+    const normalizedTerm = term.trim();
+    const sentence = context.sentence.trim();
+    if (!normalizedTerm || !sentence) return null;
+    return {
+      ...context,
+      term: normalizedTerm,
+      sentence,
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
+    return createStoredMiningContext(term, context, updatedAt) ?? {
+      ...context,
+      term: term.trim(),
+      sentence: context.sentence.trim() || term.trim(),
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  async function resolveMiningContext({
+    term,
+    sentence,
+    settings,
+    activeContext,
+    storedContext,
+    sourceKind,
+    imageDataUrl,
+    videoImageDataUrl,
+    fetchImageDataUrl
+  }) {
+    const done = log$x.time("Resolve mining context", {
+      term,
+      hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
+      activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
+      storedKind: storedContext == null ? void 0 : storedContext.sourceKind,
+      sourceKind,
+      hasImage: Boolean(imageDataUrl),
+      hasVideoImage: Boolean(videoImageDataUrl)
+    });
+    const cleanSentence = normalizeMiningSentence(sentence);
+    try {
+      if (imageDataUrl && cleanSentence) {
+        log$x.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
+        return miningContextWithImage(term, cleanSentence, "image", imageDataUrl);
+      }
+      if (videoImageDataUrl && cleanSentence) {
+        log$x.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
+        return miningContextWithImage(term, cleanSentence, "video", videoImageDataUrl);
+      }
+      const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
+      if (chosen && shouldUseImmersionContext(settings, chosen)) {
+        const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch((error) => {
+          log$x.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
+          return void 0;
+        }) : void 0;
+        log$x.debug("Using immersion mining context", {
+          term,
+          sourceTitle: chosen.sourceTitle,
+          hasImageUrl: Boolean(chosen.imageUrl),
+          fetchedImage: Boolean(fetchedImageDataUrl)
+        });
+        return { ...chosen, imageDataUrl: fetchedImageDataUrl };
+      }
+      const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
+      const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
+      log$x.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
+      return result;
+    } finally {
+      done();
+    }
+  }
+  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
+    const context = pageMiningContext(sentence, sourceKind);
+    log$x.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
+    return {
+      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
+      imageDataUrl
+    };
+  }
+  function saveMiningContext(term, context) {
+    const stored = createStoredMiningContext(term, context);
+    if (!stored) {
+      log$x.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
+      return null;
+    }
+    try {
+      localStorage.setItem(contextStorageKey(stored.term), JSON.stringify(stored));
+      log$x.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
+    } catch (error) {
+      log$x.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+    }
+    return stored;
+  }
+  function loadMiningContext(term) {
+    const normalized = term.trim();
+    if (!normalized) return null;
+    try {
+      const raw = localStorage.getItem(contextStorageKey(normalized));
+      if (!raw) {
+        log$x.debug("Mining context cache miss", { term: normalized });
+        return null;
+      }
+      const context = parseStoredMiningContext(JSON.parse(raw), normalized);
+      log$x.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
+      return context;
+    } catch (error) {
+      log$x.warn("Mining context load failed", { term: normalized, error });
+      return null;
+    }
+  }
+  function immersionContextFromExample(term, example, index, total, imageUrl) {
+    return {
+      sentence: example.sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: example.sourceTitle || "Immersion Kit",
+      sourceUrl: immersionKitUrl(term, index),
+      imageUrl: imageUrl || void 0,
+      immersionIndex: index,
+      immersionTotal: total
+    };
+  }
+  function immersionContextFromElement(sentence, element2, sourceUrl = location.href) {
+    return {
+      sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
+      sourceUrl,
+      imageUrl: optionalText(element2.dataset.immersionImageUrl),
+      immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
+      immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
+    };
+  }
+  function pageMiningContext(sentence, sourceKind = "page") {
+    return {
+      sentence,
+      sourceKind,
+      sourceTitle: document.title || location.hostname,
+      sourceUrl: location.href
+    };
+  }
+  function contextLabel(context) {
+    if (context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal) {
+      return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
+    }
+    if (context.sourceKind === "video") return `Video: ${context.sourceTitle}`;
+    if (context.sourceKind === "image") return `Image: ${context.sourceTitle}`;
+    if (context.sourceKind === "jpdb") return `JPDB: ${context.sourceTitle}`;
+    return context.sourceTitle || context.sourceUrl || "Current page";
+  }
+  function shouldUseImmersionContext(settings, context) {
+    return Boolean(settings.immersionKitEnabled && (context == null ? void 0 : context.sourceKind) === "immersion-kit" && context.sentence.trim());
+  }
+  function contextStorageKey(term) {
+    return `${CONTEXT_PREFIX}${term}`;
+  }
+  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
+    if (!isRecord(value)) return null;
+    if (text$1(value.term) !== expectedTerm) return null;
+    if (!isMiningSourceKind(value.sourceKind)) return null;
+    const updatedAt = Number(value.updatedAt);
+    if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
+      log$x.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
+      return null;
+    }
+    const context = createStoredMiningContext(expectedTerm, {
+      sentence: text$1(value.sentence),
+      sourceKind: value.sourceKind,
+      sourceTitle: text$1(value.sourceTitle),
+      sourceUrl: text$1(value.sourceUrl),
+      imageUrl: optionalText(value.imageUrl),
+      immersionIndex: optionalNumber(value.immersionIndex),
+      immersionTotal: optionalNumber(value.immersionTotal)
+    }, updatedAt);
+    return context;
+  }
+  function isMiningSourceKind(value) {
+    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
+  }
+  function isRecord(value) {
+    return Boolean(value && typeof value === "object");
+  }
+  function optionalText(value) {
+    const normalized = text$1(value);
+    return normalized || void 0;
+  }
+  function optionalNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : void 0;
+  }
+  function text$1(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function immersionKitUrl(term, index) {
+    const url = new URL("https://www.immersionkit.com/dictionary");
+    url.searchParams.set("keyword", term);
+    url.searchParams.set("sort", "sentence_length:asc");
+    url.searchParams.set("page", String(index + 1));
+    return url.toString();
+  }
+  const APP_NAME = "よむ";
+  const APP_PUCK = "よむ";
+  const APP_SLUG = "yomu";
+  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+  const SETTINGS_TITLE = `${APP_NAME} Settings`;
+  const GITHUB_OWNER = "HRussellZFAC023";
+  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
+  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
+  const FALLBACK_SETUP_SOURCE_ID = "__fallback_setup__";
+  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
+  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
+  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  const SUPPORT_LINKS = {
+    discordUsername: "henry281199",
+    docs: DOCS_BASE_URL,
+    github: GITHUB_REPOSITORY_URL,
+    issues: `${GITHUB_REPOSITORY_URL}/issues`,
+    paypal: "https://paypal.me/HenryRussell163",
+    migakuPricing: "https://migaku.com/pricing"
+  };
+  const COPY = {
+    en: {
+      settingsTitle: `${APP_NAME} Settings`,
+      welcomeLabel: `${APP_NAME} welcome`,
+      onboardingEyebrow: "Japanese, wherever it appears",
+      onboardingCopy: "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.",
+      onboardingLanguage: "Settings language",
+      onboardingAddApiKey: "Add API key",
+      onboardingAddLocalDictionaries: "Add local dictionaries",
+      onboardingUseWithoutApiKey: "Use without API key",
+      closeOnboarding: "Close welcome",
+      onboardingNote: "YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.",
+      featureText: "Text",
+      featureTextBody: "Hover or tap Japanese words once a page is scanned.",
+      featureImages: "Images",
+      featureImagesBody: "Readable image text can be detected quietly near the viewport.",
+      featureVideo: "Video",
+      featureVideoBody: "Subtitle words become tappable when subtitles are available.",
+      featureControl: "Control",
+      featureControlBody: "Open Settings any time to turn features off, change shortcuts, or tune the accent color.",
+      scanPage: "Scan page",
+      settings: "Settings",
+      save: "Save",
+      cancel: "Cancel",
+      basics: "Basics",
+      dictionaries: "Dictionaries",
+      media: "Media",
+      mining: "Mining",
+      shortcuts: "Shortcuts",
+      help: "Help",
+      interface: "Interface",
+      reader: "Reader",
+      kanji: "Kanji",
+      audio: "Audio",
+      images: "Images",
+      video: "Video",
+      youtube: "YouTube",
+      anki: "Anki",
+      studyTools: "Study tools",
+      support: "Support",
+      apiKey: "API key",
+      jpdbSettings: "JPDB settings",
+      jpdbMiningEnabled: "Enable JPDB mining actions",
+      addToForq: "Also add mined cards to forq",
+      enableReviews: "Enable review actions",
+      reviewRatingScale: "Review rating scale",
+      fivePoint: "Five point: NOTHING to EASY",
+      twoPoint: "Two point: FAIL / PASS",
+      settingsLanguage: "Settings language",
+      automatic: "Automatic",
+      english: "English",
+      japanese: "日本語",
+      theme: "Theme",
+      auto: "Auto",
+      dark: "Dark",
+      light: "Light",
+      popupMode: "Popup mode",
+      bottomSheet: "Bottom sheet",
+      popover: "Popover",
+      popoverWidth: "Popover width (px)",
+      popoverHeight: "Popover height (px)",
+      popoverHeightMode: "Popover height",
+      popoverHeightAvailable: "Grow to available space",
+      popoverHeightFixed: "Use height setting",
+      enableLogging: "Enable console logging",
+      accentColor: "Accent color",
+      newTab: "New tab",
+      newTabEnabled: "Use Yomu new tab study page",
+      newTabSource: "New tab word source",
+      newTabAuto: "Auto: Anki + JPDB + Dictionary",
+      newTabUrl: "New tab address",
+      newTabJpdbDeck: "New tab JPDB deck",
+      openNewTabPage: "Open new tab page",
+      copyAddress: "Copy address",
+      wordColors: "Word colors",
+      wordColorNew: "New and suspended",
+      wordColorLearning: "Learning",
+      wordColorKnown: "Known and never",
+      wordColorDue: "Due",
+      wordColorFailed: "Failed",
+      wordColorIgnored: "Ignored and blacklisted",
+      interfaceHelp: "よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.",
+      parseSelection: "Lookup selected text",
+      lookupOnClick: "Tap or click scanned words",
+      lookupOnHover: "Hover scanned words",
+      lookupOnMiddleMouse: "Hold middle mouse button to scan words",
+      autoScanJapanese: "Auto-scan when Japanese is detected",
+      scanVisiblePage: "Scan visible page on load",
+      showFloatingButton: "Toggle floating puck on pages",
+      showFurigana: "Enable furigana annotations",
+      furiganaMode: "Furigana",
+      furiganaDifficultKanji: "Difficult kanji only",
+      furiganaHideKnown: "Hide known words",
+      furiganaAllParsed: "All parsed words",
+      showPitchAccent: "Show pitch accent",
+      wordHighlightMode: "Word highlight colors",
+      highlightKnownStatus: "Known/mining status",
+      highlightPitchAccent: "Pitch accent",
+      hideKnownFurigana: "Hide furigana for known cards only",
+      readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.",
+      kanjivgEnabled: "Show stroke order and drawing pad",
+      kanjiOriginsEnabled: "Show compact kanji facts and component map",
+      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
+      kanjiOriginWiktionaryEnabled: "Use Wiktionary origin notes",
+      kanjiOriginGraphEnabled: "Show component graph",
+      kanjiOriginRadicalImagesEnabled: "Show radical images",
+      rtkEnabled: "Show RTK information",
+      similarKanjiWords: "Show words using the same kanji",
+      similarKanjiWordLimit: "Similar word limit",
+      loadingSimilarWords: "Loading words...",
+      openToLoadSimilarWords: "Open to load words.",
+      noSimilarWords: "No additional words found.",
+      kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
+      audioEnabled: "Enable audio playback for terms",
+      autoPlayAudio: "Auto-play search result audio",
+      audioEnableDefaultSources: "Use built-in audio sources",
+      audioFallbackChimeEnabled: "Play a soft chime when no audio is available",
+      audioSelectionMode: "When a source has several clips",
+      firstAudio: "First audio",
+      randomAudio: "Random audio",
+      audioTimeoutMs: "Audio timeout (ms)",
+      previewAudio: "Preview audio",
+      audioHelp: "Supports {term}, {reading}, and {language}. See the Yomitan audio guide.",
+      audioSource: "Audio source",
+      urlVoice: "URL / voice",
+      addAudioSource: "Add audio source",
+      immersionKit: "Immersion Kit",
+      immersionKitEnabled: "Show Immersion Kit examples",
+      immersionKitShowTranslation: "Show example translations",
+      immersionKitShowImages: "Show example thumbnails",
+      immersionKitAutoPlayAudio: "Play example audio after next/previous",
+      jpdbImmersionKitAutoPlayReviewAudio: "Play Immersion Kit audio on JPDB answer reveal",
+      immersionKitPlayOnHover: "Play first example audio on hover",
+      immersionKitCategory: "Example source",
+      immersionKitSort: "Example order",
+      immersionKitLimit: "Examples per word",
+      immersionKitMinLength: "Minimum sentence length",
+      immersionKitMaxLength: "Maximum sentence length",
+      immersionKitPlaybackRate: "Example audio speed",
+      immersionKitExactMatch: "Prefer exact matches",
+      immersionKitHelp: "Immersion examples appear inside word popups. Example text is tappable too, so translations can stay off unless you want them.",
+      loadingExamples: "Loading examples...",
+      noImmersionExamples: "No Immersion Kit examples found.",
+      noImmersionExamplesCompact: "No examples",
+      previousExample: "Previous example",
+      nextExample: "Next example",
+      playExampleAudio: "Play example audio",
+      allCategories: "All",
+      anime: "Anime",
+      drama: "Drama",
+      games: "Games",
+      shortestFirst: "Shortest first",
+      longestFirst: "Longest first",
+      randomOrder: "Random",
+      ocrEnabled: "Read text in images",
+      ocrAutoScanImages: "Read images automatically",
+      ocrShowTextOverlay: "Show recognized image text areas",
+      ocrProvider: "Image reading",
+      googleLens: "Google Lens (recommended)",
+      localOcr: "Local OCR app",
+      cloudVision: "Google Cloud Vision",
+      off: "Off",
+      ocrMaxImagesPerPage: "Images to read per page",
+      ocrMinImageArea: "Smallest image to read",
+      ocrMaxImagePixels: "Image detail",
+      lightWork: "Light",
+      normal: "Normal",
+      more: "More",
+      largeOnly: "Large images only",
+      includeSmall: "Include small images",
+      faster: "Faster",
+      balanced: "Balanced",
+      sharper: "Sharper",
+      ocrTextColor: "Image text color",
+      ocrOutlineColor: "Image text outline",
+      ocrBackgroundColor: "Image highlight background",
+      ocrBackgroundOpacity: "Image highlight opacity",
+      ocrFontScale: "Image text scale",
+      ocrEndpointUrl: "Local OCR app URL",
+      ocrEngine: "Local OCR engine",
+      cloudVisionApiKey: "Cloud Vision API key",
+      ocrHelp: "Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.",
+      subtitlePlayerEnabled: "Enable video subtitle player",
+      subtitleAutoDetect: "Auto-detect page subtitles",
+      subtitleOverlayVisible: "Show subtitle overlay",
+      subtitleSecondaryVisible: "Show native subtitles when available",
+      subtitleTranscriptVisible: "Open transcript panel by default",
+      subtitleTranscriptPlacement: "Transcript panel position",
+      subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+      subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleControlsMode: "Subtitle controls",
+      right: "Right",
+      left: "Left",
+      bottom: "Below",
+      showWhenNeeded: "Compact controls",
+      hideControls: "Hide controls",
+      alwaysVisible: "Always visible",
+      subtitleFontSize: "Subtitle font size",
+      subtitleBottomOffset: "Subtitle bottom offset (%)",
+      subtitleTextColor: "Subtitle color",
+      subtitleOutlineColor: "Subtitle outline",
+      subtitleBackgroundColor: "Subtitle background",
+      subtitleBackgroundOpacity: "Subtitle background opacity",
+      subtitleFontFamily: "Subtitle font family",
+      subtitleFontWeight: "Subtitle font weight",
+      subtitleSeekPadding: "Subtitle seek padding (seconds)",
+      subtitlePreview: "Live subtitle preview",
+      youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
+      youtubeShowFilterNotice: "Show reveal control for hidden videos",
+      youtubeHelp: "Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.",
+      youtubeFilterOn: "YouTube filter on",
+      youtubeFilterOff: "YouTube filter off",
+      youtubeShowAnyway: "Show anyway",
+      youtubeFilterAgain: "Filter again",
+      youtubeTurnOff: "Turn off",
+      youtubeToggleToastOn: "YouTube immersion filter enabled.",
+      youtubeToggleToastOff: "YouTube immersion filter disabled.",
+      ankiEnabled: "Enable Anki mining",
+      ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
+      ankiCaptureScreenshot: "Attach context image when possible",
+      ankiConnectUrl: "AnkiConnect URL",
+      ankiDeck: "Anki deck",
+      ankiModel: "Anki note type",
+      mobileAnkiHandoff: "Use mobile Anki handoff when AnkiConnect is unavailable",
+      ankiTemplateMode: "Anki card template",
+      wordFirst: "Word first",
+      sentenceFirst: "Sentence first",
+      ankiTags: "Tags",
+      studyTranslationEnabled: "Show sentence translation tool",
+      studyGrammarEnabled: "Show grammar hint tool",
+      testAnki: "Test Anki",
+      ankiTesting: "Testing AnkiConnect...",
+      ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
+      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional context images from videos, OCR, or Immersion Kit.",
+      jpdbDefinitionsEnabled: "Show JPDB definitions",
+      localDictionariesEnabled: "Show imported dictionary definitions",
+      localDictionaryShowKanji: "Show kanji dictionary cards",
+      dictionarySourcesInitiallyExpanded: "Open popup sources by default",
+      localDictionaryMaxResults: "Dictionary result limit",
+      importSettings: "Import settings JSON",
+      exportSettings: "Export settings JSON",
+      importDictionaries: "Import dictionaries",
+      exportDictionaries: "Export dictionaries",
+      dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
+      recommendedDownloads: "Recommended dictionaries",
+      homepage: "Homepage",
+      download: "Download",
+      update: "Update",
+      noLocalDictionaries: "No local dictionary installed yet. JMdict downloads automatically when よむ needs dictionary study words.",
+      checkingDictionaries: "Checking imported dictionaries...",
+      dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
+      localDictionaryText: "Dictionary text",
+      localSenseSingular: "meaning",
+      localSensePlural: "meanings",
+      localWordSingular: "entry",
+      localWordPlural: "entries",
+      decksLoaded: "Decks are loaded from your JPDB account.",
+      decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
+      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
+      holdWhileHovering: "Hold while hovering",
+      hoverOpenDelayMs: "Hover open delay (ms)",
+      hoverCloseDelayMs: "Hover close delay (ms)",
+      pressKeys: "Press keys",
+      blankPlainHover: "Blank means hover without a key",
+      openSettings: "Open settings",
+      playAudio: "Play audio",
+      closePopup: "Close popup",
+      previousSubtitle: "Previous subtitle",
+      nextSubtitle: "Next subtitle",
+      copySubtitle: "Copy subtitle",
+      toggleImageReading: "Toggle image reading",
+      toggleYoutubeImmersion: "Toggle YouTube filter",
+      readImagesNow: "Read images now",
+      gradeNothing: "Grade NOTHING",
+      gradeSomething: "Grade SOMETHING",
+      gradeHard: "Grade HARD",
+      gradeOkay: "Grade OKAY",
+      gradeEasy: "Grade EASY",
+      gradeFail: "Pass/fail: FAIL",
+      gradePass: "Pass/fail: PASS",
+      supportTitle: "Free Japanese reading and mining tools",
+      supportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
+      supportDonation: "Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.",
+      documentation: "Documentation",
+      donate: "Donate",
+      reportIssue: "Report issue",
+      github: "GitHub",
+      copyDiscord: "Copy Discord",
+      openOnJpdb: "Open on JPDB",
+      copyWord: "Copy",
+      copyWordTitle: "Copy word",
+      copiedWord: "Copied word.",
+      backToWord: "Back to word",
+      previousKanji: "Previous kanji",
+      nextKanji: "Next kanji",
+      openKanjiOnJpdb: "Open kanji on JPDB",
+      strokePractice: "Stroke order + practice",
+      practiceDrawing: "Practice drawing",
+      strokes: "strokes",
+      textTrace: "text trace",
+      hideTrace: "Hide trace",
+      showTrace: "Show trace",
+      clear: "Clear",
+      originStructure: "Kanji facts",
+      originMapLabel: "2D kanji origin and component map",
+      originShowOutbound: "Outbounds",
+      kanjiMapData: "Kanji Map data",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "Radical",
+      historicalNotes: "Historical notes",
+      readingsComponents: "Readings and components",
+      showKanji: "Show kanji",
+      jpdbMnemonic: "JPDB mnemonic",
+      rtkComponentKeywords: "RTK component keywords",
+      onReading: "On",
+      kunReading: "Kun",
+      heisigStory: "Heisig story",
+      heisigComment: "Heisig comment",
+      koohiiStories: "Koohii stories",
+      add: "Add",
+      forget: "Forget",
+      never: "Never",
+      neverHint: "Move to your never-forget deck. Use this for words you know and still want counted as known.",
+      unlist: "Unlist",
+      blacklist: "Blacklist",
+      blacklistHint: "Ignore this exact word. Use this for particles, kana, or words you do not want to mine.",
+      addToAnki: "Add to Anki",
+      noDefinitions: "No enabled definition source returned results.",
+      fallbackSetupTitle: "Dictionary setup",
+      fallbackSetupCopy: "No JPDB key or local dictionary is connected yet. This starter card can still copy the term, play browser audio, open external lookup links, and inspect kanji.",
+      fallbackSetupDictionaries: "Add dictionaries",
+      fallbackSetupJpdb: "Add JPDB key"
+    },
+    ja: {
+      settingsTitle: `${APP_NAME} 設定`,
+      welcomeLabel: `${APP_NAME} へようこそ`,
+      onboardingEyebrow: "日本語がある場所ならどこでも",
+      onboardingCopy: "ページの文章、字幕、画像内の日本語をタップできる辞書カードにします。音声を聞き、単語を採掘し、読みやすさを保ったまま学習できます。",
+      onboardingLanguage: "表示言語",
+      onboardingAddApiKey: "APIキーを追加",
+      onboardingAddLocalDictionaries: "ローカル辞書を追加",
+      onboardingUseWithoutApiKey: "APIキーなしで使う",
+      closeOnboarding: "ようこそ画面を閉じる",
+      onboardingNote: "YouTube没入フィルターも入っていますが、最初はオフです。日本語動画だけに集中したい時にオンにしてください。",
+      featureText: "文章",
+      featureTextBody: "ページを読み取ると、日本語の単語をホバーまたはタップできます。",
+      featureImages: "画像",
+      featureImagesBody: "画面付近の読みやすい画像内テキストを静かに検出します。",
+      featureVideo: "動画",
+      featureVideoBody: "字幕が見つかると、字幕内の単語もタップできます。",
+      featureControl: "調整",
+      featureControlBody: "設定から機能のオンオフ、ショートカット、アクセント色をいつでも変更できます。",
+      scanPage: "ページを読む",
+      settings: "設定",
+      save: "保存",
+      cancel: "キャンセル",
+      basics: "基本",
+      dictionaries: "辞書",
+      media: "メディア",
+      mining: "採掘",
+      shortcuts: "ショートカット",
+      help: "ヘルプ",
+      interface: "表示",
+      reader: "リーダー",
+      kanji: "漢字",
+      audio: "音声",
+      images: "画像",
+      video: "動画",
+      youtube: "YouTube",
+      anki: "Anki",
+      studyTools: "学習ツール",
+      support: "サポート",
+      apiKey: "APIキー",
+      jpdbSettings: "JPDB設定",
+      jpdbMiningEnabled: "JPDB採掘ボタンを有効化",
+      addToForq: "採掘したカードをforqにも追加",
+      enableReviews: "復習ボタンを表示",
+      reviewRatingScale: "復習評価",
+      fivePoint: "5段階: NOTHINGからEASY",
+      twoPoint: "2段階: FAIL / PASS",
+      settingsLanguage: "表示言語",
+      automatic: "自動",
+      english: "English",
+      japanese: "日本語",
+      theme: "テーマ",
+      auto: "自動",
+      dark: "ダーク",
+      light: "ライト",
+      popupMode: "ポップアップ表示",
+      bottomSheet: "下シート",
+      popover: "ポップオーバー",
+      popoverWidth: "ポップオーバー幅 (px)",
+      popoverHeight: "ポップオーバー高さ (px)",
+      popoverHeightMode: "ポップオーバー高さ",
+      popoverHeightAvailable: "空き領域まで広げる",
+      popoverHeightFixed: "高さ設定を使う",
+      enableLogging: "コンソールログを有効化",
+      accentColor: "アクセント色",
+      newTab: "新規タブ",
+      newTabEnabled: "Yomu新規タブ学習ページを使う",
+      newTabSource: "新規タブの単語ソース",
+      newTabAuto: "自動: Anki、JPDB、辞書",
+      newTabUrl: "新規タブのアドレス",
+      newTabJpdbDeck: "新規タブのJPDBデッキ",
+      openNewTabPage: "新規タブページを開く",
+      copyAddress: "アドレスをコピー",
+      wordColors: "単語の色",
+      wordColorNew: "新規・停止中",
+      wordColorLearning: "学習中",
+      wordColorKnown: "既知・Never",
+      wordColorDue: "復習予定",
+      wordColorFailed: "失敗",
+      wordColorIgnored: "除外・ブラックリスト",
+      interfaceHelp: "よむはJPDB優先、インポート辞書優先、またはローカル辞書のみでも使えます。辞書タブで表示順を調整できます。",
+      parseSelection: "選択したテキストを調べる",
+      lookupOnClick: "読み取り済み単語をタップ/クリック",
+      lookupOnHover: "読み取り済み単語をホバー",
+      lookupOnMiddleMouse: "マウス中ボタンを押しながら単語を読む",
+      autoScanJapanese: "日本語を検出したら自動で読む",
+      scanVisiblePage: "読み込み時に見える範囲を読む",
+      showFloatingButton: "浮動ボタンを切り替え",
+      showFurigana: "ふりがなを表示",
+      furiganaMode: "ふりがな",
+      furiganaDifficultKanji: "難しい漢字のみ",
+      furiganaHideKnown: "既知単語を隠す",
+      furiganaAllParsed: "解析した全単語",
+      showPitchAccent: "ピッチアクセントを表示",
+      wordHighlightMode: "単語ハイライト色",
+      highlightKnownStatus: "既知/採掘ステータス",
+      highlightPitchAccent: "ピッチアクセント",
+      hideKnownFurigana: "既知カードだけふりがなを隠す",
+      readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバーです。中ボタン読み取り中はブラウザの自動スクロールを止めますが、リンクの中クリックは通常通り残します。",
+      kanjivgEnabled: "筆順と手書き練習を表示",
+      kanjiOriginsEnabled: "漢字の基本情報と構成マップを表示",
+      kanjiOriginKanjiMapEnabled: "Kanji Alive / Kanji Mapの情報を使う",
+      kanjiOriginWiktionaryEnabled: "Wiktionaryの成り立ちメモを使う",
+      kanjiOriginGraphEnabled: "構成グラフを表示",
+      kanjiOriginRadicalImagesEnabled: "部首画像を表示",
+      rtkEnabled: "RTK情報を表示",
+      similarKanjiWords: "同じ漢字を使う単語を表示",
+      similarKanjiWordLimit: "関連単語の上限",
+      loadingSimilarWords: "関連単語を読み込み中...",
+      openToLoadSimilarWords: "開くと関連単語を読み込みます。",
+      noSimilarWords: "追加の単語は見つかりませんでした。",
+      kanjiHelp: "ポップアップ内の漢字をクリックすると、RTK、漢字辞書、構成要素、関連単語を確認できます。",
+      audioEnabled: "単語音声を有効化",
+      autoPlayAudio: "検索結果の音声を自動再生",
+      audioEnableDefaultSources: "内蔵音声ソースを使う",
+      audioFallbackChimeEnabled: "音声がない時に静かなチャイムを鳴らす",
+      audioSelectionMode: "複数音声がある時",
+      firstAudio: "最初の音声",
+      randomAudio: "ランダム音声",
+      audioTimeoutMs: "音声タイムアウト (ms)",
+      previewAudio: "音声をプレビュー",
+      audioHelp: "{term}、{reading}、{language} に対応。Yomitan音声ガイドも参照できます。",
+      audioSource: "音声ソース",
+      urlVoice: "URL / 声",
+      addAudioSource: "音声ソースを追加",
+      immersionKit: "Immersion Kit",
+      immersionKitEnabled: "Immersion Kit例文を表示",
+      immersionKitShowTranslation: "例文の翻訳を表示",
+      immersionKitShowImages: "例文サムネイルを表示",
+      immersionKitAutoPlayAudio: "前/次の例文で音声を再生",
+      jpdbImmersionKitAutoPlayReviewAudio: "JPDBの答え表示時にImmersion Kit音声を再生",
+      immersionKitPlayOnHover: "最初の例文音声をホバーで再生",
+      immersionKitCategory: "例文ソース",
+      immersionKitSort: "例文の並び",
+      immersionKitLimit: "単語ごとの例文数",
+      immersionKitMinLength: "最短例文長",
+      immersionKitMaxLength: "最長例文長",
+      immersionKitPlaybackRate: "例文音声速度",
+      immersionKitExactMatch: "完全一致を優先",
+      immersionKitHelp: "Immersion Kit例文は単語ポップアップ内に表示されます。例文の日本語もタップできるため、翻訳は必要な時だけオンにできます。",
+      loadingExamples: "例文を読み込み中...",
+      noImmersionExamples: "Immersion Kit例文が見つかりません。",
+      noImmersionExamplesCompact: "例文なし",
+      previousExample: "前の例文",
+      nextExample: "次の例文",
+      playExampleAudio: "例文音声を再生",
+      allCategories: "すべて",
+      anime: "アニメ",
+      drama: "ドラマ",
+      games: "ゲーム",
+      shortestFirst: "短い順",
+      longestFirst: "長い順",
+      randomOrder: "ランダム",
+      ocrEnabled: "画像内テキストを読む",
+      ocrAutoScanImages: "画像を自動で読む",
+      ocrShowTextOverlay: "画像の認識範囲を表示",
+      ocrProvider: "画像の読み取り",
+      googleLens: "Google Lens (推奨)",
+      localOcr: "ローカルOCRアプリ",
+      cloudVision: "Google Cloud Vision",
+      off: "オフ",
+      ocrMaxImagesPerPage: "1ページで読む画像数",
+      ocrMinImageArea: "読む最小画像サイズ",
+      ocrMaxImagePixels: "画像精細度",
+      lightWork: "軽め",
+      normal: "標準",
+      more: "多め",
+      largeOnly: "大きい画像のみ",
+      includeSmall: "小さい画像も含める",
+      faster: "高速",
+      balanced: "バランス",
+      sharper: "高精細",
+      ocrTextColor: "画像テキスト色",
+      ocrOutlineColor: "画像テキストの縁取り",
+      ocrBackgroundColor: "画像ハイライト背景",
+      ocrBackgroundOpacity: "画像ハイライト濃度",
+      ocrFontScale: "画像テキスト倍率",
+      ocrEndpointUrl: "ローカルOCRアプリURL",
+      ocrEngine: "ローカルOCRエンジン",
+      cloudVisionApiKey: "Cloud Vision APIキー",
+      ocrHelp: "画像は画面付近で静かに読み取ります。通常画像はGoogle Lensが既定です。認識範囲はタップまたはホバーするまで透明のままです。",
+      subtitlePlayerEnabled: "動画字幕プレイヤーを有効化",
+      subtitleAutoDetect: "ページ字幕を自動検出",
+      subtitleOverlayVisible: "字幕オーバーレイを表示",
+      subtitleSecondaryVisible: "利用可能なら母語字幕も表示",
+      subtitleTranscriptVisible: "文字起こしパネルを最初から開く",
+      subtitleTranscriptPlacement: "文字起こしパネル位置",
+      subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
+      subtitleMiningPause: "字幕から採掘する時に一時停止",
+      subtitleControlsMode: "字幕コントロール",
+      right: "右",
+      left: "左",
+      bottom: "下",
+      showWhenNeeded: "コンパクト表示",
+      hideControls: "隠す",
+      alwaysVisible: "常に表示",
+      subtitleFontSize: "字幕サイズ",
+      subtitleBottomOffset: "字幕の下位置 (%)",
+      subtitleTextColor: "字幕色",
+      subtitleOutlineColor: "字幕の縁取り",
+      subtitleBackgroundColor: "字幕背景",
+      subtitleBackgroundOpacity: "字幕背景の濃度",
+      subtitleFontFamily: "字幕フォント",
+      subtitleFontWeight: "字幕の太さ",
+      subtitleSeekPadding: "字幕移動の余白 (秒)",
+      subtitlePreview: "字幕プレビュー",
+      youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
+      youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
+      youtubeHelp: "既定ではオフです。YouTubeのおすすめ、検索、サイドバーを日本語らしい動画に集中させたい時にオンにしてください。",
+      youtubeFilterOn: "YouTubeフィルター: オン",
+      youtubeFilterOff: "YouTubeフィルター: オフ",
+      youtubeShowAnyway: "それでも表示",
+      youtubeFilterAgain: "もう一度隠す",
+      youtubeTurnOff: "オフにする",
+      youtubeToggleToastOn: "YouTube没入フィルターをオンにしました。",
+      youtubeToggleToastOff: "YouTube没入フィルターをオフにしました。",
+      ankiEnabled: "Anki採掘を有効化",
+      ankiMineWithJpdb: "JPDB追加時にAnkiにも追加",
+      ankiCaptureScreenshot: "可能なら文脈画像を添付",
+      ankiConnectUrl: "AnkiConnect URL",
+      ankiDeck: "Ankiデッキ",
+      ankiModel: "Ankiノートタイプ",
+      mobileAnkiHandoff: "AnkiConnectに接続できない時はモバイルAnki連携を使う",
+      ankiTemplateMode: "Ankiカードテンプレート",
+      wordFirst: "単語を先に表示",
+      sentenceFirst: "文を先に表示",
+      ankiTags: "タグ",
+      studyTranslationEnabled: "文の翻訳ツールを表示",
+      studyGrammarEnabled: "文法ヒントツールを表示",
+      testAnki: "Ankiをテスト",
+      ankiTesting: "AnkiConnectをテストしています...",
+      ankiUnreachable: "AnkiConnectに接続できません。Ankiを開き、AnkiConnectアドオンが有効か確認してください。",
+      ankiHelp: "AnkiConnectを使います。よむノートタイプにはJPDBの意味・状態、インポート辞書、漢字カード、ピッチ・頻度、出典リンク、可能なら動画・OCR・Immersion Kitの文脈画像を入れます。",
+      jpdbDefinitionsEnabled: "JPDB定義を表示",
+      localDictionariesEnabled: "インポート辞書の定義を表示",
+      localDictionaryShowKanji: "漢字辞書カードを表示",
+      dictionarySourcesInitiallyExpanded: "ポップアップのソースを初期表示で開く",
+      localDictionaryMaxResults: "辞書結果の上限",
+      importSettings: "設定JSONをインポート",
+      exportSettings: "設定JSONをエクスポート",
+      importDictionaries: "辞書をインポート",
+      exportDictionaries: "辞書をエクスポート",
+      dictionaryImportHelp: "Yomitan設定JSON、Yomitan辞書ZIP、またはエクスポートした辞書バックアップに対応しています。",
+      recommendedDownloads: "おすすめ辞書",
+      homepage: "ホームページ",
+      download: "ダウンロード",
+      update: "更新",
+      noLocalDictionaries: "ローカル辞書はまだありません。辞書の学習カードが必要な時はJMdictを自動でダウンロードします。",
+      checkingDictionaries: "インポート済み辞書を確認中...",
+      dictionaryOnlyJpdb: "現在の定義ソースはJPDBのみです。Yomitan辞書をインポートすると、ローカル辞書や母語辞書の定義を追加できます。",
+      localDictionaryText: "辞書本文",
+      localSenseSingular: "意味",
+      localSensePlural: "意味",
+      localWordSingular: "項目",
+      localWordPlural: "項目",
+      decksLoaded: "デッキはJPDBアカウントから読み込みました。",
+      decksUnavailable: "まだデッキを読み込めません。保存済みのデッキIDは維持されます。",
+      addApiKeyChooseDecks: "JPDB APIキーを追加するとデッキを選べます。",
+      holdWhileHovering: "ホバー中に押すキー",
+      hoverOpenDelayMs: "ホバー表示までの遅延 (ms)",
+      hoverCloseDelayMs: "ホバーを閉じる遅延 (ms)",
+      pressKeys: "キーを押してください",
+      blankPlainHover: "空欄ならキーなしホバー",
+      openSettings: "設定を開く",
+      playAudio: "音声を再生",
+      closePopup: "ポップアップを閉じる",
+      previousSubtitle: "前の字幕",
+      nextSubtitle: "次の字幕",
+      copySubtitle: "字幕をコピー",
+      toggleImageReading: "画像読み取りを切替",
+      toggleYoutubeImmersion: "YouTubeフィルターを切替",
+      readImagesNow: "今すぐ画像を読む",
+      gradeNothing: "NOTHING評価",
+      gradeSomething: "SOMETHING評価",
+      gradeHard: "HARD評価",
+      gradeOkay: "OKAY評価",
+      gradeEasy: "EASY評価",
+      gradeFail: "FAIL評価",
+      gradePass: "PASS評価",
+      supportTitle: "無料の日本語リーダー・採掘ツール",
+      supportCopy: "よむはポップアップ辞書、JPDB採掘、インポート辞書、字幕、画像読み取り、Anki出力を1つの無料ユーザースクリプトにまとめます。Migakuのような学習スイートは月$10からの有料プランを案内していますが、よむは同じ中心的な読解・採掘ワークフローを無料で提供します。",
+      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間を支える助けになります。",
+      documentation: "ドキュメント",
+      donate: "寄付",
+      reportIssue: "不具合報告",
+      github: "GitHub",
+      copyDiscord: "Discordをコピー",
+      openOnJpdb: "JPDBで開く",
+      copyWord: "コピー",
+      copyWordTitle: "単語をコピー",
+      copiedWord: "単語をコピーしました。",
+      backToWord: "単語に戻る",
+      previousKanji: "前の漢字",
+      nextKanji: "次の漢字",
+      openKanjiOnJpdb: "JPDBで漢字を開く",
+      strokePractice: "筆順と手書き練習",
+      practiceDrawing: "手書き練習",
+      strokes: "画",
+      textTrace: "文字なぞり",
+      hideTrace: "なぞりを隠す",
+      showTrace: "なぞりを表示",
+      clear: "消す",
+      originStructure: "漢字情報",
+      originMapLabel: "漢字の成り立ち・構成マップ",
+      originShowOutbound: "外向き",
+      kanjiMapData: "Kanji Mapデータ",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "部首",
+      historicalNotes: "字源メモ",
+      readingsComponents: "読みと構成要素",
+      showKanji: "漢字を表示",
+      jpdbMnemonic: "JPDBニーモニック",
+      rtkComponentKeywords: "RTK構成キーワード",
+      onReading: "音",
+      kunReading: "訓",
+      heisigStory: "Heisigストーリー",
+      heisigComment: "Heisigコメント",
+      koohiiStories: "Koohiiストーリー",
+      add: "追加",
+      forget: "解除",
+      never: "Never",
+      neverHint: "never-forgetデッキへ移動します。既知として扱いたい単語に使います。",
+      unlist: "解除",
+      blacklist: "ブラックリスト",
+      blacklistHint: "この語を除外します。助詞・かな・採掘したくない語に使います。",
+      addToAnki: "Ankiに追加",
+      noDefinitions: "有効な辞書ソースから定義が見つかりませんでした。",
+      fallbackSetupTitle: "辞書セットアップ",
+      fallbackSetupCopy: "JPDBキーやローカル辞書はまだ接続されていません。この簡易カードでも単語のコピー、ブラウザ音声、外部辞書リンク、漢字確認は使えます。",
+      fallbackSetupDictionaries: "辞書を追加",
+      fallbackSetupJpdb: "JPDBキーを追加"
+    }
+  };
+  function resolveUiLanguage(language) {
+    if (language === "ja") return "ja";
+    if (language === "en") return "en";
+    return typeof navigator !== "undefined" && /^ja\b/i.test(navigator.language) ? "ja" : "en";
+  }
+  function uiText(language, key) {
+    return COPY[resolveUiLanguage(language)][key] ?? COPY.en[key];
+  }
+  function renderAnkiActionRow(ankiLookup, settings) {
+    if (!settings.ankiEnabled) return "";
+    if (ankiLookup.primary) {
+      return `
+            <div class="jpdb-reader-row" style="--cols: 1">
+                <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${ankiLookup.primary.noteId}">Edit in Anki</button>
+            </div>
+        `;
+    }
+    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(settings.interfaceLanguage, "addToAnki")}</button></div>`;
+  }
+  function renderAnkiExistingSection(ankiLookup, storedContext) {
+    const note = ankiLookup.primary;
+    if (!note) return "";
+    const decks = note.deckNames.length ? note.deckNames.join(", ") : "Anki";
+    const sentence = note.fields.Sentence || note.fields.Example || note.fields.SentenceExpression || "";
+    const meaning = note.fields.Meaning || note.fields.Definition || note.fields.Glossary || "";
+    const source = note.fields.Source || note.fields.Url || "";
+    const lastContext = storedContext ? `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml$1(contextLabel(storedContext))}</span><small>${escapeHtml$1(storedContext.sentence)}</small></div>` : "";
+    return `
+        <details class="jpdb-reader-anki-existing">
+            <summary>
+                <span><span class="jpdb-reader-state-dot jpdb-${note.state}"></span>Already in Anki</span>
+                <small>${escapeHtml$1(decks)} · ${escapeHtml$1(note.modelName)}</small>
+            </summary>
+            <div class="jpdb-reader-anki-card-preview">
+                ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml$1(sentence)}</span></div>` : ""}
+                ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml$1(meaning.slice(0, 420))}</span></div>` : ""}
+                ${source ? `<div><strong>Source</strong><span>${escapeHtml$1(source)}</span></div>` : ""}
+                ${lastContext}
+            </div>
+        </details>
+    `;
+  }
+  function renderReviewButtons(settings, ankiNote = null) {
+    const ankiAttrs = (ankiNote == null ? void 0 : ankiNote.primaryCardId) ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
+    if (settings.twoButtonReviews) {
+      return `
+            <div class="jpdb-reader-row" style="--cols: 2">
+                <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail"${ankiAttrs}>FAIL</button>
+                <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass"${ankiAttrs}>PASS</button>
+            </div>
+        `;
+    }
+    return `
+        <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 5">
+            <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing"${ankiAttrs}>NOTHING</button>
+            <button class="jpdb-reader-btn something" data-action="grade" data-grade="something"${ankiAttrs}>SOMETHING</button>
+            <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard"${ankiAttrs}>HARD</button>
+            <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay"${ankiAttrs}>OKAY</button>
+            <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy"${ankiAttrs}>EASY</button>
+        </div>
+    `;
   }
   const POS_LABELS = {
     adj: "adjective",
@@ -4847,7 +5859,7 @@
   })(jszip_min);
   var jszip_minExports = jszip_min.exports;
   const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(jszip_minExports);
-  const log$u = Logger.scope("Deinflect");
+  const log$w = Logger.scope("Deinflect");
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -4997,7 +6009,7 @@
       }
     }
     const sorted = results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-    log$u.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
+    log$w.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
       source,
       candidates: sorted.length,
       derived: sorted.filter((candidate) => candidate.depth > 0).length
@@ -5059,10 +6071,10 @@
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
   }
-  const log$t = Logger.scope("YomitanRanking");
+  const log$v = Logger.scope("YomitanRanking");
   function dictionaryRank(preferences) {
     const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
-    log$t.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
+    log$v.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
     return rank;
   }
   function dictionaryEnabled(dictionary, rank) {
@@ -5103,7 +6115,7 @@ ${candidate.depth}`;
       if (selected.length >= limit) break;
     }
     const result = selected.sort((a, b) => a.start - b.start);
-    log$t.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
+    log$v.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
     return result;
   }
   function isJpdbFrequencyDictionary(dictionary) {
@@ -5169,7 +6181,7 @@ ${candidate.depth}`;
     listStyleType: "list-style-type"
   };
   const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
-  const log$s = Logger.scope("YomitanGlossary");
+  const log$u = Logger.scope("YomitanGlossary");
   function glossaryToText(value) {
     if (value == null) return "";
     if (typeof value === "string") return value;
@@ -5186,7 +6198,7 @@ ${candidate.depth}`;
   }
   function glossaryToHtml(value, dictionary = "", options = {}) {
     const html = renderGlossaryValue(value, { dictionary, internalSearchLinks: options.internalSearchLinks ?? false, root: true });
-    log$s.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
+    log$u.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
     return html;
   }
   function renderDictionaryScopedStyles(dictionaries, preferences = []) {
@@ -5199,7 +6211,7 @@ ${candidate.depth}`;
 ${styles}
 }`;
     }).filter(Boolean).join("\n");
-    log$s.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
+    log$u.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
     return css;
   }
   function renderGlossaryValue(value, context) {
@@ -5376,7 +6388,7 @@ ${styles}
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
   const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$r = Logger.scope("Yomitan");
+  const log$t = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor() {
       __publicField(this, "dbPromise");
@@ -5385,20 +6397,20 @@ ${styles}
       __publicField(this, "dictionaryStyleCssCache", /* @__PURE__ */ new Map());
     }
     async warm(preferences = []) {
-      const done = log$r.time("Dictionary store warmup", { dictionaries: preferences.length });
+      const done = log$t.time("Dictionary store warmup", { dictionaries: preferences.length });
       try {
         await this.summary();
         if (preferences.length) await this.dictionaryStyleCss(preferences);
-        log$r.debug("Dictionary store warmed");
+        log$t.debug("Dictionary store warmed");
       } catch (error) {
-        log$r.warn("Dictionary store warmup failed", { error });
+        log$t.warn("Dictionary store warmup failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async lookup(expression, reading, limit, preferences = []) {
-      const done = log$r.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+      const done = log$t.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const entries = await this.getTermLookupEntries(
@@ -5421,17 +6433,17 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           seen.add(key);
           return true;
         }).slice(0, limit);
-        log$r.debug("Term lookup completed", { expression, reading, candidates: entries.length, results: results.length });
+        log$t.debug("Term lookup completed", { expression, reading, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$r.warn("Term lookup failed", { expression, reading, error });
+        log$t.warn("Term lookup failed", { expression, reading, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupKanji(text2, limit, preferences = []) {
-      const done = log$r.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$t.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -5441,33 +6453,33 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           entries.push(...await this.getByIndex(db, "kanji", "character", character, limit));
         }
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)).slice(0, limit);
-        log$r.debug("Kanji lookup completed", { characters, candidates: entries.length, results: results.length });
+        log$t.debug("Kanji lookup completed", { characters, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$r.warn("Kanji lookup failed", { length: text2.length, error });
+        log$t.warn("Kanji lookup failed", { length: text2.length, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupTermMeta(expression, limit, preferences = []) {
-      const done = log$r.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+      const done = log$t.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
-        log$r.debug("Term metadata lookup completed", { expression, candidates: entries.length, results: results.length });
+        log$t.debug("Term metadata lookup completed", { expression, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$r.warn("Term metadata lookup failed", { expression, error });
+        log$t.warn("Term metadata lookup failed", { expression, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-      const done = log$r.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+      const done = log$t.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -5499,17 +6511,17 @@ ${entry.reading}`;
         const results = entries.sort(
           (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
         ).slice(0, limit);
-        log$r.debug("Similar terms by kanji lookup completed", { character, candidates: entries.length, results: results.length });
+        log$t.debug("Similar terms by kanji lookup completed", { character, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$r.warn("Similar terms by kanji lookup failed", { character, error });
+        log$t.warn("Similar terms by kanji lookup failed", { character, error });
         throw error;
       } finally {
         done();
       }
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$r.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$t.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -5531,7 +6543,7 @@ ${entry.reading}`;
         }
       }
       if (!candidates.size) {
-        log$r.debug("Inline term match search skipped", { reason: "no-candidates", length: source.length });
+        log$t.debug("Inline term match search skipped", { reason: "no-candidates", length: source.length });
         done();
         return [];
       }
@@ -5588,7 +6600,7 @@ ${item.sequence ?? ""}`;
           tx.onerror = () => reject(tx.error);
         });
         const results = nonOverlappingMatches(matches, limit);
-        log$r.debug("Inline term match search completed", {
+        log$t.debug("Inline term match search completed", {
           length: source.length,
           candidates: candidates.size,
           overlappingMatches: matches.length,
@@ -5596,18 +6608,18 @@ ${item.sequence ?? ""}`;
         });
         return results;
       } catch (error) {
-        log$r.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$t.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
       }
     }
     async summary() {
-      const done = log$r.time("Dictionary summary");
+      const done = log$t.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
-          log$r.debug("Dictionary summary cache hit", {
+          log$t.debug("Dictionary summary cache hit", {
             dictionaries: summary2.dictionaries.length,
             terms: summary2.terms,
             kanji: summary2.kanji,
@@ -5628,7 +6640,7 @@ ${item.sequence ?? ""}`;
           throw error;
         });
         const summary = await this.summaryPromise;
-        log$r.debug("Dictionary summary loaded", {
+        log$t.debug("Dictionary summary loaded", {
           dictionaries: summary.dictionaries.length,
           terms: summary.terms,
           kanji: summary.kanji,
@@ -5637,7 +6649,7 @@ ${item.sequence ?? ""}`;
         });
         return summary;
       } catch (error) {
-        log$r.warn("Dictionary summary failed", { error });
+        log$t.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -5648,7 +6660,7 @@ ${item.sequence ?? ""}`;
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
     async listRandomTerms(limit, preferences = []) {
-      const done = log$r.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$t.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -5683,27 +6695,27 @@ ${entry.reading}`;
             cursor.continue();
           };
         });
-        log$r.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
+        log$t.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
         return reservoir;
       } catch (error) {
-        log$r.warn("Random term listing failed", { limit, error });
+        log$t.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = []) {
-      const done = log$r.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$t.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
         const results = topTerms.size ? await this.entriesForRandomExpressions(topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank);
         if (!topTerms.size && !results.length) {
-          log$r.debug("No common dictionary terms found, falling back to fully random terms");
+          log$t.debug("No common dictionary terms found, falling back to fully random terms");
           return await this.listRandomTerms(limit, preferences);
         }
-        log$r.debug("Random top term listing completed", {
+        log$t.debug("Random top term listing completed", {
           limit,
           frequencyCandidates: topTerms.size,
           results: results.length,
@@ -5711,7 +6723,7 @@ ${entry.reading}`;
         });
         return results;
       } catch (error) {
-        log$r.warn("Random top term listing failed", { limit, error });
+        log$t.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -5782,35 +6794,35 @@ ${entry.reading}`;
           cursor.continue();
         };
       });
-      log$r.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
+      log$t.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$r.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$t.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$r.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$t.info("Dictionary file import started", fileSummary(file, sourceUrl));
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$r.info("Dictionary file import completed", summary);
+        log$t.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$r.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$t.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$r.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
+      log$t.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
       onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
       const blob = await requestBlob$3(url, onProgress);
       const file = new File([blob], filename, { type: blob.type || "application/zip" });
       const summary = await this.importFile(file, onProgress, url);
-      log$r.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
+      log$t.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
       var _a;
-      log$r.debug("ZIP dictionary import started", fileSummary(file, sourceUrl));
+      log$t.debug("ZIP dictionary import started", fileSummary(file, sourceUrl));
       onProgress == null ? void 0 : onProgress("Reading dictionary ZIP...");
       const zip = await JSZip.loadAsync(file);
       const indexFile = zip.file("index.json");
@@ -5850,20 +6862,20 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$r.info("ZIP dictionary import parsed", summary);
+      log$t.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
       var _a, _b;
-      log$r.debug("JSON dictionary import started", fileSummary(file));
+      log$t.debug("JSON dictionary import started", fileSummary(file));
       const head = await readBlobText(file.slice(0, 4096));
       if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
-        log$r.debug("Detected Yomitan Dexie dictionary export", { name: file.name, size: file.size });
+        log$t.debug("Detected Yomitan Dexie dictionary export", { name: file.name, size: file.size });
         return this.importDexieJson(file, onProgress);
       }
       const json = JSON.parse(await readBlobText(file));
       if (isReaderDictionaryExport(json)) {
-        log$r.debug("Detected Yomu dictionary export", { name: file.name, size: file.size });
+        log$t.debug("Detected Yomu dictionary export", { name: file.name, size: file.size });
         await this.clear();
         const dictionaryTypes = dictionaryTypesFromReaderExport(json);
         const dictionaryNames = ((_a = json.dictionaries) == null ? void 0 : _a.map((item) => item.title)) ?? [...new Set((json.terms ?? json.entries ?? []).map((entry) => entry.dictionary))];
@@ -5884,18 +6896,18 @@ ${entry.reading}`;
           termMeta: (json.termMeta ?? []).length,
           kanjiMeta: (json.kanjiMeta ?? []).length
         };
-        log$r.info("JSON dictionary import parsed", summary);
+        log$t.info("JSON dictionary import parsed", summary);
         return summary;
       }
       throw new Error("Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.");
     }
     async importDexieJson(file, onProgress) {
-      log$r.debug("Dexie dictionary import started", fileSummary(file));
+      log$t.debug("Dexie dictionary import started", fileSummary(file));
       onProgress == null ? void 0 : onProgress("Streaming Yomitan dictionary export...");
       await this.clear();
       const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
       const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
-      log$r.debug("Dexie dictionary row counts read", { totalRows, rowCounts });
+      log$t.debug("Dexie dictionary row counts read", { totalRows, rowCounts });
       if (totalRows > 0) onProgress == null ? void 0 : onProgress(`Preparing to import ${totalRows.toLocaleString()} dictionary records...`);
       const dictionaries = /* @__PURE__ */ new Set();
       const dictionaryInfo = /* @__PURE__ */ new Map();
@@ -5989,11 +7001,11 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$r.info("Dexie dictionary import parsed", summary);
+      log$t.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     async exportJson() {
-      const done = log$r.time("Dictionary export");
+      const done = log$t.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -6003,7 +7015,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$r.info("Dictionary export prepared", {
+        log$t.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -6021,7 +7033,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$r.warn("Dictionary export failed", { error });
+        log$t.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -6032,22 +7044,22 @@ ${entry.reading}`;
         const cacheKey = JSON.stringify(normalizeDictionaryPreferences(preferences));
         const cached = this.dictionaryStyleCssCache.get(cacheKey);
         if (cached !== void 0) {
-          log$r.debug("Dictionary stylesheet cache hit", { bytes: cached.length, preferences: preferences.length });
+          log$t.debug("Dictionary stylesheet cache hit", { bytes: cached.length, preferences: preferences.length });
           return cached;
         }
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         const css = renderDictionaryScopedStyles(dictionaries, preferences);
         this.dictionaryStyleCssCache.set(cacheKey, css);
-        log$r.debug("Dictionary stylesheet rendered", { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
+        log$t.debug("Dictionary stylesheet rendered", { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
         return css;
       } catch (error) {
-        log$r.warn("Dictionary stylesheet render failed", { error });
+        log$t.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$r.time("Dictionary store clear");
+      const done = log$t.time("Dictionary store clear");
       try {
         const db = await this.db();
         await new Promise((resolve, reject) => {
@@ -6058,16 +7070,16 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$r.info("Dictionary store cleared");
+        log$t.info("Dictionary store cleared");
       } catch (error) {
-        log$r.warn("Dictionary store clear failed", { error });
+        log$t.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$r.time("Dictionary delete", { dictionary });
+      const done = log$t.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -6079,9 +7091,9 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$r.info("Dictionary deleted", { dictionary });
+        log$t.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$r.warn("Dictionary delete failed", { dictionary, error });
+        log$t.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -6212,12 +7224,12 @@ ${entry.reading}`;
     }
     db() {
       this.dbPromise ?? (this.dbPromise = new Promise((resolve, reject) => {
-        log$r.debug("Opening dictionary database", { name: DB_NAME, version: DB_VERSION });
+        log$t.debug("Opening dictionary database", { name: DB_NAME, version: DB_VERSION });
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$r.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$t.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -6236,11 +7248,11 @@ ${entry.reading}`;
           }
         };
         request.onsuccess = () => {
-          log$r.debug("Dictionary database opened", { name: DB_NAME, version: request.result.version });
+          log$t.debug("Dictionary database opened", { name: DB_NAME, version: request.result.version });
           resolve(request.result);
         };
         request.onerror = () => {
-          log$r.warn("Dictionary database open failed", { error: request.error });
+          log$t.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       }));
@@ -6254,11 +7266,11 @@ ${entry.reading}`;
   }
   function parseYomitanSettingsExport(value) {
     var _a, _b, _c;
-    const done = log$r.time("Yomitan settings export parse");
+    const done = log$t.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$r.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$t.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error("This does not look like a Yomitan settings export.");
     }
     const settings = {};
@@ -6318,7 +7330,7 @@ ${entry.reading}`;
       settings,
       dictionaryNames: settings.dictionaryPreferences.filter((item) => item.enabled).map((item) => item.name)
     };
-    log$r.info("Yomitan settings export parsed", {
+    log$t.info("Yomitan settings export parsed", {
       dictionaryPreferences: settings.dictionaryPreferences.length,
       enabledDictionaries: result.dictionaryNames.length,
       importedAudioSources: ((_c = settings.audioSources) == null ? void 0 : _c.length) ?? 0
@@ -6721,25 +7733,25 @@ ${entry.reading}`;
     }
   }
   async function requestBlob$3(url, onProgress) {
-    const done = log$r.time("Dictionary download", { host: safeHost$5(url) });
+    const done = log$t.time("Dictionary download", { host: safeHost$5(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$r.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
+      log$t.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
       return new Promise((resolve, reject) => {
         const handleLoad = (response2) => {
           if (response2.response instanceof Blob && (response2.status === 0 || response2.status >= 200 && response2.status < 300)) {
-            log$r.info("Dictionary download completed", { host: safeHost$5(url), status: response2.status, size: response2.response.size });
+            log$t.info("Dictionary download completed", { host: safeHost$5(url), status: response2.status, size: response2.response.size });
             done();
             resolve(response2.response);
             return;
           }
           if (response2.status < 200 || response2.status >= 300) {
-            log$r.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response2.status });
+            log$t.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response2.status });
             done();
             reject(new Error(`Dictionary download failed (${response2.status}).`));
             return;
           }
-          log$r.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response2.status });
+          log$t.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response2.status });
           done();
           reject(new Error("Dictionary download did not return a ZIP file."));
         };
@@ -6756,19 +7768,19 @@ ${entry.reading}`;
           },
           onload: handleLoad,
           onerror: () => {
-            log$r.warn("Dictionary download failed", { host: safeHost$5(url) });
+            log$t.warn("Dictionary download failed", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download failed."));
           },
           ontimeout: () => {
-            log$r.warn("Dictionary download timed out", { host: safeHost$5(url) });
+            log$t.warn("Dictionary download timed out", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download timed out."));
           }
         });
         if (result && typeof result.then === "function") {
           result.then(handleLoad, () => {
-            log$r.warn("Dictionary download failed", { host: safeHost$5(url) });
+            log$t.warn("Dictionary download failed", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download failed."));
           });
@@ -6778,20 +7790,20 @@ ${entry.reading}`;
     let response;
     try {
       const downloadUrl = dictionaryDownloadUrl(url);
-      log$r.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
+      log$t.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
       response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
     } catch (error) {
-      log$r.warn("Dictionary download fetch failed", { host: safeHost$5(url), error });
+      log$t.warn("Dictionary download fetch failed", { host: safeHost$5(url), error });
       done();
       throw new Error("Dictionary download failed. Reinstall or update the userscript so its userscript request grant is active, then try again.");
     }
     if (!response.ok) {
-      log$r.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
+      log$t.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
       done();
       throw new Error(`Dictionary download failed (${response.status}).`);
     }
     const blob = await response.blob();
-    log$r.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
+    log$t.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -6888,7 +7900,7 @@ ${entry.reading}`;
     return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
   }
   const ANKI_VERSION = 6;
-  const log$q = Logger.scope("Anki");
+  const log$s = Logger.scope("Anki");
   const YOMU_MODEL_FIELDS = [
     "Expression",
     "Reading",
@@ -6914,28 +7926,28 @@ ${entry.reading}`;
     async isConnected() {
       try {
         await this.invoke("version");
-        log$q.debug("AnkiConnect reachable");
+        log$s.debug("AnkiConnect reachable");
         return true;
       } catch (error) {
-        log$q.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$s.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
     async deckNames() {
       const decks = await this.invoke("deckNames");
-      log$q.debug("Deck names loaded", { decks: decks.length });
+      log$s.debug("Deck names loaded", { decks: decks.length });
       return decks;
     }
     async modelNames() {
       const models = await this.invoke("modelNames");
-      log$q.debug("Model names loaded", { models: models.length });
+      log$s.debug("Model names loaded", { models: models.length });
       return models;
     }
     async listNewTabCards(limit = 80) {
       const settings = this.getSettings();
       if (!settings.ankiEnabled || Date.now() < this.unavailableUntil) return [];
       try {
-        const done = log$q.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+        const done = log$s.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
         const query = [
           settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : "",
           settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : ""
@@ -6944,7 +7956,7 @@ ${entry.reading}`;
         const sampledIds = sampleAnkiIds(noteIds, Math.max(1, limit * 3));
         if (!sampledIds.length) {
           done();
-          log$q.debug("No Anki notes available for new tab", { query });
+          log$s.debug("No Anki notes available for new tab", { query });
           return [];
         }
         const notes = await this.invoke("notesInfo", { notes: sampledIds });
@@ -6960,10 +7972,10 @@ ${entry.reading}`;
         }
         const result = notes.map((note) => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? [])).filter((card) => card !== null).slice(0, Math.max(1, limit));
         done();
-        log$q.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length });
+        log$s.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length });
         return result;
       } catch (error) {
-        log$q.warn("Anki new tab lookup failed; entering cooldown", error);
+        log$s.warn("Anki new tab lookup failed; entering cooldown", error);
         this.unavailableUntil = Date.now() + 3e4;
         return [];
       }
@@ -6971,17 +7983,17 @@ ${entry.reading}`;
     async findExistingCards(card) {
       const empty = { state: "not-in-deck", notes: [], primary: null };
       if (Date.now() < this.unavailableUntil) {
-        log$q.debug("Anki lookup skipped during cooldown", { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
+        log$s.debug("Anki lookup skipped during cooldown", { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
         return empty;
       }
       const cacheKey = `${card.spelling}|${card.reading}`;
       const cached = this.lookupCache.get(cacheKey);
       if (cached && Date.now() - cached.at < 45e3) {
-        log$q.debug("Anki lookup cache hit", { term: card.spelling, state: cached.result.state });
+        log$s.debug("Anki lookup cache hit", { term: card.spelling, state: cached.result.state });
         return cached.result;
       }
       try {
-        const done = log$q.time("findExistingCards", { term: card.spelling });
+        const done = log$s.time("findExistingCards", { term: card.spelling });
         const queryTerms = unique$1([card.spelling, card.reading].filter(Boolean));
         const noteIds = /* @__PURE__ */ new Set();
         for (const term of queryTerms) {
@@ -6990,7 +8002,7 @@ ${entry.reading}`;
         }
         if (!noteIds.size) {
           this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-          log$q.debug("No Anki notes found", { term: card.spelling });
+          log$s.debug("No Anki notes found", { term: card.spelling });
           done();
           return empty;
         }
@@ -6998,7 +8010,7 @@ ${entry.reading}`;
         const matchingNotes = notes.filter((note) => noteLooksLikeCard(note, card));
         if (!matchingNotes.length) {
           this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-          log$q.debug("Anki notes found but none matched Yomu card", { term: card.spelling, candidateNotes: notes.length });
+          log$s.debug("Anki notes found but none matched Yomu card", { term: card.spelling, candidateNotes: notes.length });
           done();
           return empty;
         }
@@ -7036,28 +8048,28 @@ ${entry.reading}`;
           primary: pickPrimaryExistingNote(existing)
         };
         this.lookupCache.set(cacheKey, { at: Date.now(), result });
-        log$q.debug("Anki lookup completed", { term: card.spelling, notes: existing.length, state: result.state });
+        log$s.debug("Anki lookup completed", { term: card.spelling, notes: existing.length, state: result.state });
         done();
         return result;
       } catch (error) {
-        log$q.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
+        log$s.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
         this.unavailableUntil = Date.now() + 3e4;
         return empty;
       }
     }
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$q.info("Answering Anki card", { cardId, grade, ease });
+      log$s.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
     }
     async browseNote(noteId) {
-      log$q.info("Opening Anki note browser", { noteId });
+      log$s.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async addCard(card, sentence = "", options = {}) {
       const settings = this.getSettings();
       if (!settings.ankiEnabled) {
-        log$q.debug("Anki add skipped because Anki is disabled", { term: card.spelling });
+        log$s.debug("Anki add skipped because Anki is disabled", { term: card.spelling });
         return null;
       }
       const note = {
@@ -7077,7 +8089,7 @@ ${entry.reading}`;
       };
       const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
       if (image) note.picture = [image];
-      log$q.info("Adding Anki note", {
+      log$s.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -7085,18 +8097,18 @@ ${entry.reading}`;
         tags: note.tags
       });
       if (settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment()) {
-        log$q.info("Opening mobile Anki handoff", { term: card.spelling });
+        log$s.info("Opening mobile Anki handoff", { term: card.spelling });
         if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
         return null;
       }
       try {
         await this.ensureDeckAndModel();
         const noteId = await this.invoke("addNote", { note });
-        log$q.info("Anki note added", { term: card.spelling, noteId });
+        log$s.info("Anki note added", { term: card.spelling, noteId });
         return noteId;
       } catch (error) {
         if (settings.ankiMobileHandoff && isMobileUserAgent()) {
-          log$q.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
+          log$s.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
           if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
           return null;
         }
@@ -7107,9 +8119,9 @@ ${entry.reading}`;
       const settings = this.getSettings();
       const deckName = settings.ankiDeck || "よむ";
       const modelName = settings.ankiModel || "よむ Japanese";
-      log$q.debug("Ensuring Anki deck/model", { deckName, modelName });
+      log$s.debug("Ensuring Anki deck/model", { deckName, modelName });
       await this.invoke("createDeck", { deck: deckName }).catch((error) => {
-        log$q.debug("createDeck ignored", { deckName }, error);
+        log$s.debug("createDeck ignored", { deckName }, error);
         return null;
       });
       const modelNames = await this.modelNames().catch(() => []);
@@ -7117,7 +8129,7 @@ ${entry.reading}`;
         await this.ensureModelFields(modelName);
         await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
         await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
-        log$q.debug("Anki model updated", { modelName });
+        log$s.debug("Anki model updated", { modelName });
         return;
       }
       await this.invoke("createModel", {
@@ -7126,14 +8138,14 @@ ${entry.reading}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings.ankiTemplateMode)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$q.info("Anki model created", { modelName });
+      log$s.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invoke("modelFieldNames", { modelName }).catch(() => []);
       const existing = new Set(fieldNames);
       for (const fieldName of YOMU_MODEL_FIELDS) {
         if (!existing.has(fieldName)) {
-          log$q.debug("Adding missing Anki model field", { modelName, fieldName });
+          log$s.debug("Adding missing Anki model field", { modelName, fieldName });
           await this.invoke("modelFieldAdd", { modelName, fieldName });
         }
       }
@@ -7142,10 +8154,10 @@ ${entry.reading}`;
       const settings = this.getSettings();
       const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
       const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-      log$q.debug("Invoking AnkiConnect action", { action });
+      log$s.debug("Invoking AnkiConnect action", { action });
       const response = await postJson$1(url, body);
       if (response.error) {
-        log$q.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$s.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(response.error);
       }
       return response.result;
@@ -7154,7 +8166,7 @@ ${entry.reading}`;
   function captureActiveVideoFrame() {
     const video = Array.from(document.querySelectorAll("video")).filter((item) => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0).sort((a, b) => visibleArea(b) - visibleArea(a))[0];
     if (!video) {
-      log$q.debug("No active video available for Anki screenshot");
+      log$s.debug("No active video available for Anki screenshot");
       return void 0;
     }
     try {
@@ -7167,10 +8179,10 @@ ${entry.reading}`;
       if (!context) return void 0;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
-      log$q.debug("Captured active video frame", { width: canvas.width, height: canvas.height });
+      log$s.debug("Captured active video frame", { width: canvas.width, height: canvas.height });
       return dataUrl;
     } catch (error) {
-      log$q.warn("Active video frame capture failed", error);
+      log$s.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -7225,7 +8237,7 @@ ${entry.reading}`;
       Status: card.source === "local" ? '<span class="yomu-chip">local dictionary</span>' : card.source === "anki" ? '<span class="yomu-chip">Anki</span>' : card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" "),
       Pitch: renderPitchField(card, context.metaEntries ?? [], dictionaryPreferences),
       DictionaryDefinitions: renderDictionaryDefinitions(context.localEntries ?? [], dictionaryPreferences),
-      Kanji: renderKanjiDefinitions(context.kanjiEntries ?? [], dictionaryPreferences),
+      Kanji: renderKanjiDefinitions$1(context.kanjiEntries ?? [], dictionaryPreferences),
       Source: renderSource(sourceUrl, sourceTitle)
     };
   }
@@ -7583,7 +8595,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         </div>
     `).join("");
   }
-  function renderKanjiDefinitions(entries, preferences) {
+  function renderKanjiDefinitions$1(entries, preferences) {
     const byCharacter = /* @__PURE__ */ new Map();
     for (const entry of entries) {
       const group = byCharacter.get(entry.character) ?? [];
@@ -7681,7 +8693,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
-  const log$p = Logger.scope("BrowserUi");
+  const log$r = Logger.scope("BrowserUi");
   function pauseActiveVideo() {
     const videos = Array.from(document.querySelectorAll("video"));
     const playable = videos.filter((video) => video.readyState > 0).sort((a, b) => {
@@ -7691,7 +8703,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
     const target = playable[0];
     target == null ? void 0 : target.pause();
-    log$p.debug("Pause active video requested", { videos: videos.length, playable: playable.length, paused: Boolean(target) });
+    log$r.debug("Pause active video requested", { videos: videos.length, playable: playable.length, paused: Boolean(target) });
   }
   function isEditableTarget(target) {
     const element2 = target instanceof Element ? target : null;
@@ -7702,10 +8714,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
       try {
         await navigator.clipboard.writeText(text2);
-        log$p.debug("Copied text with Clipboard API", { length: text2.length });
+        log$r.debug("Copied text with Clipboard API", { length: text2.length });
         return;
       } catch (error) {
-        log$p.debug("Clipboard API copy failed, falling back", { length: text2.length, error });
+        log$r.debug("Clipboard API copy failed, falling back", { length: text2.length, error });
       }
     }
     const textarea = document.createElement("textarea");
@@ -7716,7 +8728,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
-    log$p.debug("Copied text with execCommand fallback", { length: text2.length });
+    log$r.debug("Copied text with execCommand fallback", { length: text2.length });
   }
   function normalizePressedKey(key) {
     if (key === " ") return "space";
@@ -7740,7 +8752,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - width - margin))}px`;
       popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - height - margin))}px`;
       if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-      log$p.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
+      log$r.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
       return;
     }
     const writingMode = getPopoverWritingMode(anchor);
@@ -7751,7 +8763,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     popover.style.left = `${position.left}px`;
     popover.style.top = `${position.top}px`;
     if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-    log$p.debugThrottled("position-popover", 1e3, "Popover positioned", {
+    log$r.debugThrottled("position-popover", 1e3, "Popover positioned", {
       left: Math.round(position.left),
       top: Math.round(position.top),
       side: popover.dataset.jpdbReaderPlacementSide,
@@ -7936,1877 +8948,313 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
   }
-  const APP_NAME = "よむ";
-  const APP_PUCK = "よむ";
-  const APP_SLUG = "yomu";
-  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-  const SETTINGS_TITLE = `${APP_NAME} Settings`;
-  const GITHUB_OWNER = "HRussellZFAC023";
-  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
-  const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
-  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
-  const FALLBACK_SETUP_SOURCE_ID = "__fallback_setup__";
-  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
-  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
-  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
-  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-  const SUPPORT_LINKS = {
-    discordUsername: "henry281199",
-    docs: DOCS_BASE_URL,
-    github: GITHUB_REPOSITORY_URL,
-    issues: `${GITHUB_REPOSITORY_URL}/issues`,
-    paypal: "https://paypal.me/HenryRussell163",
-    migakuPricing: "https://migaku.com/pricing"
-  };
-  const API_BASE$1 = "https://apiv2.immersionkit.com";
-  const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
-  const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
-  const log$o = Logger.scope("ImmersionKit");
-  const IMMERSION_KIT_TITLES = {
-    your_lie_in_april: "Your Lie in April",
-    princess_mononoke: "Princess Mononoke",
-    girls_band_cry: "Girls Band Cry",
-    only_yesterday: "Only Yesterday",
-    chobits: "Chobits",
-    k_on_: "K-On!",
-    weathering_with_you: "Weathering with You",
-    from_the_new_world: "From the New World",
-    grave_of_the_fireflies: "Grave of the Fireflies",
-    steins_gate: "Steins Gate",
-    sword_art_online: "Sword Art Online",
-    nisekoi: "Nisekoi",
-    death_note: "Death Note",
-    wolf_children: "Wolf Children",
-    demon_slayer___kimetsu_no_yaiba: "Demon Slayer - Kimetsu no Yaiba",
-    your_name: "Your Name",
-    alya_sometimes_hides_her_feelings_in_russian: "Alya Sometimes Hides Her Feelings in Russian",
-    cardcaptor_sakura: "Cardcaptor Sakura",
-    kill_la_kill: "Kill la Kill",
-    howl_s_moving_castle: "Howl's Moving Castle",
-    whisper_of_the_heart: "Whisper of the Heart",
-    bunny_drop: "Bunny Drop",
-    fermat_kitchen: "Fermat Kitchen",
-    haruhi_suzumiya: "Haruhi Suzumiya",
-    hunter_x_hunter: "Hunter × Hunter",
-    god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
-    assassination_classroom_season_1: "Assassination Classroom Season 1",
-    durarara__: "Durarara!!",
-    bakemonogatari: "Bakemonogatari",
-    hyouka: "Hyouka",
-    relife: "ReLIFE",
-    from_up_on_poppy_hill: "From Up on Poppy Hill",
-    sound__euphonium: "Sound! Euphonium",
-    lucky_star: "Lucky Star",
-    kokoro_connect: "Kokoro Connect",
-    my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
-    is_the_order_a_rabbit: "Is The Order a Rabbit",
-    clannad: "Clannad",
-    angel_beats_: "Angel Beats!",
-    daily_lives_of_high_school_boys: "Daily Lives of High School Boys",
-    new_game_: "New Game!",
-    the_wind_rises: "The Wind Rises",
-    fate_zero: "Fate Zero",
-    toradora_: "Toradora!",
-    anohana_the_flower_we_saw_that_day: "Anohana the flower we saw that day",
-    wandering_witch_the_journey_of_elaina: "Wandering Witch The Journey of Elaina",
-    kino_s_journey: "Kino's Journey",
-    boku_no_hero_academia_season_1: "Boku no Hero Academia Season 1",
-    fullmetal_alchemist_brotherhood: "Fullmetal Alchemist Brotherhood",
-    one_week_friends: "One Week Friends",
-    erased: "Erased",
-    mononoke: "Mononoke",
-    little_witch_academia: "Little Witch Academia",
-    re_zero___starting_life_in_another_world: "Re Zero − Starting Life in Another World",
-    fruits_basket_season_1: "Fruits Basket Season 1",
-    mahou_shoujo_madoka_magica: "Mahou Shoujo Madoka Magica",
-    the_irregular_at_magic_high_school: "The Irregular at Magic High School",
-    clannad_after_story: "Clannad After Story",
-    frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
-    kakegurui: "Kakegurui",
-    the_garden_of_words: "The Garden of Words",
-    when_marnie_was_there: "When Marnie Was There",
-    castle_in_the_sky: "Castle in the sky",
-    shirokuma_cafe: "Shirokuma Cafe",
-    my_neighbor_totoro: "My Neighbor Totoro",
-    kiki_s_delivery_service: "Kiki's Delivery Service",
-    the_girl_who_leapt_through_time: "The Girl Who Leapt Through Time",
-    fate_stay_night_unlimited_blade_works: "Fate Stay Night Unlimited Blade Works",
-    code_geass_season_1: "Code Geass Season 1",
-    the_world_god_only_knows: "The World God Only Knows",
-    the_pet_girl_of_sakurasou: "The Pet Girl of Sakurasou",
-    no_game_no_life: "No Game No Life",
-    kanon__2006_: "Kanon (2006)",
-    psycho_pass: "Psycho Pass",
-    the_cat_returns: "The Cat Returns",
-    the_secret_world_of_arrietty: "The Secret World of Arrietty",
-    spirited_away: "Spirited Away",
-    noragami: "Noragami",
-    fairy_tail: "Fairy Tail",
-    i_m_taking_the_day_off: "I'm Taking the Day Off",
-    border: "Border",
-    weakest_beast: "Weakest Beast",
-    mob_psycho_100: "Mob Psycho 100",
-    the_journalist: "The Journalist",
-    sailor_suit_and_machine_gun__2006_: "Sailor Suit and Machine Gun (2006)",
-    smoking: "Smoking",
-    i_am_mita__your_housekeeper: "I am Mita, Your Housekeeper",
-    good_morning_call: "Good Morning Call",
-    overprotected_kahoko: "Overprotected Kahoko",
-    quartet: "Quartet",
-    million_yen_woman: "Million Yen Woman",
-    legal_high_season_1: "Legal High Season 1",
-    witcher_3: "Witcher 3",
-    cyberpunk_2077: "Cyberpunk 2077",
-    skyrim: "Skyrim"
-  };
-  class ImmersionKitClient {
-    constructor() {
-      __publicField(this, "cache", /* @__PURE__ */ new Map());
-      __publicField(this, "inflight", /* @__PURE__ */ new Map());
-      __publicField(this, "preloadKeys", /* @__PURE__ */ new Set());
-      __publicField(this, "mediaBlobUrlCache", new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS, "immersion-kit-media"));
-    }
-    async search(term, settings) {
-      const query = term.trim();
-      if (!query || !settings.immersionKitEnabled) return [];
-      const cacheKey = JSON.stringify({
-        query,
-        limit: settings.immersionKitLimit,
-        min: settings.immersionKitMinLength,
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        sort: settings.immersionKitSort,
-        exact: settings.immersionKitExactMatch
-      });
-      const cached = this.cache.get(cacheKey);
-      if (cached) {
-        log$o.debug("Search cache hit", { query, examples: cached.length });
-        return cached;
-      }
-      const inflight = this.inflight.get(cacheKey);
-      if (inflight) {
-        log$o.debug("Search joined in-flight request", { query });
-        return inflight;
-      }
-      const params = new URLSearchParams({
-        q: query,
-        limit: String(Math.max(settings.immersionKitLimit * 4, settings.immersionKitLimit)),
-        sort: settings.immersionKitSort === "random" ? "sentence_length:asc" : settings.immersionKitSort
-      });
-      if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
-      if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
-      const done = log$o.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-      const promise = requestJson$2(`${API_BASE$1}/search?${params}`, settings.audioTimeoutMs).then((data) => {
-        const examples = collectExamples(data).map(normalizeExample).filter((example) => Boolean(example)).filter((example) => sentenceLength(example.sentence) >= settings.immersionKitMinLength).filter((example) => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength);
-        const ordered = settings.immersionKitSort === "random" ? shuffle(examples) : examples;
-        const result = ordered.slice(0, settings.immersionKitLimit);
-        this.cache.set(cacheKey, result);
-        log$o.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
-        return result;
-      }).finally(() => {
-        this.inflight.delete(cacheKey);
-        done();
-      });
-      this.inflight.set(cacheKey, promise);
-      return promise;
-    }
-    mediaUrl(example, kind) {
-      return this.mediaUrls(example, kind)[0] ?? "";
-    }
-    mediaUrls(example, kind) {
-      const direct = kind === "image" ? example.imageUrl : example.soundUrl;
-      if (direct) return [direct];
-      const file = kind === "image" ? example.imageFile : example.soundFile;
-      if (!file) return [];
-      const category = example.category || categoryFromId(example.id);
-      const titles = mediaTitleCandidates(example, file);
-      return uniqueStrings(titles.flatMap((title) => {
-        const path = `media/${category}/${title}/media/${file}`;
-        return [
-          `${API_BASE$1}/download_media?${new URLSearchParams({ path })}`,
-          `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`
-        ];
-      }));
-    }
-    preload(term, settings) {
-      const query = term.trim();
-      if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
-      this.preloadKeys.add(query);
-      log$o.debug("Preload queued", { query });
-      void this.search(query, settings).then((examples) => {
-        log$o.debug("Preload search completed", { query, examples: examples.length });
-        for (const example of examples.slice(0, 2)) {
-          const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
-          if (imageUrls.length) {
-            void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs).then((url) => {
-              const image = new Image();
-              image.decoding = "async";
-              image.loading = "eager";
-              image.src = url;
-            }).catch((error) => log$o.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
-          }
-          const soundUrls = this.mediaUrls(example, "sound");
-          if (soundUrls.length) {
-            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$o.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
-          }
-        }
-      }).catch((error) => log$o.debug("Preload search failed quietly", { query }, error));
-    }
-    async fetchBlobUrl(url, timeoutMs) {
-      const urls = Array.isArray(url) ? url : [url];
-      const key = urls.join("");
-      return this.mediaBlobUrlCache.getOrCreate(key, async () => {
-        const blob = await requestFirstBlob(url, timeoutMs);
-        const blobUrl = URL.createObjectURL(blob);
-        log$o.debug("Blob URL created", { host: safeHost$4(url), size: blob.size, type: blob.type });
-        return blobUrl;
-      });
-    }
-    async fetchDataUrl(url, timeoutMs) {
-      const blob = await requestFirstBlob(url, timeoutMs);
-      log$o.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
-      return blobToDataUrl$1(blob);
-    }
+  function cardKey$2(card) {
+    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
   }
-  function collectExamples(value) {
-    if (Array.isArray(value)) return value;
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    if (Array.isArray(record.examples)) return record.examples;
-    if (Array.isArray(record.results)) return record.results;
-    if (Array.isArray(record.data)) return record.data;
-    return [];
+  async function waitForInstantData(promise, timeoutMs) {
+    let timeout = 0;
+    return Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timeout = window.setTimeout(() => resolve(null), timeoutMs);
+      })
+    ]).finally(() => window.clearTimeout(timeout));
   }
-  function normalizeExample(value) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const id = text$1(record.id);
-    const sentence = text$1(record.sentence || record.text);
-    if (!sentence) return null;
-    const titleSlug = text$1(record.title || record.deck || record.source) || titleSlugFromId(id);
-    const sourceTitle = text$1(record.sourceTitle || record.display_title || record.displayTitle) || titleFromSlug(titleSlug);
-    const category = text$1(record.category) || categoryFromId(id);
-    const soundFile = text$1(record.sound || record.audio || record.audio_file || record.audioFile);
-    const imageFile = text$1(record.image || record.image_file || record.imageFile);
+  function createAudioPreviewCard() {
     return {
-      id,
-      sentence,
-      sentenceWithFurigana: text$1(record.sentence_with_furigana || record.sentenceWithFurigana),
-      translation: text$1(record.translation || record.translation_en || record.english),
-      sourceTitle,
-      titleSlug,
-      category,
-      soundFile,
-      imageFile,
-      soundUrl: absoluteMediaUrl(text$1(record.sound_url || record.audio_url || record.soundUrl || record.audioUrl)),
-      imageUrl: absoluteMediaUrl(text$1(record.image_url || record.imageUrl))
-    };
-  }
-  function text$1(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function titleSlugFromId(id) {
-    const parts = id.split("_");
-    if (parts.length < 3) return "";
-    return parts.slice(1, -1).join("_");
-  }
-  function categoryFromId(id) {
-    const [category] = id.split("_");
-    return category || "anime";
-  }
-  function titleFromSlug(slug) {
-    if (!slug) return "Unknown";
-    const override = IMMERSION_KIT_TITLES[slug];
-    if (override) return override;
-    return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
-  }
-  function mediaTitleCandidates(example, file) {
-    const slug = example.titleSlug || titleSlugFromId(example.id);
-    return uniqueStrings([
-      titleFromSlug(slug),
-      example.sourceTitle,
-      titleFromMediaFile(file),
-      slug
-    ].filter(Boolean));
-  }
-  function titleFromMediaFile(file) {
-    const stem = file.replace(/\.[^.]+$/u, "");
-    const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
-    const title = ((episodeMatch == null ? void 0 : episodeMatch[1]) || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
-    if (!title) return "";
-    return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
-  }
-  function uniqueStrings(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const result = [];
-    for (const value of values.map((item) => item.trim()).filter(Boolean)) {
-      if (seen.has(value)) continue;
-      seen.add(value);
-      result.push(value);
-    }
-    return result;
-  }
-  function absoluteMediaUrl(value) {
-    if (!value) return "";
-    if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
-    if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
-    return "";
-  }
-  function sentenceLength(sentence) {
-    return Array.from(sentence.replace(/\s+/g, "")).length;
-  }
-  function shuffle(items) {
-    const shuffled = [...items];
-    for (let index = shuffled.length - 1; index > 0; index--) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
-  }
-  function requestJson$2(url, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const userscriptRequest = getUserscriptHttpRequest();
-      if (userscriptRequest) {
-        log$o.debug("JSON request via userscript API", { host: safeHost$4(url) });
-        const handleLoad = (response) => {
-          if (response.status < 200 || response.status >= 300) {
-            reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
-            return;
-          }
-          try {
-            resolve(JSON.parse(String(response.responseText ?? response.response ?? "null")));
-          } catch {
-            reject(new Error("Immersion Kit returned invalid JSON."));
-          }
-        };
-        const result = userscriptRequest({
-          method: "GET",
-          url,
-          responseType: "text",
-          timeout: timeoutMs,
-          onload: handleLoad,
-          onerror: () => reject(new Error("Immersion Kit request failed.")),
-          ontimeout: () => reject(new Error("Immersion Kit request timed out."))
-        });
-        if (result && typeof result.then === "function") {
-          result.then(handleLoad, () => reject(new Error("Immersion Kit request failed.")));
-        }
-        return;
-      }
-      log$o.debug("JSON request via fetch", { host: safeHost$4(url) });
-      fetch(url, { credentials: "omit" }).then((response) => {
-        if (!response.ok) throw new Error(`Immersion Kit returned HTTP ${response.status}.`);
-        return response.json();
-      }).then(resolve, reject);
-    });
-  }
-  function requestBlob$2(url, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const userscriptRequest = getUserscriptHttpRequest();
-      if (userscriptRequest) {
-        log$o.debug("Media request via userscript API", { host: safeHost$4(url) });
-        const handleLoad = (response) => {
-          if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
-            reject(new Error(`Media returned HTTP ${response.status}.`));
-            return;
-          }
-          if (isErrorDocumentBlob(response.response)) {
-            reject(new Error("Media request returned an error document instead of audio or image."));
-            return;
-          }
-          resolve(response.response);
-        };
-        const result = userscriptRequest({
-          method: "GET",
-          url,
-          responseType: "blob",
-          timeout: timeoutMs,
-          onload: handleLoad,
-          onerror: () => reject(new Error("Media request failed.")),
-          ontimeout: () => reject(new Error("Media request timed out."))
-        });
-        if (result && typeof result.then === "function") {
-          result.then(handleLoad, () => reject(new Error("Media request failed.")));
-        }
-        return;
-      }
-      log$o.debug("Media request via fetch", { host: safeHost$4(url) });
-      fetch(url, { credentials: "omit" }).then((response) => {
-        if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
-        return response.blob();
-      }).then((blob) => {
-        if (isErrorDocumentBlob(blob)) throw new Error("Media request returned an error document instead of audio or image.");
-        return blob;
-      }).then(resolve, reject);
-    });
-  }
-  async function requestFirstBlob(urls, timeoutMs) {
-    const candidates = Array.isArray(urls) ? urls : [urls];
-    let lastError;
-    for (const url of candidates) {
-      try {
-        return await requestBlob$2(url, timeoutMs);
-      } catch (error) {
-        lastError = error;
-        log$o.debug("Media candidate failed; trying next", { host: safeHost$4(url) }, error);
-      }
-    }
-    throw lastError instanceof Error ? lastError : new Error("No Immersion Kit media candidate could be loaded.");
-  }
-  function isErrorDocumentBlob(blob) {
-    const type = blob.type.toLowerCase();
-    if (type.startsWith("image/") || type.startsWith("audio/") || type.startsWith("video/")) return false;
-    return type.includes("xml") || type.includes("html") || type.includes("json") || type.startsWith("text/");
-  }
-  function blobToDataUrl$1(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read media."));
-      reader.readAsDataURL(blob);
-    });
-  }
-  function safeHost$4(value) {
-    try {
-      const url = Array.isArray(value) ? value[0] : value;
-      return new URL(url, location.href).host;
-    } catch {
-      return "invalid-url";
-    }
-  }
-  const API_BASE = "https://jpdb.io/api/v1";
-  const RATE_LIMIT_BACKOFF_MS = 3e4;
-  const REQUEST_TIMEOUT_MS$1 = 3e4;
-  const log$n = Logger.scope("JpdbApi");
-  class JpdbApiClient {
-    constructor(getApiKey) {
-      __publicField(this, "retryAfter", 0);
-      this.getApiKey = getApiKey;
-    }
-    request(endpoint, body) {
-      return this.requestByUrl(`${API_BASE}/${endpoint}`, body);
-    }
-    async requestByUrl(url, body) {
-      const token = this.getApiKey();
-      const endpoint = endpointLabel(url);
-      if (!token) {
-        log$n.warn("Request blocked; JPDB API key is missing", { endpoint });
-        throw new Error("JPDB API key is not set.");
-      }
-      if (Date.now() < this.retryAfter) {
-        log$n.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
-        throw new Error("JPDB is rate limited. Try again in a moment.");
-      }
-      const done = log$n.time("request", { endpoint, hasBody: Boolean(body) });
-      const response = await postJson(url, token, body);
-      done();
-      log$n.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
-      if (response.status === 429) {
-        this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$n.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
-        throw new Error("JPDB rate limit reached.");
-      }
-      if (response.status === 403) {
-        log$n.warn("JPDB rejected API key", { endpoint });
-        throw new Error("JPDB rejected the API key.");
-      }
-      if (!response.ok) {
-        log$n.warn("JPDB request failed", { endpoint, status: response.status });
-        throw new Error(`JPDB request failed (${response.status}).`);
-      }
-      if (!response.text) return void 0;
-      const json = JSON.parse(response.text);
-      if (json && typeof json === "object" && "error_message" in json && json.error_message) {
-        log$n.warn("JPDB returned application error", { endpoint, message: json.error_message });
-        throw new Error(json.error_message);
-      }
-      return json;
-    }
-  }
-  function postJson(url, token, body) {
-    const data = body ? JSON.stringify(body) : void 0;
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json"
-    };
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return postJsonWithUserscriptRequest(userscriptRequest, url, headers, data);
-    return fetch(url, {
-      method: "POST",
-      headers,
-      body: data
-    }).then(async (response) => ({
-      status: response.status,
-      ok: response.ok,
-      text: await response.text()
-    }));
-  }
-  function postJsonWithUserscriptRequest(request, url, headers, data) {
-    return new Promise((resolve, reject) => {
-      const handleLoad = (response) => resolve({
-        status: response.status,
-        ok: response.status >= 200 && response.status < 300,
-        text: String(response.responseText ?? response.response ?? "")
-      });
-      const result = request({
-        method: "POST",
-        url,
-        headers,
-        data,
-        responseType: "text",
-        timeout: REQUEST_TIMEOUT_MS$1,
-        onload: handleLoad,
-        onerror: reject,
-        ontimeout: () => reject(new Error("JPDB request timed out."))
-      });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, reject);
-      }
-    });
-  }
-  function endpointLabel(url) {
-    try {
-      const parsed = new URL(url);
-      return parsed.hostname === "jpdb.io" ? parsed.pathname.replace(/^\/api\/v1\//, "") : parsed.hostname + parsed.pathname;
-    } catch {
-      return url;
-    }
-  }
-  const COMBINING_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
-  const log$m = Logger.scope("JpdbParser");
-  function jpdbVocabularyToCards(vocabulary2) {
-    const cards = vocabulary2.map(([
-      vid,
-      sid,
-      rid,
-      spelling,
-      reading,
-      frequencyRank2,
-      partOfSpeech,
-      meaningsChunks,
-      meaningsPartOfSpeech,
-      cardState,
-      pitchAccent
-    ]) => ({
-      vid,
-      sid,
-      rid,
-      spelling,
-      reading,
-      frequencyRank: frequencyRank2,
-      partOfSpeech,
-      meanings: meaningsChunks.map((glosses, index) => ({
-        glosses,
-        partOfSpeech: meaningsPartOfSpeech[index] ?? []
-      })),
-      cardState: normalizeCardStates(cardState),
-      pitchAccent: pitchAccent ?? [],
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: "よむ",
+      reading: "よむ",
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: [],
+      pitchAccent: [],
       wordWithReading: null,
-      source: "jpdb"
-    }));
-    log$m.debug("Converted JPDB vocabulary to cards", { vocabulary: vocabulary2.length, cards: cards.length });
-    return cards;
-  }
-  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-    const tokens = rawTokens.map((innerTokens) => parseParagraphTokens(innerTokens, cards));
-    assignSentenceInfo(paragraphs, tokens);
-    log$m.debug("Converted JPDB parse result to tokens", {
-      paragraphs: paragraphs.length,
-      tokenGroups: rawTokens.length,
-      tokens: tokens.reduce((total, group) => total + group.length, 0),
-      cards: cards.length
-    });
-    return tokens;
-  }
-  function parseParagraphTokens(rawTokens, cards) {
-    let inheritedPitchClass = "";
-    return rawTokens.map((rawToken) => {
-      const token = parseToken(rawToken, cards, inheritedPitchClass);
-      inheritedPitchClass = token.pitchClass;
-      return token;
-    });
-  }
-  function parseToken([vocabularyIndex, position, length, furigana], cards, inheritedPitchClass) {
-    const card = cards[vocabularyIndex];
-    const token = {
-      card,
-      start: position,
-      end: position + length,
-      length,
-      rubies: parseRubies(furigana, position),
-      pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass)
+      source: "fallback"
     };
-    assignWordWithReading(token);
-    return token;
   }
-  function parseRubies(furigana, startOffset) {
-    if (furigana === null) return [];
-    let offset = startOffset;
-    return furigana.flatMap((part) => {
-      if (typeof part === "string") {
-        offset += part.length;
-        return [];
+  const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
+  const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
+  const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
+  const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
+  const KANJI_SIMILAR_WORDS_SOURCE_ID = "__kanji_similar_words__";
+  const KANJI_ORIGINS_SOURCE_ID = "__kanji_origins__";
+  function definitionSourceRows(settings) {
+    const builtInRows = [
+      ...settings.jpdbDefinitionsEnabled ? [{
+        id: JPDB_DEFINITION_SOURCE_ID,
+        name: "JPDB",
+        alias: "JPDB",
+        enabled: settings.jpdbDefinitionsEnabled,
+        priority: settings.jpdbDefinitionsPriority,
+        prefix: "jpdbDefinitions",
+        readonly: true,
+        help: "Built-in JPDB meanings from the parsed card."
+      }] : [],
+      {
+        id: STUDY_TRANSLATION_SOURCE_ID,
+        name: "Translation",
+        alias: "Translation",
+        enabled: settings.studyTranslationEnabled,
+        priority: settings.studyTranslationPriority,
+        prefix: "studyTranslation",
+        readonly: true,
+        help: "Automatic sentence translation for the current lookup context."
+      },
+      {
+        id: STUDY_GRAMMAR_SOURCE_ID,
+        name: "Grammar",
+        alias: "Grammar",
+        enabled: settings.studyGrammarEnabled,
+        priority: settings.studyGrammarPriority,
+        prefix: "studyGrammar",
+        readonly: true,
+        help: "Automatic local grammar hints for the current lookup context."
+      },
+      {
+        id: IMMERSION_KIT_SOURCE_ID,
+        name: "Immersion Kit",
+        alias: "Immersion Kit",
+        enabled: settings.immersionKitEnabled,
+        priority: settings.immersionKitPriority,
+        prefix: "immersionKit",
+        readonly: true,
+        help: "Example sentences, images, and audio for the looked-up word."
       }
-      const [base, ruby] = part;
-      const start = offset;
-      const end = offset = start + base.length;
-      return [{ text: ruby, start, end, length: base.length }];
-    });
+    ];
+    return [
+      ...builtInRows,
+      ...settings.dictionaryPreferences.filter((preference) => (preference.type ?? "terms") === "terms").map((preference, index) => ({
+        id: preference.name,
+        name: preference.name,
+        alias: preference.alias,
+        enabled: preference.enabled,
+        priority: preference.priority,
+        prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+        readonly: false,
+        removable: true,
+        help: ""
+      }))
+    ].sort(compareSourceRows);
   }
-  function inheritedOrCurrentPitchClass(card, inheritedPitchClass) {
-    if (card.partOfSpeech.includes("prt")) return inheritedPitchClass;
-    return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
-  }
-  function assignSentenceInfo(paragraphs, tokens) {
-    paragraphs.forEach((paragraph, index) => {
-      const tokenData = tokens[index] ?? [];
-      const sentences = splitJapaneseSentences(paragraph);
-      if (sentences.length === 1) {
-        tokenData.forEach((token) => {
-          token.sentence = sentences[0];
-        });
-        return;
+  function kanjiSourceRows(settings) {
+    return [
+      {
+        id: KANJI_STROKE_SOURCE_ID,
+        name: "Stroke practice",
+        alias: "Stroke practice",
+        enabled: settings.kanjivgEnabled,
+        priority: settings.kanjivgPriority,
+        prefix: "kanjivg",
+        readonly: true,
+        help: "Stroke order preview and drawing pad."
+      },
+      {
+        id: KANJI_JPDB_SOURCE_ID,
+        name: "JPDB kanji",
+        alias: "JPDB kanji",
+        enabled: settings.jpdbKanjiEnabled,
+        priority: settings.jpdbKanjiPriority,
+        prefix: "jpdbKanji",
+        readonly: true,
+        help: "JPDB readings, components, and mnemonic when available."
+      },
+      {
+        id: KANJI_RTK_SOURCE_ID,
+        name: "RTK",
+        alias: "RTK",
+        enabled: settings.rtkEnabled,
+        priority: settings.rtkPriority,
+        prefix: "rtk",
+        readonly: true,
+        help: "Remembering the Kanji keywords, elements, and stories."
+      },
+      {
+        id: KANJI_DICTIONARIES_SOURCE_ID,
+        name: "Imported kanji dictionaries",
+        alias: "Imported kanji dictionaries",
+        enabled: settings.localDictionaryShowKanji,
+        priority: settings.kanjiDictionariesPriority,
+        prefix: "kanjiDictionaries",
+        readonly: true,
+        help: "Kanji entries from imported Yomitan dictionaries."
+      },
+      {
+        id: KANJI_SIMILAR_WORDS_SOURCE_ID,
+        name: "Words using this kanji",
+        alias: "Words using this kanji",
+        enabled: settings.similarKanjiWords,
+        priority: settings.similarKanjiWordsPriority,
+        prefix: "similarKanjiWords",
+        readonly: true,
+        help: "Related JPDB and imported-dictionary vocabulary."
+      },
+      {
+        id: KANJI_ORIGINS_SOURCE_ID,
+        name: "Origin structure",
+        alias: "Origin structure",
+        enabled: settings.kanjiOriginsEnabled,
+        priority: settings.kanjiOriginsPriority,
+        prefix: "kanjiOrigins",
+        readonly: true,
+        help: "Compact facts, component graph, and radical images."
       }
-      let offset = 0;
-      for (const sentence of sentences) {
-        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
-        const relativeStart = paragraph.slice(offset).indexOf(compare);
-        if (relativeStart === -1) {
-          offset += sentence.length;
-          continue;
-        }
-        const start = offset + relativeStart;
-        const end = start + sentence.length;
-        for (const token of tokenData) {
-          if (token.start >= start && token.end <= end) token.sentence = sentence;
-        }
-        offset += sentence.length;
-      }
-    });
+    ].sort(compareSourceRows);
   }
-  function splitJapaneseSentences(text2) {
-    const sentences = [];
-    let start = 0;
-    let quote = null;
-    for (let index = 0; index < text2.length; index++) {
-      const char = text2[index];
-      if (char === "「") quote = "」";
-      if (char === "『") quote = "』";
-      if (quote) {
-        if (char === quote) {
-          const next = text2[index + 1];
-          quote = null;
-          if (!next || /\s/.test(next) || !/[、，]/.test(next)) {
-            sentences.push(text2.slice(start, index + 1).trim());
-            start = index + 1;
-          }
-        }
+  function orderedDefinitionSourceIds(settings, dictionaryNames) {
+    const preferences = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
+    const sources = [
+      {
+        id: JPDB_DEFINITION_SOURCE_ID,
+        enabled: settings.jpdbDefinitionsEnabled,
+        priority: settings.jpdbDefinitionsPriority,
+        name: "JPDB"
+      },
+      {
+        id: STUDY_TRANSLATION_SOURCE_ID,
+        enabled: settings.studyTranslationEnabled,
+        priority: settings.studyTranslationPriority,
+        name: "Translation"
+      },
+      {
+        id: STUDY_GRAMMAR_SOURCE_ID,
+        enabled: settings.studyGrammarEnabled,
+        priority: settings.studyGrammarPriority,
+        name: "Grammar"
+      },
+      {
+        id: IMMERSION_KIT_SOURCE_ID,
+        enabled: settings.immersionKitEnabled,
+        priority: settings.immersionKitPriority,
+        name: "Immersion Kit"
+      },
+      ...dictionaryNames.filter((name) => {
+        var _a;
+        return (((_a = preferences.get(name)) == null ? void 0 : _a.type) ?? "terms") === "terms";
+      }).map((name, index) => {
+        const preference = preferences.get(name);
+        return {
+          id: name,
+          enabled: (preference == null ? void 0 : preference.enabled) ?? true,
+          priority: (preference == null ? void 0 : preference.priority) ?? 1e3 + index,
+          name
+        };
+      })
+    ];
+    return sources.filter((source) => source.enabled).sort(compareSourceOrder).map((source) => source.id);
+  }
+  function orderedKanjiSourceIds(settings) {
+    return kanjiSourceRows(settings).filter((row) => row.enabled).map((row) => row.id);
+  }
+  function compareSourceRows(a, b) {
+    return a.priority - b.priority || a.name.localeCompare(b.name);
+  }
+  function compareSourceOrder(a, b) {
+    return a.priority - b.priority || a.name.localeCompare(b.name);
+  }
+  const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
+  const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
+  const LOCAL_TERM_TAG_LABELS = /* @__PURE__ */ new Map([
+    ["n", "noun"],
+    ["pn", "pronoun"],
+    ["r", "rare"],
+    ["uk", "usually kana"],
+    ["adj-i", "i-adjective"],
+    ["adj-na", "na-adjective"],
+    ["adv", "adverb"],
+    ["exp", "expression"],
+    ["int", "interjection"],
+    ["prt", "particle"],
+    ["suf", "suffix"],
+    ["pref", "prefix"],
+    ["vs", "suru verb"],
+    ["vi", "intransitive"],
+    ["vt", "transitive"]
+  ]);
+  function localTermTags(entries) {
+    const tags = entries.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map(localTermTagLabel).filter(Boolean);
+    return [...new Set(tags)].slice(0, 8);
+  }
+  function localTermTagLabel(tag) {
+    const normalized = tag.toLowerCase();
+    if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return "";
+    return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
+  }
+  function hasRichStructuredGlossary(value) {
+    if (!value || typeof value !== "object") return false;
+    if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
+    const record = value;
+    const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
+    if (record.type === "image" || "path" in record || tag === "img" || tag === "table") return true;
+    return hasRichStructuredGlossary(record.content);
+  }
+  function pillStyle(key) {
+    const hue = stableHue(key);
+    return `--chip-bg:hsl(${hue} 70% 36%);--chip-border:hsl(${hue} 72% 50%);--chip-text:#fff;`;
+  }
+  function bestFrequencyEntries(entries) {
+    const bestByDictionary = /* @__PURE__ */ new Map();
+    const others = [];
+    for (const entry of entries) {
+      if (entry.mode !== "freq") {
+        others.push(entry);
         continue;
       }
-      if ("。！？".includes(char)) {
-        const next = text2[index + 1];
-        const end = next === "」" || next === "』" ? index + 2 : index + 1;
-        sentences.push(text2.slice(start, end).trim());
-        start = end;
-        if (next === "」" || next === "』") index++;
-      }
+      const current = bestByDictionary.get(entry.dictionary);
+      if (!current || metaFrequencyRank(entry.data) < metaFrequencyRank(current.data)) bestByDictionary.set(entry.dictionary, entry);
     }
-    const tail = text2.slice(start).trim();
-    if (tail) sentences.push(tail);
-    const nonEmptySentences = sentences.filter(Boolean);
-    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-    log$m.debugThrottled("split-sentences", 1e3, "Split Japanese sentences", { textLength: text2.length, sentences: result.length });
-    return result;
+    return [...bestByDictionary.values(), ...others];
   }
-  function getPitchClass(pitchAccent, reading) {
-    if (!pitchAccent.length) return "";
-    const [pitch] = pitchAccent;
-    const levels = Array.from(pitch).filter((level) => level === "H" || level === "L");
-    if (levels.length < 2) return "";
-    const rises = countPitchTransitions(levels, "L", "H");
-    const drops = countPitchTransitions(levels, "H", "L");
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    const startsLow = levels[0] === "L";
-    const startsHigh = levels[0] === "H";
-    const endsLow = levels[levels.length - 1] === "L";
-    const moraCount = countMorae(reading);
-    if (startsHigh && drops === 1) return "atamadaka";
-    if (moraCount && startsLow && dropAt === moraCount) return "odaka";
-    if (startsLow && rises === 1 && !endsLow) return "heiban";
-    if (startsLow && rises === 1 && endsLow) return "nakadaka";
-    if (rises > 1 || drops > 1) return "kifuku";
-    return "";
+  function dictionaryPreferencePriority$1(settings, dictionary) {
+    const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
+    return (preference == null ? void 0 : preference.priority) ?? Number.MAX_SAFE_INTEGER;
   }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
+  function metaFrequencyRank(value) {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
+    if (!value || typeof value !== "object") return Number.POSITIVE_INFINITY;
+    const record = value;
+    return metaFrequencyRank(record.frequency ?? record.value ?? record.displayValue);
   }
-  function countMorae(reading) {
-    let count = 0;
-    for (const char of Array.from(reading)) {
-      if (count > 0 && COMBINING_KANA.has(char)) continue;
-      count++;
-    }
-    return count;
+  function normalizeFrequencyChipValue(label, value) {
+    var _a;
+    const marker = (_a = label.match(/[㋕㋐]$/u)) == null ? void 0 : _a[0];
+    return marker && value.endsWith(marker) ? value.slice(0, -marker.length) : value;
   }
-  function assignWordWithReading(token) {
-    const { card, rubies, start: offset } = token;
-    if (!rubies.length) return;
-    const word = Array.from(card.spelling);
-    for (let i = rubies.length - 1; i >= 0; i--) {
-      const { text: text2, start, length } = rubies[i];
-      word.splice(start - offset + length, 0, `[${text2}]`);
-    }
-    card.wordWithReading = word.join("");
+  function stableHue(value) {
+    let hash = 0;
+    for (let index = 0; index < value.length; index++) hash = (hash << 5) - hash + value.charCodeAt(index) | 0;
+    return Math.abs(hash) % 360;
   }
-  const log$l = Logger.scope("LruCache");
-  class LruCache {
-    constructor(maxSize) {
-      __publicField(this, "map", /* @__PURE__ */ new Map());
-      this.maxSize = maxSize;
-    }
-    get(key) {
-      const value = this.map.get(key);
-      if (value !== void 0) {
-        this.map.delete(key);
-        this.map.set(key, value);
-        log$l.debugThrottled("cache-hit", 1e3, "LRU cache hit", { size: this.map.size, maxSize: this.maxSize });
-      } else {
-        log$l.debugThrottled("cache-miss", 1e3, "LRU cache miss", { size: this.map.size, maxSize: this.maxSize });
-      }
-      return value;
-    }
-    set(key, value) {
-      this.map.delete(key);
-      this.map.set(key, value);
-      if (this.map.size > this.maxSize) {
-        const oldest = this.map.keys().next().value;
-        if (oldest !== void 0) {
-          this.map.delete(oldest);
-          log$l.debug("LRU cache evicted oldest entry", { size: this.map.size, maxSize: this.maxSize });
-        }
-      }
-    }
-    clear() {
-      this.map.clear();
-      log$l.debug("LRU cache cleared", { maxSize: this.maxSize });
-    }
-  }
-  const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
-  const VOCABULARY_FIELDS = [
-    "vid",
-    "sid",
-    "rid",
-    "spelling",
-    "reading",
-    "frequency_rank",
-    "part_of_speech",
-    "meanings_chunks",
-    "meanings_part_of_speech",
-    "card_state",
-    "pitch_accent"
-  ];
-  const DECK_FIELDS = ["id", "name"];
-  const PARSE_CACHE_SIZE = 250;
-  const log$k = Logger.scope("JpdbClient");
-  class JpdbClient {
-    constructor(getApiKey) {
-      __publicField(this, "api");
-      __publicField(this, "cardCache", /* @__PURE__ */ new Map());
-      __publicField(this, "parseCache", new LruCache(PARSE_CACHE_SIZE));
-      this.api = new JpdbApiClient(getApiKey);
-    }
-    async parse(paragraphs) {
-      const text2 = normalizeParagraphs(paragraphs);
-      if (!text2.length) return [];
-      const cacheKey = text2.join("\n");
-      const cached = this.parseCache.get(cacheKey);
-      if (cached) {
-        log$k.debug("Parse cache hit", { paragraphs: text2.length, tokens: cached.reduce((sum, tokens2) => sum + tokens2.length, 0) });
-        return cached;
-      }
-      const done = log$k.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
-      const raw = await this.api.request("parse", {
-        text: text2,
-        position_length_encoding: "utf16",
-        token_fields: TOKEN_FIELDS,
-        vocabulary_fields: VOCABULARY_FIELDS
-      });
-      const cards = jpdbVocabularyToCards(raw.vocabulary);
-      const tokens = jpdbParseResultToTokens(text2, raw.tokens, cards);
-      this.cacheCards(cards);
-      this.parseCache.set(cacheKey, tokens);
-      log$k.debug("Parse completed", {
-        paragraphs: tokens.length,
-        tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
-        cards: cards.length
-      });
-      done();
-      return tokens;
-    }
-    async reviewCard(card, grade) {
-      log$k.info("Reviewing card", { term: card.spelling, grade });
-      await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
-      await this.refreshCard(card);
-    }
-    async addToDeck(deckId, card, sentence) {
-      log$k.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
-      await this.addVocabularyToDeck(deckId, card);
-      if (sentence) await this.setCardSentence(card, sentence);
-      await this.refreshCard(card);
-    }
-    async listDecks() {
-      const response = await this.api.request("list-user-decks", { fields: DECK_FIELDS });
-      const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
-      log$k.debug("Decks listed", { decks: decks.length });
-      return decks;
-    }
-    async listDeckCards(deckId, limit = 80) {
-      const id = normalizeDeckRequestId(deckId);
-      const done = log$k.time("listDeckCards", { deckId, limit });
-      const response = await this.api.request("deck/list-vocabulary", {
-        id,
-        fetch_occurences: false
-      });
-      const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
-      if (!pairs.length) {
-        done();
-        log$k.debug("Deck vocabulary list was empty", { deckId });
-        return [];
-      }
-      const lookup = await this.api.request("lookup-vocabulary", {
-        list: pairs,
-        fields: VOCABULARY_FIELDS
-      });
-      const cards = jpdbVocabularyToCards(lookup.vocabulary_info ?? []);
-      this.cacheCards(cards);
-      done();
-      log$k.debug("Deck cards loaded", { deckId, requested: pairs.length, cards: cards.length });
-      return cards;
-    }
-    async removeFromDeck(deckId, card) {
-      log$k.info("Removing card from deck", { term: card.spelling, deckId });
-      await this.api.request("deck/remove-vocabulary", {
-        id: deckId,
-        vocabulary: [[card.vid, card.sid]]
-      });
-      await this.refreshCard(card);
-    }
-    getCard(vid, sid) {
-      return this.cardCache.get(cardKey$2(vid, sid));
-    }
-    clear() {
-      this.cardCache.clear();
-      this.parseCache.clear();
-      log$k.debug("Caches cleared");
-    }
-    async addVocabularyToDeck(deckId, card) {
-      if (deckId === "forq") {
-        log$k.debug("Adding card via JPDB prioritize endpoint", { term: card.spelling });
-        await this.api.requestByUrl("https://jpdb.io/prioritize", {
-          v: card.vid,
-          s: card.sid,
-          origin: "/"
-        });
-        return;
-      }
-      await this.api.request("deck/add-vocabulary", {
-        id: deckId,
-        vocabulary: [[card.vid, card.sid]]
-      });
-    }
-    async setCardSentence(card, sentence) {
-      await this.api.request("set-card-sentence", {
-        vid: card.vid,
-        sid: card.sid,
-        sentence
-      }).catch((error) => {
-        log$k.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
-      });
-    }
-    async refreshCard(card) {
-      var _a;
-      const parsed = await this.parse([card.spelling]);
-      const fresh = (_a = parsed.flat().find((token) => token.card.vid === card.vid && token.card.sid === card.sid)) == null ? void 0 : _a.card;
-      if (!fresh) {
-        log$k.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
-        return;
-      }
-      this.cardCache.set(cardKey$2(card.vid, card.sid), fresh);
-      card.cardState = fresh.cardState;
-      log$k.debug("Card refreshed", { term: card.spelling, state: fresh.cardState });
-    }
-    cacheCards(cards) {
-      for (const card of cards) {
-        this.cardCache.set(cardKey$2(card.vid, card.sid), card);
-      }
-    }
-  }
-  function normalizeParagraphs(paragraphs) {
-    return paragraphs.map((paragraph) => paragraph.trim()).filter(Boolean);
-  }
-  function cardKey$2(vid, sid) {
-    return `${vid}/${sid}`;
-  }
-  function normalizeDeckRequestId(value) {
-    const trimmed = value.trim();
-    const number = Number(trimmed);
-    return trimmed && Number.isInteger(number) && String(number) === trimmed ? number : trimmed;
-  }
-  function normalizeVocabularyPairs(value) {
-    if (!Array.isArray(value)) return [];
-    return value.map((item) => {
-      if (!Array.isArray(item)) return null;
-      const vid = Number(item[0]);
-      const sid = Number(item[1]);
-      return Number.isInteger(vid) && Number.isInteger(sid) ? [vid, sid] : null;
-    }).filter((item) => item !== null);
-  }
-  function sampleVocabularyPairs(pairs, limit) {
-    if (pairs.length <= limit) return pairs;
-    const sampled = pairs.slice();
-    for (let index = sampled.length - 1; index > 0; index--) {
-      const swap = Math.floor(Math.random() * (index + 1));
-      [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
-    }
-    return sampled.slice(0, limit);
-  }
-  function normalizeDeck(value) {
-    if (Array.isArray(value)) return normalizeDeckTuple(value);
-    if (value && typeof value === "object") return normalizeDeckRecord(value);
-    return null;
-  }
-  function normalizeDeckTuple([id, name]) {
-    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
-  }
-  function normalizeDeckRecord(record) {
-    const id = record.id;
-    const name = record.name ?? record.title;
-    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
-  }
-  function isDeckId(value) {
-    return typeof value === "number" || typeof value === "string";
-  }
-  const CONTEXT_PREFIX = "yomu-mining-context:";
-  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
-  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$j = Logger.scope("MiningContext");
-  function normalizeMiningSentence(sentence) {
-    return (sentence ?? "").replace(/\s+/g, " ").trim();
-  }
-  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
-    if (isImageSource) return "image";
-    if (hasVideo) return "video";
-    if (hostname === "jpdb.io") return "jpdb";
-    return "page";
-  }
-  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
-    const normalizedTerm = term.trim();
-    const sentence = context.sentence.trim();
-    if (!normalizedTerm || !sentence) return null;
-    return {
-      ...context,
-      term: normalizedTerm,
-      sentence,
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
+  function formatLookupUrl(template, values) {
+    const replacements = {
+      query: values.query,
+      word: values.word,
+      term: values.word,
+      reading: values.reading,
+      vid: values.vid,
+      sid: values.sid
     };
-  }
-  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
-    return createStoredMiningContext(term, context, updatedAt) ?? {
-      ...context,
-      term: term.trim(),
-      sentence: context.sentence.trim() || term.trim(),
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  async function resolveMiningContext({
-    term,
-    sentence,
-    settings,
-    activeContext,
-    storedContext,
-    sourceKind,
-    imageDataUrl,
-    videoImageDataUrl,
-    fetchImageDataUrl
-  }) {
-    const done = log$j.time("Resolve mining context", {
-      term,
-      hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
-      activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
-      storedKind: storedContext == null ? void 0 : storedContext.sourceKind,
-      sourceKind,
-      hasImage: Boolean(imageDataUrl),
-      hasVideoImage: Boolean(videoImageDataUrl)
-    });
-    const cleanSentence = normalizeMiningSentence(sentence);
+    const url = template.replace(/\{([a-z]+)\}/gi, (_, key) => encodeURIComponent(replacements[key.toLowerCase()] ?? values.query));
     try {
-      if (imageDataUrl && cleanSentence) {
-        log$j.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
-        return miningContextWithImage(term, cleanSentence, "image", imageDataUrl);
-      }
-      if (videoImageDataUrl && cleanSentence) {
-        log$j.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
-        return miningContextWithImage(term, cleanSentence, "video", videoImageDataUrl);
-      }
-      const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
-      if (chosen && shouldUseImmersionContext(settings, chosen)) {
-        const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch((error) => {
-          log$j.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
-          return void 0;
-        }) : void 0;
-        log$j.debug("Using immersion mining context", {
-          term,
-          sourceTitle: chosen.sourceTitle,
-          hasImageUrl: Boolean(chosen.imageUrl),
-          fetchedImage: Boolean(fetchedImageDataUrl)
-        });
-        return { ...chosen, imageDataUrl: fetchedImageDataUrl };
-      }
-      const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
-      const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-      log$j.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
-      return result;
-    } finally {
-      done();
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
+    } catch {
+      return "";
     }
   }
-  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
-    const context = pageMiningContext(sentence, sourceKind);
-    log$j.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
-    return {
-      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
-      imageDataUrl
-    };
-  }
-  function saveMiningContext(term, context) {
-    const stored = createStoredMiningContext(term, context);
-    if (!stored) {
-      log$j.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
-      return null;
-    }
-    try {
-      localStorage.setItem(contextStorageKey(stored.term), JSON.stringify(stored));
-      log$j.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
-    } catch (error) {
-      log$j.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
-    }
-    return stored;
-  }
-  function loadMiningContext(term) {
-    const normalized = term.trim();
-    if (!normalized) return null;
-    try {
-      const raw = localStorage.getItem(contextStorageKey(normalized));
-      if (!raw) {
-        log$j.debug("Mining context cache miss", { term: normalized });
-        return null;
-      }
-      const context = parseStoredMiningContext(JSON.parse(raw), normalized);
-      log$j.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
-      return context;
-    } catch (error) {
-      log$j.warn("Mining context load failed", { term: normalized, error });
-      return null;
-    }
-  }
-  function immersionContextFromExample(term, example, index, total, imageUrl) {
-    return {
-      sentence: example.sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: example.sourceTitle || "Immersion Kit",
-      sourceUrl: immersionKitUrl(term, index),
-      imageUrl: imageUrl || void 0,
-      immersionIndex: index,
-      immersionTotal: total
-    };
-  }
-  function immersionContextFromElement(sentence, element2, sourceUrl = location.href) {
-    return {
-      sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
-      sourceUrl,
-      imageUrl: optionalText(element2.dataset.immersionImageUrl),
-      immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
-      immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
-    };
-  }
-  function pageMiningContext(sentence, sourceKind = "page") {
-    return {
-      sentence,
-      sourceKind,
-      sourceTitle: document.title || location.hostname,
-      sourceUrl: location.href
-    };
-  }
-  function contextLabel(context) {
-    if (context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal) {
-      return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
-    }
-    if (context.sourceKind === "video") return `Video: ${context.sourceTitle}`;
-    if (context.sourceKind === "image") return `Image: ${context.sourceTitle}`;
-    if (context.sourceKind === "jpdb") return `JPDB: ${context.sourceTitle}`;
-    return context.sourceTitle || context.sourceUrl || "Current page";
-  }
-  function shouldUseImmersionContext(settings, context) {
-    return Boolean(settings.immersionKitEnabled && (context == null ? void 0 : context.sourceKind) === "immersion-kit" && context.sentence.trim());
-  }
-  function contextStorageKey(term) {
-    return `${CONTEXT_PREFIX}${term}`;
-  }
-  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
-    if (!isRecord(value)) return null;
-    if (text(value.term) !== expectedTerm) return null;
-    if (!isMiningSourceKind(value.sourceKind)) return null;
-    const updatedAt = Number(value.updatedAt);
-    if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
-      log$j.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
-      return null;
-    }
-    const context = createStoredMiningContext(expectedTerm, {
-      sentence: text(value.sentence),
-      sourceKind: value.sourceKind,
-      sourceTitle: text(value.sourceTitle),
-      sourceUrl: text(value.sourceUrl),
-      imageUrl: optionalText(value.imageUrl),
-      immersionIndex: optionalNumber(value.immersionIndex),
-      immersionTotal: optionalNumber(value.immersionTotal)
-    }, updatedAt);
-    return context;
-  }
-  function isMiningSourceKind(value) {
-    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
-  }
-  function isRecord(value) {
-    return Boolean(value && typeof value === "object");
-  }
-  function optionalText(value) {
-    const normalized = text(value);
-    return normalized || void 0;
-  }
-  function optionalNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? number : void 0;
-  }
-  function text(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function immersionKitUrl(term, index) {
-    const url = new URL("https://www.immersionkit.com/dictionary");
-    url.searchParams.set("keyword", term);
-    url.searchParams.set("sort", "sentence_length:asc");
-    url.searchParams.set("page", String(index + 1));
-    return url.toString();
-  }
-  const COPY = {
-    en: {
-      settingsTitle: `${APP_NAME} Settings`,
-      welcomeLabel: `${APP_NAME} welcome`,
-      onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.",
-      onboardingLanguage: "Settings language",
-      onboardingAddApiKey: "Add API key",
-      onboardingAddLocalDictionaries: "Add local dictionaries",
-      onboardingUseWithoutApiKey: "Use without API key",
-      closeOnboarding: "Close welcome",
-      onboardingNote: "YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.",
-      featureText: "Text",
-      featureTextBody: "Hover or tap Japanese words once a page is scanned.",
-      featureImages: "Images",
-      featureImagesBody: "Readable image text can be detected quietly near the viewport.",
-      featureVideo: "Video",
-      featureVideoBody: "Subtitle words become tappable when subtitles are available.",
-      featureControl: "Control",
-      featureControlBody: "Open Settings any time to turn features off, change shortcuts, or tune the accent color.",
-      scanPage: "Scan page",
-      settings: "Settings",
-      save: "Save",
-      cancel: "Cancel",
-      basics: "Basics",
-      dictionaries: "Dictionaries",
-      media: "Media",
-      mining: "Mining",
-      shortcuts: "Shortcuts",
-      help: "Help",
-      interface: "Interface",
-      reader: "Reader",
-      kanji: "Kanji",
-      audio: "Audio",
-      images: "Images",
-      video: "Video",
-      youtube: "YouTube",
-      anki: "Anki",
-      studyTools: "Study tools",
-      support: "Support",
-      apiKey: "API key",
-      jpdbSettings: "JPDB settings",
-      jpdbMiningEnabled: "Enable JPDB mining actions",
-      addToForq: "Also add mined cards to forq",
-      enableReviews: "Enable review actions",
-      reviewRatingScale: "Review rating scale",
-      fivePoint: "Five point: NOTHING to EASY",
-      twoPoint: "Two point: FAIL / PASS",
-      settingsLanguage: "Settings language",
-      automatic: "Automatic",
-      english: "English",
-      japanese: "日本語",
-      theme: "Theme",
-      auto: "Auto",
-      dark: "Dark",
-      light: "Light",
-      popupMode: "Popup mode",
-      bottomSheet: "Bottom sheet",
-      popover: "Popover",
-      popoverWidth: "Popover width (px)",
-      popoverHeight: "Popover height (px)",
-      popoverHeightMode: "Popover height",
-      popoverHeightAvailable: "Grow to available space",
-      popoverHeightFixed: "Use height setting",
-      enableLogging: "Enable console logging",
-      accentColor: "Accent color",
-      newTab: "New tab",
-      newTabEnabled: "Use Yomu new tab study page",
-      newTabSource: "New tab word source",
-      newTabAuto: "Auto: Anki + JPDB + Dictionary",
-      newTabUrl: "New tab address",
-      newTabJpdbDeck: "New tab JPDB deck",
-      openNewTabPage: "Open new tab page",
-      copyAddress: "Copy address",
-      wordColors: "Word colors",
-      wordColorNew: "New and suspended",
-      wordColorLearning: "Learning",
-      wordColorKnown: "Known and never",
-      wordColorDue: "Due",
-      wordColorFailed: "Failed",
-      wordColorIgnored: "Ignored and blacklisted",
-      interfaceHelp: "よむ can be used with JPDB first, imported dictionaries first, or local dictionaries only for definitions. Configure source order in Dictionaries.",
-      parseSelection: "Lookup selected text",
-      lookupOnClick: "Tap or click scanned words",
-      lookupOnHover: "Hover scanned words",
-      lookupOnMiddleMouse: "Hold middle mouse button to scan words",
-      autoScanJapanese: "Auto-scan when Japanese is detected",
-      scanVisiblePage: "Scan visible page on load",
-      showFloatingButton: "Toggle floating puck on pages",
-      showFurigana: "Enable furigana annotations",
-      furiganaMode: "Furigana",
-      furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide known words",
-      furiganaAllParsed: "All parsed words",
-      showPitchAccent: "Show pitch accent",
-      wordHighlightMode: "Word highlight colors",
-      highlightKnownStatus: "Known/mining status",
-      highlightPitchAccent: "Pitch accent",
-      hideKnownFurigana: "Hide furigana for known cards only",
-      readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.",
-      kanjivgEnabled: "Show stroke order and drawing pad",
-      kanjiOriginsEnabled: "Show compact kanji facts and component map",
-      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
-      kanjiOriginWiktionaryEnabled: "Use Wiktionary origin notes",
-      kanjiOriginGraphEnabled: "Show component graph",
-      kanjiOriginRadicalImagesEnabled: "Show radical images",
-      rtkEnabled: "Show RTK information",
-      similarKanjiWords: "Show words using the same kanji",
-      similarKanjiWordLimit: "Similar word limit",
-      loadingSimilarWords: "Loading words...",
-      openToLoadSimilarWords: "Open to load words.",
-      noSimilarWords: "No additional words found.",
-      kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
-      audioEnabled: "Enable audio playback for terms",
-      autoPlayAudio: "Auto-play search result audio",
-      audioEnableDefaultSources: "Use built-in audio sources",
-      audioFallbackChimeEnabled: "Play a soft chime when no audio is available",
-      audioSelectionMode: "When a source has several clips",
-      firstAudio: "First audio",
-      randomAudio: "Random audio",
-      audioTimeoutMs: "Audio timeout (ms)",
-      previewAudio: "Preview audio",
-      audioHelp: "Supports {term}, {reading}, and {language}. See the Yomitan audio guide.",
-      audioSource: "Audio source",
-      urlVoice: "URL / voice",
-      addAudioSource: "Add audio source",
-      immersionKit: "Immersion Kit",
-      immersionKitEnabled: "Show Immersion Kit examples",
-      immersionKitShowTranslation: "Show example translations",
-      immersionKitShowImages: "Show example thumbnails",
-      immersionKitAutoPlayAudio: "Play example audio after next/previous",
-      jpdbImmersionKitAutoPlayReviewAudio: "Play Immersion Kit audio on JPDB answer reveal",
-      immersionKitPlayOnHover: "Play first example audio on hover",
-      immersionKitCategory: "Example source",
-      immersionKitSort: "Example order",
-      immersionKitLimit: "Examples per word",
-      immersionKitMinLength: "Minimum sentence length",
-      immersionKitMaxLength: "Maximum sentence length",
-      immersionKitPlaybackRate: "Example audio speed",
-      immersionKitExactMatch: "Prefer exact matches",
-      immersionKitHelp: "Immersion examples appear inside word popups. Example text is tappable too, so translations can stay off unless you want them.",
-      loadingExamples: "Loading examples...",
-      noImmersionExamples: "No Immersion Kit examples found.",
-      noImmersionExamplesCompact: "No examples",
-      previousExample: "Previous example",
-      nextExample: "Next example",
-      playExampleAudio: "Play example audio",
-      allCategories: "All",
-      anime: "Anime",
-      drama: "Drama",
-      games: "Games",
-      shortestFirst: "Shortest first",
-      longestFirst: "Longest first",
-      randomOrder: "Random",
-      ocrEnabled: "Read text in images",
-      ocrAutoScanImages: "Read images automatically",
-      ocrShowTextOverlay: "Show recognized image text areas",
-      ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      localOcr: "Local OCR app",
-      cloudVision: "Google Cloud Vision",
-      off: "Off",
-      ocrMaxImagesPerPage: "Images to read per page",
-      ocrMinImageArea: "Smallest image to read",
-      ocrMaxImagePixels: "Image detail",
-      lightWork: "Light",
-      normal: "Normal",
-      more: "More",
-      largeOnly: "Large images only",
-      includeSmall: "Include small images",
-      faster: "Faster",
-      balanced: "Balanced",
-      sharper: "Sharper",
-      ocrTextColor: "Image text color",
-      ocrOutlineColor: "Image text outline",
-      ocrBackgroundColor: "Image highlight background",
-      ocrBackgroundOpacity: "Image highlight opacity",
-      ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Local OCR app URL",
-      ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.",
-      subtitlePlayerEnabled: "Enable video subtitle player",
-      subtitleAutoDetect: "Auto-detect page subtitles",
-      subtitleOverlayVisible: "Show subtitle overlay",
-      subtitleSecondaryVisible: "Show native subtitles when available",
-      subtitleTranscriptVisible: "Open transcript panel by default",
-      subtitleTranscriptPlacement: "Transcript panel position",
-      subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-      subtitleMiningPause: "Pause video when mining subtitle",
-      subtitleControlsMode: "Subtitle controls",
-      right: "Right",
-      left: "Left",
-      bottom: "Below",
-      showWhenNeeded: "Compact controls",
-      hideControls: "Hide controls",
-      alwaysVisible: "Always visible",
-      subtitleFontSize: "Subtitle font size",
-      subtitleBottomOffset: "Subtitle bottom offset (%)",
-      subtitleTextColor: "Subtitle color",
-      subtitleOutlineColor: "Subtitle outline",
-      subtitleBackgroundColor: "Subtitle background",
-      subtitleBackgroundOpacity: "Subtitle background opacity",
-      subtitleFontFamily: "Subtitle font family",
-      subtitleFontWeight: "Subtitle font weight",
-      subtitleSeekPadding: "Subtitle seek padding (seconds)",
-      mpvSubtitleMiningEnabled: "Enable MPV subtitle bridge",
-      mpvSubtitleAutoConnect: "Connect to MPV automatically",
-      mpvSubtitleHost: "MPV bridge host",
-      mpvSubtitlePorts: "MPV bridge ports",
-      subtitlePreview: "Live subtitle preview",
-      youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
-      youtubeShowFilterNotice: "Show reveal control for hidden videos",
-      youtubeHelp: "Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.",
-      youtubeFilterOn: "YouTube filter on",
-      youtubeFilterOff: "YouTube filter off",
-      youtubeShowAnyway: "Show anyway",
-      youtubeFilterAgain: "Filter again",
-      youtubeTurnOff: "Turn off",
-      youtubeToggleToastOn: "YouTube immersion filter enabled.",
-      youtubeToggleToastOff: "YouTube immersion filter disabled.",
-      ankiEnabled: "Enable Anki mining",
-      ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
-      ankiCaptureScreenshot: "Attach context image when possible",
-      ankiConnectUrl: "AnkiConnect URL",
-      ankiDeck: "Anki deck",
-      ankiModel: "Anki note type",
-      mobileAnkiHandoff: "Use mobile Anki handoff when AnkiConnect is unavailable",
-      ankiTemplateMode: "Anki card template",
-      wordFirst: "Word first",
-      sentenceFirst: "Sentence first",
-      ankiTags: "Tags",
-      studyTranslationEnabled: "Show sentence translation tool",
-      studyGrammarEnabled: "Show grammar hint tool",
-      testAnki: "Test Anki",
-      ankiTesting: "Testing AnkiConnect...",
-      ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
-      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional context images from videos, OCR, or Immersion Kit.",
-      jpdbDefinitionsEnabled: "Show JPDB definitions",
-      localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionaryShowKanji: "Show kanji dictionary cards",
-      dictionarySourcesInitiallyExpanded: "Open popup sources by default",
-      localDictionaryMaxResults: "Dictionary result limit",
-      importSettings: "Import settings JSON",
-      exportSettings: "Export settings JSON",
-      importDictionaries: "Import dictionaries",
-      exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
-      recommendedDownloads: "Recommended dictionaries",
-      homepage: "Homepage",
-      download: "Download",
-      update: "Update",
-      noLocalDictionaries: "No local dictionary installed yet. JMdict downloads automatically when よむ needs dictionary study words.",
-      checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
-      localDictionaryText: "Dictionary text",
-      localSenseSingular: "meaning",
-      localSensePlural: "meanings",
-      localWordSingular: "entry",
-      localWordPlural: "entries",
-      decksLoaded: "Decks are loaded from your JPDB account.",
-      decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
-      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
-      holdWhileHovering: "Hold while hovering",
-      hoverOpenDelayMs: "Hover open delay (ms)",
-      hoverCloseDelayMs: "Hover close delay (ms)",
-      pressKeys: "Press keys",
-      blankPlainHover: "Blank means hover without a key",
-      openSettings: "Open settings",
-      playAudio: "Play audio",
-      closePopup: "Close popup",
-      previousSubtitle: "Previous subtitle",
-      nextSubtitle: "Next subtitle",
-      copySubtitle: "Copy subtitle",
-      toggleImageReading: "Toggle image reading",
-      toggleYoutubeImmersion: "Toggle YouTube filter",
-      readImagesNow: "Read images now",
-      gradeNothing: "Grade NOTHING",
-      gradeSomething: "Grade SOMETHING",
-      gradeHard: "Grade HARD",
-      gradeOkay: "Grade OKAY",
-      gradeEasy: "Grade EASY",
-      gradeFail: "Pass/fail: FAIL",
-      gradePass: "Pass/fail: PASS",
-      supportTitle: "Free Japanese reading and mining tools",
-      supportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
-      supportDonation: "Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.",
-      documentation: "Documentation",
-      donate: "Donate",
-      reportIssue: "Report issue",
-      github: "GitHub",
-      copyDiscord: "Copy Discord",
-      openOnJpdb: "Open on JPDB",
-      copyWord: "Copy",
-      copyWordTitle: "Copy word",
-      copiedWord: "Copied word.",
-      backToWord: "Back to word",
-      previousKanji: "Previous kanji",
-      nextKanji: "Next kanji",
-      openKanjiOnJpdb: "Open kanji on JPDB",
-      strokePractice: "Stroke order + practice",
-      practiceDrawing: "Practice drawing",
-      strokes: "strokes",
-      textTrace: "text trace",
-      hideTrace: "Hide trace",
-      showTrace: "Show trace",
-      clear: "Clear",
-      originStructure: "Kanji facts",
-      originMapLabel: "2D kanji origin and component map",
-      originShowOutbound: "Outbounds",
-      kanjiMapData: "Kanji Map data",
-      kanjiAlive: "Kanji Alive",
-      wiktionary: "Wiktionary",
-      radical: "Radical",
-      historicalNotes: "Historical notes",
-      readingsComponents: "Readings and components",
-      showKanji: "Show kanji",
-      jpdbMnemonic: "JPDB mnemonic",
-      rtkComponentKeywords: "RTK component keywords",
-      onReading: "On",
-      kunReading: "Kun",
-      heisigStory: "Heisig story",
-      heisigComment: "Heisig comment",
-      koohiiStories: "Koohii stories",
-      add: "Add",
-      forget: "Forget",
-      never: "Never",
-      neverHint: "Move to your never-forget deck. Use this for words you know and still want counted as known.",
-      unlist: "Unlist",
-      blacklist: "Blacklist",
-      blacklistHint: "Ignore this exact word. Use this for particles, kana, or words you do not want to mine.",
-      addToAnki: "Add to Anki",
-      noDefinitions: "No enabled definition source returned results.",
-      fallbackSetupTitle: "Dictionary setup",
-      fallbackSetupCopy: "No JPDB key or local dictionary is connected yet. This starter card can still copy the term, play browser audio, open external lookup links, and inspect kanji.",
-      fallbackSetupDictionaries: "Add dictionaries",
-      fallbackSetupJpdb: "Add JPDB key"
-    },
-    ja: {
-      settingsTitle: `${APP_NAME} 設定`,
-      welcomeLabel: `${APP_NAME} へようこそ`,
-      onboardingEyebrow: "日本語がある場所ならどこでも",
-      onboardingCopy: "ページの文章、字幕、画像内の日本語をタップできる辞書カードにします。音声を聞き、単語を採掘し、読みやすさを保ったまま学習できます。",
-      onboardingLanguage: "表示言語",
-      onboardingAddApiKey: "APIキーを追加",
-      onboardingAddLocalDictionaries: "ローカル辞書を追加",
-      onboardingUseWithoutApiKey: "APIキーなしで使う",
-      closeOnboarding: "ようこそ画面を閉じる",
-      onboardingNote: "YouTube没入フィルターも入っていますが、最初はオフです。日本語動画だけに集中したい時にオンにしてください。",
-      featureText: "文章",
-      featureTextBody: "ページを読み取ると、日本語の単語をホバーまたはタップできます。",
-      featureImages: "画像",
-      featureImagesBody: "画面付近の読みやすい画像内テキストを静かに検出します。",
-      featureVideo: "動画",
-      featureVideoBody: "字幕が見つかると、字幕内の単語もタップできます。",
-      featureControl: "調整",
-      featureControlBody: "設定から機能のオンオフ、ショートカット、アクセント色をいつでも変更できます。",
-      scanPage: "ページを読む",
-      settings: "設定",
-      save: "保存",
-      cancel: "キャンセル",
-      basics: "基本",
-      dictionaries: "辞書",
-      media: "メディア",
-      mining: "採掘",
-      shortcuts: "ショートカット",
-      help: "ヘルプ",
-      interface: "表示",
-      reader: "リーダー",
-      kanji: "漢字",
-      audio: "音声",
-      images: "画像",
-      video: "動画",
-      youtube: "YouTube",
-      anki: "Anki",
-      studyTools: "学習ツール",
-      support: "サポート",
-      apiKey: "APIキー",
-      jpdbSettings: "JPDB設定",
-      jpdbMiningEnabled: "JPDB採掘ボタンを有効化",
-      addToForq: "採掘したカードをforqにも追加",
-      enableReviews: "復習ボタンを表示",
-      reviewRatingScale: "復習評価",
-      fivePoint: "5段階: NOTHINGからEASY",
-      twoPoint: "2段階: FAIL / PASS",
-      settingsLanguage: "表示言語",
-      automatic: "自動",
-      english: "English",
-      japanese: "日本語",
-      theme: "テーマ",
-      auto: "自動",
-      dark: "ダーク",
-      light: "ライト",
-      popupMode: "ポップアップ表示",
-      bottomSheet: "下シート",
-      popover: "ポップオーバー",
-      popoverWidth: "ポップオーバー幅 (px)",
-      popoverHeight: "ポップオーバー高さ (px)",
-      popoverHeightMode: "ポップオーバー高さ",
-      popoverHeightAvailable: "空き領域まで広げる",
-      popoverHeightFixed: "高さ設定を使う",
-      enableLogging: "コンソールログを有効化",
-      accentColor: "アクセント色",
-      newTab: "新規タブ",
-      newTabEnabled: "Yomu新規タブ学習ページを使う",
-      newTabSource: "新規タブの単語ソース",
-      newTabAuto: "自動: Anki、JPDB、辞書",
-      newTabUrl: "新規タブのアドレス",
-      newTabJpdbDeck: "新規タブのJPDBデッキ",
-      openNewTabPage: "新規タブページを開く",
-      copyAddress: "アドレスをコピー",
-      wordColors: "単語の色",
-      wordColorNew: "新規・停止中",
-      wordColorLearning: "学習中",
-      wordColorKnown: "既知・Never",
-      wordColorDue: "復習予定",
-      wordColorFailed: "失敗",
-      wordColorIgnored: "除外・ブラックリスト",
-      interfaceHelp: "よむはJPDB優先、インポート辞書優先、またはローカル辞書のみでも使えます。辞書タブで表示順を調整できます。",
-      parseSelection: "選択したテキストを調べる",
-      lookupOnClick: "読み取り済み単語をタップ/クリック",
-      lookupOnHover: "読み取り済み単語をホバー",
-      lookupOnMiddleMouse: "マウス中ボタンを押しながら単語を読む",
-      autoScanJapanese: "日本語を検出したら自動で読む",
-      scanVisiblePage: "読み込み時に見える範囲を読む",
-      showFloatingButton: "浮動ボタンを切り替え",
-      showFurigana: "ふりがなを表示",
-      furiganaMode: "ふりがな",
-      furiganaDifficultKanji: "難しい漢字のみ",
-      furiganaHideKnown: "既知単語を隠す",
-      furiganaAllParsed: "解析した全単語",
-      showPitchAccent: "ピッチアクセントを表示",
-      wordHighlightMode: "単語ハイライト色",
-      highlightKnownStatus: "既知/採掘ステータス",
-      highlightPitchAccent: "ピッチアクセント",
-      hideKnownFurigana: "既知カードだけふりがなを隠す",
-      readerHelp: "ホバー検索は下のショートカットを使います。空欄なら通常ホバーです。中ボタン読み取り中はブラウザの自動スクロールを止めますが、リンクの中クリックは通常通り残します。",
-      kanjivgEnabled: "筆順と手書き練習を表示",
-      kanjiOriginsEnabled: "漢字の基本情報と構成マップを表示",
-      kanjiOriginKanjiMapEnabled: "Kanji Alive / Kanji Mapの情報を使う",
-      kanjiOriginWiktionaryEnabled: "Wiktionaryの成り立ちメモを使う",
-      kanjiOriginGraphEnabled: "構成グラフを表示",
-      kanjiOriginRadicalImagesEnabled: "部首画像を表示",
-      rtkEnabled: "RTK情報を表示",
-      similarKanjiWords: "同じ漢字を使う単語を表示",
-      similarKanjiWordLimit: "関連単語の上限",
-      loadingSimilarWords: "関連単語を読み込み中...",
-      openToLoadSimilarWords: "開くと関連単語を読み込みます。",
-      noSimilarWords: "追加の単語は見つかりませんでした。",
-      kanjiHelp: "ポップアップ内の漢字をクリックすると、RTK、漢字辞書、構成要素、関連単語を確認できます。",
-      audioEnabled: "単語音声を有効化",
-      autoPlayAudio: "検索結果の音声を自動再生",
-      audioEnableDefaultSources: "内蔵音声ソースを使う",
-      audioFallbackChimeEnabled: "音声がない時に静かなチャイムを鳴らす",
-      audioSelectionMode: "複数音声がある時",
-      firstAudio: "最初の音声",
-      randomAudio: "ランダム音声",
-      audioTimeoutMs: "音声タイムアウト (ms)",
-      previewAudio: "音声をプレビュー",
-      audioHelp: "{term}、{reading}、{language} に対応。Yomitan音声ガイドも参照できます。",
-      audioSource: "音声ソース",
-      urlVoice: "URL / 声",
-      addAudioSource: "音声ソースを追加",
-      immersionKit: "Immersion Kit",
-      immersionKitEnabled: "Immersion Kit例文を表示",
-      immersionKitShowTranslation: "例文の翻訳を表示",
-      immersionKitShowImages: "例文サムネイルを表示",
-      immersionKitAutoPlayAudio: "前/次の例文で音声を再生",
-      jpdbImmersionKitAutoPlayReviewAudio: "JPDBの答え表示時にImmersion Kit音声を再生",
-      immersionKitPlayOnHover: "最初の例文音声をホバーで再生",
-      immersionKitCategory: "例文ソース",
-      immersionKitSort: "例文の並び",
-      immersionKitLimit: "単語ごとの例文数",
-      immersionKitMinLength: "最短例文長",
-      immersionKitMaxLength: "最長例文長",
-      immersionKitPlaybackRate: "例文音声速度",
-      immersionKitExactMatch: "完全一致を優先",
-      immersionKitHelp: "Immersion Kit例文は単語ポップアップ内に表示されます。例文の日本語もタップできるため、翻訳は必要な時だけオンにできます。",
-      loadingExamples: "例文を読み込み中...",
-      noImmersionExamples: "Immersion Kit例文が見つかりません。",
-      noImmersionExamplesCompact: "例文なし",
-      previousExample: "前の例文",
-      nextExample: "次の例文",
-      playExampleAudio: "例文音声を再生",
-      allCategories: "すべて",
-      anime: "アニメ",
-      drama: "ドラマ",
-      games: "ゲーム",
-      shortestFirst: "短い順",
-      longestFirst: "長い順",
-      randomOrder: "ランダム",
-      ocrEnabled: "画像内テキストを読む",
-      ocrAutoScanImages: "画像を自動で読む",
-      ocrShowTextOverlay: "画像の認識範囲を表示",
-      ocrProvider: "画像の読み取り",
-      googleLens: "Google Lens (推奨)",
-      localOcr: "ローカルOCRアプリ",
-      cloudVision: "Google Cloud Vision",
-      off: "オフ",
-      ocrMaxImagesPerPage: "1ページで読む画像数",
-      ocrMinImageArea: "読む最小画像サイズ",
-      ocrMaxImagePixels: "画像精細度",
-      lightWork: "軽め",
-      normal: "標準",
-      more: "多め",
-      largeOnly: "大きい画像のみ",
-      includeSmall: "小さい画像も含める",
-      faster: "高速",
-      balanced: "バランス",
-      sharper: "高精細",
-      ocrTextColor: "画像テキスト色",
-      ocrOutlineColor: "画像テキストの縁取り",
-      ocrBackgroundColor: "画像ハイライト背景",
-      ocrBackgroundOpacity: "画像ハイライト濃度",
-      ocrFontScale: "画像テキスト倍率",
-      ocrEndpointUrl: "ローカルOCRアプリURL",
-      ocrEngine: "ローカルOCRエンジン",
-      cloudVisionApiKey: "Cloud Vision APIキー",
-      ocrHelp: "画像は画面付近で静かに読み取ります。通常画像はGoogle Lensが既定です。認識範囲はタップまたはホバーするまで透明のままです。",
-      subtitlePlayerEnabled: "動画字幕プレイヤーを有効化",
-      subtitleAutoDetect: "ページ字幕を自動検出",
-      subtitleOverlayVisible: "字幕オーバーレイを表示",
-      subtitleSecondaryVisible: "利用可能なら母語字幕も表示",
-      subtitleTranscriptVisible: "文字起こしパネルを最初から開く",
-      subtitleTranscriptPlacement: "文字起こしパネル位置",
-      subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
-      subtitleMiningPause: "字幕から採掘する時に一時停止",
-      subtitleControlsMode: "字幕コントロール",
-      right: "右",
-      left: "左",
-      bottom: "下",
-      showWhenNeeded: "コンパクト表示",
-      hideControls: "隠す",
-      alwaysVisible: "常に表示",
-      subtitleFontSize: "字幕サイズ",
-      subtitleBottomOffset: "字幕の下位置 (%)",
-      subtitleTextColor: "字幕色",
-      subtitleOutlineColor: "字幕の縁取り",
-      subtitleBackgroundColor: "字幕背景",
-      subtitleBackgroundOpacity: "字幕背景の濃度",
-      subtitleFontFamily: "字幕フォント",
-      subtitleFontWeight: "字幕の太さ",
-      subtitleSeekPadding: "字幕移動の余白 (秒)",
-      mpvSubtitleMiningEnabled: "MPV字幕ブリッジを有効化",
-      mpvSubtitleAutoConnect: "MPVへ自動接続",
-      mpvSubtitleHost: "MPVブリッジのホスト",
-      mpvSubtitlePorts: "MPVブリッジのポート",
-      subtitlePreview: "字幕プレビュー",
-      youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
-      youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
-      youtubeHelp: "既定ではオフです。YouTubeのおすすめ、検索、サイドバーを日本語らしい動画に集中させたい時にオンにしてください。",
-      youtubeFilterOn: "YouTubeフィルター: オン",
-      youtubeFilterOff: "YouTubeフィルター: オフ",
-      youtubeShowAnyway: "それでも表示",
-      youtubeFilterAgain: "もう一度隠す",
-      youtubeTurnOff: "オフにする",
-      youtubeToggleToastOn: "YouTube没入フィルターをオンにしました。",
-      youtubeToggleToastOff: "YouTube没入フィルターをオフにしました。",
-      ankiEnabled: "Anki採掘を有効化",
-      ankiMineWithJpdb: "JPDB追加時にAnkiにも追加",
-      ankiCaptureScreenshot: "可能なら文脈画像を添付",
-      ankiConnectUrl: "AnkiConnect URL",
-      ankiDeck: "Ankiデッキ",
-      ankiModel: "Ankiノートタイプ",
-      mobileAnkiHandoff: "AnkiConnectに接続できない時はモバイルAnki連携を使う",
-      ankiTemplateMode: "Ankiカードテンプレート",
-      wordFirst: "単語を先に表示",
-      sentenceFirst: "文を先に表示",
-      ankiTags: "タグ",
-      studyTranslationEnabled: "文の翻訳ツールを表示",
-      studyGrammarEnabled: "文法ヒントツールを表示",
-      testAnki: "Ankiをテスト",
-      ankiTesting: "AnkiConnectをテストしています...",
-      ankiUnreachable: "AnkiConnectに接続できません。Ankiを開き、AnkiConnectアドオンが有効か確認してください。",
-      ankiHelp: "AnkiConnectを使います。よむノートタイプにはJPDBの意味・状態、インポート辞書、漢字カード、ピッチ・頻度、出典リンク、可能なら動画・OCR・Immersion Kitの文脈画像を入れます。",
-      jpdbDefinitionsEnabled: "JPDB定義を表示",
-      localDictionariesEnabled: "インポート辞書の定義を表示",
-      localDictionaryShowKanji: "漢字辞書カードを表示",
-      dictionarySourcesInitiallyExpanded: "ポップアップのソースを初期表示で開く",
-      localDictionaryMaxResults: "辞書結果の上限",
-      importSettings: "設定JSONをインポート",
-      exportSettings: "設定JSONをエクスポート",
-      importDictionaries: "辞書をインポート",
-      exportDictionaries: "辞書をエクスポート",
-      dictionaryImportHelp: "Yomitan設定JSON、Yomitan辞書ZIP、またはエクスポートした辞書バックアップに対応しています。",
-      recommendedDownloads: "おすすめ辞書",
-      homepage: "ホームページ",
-      download: "ダウンロード",
-      update: "更新",
-      noLocalDictionaries: "ローカル辞書はまだありません。辞書の学習カードが必要な時はJMdictを自動でダウンロードします。",
-      checkingDictionaries: "インポート済み辞書を確認中...",
-      dictionaryOnlyJpdb: "現在の定義ソースはJPDBのみです。Yomitan辞書をインポートすると、ローカル辞書や母語辞書の定義を追加できます。",
-      localDictionaryText: "辞書本文",
-      localSenseSingular: "意味",
-      localSensePlural: "意味",
-      localWordSingular: "項目",
-      localWordPlural: "項目",
-      decksLoaded: "デッキはJPDBアカウントから読み込みました。",
-      decksUnavailable: "まだデッキを読み込めません。保存済みのデッキIDは維持されます。",
-      addApiKeyChooseDecks: "JPDB APIキーを追加するとデッキを選べます。",
-      holdWhileHovering: "ホバー中に押すキー",
-      hoverOpenDelayMs: "ホバー表示までの遅延 (ms)",
-      hoverCloseDelayMs: "ホバーを閉じる遅延 (ms)",
-      pressKeys: "キーを押してください",
-      blankPlainHover: "空欄ならキーなしホバー",
-      openSettings: "設定を開く",
-      playAudio: "音声を再生",
-      closePopup: "ポップアップを閉じる",
-      previousSubtitle: "前の字幕",
-      nextSubtitle: "次の字幕",
-      copySubtitle: "字幕をコピー",
-      toggleImageReading: "画像読み取りを切替",
-      toggleYoutubeImmersion: "YouTubeフィルターを切替",
-      readImagesNow: "今すぐ画像を読む",
-      gradeNothing: "NOTHING評価",
-      gradeSomething: "SOMETHING評価",
-      gradeHard: "HARD評価",
-      gradeOkay: "OKAY評価",
-      gradeEasy: "EASY評価",
-      gradeFail: "FAIL評価",
-      gradePass: "PASS評価",
-      supportTitle: "無料の日本語リーダー・採掘ツール",
-      supportCopy: "よむはポップアップ辞書、JPDB採掘、インポート辞書、字幕、画像読み取り、Anki出力を1つの無料ユーザースクリプトにまとめます。Migakuのような学習スイートは月$10からの有料プランを案内していますが、よむは同じ中心的な読解・採掘ワークフローを無料で提供します。",
-      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間を支える助けになります。",
-      documentation: "ドキュメント",
-      donate: "寄付",
-      reportIssue: "不具合報告",
-      github: "GitHub",
-      copyDiscord: "Discordをコピー",
-      openOnJpdb: "JPDBで開く",
-      copyWord: "コピー",
-      copyWordTitle: "単語をコピー",
-      copiedWord: "単語をコピーしました。",
-      backToWord: "単語に戻る",
-      previousKanji: "前の漢字",
-      nextKanji: "次の漢字",
-      openKanjiOnJpdb: "JPDBで漢字を開く",
-      strokePractice: "筆順と手書き練習",
-      practiceDrawing: "手書き練習",
-      strokes: "画",
-      textTrace: "文字なぞり",
-      hideTrace: "なぞりを隠す",
-      showTrace: "なぞりを表示",
-      clear: "消す",
-      originStructure: "漢字情報",
-      originMapLabel: "漢字の成り立ち・構成マップ",
-      originShowOutbound: "外向き",
-      kanjiMapData: "Kanji Mapデータ",
-      kanjiAlive: "Kanji Alive",
-      wiktionary: "Wiktionary",
-      radical: "部首",
-      historicalNotes: "字源メモ",
-      readingsComponents: "読みと構成要素",
-      showKanji: "漢字を表示",
-      jpdbMnemonic: "JPDBニーモニック",
-      rtkComponentKeywords: "RTK構成キーワード",
-      onReading: "音",
-      kunReading: "訓",
-      heisigStory: "Heisigストーリー",
-      heisigComment: "Heisigコメント",
-      koohiiStories: "Koohiiストーリー",
-      add: "追加",
-      forget: "解除",
-      never: "Never",
-      neverHint: "never-forgetデッキへ移動します。既知として扱いたい単語に使います。",
-      unlist: "解除",
-      blacklist: "ブラックリスト",
-      blacklistHint: "この語を除外します。助詞・かな・採掘したくない語に使います。",
-      addToAnki: "Ankiに追加",
-      noDefinitions: "有効な辞書ソースから定義が見つかりませんでした。",
-      fallbackSetupTitle: "辞書セットアップ",
-      fallbackSetupCopy: "JPDBキーやローカル辞書はまだ接続されていません。この簡易カードでも単語のコピー、ブラウザ音声、外部辞書リンク、漢字確認は使えます。",
-      fallbackSetupDictionaries: "辞書を追加",
-      fallbackSetupJpdb: "JPDBキーを追加"
-    }
-  };
-  function resolveUiLanguage(language) {
-    if (language === "ja") return "ja";
-    if (language === "en") return "en";
-    return typeof navigator !== "undefined" && /^ja\b/i.test(navigator.language) ? "ja" : "en";
-  }
-  function uiText(language, key) {
-    return COPY[resolveUiLanguage(language)][key] ?? COPY.en[key];
-  }
-  const log$i = Logger.scope("PopupRender");
+  const log$q = Logger.scope("PopupRender");
   function pickTokenForSelection(tokens = [], selected) {
     const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
     if (exact) {
-      log$i.debug("Picked exact token for selection", { selected, vid: exact.card.vid, sid: exact.card.sid });
+      log$q.debug("Picked exact token for selection", { selected, vid: exact.card.vid, sid: exact.card.sid });
       return exact;
     }
     const fuzzy = tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
-    log$i.debug("Picked fuzzy token for selection", { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
+    log$q.debug("Picked fuzzy token for selection", { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
     return fuzzy;
   }
   function formatMetaFrequency(value) {
@@ -9835,7 +9283,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       group.push(entry);
       grouped.set(entry.dictionary, group);
     }
-    log$i.debug("Grouped term entries by dictionary", { entries: entries.length, dictionaries: grouped.size });
+    log$q.debug("Grouped term entries by dictionary", { entries: entries.length, dictionaries: grouped.size });
     return grouped;
   }
   function groupTermEntriesByHeadword(entries) {
@@ -9863,7 +9311,7 @@ ${reading}`;
       }
       grouped.set(key, group);
     }
-    log$i.debug("Grouped term entries by headword", { entries: entries.length, headwords: grouped.size });
+    log$q.debug("Grouped term entries by headword", { entries: entries.length, headwords: grouped.size });
     return [...grouped.values()];
   }
   function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
@@ -9875,7 +9323,7 @@ ${reading}`;
       keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
       meaning: localByKanji.get(kanji) || ""
     }));
-    log$i.debug("Built RTK component summaries", { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
+    log$q.debug("Built RTK component summaries", { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
     return summaries;
   }
   function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
@@ -9912,7 +9360,7 @@ ${entry.reading}`;
     const result = Array.from(words.values()).sort(
       (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
     );
-    log$i.debug("Merged similar kanji words", { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
+    log$q.debug("Merged similar kanji words", { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
     return result;
   }
   function summarizeLearnerGlossary(entry) {
@@ -10002,7 +9450,7 @@ ${entry.reading}`;
   }
   function renderKanjiOrigins(facts, graph, sourceInfo, settings, language, initiallyExpanded = settings.dictionarySourcesInitiallyExpanded, sourceStateKey) {
     if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) {
-      log$i.debug("Kanji origins render skipped", { reason: "no-origin-data" });
+      log$q.debug("Kanji origins render skipped", { reason: "no-origin-data" });
       return "";
     }
     const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
@@ -10036,7 +9484,7 @@ ${entry.reading}`;
     const nodeIds = new Set(nodeById.keys());
     const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))) ?? [];
     if (nodes.length <= 1 || !edges.length) {
-      log$i.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
+      log$q.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
       return "";
     }
     const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
@@ -10048,7 +9496,7 @@ ${entry.reading}`;
     const outboundEdges = selectOriginOutboundEdgeGroups(groupedEdges, nodeById, current.id);
     const selectedEdges = [...primaryEdges, ...outboundEdges];
     if (!selectedEdges.length) {
-      log$i.debug("Kanji origin graph render skipped", { reason: "no-selected-edges", nodes: nodes.length, edges: edges.length });
+      log$q.debug("Kanji origin graph render skipped", { reason: "no-selected-edges", nodes: nodes.length, edges: edges.length });
       return "";
     }
     const connectedIds = /* @__PURE__ */ new Set([current.id]);
@@ -10061,7 +9509,7 @@ ${entry.reading}`;
     const visibleIds = new Set(visibleNodes.map((node) => node.id));
     const edgeGroups = selectedEdges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
     if (visibleNodes.length <= 1 || !edgeGroups.length) {
-      log$i.debug("Kanji origin graph render skipped", { reason: "no-visible-graph", visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
+      log$q.debug("Kanji origin graph render skipped", { reason: "no-visible-graph", visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
       return "";
     }
     const primaryIds = /* @__PURE__ */ new Set([current.id]);
@@ -10101,7 +9549,7 @@ ${entry.reading}`;
       }
       return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" ${attrs} title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
     }).join("");
-    log$i.debug("Kanji origin graph rendered", { nodes: positioned.length, edges: edgeGroups.length });
+    log$q.debug("Kanji origin graph rendered", { nodes: positioned.length, edges: edgeGroups.length });
     return `
         <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, "originMapLabel")}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -10550,6 +9998,1269 @@ ${entry.reading}`;
     if (rises > 1 || drops > 1) return "kifuku";
     return "odaka";
   }
+  function renderJpdbDefinitionSource(card, sourceAttributes) {
+    const meanings = card.meanings.slice(0, 6).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning.glosses.join("; "))}</div>`).join("");
+    if (!meanings) return "";
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
+            <summary class="jpdb-reader-local-title">JPDB</summary>
+            <div class="jpdb-reader-meanings">${meanings}</div>
+        </details>
+    `;
+  }
+  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
+    const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
+    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, reference)).filter(Boolean);
+    if (!dictionarySections.length) return "";
+    const sourceCount = groupsByDictionary.length;
+    const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
+    const status = [`${sourceCount} source${sourceCount === 1 ? "" : "s"}`, `${termCount} entr${termCount === 1 ? "y" : "ies"}`].join(" · ");
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${sourceAttributes(definitionSourceStateKey("__local_dictionaries__"))}>
+            <summary class="jpdb-reader-local-title">
+                <span>${uiText(settings.interfaceLanguage, "dictionaries")}</span>
+                <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
+            </summary>
+            <div class="jpdb-reader-dictionary-source-list">
+                ${dictionarySections.join("")}
+            </div>
+        </details>
+    `;
+  }
+  function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel2) {
+    if (!entries.length) return "";
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(KANJI_DICTIONARIES_SOURCE_ID))}>
+            <summary class="jpdb-reader-local-title">Kanji dictionaries</summary>
+            ${entries.map((entry) => `
+                <div class="jpdb-reader-local-entry">
+                    <div class="jpdb-reader-local-head">
+                        <span class="jpdb-reader-kanji-char">${escapeHtml$1(entry.character)}</span>
+                        <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel2(entry.dictionary))}</span>
+                    </div>
+                    <div class="jpdb-reader-kanji-readings">
+                        ${entry.onyomi.length ? `<span>On ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
+                        ${entry.kunyomi.length ? `<span>Kun ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
+                    </div>
+                    <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(entry.dictionary)}">
+                        ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$1(meaning)}</div>`).join("")}
+                    </div>
+                </div>
+            `).join("")}
+        </details>
+    `;
+  }
+  function renderSimilarKanjiWordsShell(kanji, language, sourceStateKey, sourceOpen, sourceAttributes) {
+    const help = uiText(language, sourceOpen ? "loadingSimilarWords" : "openToLoadSimilarWords");
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words ${sourceAttributes(sourceStateKey)}>
+            <summary class="jpdb-reader-local-title">Words using ${escapeHtml$1(kanji)}</summary>
+            <div data-kanji-similar-mount>
+                <div class="jpdb-reader-help">${help}</div>
+            </div>
+        </details>
+    `;
+  }
+  function renderSimilarKanjiWordsContent(entries, jpdbVocabulary, currentCard, settings, dictionaryLabel2) {
+    const words = mergeSimilarKanjiWords(entries, jpdbVocabulary, currentCard, dictionaryLabel2).slice(0, settings.similarKanjiWordLimit);
+    if (!words.length) return "";
+    return `
+        <div class="jpdb-reader-similar-grid">
+            ${words.map((entry) => `
+                <button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(entry.expression)}" title="${escapeHtml$1(entry.source)}${entry.meaning ? `: ${escapeHtml$1(entry.meaning)}` : ""}">
+                    <span class="jpdb-reader-similar-word-head">
+                        <span>${escapeHtml$1(entry.expression)}</span>
+                        ${entry.frequency ? `<em>#${entry.frequency}</em>` : ""}
+                    </span>
+                    ${entry.reading && entry.reading !== entry.expression ? `<small class="jpdb-reader-similar-reading">${escapeHtml$1(entry.reading)}</small>` : ""}
+                    ${entry.meaning ? `<small class="jpdb-reader-similar-meaning">${escapeHtml$1(entry.meaning)}</small>` : ""}
+                </button>
+            `).join("")}
+        </div>
+    `;
+  }
+  function renderFrequencyPills(metaEntries, settings, dictionaryLabel2) {
+    return bestFrequencyEntries(metaEntries).filter((entry) => entry.mode === "freq").sort((a, b) => {
+      const priority = dictionaryPreferencePriority$1(settings, a.dictionary) - dictionaryPreferencePriority$1(settings, b.dictionary);
+      if (priority) return priority;
+      return dictionaryLabel2(a.dictionary).localeCompare(dictionaryLabel2(b.dictionary), "ja");
+    }).map((entry) => renderFrequencyPill(entry, dictionaryLabel2)).filter(Boolean).slice(0, 8);
+  }
+  function definitionSourceStateKey(sourceId) {
+    return `definition-source:${sourceId}`;
+  }
+  function localDictionaryStateKey(dictionary) {
+    return `definition-dictionary:${dictionary}`;
+  }
+  function kanjiSourceStateKey(sourceId) {
+    return `kanji:${sourceId}`;
+  }
+  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, reference) {
+    const entryCount = groups.length;
+    return `
+        <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}">
+                <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
+                <span class="jpdb-reader-source-status">${entryCount} entr${entryCount === 1 ? "y" : "ies"}</span>
+            </summary>
+            <div class="jpdb-reader-local-terms">
+                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, reference, { showDictionaryTag: false })).join("")}
+            </div>
+        </details>
+    `;
+  }
+  function renderLocalTermGroup(dictionary, group, dictionaryLabel2, reference, options = {}) {
+    const repeatsLookupHeadword = Boolean(reference) && group.expression === (reference == null ? void 0 : reference.spelling) && (!reference.reading || group.reading === reference.reading || group.reading === group.expression);
+    const tags = localTermTags(group.entries);
+    const showDictionaryTag = options.showDictionaryTag ?? true;
+    const tagItems = [
+      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel2(dictionary))}</span>` : "",
+      ...tags.map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
+    ].filter(Boolean);
+    const tagHtml = tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
+    const showFullGlossary = group.entries.some(hasAdditionalLocalDictionaryText);
+    const meaningHtml = showFullGlossary ? renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false }) : group.meanings.length ? `<div class="jpdb-reader-local-senses">
+            ${group.meanings.slice(0, 8).map((meaning, index) => `
+                <div class="jpdb-reader-local-sense">
+                    ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
+                    <span>${escapeHtml$1(meaning)}</span>
+                </div>
+            `).join("")}
+        </div>` : renderLocalGlossaryEntries(dictionary, group.entries);
+    const frequency = group.frequency !== void 0 ? `<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.frequency))}</span>` : "";
+    return `
+        <article class="jpdb-reader-local-entry jpdb-reader-local-term">
+            ${repeatsLookupHeadword ? "" : `<div class="jpdb-reader-local-head">
+                <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
+                ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : ""}
+                ${frequency}
+            </div>`}
+            ${tagHtml}
+            ${meaningHtml}
+        </article>
+    `;
+  }
+  function renderLocalGlossaryEntries(dictionary, entries, options = {}) {
+    const showIndex = options.showIndex ?? entries.length > 1;
+    const entryHtml = entries.map((entry, index) => {
+      const content = entry.glossary.slice(0, 4).map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
+      if (!content) return "";
+      return `
+            <div class="jpdb-reader-local-glossary-entry ${showIndex ? "" : "no-index"}">
+                ${showIndex ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
+                <div>${content}</div>
+            </div>
+        `;
+    }).filter(Boolean).join("");
+    if (!entryHtml) return "";
+    return `
+        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(dictionary)}">
+            ${entryHtml}
+        </div>
+    `;
+  }
+  function hasAdditionalLocalDictionaryText(entry) {
+    const summary = summarizeLearnerGlossary(entry);
+    return entry.glossary.some((item) => {
+      if (hasRichStructuredGlossary(item)) return true;
+      const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
+      if (!text2 || text2 === summary) return false;
+      return HAS_JAPANESE.test(text2);
+    });
+  }
+  function renderFrequencyPill(entry, dictionaryLabel2) {
+    const label = dictionaryLabel2(entry.dictionary);
+    const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
+    return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(label)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
+  }
+  const JAPANESE_QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const JAPANESE_SCRIPT_GROUP_RE$1 = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
+  const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
+  function normalizeImmersionSearchQuery(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function queryKey(value) {
+    return normalizeImmersionSearchQuery(value).replace(/\s+/g, "").toLowerCase();
+  }
+  function queryLength(value) {
+    return Array.from(queryKey(value)).length;
+  }
+  function queryHasKanji(value) {
+    return /[\u3400-\u9fff々〆]/u.test(value);
+  }
+  function isUsefulImmersionFallbackQuery(query, exactQuery) {
+    if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE.test(query)) return false;
+    if (COMMON_PARTICLES.has(queryKey(query))) return false;
+    return queryLength(query) >= 2;
+  }
+  function uniqueImmersionQueries(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const query = normalizeImmersionSearchQuery(value);
+      const key = queryKey(query);
+      if (!query || seen.has(key)) continue;
+      seen.add(key);
+      result.push(query);
+    }
+    return result;
+  }
+  function immersionFallbackFragments(value) {
+    const fragments = [];
+    const runs = normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE) ?? [];
+    for (const run of runs) {
+      const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE$1) ?? [];
+      fragments.push(...scriptGroups);
+      if (scriptGroups.length > 1) {
+        fragments.push(...scriptGroups.filter(queryHasKanji));
+      }
+    }
+    return uniqueImmersionQueries(fragments).sort((a, b) => Number(queryHasKanji(b)) - Number(queryHasKanji(a)) || queryLength(b) - queryLength(a));
+  }
+  const API_BASE$1 = "https://apiv2.immersionkit.com";
+  const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
+  const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
+  const NAVIGATION_EXAMPLE_LIMIT = 24;
+  const MIN_LEARNING_SENTENCE_LENGTH = 8;
+  const DEFAULT_EXAMPLE_SORT = "random";
+  const log$p = Logger.scope("ImmersionKit");
+  const IMMERSION_KIT_TITLES = {
+    your_lie_in_april: "Your Lie in April",
+    princess_mononoke: "Princess Mononoke",
+    girls_band_cry: "Girls Band Cry",
+    only_yesterday: "Only Yesterday",
+    chobits: "Chobits",
+    k_on_: "K-On!",
+    weathering_with_you: "Weathering with You",
+    from_the_new_world: "From the New World",
+    grave_of_the_fireflies: "Grave of the Fireflies",
+    steins_gate: "Steins Gate",
+    sword_art_online: "Sword Art Online",
+    nisekoi: "Nisekoi",
+    death_note: "Death Note",
+    wolf_children: "Wolf Children",
+    demon_slayer___kimetsu_no_yaiba: "Demon Slayer - Kimetsu no Yaiba",
+    your_name: "Your Name",
+    alya_sometimes_hides_her_feelings_in_russian: "Alya Sometimes Hides Her Feelings in Russian",
+    cardcaptor_sakura: "Cardcaptor Sakura",
+    kill_la_kill: "Kill la Kill",
+    howl_s_moving_castle: "Howl's Moving Castle",
+    whisper_of_the_heart: "Whisper of the Heart",
+    bunny_drop: "Bunny Drop",
+    fermat_kitchen: "Fermat Kitchen",
+    haruhi_suzumiya: "Haruhi Suzumiya",
+    hunter_x_hunter: "Hunter × Hunter",
+    god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
+    assassination_classroom_season_1: "Assassination Classroom Season 1",
+    durarara__: "Durarara!!",
+    bakemonogatari: "Bakemonogatari",
+    hyouka: "Hyouka",
+    relife: "ReLIFE",
+    from_up_on_poppy_hill: "From Up on Poppy Hill",
+    sound__euphonium: "Sound! Euphonium",
+    lucky_star: "Lucky Star",
+    kokoro_connect: "Kokoro Connect",
+    my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
+    is_the_order_a_rabbit: "Is The Order a Rabbit",
+    clannad: "Clannad",
+    angel_beats_: "Angel Beats!",
+    daily_lives_of_high_school_boys: "Daily Lives of High School Boys",
+    new_game_: "New Game!",
+    the_wind_rises: "The Wind Rises",
+    fate_zero: "Fate Zero",
+    toradora_: "Toradora!",
+    anohana_the_flower_we_saw_that_day: "Anohana the flower we saw that day",
+    wandering_witch_the_journey_of_elaina: "Wandering Witch The Journey of Elaina",
+    kino_s_journey: "Kino's Journey",
+    boku_no_hero_academia_season_1: "Boku no Hero Academia Season 1",
+    fullmetal_alchemist_brotherhood: "Fullmetal Alchemist Brotherhood",
+    one_week_friends: "One Week Friends",
+    erased: "Erased",
+    mononoke: "Mononoke",
+    little_witch_academia: "Little Witch Academia",
+    re_zero___starting_life_in_another_world: "Re Zero − Starting Life in Another World",
+    fruits_basket_season_1: "Fruits Basket Season 1",
+    mahou_shoujo_madoka_magica: "Mahou Shoujo Madoka Magica",
+    the_irregular_at_magic_high_school: "The Irregular at Magic High School",
+    clannad_after_story: "Clannad After Story",
+    frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
+    kakegurui: "Kakegurui",
+    the_garden_of_words: "The Garden of Words",
+    when_marnie_was_there: "When Marnie Was There",
+    castle_in_the_sky: "Castle in the sky",
+    shirokuma_cafe: "Shirokuma Cafe",
+    my_neighbor_totoro: "My Neighbor Totoro",
+    kiki_s_delivery_service: "Kiki's Delivery Service",
+    the_girl_who_leapt_through_time: "The Girl Who Leapt Through Time",
+    fate_stay_night_unlimited_blade_works: "Fate Stay Night Unlimited Blade Works",
+    code_geass_season_1: "Code Geass Season 1",
+    the_world_god_only_knows: "The World God Only Knows",
+    the_pet_girl_of_sakurasou: "The Pet Girl of Sakurasou",
+    no_game_no_life: "No Game No Life",
+    kanon__2006_: "Kanon (2006)",
+    psycho_pass: "Psycho Pass",
+    the_cat_returns: "The Cat Returns",
+    the_secret_world_of_arrietty: "The Secret World of Arrietty",
+    spirited_away: "Spirited Away",
+    noragami: "Noragami",
+    fairy_tail: "Fairy Tail",
+    i_m_taking_the_day_off: "I'm Taking the Day Off",
+    border: "Border",
+    weakest_beast: "Weakest Beast",
+    mob_psycho_100: "Mob Psycho 100",
+    the_journalist: "The Journalist",
+    sailor_suit_and_machine_gun__2006_: "Sailor Suit and Machine Gun (2006)",
+    smoking: "Smoking",
+    i_am_mita__your_housekeeper: "I am Mita, Your Housekeeper",
+    good_morning_call: "Good Morning Call",
+    overprotected_kahoko: "Overprotected Kahoko",
+    quartet: "Quartet",
+    million_yen_woman: "Million Yen Woman",
+    legal_high_season_1: "Legal High Season 1",
+    witcher_3: "Witcher 3",
+    cyberpunk_2077: "Cyberpunk 2077",
+    skyrim: "Skyrim"
+  };
+  class ImmersionKitClient {
+    constructor() {
+      __publicField(this, "cache", /* @__PURE__ */ new Map());
+      __publicField(this, "inflight", /* @__PURE__ */ new Map());
+      __publicField(this, "preloadKeys", /* @__PURE__ */ new Set());
+      __publicField(this, "mediaBlobUrlCache", new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS, "immersion-kit-media"));
+    }
+    async search(term, settings) {
+      const query = term.trim();
+      if (!query || !settings.immersionKitEnabled) return [];
+      const cacheKey = JSON.stringify({
+        query,
+        limit: Math.max(settings.immersionKitLimit, NAVIGATION_EXAMPLE_LIMIT),
+        min: this.minimumSentenceLength(settings),
+        max: settings.immersionKitMaxLength,
+        category: settings.immersionKitCategory,
+        sort: this.effectiveSort(settings),
+        exact: settings.immersionKitExactMatch
+      });
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        log$p.debug("Search cache hit", { query, examples: cached.length });
+        return cached;
+      }
+      const inflight = this.inflight.get(cacheKey);
+      if (inflight) {
+        log$p.debug("Search joined in-flight request", { query });
+        return inflight;
+      }
+      const resultLimit = Math.max(settings.immersionKitLimit, NAVIGATION_EXAMPLE_LIMIT);
+      const params = new URLSearchParams({
+        q: query,
+        limit: String(resultLimit * 4),
+        sort: this.apiSort(settings)
+      });
+      if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
+      if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
+      const done = log$p.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const promise = requestJson$2(`${API_BASE$1}/search?${params}`, settings.audioTimeoutMs).then((data) => {
+        const examples = collectExamples(data).map(normalizeExample).filter((example) => Boolean(example)).filter((example) => sentenceLength(example.sentence) >= this.minimumSentenceLength(settings)).filter((example) => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength);
+        const ordered = this.effectiveSort(settings) === "random" ? shuffle(examples) : examples;
+        const result = ordered.slice(0, resultLimit);
+        this.cache.set(cacheKey, result);
+        log$p.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
+        return result;
+      }).finally(() => {
+        this.inflight.delete(cacheKey);
+        done();
+      });
+      this.inflight.set(cacheKey, promise);
+      return promise;
+    }
+    effectiveSort(settings) {
+      return settings.immersionKitSort === "sentence_length:asc" ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
+    }
+    apiSort(settings) {
+      const sort = this.effectiveSort(settings);
+      return sort === "random" ? "sentence_length:asc" : sort;
+    }
+    minimumSentenceLength(settings) {
+      return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
+    }
+    mediaUrl(example, kind) {
+      return this.mediaUrls(example, kind)[0] ?? "";
+    }
+    mediaUrls(example, kind) {
+      const direct = kind === "image" ? example.imageUrl : example.soundUrl;
+      if (direct) return [direct];
+      const file = kind === "image" ? example.imageFile : example.soundFile;
+      if (!file) return [];
+      const category = example.category || categoryFromId(example.id);
+      const titles = mediaTitleCandidates(example, file);
+      return uniqueStrings(titles.flatMap((title) => {
+        const path = `media/${category}/${title}/media/${file}`;
+        return [
+          `${API_BASE$1}/download_media?${new URLSearchParams({ path })}`,
+          `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`
+        ];
+      }));
+    }
+    preload(term, settings) {
+      const query = term.trim();
+      if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
+      this.preloadKeys.add(query);
+      log$p.debug("Preload queued", { query });
+      void this.search(query, settings).then((examples) => {
+        log$p.debug("Preload search completed", { query, examples: examples.length });
+        for (const example of examples.slice(0, 2)) {
+          const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
+          if (imageUrls.length) {
+            void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs).then((url) => {
+              const image = new Image();
+              image.decoding = "async";
+              image.loading = "eager";
+              image.src = url;
+            }).catch((error) => log$p.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+          }
+          const soundUrls = this.mediaUrls(example, "sound");
+          if (soundUrls.length) {
+            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$p.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+          }
+        }
+      }).catch((error) => log$p.debug("Preload search failed quietly", { query }, error));
+    }
+    async fetchBlobUrl(url, timeoutMs) {
+      const urls = Array.isArray(url) ? url : [url];
+      const key = urls.join("");
+      return this.mediaBlobUrlCache.getOrCreate(key, async () => {
+        const blob = await requestFirstBlob(url, timeoutMs);
+        const blobUrl = URL.createObjectURL(blob);
+        log$p.debug("Blob URL created", { host: safeHost$4(url), size: blob.size, type: blob.type });
+        return blobUrl;
+      });
+    }
+    async fetchDataUrl(url, timeoutMs) {
+      const blob = await requestFirstBlob(url, timeoutMs);
+      log$p.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
+      return blobToDataUrl$1(blob);
+    }
+  }
+  function collectExamples(value) {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== "object") return [];
+    const record = value;
+    if (Array.isArray(record.examples)) return record.examples;
+    if (Array.isArray(record.results)) return record.results;
+    if (Array.isArray(record.data)) return record.data;
+    return [];
+  }
+  function normalizeExample(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const id = text(record.id);
+    const sentence = text(record.sentence || record.text);
+    if (!sentence) return null;
+    const titleSlug = text(record.title || record.deck || record.source) || titleSlugFromId(id);
+    const sourceTitle = text(record.sourceTitle || record.display_title || record.displayTitle) || titleFromSlug(titleSlug);
+    const category = text(record.category) || categoryFromId(id);
+    const soundFile = text(record.sound || record.audio || record.audio_file || record.audioFile);
+    const imageFile = text(record.image || record.image_file || record.imageFile);
+    return {
+      id,
+      sentence,
+      sentenceWithFurigana: text(record.sentence_with_furigana || record.sentenceWithFurigana),
+      translation: text(record.translation || record.translation_en || record.english),
+      sourceTitle,
+      titleSlug,
+      category,
+      soundFile,
+      imageFile,
+      soundUrl: absoluteMediaUrl(text(record.sound_url || record.audio_url || record.soundUrl || record.audioUrl)),
+      imageUrl: absoluteMediaUrl(text(record.image_url || record.imageUrl))
+    };
+  }
+  function text(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function titleSlugFromId(id) {
+    const parts = id.split("_");
+    if (parts.length < 3) return "";
+    return parts.slice(1, -1).join("_");
+  }
+  function categoryFromId(id) {
+    const [category] = id.split("_");
+    return category || "anime";
+  }
+  function titleFromSlug(slug) {
+    if (!slug) return "Unknown";
+    const override = IMMERSION_KIT_TITLES[slug];
+    if (override) return override;
+    return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
+  }
+  function mediaTitleCandidates(example, file) {
+    const slug = example.titleSlug || titleSlugFromId(example.id);
+    return uniqueStrings([
+      titleFromSlug(slug),
+      example.sourceTitle,
+      titleFromMediaFile(file),
+      slug
+    ].filter(Boolean));
+  }
+  function titleFromMediaFile(file) {
+    const stem = file.replace(/\.[^.]+$/u, "");
+    const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
+    const title = ((episodeMatch == null ? void 0 : episodeMatch[1]) || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
+    if (!title) return "";
+    return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
+  }
+  function uniqueStrings(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values.map((item) => item.trim()).filter(Boolean)) {
+      if (seen.has(value)) continue;
+      seen.add(value);
+      result.push(value);
+    }
+    return result;
+  }
+  function absoluteMediaUrl(value) {
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+    if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
+    return "";
+  }
+  function sentenceLength(sentence) {
+    return Array.from(sentence.replace(/\s+/g, "")).length;
+  }
+  function shuffle(items) {
+    const shuffled = [...items];
+    for (let index = shuffled.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    return shuffled;
+  }
+  function requestJson$2(url, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const userscriptRequest = getUserscriptHttpRequest();
+      if (userscriptRequest) {
+        log$p.debug("JSON request via userscript API", { host: safeHost$4(url) });
+        const handleLoad = (response) => {
+          if (response.status < 200 || response.status >= 300) {
+            reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(String(response.responseText ?? response.response ?? "null")));
+          } catch {
+            reject(new Error("Immersion Kit returned invalid JSON."));
+          }
+        };
+        const result = userscriptRequest({
+          method: "GET",
+          url,
+          responseType: "text",
+          timeout: timeoutMs,
+          onload: handleLoad,
+          onerror: () => reject(new Error("Immersion Kit request failed.")),
+          ontimeout: () => reject(new Error("Immersion Kit request timed out."))
+        });
+        if (result && typeof result.then === "function") {
+          result.then(handleLoad, () => reject(new Error("Immersion Kit request failed.")));
+        }
+        return;
+      }
+      log$p.debug("JSON request via fetch", { host: safeHost$4(url) });
+      fetch(url, { credentials: "omit" }).then((response) => {
+        if (!response.ok) throw new Error(`Immersion Kit returned HTTP ${response.status}.`);
+        return response.json();
+      }).then(resolve, reject);
+    });
+  }
+  function requestBlob$2(url, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const userscriptRequest = getUserscriptHttpRequest();
+      if (userscriptRequest) {
+        log$p.debug("Media request via userscript API", { host: safeHost$4(url) });
+        const handleLoad = (response) => {
+          if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
+            reject(new Error(`Media returned HTTP ${response.status}.`));
+            return;
+          }
+          if (isErrorDocumentBlob(response.response)) {
+            reject(new Error("Media request returned an error document instead of audio or image."));
+            return;
+          }
+          resolve(response.response);
+        };
+        const result = userscriptRequest({
+          method: "GET",
+          url,
+          responseType: "blob",
+          timeout: timeoutMs,
+          onload: handleLoad,
+          onerror: () => reject(new Error("Media request failed.")),
+          ontimeout: () => reject(new Error("Media request timed out."))
+        });
+        if (result && typeof result.then === "function") {
+          result.then(handleLoad, () => reject(new Error("Media request failed.")));
+        }
+        return;
+      }
+      log$p.debug("Media request via fetch", { host: safeHost$4(url) });
+      fetch(url, { credentials: "omit" }).then((response) => {
+        if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
+        return response.blob();
+      }).then((blob) => {
+        if (isErrorDocumentBlob(blob)) throw new Error("Media request returned an error document instead of audio or image.");
+        return blob;
+      }).then(resolve, reject);
+    });
+  }
+  async function requestFirstBlob(urls, timeoutMs) {
+    const candidates = Array.isArray(urls) ? urls : [urls];
+    let lastError;
+    for (const url of candidates) {
+      try {
+        return await requestBlob$2(url, timeoutMs);
+      } catch (error) {
+        lastError = error;
+        log$p.debug("Media candidate failed; trying next", { host: safeHost$4(url) }, error);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("No Immersion Kit media candidate could be loaded.");
+  }
+  function isErrorDocumentBlob(blob) {
+    const type = blob.type.toLowerCase();
+    if (type.startsWith("image/") || type.startsWith("audio/") || type.startsWith("video/")) return false;
+    return type.includes("xml") || type.includes("html") || type.includes("json") || type.startsWith("text/");
+  }
+  function blobToDataUrl$1(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read media."));
+      reader.readAsDataURL(blob);
+    });
+  }
+  function safeHost$4(value) {
+    try {
+      const url = Array.isArray(value) ? value[0] : value;
+      return new URL(url, location.href).host;
+    } catch {
+      return "invalid-url";
+    }
+  }
+  class FloatingButtonController {
+    constructor() {
+      __publicField(this, "button");
+    }
+    install(settings, saveSettings2, openSettings) {
+      this.destroy();
+      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => element2.remove());
+      if (!settings.showFloatingButton) return;
+      const button2 = document.createElement("button");
+      button2.className = "jpdb-reader-fab";
+      button2.type = "button";
+      button2.textContent = APP_PUCK;
+      button2.title = APP_NAME;
+      button2.dataset.jpdbReaderRoot = "true";
+      restoreButtonPosition(button2, settings);
+      this.installDragHandlers(button2, settings, saveSettings2);
+      button2.addEventListener("click", (event) => {
+        if (button2.dataset.jpdbReaderMoved === "true") {
+          event.preventDefault();
+          event.stopPropagation();
+          button2.dataset.jpdbReaderMoved = "false";
+          return;
+        }
+        openSettings();
+      });
+      document.body.appendChild(button2);
+      this.button = button2;
+    }
+    destroy() {
+      var _a;
+      (_a = this.button) == null ? void 0 : _a.remove();
+      this.button = void 0;
+    }
+    installDragHandlers(button2, settings, saveSettings2) {
+      let dragging = false;
+      let moved = false;
+      let startX = 0;
+      let startY = 0;
+      let originX = 0;
+      let originY = 0;
+      button2.addEventListener("pointerdown", (event) => {
+        var _a;
+        if (event.button !== 0) return;
+        dragging = true;
+        moved = false;
+        button2.dataset.jpdbReaderMoved = "false";
+        startX = event.clientX;
+        startY = event.clientY;
+        const rect = button2.getBoundingClientRect();
+        originX = rect.left;
+        originY = rect.top;
+        (_a = button2.setPointerCapture) == null ? void 0 : _a.call(button2, event.pointerId);
+      });
+      button2.addEventListener("pointermove", (event) => {
+        if (!dragging) return;
+        const dx = event.clientX - startX;
+        const dy = event.clientY - startY;
+        if (Math.hypot(dx, dy) > 4) moved = true;
+        if (!moved) return;
+        event.preventDefault();
+        button2.dataset.jpdbReaderMoved = "true";
+        const position = clampPuck(button2, originX + dx, originY + dy);
+        button2.style.left = `${position.x}px`;
+        button2.style.top = `${position.y}px`;
+        button2.style.right = "auto";
+        button2.style.bottom = "auto";
+      }, { passive: false });
+      button2.addEventListener("pointerup", (event) => {
+        var _a;
+        if (!dragging) return;
+        dragging = false;
+        (_a = button2.releasePointerCapture) == null ? void 0 : _a.call(button2, event.pointerId);
+        if (!moved) return;
+        const rect = button2.getBoundingClientRect();
+        const position = clampPuck(button2, rect.left, rect.top);
+        settings.puckPositionX = Math.round(position.x);
+        settings.puckPositionY = Math.round(position.y);
+        saveSettings2();
+      });
+    }
+  }
+  function restoreButtonPosition(button2, settings) {
+    if (settings.puckPositionX === void 0 || settings.puckPositionY === void 0) return;
+    button2.style.left = `${settings.puckPositionX}px`;
+    button2.style.top = `${settings.puckPositionY}px`;
+    button2.style.right = "auto";
+    button2.style.bottom = "auto";
+  }
+  function clampPuck(button2, x, y) {
+    const rect = button2.getBoundingClientRect();
+    const margin = 8;
+    return {
+      x: Math.max(margin, Math.min(window.innerWidth - rect.width - margin, x)),
+      y: Math.max(margin, Math.min(window.innerHeight - rect.height - margin, y))
+    };
+  }
+  const API_BASE = "https://jpdb.io/api/v1";
+  const RATE_LIMIT_BACKOFF_MS = 3e4;
+  const REQUEST_TIMEOUT_MS$1 = 3e4;
+  const log$o = Logger.scope("JpdbApi");
+  class JpdbApiClient {
+    constructor(getApiKey) {
+      __publicField(this, "retryAfter", 0);
+      this.getApiKey = getApiKey;
+    }
+    request(endpoint, body) {
+      return this.requestByUrl(`${API_BASE}/${endpoint}`, body);
+    }
+    async requestByUrl(url, body) {
+      const token = this.getApiKey();
+      const endpoint = endpointLabel(url);
+      if (!token) {
+        log$o.warn("Request blocked; JPDB API key is missing", { endpoint });
+        throw new Error("JPDB API key is not set.");
+      }
+      if (Date.now() < this.retryAfter) {
+        log$o.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        throw new Error("JPDB is rate limited. Try again in a moment.");
+      }
+      const done = log$o.time("request", { endpoint, hasBody: Boolean(body) });
+      const response = await postJson(url, token, body);
+      done();
+      log$o.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
+      if (response.status === 429) {
+        this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
+        log$o.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        throw new Error("JPDB rate limit reached.");
+      }
+      if (response.status === 403) {
+        log$o.warn("JPDB rejected API key", { endpoint });
+        throw new Error("JPDB rejected the API key.");
+      }
+      if (!response.ok) {
+        log$o.warn("JPDB request failed", { endpoint, status: response.status });
+        throw new Error(`JPDB request failed (${response.status}).`);
+      }
+      if (!response.text) return void 0;
+      const json = JSON.parse(response.text);
+      if (json && typeof json === "object" && "error_message" in json && json.error_message) {
+        log$o.warn("JPDB returned application error", { endpoint, message: json.error_message });
+        throw new Error(json.error_message);
+      }
+      return json;
+    }
+  }
+  function postJson(url, token, body) {
+    const data = body ? JSON.stringify(body) : void 0;
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    };
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) return postJsonWithUserscriptRequest(userscriptRequest, url, headers, data);
+    return fetch(url, {
+      method: "POST",
+      headers,
+      body: data
+    }).then(async (response) => ({
+      status: response.status,
+      ok: response.ok,
+      text: await response.text()
+    }));
+  }
+  function postJsonWithUserscriptRequest(request, url, headers, data) {
+    return new Promise((resolve, reject) => {
+      const handleLoad = (response) => resolve({
+        status: response.status,
+        ok: response.status >= 200 && response.status < 300,
+        text: String(response.responseText ?? response.response ?? "")
+      });
+      const result = request({
+        method: "POST",
+        url,
+        headers,
+        data,
+        responseType: "text",
+        timeout: REQUEST_TIMEOUT_MS$1,
+        onload: handleLoad,
+        onerror: reject,
+        ontimeout: () => reject(new Error("JPDB request timed out."))
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, reject);
+      }
+    });
+  }
+  function endpointLabel(url) {
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname === "jpdb.io" ? parsed.pathname.replace(/^\/api\/v1\//, "") : parsed.hostname + parsed.pathname;
+    } catch {
+      return url;
+    }
+  }
+  const COMBINING_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
+  const log$n = Logger.scope("JpdbParser");
+  function jpdbVocabularyToCards(vocabulary2) {
+    const cards = vocabulary2.map(([
+      vid,
+      sid,
+      rid,
+      spelling,
+      reading,
+      frequencyRank2,
+      partOfSpeech,
+      meaningsChunks,
+      meaningsPartOfSpeech,
+      cardState,
+      pitchAccent
+    ]) => ({
+      vid,
+      sid,
+      rid,
+      spelling,
+      reading,
+      frequencyRank: frequencyRank2,
+      partOfSpeech,
+      meanings: meaningsChunks.map((glosses, index) => ({
+        glosses,
+        partOfSpeech: meaningsPartOfSpeech[index] ?? []
+      })),
+      cardState: normalizeCardStates(cardState),
+      pitchAccent: pitchAccent ?? [],
+      wordWithReading: null,
+      source: "jpdb"
+    }));
+    log$n.debug("Converted JPDB vocabulary to cards", { vocabulary: vocabulary2.length, cards: cards.length });
+    return cards;
+  }
+  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
+    const tokens = rawTokens.map((innerTokens) => parseParagraphTokens(innerTokens, cards));
+    assignSentenceInfo(paragraphs, tokens);
+    log$n.debug("Converted JPDB parse result to tokens", {
+      paragraphs: paragraphs.length,
+      tokenGroups: rawTokens.length,
+      tokens: tokens.reduce((total, group) => total + group.length, 0),
+      cards: cards.length
+    });
+    return tokens;
+  }
+  function parseParagraphTokens(rawTokens, cards) {
+    let inheritedPitchClass = "";
+    return rawTokens.map((rawToken) => {
+      const token = parseToken(rawToken, cards, inheritedPitchClass);
+      inheritedPitchClass = token.pitchClass;
+      return token;
+    });
+  }
+  function parseToken([vocabularyIndex, position, length, furigana], cards, inheritedPitchClass) {
+    const card = cards[vocabularyIndex];
+    const token = {
+      card,
+      start: position,
+      end: position + length,
+      length,
+      rubies: parseRubies(furigana, position),
+      pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass)
+    };
+    assignWordWithReading(token);
+    return token;
+  }
+  function parseRubies(furigana, startOffset) {
+    if (furigana === null) return [];
+    let offset = startOffset;
+    return furigana.flatMap((part) => {
+      if (typeof part === "string") {
+        offset += part.length;
+        return [];
+      }
+      const [base, ruby] = part;
+      const start = offset;
+      const end = offset = start + base.length;
+      return [{ text: ruby, start, end, length: base.length }];
+    });
+  }
+  function inheritedOrCurrentPitchClass(card, inheritedPitchClass) {
+    if (card.partOfSpeech.includes("prt")) return inheritedPitchClass;
+    return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
+  }
+  function assignSentenceInfo(paragraphs, tokens) {
+    paragraphs.forEach((paragraph, index) => {
+      const tokenData = tokens[index] ?? [];
+      const sentences = splitJapaneseSentences(paragraph);
+      if (sentences.length === 1) {
+        tokenData.forEach((token) => {
+          token.sentence = sentences[0];
+        });
+        return;
+      }
+      let offset = 0;
+      for (const sentence of sentences) {
+        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
+        const relativeStart = paragraph.slice(offset).indexOf(compare);
+        if (relativeStart === -1) {
+          offset += sentence.length;
+          continue;
+        }
+        const start = offset + relativeStart;
+        const end = start + sentence.length;
+        for (const token of tokenData) {
+          if (token.start >= start && token.end <= end) token.sentence = sentence;
+        }
+        offset += sentence.length;
+      }
+    });
+  }
+  function splitJapaneseSentences(text2) {
+    const sentences = [];
+    let start = 0;
+    let quote = null;
+    for (let index = 0; index < text2.length; index++) {
+      const char = text2[index];
+      if (char === "「") quote = "」";
+      if (char === "『") quote = "』";
+      if (quote) {
+        if (char === quote) {
+          const next = text2[index + 1];
+          quote = null;
+          if (!next || /\s/.test(next) || !/[、，]/.test(next)) {
+            sentences.push(text2.slice(start, index + 1).trim());
+            start = index + 1;
+          }
+        }
+        continue;
+      }
+      if ("。！？".includes(char)) {
+        const next = text2[index + 1];
+        const end = next === "」" || next === "』" ? index + 2 : index + 1;
+        sentences.push(text2.slice(start, end).trim());
+        start = end;
+        if (next === "」" || next === "』") index++;
+      }
+    }
+    const tail = text2.slice(start).trim();
+    if (tail) sentences.push(tail);
+    const nonEmptySentences = sentences.filter(Boolean);
+    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
+    log$n.debugThrottled("split-sentences", 1e3, "Split Japanese sentences", { textLength: text2.length, sentences: result.length });
+    return result;
+  }
+  function getPitchClass(pitchAccent, reading) {
+    if (!pitchAccent.length) return "";
+    const [pitch] = pitchAccent;
+    const levels = Array.from(pitch).filter((level) => level === "H" || level === "L");
+    if (levels.length < 2) return "";
+    const rises = countPitchTransitions(levels, "L", "H");
+    const drops = countPitchTransitions(levels, "H", "L");
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+    const startsLow = levels[0] === "L";
+    const startsHigh = levels[0] === "H";
+    const endsLow = levels[levels.length - 1] === "L";
+    const moraCount = countMorae(reading);
+    if (startsHigh && drops === 1) return "atamadaka";
+    if (moraCount && startsLow && dropAt === moraCount) return "odaka";
+    if (startsLow && rises === 1 && !endsLow) return "heiban";
+    if (startsLow && rises === 1 && endsLow) return "nakadaka";
+    if (rises > 1 || drops > 1) return "kifuku";
+    return "";
+  }
+  function countPitchTransitions(levels, from, to) {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+      if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+  }
+  function countMorae(reading) {
+    let count = 0;
+    for (const char of Array.from(reading)) {
+      if (count > 0 && COMBINING_KANA.has(char)) continue;
+      count++;
+    }
+    return count;
+  }
+  function assignWordWithReading(token) {
+    const { card, rubies, start: offset } = token;
+    if (!rubies.length) return;
+    const word = Array.from(card.spelling);
+    for (let i = rubies.length - 1; i >= 0; i--) {
+      const { text: text2, start, length } = rubies[i];
+      word.splice(start - offset + length, 0, `[${text2}]`);
+    }
+    card.wordWithReading = word.join("");
+  }
+  const log$m = Logger.scope("LruCache");
+  class LruCache {
+    constructor(maxSize) {
+      __publicField(this, "map", /* @__PURE__ */ new Map());
+      this.maxSize = maxSize;
+    }
+    get(key) {
+      const value = this.map.get(key);
+      if (value !== void 0) {
+        this.map.delete(key);
+        this.map.set(key, value);
+        log$m.debugThrottled("cache-hit", 1e3, "LRU cache hit", { size: this.map.size, maxSize: this.maxSize });
+      } else {
+        log$m.debugThrottled("cache-miss", 1e3, "LRU cache miss", { size: this.map.size, maxSize: this.maxSize });
+      }
+      return value;
+    }
+    set(key, value) {
+      this.map.delete(key);
+      this.map.set(key, value);
+      if (this.map.size > this.maxSize) {
+        const oldest = this.map.keys().next().value;
+        if (oldest !== void 0) {
+          this.map.delete(oldest);
+          log$m.debug("LRU cache evicted oldest entry", { size: this.map.size, maxSize: this.maxSize });
+        }
+      }
+    }
+    clear() {
+      this.map.clear();
+      log$m.debug("LRU cache cleared", { maxSize: this.maxSize });
+    }
+  }
+  const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
+  const VOCABULARY_FIELDS = [
+    "vid",
+    "sid",
+    "rid",
+    "spelling",
+    "reading",
+    "frequency_rank",
+    "part_of_speech",
+    "meanings_chunks",
+    "meanings_part_of_speech",
+    "card_state",
+    "pitch_accent"
+  ];
+  const DECK_FIELDS = ["id", "name"];
+  const PARSE_CACHE_SIZE = 250;
+  const log$l = Logger.scope("JpdbClient");
+  class JpdbClient {
+    constructor(getApiKey) {
+      __publicField(this, "api");
+      __publicField(this, "cardCache", /* @__PURE__ */ new Map());
+      __publicField(this, "parseCache", new LruCache(PARSE_CACHE_SIZE));
+      this.api = new JpdbApiClient(getApiKey);
+    }
+    async parse(paragraphs) {
+      const text2 = normalizeParagraphs(paragraphs);
+      if (!text2.length) return [];
+      const cacheKey = text2.join("\n");
+      const cached = this.parseCache.get(cacheKey);
+      if (cached) {
+        log$l.debug("Parse cache hit", { paragraphs: text2.length, tokens: cached.reduce((sum, tokens2) => sum + tokens2.length, 0) });
+        return cached;
+      }
+      const done = log$l.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const raw = await this.api.request("parse", {
+        text: text2,
+        position_length_encoding: "utf16",
+        token_fields: TOKEN_FIELDS,
+        vocabulary_fields: VOCABULARY_FIELDS
+      });
+      const cards = jpdbVocabularyToCards(raw.vocabulary);
+      const tokens = jpdbParseResultToTokens(text2, raw.tokens, cards);
+      this.cacheCards(cards);
+      this.parseCache.set(cacheKey, tokens);
+      log$l.debug("Parse completed", {
+        paragraphs: tokens.length,
+        tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
+        cards: cards.length
+      });
+      done();
+      return tokens;
+    }
+    async reviewCard(card, grade) {
+      log$l.info("Reviewing card", { term: card.spelling, grade });
+      await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
+      await this.refreshCard(card);
+    }
+    async addToDeck(deckId, card, sentence) {
+      log$l.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      await this.addVocabularyToDeck(deckId, card);
+      if (sentence) await this.setCardSentence(card, sentence);
+      await this.refreshCard(card);
+    }
+    async listDecks() {
+      const response = await this.api.request("list-user-decks", { fields: DECK_FIELDS });
+      const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
+      log$l.debug("Decks listed", { decks: decks.length });
+      return decks;
+    }
+    async listDeckCards(deckId, limit = 80) {
+      const id = normalizeDeckRequestId(deckId);
+      const done = log$l.time("listDeckCards", { deckId, limit });
+      const response = await this.api.request("deck/list-vocabulary", {
+        id,
+        fetch_occurences: false
+      });
+      const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
+      if (!pairs.length) {
+        done();
+        log$l.debug("Deck vocabulary list was empty", { deckId });
+        return [];
+      }
+      const lookup = await this.api.request("lookup-vocabulary", {
+        list: pairs,
+        fields: VOCABULARY_FIELDS
+      });
+      const cards = jpdbVocabularyToCards(lookup.vocabulary_info ?? []);
+      this.cacheCards(cards);
+      done();
+      log$l.debug("Deck cards loaded", { deckId, requested: pairs.length, cards: cards.length });
+      return cards;
+    }
+    async removeFromDeck(deckId, card) {
+      log$l.info("Removing card from deck", { term: card.spelling, deckId });
+      await this.api.request("deck/remove-vocabulary", {
+        id: deckId,
+        vocabulary: [[card.vid, card.sid]]
+      });
+      await this.refreshCard(card);
+    }
+    getCard(vid, sid) {
+      return this.cardCache.get(cardKey$1(vid, sid));
+    }
+    clear() {
+      this.cardCache.clear();
+      this.parseCache.clear();
+      log$l.debug("Caches cleared");
+    }
+    async addVocabularyToDeck(deckId, card) {
+      if (deckId === "forq") {
+        log$l.debug("Adding card via JPDB prioritize endpoint", { term: card.spelling });
+        await this.api.requestByUrl("https://jpdb.io/prioritize", {
+          v: card.vid,
+          s: card.sid,
+          origin: "/"
+        });
+        return;
+      }
+      await this.api.request("deck/add-vocabulary", {
+        id: deckId,
+        vocabulary: [[card.vid, card.sid]]
+      });
+    }
+    async setCardSentence(card, sentence) {
+      await this.api.request("set-card-sentence", {
+        vid: card.vid,
+        sid: card.sid,
+        sentence
+      }).catch((error) => {
+        log$l.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+      });
+    }
+    async refreshCard(card) {
+      var _a;
+      const parsed = await this.parse([card.spelling]);
+      const fresh = (_a = parsed.flat().find((token) => token.card.vid === card.vid && token.card.sid === card.sid)) == null ? void 0 : _a.card;
+      if (!fresh) {
+        log$l.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
+        return;
+      }
+      this.cardCache.set(cardKey$1(card.vid, card.sid), fresh);
+      card.cardState = fresh.cardState;
+      log$l.debug("Card refreshed", { term: card.spelling, state: fresh.cardState });
+    }
+    cacheCards(cards) {
+      for (const card of cards) {
+        this.cardCache.set(cardKey$1(card.vid, card.sid), card);
+      }
+    }
+  }
+  function normalizeParagraphs(paragraphs) {
+    return paragraphs.map((paragraph) => paragraph.trim()).filter(Boolean);
+  }
+  function cardKey$1(vid, sid) {
+    return `${vid}/${sid}`;
+  }
+  function normalizeDeckRequestId(value) {
+    const trimmed = value.trim();
+    const number = Number(trimmed);
+    return trimmed && Number.isInteger(number) && String(number) === trimmed ? number : trimmed;
+  }
+  function normalizeVocabularyPairs(value) {
+    if (!Array.isArray(value)) return [];
+    return value.map((item) => {
+      if (!Array.isArray(item)) return null;
+      const vid = Number(item[0]);
+      const sid = Number(item[1]);
+      return Number.isInteger(vid) && Number.isInteger(sid) ? [vid, sid] : null;
+    }).filter((item) => item !== null);
+  }
+  function sampleVocabularyPairs(pairs, limit) {
+    if (pairs.length <= limit) return pairs;
+    const sampled = pairs.slice();
+    for (let index = sampled.length - 1; index > 0; index--) {
+      const swap = Math.floor(Math.random() * (index + 1));
+      [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
+    }
+    return sampled.slice(0, limit);
+  }
+  function normalizeDeck(value) {
+    if (Array.isArray(value)) return normalizeDeckTuple(value);
+    if (value && typeof value === "object") return normalizeDeckRecord(value);
+    return null;
+  }
+  function normalizeDeckTuple([id, name]) {
+    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
+  }
+  function normalizeDeckRecord(record) {
+    const id = record.id;
+    const name = record.name ?? record.title;
+    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
+  }
+  function isDeckId(value) {
+    return typeof value === "number" || typeof value === "string";
+  }
   const ROOT_ATTR = "data-yomu-jpdb-addon";
   const JPDB_KANJI_ID = "yomu-jpdb-kanji-info";
   const UCHISEN_ID = "yomu-jpdb-uchisen";
@@ -10563,7 +11274,7 @@ ${entry.reading}`;
   const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
   const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
   const JAPANESE_RE$2 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
-  const log$h = Logger.scope("JpdbExtensions");
+  const log$k = Logger.scope("JpdbExtensions");
   let immersionAddonAudio;
   let immersionAddonAudioBlobUrl = "";
   let immersionAddonAudioKey = "";
@@ -10594,7 +11305,7 @@ ${entry.reading}`;
         this.schedule(urlChanged ? 80 : 260);
       });
       this.observer.observe(document.documentElement, { childList: true, subtree: true });
-      log$h.info("JPDB page add-ons initialized", { href: location.href });
+      log$k.info("JPDB page add-ons initialized", { href: location.href });
     }
     destroy() {
       var _a;
@@ -10605,7 +11316,7 @@ ${entry.reading}`;
       if (!isJpdbHost()) return;
       this.resetSeenKeys();
       this.schedule(40);
-      log$h.debug("JPDB page add-ons refresh scheduled");
+      log$k.debug("JPDB page add-ons refresh scheduled");
     }
     schedule(delay) {
       window.clearTimeout(this.timer);
@@ -10615,10 +11326,10 @@ ${entry.reading}`;
       const settings = this.options.getSettings();
       if (!settings.jpdbExtensionsEnabled) {
         this.removeAll();
-        log$h.debug("JPDB page add-ons disabled; removed all add-ons");
+        log$k.debug("JPDB page add-ons disabled; removed all add-ons");
         return;
       }
-      log$h.debugThrottled("run", 2500, "JPDB page add-ons scan", {
+      log$k.debugThrottled("run", 2500, "JPDB page add-ons scan", {
         isKanjiPage: isKanjiPage(),
         isReviewPage: isReviewPage(),
         isReviewAnswer: isReviewAnswer(),
@@ -10728,7 +11439,7 @@ ${entry.reading}`;
         `);
       insertAfter(anchor, container);
       const info = await this.options.jpdbKanji.lookup(kanji).catch((error) => {
-        log$h.warn("JPDB add-on kanji info lookup failed", { kanji }, error);
+        log$k.warn("JPDB add-on kanji info lookup failed", { kanji }, error);
         return null;
       });
       if (!container.isConnected || this.jpdbKanji !== kanji) return;
@@ -10736,7 +11447,7 @@ ${entry.reading}`;
         container.remove();
         return;
       }
-      log$h.debug("JPDB add-on kanji info rendered", { kanji });
+      log$k.debug("JPDB add-on kanji info rendered", { kanji });
       setInnerHtml(container, renderJpdbKanjiPanel(info));
     }
     async renderRtk(kanji) {
@@ -10752,7 +11463,7 @@ ${entry.reading}`;
         `);
       insertAfter(anchor, container);
       const info = await this.options.rtk.lookup(kanji).catch((error) => {
-        log$h.warn("JPDB add-on RTK lookup failed", { kanji }, error);
+        log$k.warn("JPDB add-on RTK lookup failed", { kanji }, error);
         return null;
       });
       if (!container.isConnected || this.rtkKanji !== kanji) return;
@@ -10760,7 +11471,7 @@ ${entry.reading}`;
         container.remove();
         return;
       }
-      log$h.debug("JPDB add-on RTK rendered", { kanji });
+      log$k.debug("JPDB add-on RTK rendered", { kanji });
       setInnerHtml(container, renderRtkPanel(info, !isKanjiReviewFront()));
     }
     async renderUchisen(kanji) {
@@ -10778,17 +11489,17 @@ ${entry.reading}`;
         `);
       insertAfter(anchor, container);
       const html = await requestText$6(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3).catch((error) => {
-        log$h.warn("Uchisen request failed", { kanji }, error);
+        log$k.warn("Uchisen request failed", { kanji }, error);
         return "";
       });
       if (!container.isConnected || this.uchisenKanji !== kanji) return;
       const images = parseUchisenImages(html);
       if (!images.length) {
-        log$h.debug("No Uchisen images found", { kanji });
+        log$k.debug("No Uchisen images found", { kanji });
         container.remove();
         return;
       }
-      log$h.debug("Uchisen images loaded", { kanji, images: images.length });
+      log$k.debug("Uchisen images loaded", { kanji, images: images.length });
       let index = await storageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
       const starred = await storageGet(`${UCHISEN_STAR_PREFIX}${kanji}`, null);
       const starredIndex = starred ? images.findIndex((item) => item.url === starred) : -1;
@@ -10825,7 +11536,7 @@ ${entry.reading}`;
           this.currentObjectUrl = url;
           image.src = url;
         }).catch((error) => {
-          log$h.debug("Uchisen image load failed quietly", { kanji }, error);
+          log$k.debug("Uchisen image load failed quietly", { kanji }, error);
           if (image.isConnected) image.remove();
         });
       };
@@ -10877,16 +11588,21 @@ ${entry.reading}`;
       if (!container.isConnected || this.immersionKey !== key) return;
       const { examples, query } = result;
       if (!examples.length) {
-        log$h.debug("JPDB add-on Immersion Kit returned no examples", { term: target.term, queries: target.queries });
+        log$k.debug("JPDB add-on Immersion Kit returned no examples", { term: target.term, queries: target.queries });
         setInnerHtml(container, `
                 <div class="yomu-jpdb-card-title">Immersion Kit</div>
                 <div class="jpdb-reader-help">No examples found for ${escapeHtml$1(target.term)}.</div>
             `);
         return;
       }
-      log$h.debug("JPDB add-on Immersion Kit rendered", { term: target.term, query, examples: examples.length });
+      log$k.debug("JPDB add-on Immersion Kit rendered", { term: target.term, query, examples: examples.length });
       let index = savedImmersionIndex(query, examples.length);
       const render = () => renderImmersionPanel(container, examples, index, query, this.options.immersionKit, this.options.getSettings());
+      let hoverAudioCanPlay = false;
+      let hoverAudioActive = false;
+      requestAnimationFrame(() => {
+        hoverAudioCanPlay = !container.matches(":hover");
+      });
       container.addEventListener("click", (event) => {
         var _a;
         const action = (_a = event.target.closest("[data-yomu-immersion-action]")) == null ? void 0 : _a.dataset.yomuImmersionAction;
@@ -10895,14 +11611,34 @@ ${entry.reading}`;
         if (action === "previous") index = (index - 1 + examples.length) % examples.length;
         if (action === "next") index = (index + 1) % examples.length;
         if (action === "audio") playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings());
-        if (action !== "audio") render();
+        if (action !== "audio") {
+          render();
+          playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings());
+        }
+      });
+      const handleImageHover = (event) => {
+        var _a, _b, _c;
+        const media = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-example-media");
+        if (!media || !hoverAudioCanPlay || !this.options.getSettings().immersionKitPlayOnHover) return;
+        const cannotHover = ((_c = window.matchMedia) == null ? void 0 : _c.call(window, "(hover: none)").matches) ?? false;
+        const pointerType = "pointerType" in event ? event.pointerType : "mouse";
+        if (pointerType === "touch" || cannotHover) return;
+        if (media.contains(event.relatedTarget)) return;
+        hoverAudioActive = true;
+        playExampleAudio(examples[index], this.options.immersionKit, this.options.getSettings(), () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(":hover"));
+      };
+      container.addEventListener("pointerover", handleImageHover);
+      container.addEventListener("mouseover", handleImageHover);
+      container.addEventListener("pointerleave", () => {
+        hoverAudioCanPlay = true;
+        hoverAudioActive = false;
+      });
+      container.addEventListener("mouseleave", () => {
+        hoverAudioCanPlay = true;
+        hoverAudioActive = false;
       });
       render();
-      const settings = this.options.getSettings();
-      if (settings.jpdbImmersionKitAutoPlayReviewAudio && isReviewAnswer() && this.reviewImmersionAutoPlayKey !== key) {
-        this.reviewImmersionAutoPlayKey = key;
-        playExampleAudio(examples[index], this.options.immersionKit, settings);
-      }
+      this.options.getSettings();
     }
     async renderLocalDictionaries() {
       var _a, _b;
@@ -10925,13 +11661,13 @@ ${entry.reading}`;
         ));
         this.installSourceStateTracking(container);
         insertAfter(target.anchor, container);
-        log$h.debug("JPDB add-on local dictionaries rendered", { term: target.term, entries: entries.length });
+        log$k.debug("JPDB add-on local dictionaries rendered", { term: target.term, entries: entries.length });
       }
     }
     async searchImmersionExamples(target) {
       for (const query of target.queries) {
         const examples = await this.options.immersionKit.search(query, this.options.getSettings()).catch((error) => {
-          log$h.warn("JPDB add-on Immersion Kit search failed", { term: target.term, query }, error);
+          log$k.warn("JPDB add-on Immersion Kit search failed", { term: target.term, query }, error);
           return [];
         });
         if (examples.length) return { examples, query };
@@ -10946,7 +11682,7 @@ ${entry.reading}`;
       for (let index = 0; index < variants.length; index++) {
         const variant = variants[index];
         const found = await this.options.dictionaries.lookup(variant.term, variant.reading, limit, settings.dictionaryPreferences).catch((error) => {
-          log$h.warn("JPDB add-on local dictionary lookup failed", { term: variant.term, reading: variant.reading, original: target.term }, error);
+          log$k.warn("JPDB add-on local dictionary lookup failed", { term: variant.term, reading: variant.reading, original: target.term }, error);
           return [];
         });
         for (const entry of found) {
@@ -10956,7 +11692,7 @@ ${entry.reading}`;
         }
       }
       return uniqueLocalDictionaryEntries(entries).sort(
-        (a, b) => dictionaryPreferencePriority$1(a.dictionary, settings) - dictionaryPreferencePriority$1(b.dictionary, settings) || (variantRank.get(localDictionaryEntryKey(a)) ?? 999) - (variantRank.get(localDictionaryEntryKey(b)) ?? 999) || (b.score ?? 0) - (a.score ?? 0)
+        (a, b) => dictionaryPreferencePriority(a.dictionary, settings) - dictionaryPreferencePriority(b.dictionary, settings) || (variantRank.get(localDictionaryEntryKey(a)) ?? 999) - (variantRank.get(localDictionaryEntryKey(b)) ?? 999) || (b.score ?? 0) - (a.score ?? 0)
       ).slice(0, limit);
     }
     removeLocalDictionaries() {
@@ -10990,9 +11726,9 @@ ${entry.reading}`;
       const card = jpdbAudioCard(term, reading);
       try {
         await this.options.audio.play(card);
-        log$h.debug("JPDB page Yomu audio started", { term });
+        log$k.debug("JPDB page Yomu audio started", { term });
       } catch (error) {
-        log$h.warn("JPDB page Yomu audio failed", { term }, error);
+        log$k.warn("JPDB page Yomu audio failed", { term }, error);
       }
     }
     sourceStateAttributes(key, fallback = this.options.getSettings().dictionarySourcesInitiallyExpanded) {
@@ -11010,7 +11746,7 @@ ${entry.reading}`;
         if (!details || !key) return;
         this.sourceOpenOverrides.set(key, details.open);
         storageSetSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, details.open);
-        log$h.debug("JPDB add-on source open state remembered", { key, open: details.open });
+        log$k.debug("JPDB add-on source open state remembered", { key, open: details.open });
       }, true);
     }
     renderDoodle() {
@@ -11167,7 +11903,6 @@ ${entry.reading}`;
             <div class="jpdb-reader-example-topline">
                 <div class="jpdb-reader-example-meta">
                     <span class="jpdb-reader-example-source">${escapeHtml$1(example.sourceTitle)}</span>
-                    <span class="jpdb-reader-example-count">${index + 1}/${examples.length}</span>
                 </div>
                 <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
                     <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="previous" title="Previous">‹</button>
@@ -11176,8 +11911,8 @@ ${entry.reading}`;
                 </div>
             </div>
             <div class="jpdb-reader-example-body">
-                <div class="jpdb-reader-example-sentence">${sentenceHtml}</div>
                 ${image}
+                <div class="jpdb-reader-example-sentence">${sentenceHtml}</div>
                 ${settings.immersionKitShowTranslation && example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
             </div>
         </div>
@@ -11228,7 +11963,7 @@ ${entry.reading}`;
     var _a;
     return ((_a = settings.dictionaryPreferences.find((item) => item.name === name)) == null ? void 0 : _a.alias) || name;
   }
-  function playExampleAudio(example, client, settings) {
+  function playExampleAudio(example, client, settings, isCurrent = () => true) {
     const urls = immersionMediaUrls(client, example, "sound");
     const url = urls[0] ?? "";
     if (!url) return;
@@ -11238,7 +11973,7 @@ ${entry.reading}`;
     immersionAddonAudioKey = url;
     immersionAddonAudioLoadingKey = url;
     const play = (src, isBlob = false) => {
-      if (requestId !== immersionAddonAudioRequestId || immersionAddonAudioKey !== url) {
+      if (!isCurrent() || requestId !== immersionAddonAudioRequestId || immersionAddonAudioKey !== url) {
         if (isBlob) URL.revokeObjectURL(src);
         return;
       }
@@ -11591,7 +12326,7 @@ ${entry.expression}
 ${entry.reading}
 ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   }
-  function dictionaryPreferencePriority$1(dictionary, settings) {
+  function dictionaryPreferencePriority(dictionary, settings) {
     const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
     return (preference == null ? void 0 : preference.priority) ?? 999;
   }
@@ -11753,7 +12488,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     return new Promise((resolve, reject) => {
       const userscriptRequest = getUserscriptHttpRequest();
       if (userscriptRequest) {
-        log$h.debug("Text request via userscript API", { host: safeHost$3(url) });
+        log$k.debug("Text request via userscript API", { host: safeHost$3(url) });
         userscriptRequest({
           method: "GET",
           url,
@@ -11767,7 +12502,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         });
         return;
       }
-      log$h.debug("Text request via fetch", { host: safeHost$3(url) });
+      log$k.debug("Text request via fetch", { host: safeHost$3(url) });
       fetch(url).then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -11781,7 +12516,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     return new Promise((resolve, reject) => {
       const userscriptRequest = getUserscriptHttpRequest();
       if (userscriptRequest) {
-        log$h.debug("Blob request via userscript API", { host: safeHost$3(url) });
+        log$k.debug("Blob request via userscript API", { host: safeHost$3(url) });
         userscriptRequest({
           method: "GET",
           url,
@@ -11796,7 +12531,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         });
         return;
       }
-      log$h.debug("Blob request via fetch", { host: safeHost$3(url) });
+      log$k.debug("Blob request via fetch", { host: safeHost$3(url) });
       fetch(url).then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.blob();
@@ -11854,7 +12589,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$g = Logger.scope("JpdbKanji");
+  const log$j = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -11864,21 +12599,21 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       if (!key) return Promise.resolve(null);
       let promise = this.cache.get(key);
       if (!promise) {
-        log$g.debug("Lookup cache miss", { kanji: key });
+        log$j.debug("Lookup cache miss", { kanji: key });
         promise = this.fetchInfo(key);
         this.cache.set(key, promise);
       } else {
-        log$g.debug("Lookup cache hit", { kanji: key });
+        log$j.debug("Lookup cache hit", { kanji: key });
       }
       return promise;
     }
     async fetchInfo(kanji) {
       const html = await requestText$5(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch((error) => {
-        log$g.warn("Kanji page request failed", { kanji }, error);
+        log$j.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
-      log$g.debug("Kanji info parsed", { kanji, found: Boolean(info) });
+      log$j.debug("Kanji info parsed", { kanji, found: Boolean(info) });
       return info;
     }
   }
@@ -12015,7 +12750,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function requestText$5(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$g.debug("Kanji page request via userscript API");
+      log$j.debug("Kanji page request via userscript API");
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -12030,7 +12765,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         });
       });
     }
-    log$g.debug("Kanji page request via fetch");
+    log$j.debug("Kanji page request via fetch");
     return fetch(url).then((response) => {
       if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
       return response.text();
@@ -12039,7 +12774,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   const JPDB_SEARCH_URL = "https://jpdb.io/search";
   const REQUEST_TIMEOUT_MS = 6e3;
   const SMALL_KANA = new Set("ゃゅょャュョァィゥェォ");
-  const log$f = Logger.scope("JpdbPublicPitch");
+  const log$i = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -12061,16 +12796,16 @@ ${normalizedReading}`;
       for (const query of unique([spelling, reading].filter(Boolean))) {
         const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
         const html = await requestText$4(url).catch((error) => {
-          log$f.warn("Public JPDB pitch request failed", { query }, error);
+          log$i.warn("Public JPDB pitch request failed", { query }, error);
           return "";
         });
         const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
         if (pitch.length) {
-          log$f.debug("Public JPDB pitch loaded", { spelling, reading, query, pitch });
+          log$i.debug("Public JPDB pitch loaded", { spelling, reading, query, pitch });
           return pitch;
         }
       }
-      log$f.debug("Public JPDB pitch not found", { spelling, reading });
+      log$i.debug("Public JPDB pitch not found", { spelling, reading });
       return [];
     }
   }
@@ -12183,7 +12918,7 @@ ${normalizedReading}`;
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const WIKTIONARY_PARSE_URL = "https://en.wiktionary.org/w/api.php?action=parse&prop=text&format=json&origin=*&page=";
   const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$e = Logger.scope("KanjiOrigin");
+  const log$h = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -12191,7 +12926,7 @@ ${normalizedReading}`;
     lookup(kanji, settings) {
       const key = Array.from(kanji)[0] ?? kanji;
       if (!key || !settings.kanjiOriginsEnabled) {
-        log$e.debug("Kanji origin lookup skipped", { kanji, enabled: settings.kanjiOriginsEnabled });
+        log$h.debug("Kanji origin lookup skipped", { kanji, enabled: settings.kanjiOriginsEnabled });
         return Promise.resolve(null);
       }
       const cacheKey = [
@@ -12201,46 +12936,46 @@ ${normalizedReading}`;
       ].join(":");
       let promise = this.cache.get(cacheKey);
       if (!promise) {
-        log$e.debug("Kanji origin cache miss", { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
+        log$h.debug("Kanji origin cache miss", { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
         promise = this.fetchInfo(key, settings);
         this.cache.set(cacheKey, promise);
       } else {
-        log$e.debug("Kanji origin cache hit", { kanji: key });
+        log$h.debug("Kanji origin cache hit", { kanji: key });
       }
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$e.time("Kanji origin lookup", { kanji });
+      const done = log$h.time("Kanji origin lookup", { kanji });
       const [kanjiMap, wiktionary] = await Promise.all([
         settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch((error) => {
-          log$e.warn("Kanji Map origin lookup failed", { kanji, error });
+          log$h.warn("Kanji Map origin lookup failed", { kanji, error });
           return void 0;
         }) : Promise.resolve(void 0),
         settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch((error) => {
-          log$e.warn("Wiktionary origin lookup failed", { kanji, error });
+          log$h.warn("Wiktionary origin lookup failed", { kanji, error });
           return void 0;
         }) : Promise.resolve(void 0)
       ]);
       const result = kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
-      log$e.debug("Kanji origin lookup completed", { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
+      log$h.debug("Kanji origin lookup completed", { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
       done();
       return result;
     }
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$e.time("Fetch Kanji Map info", { kanji });
+    const done = log$h.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$3(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
-    log$e.debug("Kanji Map info parsed", { kanji, found: Boolean(info), examples: (info == null ? void 0 : info.examples.length) ?? 0, references: (info == null ? void 0 : info.references.length) ?? 0 });
+    log$h.debug("Kanji Map info parsed", { kanji, found: Boolean(info), examples: (info == null ? void 0 : info.examples.length) ?? 0, references: (info == null ? void 0 : info.references.length) ?? 0 });
     done();
     return info;
   }
   async function fetchWiktionaryInfo(kanji) {
-    const done = log$e.time("Fetch Wiktionary info", { kanji });
+    const done = log$h.time("Fetch Wiktionary info", { kanji });
     const raw = parseJson(await requestText$3(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
     const info = raw ? parseWiktionaryInfo(raw, kanji) : void 0;
-    log$e.debug("Wiktionary info parsed", { kanji, found: Boolean(info), glyphOrigin: (info == null ? void 0 : info.glyphOrigin.length) ?? 0, images: (info == null ? void 0 : info.images.length) ?? 0 });
+    log$h.debug("Wiktionary info parsed", { kanji, found: Boolean(info), glyphOrigin: (info == null ? void 0 : info.glyphOrigin.length) ?? 0, images: (info == null ? void 0 : info.images.length) ?? 0 });
     done();
     return info;
   }
@@ -12313,7 +13048,7 @@ ${normalizedReading}`;
     add("Radical", (map == null ? void 0 : map.radical) ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(" ") : void 0, "Kanji Alive / Jisho");
     if (!facts.has("Character")) add("Character", kanji, "current lookup");
     const result = Array.from(facts.values()).filter((fact) => fact.label !== "Character").slice(0, 6);
-    log$e.debug("Kanji facts built", { kanji, facts: result.map((fact) => fact.label) });
+    log$h.debug("Kanji facts built", { kanji, facts: result.map((fact) => fact.label) });
     return result;
   }
   function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null) {
@@ -12368,7 +13103,7 @@ ${normalizedReading}`;
       edges.push({ from: id, to: kanji, label: "memory cue" });
     });
     const graph = { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
-    log$e.debug("Kanji origin graph built", { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
+    log$h.debug("Kanji origin graph built", { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
     return graph;
   }
   function readKanjiMapRadical(kanjiAlive, jisho) {
@@ -12622,7 +13357,7 @@ ${normalizedReading}`;
   function requestText$3(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$e.debug("Kanji origin request using userscript request", { host: safeHost$2(url) });
+      log$h.debug("Kanji origin request using userscript request", { host: safeHost$2(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -12630,31 +13365,31 @@ ${normalizedReading}`;
           timeout: 1e4,
           onload: (response) => {
             if (response.status >= 200 && response.status < 300) {
-              log$e.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
+              log$h.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
               resolve(String(response.responseText ?? ""));
             } else {
-              log$e.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
+              log$h.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
               reject(new Error(`Kanji origin request failed (${response.status}).`));
             }
           },
           onerror: (error) => {
-            log$e.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+            log$h.warn("Kanji origin request failed", { host: safeHost$2(url), error });
             reject(error);
           },
           ontimeout: () => {
-            log$e.warn("Kanji origin request timed out", { host: safeHost$2(url) });
+            log$h.warn("Kanji origin request timed out", { host: safeHost$2(url) });
             reject(new Error("Kanji origin request timed out."));
           }
         });
       });
     }
-    log$e.debug("Kanji origin request using fetch", { host: safeHost$2(url) });
+    log$h.debug("Kanji origin request using fetch", { host: safeHost$2(url) });
     return fetch(url).then((response) => {
       if (!response.ok) {
-        log$e.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
+        log$h.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
         throw new Error(`Kanji origin request failed (${response.status}).`);
       }
-      log$e.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
+      log$h.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
       return response.text();
     });
   }
@@ -12669,7 +13404,7 @@ ${normalizedReading}`;
       return "";
     }
   }
-  const log$d = Logger.scope("KanjiDoodle");
+  const log$g = Logger.scope("KanjiDoodle");
   function installKanjiDoodle(popover, getLanguage) {
     const stage = popover.querySelector(".jpdb-reader-doodle-stage");
     const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
@@ -12677,15 +13412,15 @@ ${normalizedReading}`;
     const clear = popover.querySelector("[data-doodle-clear]");
     const trace = popover.querySelector("[data-doodle-trace]");
     if (!stage || !canvas || !ghost) {
-      log$d.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
+      log$g.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
       return;
     }
     const context = canvas.getContext("2d");
     if (!context) {
-      log$d.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$g.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
-    log$d.debug("Kanji doodle installed", { kanji: stage.dataset.kanji ?? "" });
+    log$g.debug("Kanji doodle installed", { kanji: stage.dataset.kanji ?? "" });
     let dpr = 1;
     let drawing = false;
     let pointerId = -1;
@@ -12698,7 +13433,7 @@ ${normalizedReading}`;
       canvas.width = Math.max(1, Math.round(rect.width * dpr));
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
       redraw();
-      log$d.debugThrottled("resize", 1e3, "Kanji doodle resized", { width: canvas.width, height: canvas.height, dpr });
+      log$g.debugThrottled("resize", 1e3, "Kanji doodle resized", { width: canvas.width, height: canvas.height, dpr });
     };
     const toPoint = (event) => {
       const rect = canvas.getBoundingClientRect();
@@ -12741,7 +13476,7 @@ ${normalizedReading}`;
       points = [toPoint(event)];
       (_a = canvas.setPointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
       redraw();
-      log$d.debug("Kanji doodle stroke started", { pointerType: event.pointerType, strokes: strokes.length });
+      log$g.debug("Kanji doodle stroke started", { pointerType: event.pointerType, strokes: strokes.length });
     };
     const move = (event) => {
       if (!drawing || event.pointerId !== pointerId) return;
@@ -12766,7 +13501,7 @@ ${normalizedReading}`;
       pointerId = -1;
       (_a = canvas.releasePointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
       redraw();
-      log$d.debug("Kanji doodle stroke ended", { strokes: strokes.length });
+      log$g.debug("Kanji doodle stroke ended", { strokes: strokes.length });
     };
     canvas.addEventListener("pointerdown", start, { passive: false });
     canvas.addEventListener("pointermove", move, { passive: false });
@@ -12778,7 +13513,7 @@ ${normalizedReading}`;
       strokes = [];
       points = [];
       redraw();
-      log$d.debug("Kanji doodle cleared");
+      log$g.debug("Kanji doodle cleared");
     });
     trace == null ? void 0 : trace.addEventListener("click", (event) => {
       event.preventDefault();
@@ -12787,14 +13522,14 @@ ${normalizedReading}`;
       ghost.hidden = !traceVisible;
       stage.classList.toggle("trace-hidden", !traceVisible);
       trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
-      log$d.debug("Kanji doodle trace toggled", { traceVisible });
+      log$g.debug("Kanji doodle trace toggled", { traceVisible });
     });
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
     const disconnectWhenDetached = () => {
       if (!popover.isConnected) {
         resizeObserver.disconnect();
-        log$d.debug("Kanji doodle detached");
+        log$g.debug("Kanji doodle detached");
         return;
       }
       requestAnimationFrame(disconnectWhenDetached);
@@ -12802,8 +13537,33 @@ ${normalizedReading}`;
     requestAnimationFrame(resize);
     requestAnimationFrame(disconnectWhenDetached);
   }
+  function graphEllipseOffset(dx, dy, rx, ry) {
+    const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
+    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
+  }
+  function formatGraphCoordinate(value) {
+    return Number(value.toFixed(2)).toString();
+  }
+  function graphEdgeCurveControl(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    const bend = Math.min(4.6, Math.max(1.8, distance * 0.08));
+    const sign = y1 <= y2 ? 1 : -1;
+    return {
+      x: (x1 + x2) / 2 - dy / distance * bend * sign,
+      y: (y1 + y2) / 2 + dx / distance * bend * sign
+    };
+  }
+  function graphQuadraticPoint(x1, y1, cx, cy, x2, y2, t) {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
+      y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2
+    };
+  }
   const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
-  const log$c = Logger.scope("KanjiVG");
+  const log$f = Logger.scope("KanjiVG");
   class KanjiVGClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -12813,23 +13573,23 @@ ${normalizedReading}`;
       if (!character) return Promise.resolve(null);
       let promise = this.cache.get(character);
       if (!promise) {
-        log$c.debug("Lookup cache miss", { kanji: character });
+        log$f.debug("Lookup cache miss", { kanji: character });
         promise = this.fetchSvg(character);
         this.cache.set(character, promise);
       } else {
-        log$c.debug("Lookup cache hit", { kanji: character });
+        log$f.debug("Lookup cache hit", { kanji: character });
       }
       return promise;
     }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$2(url).catch((error) => {
-        log$c.warn("Stroke-order request failed", { kanji }, error);
+        log$f.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
       const info = parseKanjiVGSvg(svgText, kanji);
-      log$c.debug("Stroke-order SVG parsed", { kanji, found: Boolean(info), strokes: (info == null ? void 0 : info.strokeCount) ?? 0 });
+      log$f.debug("Stroke-order SVG parsed", { kanji, found: Boolean(info), strokes: (info == null ? void 0 : info.strokeCount) ?? 0 });
       return info;
     }
   }
@@ -12880,6 +13640,30 @@ ${normalizedReading}`;
     return fetch(url).then((response) => {
       if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
       return response.text();
+    });
+  }
+  const AUTO_SCAN_OBSERVER_OPTIONS = { childList: true, subtree: true, characterData: true };
+  function mutationTouchesAsbPlayer(mutation) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes)
+    ];
+    return nodes.some((node) => {
+      var _a;
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
+    });
+  }
+  function mutationInsideReaderRoot$2(mutation) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes),
+      ...Array.from(mutation.removedNodes)
+    ];
+    return nodes.every((node) => {
+      var _a;
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
     });
   }
   function el(tagName, attrs, ...children) {
@@ -12944,7 +13728,7 @@ ${normalizedReading}`;
       }
     }
   }
-  const log$b = Logger.scope("NewTab");
+  const log$e = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
@@ -12969,17 +13753,6 @@ ${normalizedReading}`;
     { value: "redundant", label: "Redundant" },
     { value: "local", label: "Dictionary" }
   ];
-  const NEW_TAB_SOURCE_OPTIONS = [
-    { value: "auto", label: "Auto" },
-    { value: "jpdb", label: "JPDB" },
-    { value: "anki", label: "Anki" },
-    { value: "dictionary", label: "Dictionary" }
-  ];
-  const NEW_TAB_SORT_OPTIONS = [
-    { value: "random", label: "Random" },
-    { value: "frequency", label: "Frequency" },
-    { value: "state", label: "State" }
-  ];
   function isYomuNewTabUrl(value) {
     try {
       const url = new URL(value);
@@ -13003,7 +13776,7 @@ ${normalizedReading}`;
     const surfaceMuted = mixHex(surface, background, 0.08);
     const shadow = "rgba(18, 28, 23, .20)";
     const palette = { background, backgroundText, surface, surfaceText, accentText, border, softBorder, surfaceMuted, shadow };
-    log$b.debug("Built new tab palette", { accentColor: background, backgroundText, accentText });
+    log$e.debug("Built new tab palette", { accentColor: background, backgroundText, accentText });
     return palette;
   }
   function shuffleCards(cards) {
@@ -13012,7 +13785,7 @@ ${normalizedReading}`;
       const swapIndex = Math.floor(Math.random() * (index + 1));
       [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
     }
-    log$b.debug("Shuffled new tab cards", { count: cards.length });
+    log$e.debug("Shuffled new tab cards", { count: cards.length });
     return shuffled;
   }
   function firstCardMeaning(card) {
@@ -13020,7 +13793,7 @@ ${normalizedReading}`;
     const first2 = meanings.find((meaning) => meaning.glosses.some((gloss) => gloss.trim()));
     return (first2 == null ? void 0 : first2.glosses.filter(Boolean).join("; ")) ?? "";
   }
-  function cardKey$1(card) {
+  function cardKey(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
   }
   function kanjiCharacters(value) {
@@ -13073,49 +13846,6 @@ ${normalizedReading}`;
         channel.close();
       }
     };
-  }
-  function filterNewTabCards(cards, filter, query) {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return cards.filter((card) => {
-      if (!matchesFilter(card, filter)) return false;
-      if (!normalizedQuery) return true;
-      return [card.spelling, card.reading, firstCardMeaning(card)].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
-    });
-  }
-  function sortNewTabCards(cards, sort) {
-    const sorted = [...cards];
-    if (sort === "random") return sorted;
-    if (sort === "frequency") {
-      return sorted.sort(
-        (a, b) => frequencyValue(a) - frequencyValue(b) || a.spelling.localeCompare(b.spelling, "ja")
-      );
-    }
-    return sorted.sort(
-      (a, b) => stateRank(a) - stateRank(b) || frequencyValue(a) - frequencyValue(b) || a.spelling.localeCompare(b.spelling, "ja")
-    );
-  }
-  function cardStateLabel(card) {
-    var _a;
-    if (card.source === "local") return "Dictionary";
-    if (card.source === "anki") return "Anki";
-    const state = card.cardState[0] ?? "new";
-    return ((_a = NEW_TAB_FILTERS.find((filter) => filter.value === state)) == null ? void 0 : _a.label) ?? state.replace(/-/g, " ");
-  }
-  function matchesFilter(card, filter) {
-    if (filter === "all") return true;
-    if (filter === "local") return card.source === "local";
-    if (filter === "study") {
-      return card.source === "local" || card.source === "anki" || card.cardState.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "known" || state === "not-in-deck");
-    }
-    return card.cardState.includes(filter);
-  }
-  function stateRank(card) {
-    const order = ["failed", "due", "learning", "new", "known", "not-in-deck", "locked", "suspended", "never-forget", "redundant", "blacklisted"];
-    const ranks = card.cardState.map((state) => order.indexOf(state)).filter((index) => index >= 0);
-    return ranks.length ? Math.min(...ranks) : order.length;
-  }
-  function frequencyValue(card) {
-    return typeof card.frequencyRank === "number" && Number.isFinite(card.frequencyRank) ? card.frequencyRank : Number.POSITIVE_INFINITY;
   }
   function isPlainRecord(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -13170,25 +13900,26 @@ ${normalizedReading}`;
     const [red, green, blue] = hexToRgb(color);
     return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha)).toFixed(2)})`;
   }
-  const log$a = Logger.scope("NewTab");
-  const SESSION_CARD_KEY = "jpdb-reader-newtab-current-card";
+  const log$d = Logger.scope("NewTab");
+  const SESSION_WORD_KEY = "jpdb-reader-newtab-current-word";
   const JPDB_ALL_DECKS = "all";
   const JPDB_DECK_SAMPLE_LIMIT = 6;
-  const JPDB_CARDS_PER_DECK = 36;
-  const NEW_TAB_CARD_LIMIT = 180;
+  const JPDB_WORDS_PER_DECK = 36;
+  const NEW_TAB_WORD_LIMIT = 180;
   class NewTabController {
     constructor(dependencies) {
-      __publicField(this, "allCards", []);
-      __publicField(this, "visibleCards", []);
+      __publicField(this, "allWords", []);
+      __publicField(this, "visibleWords", []);
       __publicField(this, "index", 0);
       __publicField(this, "sourceLabel", "");
-      __publicField(this, "sourceNotes", []);
-      __publicField(this, "query", "");
       __publicField(this, "state");
       __publicField(this, "stateChannel");
       this.dependencies = dependencies;
       const saved = loadNewTabUiState();
-      this.state = { ...saved, source: hasSavedNewTabUiState() ? saved.source : dependencies.getSettings().newTabSource };
+      this.state = {
+        ...saved,
+        source: hasSavedNewTabUiState() ? saved.source : dependencies.getSettings().newTabSource
+      };
       this.stateChannel = createNewTabStateChannel((state) => this.applyExternalState(state));
     }
     isCurrentPage() {
@@ -13215,17 +13946,14 @@ ${normalizedReading}`;
         this.bindRootEvents(root);
         root.dataset.newtabBound = "true";
       }
-      const hasReaderMarkup = !!root.querySelector("[data-newtab-card]") && root.dataset.standaloneNewtab !== "true";
-      if (isNew || !hasReaderMarkup) {
+      const hasStudyMarkup = !!root.querySelector("[data-newtab-study]") && root.dataset.standaloneNewtab !== "true";
+      if (isNew || !hasStudyMarkup) {
         delete root.dataset.standaloneNewtab;
         root.replaceChildren(this.renderEnabledContent());
-        this.syncControls(root);
+        this.syncMode(root);
       }
-      if (isNew || !hasReaderMarkup || this.allCards.length === 0) {
-        await this.loadCardsInto(root, true);
-      } else {
-        this.applyCards(root, true);
-      }
+      if (isNew || !hasStudyMarkup || this.allWords.length === 0) await this.loadWordsInto(root, true);
+      else this.applyWords(root, true);
     }
     destroy() {
       this.stateChannel.close();
@@ -13238,145 +13966,46 @@ ${normalizedReading}`;
           el(
             "header",
             { class: "jpdb-reader-newtab-topbar" },
+            el("a", { class: "jpdb-reader-newtab-brand", href: SUPPORT_LINKS.docs, "aria-label": `Open ${APP_NAME}` }, APP_PUCK),
             el(
-              "a",
-              { class: "jpdb-reader-newtab-brand", href: SUPPORT_LINKS.docs, "aria-label": `Open ${APP_NAME} home page` },
-              el("span", { class: "jpdb-reader-newtab-brand-mark" }, APP_PUCK),
-              el(
-                "span",
-                { class: "jpdb-reader-newtab-brand-text" },
-                el("strong", null, APP_NAME),
-                el("span", null, "new tab")
-              )
+              "div",
+              { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": "Study mode" },
+              el("button", { type: "button", dataset: { newtabAction: "mode", mode: "word" } }, "Word"),
+              el("button", { type: "button", dataset: { newtabAction: "mode", mode: "kanji" } }, "Kanji")
             ),
-            el("div", { class: "jpdb-reader-newtab-health", dataset: { newtabSummary: true } }, "Loading study sources..."),
-            el("button", { class: "jpdb-reader-newtab-icon-button", type: "button", dataset: { newtabAction: "settings" } }, "Settings")
+            el("button", {
+              class: "jpdb-reader-newtab-overflow",
+              type: "button",
+              dataset: { newtabAction: "settings" },
+              "aria-label": `Open ${APP_NAME} settings`
+            }, "...")
           ),
           el(
-            "div",
-            { class: "jpdb-reader-newtab-workspace" },
-            this.renderStage(),
-            this.renderSidePanel()
+            "section",
+            { class: "jpdb-reader-newtab-study", dataset: { newtabStudy: true }, "aria-live": "polite" },
+            el("div", { class: "jpdb-reader-newtab-count", dataset: { newtabCount: true } }, "0 / 0"),
+            el("div", { class: "jpdb-reader-newtab-prompt", dataset: { newtabPrompt: true }, lang: "ja" }, "よむ"),
+            el(
+              "div",
+              { class: "jpdb-reader-newtab-answer", dataset: { newtabAnswer: true } },
+              el("div", { class: "jpdb-reader-newtab-reading", dataset: { newtabReading: true }, lang: "ja" }),
+              el("div", { class: "jpdb-reader-newtab-meaning", dataset: { newtabMeaning: true } })
+            ),
+            el("div", { class: "jpdb-reader-newtab-status", dataset: { newtabStatus: true } }, "Loading...")
+          ),
+          el(
+            "nav",
+            { class: "jpdb-reader-newtab-controls", "aria-label": "Study navigation" },
+            el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": "Previous word" }, "Previous"),
+            el("button", { type: "button", dataset: { newtabAction: "reveal" } }, "Reveal"),
+            el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": "Next word" }, "Next")
           )
-        ),
-        el("button", {
-          class: "jpdb-reader-newtab-puck",
-          type: "button",
-          dataset: { newtabAction: "settings" },
-          "aria-label": `Open ${APP_NAME} settings`
-        }, APP_PUCK)
-      );
-    }
-    renderStage() {
-      return el(
-        "section",
-        { class: "jpdb-reader-newtab-stage", "aria-live": "polite" },
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-card", dataset: { newtabCard: true }, tabIndex: 0 },
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-card-head" },
-            el("span", { dataset: { newtabCardKicker: true } }, "Word"),
-            el("span", { dataset: { newtabCardCount: true } }, "0 / 0")
-          ),
-          el("div", { class: "jpdb-reader-newtab-visual", dataset: { newtabVisual: true }, "aria-hidden": "true" }, "読"),
-          el("div", { class: "jpdb-reader-newtab-word", dataset: { newtabExpression: true }, lang: "ja" }, "読"),
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-answer", dataset: { newtabAnswer: true } },
-            el("div", { class: "jpdb-reader-newtab-reading", dataset: { newtabReading: true }, lang: "ja" }),
-            el("div", { class: "jpdb-reader-newtab-meaning", dataset: { newtabMeaning: true } })
-          ),
-          el("div", { class: "jpdb-reader-newtab-concealed", dataset: { newtabConcealed: true } }, "Recall it, then reveal."),
-          el("div", { class: "jpdb-reader-newtab-meta", dataset: { newtabMeta: true } })
-        ),
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-controls" },
-          el("button", { class: "jpdb-reader-newtab-button", type: "button", dataset: { newtabAction: "reveal" } }, "Reveal"),
-          el("button", { class: "jpdb-reader-newtab-button primary", type: "button", dataset: { newtabAction: "next" } }, "Next"),
-          el("div", { class: "jpdb-reader-newtab-status", dataset: { newtabStatus: true } }, "Loading words...")
         )
-      );
-    }
-    renderSidePanel() {
-      return el(
-        "aside",
-        { class: "jpdb-reader-newtab-side", "aria-label": "Study controls" },
-        el(
-          "section",
-          { class: "jpdb-reader-newtab-panel" },
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-panel-head" },
-            el("span", null, "Mode"),
-            el("button", { type: "button", dataset: { newtabAction: "reload" } }, "Refresh sources")
-          ),
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-segmented", role: "group", "aria-label": "Study mode" },
-            el("button", { type: "button", dataset: { newtabAction: "mode", mode: "word" } }, "Word"),
-            el("button", { type: "button", dataset: { newtabAction: "mode", mode: "kanji" } }, "Kanji")
-          ),
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-form-grid" },
-            el("label", null, "Source", this.renderSelect("newtabSource", NEW_TAB_SOURCE_OPTIONS)),
-            el("label", null, "Sort", this.renderSelect("newtabSort", NEW_TAB_SORT_OPTIONS))
-          ),
-          el(
-            "label",
-            { class: "jpdb-reader-newtab-search" },
-            "Search",
-            el("input", {
-              dataset: { newtabSearch: true },
-              type: "search",
-              "aria-label": "Search words",
-              placeholder: "Search spelling, reading, or meaning...",
-              autocomplete: "off"
-            })
-          )
-        ),
-        el(
-          "section",
-          { class: "jpdb-reader-newtab-panel" },
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-panel-head" },
-            el("span", null, "Show only"),
-            el("span", { dataset: { newtabFilterCount: true } }, "0 words")
-          ),
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-filter-grid", dataset: { newtabFilters: true } },
-            NEW_TAB_FILTERS.map((filter) => el("button", { type: "button", dataset: { newtabAction: "filter", filter: filter.value } }, filter.label))
-          )
-        ),
-        el(
-          "section",
-          { class: "jpdb-reader-newtab-panel jpdb-reader-newtab-queue-panel" },
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-panel-head" },
-            el("span", null, "2D review tray"),
-            el("span", { dataset: { newtabTrayNote: true } }, "Pick any word")
-          ),
-          el("div", { class: "jpdb-reader-newtab-list", dataset: { newtabList: true } })
-        ),
-        el("section", { class: "jpdb-reader-newtab-source-note", dataset: { newtabSourceNote: true } })
-      );
-    }
-    renderSelect(datasetName, options) {
-      return el(
-        "select",
-        { dataset: { [datasetName]: true } },
-        options.map((option) => el("option", { value: option.value }, option.label))
       );
     }
     bindRootEvents(root) {
       root.addEventListener("click", (event) => {
-        var _a, _b, _c;
+        var _a, _b;
         const target = event.target;
         const action = (_a = target.closest("[data-newtab-action]")) == null ? void 0 : _a.dataset.newtabAction;
         if (action === "settings") {
@@ -13384,83 +14013,50 @@ ${normalizedReading}`;
           this.dependencies.showSettings("basics");
           return;
         }
-        if (action === "reload") {
-          event.preventDefault();
-          void this.loadCardsInto(root, false);
-          return;
-        }
         if (action === "next") {
           event.preventDefault();
-          this.showNextCard();
+          this.showNextWord();
+          return;
+        }
+        if (action === "previous") {
+          event.preventDefault();
+          this.showPreviousWord();
           return;
         }
         if (action === "reveal") {
           event.preventDefault();
-          this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveCard: true });
+          this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
           return;
         }
         if (action === "mode") {
           event.preventDefault();
           const mode = ((_b = target.closest("[data-mode]")) == null ? void 0 : _b.dataset.mode) === "kanji" ? "kanji" : "word";
-          this.setState({ mode, revealAnswer: false }, root, { preserveCard: false });
+          this.setState({ mode, revealAnswer: false }, root, { preserveWord: false });
           return;
         }
-        if (action === "filter") {
+        const study = target.closest("[data-newtab-study]");
+        if (study && !target.closest(".jpdb-reader-word")) {
           event.preventDefault();
-          const filter = (_c = target.closest("[data-filter]")) == null ? void 0 : _c.dataset.filter;
-          if (NEW_TAB_FILTERS.some((item) => item.value === filter)) {
-            this.setState({ filter, revealAnswer: false }, root, { preserveCard: false });
-          }
-          return;
+          if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveWord: true });
         }
-        const listItem = target.closest("[data-newtab-card-key]");
-        if (listItem) {
-          event.preventDefault();
-          const nextIndex = this.visibleCards.findIndex((card2) => cardKey$1(card2) === listItem.dataset.newtabCardKey);
-          if (nextIndex >= 0) {
-            this.index = nextIndex;
-            this.state.revealAnswer = false;
-            this.persistState();
-            this.renderCard(root, this.visibleCards[this.index]);
-          }
-          return;
-        }
-        const card = target.closest("[data-newtab-card]");
-        if (card && !target.closest(".jpdb-reader-word")) {
-          event.preventDefault();
-          if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveCard: true });
-          else this.showNextCard();
-        }
-      });
-      root.addEventListener("change", (event) => {
-        const target = event.target;
-        if (target.matches("[data-newtab-source]")) {
-          const value = target.value;
-          this.setState({ source: value, revealAnswer: false }, root, { preserveCard: false, reload: true });
-        }
-        if (target.matches("[data-newtab-sort]")) {
-          const value = target.value;
-          this.setState({ sort: value, revealAnswer: false }, root, { preserveCard: false });
-        }
-      });
-      root.addEventListener("input", (event) => {
-        const target = event.target;
-        if (!target.matches("[data-newtab-search]")) return;
-        this.query = target.value;
-        this.applyCards(root, false);
       });
       root.addEventListener("keydown", (event) => {
         const target = event.target;
         if (target == null ? void 0 : target.matches("input, select, textarea")) return;
         if (event.key === "ArrowRight" || event.key === "n") {
           event.preventDefault();
-          this.showNextCard();
+          this.showNextWord();
+          return;
+        }
+        if (event.key === "ArrowLeft" || event.key === "p") {
+          event.preventDefault();
+          this.showPreviousWord();
           return;
         }
         if (event.key === " " || event.key === "Enter") {
           event.preventDefault();
-          if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveCard: true });
-          else this.showNextCard();
+          if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveWord: true });
+          else this.showNextWord();
         }
       });
     }
@@ -13476,57 +14072,45 @@ ${normalizedReading}`;
       document.documentElement.style.setProperty("--jpdb-newtab-surface-muted", palette.surfaceMuted);
       document.documentElement.style.setProperty("--jpdb-newtab-shadow", palette.shadow);
     }
-    async loadCardsInto(root, preferStoredCard) {
-      const setStatus = (message) => this.setStatus(root, message);
+    async loadWordsInto(root, preferStoredWord) {
       try {
-        this.syncControls(root);
-        setStatus("Loading study sources...");
-        this.renderSourceNote(root, ["Checking Anki, JPDB, and local dictionaries in that order."]);
-        const result = await this.loadCards(setStatus);
-        this.allCards = dedupeCards(result.cards).slice(0, NEW_TAB_CARD_LIMIT);
+        this.setStatus(root, "Loading...");
+        const result = await this.loadWords((message) => this.setStatus(root, message));
+        this.allWords = dedupeWords(result.cards).slice(0, NEW_TAB_WORD_LIMIT);
         this.sourceLabel = result.sourceLabel;
-        this.sourceNotes = result.sourceNotes;
-        this.dependencies.parser.cacheCards(this.allCards);
-        if (!this.allCards.length) {
-          setStatus("No study words found yet.");
-          this.renderEmptyCard(root, "No study words yet", "Connect JPDB or Anki, or let the starter dictionary finish downloading.");
-          this.renderSourceNote(root, this.sourceNotes);
+        this.dependencies.parser.cacheCards(this.allWords);
+        if (!this.allWords.length) {
+          this.renderEmpty(root, "よむ", "No words yet.");
           return;
         }
-        this.applyCards(root, preferStoredCard);
-        setStatus(this.sourceLabel);
+        this.applyWords(root, preferStoredWord);
       } catch (error) {
-        log$a.warn("Failed to load words", error);
-        this.setStatus(root, error instanceof Error ? error.message : "Could not load words.");
-        this.renderEmptyCard(root, "Could not load words", "The new tab page will keep working once a source responds.");
+        log$d.warn("Failed to load words", error);
+        this.renderEmpty(root, "よむ", "Could not load words.");
       }
     }
-    async loadCards(onProgress) {
+    async loadWords(onProgress) {
       const source = this.state.source;
       const sourceOrder = source === "auto" ? ["anki", "jpdb", "dictionary"] : [source];
-      const notes = [];
       const labels = [];
       const cards = [];
       for (const item of sourceOrder) {
         if (item === "anki") {
-          const result = await this.loadAnkiCards();
-          notes.push(...result.sourceNotes);
+          const result = await this.loadAnkiWords();
           if (result.cards.length) {
             cards.push(...result.cards);
             labels.push(result.sourceLabel);
           }
         }
         if (item === "jpdb") {
-          const result = await this.loadJpdbCards();
-          notes.push(...result.sourceNotes);
+          const result = await this.loadJpdbWords();
           if (result.cards.length) {
             cards.push(...result.cards);
             labels.push(result.sourceLabel);
           }
         }
         if (item === "dictionary") {
-          const result = await this.loadDictionaryCards(onProgress, cards.length === 0 || source === "dictionary");
-          notes.push(...result.sourceNotes);
+          const result = await this.loadDictionaryWords(onProgress, cards.length === 0 || source === "dictionary");
           if (result.cards.length) {
             cards.push(...result.cards);
             labels.push(result.sourceLabel);
@@ -13535,255 +14119,163 @@ ${normalizedReading}`;
       }
       return {
         cards,
-        sourceLabel: labels.length ? labels.join(" + ") : "No source",
-        sourceNotes: notes.length ? notes : ["No source returned study words yet."]
+        sourceLabel: labels.length ? labels.join(" + ") : "No source"
       };
     }
-    async loadAnkiCards() {
+    async loadAnkiWords() {
       const settings = this.dependencies.getSettings();
-      if (!settings.ankiEnabled) {
-        return { cards: [], sourceLabel: "Anki not connected", sourceNotes: ["Anki can be connected later from Settings."] };
-      }
+      if (!settings.ankiEnabled) return { cards: [], sourceLabel: "Anki" };
       const cards = await this.dependencies.anki.listNewTabCards(80).catch((error) => {
-        log$a.debug("Anki new tab source unavailable", error);
+        log$d.debug("Anki new tab source unavailable", error);
         return [];
       });
-      return {
-        cards,
-        sourceLabel: cards.length ? `Anki: ${settings.ankiDeck}` : "Anki: no cards",
-        sourceNotes: [cards.length ? `Loaded ${cards.length} Anki cards from ${settings.ankiDeck}.` : "Anki is enabled, but no cards were available."]
-      };
+      return { cards, sourceLabel: cards.length ? "Anki" : "Anki" };
     }
-    async loadDictionaryCards(onProgress, installIfEmpty = true) {
+    async loadDictionaryWords(onProgress, installIfEmpty = true) {
       const settings = this.dependencies.getSettings();
-      const notes = [];
       try {
         let summary = await this.dependencies.dictionaries.summary().catch(() => null);
         let entries = (summary == null ? void 0 : summary.terms) ? await this.dependencies.dictionaries.listRandomTopTerms(90, 4e3, settings.dictionaryPreferences) : [];
         if (!entries.length && installIfEmpty) {
-          onProgress == null ? void 0 : onProgress("Downloading JMdict starter dictionary...");
-          notes.push("No local dictionary words were ready, so Yomu started the JMdict starter dictionary download.");
-          const installed = await this.dependencies.ensureStarterDictionary((message) => {
-            notes.push(message);
-            onProgress == null ? void 0 : onProgress(message);
-          });
+          onProgress == null ? void 0 : onProgress("Downloading dictionary...");
+          const installed = await this.dependencies.ensureStarterDictionary(onProgress);
           if (installed) {
             summary = await this.dependencies.dictionaries.summary().catch(() => summary);
             entries = await this.dependencies.dictionaries.listRandomTopTerms(90, 4e3, settings.dictionaryPreferences);
           }
         }
-        const cards = entries.map((entry) => this.dependencies.parser.localCardFromEntry(entry));
-        const dictionaryNames = summary == null ? void 0 : summary.dictionaries.map((dictionary) => dictionary.title).slice(0, 3).join(", ");
         return {
-          cards,
-          sourceLabel: cards.length ? "Dictionaries" : "Dictionaries: no words",
-          sourceNotes: [
-            cards.length ? `Loaded ${cards.length} local dictionary words${dictionaryNames ? ` from ${dictionaryNames}` : ""}.` : "No local dictionary words are installed yet.",
-            ...notes.slice(-2)
-          ]
+          cards: entries.map((entry) => this.dependencies.parser.localCardFromEntry(entry)),
+          sourceLabel: "Dictionary"
         };
       } catch (error) {
-        log$a.debug("Dictionary card load failed", error);
-        return { cards: [], sourceLabel: "Dictionary: error", sourceNotes: ["Local dictionary lookup failed."] };
+        log$d.debug("Dictionary word load failed", error);
+        return { cards: [], sourceLabel: "Dictionary" };
       }
     }
-    async loadJpdbCards() {
+    async loadJpdbWords() {
       const settings = this.dependencies.getSettings();
-      if (!settings.apiKey.trim()) {
-        return { cards: [], sourceLabel: "JPDB not connected", sourceNotes: ["JPDB can be connected later from Settings."] };
-      }
+      if (!settings.apiKey.trim()) return { cards: [], sourceLabel: "JPDB" };
       const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
       if (selectedDeck !== JPDB_ALL_DECKS) {
         try {
           const cards2 = await this.dependencies.jpdb.listDeckCards(selectedDeck, 90);
-          return {
-            cards: cards2,
-            sourceLabel: cards2.length ? `JPDB: ${selectedDeck}` : "JPDB: no words",
-            sourceNotes: [cards2.length ? `Loaded random words from JPDB deck ${selectedDeck}.` : `JPDB deck ${selectedDeck} did not return words.`]
-          };
+          return { cards: cards2, sourceLabel: "JPDB" };
         } catch (error) {
-          log$a.debug("JPDB selected deck load failed", { deckId: selectedDeck }, error);
+          log$d.debug("JPDB selected deck load failed", { deckId: selectedDeck }, error);
         }
       }
       const decks = await this.dependencies.jpdb.listDecks().catch(() => []);
       const eligibleDecks = decks.filter((deck) => !/(never\s*-?\s*forget|blacklist|suspend)/i.test(`${deck.id} ${deck.name}`)).slice(0, JPDB_DECK_SAMPLE_LIMIT);
       const cards = [];
-      const loadedDecks = [];
       for (const deck of eligibleDecks) {
         try {
-          const deckCards = await this.dependencies.jpdb.listDeckCards(deck.id, JPDB_CARDS_PER_DECK);
-          if (deckCards.length) {
-            cards.push(...deckCards);
-            loadedDecks.push(deck.name);
-          }
+          cards.push(...await this.dependencies.jpdb.listDeckCards(deck.id, JPDB_WORDS_PER_DECK));
         } catch (error) {
-          log$a.debug("JPDB all-decks sample failed", { deck: deck.id }, error);
+          log$d.debug("JPDB all-decks sample failed", { deck: deck.id }, error);
         }
       }
-      return {
-        cards,
-        sourceLabel: cards.length ? `JPDB: ${loadedDecks.length} decks` : "JPDB: no words",
-        sourceNotes: [
-          cards.length ? `Sampled ${cards.length} JPDB words across ${loadedDecks.length} user decks, excluding never-forget style decks by default.` : "JPDB did not return deck words yet."
-        ]
-      };
+      return { cards, sourceLabel: "JPDB" };
     }
     setState(patch, root, options) {
       this.state = { ...this.state, ...patch };
       this.persistState();
-      this.syncControls(root);
-      if (options.reload) {
-        void this.loadCardsInto(root, options.preserveCard);
-        return;
-      }
-      this.applyCards(root, options.preserveCard);
+      this.syncMode(root);
+      this.applyWords(root, options.preserveWord);
     }
     applyExternalState(state) {
       if (JSON.stringify(this.state) === JSON.stringify(state)) return;
       this.state = state;
       const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
       if (!root) return;
-      this.syncControls(root);
-      this.applyCards(root, true);
+      this.syncMode(root);
+      this.applyWords(root, true);
     }
     persistState() {
       saveNewTabUiState(this.state);
       this.stateChannel.publish(this.state);
     }
-    applyCards(root, preferStoredCard) {
-      this.syncControls(root);
-      const baseCards = this.state.mode === "kanji" ? this.allCards.filter((card) => kanjiCharacters(card.spelling).length > 0) : this.allCards;
-      const filtered = filterNewTabCards(baseCards, this.state.filter, this.query);
-      this.visibleCards = this.state.sort === "random" ? shuffleCards(filtered) : sortNewTabCards(filtered, this.state.sort);
-      const count = root.querySelector("[data-newtab-filter-count]");
-      if (count) count.textContent = `${this.visibleCards.length.toLocaleString()} word${this.visibleCards.length === 1 ? "" : "s"}`;
-      if (!this.visibleCards.length) {
+    applyWords(root, preferStoredWord) {
+      this.syncMode(root);
+      const baseWords = this.state.mode === "kanji" ? this.allWords.filter((card) => kanjiCharacters(card.spelling).length > 0) : this.allWords;
+      this.visibleWords = shuffleCards(baseWords);
+      if (!this.visibleWords.length) {
         this.index = 0;
-        this.renderEmptyCard(root, "No matching words", "Try All, Dictionary, or another source.");
+        this.renderEmpty(root, "よむ", "No kanji words yet.");
         return;
       }
-      this.index = this.resolveInitialIndex(preferStoredCard);
-      this.renderCard(root, this.visibleCards[this.index]);
+      this.index = this.resolveInitialIndex(preferStoredWord);
+      this.renderWord(root, this.visibleWords[this.index]);
     }
-    resolveInitialIndex(preferStoredCard) {
-      if (preferStoredCard) {
-        const stored = this.readStoredCardKey();
+    resolveInitialIndex(preferStoredWord) {
+      if (preferStoredWord) {
+        const stored = this.readStoredWordKey();
         if ((stored == null ? void 0 : stored.signature) === this.currentSessionSignature()) {
-          const index = this.visibleCards.findIndex((card) => cardKey$1(card) === stored.key);
+          const index = this.visibleWords.findIndex((card) => cardKey(card) === stored.key);
           if (index >= 0) return index;
         }
       }
       return 0;
     }
-    showNextCard() {
+    showNextWord() {
       const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
-      if (!root || !this.visibleCards.length) return;
+      if (!root || !this.visibleWords.length) return;
       this.dependencies.dismiss({ suppressHoverTarget: false });
-      this.index = (this.index + 1) % this.visibleCards.length;
+      this.index = (this.index + 1) % this.visibleWords.length;
       this.state.revealAnswer = false;
       this.persistState();
-      this.renderCard(root, this.visibleCards[this.index]);
+      this.renderWord(root, this.visibleWords[this.index]);
     }
-    renderCard(root, card) {
-      this.writeStoredCardKey(card);
+    showPreviousWord() {
+      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      if (!root || !this.visibleWords.length) return;
+      this.dependencies.dismiss({ suppressHoverTarget: false });
+      this.index = (this.index - 1 + this.visibleWords.length) % this.visibleWords.length;
+      this.state.revealAnswer = false;
+      this.persistState();
+      this.renderWord(root, this.visibleWords[this.index]);
+    }
+    renderWord(root, card) {
+      this.writeStoredWordKey(card);
       root.classList.toggle("jpdb-reader-newtab-revealed", this.state.revealAnswer);
       root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji");
-      const expression = root.querySelector("[data-newtab-expression]");
-      const reading = root.querySelector("[data-newtab-reading]");
-      const meaning = root.querySelector("[data-newtab-meaning]");
-      const visual = root.querySelector("[data-newtab-visual]");
-      const concealed = root.querySelector("[data-newtab-concealed]");
-      const meta = root.querySelector("[data-newtab-meta]");
-      const kicker = root.querySelector("[data-newtab-card-kicker]");
-      const count = root.querySelector("[data-newtab-card-count]");
-      const reveal = root.querySelector('[data-newtab-action="reveal"]');
+      const slots = this.studySlots(root);
       const state = primaryCardState(card.cardState);
-      if (this.state.mode === "kanji") {
-        const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? "字";
-        if (kicker) kicker.textContent = "Kanji recall";
-        if (expression) expression.textContent = kanji;
-        if (visual) visual.textContent = kanji;
-        if (reading) replaceChildrenWith(reading, this.renderReaderWord(card, state));
-        if (meaning) meaning.textContent = `${card.reading}${firstCardMeaning(card) ? ` · ${firstCardMeaning(card)}` : ""}`;
-        if (concealed) concealed.textContent = "Which word uses this kanji?";
-      } else {
-        if (kicker) kicker.textContent = "Word recall";
-        if (expression) replaceChildrenWith(expression, this.renderReaderWord(card, state));
-        if (visual) visual.textContent = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? "読";
-        if (reading) reading.textContent = card.reading && card.reading !== card.spelling ? card.reading : "Reading hidden";
-        if (meaning) meaning.textContent = firstCardMeaning(card) || "Open the word popup for local dictionary details.";
-        if (concealed) concealed.textContent = "Reading and meaning are hidden until reveal.";
-      }
-      if (meta) {
-        const frequency = card.frequencyRank ? `Top ${card.frequencyRank.toLocaleString()}` : "No frequency";
-        replaceChildrenWith(
-          meta,
-          el("span", null, cardStateLabel(card)),
-          el("span", null, sourceLabel(card)),
-          el("span", null, frequency)
-        );
-      }
-      if (count) count.textContent = `${this.index + 1} / ${this.visibleCards.length}`;
-      if (reveal) reveal.textContent = this.state.revealAnswer ? "Hide answer" : "Reveal";
-      this.setStatus(root, this.sourceLabel || `${this.index + 1}/${this.visibleCards.length}`);
-      this.renderList(root, card);
-      this.renderSummary(root);
-      this.renderSourceNote(root, this.sourceNotes);
+      if (this.state.mode === "kanji") this.renderKanjiPrompt(slots, card, state);
+      else this.renderWordPrompt(slots, card, state);
+      if (slots.count) slots.count.textContent = `${this.index + 1} / ${this.visibleWords.length}`;
+      if (slots.reveal) slots.reveal.textContent = this.state.revealAnswer ? "Hide" : "Reveal";
+      if (slots.status) slots.status.textContent = this.sourceLabel;
     }
-    renderList(root, activeCard) {
-      const list = root.querySelector("[data-newtab-list]");
-      if (!list) return;
-      const activeKey = cardKey$1(activeCard);
-      const items = this.visibleCards.slice(0, 18);
-      replaceChildrenWith(list, items.map((card) => {
-        const key = cardKey$1(card);
-        const active = key === activeKey;
-        return el(
-          "button",
-          {
-            class: `jpdb-reader-newtab-list-item${active ? " active" : ""}`,
-            type: "button",
-            dataset: { newtabCardKey: key }
-          },
-          el("span", { lang: "ja" }, card.spelling),
-          el("small", null, cardStateLabel(card))
-        );
-      }));
+    studySlots(root) {
+      return {
+        prompt: root.querySelector("[data-newtab-prompt]"),
+        answer: root.querySelector("[data-newtab-reading]"),
+        meaning: root.querySelector("[data-newtab-meaning]"),
+        count: root.querySelector("[data-newtab-count]"),
+        status: root.querySelector("[data-newtab-status]"),
+        reveal: root.querySelector('[data-newtab-action="reveal"]')
+      };
     }
-    renderSummary(root) {
-      const summary = root.querySelector("[data-newtab-summary]");
-      if (!summary) return;
-      const counts = /* @__PURE__ */ new Map();
-      for (const card of this.allCards) counts.set(cardStateLabel(card), (counts.get(cardStateLabel(card)) ?? 0) + 1);
-      const topCounts = [...counts.entries()].slice(0, 4).map(([label, count]) => `${label} ${count}`).join(" · ");
-      summary.textContent = topCounts || "Ready";
+    renderKanjiPrompt(slots, card, state) {
+      const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? "字";
+      if (slots.prompt) slots.prompt.textContent = kanji;
+      if (slots.answer) replaceChildrenWith(slots.answer, this.renderReaderWord(card, state));
+      if (slots.meaning) slots.meaning.textContent = `${card.reading}${firstCardMeaning(card) ? ` · ${firstCardMeaning(card)}` : ""}`;
     }
-    renderSourceNote(root, notes) {
-      const note = root.querySelector("[data-newtab-source-note]");
-      if (!note) return;
-      replaceChildrenWith(note, notes.filter(Boolean).slice(0, 4).map((item) => el("p", null, item)));
+    renderWordPrompt(slots, card, state) {
+      if (slots.prompt) replaceChildrenWith(slots.prompt, this.renderReaderWord(card, state));
+      if (slots.answer) slots.answer.textContent = card.reading && card.reading !== card.spelling ? card.reading : "";
+      if (slots.meaning) slots.meaning.textContent = firstCardMeaning(card);
     }
-    renderEmptyCard(root, title, message) {
-      root.classList.remove("jpdb-reader-newtab-revealed");
-      const expression = root.querySelector("[data-newtab-expression]");
-      const reading = root.querySelector("[data-newtab-reading]");
-      const meaning = root.querySelector("[data-newtab-meaning]");
-      const visual = root.querySelector("[data-newtab-visual]");
-      const concealed = root.querySelector("[data-newtab-concealed]");
-      const meta = root.querySelector("[data-newtab-meta]");
-      const list = root.querySelector("[data-newtab-list]");
-      if (expression) expression.textContent = "よむ";
-      if (reading) reading.textContent = title;
-      if (meaning) meaning.textContent = message;
-      if (visual) visual.textContent = "よ";
-      if (concealed) concealed.textContent = message;
-      if (meta) replaceChildrenWith(
-        meta,
-        el("span", null, "Dictionary fallback"),
-        el("span", null, "JPDB optional"),
-        el("span", null, "Anki optional")
-      );
-      if (list) list.replaceChildren();
+    renderEmpty(root, prompt, message) {
+      root.classList.add("jpdb-reader-newtab-revealed");
+      const slots = this.studySlots(root);
+      if (slots.prompt) slots.prompt.textContent = prompt;
+      if (slots.answer) slots.answer.textContent = message;
+      if (slots.meaning) slots.meaning.textContent = "";
+      if (slots.count) slots.count.textContent = "0 / 0";
+      if (slots.status) slots.status.textContent = "";
     }
     renderReaderWord(card, state) {
       const sourceClass = card.source === "anki" ? "anki" : "jpdb";
@@ -13797,28 +14289,21 @@ ${normalizedReading}`;
         tabIndex: 0
       }, card.spelling);
     }
-    syncControls(root) {
+    syncMode(root) {
       root.querySelectorAll('[data-newtab-action="mode"]').forEach((button2) => {
         button2.dataset.active = String(button2.dataset.mode === this.state.mode);
       });
-      root.querySelectorAll('[data-newtab-action="filter"]').forEach((button2) => {
-        button2.dataset.active = String(button2.dataset.filter === this.state.filter);
-      });
-      const source = root.querySelector("[data-newtab-source]");
-      if (source) source.value = this.state.source;
-      const sort = root.querySelector("[data-newtab-sort]");
-      if (sort) sort.value = this.state.sort;
     }
     setStatus(root, message) {
       const status = root.querySelector("[data-newtab-status]");
       if (status) status.textContent = message;
     }
     currentSessionSignature() {
-      return [this.state.source, this.state.sort, this.state.filter, this.state.mode, this.query.trim(), this.sourceLabel].join("|");
+      return [this.state.source, this.state.mode, this.sourceLabel].join("|");
     }
-    readStoredCardKey() {
+    readStoredWordKey() {
       try {
-        const raw = sessionStorage.getItem(SESSION_CARD_KEY);
+        const raw = sessionStorage.getItem(SESSION_WORD_KEY);
         if (!raw) return null;
         const value = JSON.parse(raw);
         return typeof value.signature === "string" && typeof value.key === "string" ? { signature: value.signature, key: value.key } : null;
@@ -13826,17 +14311,17 @@ ${normalizedReading}`;
         return null;
       }
     }
-    writeStoredCardKey(card) {
+    writeStoredWordKey(card) {
       try {
-        sessionStorage.setItem(SESSION_CARD_KEY, JSON.stringify({
+        sessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
           signature: this.currentSessionSignature(),
-          key: cardKey$1(card)
+          key: cardKey(card)
         }));
       } catch {
       }
     }
   }
-  function dedupeCards(cards) {
+  function dedupeWords(cards) {
     const seen = /* @__PURE__ */ new Map();
     for (const card of cards) {
       const key = `${card.spelling}
@@ -13851,12 +14336,7 @@ ${card.reading}`;
     if (card.source === "anki") return 1;
     return 2;
   }
-  function sourceLabel(card) {
-    if (card.source === "local") return "Dictionary";
-    if (card.source === "anki") return "Anki";
-    return "JPDB";
-  }
-  const log$9 = Logger.scope("Onboarding");
+  const log$c = Logger.scope("Onboarding");
   class OnboardingController {
     constructor(options) {
       __publicField(this, "panel");
@@ -13866,14 +14346,14 @@ ${card.reading}`;
     }
     async showIfNeeded() {
       if (this.options.getSettings().onboardingSeen) {
-        log$9.debug("Onboarding skipped", { reason: "already-seen" });
+        log$c.debug("Onboarding skipped", { reason: "already-seen" });
         return false;
       }
       this.show();
       return true;
     }
     show() {
-      log$9.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      log$c.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
       this.close();
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
@@ -13947,7 +14427,7 @@ ${card.reading}`;
       this.languageSelect.addEventListener("change", () => {
         var _a;
         const language2 = normalizeLanguage((_a = this.languageSelect) == null ? void 0 : _a.value, this.options.getSettings().interfaceLanguage);
-        log$9.info("Onboarding language changed", { language: language2 });
+        log$c.info("Onboarding language changed", { language: language2 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
@@ -13997,7 +14477,7 @@ ${card.reading}`;
     }
     async complete(openSettings) {
       var _a;
-      const done = log$9.time("Onboarding complete", { openSettings });
+      const done = log$c.time("Onboarding complete", { openSettings });
       const language = (_a = this.languageSelect) == null ? void 0 : _a.value;
       const settings = {
         ...this.options.getSettings(),
@@ -14013,9 +14493,9 @@ ${card.reading}`;
         this.close();
         if (openSettings === "dictionaries") this.options.showSettings("dictionaries");
         else if (openSettings) this.options.showSettings();
-        log$9.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
+        log$c.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
       } catch (error) {
-        log$9.warn("Onboarding completion failed", { openSettings, error });
+        log$c.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
@@ -14023,7 +14503,7 @@ ${card.reading}`;
     }
     close() {
       var _a, _b;
-      if (this.panel || this.backdrop) log$9.debug("Closing onboarding");
+      if (this.panel || this.backdrop) log$c.debug("Closing onboarding");
       (_a = this.panel) == null ? void 0 : _a.remove();
       (_b = this.backdrop) == null ? void 0 : _b.remove();
       this.panel = void 0;
@@ -14056,7 +14536,7 @@ ${card.reading}`;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
   const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const log$8 = Logger.scope("OCR");
+  const log$b = Logger.scope("OCR");
   class ImageOcrController {
     constructor(options) {
       __publicField(this, "states", /* @__PURE__ */ new Map());
@@ -14084,14 +14564,14 @@ ${card.reading}`;
         if (mutations.some((mutation) => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
       });
       this.mutationObserver.observe(document.body, { childList: true, subtree: true });
-      log$8.info("OCR controller initialized");
+      log$b.info("OCR controller initialized");
     }
     refresh() {
       var _a;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) {
         this.clear();
-        log$8.debug("OCR disabled; cleared overlays");
+        log$b.debug("OCR disabled; cleared overlays");
         return;
       }
       this.pruneDisconnectedStates();
@@ -14102,25 +14582,25 @@ ${card.reading}`;
         (_a = this.observer) == null ? void 0 : _a.observe(image);
       }
       this.schedulePosition();
-      log$8.debugThrottled("refresh", 2500, "OCR refreshed image candidates", { images: images.length });
+      log$b.debugThrottled("refresh", 2500, "OCR refreshed image candidates", { images: images.length });
     }
     toggle() {
       const settings = this.options.getSettings();
       settings.ocrEnabled = !settings.ocrEnabled;
       this.options.onToast(settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
       this.refresh();
-      log$8.info("OCR toggled", { enabled: settings.ocrEnabled });
+      log$b.info("OCR toggled", { enabled: settings.ocrEnabled });
     }
     async scanVisible() {
       this.refresh();
       const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
       if (!images.length) {
-        log$8.debug("Manual OCR scan found no nearby images");
+        log$b.debug("Manual OCR scan found no nearby images");
         this.options.onToast("No readable images nearby.");
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$8.info("Manual OCR scan queued images", { images: images.length });
+      log$b.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element2) {
       var _a;
@@ -14129,7 +14609,7 @@ ${card.reading}`;
       const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
       if (!state) return void 0;
       const image = captureImageElement(state.image);
-      log$8.debug("Captured OCR source image for mining", { success: Boolean(image) });
+      log$b.debug("Captured OCR source image for mining", { success: Boolean(image) });
       return image;
     }
     ensureObserver(settings) {
@@ -14147,7 +14627,7 @@ ${card.reading}`;
           if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
         }
       }, { rootMargin });
-      log$8.debug("OCR observer configured", { rootMargin });
+      log$b.debug("OCR observer configured", { rootMargin });
     }
     ensureState(image) {
       const existing = this.states.get(image);
@@ -14167,7 +14647,7 @@ ${card.reading}`;
         this.scheduleRefresh(80);
       });
       this.states.set(image, state);
-      log$8.debug("OCR state created for image", imageSummary(image));
+      log$b.debug("OCR state created for image", imageSummary(image));
       return state;
     }
     enqueue(image, userRequested = false) {
@@ -14186,7 +14666,7 @@ ${card.reading}`;
         state.status.hidden = false;
         state.status.textContent = "Reading image...";
       }
-      log$8.debug("OCR image queued", { userRequested, queue: this.queue.length, image: imageSummary(image) });
+      log$b.debug("OCR image queued", { userRequested, queue: this.queue.length, image: imageSummary(image) });
       this.drainQueue();
     }
     drainQueue() {
@@ -14197,7 +14677,7 @@ ${card.reading}`;
       this.busy = true;
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const delay = ((_a = this.states.get(image)) == null ? void 0 : _a.overlayRequested) || hasFastText ? 0 : 900;
-      log$8.debug("OCR queue draining", { delay, hasFastText, remaining: this.queue.length });
+      log$b.debug("OCR queue draining", { delay, hasFastText, remaining: this.queue.length });
       void waitForIdle(delay).then(() => this.scanImage(image)).finally(() => {
         this.busy = false;
         this.drainQueue();
@@ -14211,7 +14691,7 @@ ${card.reading}`;
       this.resetStateIfImageChanged(state);
       const cached = this.cache.get(key);
       if (cached) {
-        log$8.debug("OCR cache hit", { image: imageSummary(image), lines: cached.lines.length });
+        log$b.debug("OCR cache hit", { image: imageSummary(image), lines: cached.lines.length });
         await this.renderResult(state, cached);
         state.manualRequested = false;
         return;
@@ -14223,7 +14703,7 @@ ${card.reading}`;
       const canUseGoogleLens = settings.ocrProvider === "google-lens";
       state.status.textContent = "Reading image...";
       const provider = inlineProviderLabel(settings);
-      const done = log$8.time("scanImage", { provider, image: imageSummary(image), manualRequested });
+      const done = log$b.time("scanImage", { provider, image: imageSummary(image), manualRequested });
       try {
         const inlineFallback = readFallbackOcrResult(image, false);
         const providerResult = inlineFallback ? null : canUseLocalService ? await recognizeViaLocalService(image, settings) : canUseCloudVision ? await recognizeViaCloudVision(image, settings) : canUseGoogleLens ? await recognizeViaGoogleLens(image, settings) : null;
@@ -14232,23 +14712,23 @@ ${card.reading}`;
           state.autoSkipped = !manualRequested;
           state.status.textContent = "No Japanese text found";
           state.status.hidden = !state.overlayRequested || state.autoSkipped;
-          log$8.debug("OCR found no lines", { provider, manualRequested });
+          log$b.debug("OCR found no lines", { provider, manualRequested });
           return;
         }
         this.remember(key, result);
         state.key = key;
         await this.renderResult(state, result);
-        log$8.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+        log$b.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
       } catch (error) {
         const fallback = readFallbackOcrResult(image, false);
         if (fallback == null ? void 0 : fallback.lines.length) {
-          log$8.warn("OCR provider failed; rendered fallback metadata", { provider }, error);
+          log$b.warn("OCR provider failed; rendered fallback metadata", { provider }, error);
           await this.renderResult(state, fallback);
         } else {
           state.status.textContent = error instanceof Error ? error.message : "OCR failed";
           state.autoSkipped = !manualRequested;
           state.status.hidden = !state.overlayRequested || state.autoSkipped;
-          log$8.warn("OCR scan failed", { provider, manualRequested }, error);
+          log$b.warn("OCR scan failed", { provider, manualRequested }, error);
         }
       } finally {
         state.loading = false;
@@ -14265,7 +14745,7 @@ ${card.reading}`;
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const sentence = result.lines.map((line) => line.text).join("\n");
       const parsed = settings.apiKey.trim() || settings.localDictionariesEnabled ? await Promise.all(result.lines.map((line) => this.options.parseJapanese(line.text).catch((error) => {
-        log$8.debug("OCR line parse failed quietly", { textLength: line.text.length }, error);
+        log$b.debug("OCR line parse failed quietly", { textLength: line.text.length }, error);
         return [];
       }))) : result.lines.map(() => []);
       state.overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
@@ -14319,7 +14799,7 @@ ${card.reading}`;
         state.overlay.append(element2);
       }
       this.positionState(state.image);
-      log$8.debug("OCR overlay lines positioned", {
+      log$b.debug("OCR overlay lines positioned", {
         lines: result.lines.length,
         parsedTokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0),
         forcedOverlay: forceOverlay
@@ -14348,7 +14828,7 @@ ${card.reading}`;
       state.autoSkipped = false;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       state.status.hidden = true;
-      log$8.debug("OCR image state reset after source change", { image: imageSummary(state.image) });
+      log$b.debug("OCR image state reset after source change", { image: imageSummary(state.image) });
     }
     remember(key, result) {
       this.cache.set(key, result);
@@ -14402,7 +14882,7 @@ ${card.reading}`;
       this.queue = [];
       for (const state of this.states.values()) state.overlay.remove();
       this.states.clear();
-      log$8.debug("OCR state cleared");
+      log$b.debug("OCR state cleared");
     }
     pruneDisconnectedStates() {
       var _a;
@@ -14497,7 +14977,7 @@ ${card.reading}`;
     }, 0);
   }
   async function recognizeViaLocalService(image, settings) {
-    log$8.debug("Recognizing image via local OCR service", { endpointHost: safeHost$1(settings.ocrEndpointUrl), engine: settings.ocrEngine });
+    log$b.debug("Recognizing image via local OCR service", { endpointHost: safeHost$1(settings.ocrEndpointUrl), engine: settings.ocrEngine });
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const payload = await canvasToBase64Payload(canvas);
     const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
@@ -14519,7 +14999,7 @@ ${card.reading}`;
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaCloudVision(image, settings) {
-    log$8.debug("Recognizing image via Cloud Vision");
+    log$b.debug("Recognizing image via Cloud Vision");
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const payload = await canvasToBase64Payload(canvas);
     const body = JSON.stringify({
@@ -14534,7 +15014,7 @@ ${card.reading}`;
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaGoogleLens(image, settings) {
-    log$8.debug("Recognizing image via Google Lens");
+    log$b.debug("Recognizing image via Google Lens");
     const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.88);
     const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -14543,12 +15023,12 @@ ${card.reading}`;
       const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
       return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
     } catch (error) {
-      log$8.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
+      log$b.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
       return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
     }
   }
   async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-    log$8.debug("Recognizing image via Google Lens upload fallback", { width, height, size: blob.size });
+    log$b.debug("Recognizing image via Google Lens upload fallback", { width, height, size: blob.size });
     const data = new FormData();
     data.append("encoded_image", blob, "image.jpg");
     const response = await requestTextForm("https://lens.google.com/v3/upload?stcs=" + Date.now().toString().slice(0, 10), data, timeout);
@@ -14558,7 +15038,7 @@ ${card.reading}`;
     try {
       return drawImageToCanvas(image, maxPixels);
     } catch (error) {
-      log$8.debug("Direct canvas draw failed; fetching image blob fallback", { image: imageSummary(image) }, error);
+      log$b.debug("Direct canvas draw failed; fetching image blob fallback", { image: imageSummary(image) }, error);
       const url = image.currentSrc || image.src;
       if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
       const blob = await requestBlob(url);
@@ -15044,7 +15524,7 @@ ${card.reading}`;
   function requestJson$1(url, data, timeout) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$8.debug("JSON OCR request via userscript API", { host: safeHost$1(url), bytes: data.length });
+      log$b.debug("JSON OCR request via userscript API", { host: safeHost$1(url), bytes: data.length });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "POST",
@@ -15059,14 +15539,14 @@ ${card.reading}`;
         });
       });
     }
-    log$8.debug("JSON OCR request via fetch", { host: safeHost$1(url), bytes: data.length });
+    log$b.debug("JSON OCR request via fetch", { host: safeHost$1(url), bytes: data.length });
     return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data }).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
   }
   function requestArrayBuffer(url, data, timeout) {
     const body = new Uint8Array(data);
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$8.debug("ArrayBuffer OCR request via userscript API", { host: safeHost$1(url), bytes: body.byteLength });
+      log$b.debug("ArrayBuffer OCR request via userscript API", { host: safeHost$1(url), bytes: body.byteLength });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "POST",
@@ -15086,7 +15566,7 @@ ${card.reading}`;
         });
       });
     }
-    log$8.debug("ArrayBuffer OCR request via fetch", { host: safeHost$1(url), bytes: body.byteLength });
+    log$b.debug("ArrayBuffer OCR request via fetch", { host: safeHost$1(url), bytes: body.byteLength });
     return fetch(url, {
       method: "POST",
       headers: {
@@ -15101,7 +15581,7 @@ ${card.reading}`;
   function requestTextForm(url, data, timeout) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$8.debug("Form OCR request via userscript API", { host: safeHost$1(url) });
+      log$b.debug("Form OCR request via userscript API", { host: safeHost$1(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "POST",
@@ -15115,13 +15595,13 @@ ${card.reading}`;
         });
       });
     }
-    log$8.debug("Form OCR request via fetch", { host: safeHost$1(url) });
+    log$b.debug("Form OCR request via fetch", { host: safeHost$1(url) });
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
   function requestBlob(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$8.debug("Image blob request via userscript API", { host: safeHost$1(url) });
+      log$b.debug("Image blob request via userscript API", { host: safeHost$1(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -15132,7 +15612,7 @@ ${card.reading}`;
         });
       });
     }
-    log$8.debug("Image blob request via fetch", { host: safeHost$1(url) });
+    log$b.debug("Image blob request via fetch", { host: safeHost$1(url) });
     return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
   }
   function waitForIdle(timeout) {
@@ -15198,71 +15678,104 @@ ${card.reading}`;
       return "inline-or-invalid";
     }
   }
-  const RECOMMENDED_JAPANESE_DICTIONARIES = [
-    {
-      id: "jitendex",
-      category: "terms",
-      name: "Jitendex",
-      description: "Japanese to English dictionary with examples, usage notes, etymology, cross references, and definition notes.",
-      homepage: "https://jitendex.org",
-      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
-    },
-    {
-      id: "jmdict",
-      category: "terms",
-      name: "JMdict",
-      description: "Starter Japanese-English dictionary maintained by EDRDG and packaged for Yomitan. よむ downloads this automatically when dictionary words are needed and no local dictionary is installed.",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
-    },
-    {
-      id: "jmnedict",
-      category: "terms",
-      name: "JMnedict",
-      description: "Japanese proper names maintained by the Electronic Dictionary Research and Development Group.",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
-    },
-    {
-      id: "kanjidic",
-      category: "kanji",
-      name: "KANJIDIC",
-      description: "Kanji readings, meanings, stroke data, grade level, JLPT level, and frequency.",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
-    },
-    {
-      id: "jpdbv2-kana",
-      category: "frequency",
-      name: "JPDBv2㋕",
-      description: "Frequency data based on the JPDB corpus. よむ shows this first when sorting local frequency chips.",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
-    },
-    {
-      id: "bccwj",
-      category: "frequency",
-      name: "BCCWJ",
-      description: "Frequency data from the Balanced Corpus of Contemporary Written Japanese.",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
-    },
-    {
-      id: "jiten",
-      category: "frequency",
-      name: "Jiten",
-      description: "Frequency data from the media stats database at jiten.moe.",
-      homepage: "https://jiten.moe/other",
-      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+  const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
+  const POINTER_TEXT_SKIP_SELECTOR = [
+    "script",
+    "style",
+    "noscript",
+    "textarea",
+    "input",
+    "select",
+    "button",
+    "option",
+    "summary",
+    "svg",
+    "use",
+    "rt",
+    "rp",
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    "[onclick]",
+    "[data-jpdb-reader-root]"
+  ].join(",");
+  const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
+  function caretTextPositionFromPoint(x, y) {
+    var _a, _b;
+    const doc = document;
+    const position = (_a = doc.caretPositionFromPoint) == null ? void 0 : _a.call(doc, x, y);
+    if ((position == null ? void 0 : position.offsetNode.nodeType) === Node.TEXT_NODE) {
+      return { node: position.offsetNode, offset: position.offset };
     }
-  ];
-  const STARTER_DICTIONARY_IDS = ["jmdict"];
-  function findRecommendedDictionary(id) {
-    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
+    const range = (_b = doc.caretRangeFromPoint) == null ? void 0 : _b.call(doc, x, y);
+    if ((range == null ? void 0 : range.startContainer.nodeType) === Node.TEXT_NODE) {
+      return { node: range.startContainer, offset: range.startOffset };
+    }
+    return null;
+  }
+  function japaneseRunAt(text2, offset) {
+    let index = Math.min(Math.max(offset, 0), text2.length - 1);
+    if (!JAPANESE_RUN_RE.test(text2[index] ?? "") && index > 0 && JAPANESE_RUN_RE.test(text2[index - 1] ?? "")) index--;
+    if (!JAPANESE_RUN_RE.test(text2[index] ?? "")) return null;
+    let start = index;
+    let end = index + 1;
+    while (start > 0 && JAPANESE_RUN_RE.test(text2[start - 1])) start--;
+    while (end < text2.length && JAPANESE_RUN_RE.test(text2[end])) end++;
+    return { start, end, offset: index };
+  }
+  function pointerTextCharacterOffset(node, caretOffset, x, y) {
+    const parent = node.parentElement;
+    if (!parent || !isPointerTextParentEligible(parent)) return null;
+    const clamped = Math.min(Math.max(caretOffset, 0), node.data.length - 1);
+    const candidates = [clamped, clamped - 1, clamped + 1].filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
+    return candidates.find((offset) => textCharacterContainsPoint(node, offset, x, y)) ?? null;
+  }
+  function isPointerTextParentEligible(parent) {
+    var _a;
+    let current = parent;
+    while (current) {
+      if (current.matches(POINTER_TEXT_SKIP_SELECTOR)) return false;
+      if (current.hasAttribute("hidden") || current.hasAttribute("inert")) return false;
+      if (((_a = current.getAttribute("aria-hidden")) == null ? void 0 : _a.toLowerCase()) === "true") return false;
+      const style = getComputedStyle(current);
+      if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
+      if (Number(style.opacity || "1") <= 0) return false;
+      if (isScreenReaderOnlyElement(current, style)) return false;
+      current = current.parentElement;
+    }
+    return true;
+  }
+  function isScreenReaderOnlyElement(element2, style) {
+    if (SCREEN_READER_ONLY_CLASS_RE.test(element2.className || "")) return true;
+    const rect = element2.getBoundingClientRect();
+    const clipped = style.clip && style.clip !== "auto" || style.clipPath && style.clipPath !== "none";
+    if (clipped && rect.width <= 2 && rect.height <= 2) return true;
+    return style.position === "absolute" && style.overflow === "hidden" && rect.width <= 2 && rect.height <= 2;
+  }
+  function textCharacterContainsPoint(node, offset, x, y) {
+    var _a;
+    if (!node.data.length) return false;
+    const start = Math.min(Math.max(offset, 0), node.data.length - 1);
+    const range = document.createRange();
+    try {
+      range.setStart(node, start);
+      range.setEnd(node, start + 1);
+      return Array.from(range.getClientRects()).some((rect) => rectContainsPoint(rect, x, y));
+    } finally {
+      (_a = range.detach) == null ? void 0 : _a.call(range);
+    }
+  }
+  function rectContainsPoint(rect, x, y) {
+    const right = rect.right || rect.left + rect.width;
+    const bottom = rect.bottom || rect.top + rect.height;
+    const slack = 1;
+    return right > rect.left && bottom > rect.top && x >= rect.left - slack && x <= right + slack && y >= rect.top - slack && y <= bottom + slack;
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const KANJI_RE = /[\u3400-\u9fff]/u;
-  const log$7 = Logger.scope("RTK");
+  const log$a = Logger.scope("RTK");
   class RtkClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -15272,22 +15785,22 @@ ${card.reading}`;
       const key = Array.from(kanji)[0] ?? kanji;
       let promise = this.cache.get(key);
       if (!promise) {
-        log$7.debug("Lookup cache miss", { kanji: key });
+        log$a.debug("Lookup cache miss", { kanji: key });
         promise = this.fetchInfo(key);
         this.cache.set(key, promise);
       } else {
-        log$7.debug("Lookup cache hit", { kanji: key });
+        log$a.debug("Lookup cache hit", { kanji: key });
       }
       return promise;
     }
     async fetchInfo(kanji) {
       const html = await requestText$1(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$7.warn("RTK request failed", { kanji }, error);
+        log$a.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
       const info = parseRtkHtml(html, kanji);
-      log$7.debug("RTK info parsed", { kanji, found: Boolean(info), keyword: (info == null ? void 0 : info.keyword) ?? "" });
+      log$a.debug("RTK info parsed", { kanji, found: Boolean(info), keyword: (info == null ? void 0 : info.keyword) ?? "" });
       return info;
     }
   }
@@ -15365,8 +15878,8 @@ ${card.reading}`;
     });
   }
   const LOCAL_MATCH_LIMIT = 40;
-  const JAPANESE_SCRIPT_GROUP_RE$1 = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const log$6 = Logger.scope("ReaderParser");
+  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const log$9 = Logger.scope("ReaderParser");
   class ReaderParser {
     constructor(dependencies) {
       __publicField(this, "localCardCache", /* @__PURE__ */ new Map());
@@ -15375,7 +15888,7 @@ ${card.reading}`;
     async parse(paragraphs) {
       const { getSettings, jpdb } = this.dependencies;
       const settings = getSettings();
-      const done = log$6.time("parse", {
+      const done = log$9.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: Boolean(settings.apiKey.trim()),
         localFallback: settings.localDictionariesEnabled
@@ -15383,7 +15896,7 @@ ${card.reading}`;
       if (settings.apiKey.trim()) {
         try {
           const result = await jpdb.parse(paragraphs);
-          log$6.debug("Parsed with JPDB", {
+          log$9.debug("Parsed with JPDB", {
             paragraphs: result.length,
             tokens: result.reduce((sum, tokens) => sum + tokens.length, 0)
           });
@@ -15391,21 +15904,21 @@ ${card.reading}`;
           return result;
         } catch (error) {
           if (!this.canUseLocalDictionaryFallback()) {
-            log$6.warn("JPDB parse failed without local fallback", error);
+            log$9.warn("JPDB parse failed without local fallback", error);
             done();
             throw error;
           }
-          log$6.warn("JPDB parse failed; using local dictionary fallback", error);
+          log$9.warn("JPDB parse failed; using local dictionary fallback", error);
         }
       }
       if (!this.canUseLocalDictionaryFallback()) {
-        log$6.debug("Parsing skipped; no JPDB key or local fallback");
+        log$9.debug("Parsing skipped; no JPDB key or local fallback");
         done();
         return paragraphs.map(() => []);
       }
       try {
         const result = await Promise.all(paragraphs.map((text2) => this.parseLocalDictionaryText(text2)));
-        log$6.debug("Parsed with local dictionary fallback", {
+        log$9.debug("Parsed with local dictionary fallback", {
           paragraphs: result.length,
           tokens: result.reduce((sum, tokens) => sum + tokens.length, 0)
         });
@@ -15433,7 +15946,7 @@ ${card.reading}`;
     }
     clearLocalCache() {
       this.localCardCache.clear();
-      log$6.debug("Local card cache cleared");
+      log$9.debug("Local card cache cleared");
     }
     localCardFromEntry(entry) {
       const id = -stableLocalId(`${entry.dictionary}
@@ -15487,7 +16000,7 @@ ${spelling}`);
       const { dictionaries, getSettings } = this.dependencies;
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$6.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$9.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return matches.map((match) => {
@@ -15507,7 +16020,7 @@ ${spelling}`);
   }
   function fallbackLookupTermAtOffset(text2, offset) {
     const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text2.length - 1)));
-    for (const match of text2.matchAll(JAPANESE_SCRIPT_GROUP_RE$1)) {
+    for (const match of text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
       const start = match.index ?? 0;
       const end = start + match[0].length;
       if (start <= clampedOffset && clampedOffset < end || start < clampedOffset && clampedOffset <= end) {
@@ -15530,186 +16043,69 @@ ${spelling}`);
   function cardCacheKey(vid, sid) {
     return `${vid}:${sid}`;
   }
-  const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
-  const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
-  const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
-  const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
-  const KANJI_SIMILAR_WORDS_SOURCE_ID = "__kanji_similar_words__";
-  const KANJI_ORIGINS_SOURCE_ID = "__kanji_origins__";
-  function definitionSourceRows(settings) {
-    const builtInRows = [
-      ...settings.jpdbDefinitionsEnabled ? [{
-        id: JPDB_DEFINITION_SOURCE_ID,
-        name: "JPDB",
-        alias: "JPDB",
-        enabled: settings.jpdbDefinitionsEnabled,
-        priority: settings.jpdbDefinitionsPriority,
-        prefix: "jpdbDefinitions",
-        readonly: true,
-        help: "Built-in JPDB meanings from the parsed card."
-      }] : [],
-      {
-        id: STUDY_TRANSLATION_SOURCE_ID,
-        name: "Translation",
-        alias: "Translation",
-        enabled: settings.studyTranslationEnabled,
-        priority: settings.studyTranslationPriority,
-        prefix: "studyTranslation",
-        readonly: true,
-        help: "Automatic sentence translation for the current lookup context."
-      },
-      {
-        id: STUDY_GRAMMAR_SOURCE_ID,
-        name: "Grammar",
-        alias: "Grammar",
-        enabled: settings.studyGrammarEnabled,
-        priority: settings.studyGrammarPriority,
-        prefix: "studyGrammar",
-        readonly: true,
-        help: "Automatic local grammar hints for the current lookup context."
-      },
-      {
-        id: IMMERSION_KIT_SOURCE_ID,
-        name: "Immersion Kit",
-        alias: "Immersion Kit",
-        enabled: settings.immersionKitEnabled,
-        priority: settings.immersionKitPriority,
-        prefix: "immersionKit",
-        readonly: true,
-        help: "Example sentences, images, and audio for the looked-up word."
-      }
-    ];
-    return [
-      ...builtInRows,
-      ...settings.dictionaryPreferences.filter((preference) => (preference.type ?? "terms") === "terms").map((preference, index) => ({
-        id: preference.name,
-        name: preference.name,
-        alias: preference.alias,
-        enabled: preference.enabled,
-        priority: preference.priority,
-        prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
-        readonly: false,
-        removable: true,
-        help: ""
-      }))
-    ].sort(compareSourceRows);
+  const RECOMMENDED_JAPANESE_DICTIONARIES = [
+    {
+      id: "jitendex",
+      category: "terms",
+      name: "Jitendex",
+      description: "Japanese to English dictionary with examples, usage notes, etymology, cross references, and definition notes.",
+      homepage: "https://jitendex.org",
+      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
+    },
+    {
+      id: "jmdict",
+      category: "terms",
+      name: "JMdict",
+      description: "Starter Japanese-English dictionary maintained by EDRDG and packaged for Yomitan. よむ downloads this automatically when dictionary words are needed and no local dictionary is installed.",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
+    },
+    {
+      id: "jmnedict",
+      category: "terms",
+      name: "JMnedict",
+      description: "Japanese proper names maintained by the Electronic Dictionary Research and Development Group.",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
+    },
+    {
+      id: "kanjidic",
+      category: "kanji",
+      name: "KANJIDIC",
+      description: "Kanji readings, meanings, stroke data, grade level, JLPT level, and frequency.",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdbv2-kana",
+      category: "frequency",
+      name: "JPDBv2㋕",
+      description: "Frequency data based on the JPDB corpus. よむ shows this first when sorting local frequency chips.",
+      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
+    },
+    {
+      id: "bccwj",
+      category: "frequency",
+      name: "BCCWJ",
+      description: "Frequency data from the Balanced Corpus of Contemporary Written Japanese.",
+      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
+    },
+    {
+      id: "jiten",
+      category: "frequency",
+      name: "Jiten",
+      description: "Frequency data from the media stats database at jiten.moe.",
+      homepage: "https://jiten.moe/other",
+      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+    }
+  ];
+  const STARTER_DICTIONARY_IDS = ["jmdict"];
+  function findRecommendedDictionary(id) {
+    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
-  function kanjiSourceRows(settings) {
-    return [
-      {
-        id: KANJI_STROKE_SOURCE_ID,
-        name: "Stroke practice",
-        alias: "Stroke practice",
-        enabled: settings.kanjivgEnabled,
-        priority: settings.kanjivgPriority,
-        prefix: "kanjivg",
-        readonly: true,
-        help: "Stroke order preview and drawing pad."
-      },
-      {
-        id: KANJI_JPDB_SOURCE_ID,
-        name: "JPDB kanji",
-        alias: "JPDB kanji",
-        enabled: settings.jpdbKanjiEnabled,
-        priority: settings.jpdbKanjiPriority,
-        prefix: "jpdbKanji",
-        readonly: true,
-        help: "JPDB readings, components, and mnemonic when available."
-      },
-      {
-        id: KANJI_RTK_SOURCE_ID,
-        name: "RTK",
-        alias: "RTK",
-        enabled: settings.rtkEnabled,
-        priority: settings.rtkPriority,
-        prefix: "rtk",
-        readonly: true,
-        help: "Remembering the Kanji keywords, elements, and stories."
-      },
-      {
-        id: KANJI_DICTIONARIES_SOURCE_ID,
-        name: "Imported kanji dictionaries",
-        alias: "Imported kanji dictionaries",
-        enabled: settings.localDictionaryShowKanji,
-        priority: settings.kanjiDictionariesPriority,
-        prefix: "kanjiDictionaries",
-        readonly: true,
-        help: "Kanji entries from imported Yomitan dictionaries."
-      },
-      {
-        id: KANJI_SIMILAR_WORDS_SOURCE_ID,
-        name: "Words using this kanji",
-        alias: "Words using this kanji",
-        enabled: settings.similarKanjiWords,
-        priority: settings.similarKanjiWordsPriority,
-        prefix: "similarKanjiWords",
-        readonly: true,
-        help: "Related JPDB and imported-dictionary vocabulary."
-      },
-      {
-        id: KANJI_ORIGINS_SOURCE_ID,
-        name: "Origin structure",
-        alias: "Origin structure",
-        enabled: settings.kanjiOriginsEnabled,
-        priority: settings.kanjiOriginsPriority,
-        prefix: "kanjiOrigins",
-        readonly: true,
-        help: "Compact facts, component graph, and radical images."
-      }
-    ].sort(compareSourceRows);
-  }
-  function orderedDefinitionSourceIds(settings, dictionaryNames) {
-    const preferences = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
-    const sources = [
-      {
-        id: JPDB_DEFINITION_SOURCE_ID,
-        enabled: settings.jpdbDefinitionsEnabled,
-        priority: settings.jpdbDefinitionsPriority,
-        name: "JPDB"
-      },
-      {
-        id: STUDY_TRANSLATION_SOURCE_ID,
-        enabled: settings.studyTranslationEnabled,
-        priority: settings.studyTranslationPriority,
-        name: "Translation"
-      },
-      {
-        id: STUDY_GRAMMAR_SOURCE_ID,
-        enabled: settings.studyGrammarEnabled,
-        priority: settings.studyGrammarPriority,
-        name: "Grammar"
-      },
-      {
-        id: IMMERSION_KIT_SOURCE_ID,
-        enabled: settings.immersionKitEnabled,
-        priority: settings.immersionKitPriority,
-        name: "Immersion Kit"
-      },
-      ...dictionaryNames.filter((name) => {
-        var _a;
-        return (((_a = preferences.get(name)) == null ? void 0 : _a.type) ?? "terms") === "terms";
-      }).map((name, index) => {
-        const preference = preferences.get(name);
-        return {
-          id: name,
-          enabled: (preference == null ? void 0 : preference.enabled) ?? true,
-          priority: (preference == null ? void 0 : preference.priority) ?? 1e3 + index,
-          name
-        };
-      })
-    ];
-    return sources.filter((source) => source.enabled).sort(compareSourceOrder).map((source) => source.id);
-  }
-  function orderedKanjiSourceIds(settings) {
-    return kanjiSourceRows(settings).filter((row) => row.enabled).map((row) => row.id);
-  }
-  function compareSourceRows(a, b) {
-    return a.priority - b.priority || a.name.localeCompare(b.name);
-  }
-  function compareSourceOrder(a, b) {
-    return a.priority - b.priority || a.name.localeCompare(b.name);
-  }
-  const log$5 = Logger.scope("SettingsForm");
+  const log$8 = Logger.scope("SettingsForm");
   function renderSupportPanel() {
     return `
         <div class="jpdb-reader-support-card">
@@ -15729,7 +16125,7 @@ ${spelling}`);
     `;
   }
   function renderSettingsForm(settings, jpdbSettingsUrl) {
-    log$5.debug("Rendering settings form", {
+    log$8.debug("Rendering settings form", {
       language: settings.interfaceLanguage,
       dictionaries: settings.dictionaryPreferences.length,
       audioSources: settings.audioSources.length,
@@ -15920,10 +16316,6 @@ ${spelling}`);
                     ${input("subtitleFontFamily", "Subtitle font family", settings.subtitleFontFamily)}
                     ${input("subtitleFontWeight", "Subtitle font weight", String(settings.subtitleFontWeight), "number")}
                     ${input("subtitleSeekPadding", "Subtitle seek padding (seconds)", String(settings.subtitleSeekPadding), "number")}
-                    ${checkbox("mpvSubtitleMiningEnabled", "Enable MPV subtitle bridge", settings.mpvSubtitleMiningEnabled)}
-                    ${checkbox("mpvSubtitleAutoConnect", "Connect to MPV automatically", settings.mpvSubtitleAutoConnect)}
-                    ${input("mpvSubtitleHost", "MPV bridge host", settings.mpvSubtitleHost)}
-                    ${input("mpvSubtitlePorts", "MPV bridge ports", settings.mpvSubtitlePorts)}
                 </div>
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
@@ -16052,7 +16444,7 @@ ${spelling}`);
   }
   function localizeSettingsForm(form, language) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
-    log$5.debug("Localizing settings form", { language });
+    log$8.debug("Localizing settings form", { language });
     const text2 = (key) => uiText(language, key);
     form.setAttribute("aria-label", text2("settingsTitle"));
     (_a = form.querySelector("h2")) == null ? void 0 : _a.replaceChildren(text2("settingsTitle"));
@@ -16181,10 +16573,6 @@ ${spelling}`);
       ["subtitleFontFamily", "subtitleFontFamily"],
       ["subtitleFontWeight", "subtitleFontWeight"],
       ["subtitleSeekPadding", "subtitleSeekPadding"],
-      ["mpvSubtitleMiningEnabled", "mpvSubtitleMiningEnabled"],
-      ["mpvSubtitleAutoConnect", "mpvSubtitleAutoConnect"],
-      ["mpvSubtitleHost", "mpvSubtitleHost"],
-      ["mpvSubtitlePorts", "mpvSubtitlePorts"],
       ["youtubeImmersionEnabled", "youtubeImmersionEnabled"],
       ["youtubeShowFilterNotice", "youtubeShowFilterNotice"],
       ["ankiEnabled", "ankiEnabled"],
@@ -16458,7 +16846,7 @@ ${spelling}`);
     `;
   }
   function activateSettingsPanel(form, panel) {
-    log$5.debug("Activating settings panel", { panel });
+    log$8.debug("Activating settings panel", { panel });
     form.querySelectorAll("[data-settings-panel]").forEach((section) => {
       section.hidden = section.dataset.settingsPanel !== panel;
     });
@@ -16583,7 +16971,7 @@ ${spelling}`);
     const index = row ? rows.indexOf(row) : -1;
     if (action === "audio-source-up" || action === "audio-source-down") {
       moveSourceRow(container, index, action === "audio-source-up" ? index - 1 : index + 1);
-      log$5.debug("Reordered audio source row", { action, rows: rows.length });
+      log$8.debug("Reordered audio source row", { action, rows: rows.length });
       return;
     }
     const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
@@ -16594,7 +16982,7 @@ ${spelling}`);
       sources.splice(index, 1);
     }
     setInnerHtml(container, renderAudioSourceEditor(sources));
-    log$5.debug("Updated audio source editor", { action, rows: sources.length });
+    log$8.debug("Updated audio source editor", { action, rows: sources.length });
   }
   function renderDictionaryLookupLinkEditor(links) {
     const rows = normalizeDictionaryLookupLinks(links);
@@ -16675,7 +17063,7 @@ ${spelling}`);
       links.splice(index + 1, 0, link);
     }
     setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
-    log$5.debug("Updated lookup link editor", { action, rows: links.length });
+    log$8.debug("Updated lookup link editor", { action, rows: links.length });
   }
   function updateSourceRowEditor(form, action, control) {
     const row = control == null ? void 0 : control.closest("[data-source-row]");
@@ -16685,7 +17073,7 @@ ${spelling}`);
     const index = rows.indexOf(row);
     const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
     moveSourceRow(container, index, targetIndex);
-    log$5.debug("Updated ordered source editor", { action, rows: rows.length });
+    log$8.debug("Updated ordered source editor", { action, rows: rows.length });
   }
   function installSourceRowDrag(form) {
     let dragged = null;
@@ -16697,7 +17085,7 @@ ${spelling}`);
       row.classList.add("jpdb-reader-dragging");
       (_a = event.dataTransfer) == null ? void 0 : _a.setData("text/plain", row.dataset.sourceId ?? "");
       (_b = event.dataTransfer) == null ? void 0 : _b.setDragImage(row, 18, 18);
-      log$5.debug("Source row drag started", { sourceId: row.dataset.sourceId });
+      log$8.debug("Source row drag started", { sourceId: row.dataset.sourceId });
     });
     form.addEventListener("dragover", (event) => {
       if (!dragged) return;
@@ -16712,11 +17100,11 @@ ${spelling}`);
       event.preventDefault();
       const rows = Array.from(container.querySelectorAll("[data-source-row]"));
       moveSourceRow(container, rows.indexOf(dragged), rows.indexOf(target));
-      log$5.debug("Source row dropped", { from: rows.indexOf(dragged), to: rows.indexOf(target) });
+      log$8.debug("Source row dropped", { from: rows.indexOf(dragged), to: rows.indexOf(target) });
     });
     form.addEventListener("dragend", () => {
       dragged == null ? void 0 : dragged.classList.remove("jpdb-reader-dragging");
-      if (dragged) log$5.debug("Source row drag ended", { sourceId: dragged.dataset.sourceId });
+      if (dragged) log$8.debug("Source row drag ended", { sourceId: dragged.dataset.sourceId });
       dragged = null;
     });
   }
@@ -16760,11 +17148,11 @@ ${spelling}`);
         event.stopPropagation();
         if (event.key === "Backspace" || event.key === "Delete") {
           inputEl.value = "";
-          log$5.debug("Shortcut cleared", { name: inputEl.name });
+          log$8.debug("Shortcut cleared", { name: inputEl.name });
           return;
         }
         inputEl.value = formatShortcutEvent(event);
-        log$5.debug("Shortcut captured", { name: inputEl.name, value: inputEl.value });
+        log$8.debug("Shortcut captured", { name: inputEl.name, value: inputEl.value });
       });
       inputEl.addEventListener("paste", (event) => event.preventDefault());
     });
@@ -17095,10 +17483,6 @@ ${spelling}`);
       subtitleFontWeight: Math.max(100, Math.min(900, number("subtitleFontWeight", current.subtitleFontWeight))),
       subtitleMiningPause: has("subtitleMiningPause"),
       subtitleSeekPadding: Math.max(-2, Math.min(2, number("subtitleSeekPadding", current.subtitleSeekPadding))),
-      mpvSubtitleMiningEnabled: has("mpvSubtitleMiningEnabled"),
-      mpvSubtitleAutoConnect: has("mpvSubtitleAutoConnect"),
-      mpvSubtitleHost: get("mpvSubtitleHost").trim() || current.mpvSubtitleHost,
-      mpvSubtitlePorts: get("mpvSubtitlePorts").trim() || current.mpvSubtitlePorts,
       youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
       youtubeShowFilterNotice: has("youtubeShowFilterNotice"),
       ankiEnabled: has("ankiEnabled"),
@@ -17148,7 +17532,7 @@ ${spelling}`);
         gradePass: get("shortcuts.gradePass")
       }
     };
-    log$5.info("Read settings form data", {
+    log$8.info("Read settings form data", {
       enableLogging: settings.enableLogging,
       dictionaries: settings.dictionaryPreferences.length,
       lookupLinks: settings.dictionaryLookupLinks.length,
@@ -17209,7 +17593,7 @@ ${spelling}`);
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$5.warn("File picker input missing", { type });
+      log$8.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
@@ -17217,10 +17601,10 @@ ${spelling}`);
         var _a;
         const file = ((_a = inputEl.files) == null ? void 0 : _a[0]) ?? null;
         inputEl.value = "";
-        log$5.info("File picker completed", { type, name: (file == null ? void 0 : file.name) ?? "", size: (file == null ? void 0 : file.size) ?? 0 });
+        log$8.info("File picker completed", { type, name: (file == null ? void 0 : file.name) ?? "", size: (file == null ? void 0 : file.size) ?? 0 });
         resolve(file);
       };
-      log$5.debug("Opening file picker", { type });
+      log$8.debug("Opening file picker", { type });
       inputEl.click();
     });
   }
@@ -17231,10 +17615,469 @@ ${spelling}`);
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$5.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
+    log$8.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+  }
+  const log$7 = Logger.scope("SettingsDialog");
+  const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
+  class SettingsDialogController {
+    constructor(dependencies) {
+      __publicField(this, "starterDictionaryDownload");
+      this.dependencies = dependencies;
+    }
+    open(panel) {
+      log$7.info("Opening settings", { panel: panel ?? "default" });
+      const form = this.createSettingsForm(panel);
+      const backdrop = this.dependencies.createBackdrop();
+      this.bindFormSubmit(form);
+      this.bindLivePreview(form);
+      this.bindEditorControls(form);
+      this.dependencies.mountDialog(backdrop, form);
+      this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage);
+      void this.refreshDictionaryStatus(form);
+      void this.refreshDeckControls(form);
+    }
+    async ensureStarterDictionaryInstalled(onProgress, force = false) {
+      if (this.starterDictionaryDownload) return this.starterDictionaryDownload;
+      this.starterDictionaryDownload = this.downloadStarterDictionaries(onProgress, force).finally(() => {
+        this.starterDictionaryDownload = void 0;
+      });
+      return this.starterDictionaryDownload;
+    }
+    get settings() {
+      return this.dependencies.getSettings();
+    }
+    set settings(settings) {
+      this.dependencies.setSettings(settings);
+    }
+    createSettingsForm(panel) {
+      const form = document.createElement("form");
+      form.className = "jpdb-reader-settings";
+      form.dataset.jpdbReaderRoot = "true";
+      form.setAttribute("role", "dialog");
+      form.setAttribute("aria-modal", "true");
+      form.setAttribute("aria-label", SETTINGS_TITLE);
+      form.tabIndex = -1;
+      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL));
+      localizeSettingsForm(form, this.settings.interfaceLanguage);
+      if (panel) activateSettingsPanel(form, panel);
+      return form;
+    }
+    bindFormSubmit(form) {
+      var _a;
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
+        this.settings = readFormSettings(new FormData(form), this.settings);
+        if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
+          this.dependencies.clearDictionarySourceOpenOverrides();
+        }
+        void saveSettings(this.settings).then(() => this.afterSettingsSaved()).catch((error) => {
+          log$7.error("Settings save failed", error);
+          this.dependencies.toast(error instanceof Error ? error.message : "Settings save failed.");
+        });
+      });
+      (_a = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _a.addEventListener("click", () => this.dependencies.dismiss());
+    }
+    async afterSettingsSaved() {
+      log$7.info("Settings saved", loggingSettingsSummary(this.settings));
+      this.dependencies.jpdb.clear();
+      this.dependencies.applyTheme();
+      await this.dependencies.refreshDictionaryStyles();
+      this.dependencies.installFab();
+      this.dependencies.subtitles.refresh();
+      this.dependencies.ocr.refresh();
+      this.dependencies.youtube.refresh();
+      this.dependencies.jpdbExtensions.refresh();
+      this.dependencies.clearSettingsPreview();
+      this.dependencies.dismiss();
+      this.dependencies.scheduleDictionaryRescan();
+      this.dependencies.refreshNewTabIfCurrent();
+      this.dependencies.toast("Settings saved.");
+    }
+    bindLivePreview(form) {
+      var _a, _b, _c;
+      (_a = form.querySelector('input[name="accentColor"]')) == null ? void 0 : _a.addEventListener("input", (event) => {
+        this.dependencies.applyAccentColor(event.currentTarget.value);
+      });
+      form.querySelectorAll('input[name^="wordColor"]').forEach((input2) => {
+        input2.addEventListener("input", () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
+      });
+      syncSubtitlePreview(form);
+      form.addEventListener("input", (event) => {
+        if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
+      });
+      form.addEventListener("change", (event) => {
+        if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
+      });
+      (_b = form.querySelector('select[name="interfaceLanguage"]')) == null ? void 0 : _b.addEventListener("change", (event) => {
+        const value = event.currentTarget.value;
+        if (value !== "auto" && value !== "en" && value !== "ja") return;
+        this.settings.interfaceLanguage = value;
+        localizeSettingsForm(form, value);
+        syncSubtitlePreview(form);
+        this.dependencies.installFab();
+      });
+      (_c = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _c.addEventListener("change", (event) => {
+        const value = event.currentTarget.value;
+        form.querySelectorAll("[data-local-ocr]").forEach((node) => {
+          node.hidden = value !== "local-service";
+        });
+        form.querySelectorAll("[data-cloud-ocr]").forEach((node) => {
+          node.hidden = value !== "cloud-vision";
+        });
+      });
+    }
+    bindEditorControls(form) {
+      var _a, _b, _c;
+      syncBrowserTtsVoiceOptions(form);
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
+      }
+      (_a = form.querySelector('input[name="enableReviews"]')) == null ? void 0 : _a.addEventListener("change", () => syncReviewSettingsVisibility(form));
+      (_b = form.querySelector('select[name="twoButtonReviews"]')) == null ? void 0 : _b.addEventListener("change", () => syncReviewSettingsVisibility(form));
+      (_c = form.querySelector('input[name="apiKey"]')) == null ? void 0 : _c.addEventListener("change", () => void this.refreshDeckControls(form));
+      form.addEventListener("change", (event) => this.handleSettingsFormChange(form, event));
+      installShortcutCapture(form);
+      installSourceRowDrag(form);
+      form.addEventListener("click", (event) => {
+        const control = event.target.closest("[data-action]");
+        const action = control == null ? void 0 : control.dataset.action;
+        if (!action || action === "cancel") return;
+        event.preventDefault();
+        event.stopPropagation();
+        void this.handleSettingsAction(form, action, control);
+      });
+    }
+    handleSettingsFormChange(form, event) {
+      const sourceSelect = event.target.closest('select[name^="audioSources."][name$=".type"]');
+      if (sourceSelect) {
+        syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value);
+        syncBrowserTtsVoiceOptions(form);
+      }
+      const templateSelect = event.target.closest('select[name="ankiTemplateMode"]');
+      if (!templateSelect) return;
+      const preview = form.querySelector("[data-anki-template-preview]");
+      if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
+    }
+    isSubtitleControl(target) {
+      const name = (target == null ? void 0 : target.name) ?? "";
+      return name.startsWith("subtitle");
+    }
+    async refreshDeckControls(form) {
+      var _a;
+      const container = form.querySelector("[data-jpdb-decks]");
+      if (!container) return;
+      const apiKey = ((_a = form.querySelector('input[name="apiKey"]')) == null ? void 0 : _a.value.trim()) ?? this.settings.apiKey.trim();
+      if (!apiKey) {
+        log$7.debug("Deck controls rendered without API key");
+        setInnerHtml(container, renderDeckControls(this.settings, [], false));
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        return;
+      }
+      const originalKey = this.settings.apiKey;
+      this.settings.apiKey = apiKey;
+      try {
+        const decks = await this.dependencies.jpdb.listDecks();
+        log$7.debug("Deck controls loaded", { decks: decks.length });
+        setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true));
+      } catch (error) {
+        log$7.warn("Deck controls failed to load", error);
+        setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true));
+      } finally {
+        this.settings.apiKey = originalKey;
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+      }
+    }
+    async refreshDictionaryStatus(form) {
+      const status = form.querySelector("[data-dictionary-status]");
+      const priorities = form.querySelector(".jpdb-reader-dictionary-priorities");
+      const recommended = form.querySelector("[data-recommended-dictionaries]");
+      try {
+        const summary = await this.dependencies.dictionaries.summary();
+        log$7.debug("Dictionary status loaded", summary);
+        const names = summary.dictionaries.map((item) => item.title);
+        const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
+        const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
+        if (merged.length !== this.settings.dictionaryPreferences.length) {
+          this.settings.dictionaryPreferences = merged;
+          await saveSettings(this.settings);
+        }
+        await this.dependencies.refreshDictionaryStyles();
+        if (status) {
+          status.textContent = summary.dictionaries.length ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.` : "No local dictionaries imported yet.";
+        }
+        if (priorities) setInnerHtml(priorities, renderDictionarySourceRows(this.settings));
+        if (recommended) setInnerHtml(recommended, renderRecommendedDictionaries(summary.dictionaries));
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+      } catch (error) {
+        log$7.warn("Dictionary status unavailable", error);
+        if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
+      }
+    }
+    async downloadStarterDictionaries(onProgress, force = false) {
+      const summary = await this.dependencies.dictionaries.summary();
+      const missing = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => STARTER_DICTIONARY_IDS.includes(dictionary.id)).filter((dictionary) => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
+      if (!missing.length || !force && summary.terms > 0) return false;
+      let importedEntries = 0;
+      for (const [index, dictionary] of missing.entries()) {
+        onProgress == null ? void 0 : onProgress(`Downloading ${dictionary.name} (${index + 1}/${missing.length})...`);
+        log$7.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
+        const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => onProgress == null ? void 0 : onProgress(message));
+        importedEntries += imported.entries;
+        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries, imported.dictionaryTypes ?? {});
+        this.settings.localDictionariesEnabled = true;
+        await saveSettings(this.settings);
+        await this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
+      }
+      onProgress == null ? void 0 : onProgress(`JMdict ready: ${importedEntries.toLocaleString()} records imported.`);
+      log$7.info("Starter dictionaries downloaded", { dictionaries: missing.length, importedEntries });
+      return true;
+    }
+    async handleSettingsAction(form, action, control) {
+      const status = form.querySelector("[data-import-status]");
+      const setStatus = (message) => {
+        if (status) status.textContent = message;
+      };
+      try {
+        if (this.handleSettingsEditorAction(form, action, control)) return;
+        if (await this.handleSettingsAudioAction(form, action, control)) return;
+        if (await this.handleSettingsDictionaryAction(form, action, control, setStatus)) return;
+        if (await this.handleSettingsImportExportAction(form, action, setStatus)) return;
+        if (await this.handleSettingsConnectionAction(form, action, control)) return;
+        await this.handleSettingsSupportAction(action, setStatus);
+      } catch (error) {
+        log$7.warn("Settings action failed", { action }, error);
+        if (action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary") control == null ? void 0 : control.removeAttribute("disabled");
+        setStatus(error instanceof Error ? error.message : "Import failed.");
+      }
+    }
+    handleSettingsEditorAction(form, action, control) {
+      if (action === "settings-panel") {
+        log$7.debug("Settings panel selected", { panel: (control == null ? void 0 : control.dataset.panel) ?? "basics" });
+        activateSettingsPanel(form, (control == null ? void 0 : control.dataset.panel) ?? "basics");
+        return true;
+      }
+      if (action === "dictionary-source-up" || action === "dictionary-source-down") {
+        log$7.debug("Dictionary source order changed", { action });
+        updateSourceRowEditor(form, action, control);
+        return true;
+      }
+      if (action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down") {
+        log$7.debug("Audio source editor changed", { action });
+        updateAudioSourceEditor(form, action, control);
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        syncBrowserTtsVoiceOptions(form);
+        return true;
+      }
+      if (action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down") {
+        log$7.debug("Lookup link editor changed", { action });
+        updateDictionaryLookupLinkEditor(form, action, control);
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        return true;
+      }
+      return false;
+    }
+    async handleSettingsAudioAction(form, action, control) {
+      if (action !== "preview-audio") return false;
+      const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
+      const previous = this.settings;
+      const previewSettings = readFormSettings(new FormData(form), this.settings);
+      const row = button2 == null ? void 0 : button2.closest("[data-audio-source-row]");
+      if (row) {
+        const rowIndex = Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+        const source = previewSettings.audioSources[rowIndex];
+        if (source) {
+          previewSettings.audioSources = [{ ...source, enabled: true }];
+          previewSettings.audioEnableDefaultSources = false;
+        }
+      }
+      this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
+      button2 == null ? void 0 : button2.setAttribute("disabled", "true");
+      try {
+        this.dependencies.toast("Playing よむ...");
+        await this.dependencies.audio.play(createAudioPreviewCard());
+        log$7.info("Audio settings preview started");
+      } catch (error) {
+        log$7.warn("Audio settings preview failed", error);
+        this.dependencies.toast(error instanceof Error ? error.message : "Audio preview failed.");
+      } finally {
+        this.settings = previous;
+        button2 == null ? void 0 : button2.removeAttribute("disabled");
+      }
+      return true;
+    }
+    async handleSettingsDictionaryAction(form, action, control, setStatus) {
+      if (action === "delete-yomitan-dictionary") {
+        await this.deleteDictionaryFromSettings(form, control, setStatus);
+        return true;
+      }
+      if (action === "import-yomitan-dictionary") {
+        await this.importDictionaryFromSettings(form, setStatus);
+        return true;
+      }
+      if (action === "download-recommended-dictionary") {
+        await this.downloadRecommendedDictionaryFromSettings(form, control, setStatus);
+        return true;
+      }
+      if (action === "export-yomitan-dictionary") {
+        const blob = await this.dependencies.dictionaries.exportJson();
+        downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
+        setStatus("Dictionaries exported.");
+        log$7.info("Dictionaries exported");
+        return true;
+      }
+      return false;
+    }
+    async handleSettingsImportExportAction(form, action, setStatus) {
+      if (action === "import-yomitan-settings") {
+        await this.importReaderSettingsFromFile(form, setStatus);
+        return true;
+      }
+      if (action === "export-reader-settings") {
+        downloadBlob(new Blob([JSON.stringify({
+          formatName: "yomu-reader-settings",
+          formatVersion: 1,
+          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          settings: this.settings
+        }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
+        setStatus("Settings exported.");
+        log$7.info("Settings exported");
+        return true;
+      }
+      return false;
+    }
+    async handleSettingsConnectionAction(form, action, control) {
+      if (action !== "test-anki") return false;
+      const ankiStatus = form.querySelector("[data-anki-status]");
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
+      const setAnkiStatus = (message, tone) => {
+        if (!ankiStatus) return;
+        ankiStatus.textContent = message;
+        ankiStatus.dataset.statusTone = tone;
+      };
+      const previous = this.settings;
+      this.settings = readFormSettings(new FormData(form), this.settings);
+      button2 == null ? void 0 : button2.setAttribute("disabled", "true");
+      setAnkiStatus(uiText(language, "ankiTesting"), "pending");
+      try {
+        const connected = await this.dependencies.anki.isConnected();
+        if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
+        await this.dependencies.anki.ensureDeckAndModel();
+        const readyMessage = resolveUiLanguage(language) === "ja" ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。` : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+        setAnkiStatus(readyMessage, "success");
+        log$7.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
+        log$7.warn("Anki settings test failed", error);
+        setAnkiStatus(message, "error");
+        this.dependencies.toast(message);
+      } finally {
+        this.settings = previous;
+        button2 == null ? void 0 : button2.removeAttribute("disabled");
+      }
+      return true;
+    }
+    async handleSettingsSupportAction(action, setStatus) {
+      if (action === "copy-discord") {
+        await copyText(SUPPORT_LINKS.discordUsername);
+        log$7.debug("Support Discord username copied");
+        this.dependencies.toast(`Copied Discord username: ${SUPPORT_LINKS.discordUsername}`);
+        return true;
+      }
+      if (action === "copy-newtab-url") {
+        await copyText(NEW_TAB_PAGE_URL);
+        log$7.debug("New tab URL copied");
+        this.dependencies.toast("New tab address copied.");
+        return true;
+      }
+      setStatus("");
+      return false;
+    }
+    async deleteDictionaryFromSettings(form, control, setStatus) {
+      const dictionary = control == null ? void 0 : control.dataset.dictionaryName;
+      if (!dictionary) throw new Error("Dictionary not found.");
+      if (!window.confirm(`Remove "${dictionary}" and all of its imported entries?`)) return;
+      control == null ? void 0 : control.setAttribute("disabled", "true");
+      setStatus(`Removing ${dictionary}...`);
+      await this.dependencies.dictionaries.deleteDictionary(dictionary);
+      this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
+      await saveSettings(this.settings);
+      await this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
+      await this.refreshDictionaryStatus(form);
+      setStatus(`Removed ${dictionary}.`);
+      log$7.info("Dictionary removed", { dictionary });
+    }
+    async importDictionaryFromSettings(form, setStatus) {
+      const file = await pickFile(form, "dictionary");
+      if (!file) return;
+      const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
+      await saveSettings(this.settings);
+      await this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
+      setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
+      log$7.info("Dictionary file imported", summary);
+      await this.refreshDictionaryStatus(form);
+    }
+    async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
+      const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
+      const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : void 0;
+      if (!dictionary) throw new Error("Recommended dictionary not found.");
+      control == null ? void 0 : control.setAttribute("disabled", "true");
+      setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
+      log$7.info("Downloading selected dictionary", { dictionary: dictionary.name });
+      const summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
+      await saveSettings(this.settings);
+      await this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
+      setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
+      await this.refreshDictionaryStatus(form);
+      log$7.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+    }
+    async importReaderSettingsFromFile(form, setStatus) {
+      const file = await pickFile(form, "settings");
+      if (!file) return;
+      const json = JSON.parse(await file.text());
+      const readerSettings = getReaderSettingsExport(json);
+      this.settings = readerSettings ? { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } } : importedYomitanSettings(json, this.settings);
+      await this.mergeImportedDictionaryPreferences();
+      await saveSettings(this.settings);
+      setStatus("Settings imported.");
+      this.dependencies.applyTheme();
+      void this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
+      this.dependencies.installFab();
+      this.dependencies.subtitles.refresh();
+      this.dependencies.youtube.refresh();
+      this.dependencies.jpdbExtensions.refresh();
+      this.dependencies.clearSettingsPreview();
+      log$7.info("Settings imported", loggingSettingsSummary(this.settings));
+      this.open();
+    }
+    async mergeImportedDictionaryPreferences() {
+      const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
+      const importedNames = importedSummary.dictionaries.map((item) => item.title);
+      const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames, importedTypes);
+    }
+  }
+  function importedYomitanSettings(json, current) {
+    const imported = parseYomitanSettingsExport(json);
+    return {
+      ...current,
+      ...imported.settings,
+      shortcuts: {
+        ...current.shortcuts,
+        ...imported.settings.shortcuts ?? {}
+      }
+    };
   }
   const COMMON_EXCLUDE = [
     "nav",
@@ -17258,7 +18101,7 @@ ${spelling}`);
     '[aria-label*="音声"]'
   ].join(",");
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
-  const log$4 = Logger.scope("SiteParsers");
+  const log$6 = Logger.scope("SiteParsers");
   const SITE_PARSER_PROFILES = [
     {
       id: "jpdb-parser",
@@ -17510,7 +18353,7 @@ ${spelling}`);
     }
     if (!roots.length && profile.id === "nhk-parser") roots.push(document.body);
     const result = uniqueVisibleRoots(roots);
-    log$4.debugThrottled(`parser-roots:${profile.id}`, 2e3, "Queried parser roots", { parserId: profile.id, roots: result.length });
+    log$6.debugThrottled(`parser-roots:${profile.id}`, 2e3, "Queried parser roots", { parserId: profile.id, roots: result.length });
     return result;
   }
   function uniqueVisibleRoots(roots) {
@@ -17521,9 +18364,9 @@ ${spelling}`);
     }
     return unique2;
   }
-  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08)}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:0;text-transform:none}.jpdb-reader-newtab-document,.jpdb-reader-newtab-document body{min-height:100%;margin:0;background:var(--jpdb-newtab-bg, var(--jpdb-reader-accent))}.jpdb-reader-newtab{min-height:100dvh;width:100%;background:var(--jpdb-newtab-bg, var(--jpdb-reader-accent));color:var(--jpdb-newtab-bg-text, #111);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;overflow-x:hidden}.jpdb-reader-newtab-shell{width:min(1280px,calc(100vw - 32px));min-height:100vh;min-height:100dvh;display:grid;grid-template-rows:auto 1fr;gap:16px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 0 max(16px,env(safe-area-inset-bottom))}.jpdb-reader-newtab-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px}.jpdb-reader-newtab-brand{border:0;padding:0;background:transparent;display:inline-flex;align-items:center;gap:10px;color:var(--jpdb-newtab-bg-text, #111);cursor:pointer;text-decoration:none}.jpdb-reader-newtab-brand-mark,.jpdb-reader-newtab-puck{width:40px;height:40px;display:inline-grid;place-items:center;border:1px solid var(--jpdb-newtab-border, rgba(255,255,255,.45));border-radius:50%;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 86%,transparent);color:var(--jpdb-newtab-surface-text, #15171c);box-shadow:0 6px 20px var(--jpdb-newtab-shadow, rgba(0,0,0,.14));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-size:16px;line-height:1;font-weight:900}.jpdb-reader-newtab-brand-text{display:grid;gap:1px;text-align:left}.jpdb-reader-newtab-brand-text strong{font-size:18px;line-height:1;font-weight:900}.jpdb-reader-newtab-brand-text span,.jpdb-reader-newtab-health{font-size:11px;line-height:1.2;font-weight:720;opacity:.88}.jpdb-reader-newtab-health{max-width:min(44vw,480px);overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-icon-button{min-height:36px;border:1px solid var(--jpdb-newtab-border, rgba(255,255,255,.45));border-radius:8px;padding:6px 12px;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 72%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--jpdb-newtab-bg-text, #111);font-size:12px;font-weight:780;cursor:pointer}.jpdb-reader-newtab-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,360px);gap:16px;align-items:stretch}.jpdb-reader-newtab-button{min-height:42px;border:1px solid var(--jpdb-newtab-soft-border, rgba(0,0,0,.12));border-radius:10px;padding:8px 16px;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:var(--jpdb-newtab-surface-text, #15171c);font-size:14px;font-weight:780;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s ease,box-shadow .12s ease}.jpdb-reader-newtab-button.primary{background:var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent));color:var(--jpdb-newtab-surface, #fff);border-color:transparent;box-shadow:0 4px 14px color-mix(in srgb,var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent)) 36%,transparent)}.jpdb-reader-newtab-button:hover,.jpdb-reader-newtab-button:focus-visible,.jpdb-reader-newtab-icon-button:hover,.jpdb-reader-newtab-icon-button:focus-visible,.jpdb-reader-newtab-puck:hover,.jpdb-reader-newtab-puck:focus-visible,.jpdb-reader-newtab-list-item:hover,.jpdb-reader-newtab-list-item:focus-visible,.jpdb-reader-newtab-filter-grid button:hover,.jpdb-reader-newtab-filter-grid button:focus-visible,.jpdb-reader-newtab-segmented button:hover,.jpdb-reader-newtab-segmented button:focus-visible{outline:2px solid color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 28%,transparent);outline-offset:2px}.jpdb-reader-newtab-stage{display:grid;grid-template-rows:auto auto;align-content:center;gap:12px;min-width:0}.jpdb-reader-newtab-card{width:100%;min-height:clamp(380px,calc(100dvh - 200px),600px);align-self:center;display:grid;grid-template-rows:auto auto auto auto auto;align-content:center;justify-items:center;gap:clamp(8px,1.8vh,18px);padding:clamp(18px,3.6vw,44px);border:1px solid var(--jpdb-newtab-border, rgba(255,255,255,.45));border-radius:20px;box-shadow:0 10px 36px var(--jpdb-newtab-shadow, rgba(0,0,0,.12));background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 86%,var(--jpdb-newtab-bg, var(--jpdb-reader-accent)));backdrop-filter:blur(24px) saturate(1.2);-webkit-backdrop-filter:blur(24px) saturate(1.2);color:var(--jpdb-newtab-surface-text, #15171c);cursor:pointer;-webkit-user-select:none;user-select:none;overflow:hidden;transition:box-shadow .2s ease}.jpdb-reader-newtab-card:focus-visible{outline:2px solid var(--jpdb-newtab-bg-text, #111);outline-offset:4px}.jpdb-reader-newtab-card-head,.jpdb-reader-newtab-meta,.jpdb-reader-newtab-controls,.jpdb-reader-newtab-panel-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px}.jpdb-reader-newtab-card-head,.jpdb-reader-newtab-meta{color:#4f5661;font-size:11px;line-height:1.2;font-weight:780;text-transform:uppercase;letter-spacing:.05em}.jpdb-reader-newtab-meta{justify-content:center;flex-wrap:wrap;gap:6px;text-transform:none;letter-spacing:0}.jpdb-reader-newtab-meta span{max-width:100%;border:1px solid var(--jpdb-newtab-soft-border, rgba(0,0,0,.08));border-radius:999px!important;padding:3px 8px;background:var(--jpdb-newtab-surface-muted, rgba(0,0,0,.03));font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-visual{width:min(120px,16vw);height:min(120px,16vw);display:none;place-items:center;border:1px solid var(--jpdb-newtab-soft-border, rgba(0,0,0,.06));border-radius:14px;background:var(--jpdb-newtab-surface-muted, rgba(0,0,0,.03));color:color-mix(in srgb,var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent)) 18%,transparent);font-family:Hiragino Mincho ProN,Yu Mincho,serif;font-size:clamp(40px,6vw,72px);font-weight:900;line-height:1}.jpdb-reader-newtab-word{max-width:100%;color:var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent));font-size:clamp(46px,7.5vw,104px);font-weight:900;line-height:1.04;text-align:center;overflow-wrap:anywhere;letter-spacing:-.01em}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-answer{display:grid;gap:6px;justify-items:center;max-width:100%;transition:opacity .2s ease,transform .2s ease,filter .2s ease}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer{opacity:0;filter:blur(8px);transform:translateY(6px);pointer-events:none}.jpdb-reader-newtab-revealed .jpdb-reader-newtab-concealed{display:none}.jpdb-reader-newtab-reading{min-height:1.15em;max-width:min(640px,100%);color:var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent));font-size:clamp(20px,3.2vw,40px);font-weight:700;line-height:1.2;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-meaning{max-width:min(540px,100%);color:color-mix(in srgb,var(--jpdb-newtab-surface-text, #15171c) 78%,var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent)));font-size:clamp(14px,1.8vw,22px);font-weight:720;line-height:1.36;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-concealed{min-height:1.2em;color:#555d66;font-size:clamp(12px,1.4vw,16px);font-weight:680;font-style:italic;text-align:center}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-word{font-family:Hiragino Mincho ProN,Yu Mincho,serif;font-size:clamp(72px,13vw,170px)}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-visual{display:none}.jpdb-reader-newtab-controls{min-height:46px}.jpdb-reader-newtab-status{min-width:0;color:var(--jpdb-newtab-bg-text, #111);font-size:11px;font-weight:700;opacity:1;text-align:right;overflow-wrap:anywhere}.jpdb-reader-newtab-side{min-width:0;display:grid;grid-template-rows:auto auto minmax(120px,1fr) auto;gap:10px}.jpdb-reader-newtab-panel,.jpdb-reader-newtab-source-note{border:1px solid var(--jpdb-newtab-border, rgba(255,255,255,.45));border-radius:14px;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 78%,transparent);backdrop-filter:blur(18px) saturate(1.1);-webkit-backdrop-filter:blur(18px) saturate(1.1);box-shadow:0 6px 20px color-mix(in srgb,var(--jpdb-newtab-shadow, rgba(0,0,0,.14)) 50%,transparent)}.jpdb-reader-newtab-panel{display:grid;gap:8px;padding:12px}.jpdb-reader-newtab-panel-head{color:var(--jpdb-newtab-surface-text, #15171c);font-size:10px;font-weight:860;text-transform:uppercase;letter-spacing:.06em}.jpdb-reader-newtab-panel-head button{display:inline-flex;align-items:center;min-height:24px;border:0;padding:0;background:transparent;color:var(--jpdb-newtab-surface-text, #15171c);font:inherit;text-transform:none;letter-spacing:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.jpdb-reader-newtab-segmented,.jpdb-reader-newtab-filter-grid{display:grid;gap:5px}.jpdb-reader-newtab-segmented,.jpdb-reader-newtab-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-newtab-segmented button,.jpdb-reader-newtab-filter-grid button,.jpdb-reader-newtab-list-item{min-height:32px;border:1px solid var(--jpdb-newtab-soft-border, rgba(0,0,0,.1));border-radius:8px;background:color-mix(in srgb,var(--jpdb-newtab-surface-muted, rgba(0,0,0,.03)) 80%,transparent);color:var(--jpdb-newtab-surface-text, #15171c);font-size:12px;font-weight:740;cursor:pointer;transition:background .1s ease}.jpdb-reader-newtab-segmented button[data-active=true],.jpdb-reader-newtab-filter-grid button[data-active=true],.jpdb-reader-newtab-list-item.active{border-color:transparent;background:var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent));color:var(--jpdb-newtab-surface, #fff)}.jpdb-reader-newtab-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.jpdb-reader-newtab-form-grid label,.jpdb-reader-newtab-search{display:grid;gap:3px;color:#4f5661;font-size:10px;font-weight:740}.jpdb-reader-newtab select,.jpdb-reader-newtab input{min-height:34px;width:100%;border:1px solid var(--jpdb-newtab-soft-border, rgba(0,0,0,.1));border-radius:8px;padding:5px 8px;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 90%,transparent);color:var(--jpdb-newtab-surface-text, #15171c);font-size:13px;font-weight:660}.jpdb-reader-newtab-queue-panel{min-height:0}.jpdb-reader-newtab-list{min-height:0;max-height:100%;display:grid;align-content:start;gap:4px;overflow:auto;padding-right:2px}.jpdb-reader-newtab-list-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;padding:5px 8px;text-align:left}.jpdb-reader-newtab-list-item span,.jpdb-reader-newtab-list-item small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-list-item span{font-size:15px;font-weight:820}.jpdb-reader-newtab-list-item small{font-size:10px;font-weight:740;opacity:.68}.jpdb-reader-newtab-list-item.active small{opacity:1}.jpdb-reader-newtab-source-note{padding:9px 11px;color:#4f5661;font-size:11px;line-height:1.4;font-weight:660}.jpdb-reader-newtab-source-note p{margin:0}.jpdb-reader-newtab-source-note p+p{margin-top:4px}.jpdb-reader-newtab-puck{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483641;border:1px solid var(--jpdb-newtab-border, rgba(255,255,255,.45));cursor:pointer}.jpdb-reader-newtab-empty{display:grid;gap:12px;justify-items:center;padding:28px;border:2px dashed var(--jpdb-newtab-border, rgba(255,255,255,.5));border-radius:16px;color:var(--jpdb-newtab-bg-text, #111);text-align:center}.jpdb-reader-newtab-empty-title{font-size:clamp(24px,6vw,56px);line-height:1;font-weight:900}.jpdb-reader-newtab-empty p{max-width:480px;margin:0;font-size:15px;line-height:1.5;font-weight:680}@media (max-width: 980px){.jpdb-reader-newtab-workspace{grid-template-columns:1fr}.jpdb-reader-newtab-side{grid-template-rows:auto auto auto auto}.jpdb-reader-newtab-card{min-height:clamp(340px,54dvh,500px)}}@media (max-width: 700px){.jpdb-reader-newtab-shell{width:min(100vw - 16px,600px);gap:8px}.jpdb-reader-newtab-health{display:none}.jpdb-reader-newtab-card{min-height:min(420px,calc(100dvh - 140px));padding:14px;border-radius:14px}.jpdb-reader-newtab-word{font-size:clamp(36px,12vw,68px)}.jpdb-reader-newtab-reading{font-size:clamp(16px,4.5vw,28px)}.jpdb-reader-newtab-meaning{font-size:clamp(13px,3.4vw,18px)}.jpdb-reader-newtab-controls{display:grid;grid-template-columns:1fr 1fr;gap:6px}.jpdb-reader-newtab-status{grid-column:1 / -1;text-align:left}.jpdb-reader-newtab-form-grid,.jpdb-reader-newtab-filter-grid{grid-template-columns:1fr}.jpdb-reader-newtab-panel{padding:10px}.jpdb-reader-newtab-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;position:static;display:inline;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .12s ease,text-decoration-color .12s ease}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck,.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{background:var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-word.jpdb-learning,.jpdb-reader-word.anki-learning{background:var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant,.jpdb-reader-word.anki-known{background:transparent!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-word.jpdb-due,.jpdb-reader-word.anki-due{background:var(--jpdb-reader-state-due-soft, rgba(255,180,84,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-word.jpdb-failed,.jpdb-reader-word.anki-failed{background:var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{background:var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-ignored, #b8a7ff);opacity:.82!important}.jpdb-reader-highlight-pitch .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: rgba(148,163,184,.72);opacity:1!important}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-heiban{background:#359eff24!important;--jpdb-reader-word-underline: #359eff}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-atamadaka{background:#fe4b7424!important;--jpdb-reader-word-underline: #fe4b74}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-nakadaka{background:#fba84029!important;--jpdb-reader-word-underline: #fba840}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-odaka{background:#57ccb724!important;--jpdb-reader-word-underline: #57ccb7}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-kifuku{background:#9050f624!important;--jpdb-reader-word-underline: #9050f6}.jpdb-reader-highlight-off .jpdb-reader-word,.jpdb-reader-highlight-off .jpdb-reader-word:is(:hover,:focus,.jpdb-reader-hover){background:transparent!important;box-shadow:none!important;opacity:1!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:12px;font-weight:700}.jpdb-ocr-line{position:absolute;display:inline-flex;align-items:center;justify-content:center;overflow:visible;min-width:32px;min-height:32px;padding:.44em .3em .18em;border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1.08;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text;transition:opacity .12s ease,background .12s ease,border-color .12s ease}.jpdb-ocr-line-visible{border-color:#ffffff29;background:#181b2014;box-shadow:inset 0 0 0 1px #00000014}.jpdb-ocr-line[data-vertical=true]{align-items:center;letter-spacing:0}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24,27,32,.48));border-color:#5ea780e6;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:inherit}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-line .jpdb-reader-word ruby{line-height:1}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #ffb454)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi{color:currentColor;font-size:.46em;opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-new,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-suspended,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-known,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-never-forget,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #ffb454)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-blacklisted,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-heiban,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-heiban{color:#359eff!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-atamadaka,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-atamadaka{color:#fe4b74!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-nakadaka,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka{color:#fba840!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-odaka,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka{color:#57ccb7!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-kifuku,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku{color:#9050f6!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word,.jpdb-reader-highlight-off .asbplayer-subtitles-container-bottom .jpdb-reader-word,.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;touch-action:none;transition:opacity .15s ease,border-color .15s ease,color .15s ease}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:dark;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover{width:min(430px,calc(100vw - 16px));max-height:min(540px,calc(100vh - 16px));overflow:auto;padding:14px}.jpdb-reader-sheet-handle{display:none;width:72px;height:28px;border-radius:999px;background:transparent;margin:-4px auto 6px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";display:block;width:42px;height:5px;border-radius:999px;margin:11px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:dark;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span,.jpdb-reader-onboarding-note{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline;margin:0;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;cursor:pointer;font:inherit;line-height:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor;outline:none}.jpdb-reader-pill{display:inline-flex;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;border:1px solid var(--chip-border, var(--jpdb-reader-border));border-radius:999px;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2));font-size:11px;font-weight:700;line-height:1!important;text-decoration:none}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{cursor:pointer;font-family:inherit}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent);outline-offset:1px}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:12px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);line-height:1.35}.jpdb-reader-meaning-pos{color:var(--jpdb-reader-faint);font-size:11px;margin-right:5px;font-style:italic;text-transform:none}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px}.jpdb-reader-inline-link{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary{position:absolute;top:8px;right:8px;z-index:1;display:inline-flex;width:20px;min-height:20px;padding:0;justify-content:center}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary:after{margin:0;font-size:13px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary+.jpdb-reader-local-terms{padding-top:0}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:0}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;white-space:normal;display:grid;gap:2px;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-more{margin-top:6px;border-top:1px solid var(--jpdb-reader-border);padding-top:5px}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{margin:2px 0 2px 18px;padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:8px;cursor:pointer;list-style:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){white-space:normal}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:12px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-anki-card-preview div{display:grid;gap:2px}.jpdb-reader-anki-card-preview strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-card-preview span,.jpdb-reader-anki-card-preview small{white-space:pre-wrap}.yomu-jpdb-addon-card{display:grid;gap:9px;margin:14px 0;padding:11px 12px;border:1px solid var(--jpdb-reader-border, rgba(127,137,152,.2));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 92%,transparent);color:var(--jpdb-reader-text, inherit);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;line-height:1.42;box-shadow:0 1px color-mix(in srgb,var(--jpdb-reader-border, rgba(127,137,152,.18)) 70%,transparent)}.yomu-jpdb-addon-card,.yomu-jpdb-addon-card *{box-sizing:border-box}.yomu-jpdb-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.yomu-jpdb-card-title a{color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-decoration:none;text-transform:none}.yomu-jpdb-collapsible-card{display:grid;gap:9px}.yomu-jpdb-collapsible-card>summary{cursor:pointer;list-style:none}.yomu-jpdb-collapsible-card>summary::-webkit-details-marker{display:none}.yomu-jpdb-collapsible-card>summary:after{content:"Show";color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-transform:none}.yomu-jpdb-collapsible-card[open]>summary:after{content:"Hide"}.yomu-jpdb-collapsible-body{display:grid;gap:9px}.yomu-jpdb-toolbar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}.yomu-jpdb-counter{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:24px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px;font-weight:800}.yomu-jpdb-image-shell{display:grid;place-items:center}.yomu-jpdb-image-shell img{display:block;width:min(320px,100%);max-height:340px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-bg)}.yomu-jpdb-story{max-width:58ch;margin:0 auto;color:var(--jpdb-reader-text);white-space:pre-wrap}.yomu-jpdb-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px}.yomu-jpdb-facts span{display:grid;gap:2px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.yomu-jpdb-facts strong,.yomu-jpdb-addon-card h6{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.yomu-jpdb-addon-card h6,.yomu-jpdb-addon-card p{margin:0}.yomu-jpdb-addon-card section{display:grid;gap:5px}.yomu-jpdb-chip-row,.yomu-jpdb-component-row,.yomu-jpdb-used-words{display:flex;flex-wrap:wrap;gap:7px}.yomu-jpdb-chip-row span{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:3px 8px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-weight:750}.yomu-jpdb-chip-row span.common{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}.yomu-jpdb-chip-row small{color:var(--jpdb-reader-muted);font-size:11px}.yomu-jpdb-component,.yomu-jpdb-used-words a{display:inline-grid;gap:1px;min-width:70px;padding:7px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-component:hover,.yomu-jpdb-component:focus-visible,.yomu-jpdb-used-words a:hover,.yomu-jpdb-used-words a:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component strong{color:var(--jpdb-reader-text);font-size:22px;line-height:1}.yomu-jpdb-component span,.yomu-jpdb-used-words small{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-used-words a span{font-weight:800}.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry{background:var(--jpdb-reader-surface-2)}.yomu-jpdb-local-dictionaries{gap:7px}.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group{border-radius:8px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-head{min-height:38px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary{line-height:1.45}.yomu-jpdb-audio-button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:24px;margin-left:6px;padding:2px 7px;border:1px solid var(--jpdb-reader-border, rgba(127,137,152,.35));border-radius:999px;background:var(--jpdb-reader-accent-soft, rgba(94,167,128,.16));color:var(--jpdb-reader-accent, currentColor);cursor:pointer;font:800 10px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;vertical-align:middle;-webkit-tap-highlight-color:transparent}.yomu-jpdb-audio-button:hover,.yomu-jpdb-audio-button:focus-visible{border-color:var(--jpdb-reader-accent, currentColor);outline:none}.yomu-jpdb-audio-button svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),.yomu-jpdb-review-compact-nav .menu-icon{display:none!important}.yomu-jpdb-review-compact-nav .menu{max-height:32px!important;transition:none!important}.yomu-jpdb-items-left-count{color:#e5484d}#yomu-jpdb-doodle-root{display:grid;place-items:center;gap:10px;width:min(100%,320px);margin:14px auto 8px;padding:10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 88%,transparent);color:var(--jpdb-reader-text)}.yomu-doodle-stage{position:relative;width:min(76vw,230px);aspect-ratio:1;touch-action:none}.yomu-doodle-canvas,.yomu-doodle-ghost{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.yomu-doodle-canvas{z-index:1;border:2px solid color-mix(in srgb,var(--jpdb-reader-text) 82%,var(--jpdb-reader-border));border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 25%}.yomu-doodle-ghost{z-index:0;display:grid;place-items:center;overflow:hidden;color:var(--jpdb-reader-accent);font-size:min(72vw,320px);line-height:1;opacity:.26;pointer-events:none}.yomu-doodle-ghost svg{width:100%;height:100%}.yomu-doodle-ghost path,.yomu-doodle-ghost line,.yomu-doodle-ghost polyline{fill:none!important;stroke:currentColor!important;stroke-width:2.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}#yomu-jpdb-doodle-preview{display:inline-grid;place-items:center;gap:5px;min-width:132px;margin-left:14px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 90%,transparent);vertical-align:top}.yomu-doodle-preview-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1;text-transform:uppercase}#yomu-jpdb-doodle-preview img{width:min(180px,30vw);height:auto;border-radius:8px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-bg)}#yomu-jpdb-doodle-root .jpdb-reader-btn{min-height:44px;padding-inline:14px}@media (min-height: 960px) and (min-width: 700px){#yomu-jpdb-doodle-root{width:min(100%,410px)}#yomu-jpdb-doodle-root .yomu-doodle-stage{width:min(78vw,320px)}}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion,#yomu-jpdb-immersion{container-type:inline-size}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;padding:9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:start}.jpdb-reader-example-image{display:block;width:100%;height:100%;object-fit:contain}.jpdb-reader-example-media{display:grid;place-items:center;width:100%;height:clamp(92px,24vw,122px);overflow:hidden;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 82%,transparent);border-radius:7px;background:linear-gradient(135deg,rgba(255,255,255,.055),transparent 44%),color-mix(in srgb,var(--jpdb-reader-surface-2) 82%,#05070a)}.jpdb-reader-example-body{display:grid;align-content:start;gap:8px;min-width:0}.jpdb-reader-example-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-example-source{min-width:0;flex:1 1 150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-query{flex:0 1 150px;max-width:min(180px,100%);overflow:hidden;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));border-radius:999px;padding:2px 7px;color:var(--jpdb-reader-accent);text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-count{flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:13px;font-weight:850;line-height:1;white-space:nowrap}.jpdb-reader-example-sentence{min-width:0;max-width:100%;color:var(--jpdb-reader-text);font-size:13px;line-height:1.42;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;background:transparent!important;--jpdb-reader-word-underline: transparent !important;-webkit-box-decoration-break:clone;box-decoration-break:clone;text-decoration-color:transparent!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word{background:transparent!important;box-shadow:none!important;--jpdb-reader-word-underline: transparent !important;text-decoration-color:transparent!important}.jpdb-reader-example-sentence .jpdb-reader-word:after{content:none}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;--jpdb-reader-word-underline: transparent !important;text-decoration-color:transparent!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important;--jpdb-reader-word-underline: transparent !important;text-decoration-color:transparent!important}.jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:1px;margin-top:0;padding:2px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 84%,transparent)}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr) minmax(210px,42%);grid-template-areas:"topline media" "body media";gap:8px 10px}.jpdb-reader-example-card.has-image .jpdb-reader-example-topline{grid-area:topline}.jpdb-reader-example-card.has-image .jpdb-reader-example-body{grid-area:body}.jpdb-reader-example-card.has-image .jpdb-reader-example-media{grid-area:media;height:clamp(104px,15vw,136px);align-self:start}}@media (max-width: 520px){.jpdb-reader-example-card.has-image,.jpdb-reader-example-topline{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-media{height:clamp(92px,34vw,128px)}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-meta{gap:5px 6px}.jpdb-reader-example-query{max-width:100%}.jpdb-reader-example-source,.jpdb-reader-example-query{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-media-note{color:var(--jpdb-reader-muted);font-style:italic}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-actions{display:flex;flex-wrap:wrap;gap:7px}.jpdb-reader-study-actions .jpdb-reader-icon-mini{width:auto;min-width:76px;padding:0 10px}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:12px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-title,.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-title{font-size:13px;line-height:1.2}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(28px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent-readable);font-size:11px;width:max-content}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-weight:700}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:12px;margin-top:6px}.jpdb-reader-modal-nav,.jpdb-reader-kanji-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:12px;font-weight:750}.jpdb-reader-modal-nav span,.jpdb-reader-kanji-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{justify-self:end;margin-top:0}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:28px;padding:3px 11px 3px 7px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 16%,transparent),color-mix(in srgb,var(--jpdb-reader-accent) 9%,transparent));color:var(--jpdb-reader-text);box-shadow:inset 0 1px #ffffff14;font-size:13px;font-weight:850;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline-flex;align-items:center;flex:0 0 auto;height:18px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent);color:color-mix(in srgb,var(--jpdb-reader-accent) 76%,var(--jpdb-reader-text));font-size:9px;font-weight:900;line-height:18px;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:6px}.jpdb-reader-kanji-facts span{display:grid;gap:2px;min-width:0;padding:7px 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:12px;font-weight:750}.jpdb-reader-kanji-facts strong{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.jpdb-reader-origin-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:8px;margin-top:8px}.jpdb-reader-origin-node{display:grid;place-items:center;gap:2px;min-height:58px;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent),var(--jpdb-reader-surface-2));color:var(--jpdb-reader-text);text-align:center;font:inherit;cursor:pointer}.jpdb-reader-origin-node.current{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 64%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2))}.jpdb-reader-origin-node.related{border-style:dashed;cursor:default}.jpdb-reader-origin-node:hover,.jpdb-reader-origin-node:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-node strong{font-size:20px;line-height:1}.jpdb-reader-origin-node small,.jpdb-reader-origin-edges small{color:var(--jpdb-reader-muted);font-size:10px;line-height:1.2}.jpdb-reader-origin-edges{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:5px}.jpdb-reader-origin-edges span{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:12px;line-height:1.3}.jpdb-reader-origin-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.jpdb-reader-origin-examples button{min-width:0;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);text-align:left;cursor:pointer;font:inherit}.jpdb-reader-origin-examples button:hover,.jpdb-reader-origin-examples button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-examples strong,.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-wiktionary{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-origin-wiktionary summary{color:var(--jpdb-reader-text);cursor:pointer;font-weight:800}.jpdb-reader-origin-wiktionary p{margin:7px 0 0;line-height:1.4}.jpdb-reader-origin-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.jpdb-reader-origin-images img{width:64px;height:64px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:#fff}.jpdb-reader-origin-sources{display:flex;flex-wrap:wrap;gap:7px;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-sources a{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-origin-graph-wrap{position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,#000);border-radius:8px;background:#11171d;box-shadow:inset 0 1px #ffffff09,inset 0 -18px 44px #0000002e;overflow:hidden}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:#f2f4f8c7;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:#f2f4f8d1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle{fill:#f2f4f8f0;stroke:#11171d;stroke-width:.12}.jpdb-reader-origin-graph-wrap:not(.show-outbound) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-toggle{position:absolute;top:7px;right:7px;z-index:4;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 14px);padding:4px 7px;border:1px solid rgba(242,244,248,.18);border-radius:999px;background:#03070bbd;color:#f2f4f8e6;font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px #0000003d}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:#7dc3e5}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;min-width:62px;height:62px;padding:0;border:4px solid #03070b;border-radius:999px;background:#7dc3e5;color:#03070b;font:850 32px/1 Hiragino Sans,Yu Gothic,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 9px 26px #00000057;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:1;transition:border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{width:68px;min-width:68px;height:68px;border-color:#03070b;background:#2fa6dc;font-size:34px;box-shadow:0 12px 32px #0006}.jpdb-reader-origin-graph-node.component{border-color:#03070b}.jpdb-reader-origin-graph-node.related{background:#f4f7fb;color:#03070b;font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:#03070b;box-shadow:0 14px 34px #00000070,0 0 0 3px #7dc3e529;outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px #00000080,0 0 0 4px #7dc3e533}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements span,.jpdb-reader-rtk-elements button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:12px;font-weight:750}.jpdb-reader-rtk-elements button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements button{cursor:pointer}.jpdb-reader-rtk-elements button:hover,.jpdb-reader-rtk-elements button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-rtk-elements span+span:before,.jpdb-reader-rtk-elements span+button:before,.jpdb-reader-rtk-elements button+span:before,.jpdb-reader-rtk-elements button+button:before{content:"+";margin-right:6px;color:color-mix(in srgb,var(--jpdb-reader-accent) 72%,var(--jpdb-reader-muted))}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-similar-word{min-width:0;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;margin:8px auto 0;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-mini-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:max-content!important;height:28px!important;min-height:28px!important;max-height:30px!important;padding:4px 9px!important;border:1px solid var(--jpdb-reader-border)!important;border-radius:7px!important;background:transparent!important;color:var(--jpdb-reader-text)!important;cursor:pointer;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif!important;white-space:nowrap!important}.jpdb-reader-mini-btn:hover,.jpdb-reader-mini-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-actions{position:sticky;bottom:-14px;z-index:4;border-top:1px solid var(--jpdb-reader-border);margin:12px -14px -14px;padding:12px 14px 14px;display:grid;gap:8px;background:linear-gradient(to bottom,color-mix(in srgb,var(--jpdb-reader-bg) 0%,transparent),var(--jpdb-reader-bg) 16px),var(--jpdb-reader-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:6px}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:40px;padding-inline:3px;font-size:9.5px;letter-spacing:0;line-height:1.1;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{min-height:36px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:600 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-btn:hover{background:var(--jpdb-reader-hover)}.jpdb-reader-btn:disabled{opacity:.45;cursor:progress}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent) 10%,transparent)}.jpdb-reader-btn.add,.jpdb-reader-btn.nf{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent)}.jpdb-reader-btn.blacklist{color:var(--jpdb-reader-state-ignored, #b8a7ff);border-color:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{color:#88a6ff;border-color:#88a6ff}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail{color:#e74c3c;border-color:#e74c3c}.jpdb-reader-btn.something{color:#f39c12;border-color:#f39c12}.jpdb-reader-btn.hard{color:#f1c40f;border-color:#f1c40f}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{color:#2ecc71;border-color:#2ecc71}.jpdb-reader-btn.easy{color:#3498db;border-color:#3498db}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:12px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 20px));max-height:min(760px,calc(100vh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:12px}.jpdb-reader-settings input,.jpdb-reader-settings select{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings a{color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;padding:0 12px;text-align:center;text-decoration:none!important}.jpdb-reader-support-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-support-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-support-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-support-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.jpdb-reader-support-actions .jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;text-align:center;text-decoration:none!important}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources{display:grid;gap:7px;margin:10px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:12px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row{grid-template-columns:48px minmax(130px,1fr) minmax(120px,.8fr) 74px 58px}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:48px minmax(160px,1fr) 74px 58px}.jpdb-reader-order-head{color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%;cursor:grab}.jpdb-reader-order-row.jpdb-reader-dragging{opacity:.58;border-color:var(--jpdb-reader-accent)}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-lookup-link-row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) minmax(108px,max-content);gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:44px minmax(170px,315px) minmax(0,1fr) minmax(108px,max-content)}.jpdb-reader-lookup-link-row{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:2px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size: 28px;--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: rgba(24,27,32,.18);--subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:normal;word-break:keep-all;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-primary{display:inline;padding:.3em .36em .2em;border-radius:6px;background:var(--subtitle-background-rgba);box-shadow:0 8px 22px #00000047,0 1px 2px #00000057;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;margin-top:8px;color:#ffffffd1;font-size:.62em;font-weight:650;line-height:1.25;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-new,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-suspended,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-never-forget,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #ffb454)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-blacklisted,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--subtitle-color)!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-heiban{color:#359eff!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-atamadaka{color:#fe4b74!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka{color:#fba840!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka{color:#57ccb7!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku{color:#9050f6!important}.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:#12161c8f;box-shadow:0 12px 30px #00000047;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78;transition:opacity .14s ease,background .14s ease,border-color .14s ease}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:.12}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action=previous],.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action=next],.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action=list],.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) .jpdb-subtitle-status{opacity:0;visibility:hidden;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid rgba(255,255,255,.22);border-radius:8px;background:#181b20c7;color:#fff;box-shadow:0 8px 20px #00000047;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;height:34px;padding:0;flex:0 0 auto;white-space:nowrap;transition:opacity .14s ease,visibility .14s ease,border-color .14s ease,color .14s ease,background .14s ease}.jpdb-subtitle-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,rgba(255,255,255,.22))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 22%,rgba(24,27,32,.72))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-toggle[aria-pressed=false]{color:#ffffffb8;border-color:#ffffff2e!important;background:#181b20b8!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-status[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-status{display:inline-flex;align-items:center;justify-content:center;height:34px;min-width:36px;padding:0 5px;border-radius:7px;background:transparent;color:#ffffffc7;border:0;box-shadow:none;font:850 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transition:opacity .14s ease,visibility .14s ease}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;height:32px}.jpdb-subtitle-compact-video .jpdb-subtitle-status{min-width:30px;padding-inline:2px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:#181b20e0;box-shadow:0 14px 34px #00000052;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:#ffffffc7;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,rgba(255,255,255,.05))}.jpdb-subtitle-list{position:fixed;right:max(10px,env(safe-area-inset-right));top:50px;width:min(460px,calc(100vw - 24px));max-height:min(62vh,520px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid rgba(255,255,255,.18);border-radius:10px;background:#181b20eb;color:#fff;box-shadow:0 14px 34px #00000052;pointer-events:auto;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}.jpdb-subtitle-list-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:9px;border-bottom:1px solid rgba(255,255,255,.12);color:#ffffffc7;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-placement{display:inline-flex;align-items:center;gap:4px}.jpdb-subtitle-placement button{display:inline-grid;place-items:center;min-width:28px;width:28px;min-height:28px;height:28px;padding:0;text-align:center;box-shadow:none}.jpdb-subtitle-placement button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,rgba(255,255,255,.05))}.jpdb-subtitle-list-scroll{overflow:auto;display:grid;gap:2px;padding:6px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:6px;padding:7px;border:1px solid transparent;border-radius:8px;background:#ffffff06;cursor:pointer}.jpdb-subtitle-row-seek{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;margin-top:1px;padding:0!important;border-radius:999px!important;box-shadow:none!important}.jpdb-subtitle-row-body{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:start;gap:3px 8px;width:100%;min-height:34px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-replay{align-self:center;display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0!important;box-shadow:none!important}.jpdb-subtitle-list-row.active{border-color:#5ea780e0;background:#5ea78033}.jpdb-subtitle-row-time{color:#ffffff8c;font-size:11px;line-height:1.4}.jpdb-subtitle-row-text{min-width:0;grid-column:2;overflow-wrap:anywhere;font-weight:700;line-height:1.48;font-size:15px;letter-spacing:0}.jpdb-subtitle-row-text .jpdb-reader-word{color:inherit;background:transparent;border-radius:4px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:#ffffff24;outline:1px solid rgba(255,255,255,.28)}.jpdb-subtitle-row-translation{grid-column:2;min-width:0;margin-top:3px;color:#ffffffad;overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;padding:9px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:#ffffff0d}.jpdb-subtitle-track-row.active{border-color:#5ea780d1;background:#5ea7802e}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:13px}.jpdb-subtitle-track-row span{color:#ffffff9e;font-size:11px;font-weight:700}.jpdb-subtitle-track-row div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.jpdb-subtitle-track-row button{min-height:34px;text-align:center;box-shadow:none}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:4px}.jpdb-subtitle-track-tools button{min-height:36px;box-shadow:none}.jpdb-subtitle-list-empty{padding:12px;color:#ffffffb8;font:700 12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}.jpdb-youtube-filtered{display:none!important}.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-youtube-filter-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;max-height:min(70vh,620px);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{max-height:min(92vh,840px);max-height:min(92svh,840px)}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-settings{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0}.jpdb-reader-settings-head{padding:18px 20px 0}.jpdb-reader-settings-scroll{padding:0 20px 106px}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 20px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions{grid-template-columns:1fr}.jpdb-reader-support-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-recommended-item,.jpdb-reader-template-preview-grid{grid-template-columns:1fr}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}.jpdb-reader-dictionary-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact{grid-template-columns:52px 1fr}.jpdb-reader-dictionary-row input[name$=".alias"],.jpdb-reader-dictionary-row .jpdb-reader-row-tools,.jpdb-reader-dictionary-row-help{grid-column:2}.jpdb-reader-dictionary-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-audio-source-head{display:none}.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:52px 1fr}.jpdb-reader-audio-source-choice{grid-column:2}.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row input[name$=".urlTemplate"]{grid-column:1 / -1}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:2;justify-content:flex-start}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start}.jpdb-ocr-line{min-width:38px;min-height:38px;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-compact-video.jpdb-subtitle-panel-open .jpdb-subtitle-rail,.jpdb-subtitle-compact-video.jpdb-subtitle-menu-open .jpdb-subtitle-rail{top:-44px}.jpdb-subtitle-rail button{height:34px;min-width:34px;width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-list{left:8px!important;right:auto!important;width:calc(100vw - 16px)!important;max-height:min(48vh,390px)!important;border-radius:12px 12px 0 0}}';
+  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08)}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:0;text-transform:none}.jpdb-reader-newtab-document,.jpdb-reader-newtab-document body{min-height:100%;margin:0;background:var(--jpdb-newtab-bg, var(--jpdb-reader-accent))}.jpdb-reader-newtab{min-height:100dvh;width:100%;overflow:hidden;background:var(--jpdb-newtab-bg, var(--jpdb-reader-accent));color:var(--jpdb-newtab-bg-text, #111);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-newtab button{font:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-newtab-shell{width:min(880px,calc(100vw - 28px));min-height:100dvh;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(16px,3vh,28px);padding:max(14px,env(safe-area-inset-top)) 0 max(18px,env(safe-area-inset-bottom))}.jpdb-reader-newtab-topbar{min-height:44px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}.jpdb-reader-newtab-brand,.jpdb-reader-newtab-overflow{width:40px;height:40px;border:1px solid color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 18%,transparent);border-radius:999px;display:grid;place-items:center;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 78%,transparent);color:var(--jpdb-newtab-bg-text, #111);box-shadow:0 10px 28px color-mix(in srgb,var(--jpdb-newtab-shadow, rgba(0,0,0,.16)) 62%,transparent);text-decoration:none;font-size:14px;line-height:1;font-weight:900;cursor:pointer;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}.jpdb-reader-newtab-overflow{padding-bottom:6px;font-size:20px}.jpdb-reader-newtab-mode{justify-self:center;display:inline-grid;grid-template-columns:repeat(2,minmax(72px,1fr));gap:4px;padding:4px;border:1px solid color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 14%,transparent);border-radius:999px;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 64%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}.jpdb-reader-newtab-mode button{min-height:32px;border:0;border-radius:999px;padding:0 14px;background:transparent;color:var(--jpdb-newtab-bg-text, #111);font-size:12px;font-weight:820;cursor:pointer}.jpdb-reader-newtab-mode button[data-active=true]{background:var(--jpdb-newtab-surface, #fff);color:var(--jpdb-newtab-accent-text, var(--jpdb-reader-accent));box-shadow:0 4px 14px color-mix(in srgb,var(--jpdb-newtab-shadow, rgba(0,0,0,.12)) 48%,transparent)}.jpdb-reader-newtab-study{min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;align-items:center;justify-items:center;gap:clamp(10px,2.2vh,20px);cursor:pointer;-webkit-user-select:none;user-select:none}.jpdb-reader-newtab-count,.jpdb-reader-newtab-status{color:color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 72%,transparent);font-size:12px;line-height:1.2;font-weight:760;text-align:center}.jpdb-reader-newtab-prompt{max-width:100%;color:var(--jpdb-newtab-bg-text, #111);font-size:clamp(62px,15vw,164px);font-weight:900;line-height:.96;text-align:center;overflow-wrap:anywhere;text-wrap:balance}.jpdb-reader-newtab-prompt .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-family:Hiragino Mincho ProN,Yu Mincho,serif;font-size:clamp(92px,24vw,260px);font-weight:800}.jpdb-reader-newtab-answer{min-height:clamp(72px,12vh,128px);max-width:min(620px,100%);display:grid;align-content:start;justify-items:center;gap:8px;transition:opacity .16s ease,transform .16s ease,filter .16s ease}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer{opacity:0;filter:blur(8px);transform:translateY(4px);pointer-events:none}.jpdb-reader-newtab-reading{max-width:100%;color:var(--jpdb-newtab-bg-text, #111);font-size:clamp(24px,5vw,54px);font-weight:780;line-height:1.1;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-reading .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-meaning{max-width:min(520px,100%);color:color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 78%,transparent);font-size:clamp(15px,2.4vw,22px);font-weight:650;line-height:1.42;text-align:center;overflow-wrap:anywhere;text-wrap:balance}.jpdb-reader-newtab-controls{display:grid;grid-template-columns:repeat(3,minmax(88px,1fr));gap:8px}.jpdb-reader-newtab-controls button{min-height:44px;border:1px solid color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 16%,transparent);border-radius:999px;background:color-mix(in srgb,var(--jpdb-newtab-surface, #fff) 72%,transparent);color:var(--jpdb-newtab-bg-text, #111);font-size:13px;font-weight:820;cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--jpdb-newtab-shadow, rgba(0,0,0,.14)) 42%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}.jpdb-reader-newtab-controls button[data-newtab-action=reveal]{background:var(--jpdb-newtab-bg-text, #111);border-color:transparent;color:var(--jpdb-newtab-bg, #fff)}.jpdb-reader-newtab-brand:hover,.jpdb-reader-newtab-brand:focus-visible,.jpdb-reader-newtab-overflow:hover,.jpdb-reader-newtab-overflow:focus-visible,.jpdb-reader-newtab-mode button:hover,.jpdb-reader-newtab-mode button:focus-visible,.jpdb-reader-newtab-controls button:hover,.jpdb-reader-newtab-controls button:focus-visible{outline:2px solid color-mix(in srgb,var(--jpdb-newtab-bg-text, #111) 34%,transparent);outline-offset:3px}@media (max-width: 640px){.jpdb-reader-newtab-shell{width:min(100vw - 18px,560px);gap:14px}.jpdb-reader-newtab-mode{grid-template-columns:repeat(2,minmax(62px,1fr))}.jpdb-reader-newtab-mode button{padding:0 10px}.jpdb-reader-newtab-prompt{font-size:clamp(50px,17vw,102px)}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-size:clamp(88px,34vw,180px)}.jpdb-reader-newtab-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-newtab-controls button{min-height:42px;padding:0 8px;font-size:12px}}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;position:static;display:inline;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .12s ease,text-decoration-color .12s ease}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck,.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{background:var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-word.jpdb-learning,.jpdb-reader-word.anki-learning{background:var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant,.jpdb-reader-word.anki-known{background:transparent!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-word.jpdb-due,.jpdb-reader-word.anki-due{background:var(--jpdb-reader-state-due-soft, rgba(255,180,84,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-word.jpdb-failed,.jpdb-reader-word.anki-failed{background:var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{background:var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16))!important;--jpdb-reader-word-underline: var(--jpdb-reader-state-ignored, #b8a7ff);opacity:.82!important}.jpdb-reader-highlight-pitch .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: rgba(148,163,184,.72);opacity:1!important}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-heiban{background:#359eff24!important;--jpdb-reader-word-underline: #359eff}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-atamadaka{background:#fe4b7424!important;--jpdb-reader-word-underline: #fe4b74}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-nakadaka{background:#fba84029!important;--jpdb-reader-word-underline: #fba840}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-odaka{background:#57ccb724!important;--jpdb-reader-word-underline: #57ccb7}.jpdb-reader-highlight-pitch .jpdb-reader-word.jpdb-pitch-kifuku{background:#9050f624!important;--jpdb-reader-word-underline: #9050f6}.jpdb-reader-highlight-off .jpdb-reader-word,.jpdb-reader-highlight-off .jpdb-reader-word:is(:hover,:focus,.jpdb-reader-hover){background:transparent!important;box-shadow:none!important;opacity:1!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:12px;font-weight:700}.jpdb-ocr-line{position:absolute;display:inline-flex;align-items:center;justify-content:center;overflow:visible;min-width:32px;min-height:32px;padding:.44em .3em .18em;border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1.08;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text;transition:opacity .12s ease,background .12s ease,border-color .12s ease}.jpdb-ocr-line-visible{border-color:#ffffff29;background:#181b2014;box-shadow:inset 0 0 0 1px #00000014}.jpdb-ocr-line[data-vertical=true]{align-items:center;letter-spacing:0}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24,27,32,.48));border-color:#5ea780e6;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:inherit}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-line .jpdb-reader-word ruby{line-height:1}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #ffb454)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi{color:currentColor;font-size:.46em;opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-new,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-suspended,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-known,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-never-forget,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #ffb454)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-blacklisted,.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-heiban,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-heiban{color:#359eff!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-atamadaka,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-atamadaka{color:#fe4b74!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-nakadaka,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka{color:#fba840!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-odaka,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka{color:#57ccb7!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku,.jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-kifuku,.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku{color:#9050f6!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word,.jpdb-reader-highlight-off .asbplayer-subtitles-container-bottom .jpdb-reader-word,.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;touch-action:none;transition:opacity .15s ease,border-color .15s ease,color .15s ease}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:dark;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover{width:min(430px,calc(100vw - 16px));max-height:min(540px,calc(100vh - 16px));overflow:auto;padding:14px}.jpdb-reader-sheet-handle{display:none;width:72px;height:28px;border-radius:999px;background:transparent;margin:-4px auto 6px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";display:block;width:42px;height:5px;border-radius:999px;margin:11px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:dark;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span,.jpdb-reader-onboarding-note{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline;margin:0;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;cursor:pointer;font:inherit;line-height:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor;outline:none}.jpdb-reader-pill{display:inline-flex;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;border:1px solid var(--chip-border, var(--jpdb-reader-border));border-radius:999px;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2));font-size:11px;font-weight:700;line-height:1!important;text-decoration:none}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{cursor:pointer;font-family:inherit}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent);outline-offset:1px}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:12px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);line-height:1.35}.jpdb-reader-meaning-pos{color:var(--jpdb-reader-faint);font-size:11px;margin-right:5px;font-style:italic;text-transform:none}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px}.jpdb-reader-inline-link{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary{position:absolute;top:8px;right:8px;z-index:1;display:inline-flex;width:20px;min-height:20px;padding:0;justify-content:center}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary:after{margin:0;font-size:13px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary+.jpdb-reader-local-terms{padding-top:0}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:0}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;white-space:normal;display:grid;gap:2px;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-more{margin-top:6px;border-top:1px solid var(--jpdb-reader-border);padding-top:5px}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{margin:2px 0 2px 18px;padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:8px;cursor:pointer;list-style:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){white-space:normal}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:12px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-anki-card-preview div{display:grid;gap:2px}.jpdb-reader-anki-card-preview strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-card-preview span,.jpdb-reader-anki-card-preview small{white-space:pre-wrap}.yomu-jpdb-addon-card{display:grid;gap:9px;margin:14px 0;padding:11px 12px;border:1px solid var(--jpdb-reader-border, rgba(127,137,152,.2));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 92%,transparent);color:var(--jpdb-reader-text, inherit);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;line-height:1.42;box-shadow:0 1px color-mix(in srgb,var(--jpdb-reader-border, rgba(127,137,152,.18)) 70%,transparent)}.yomu-jpdb-addon-card,.yomu-jpdb-addon-card *{box-sizing:border-box}.yomu-jpdb-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.yomu-jpdb-card-title a{color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-decoration:none;text-transform:none}.yomu-jpdb-collapsible-card{display:grid;gap:9px}.yomu-jpdb-collapsible-card>summary{cursor:pointer;list-style:none}.yomu-jpdb-collapsible-card>summary::-webkit-details-marker{display:none}.yomu-jpdb-collapsible-card>summary:after{content:"Show";color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-transform:none}.yomu-jpdb-collapsible-card[open]>summary:after{content:"Hide"}.yomu-jpdb-collapsible-body{display:grid;gap:9px}.yomu-jpdb-toolbar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}.yomu-jpdb-counter{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:24px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px;font-weight:800}.yomu-jpdb-image-shell{display:grid;place-items:center}.yomu-jpdb-image-shell img{display:block;width:min(320px,100%);max-height:340px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-bg)}.yomu-jpdb-story{max-width:58ch;margin:0 auto;color:var(--jpdb-reader-text);white-space:pre-wrap}.yomu-jpdb-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px}.yomu-jpdb-facts span{display:grid;gap:2px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.yomu-jpdb-facts strong,.yomu-jpdb-addon-card h6{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.yomu-jpdb-addon-card h6,.yomu-jpdb-addon-card p{margin:0}.yomu-jpdb-addon-card section{display:grid;gap:5px}.yomu-jpdb-chip-row,.yomu-jpdb-component-row,.yomu-jpdb-used-words{display:flex;flex-wrap:wrap;gap:7px}.yomu-jpdb-chip-row span{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:3px 8px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-weight:750}.yomu-jpdb-chip-row span.common{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}.yomu-jpdb-chip-row small{color:var(--jpdb-reader-muted);font-size:11px}.yomu-jpdb-component,.yomu-jpdb-used-words a{display:inline-grid;gap:1px;min-width:70px;padding:7px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-component:hover,.yomu-jpdb-component:focus-visible,.yomu-jpdb-used-words a:hover,.yomu-jpdb-used-words a:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component strong{color:var(--jpdb-reader-text);font-size:22px;line-height:1}.yomu-jpdb-component span,.yomu-jpdb-used-words small{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-used-words a span{font-weight:800}.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry{background:var(--jpdb-reader-surface-2)}.yomu-jpdb-local-dictionaries{gap:7px}.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group{border-radius:8px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-head{min-height:38px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary{line-height:1.45}.yomu-jpdb-audio-button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:24px;margin-left:6px;padding:2px 7px;border:1px solid var(--jpdb-reader-border, rgba(127,137,152,.35));border-radius:999px;background:var(--jpdb-reader-accent-soft, rgba(94,167,128,.16));color:var(--jpdb-reader-accent, currentColor);cursor:pointer;font:800 10px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;vertical-align:middle;-webkit-tap-highlight-color:transparent}.yomu-jpdb-audio-button:hover,.yomu-jpdb-audio-button:focus-visible{border-color:var(--jpdb-reader-accent, currentColor);outline:none}.yomu-jpdb-audio-button svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),.yomu-jpdb-review-compact-nav .menu-icon{display:none!important}.yomu-jpdb-review-compact-nav .menu{max-height:32px!important;transition:none!important}.yomu-jpdb-items-left-count{color:#e5484d}#yomu-jpdb-doodle-root{display:grid;place-items:center;gap:10px;width:min(100%,320px);margin:14px auto 8px;padding:10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 88%,transparent);color:var(--jpdb-reader-text)}.yomu-doodle-stage{position:relative;width:min(76vw,230px);aspect-ratio:1;touch-action:none}.yomu-doodle-canvas,.yomu-doodle-ghost{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.yomu-doodle-canvas{z-index:1;border:2px solid color-mix(in srgb,var(--jpdb-reader-text) 82%,var(--jpdb-reader-border));border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 25%}.yomu-doodle-ghost{z-index:0;display:grid;place-items:center;overflow:hidden;color:var(--jpdb-reader-accent);font-size:min(72vw,320px);line-height:1;opacity:.26;pointer-events:none}.yomu-doodle-ghost svg{width:100%;height:100%}.yomu-doodle-ghost path,.yomu-doodle-ghost line,.yomu-doodle-ghost polyline{fill:none!important;stroke:currentColor!important;stroke-width:2.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}#yomu-jpdb-doodle-preview{display:inline-grid;place-items:center;gap:5px;min-width:132px;margin-left:14px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 90%,transparent);vertical-align:top}.yomu-doodle-preview-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1;text-transform:uppercase}#yomu-jpdb-doodle-preview img{width:min(180px,30vw);height:auto;border-radius:8px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-bg)}#yomu-jpdb-doodle-root .jpdb-reader-btn{min-height:44px;padding-inline:14px}@media (min-height: 960px) and (min-width: 700px){#yomu-jpdb-doodle-root{width:min(100%,410px)}#yomu-jpdb-doodle-root .yomu-doodle-stage{width:min(78vw,320px)}}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion,#yomu-jpdb-immersion{container-type:inline-size}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{display:flex;align-items:center;justify-content:space-between;gap:8px}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:min(260px,calc(100vh - 300px));object-fit:contain}.jpdb-reader-example-media{display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 82%,transparent);border-radius:7px;background:linear-gradient(135deg,rgba(255,255,255,.055),transparent 44%),color-mix(in srgb,var(--jpdb-reader-surface-2) 82%,#05070a)}.jpdb-reader-example-body{display:grid;align-content:start;gap:7px;min-width:0}.jpdb-reader-example-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-example-source{min-width:0;flex:1 1 150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-query{flex:0 1 150px;max-width:min(180px,100%);overflow:hidden;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));border-radius:999px;padding:2px 7px;color:var(--jpdb-reader-accent);text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.5;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;background:transparent!important;--jpdb-reader-word-underline: transparent !important;-webkit-box-decoration-break:clone;box-decoration-break:clone;text-decoration-color:transparent!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word{background:transparent!important;box-shadow:none!important;--jpdb-reader-word-underline: transparent !important;text-decoration-color:transparent!important}.jpdb-reader-example-sentence .jpdb-reader-word:after{content:none}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;--jpdb-reader-word-underline: transparent !important;text-decoration-color:transparent!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important;--jpdb-reader-word-underline: transparent !important;text-decoration-color:transparent!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35;text-align:center;text-wrap:balance}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:1px;margin-top:0;padding:2px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 84%,transparent)}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{align-items:flex-start}.jpdb-reader-example-media,.jpdb-reader-example-image{max-height:min(230px,calc(100vh - 300px))}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-meta{gap:5px 6px}.jpdb-reader-example-query{max-width:100%}.jpdb-reader-example-source,.jpdb-reader-example-query{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-media-note{color:var(--jpdb-reader-muted);font-style:italic}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-actions{display:flex;flex-wrap:wrap;gap:7px}.jpdb-reader-study-actions .jpdb-reader-icon-mini{width:auto;min-width:76px;padding:0 10px}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:12px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-title,.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-title{font-size:13px;line-height:1.2}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(28px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent-readable);font-size:11px;width:max-content}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-weight:700}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:12px;margin-top:6px}.jpdb-reader-modal-nav,.jpdb-reader-kanji-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:12px;font-weight:750}.jpdb-reader-modal-nav span,.jpdb-reader-kanji-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{justify-self:end;margin-top:0}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:28px;padding:3px 11px 3px 7px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 16%,transparent),color-mix(in srgb,var(--jpdb-reader-accent) 9%,transparent));color:var(--jpdb-reader-text);box-shadow:inset 0 1px #ffffff14;font-size:13px;font-weight:850;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline-flex;align-items:center;flex:0 0 auto;height:18px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent);color:color-mix(in srgb,var(--jpdb-reader-accent) 76%,var(--jpdb-reader-text));font-size:9px;font-weight:900;line-height:18px;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:6px}.jpdb-reader-kanji-facts span{display:grid;gap:2px;min-width:0;padding:7px 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:12px;font-weight:750}.jpdb-reader-kanji-facts strong{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.jpdb-reader-origin-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:8px;margin-top:8px}.jpdb-reader-origin-node{display:grid;place-items:center;gap:2px;min-height:58px;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent),var(--jpdb-reader-surface-2));color:var(--jpdb-reader-text);text-align:center;font:inherit;cursor:pointer}.jpdb-reader-origin-node.current{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 64%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2))}.jpdb-reader-origin-node.related{border-style:dashed;cursor:default}.jpdb-reader-origin-node:hover,.jpdb-reader-origin-node:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-node strong{font-size:20px;line-height:1}.jpdb-reader-origin-node small,.jpdb-reader-origin-edges small{color:var(--jpdb-reader-muted);font-size:10px;line-height:1.2}.jpdb-reader-origin-edges{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:5px}.jpdb-reader-origin-edges span{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:12px;line-height:1.3}.jpdb-reader-origin-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.jpdb-reader-origin-examples button{min-width:0;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);text-align:left;cursor:pointer;font:inherit}.jpdb-reader-origin-examples button:hover,.jpdb-reader-origin-examples button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-examples strong,.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-wiktionary{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-origin-wiktionary summary{color:var(--jpdb-reader-text);cursor:pointer;font-weight:800}.jpdb-reader-origin-wiktionary p{margin:7px 0 0;line-height:1.4}.jpdb-reader-origin-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.jpdb-reader-origin-images img{width:64px;height:64px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:#fff}.jpdb-reader-origin-sources{display:flex;flex-wrap:wrap;gap:7px;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-sources a{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-origin-graph-wrap{position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,#000);border-radius:8px;background:#11171d;box-shadow:inset 0 1px #ffffff09,inset 0 -18px 44px #0000002e;overflow:hidden}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:#f2f4f8c7;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:#f2f4f8d1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle{fill:#f2f4f8f0;stroke:#11171d;stroke-width:.12}.jpdb-reader-origin-graph-wrap:not(.show-outbound) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-toggle{position:absolute;top:7px;right:7px;z-index:4;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 14px);padding:4px 7px;border:1px solid rgba(242,244,248,.18);border-radius:999px;background:#03070bbd;color:#f2f4f8e6;font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px #0000003d}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:#7dc3e5}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;min-width:62px;height:62px;padding:0;border:4px solid #03070b;border-radius:999px;background:#7dc3e5;color:#03070b;font:850 32px/1 Hiragino Sans,Yu Gothic,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 9px 26px #00000057;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:1;transition:border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{width:68px;min-width:68px;height:68px;border-color:#03070b;background:#2fa6dc;font-size:34px;box-shadow:0 12px 32px #0006}.jpdb-reader-origin-graph-node.component{border-color:#03070b}.jpdb-reader-origin-graph-node.related{background:#f4f7fb;color:#03070b;font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:#03070b;box-shadow:0 14px 34px #00000070,0 0 0 3px #7dc3e529;outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px #00000080,0 0 0 4px #7dc3e533}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements span,.jpdb-reader-rtk-elements button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:12px;font-weight:750}.jpdb-reader-rtk-elements button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements button{cursor:pointer}.jpdb-reader-rtk-elements button:hover,.jpdb-reader-rtk-elements button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-rtk-elements span+span:before,.jpdb-reader-rtk-elements span+button:before,.jpdb-reader-rtk-elements button+span:before,.jpdb-reader-rtk-elements button+button:before{content:"+";margin-right:6px;color:color-mix(in srgb,var(--jpdb-reader-accent) 72%,var(--jpdb-reader-muted))}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-similar-word{min-width:0;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;margin:8px auto 0;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-mini-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:max-content!important;height:28px!important;min-height:28px!important;max-height:30px!important;padding:4px 9px!important;border:1px solid var(--jpdb-reader-border)!important;border-radius:7px!important;background:transparent!important;color:var(--jpdb-reader-text)!important;cursor:pointer;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif!important;white-space:nowrap!important}.jpdb-reader-mini-btn:hover,.jpdb-reader-mini-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-actions{position:sticky;bottom:-14px;z-index:4;border-top:1px solid var(--jpdb-reader-border);margin:12px -14px -14px;padding:12px 14px 14px;display:grid;gap:8px;background:linear-gradient(to bottom,color-mix(in srgb,var(--jpdb-reader-bg) 0%,transparent),var(--jpdb-reader-bg) 16px),var(--jpdb-reader-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:6px}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:40px;padding-inline:3px;font-size:9.5px;letter-spacing:0;line-height:1.1;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{min-height:36px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:600 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-btn:hover{background:var(--jpdb-reader-hover)}.jpdb-reader-btn:disabled{opacity:.45;cursor:progress}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent) 10%,transparent)}.jpdb-reader-btn.add,.jpdb-reader-btn.nf{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent)}.jpdb-reader-btn.blacklist{color:var(--jpdb-reader-state-ignored, #b8a7ff);border-color:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{color:#88a6ff;border-color:#88a6ff}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail{color:#e74c3c;border-color:#e74c3c}.jpdb-reader-btn.something{color:#f39c12;border-color:#f39c12}.jpdb-reader-btn.hard{color:#f1c40f;border-color:#f1c40f}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{color:#2ecc71;border-color:#2ecc71}.jpdb-reader-btn.easy{color:#3498db;border-color:#3498db}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:12px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 20px));max-height:min(760px,calc(100vh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:12px}.jpdb-reader-settings input,.jpdb-reader-settings select{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings a{color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;padding:0 12px;text-align:center;text-decoration:none!important}.jpdb-reader-support-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-support-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-support-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-support-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.jpdb-reader-support-actions .jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;text-align:center;text-decoration:none!important}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources{display:grid;gap:7px;margin:10px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:12px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row{grid-template-columns:48px minmax(130px,1fr) minmax(120px,.8fr) 74px 58px}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:48px minmax(160px,1fr) 74px 58px}.jpdb-reader-order-head{color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%;cursor:grab}.jpdb-reader-order-row.jpdb-reader-dragging{opacity:.58;border-color:var(--jpdb-reader-accent)}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-lookup-link-row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) minmax(108px,max-content);gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:44px minmax(170px,315px) minmax(0,1fr) minmax(108px,max-content)}.jpdb-reader-lookup-link-row{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:2px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size: 28px;--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: rgba(24,27,32,.18);--subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:normal;word-break:keep-all;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-primary{display:inline;padding:.3em .36em .2em;border-radius:6px;background:var(--subtitle-background-rgba);box-shadow:0 8px 22px #00000047,0 1px 2px #00000057;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;margin-top:8px;color:#ffffffd1;font-size:.62em;font-weight:650;line-height:1.25;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-new,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-suspended,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-never-forget,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #ffb454)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-blacklisted,.jpdb-subtitle-primary .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--subtitle-color)!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-heiban{color:#359eff!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-atamadaka{color:#fe4b74!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka{color:#fba840!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka{color:#57ccb7!important}.jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku{color:#9050f6!important}.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:#12161c8f;box-shadow:0 12px 30px #00000047;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78;transition:opacity .14s ease,background .14s ease,border-color .14s ease}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:.12}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action=previous],.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action=next],.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action=list],.jpdb-subtitle-controls-auto:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) .jpdb-subtitle-status{opacity:0;visibility:hidden;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid rgba(255,255,255,.22);border-radius:8px;background:#181b20c7;color:#fff;box-shadow:0 8px 20px #00000047;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;height:34px;padding:0;flex:0 0 auto;white-space:nowrap;transition:opacity .14s ease,visibility .14s ease,border-color .14s ease,color .14s ease,background .14s ease}.jpdb-subtitle-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,rgba(255,255,255,.22))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 22%,rgba(24,27,32,.72))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-toggle[aria-pressed=false]{color:#ffffffb8;border-color:#ffffff2e!important;background:#181b20b8!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-status[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-status{display:inline-flex;align-items:center;justify-content:center;height:34px;min-width:36px;padding:0 5px;border-radius:7px;background:transparent;color:#ffffffc7;border:0;box-shadow:none;font:850 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transition:opacity .14s ease,visibility .14s ease}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;height:32px}.jpdb-subtitle-compact-video .jpdb-subtitle-status{min-width:30px;padding-inline:2px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:#181b20e0;box-shadow:0 14px 34px #00000052;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:#ffffffc7;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,rgba(255,255,255,.05))}.jpdb-subtitle-list{position:fixed;right:max(10px,env(safe-area-inset-right));top:50px;width:min(460px,calc(100vw - 24px));max-height:min(62vh,520px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid rgba(255,255,255,.18);border-radius:10px;background:#181b20eb;color:#fff;box-shadow:0 14px 34px #00000052;pointer-events:auto;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:0;min-height:0;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:.42}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:1}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-7px;top:0;bottom:0;width:14px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-7px;top:0;bottom:0;width:14px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:6px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-7px;height:14px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:6px;height:2px}.jpdb-subtitle-list-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:9px;border-bottom:1px solid rgba(255,255,255,.12);color:#ffffffc7;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-placement{display:inline-flex;align-items:center;gap:4px}.jpdb-subtitle-placement button{display:inline-grid;place-items:center;min-width:28px;width:28px;min-height:28px;height:28px;padding:0;text-align:center;box-shadow:none}.jpdb-subtitle-placement button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,rgba(255,255,255,.05))}.jpdb-subtitle-list-scroll{overflow:auto;display:grid;gap:2px;padding:6px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:6px;padding:7px;border:1px solid transparent;border-radius:8px;background:#ffffff06;cursor:pointer}.jpdb-subtitle-row-seek{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;margin-top:1px;padding:0!important;border-radius:999px!important;box-shadow:none!important}.jpdb-subtitle-row-body{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:start;gap:3px 8px;width:100%;min-height:34px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-replay{align-self:center;display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0!important;box-shadow:none!important}.jpdb-subtitle-list-row.active{border-color:#5ea780e0;background:#5ea78033}.jpdb-subtitle-row-time{color:#ffffff8c;font-size:11px;line-height:1.4}.jpdb-subtitle-row-text{min-width:0;grid-column:2;overflow-wrap:anywhere;font-weight:700;line-height:1.48;font-size:15px;letter-spacing:0}.jpdb-subtitle-row-text .jpdb-reader-word{color:inherit;background:transparent;border-radius:4px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:#ffffff24;outline:1px solid rgba(255,255,255,.28)}.jpdb-subtitle-row-translation{grid-column:2;min-width:0;margin-top:3px;color:#ffffffad;overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;padding:9px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:#ffffff0d}.jpdb-subtitle-track-row.active{border-color:#5ea780d1;background:#5ea7802e}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:13px}.jpdb-subtitle-track-row span{color:#ffffff9e;font-size:11px;font-weight:700}.jpdb-subtitle-track-row div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.jpdb-subtitle-track-row button{min-height:34px;text-align:center;box-shadow:none}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:4px}.jpdb-subtitle-track-tools button{min-height:36px;box-shadow:none}.jpdb-subtitle-list-empty{padding:12px;color:#ffffffb8;font:700 12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}.jpdb-youtube-filtered{display:none!important}.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-youtube-filter-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;max-height:min(70vh,620px);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{max-height:min(92vh,840px);max-height:min(92svh,840px)}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-settings{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0}.jpdb-reader-settings-head{padding:18px 20px 0}.jpdb-reader-settings-scroll{padding:0 20px 106px}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 20px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions{grid-template-columns:1fr}.jpdb-reader-support-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-recommended-item,.jpdb-reader-template-preview-grid{grid-template-columns:1fr}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}.jpdb-reader-dictionary-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact{grid-template-columns:52px 1fr}.jpdb-reader-dictionary-row input[name$=".alias"],.jpdb-reader-dictionary-row .jpdb-reader-row-tools,.jpdb-reader-dictionary-row-help{grid-column:2}.jpdb-reader-dictionary-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-audio-source-head{display:none}.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:52px 1fr}.jpdb-reader-audio-source-choice{grid-column:2}.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row input[name$=".urlTemplate"]{grid-column:1 / -1}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:2;justify-content:flex-start}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start}.jpdb-ocr-line{min-width:38px;min-height:38px;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-compact-video.jpdb-subtitle-panel-open .jpdb-subtitle-rail,.jpdb-subtitle-compact-video.jpdb-subtitle-menu-open .jpdb-subtitle-rail{top:-44px}.jpdb-subtitle-rail button{height:34px;min-width:34px;width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-list{left:8px!important;right:auto!important;width:calc(100vw - 16px)!important;max-height:min(48vh,390px)!important;border-radius:12px 12px 0 0}}';
   const READER_CSS = readerCss;
-  const log$3 = Logger.scope("StudyTools");
+  const log$5 = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやの、。！？\s]{1,16}`;
   const FORM_CHUNK = String.raw`[ぁ-んァ-ン一-龯]{1,16}`;
   const GRAMMAR_PATTERNS = [
@@ -17562,7 +18405,7 @@ ${spelling}`);
       seenNames.set(item.name, count + 1);
       return true;
     }).slice(0, 10);
-    log$3.debug("Grammar hints detected", { sentenceLength: sentence.length, hints: hints.map((hint) => hint.name) });
+    log$5.debug("Grammar hints detected", { sentenceLength: sentence.length, hints: hints.map((hint) => hint.name) });
     return hints;
   }
   async function translateJapaneseSentence(sentence) {
@@ -17570,20 +18413,20 @@ ${spelling}`);
     if (!trimmed) return "";
     const cached = translationCache.get(trimmed);
     if (cached) {
-      log$3.debug("Translation cache hit", { sentenceLength: trimmed.length });
+      log$5.debug("Translation cache hit", { sentenceLength: trimmed.length });
       return cached;
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
-    const done = log$3.time("Translate sentence", { sentenceLength: trimmed.length });
+    const done = log$5.time("Translate sentence", { sentenceLength: trimmed.length });
     try {
       const json = await requestJson(url);
       const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
       if (!translated) throw new Error("No translation returned.");
       translationCache.set(trimmed, translated);
-      log$3.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+      log$5.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
       return translated;
     } catch (error) {
-      log$3.warn("Translation failed", { sentenceLength: trimmed.length, error });
+      log$5.warn("Translation failed", { sentenceLength: trimmed.length, error });
       throw error;
     } finally {
       done();
@@ -17635,7 +18478,7 @@ ${spelling}`);
   function requestJson(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$3.debug("Translation request using userscript request");
+      log$5.debug("Translation request using userscript request");
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -17644,33 +18487,60 @@ ${spelling}`);
           timeout: 8e3,
           onload: (response) => {
             if (response.status >= 200 && response.status < 300) {
-              log$3.debug("Translation request completed", { status: response.status });
+              log$5.debug("Translation request completed", { status: response.status });
               resolve(response.response ?? JSON.parse(String(response.responseText ?? "{}")));
             } else {
-              log$3.warn("Translation request returned HTTP error", { status: response.status });
+              log$5.warn("Translation request returned HTTP error", { status: response.status });
               reject(new Error(`Translation request failed (${response.status}).`));
             }
           },
           onerror: (error) => {
-            log$3.warn("Translation request failed", { error });
+            log$5.warn("Translation request failed", { error });
             reject(error);
           },
           ontimeout: () => {
-            log$3.warn("Translation request timed out");
+            log$5.warn("Translation request timed out");
             reject(new Error("Translation timed out."));
           }
         });
       });
     }
-    log$3.debug("Translation request using fetch");
+    log$5.debug("Translation request using fetch");
     return fetch(url).then(async (response) => {
       if (!response.ok) {
-        log$3.warn("Translation request returned HTTP error", { status: response.status });
+        log$5.warn("Translation request returned HTTP error", { status: response.status });
         throw new Error(`Translation request failed (${response.status}).`);
       }
-      log$3.debug("Translation request completed", { status: response.status });
+      log$5.debug("Translation request completed", { status: response.status });
       return response.json();
     });
+  }
+  const log$4 = Logger.scope("StudyRender");
+  async function renderStudyToolResult(button2, action, sentence) {
+    var _a;
+    const panel = (_a = button2.closest(".jpdb-reader-study-tools")) == null ? void 0 : _a.querySelector("[data-study-panel]");
+    if (!panel || !sentence) return;
+    panel.hidden = false;
+    panel.textContent = action === "study-translate" ? "Translating..." : "Finding grammar...";
+    const done = log$4.time("studyTool", { action, sentenceLength: sentence.length });
+    if (action === "study-translate") {
+      try {
+        const translated = await translateJapaneseSentence(sentence);
+        setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">Meaning</div><div class="jpdb-reader-study-translation">${escapeHtml$1(translated)}</div></div>`);
+        return;
+      } finally {
+        done();
+      }
+    }
+    const hints = detectGrammarHints(sentence);
+    if (!hints.length) {
+      panel.hidden = true;
+      panel.textContent = "";
+      done();
+      return;
+    }
+    setInnerHtml(panel, renderGrammarHints(hints, sentence));
+    done();
   }
   const CAPTION_SELECTOR_LIST = [
     ".ytp-caption-segment",
@@ -17684,9 +18554,7 @@ ${spelling}`);
     '[data-testid*="subtitle"]'
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
-  const MPV_TRACK_ID = "mpv-live";
-  const MAX_MPV_CUES = 2e3;
-  const log$2 = Logger.scope("Subtitles");
+  const log$3 = Logger.scope("Subtitles");
   class SubtitlePlayerController {
     constructor(options) {
       __publicField(this, "root");
@@ -17717,19 +18585,13 @@ ${spelling}`);
       __publicField(this, "transcriptScrollFrame");
       __publicField(this, "transcriptHydrateFrame");
       __publicField(this, "transcriptHydrationSerial", 0);
-      __publicField(this, "mpvSockets", /* @__PURE__ */ new Map());
-      __publicField(this, "mpvConnectedPorts", /* @__PURE__ */ new Set());
-      __publicField(this, "mpvMediaRequests", /* @__PURE__ */ new Map());
-      __publicField(this, "mpvMediaCache", /* @__PURE__ */ new Map());
-      __publicField(this, "mpvConnecting", false);
-      __publicField(this, "mpvReconnectTimer");
-      __publicField(this, "mpvAudio");
+      __publicField(this, "transcriptPanelSize", loadTranscriptPanelSize());
       this.options = options;
     }
     init() {
       this.install();
       this.observer = new MutationObserver((mutations) => {
-        if (mutations.every(mutationInsideReaderRoot$2)) return;
+        if (mutations.every(mutationInsideReaderRoot$1)) return;
         this.scheduleDiscoverVideo();
       });
       this.observer.observe(document.body, { childList: true, subtree: true });
@@ -17740,60 +18602,18 @@ ${spelling}`);
         this.positionTranscriptPanel();
       }, { passive: true });
       this.discoverVideo();
-      if (this.options.getSettings().mpvSubtitleMiningEnabled && this.options.getSettings().mpvSubtitleAutoConnect) {
-        window.setTimeout(() => this.connectMpv(false), 600);
-      }
       this.tick();
-      log$2.info("Subtitle controller initialized");
-    }
-    connectMpv(manual = true) {
-      const settings = this.options.getSettings();
-      if (!settings.mpvSubtitleMiningEnabled) {
-        settings.mpvSubtitleMiningEnabled = true;
-        this.options.onSettingsChange();
-      }
-      if (this.mpvConnecting || this.mpvConnectedPorts.size) {
-        this.refresh();
-        return;
-      }
-      const ports = parseMpvPorts(settings.mpvSubtitlePorts);
-      if (!ports.length) {
-        this.options.onToast("No MPV bridge ports are configured.");
-        return;
-      }
-      this.mpvConnecting = true;
-      this.ensureMpvTrack();
-      this.refresh();
-      ports.forEach((port) => this.openMpvSocket(settings.mpvSubtitleHost, port, manual));
-      log$2.info("MPV subtitle bridge connect requested", { host: settings.mpvSubtitleHost, ports });
-    }
-    disconnectMpv() {
-      window.clearTimeout(this.mpvReconnectTimer);
-      this.mpvReconnectTimer = void 0;
-      this.mpvConnecting = false;
-      this.mpvConnectedPorts.clear();
-      this.mpvSockets.forEach((socket) => socket.close());
-      this.mpvSockets.clear();
-      this.rejectMpvMediaRequests();
-      this.refresh();
-      log$2.info("MPV subtitle bridge disconnected");
-    }
-    async captureCurrentMpvFrame(sentence) {
-      const cue = this.findMpvCueForSentence(sentence);
-      if (!cue) return void 0;
-      return this.requestMpvMedia(cue, "thumbnail");
+      log$3.info("Subtitle controller initialized");
     }
     refresh() {
       var _a;
       if (!this.root) return;
       const settings = this.options.getSettings();
-      const mpvActive = settings.mpvSubtitleMiningEnabled && (this.mpvConnecting || this.mpvConnectedPorts.size > 0 || this.selectedTrackId === MPV_TRACK_ID);
-      this.root.hidden = !settings.subtitlePlayerEnabled || !this.video && !this.cues.length && !mpvActive;
+      this.root.hidden = !settings.subtitlePlayerEnabled || !this.video && !this.cues.length;
       this.root.classList.toggle("jpdb-subtitle-hidden", !settings.subtitleOverlayVisible);
       this.root.classList.toggle("jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
-      this.root.classList.toggle("jpdb-subtitle-mpv-connected", this.mpvConnectedPorts.size > 0);
       this.root.classList.toggle("jpdb-subtitle-transcript-right", settings.subtitleTranscriptPlacement === "right");
       this.root.classList.toggle("jpdb-subtitle-transcript-left", settings.subtitleTranscriptPlacement === "left");
       this.root.classList.toggle("jpdb-subtitle-transcript-bottom", settings.subtitleTranscriptPlacement === "bottom");
@@ -17812,7 +18632,7 @@ ${spelling}`);
       this.positionTranscriptPanel();
       this.syncControls();
       this.render();
-      log$2.debugThrottled("refresh", 2500, "Subtitle player refreshed", {
+      log$3.debugThrottled("refresh", 2500, "Subtitle player refreshed", {
         enabled: settings.subtitlePlayerEnabled,
         hasVideo: Boolean(this.video),
         cues: this.cues.length,
@@ -17833,7 +18653,6 @@ ${spelling}`);
                 <span class="jpdb-subtitle-status" data-role="status" hidden></span>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
                 <button type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon("tracks")}</button>
-                <button type="button" data-action="mpv-connect" title="Connect to MPV subtitle bridge" aria-label="Connect to MPV subtitle bridge">${subtitleIcon("plug")}</button>
                 <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">${subtitleIcon("menu")}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
@@ -17853,7 +18672,7 @@ ${spelling}`);
       document.body.appendChild(root);
       this.root = root;
       this.refresh();
-      log$2.debug("Subtitle player DOM installed");
+      log$3.debug("Subtitle player DOM installed");
     }
     scheduleDiscoverVideo() {
       window.clearTimeout(this.discoverTimer);
@@ -17869,7 +18688,7 @@ ${spelling}`);
       if (candidate && candidate !== this.video) {
         this.video = candidate;
         this.attachTextTracks(candidate);
-        log$2.info("Subtitle video detected", videoSummary(candidate));
+        log$3.info("Subtitle video detected", videoSummary(candidate));
       }
       void this.discoverYouTubeTracks();
       this.refresh();
@@ -17881,14 +18700,14 @@ ${spelling}`);
         const track = event.track;
         if (track) this.addNativeTrack(track);
       });
-      log$2.debug("Attached native text track listeners", { tracks: video.textTracks.length });
+      log$3.debug("Attached native text track listeners", { tracks: video.textTracks.length });
     }
     addNativeTrack(track) {
       if (this.tracks.some((item) => item.track === track)) return;
       const id = `native-${this.tracks.length}`;
       const label = track.label || track.language || `Subtitle ${this.tracks.length + 1}`;
       this.tracks.push({ id, label, kind: "native", track });
-      log$2.debug("Native subtitle track added", { id, label, language: track.language });
+      log$3.debug("Native subtitle track added", { id, label, language: track.language });
       track.addEventListener("cuechange", () => this.updateFromNativeTrack(track));
       window.setTimeout(() => {
         if (!this.selectedTrackId && (isJapaneseTrack(label, track.language) || this.tracks.length === 1)) void this.selectTrack(id);
@@ -17965,7 +18784,6 @@ ${spelling}`);
     }
     updateFromLoadedCues() {
       if (!this.video) return;
-      if (this.selectedTrackId === MPV_TRACK_ID) return;
       const time = this.video.currentTime;
       const cue = this.cues.find((item) => time >= item.start && time <= item.end);
       const secondary = this.secondaryCues.find((item) => time >= item.start && time <= item.end);
@@ -18023,9 +18841,9 @@ ${spelling}`);
         this.parsedHtmlCache.set(key, html);
         if (this.parsedHtmlCache.size > 80) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
         this.replacePrimaryHtml(html, serial);
-        log$2.debug("Subtitle line parsed", { length: text2.length, tokens: tokens.length });
+        log$3.debug("Subtitle line parsed", { length: text2.length, tokens: tokens.length });
       } catch (error) {
-        log$2.debug("Subtitle line parse failed quietly", { length: text2.length }, error);
+        log$3.debug("Subtitle line parse failed quietly", { length: text2.length }, error);
       }
     }
     replacePrimaryHtml(html, serial) {
@@ -18035,27 +18853,25 @@ ${spelling}`);
       if (primary) setInnerHtml(primary, html);
     }
     handleClick(event) {
-      var _a, _b, _c, _d, _e, _f, _g;
+      var _a, _b, _c, _d, _e, _f;
       const action = (_a = event.target.closest("[data-action]")) == null ? void 0 : _a.dataset.action;
       if (!action) return;
       event.preventDefault();
       event.stopPropagation();
-      log$2.debug("Subtitle control clicked", { action });
+      log$3.debug("Subtitle control clicked", { action });
       if (action === "cue") this.seekToCue(Number((_b = event.target.closest("[data-index]")) == null ? void 0 : _b.dataset.index));
       if (action === "previous") this.seekSubtitle(-1);
       if (action === "next") this.seekSubtitle(1);
       if (action === "copy") void this.copySubtitle();
-      if (action === "replay-cue") void this.replayCue(Number((_c = event.target.closest("[data-index]")) == null ? void 0 : _c.dataset.index));
-      if (action === "load") (_d = this.primaryFileInput) == null ? void 0 : _d.click();
-      if (action === "load-secondary") (_e = this.secondaryFileInput) == null ? void 0 : _e.click();
+      if (action === "load") (_c = this.primaryFileInput) == null ? void 0 : _c.click();
+      if (action === "load-secondary") (_d = this.secondaryFileInput) == null ? void 0 : _d.click();
       if (action === "list") this.toggleTranscriptPanel();
       if (action === "tracks") this.toggleTrackPanel();
-      if (action === "mpv-connect") this.mpvConnectedPorts.size ? this.disconnectMpv() : this.connectMpv();
       if (action === "transcript-left") this.setTranscriptPlacement("left");
       if (action === "transcript-right") this.setTranscriptPlacement("right");
       if (action === "transcript-bottom") this.setTranscriptPlacement("bottom");
-      if (action === "primary-track") void this.choosePrimaryTrack((_f = event.target.closest("[data-track-id]")) == null ? void 0 : _f.dataset.trackId);
-      if (action === "secondary-track") void this.chooseSecondaryTrack((_g = event.target.closest("[data-track-id]")) == null ? void 0 : _g.dataset.trackId);
+      if (action === "primary-track") void this.choosePrimaryTrack((_e = event.target.closest("[data-track-id]")) == null ? void 0 : _e.dataset.trackId);
+      if (action === "secondary-track") void this.chooseSecondaryTrack((_f = event.target.closest("[data-track-id]")) == null ? void 0 : _f.dataset.trackId);
       if (action === "menu") this.toggleMenu();
       if (action === "toggle") this.toggleSubtitles();
       if (action === "toggle-secondary") this.toggleSecondarySubtitles();
@@ -18097,14 +18913,14 @@ ${spelling}`);
       this.render();
       this.syncControls();
       this.renderTranscriptPanel();
-      log$2.debug("Subtitle cue selected", { index, start: cue.start, end: cue.end });
+      log$3.debug("Subtitle cue selected", { index, start: cue.start, end: cue.end });
     }
     async copySubtitle() {
       var _a, _b, _c;
       const text2 = [(_a = this.currentCue) == null ? void 0 : _a.text.trim(), (_b = this.secondaryCue) == null ? void 0 : _b.text.trim()].filter(Boolean).join("\n");
       if (!text2) return;
-      await ((_c = navigator.clipboard) == null ? void 0 : _c.writeText(text2).catch((error) => log$2.warn("Subtitle clipboard copy failed", error)));
-      log$2.debug("Subtitle copied", { length: text2.length });
+      await ((_c = navigator.clipboard) == null ? void 0 : _c.writeText(text2).catch((error) => log$3.warn("Subtitle clipboard copy failed", error)));
+      log$3.debug("Subtitle copied", { length: text2.length });
     }
     async loadSubtitleFile(kind) {
       var _a;
@@ -18124,7 +18940,7 @@ ${spelling}`);
       else await this.selectSecondaryTrack(track.id);
       if (input2) input2.value = "";
       this.updateFromLoadedCues();
-      log$2.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
+      log$3.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
     }
     async selectTrack(id) {
       this.selectedTrackId = id;
@@ -18149,16 +18965,13 @@ ${spelling}`);
         this.cues = parseSubtitleText(text2);
         selected.cues = this.cues;
       }
-      if ((selected == null ? void 0 : selected.kind) === "mpv" && this.cues.length) {
-        this.currentCue = this.cues[this.cues.length - 1];
-      }
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.render();
       this.renderTranscriptPanel();
       this.renderTrackPanel();
       this.syncControls();
-      log$2.info("Primary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.cues.length });
+      log$3.info("Primary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.cues.length });
     }
     async selectSecondaryTrack(id) {
       if (this.selectedTrackId === id) return;
@@ -18183,174 +18996,7 @@ ${spelling}`);
       this.render();
       this.renderTrackPanel();
       this.syncControls();
-      log$2.info("Secondary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.secondaryCues.length });
-    }
-    ensureMpvTrack() {
-      let track = this.tracks.find((option) => option.id === MPV_TRACK_ID);
-      if (!track) {
-        track = { id: MPV_TRACK_ID, label: "MPV live subtitles", kind: "mpv", cues: [] };
-        this.tracks.unshift(track);
-      }
-      return track;
-    }
-    openMpvSocket(host, port, manual) {
-      if (this.mpvSockets.has(port)) return;
-      const socket = new WebSocket(`ws://${host}:${port}`);
-      this.mpvSockets.set(port, socket);
-      socket.addEventListener("open", () => {
-        var _a;
-        this.mpvConnecting = false;
-        this.mpvConnectedPorts.add(port);
-        this.ensureMpvTrack();
-        if (!this.video && !this.selectedTrackId) {
-          this.selectedTrackId = MPV_TRACK_ID;
-          this.cues = ((_a = this.tracks.find((track) => track.id === MPV_TRACK_ID)) == null ? void 0 : _a.cues) ?? [];
-        }
-        this.options.onToast(`MPV subtitles connected on ${port}.`);
-        this.refresh();
-        log$2.info("MPV subtitle bridge connected", { port });
-      });
-      socket.addEventListener("message", (event) => this.handleMpvMessage(event.data, port));
-      socket.addEventListener("close", () => {
-        this.mpvSockets.delete(port);
-        this.mpvConnectedPorts.delete(port);
-        this.resolveMpvMediaRequestsForPort(port, void 0);
-        this.mpvConnecting = this.mpvSockets.size > 0 && this.mpvConnectedPorts.size === 0;
-        this.refresh();
-        if (!manual && this.options.getSettings().mpvSubtitleAutoConnect && this.options.getSettings().mpvSubtitleMiningEnabled) this.scheduleMpvReconnect();
-        log$2.debug("MPV subtitle bridge socket closed", { port });
-      });
-      socket.addEventListener("error", () => {
-        log$2.debug("MPV subtitle bridge socket error", { port });
-      });
-    }
-    scheduleMpvReconnect() {
-      if (this.mpvReconnectTimer) return;
-      this.mpvReconnectTimer = window.setTimeout(() => {
-        this.mpvReconnectTimer = void 0;
-        if (!this.mpvConnectedPorts.size && this.options.getSettings().mpvSubtitleAutoConnect) this.connectMpv(false);
-      }, 8e3);
-    }
-    handleMpvMessage(data, port) {
-      if (typeof data !== "string") return;
-      let message;
-      try {
-        message = JSON.parse(data);
-      } catch {
-        return;
-      }
-      if (!message || typeof message !== "object") return;
-      const record = message;
-      if (record.type === "subtitle") {
-        this.receiveMpvSubtitle(record, port);
-        return;
-      }
-      if (record.type === "audio" || record.type === "thumbnail") {
-        this.receiveMpvMedia(record, port, record.type);
-      }
-    }
-    receiveMpvSubtitle(record, port) {
-      const id = Number(record.id);
-      const text2 = typeof record.subtitle === "string" ? record.subtitle.trim() : "";
-      const start = Number(record.sub_start);
-      const end = Number(record.sub_end);
-      if (!Number.isFinite(id) || !text2 || !Number.isFinite(start) || !Number.isFinite(end)) return;
-      const track = this.ensureMpvTrack();
-      const cues = track.cues ?? [];
-      track.cues = cues;
-      const cueId = `mpv-${port}-${id}`;
-      let cue = cues.find((item) => item.id === cueId);
-      if (!cue) {
-        cue = { id: cueId, source: "mpv", mpvId: id, mpvPort: port, start, end, text: text2 };
-        cues.push(cue);
-        cues.sort((a, b) => a.start - b.start || (a.mpvId ?? 0) - (b.mpvId ?? 0));
-        if (cues.length > MAX_MPV_CUES) cues.splice(0, cues.length - MAX_MPV_CUES);
-      } else {
-        cue.start = start;
-        cue.end = end;
-        cue.text = text2;
-      }
-      if (!this.video || this.selectedTrackId === MPV_TRACK_ID || !this.selectedTrackId) {
-        this.selectedTrackId = MPV_TRACK_ID;
-        this.cues = cues;
-        this.currentCue = cue;
-        this.secondaryCue = void 0;
-        this.render();
-        this.renderTranscriptPanel();
-      }
-      this.syncControls();
-      log$2.debug("MPV subtitle received", { port, id, length: text2.length });
-    }
-    receiveMpvMedia(record, port, type) {
-      const id = Number(record.id);
-      const rawData = typeof record.data === "string" ? record.data : "";
-      if (!Number.isFinite(id)) return;
-      const key = mpvMediaKey(type, port, id);
-      const dataUrl = rawData ? mpvDataUrl(type, rawData) : void 0;
-      if (dataUrl) this.mpvMediaCache.set(key, dataUrl);
-      const pending = this.mpvMediaRequests.get(key);
-      if (!pending) return;
-      window.clearTimeout(pending.timeout);
-      this.mpvMediaRequests.delete(key);
-      pending.resolve(dataUrl);
-    }
-    requestMpvMedia(cue, type) {
-      if (cue.source !== "mpv" || typeof cue.mpvId !== "number" || typeof cue.mpvPort !== "number" || !Number.isFinite(cue.mpvId) || !Number.isFinite(cue.mpvPort)) return Promise.resolve(void 0);
-      const port = cue.mpvPort;
-      const id = cue.mpvId;
-      const key = mpvMediaKey(type, port, id);
-      const cached = this.mpvMediaCache.get(key);
-      if (cached) return Promise.resolve(cached);
-      const socket = this.mpvSockets.get(port);
-      if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.resolve(void 0);
-      return new Promise((resolve) => {
-        const timeout = window.setTimeout(() => {
-          this.mpvMediaRequests.delete(key);
-          resolve(void 0);
-        }, 12e3);
-        this.mpvMediaRequests.set(key, { resolve, timeout, type });
-        socket.send(JSON.stringify({ request: type, id }));
-      });
-    }
-    async replayCue(index) {
-      var _a;
-      const cue = Number.isFinite(index) ? this.cues[index] : this.currentCue;
-      if (!cue || cue.source !== "mpv") return;
-      const dataUrl = await this.requestMpvMedia(cue, "audio");
-      if (!dataUrl) {
-        this.options.onToast("MPV audio was not available for that line.");
-        return;
-      }
-      (_a = this.mpvAudio) == null ? void 0 : _a.pause();
-      this.mpvAudio = new Audio(dataUrl);
-      await this.mpvAudio.play().catch((error) => {
-        log$2.warn("MPV audio playback failed", error);
-        this.options.onToast("Browser blocked MPV audio playback.");
-      });
-    }
-    findMpvCueForSentence(sentence) {
-      var _a;
-      const clean = sentence == null ? void 0 : sentence.replace(/\s+/g, " ").trim();
-      if (clean) {
-        const matching = this.cues.find((cue) => cue.source === "mpv" && cue.text.replace(/\s+/g, " ").trim() === clean);
-        if (matching) return matching;
-      }
-      return ((_a = this.currentCue) == null ? void 0 : _a.source) === "mpv" ? this.currentCue : this.cues.slice().reverse().find((cue) => cue.source === "mpv");
-    }
-    rejectMpvMediaRequests() {
-      this.mpvMediaRequests.forEach((request) => {
-        window.clearTimeout(request.timeout);
-        request.resolve(void 0);
-      });
-      this.mpvMediaRequests.clear();
-    }
-    resolveMpvMediaRequestsForPort(port, value) {
-      [...this.mpvMediaRequests.entries()].forEach(([key, request]) => {
-        if (!key.includes(`:${port}:`)) return;
-        window.clearTimeout(request.timeout);
-        this.mpvMediaRequests.delete(key);
-        request.resolve(value);
-      });
+      log$3.info("Secondary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.secondaryCues.length });
     }
     setNativeTrackModes() {
       for (const option of this.tracks) {
@@ -18370,7 +19016,7 @@ ${spelling}`);
         this.secondaryCues = this.secondaryTrackId ? this.secondaryCues : [];
         this.currentCue = void 0;
         this.secondaryCue = void 0;
-        log$2.debug("YouTube video changed for subtitle discovery", { videoId });
+        log$3.debug("YouTube video changed for subtitle discovery", { videoId });
       }
       const tracks = getYouTubeCaptionTracks();
       if (!tracks.length) return;
@@ -18378,7 +19024,7 @@ ${spelling}`);
         if (this.tracks.some((existing) => existing.kind === "youtube" && existing.url === track.url)) continue;
         this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: "youtube", url: track.url });
       }
-      log$2.debug("YouTube caption tracks discovered", { tracks: tracks.length });
+      log$3.debug("YouTube caption tracks discovered", { tracks: tracks.length });
       const primary = this.tracks.find((track) => track.kind === "youtube" && isJapaneseTrack(track.label)) ?? this.tracks.find((track) => track.kind === "youtube");
       const secondary = this.tracks.find((track) => track.kind === "youtube" && !isJapaneseTrack(track.label));
       if (primary && !this.selectedTrackId) await this.selectTrack(primary.id);
@@ -18400,7 +19046,6 @@ ${spelling}`);
       this.syncLineNavigationButtons(hasLines);
       this.syncTranscriptButton(hasLines);
       this.syncTrackButton();
-      this.syncMpvButton(settings);
       this.syncStatusText();
     }
     syncSubtitleToggle(settings) {
@@ -18441,24 +19086,10 @@ ${spelling}`);
       tracks.setAttribute("aria-label", tracks.title);
       tracks.setAttribute("aria-pressed", String(Boolean(this.selectedTrackId)));
     }
-    syncMpvButton(settings) {
-      var _a;
-      const mpv = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="mpv-connect"]');
-      if (!mpv) return;
-      mpv.hidden = !settings.mpvSubtitleMiningEnabled && !this.mpvConnectedPorts.size;
-      setInnerHtml(mpv, subtitleIcon(this.mpvConnectedPorts.size ? "plug-on" : "plug"));
-      mpv.title = this.mpvConnectedPorts.size ? `Disconnect MPV bridge (${[...this.mpvConnectedPorts].join(", ")})` : this.mpvConnecting ? "Connecting to MPV bridge" : "Connect to MPV subtitle bridge";
-      mpv.setAttribute("aria-label", mpv.title);
-      mpv.setAttribute("aria-pressed", String(this.mpvConnectedPorts.size > 0));
-    }
     syncStatusText() {
       var _a;
       if (!this.statusEl) return;
-      if (this.selectedTrackId === MPV_TRACK_ID && this.mpvConnectedPorts.size) {
-        const index = this.currentCue ? this.cues.findIndex((cue) => cue === this.currentCue) + 1 : 0;
-        this.statusEl.textContent = index > 0 ? `MPV ${index}/${this.cues.length}` : `MPV ${this.cues.length}`;
-        this.statusEl.hidden = false;
-      } else if (this.cues.length) {
+      if (this.cues.length) {
         const index = this.currentCue ? this.cues.findIndex((cue) => cue === this.currentCue) + 1 : 0;
         this.statusEl.textContent = index > 0 ? `${index}/${this.cues.length}` : `${this.cues.length}`;
         this.statusEl.hidden = false;
@@ -18471,7 +19102,7 @@ ${spelling}`);
       }
     }
     renderMenu() {
-      var _a, _b, _c, _d, _e, _f;
+      var _a, _b, _c, _d;
       if (!this.menuEl) return;
       const hasLines = Boolean(this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text));
       const hasSecondary = Boolean(this.secondaryTrackId || this.secondaryCues.length || ((_b = this.secondaryCue) == null ? void 0 : _b.text));
@@ -18479,9 +19110,7 @@ ${spelling}`);
         hasLines,
         hasSecondary,
         this.options.getSettings().subtitleSecondaryVisible,
-        ((_c = this.currentCue) == null ? void 0 : _c.source) === "mpv",
-        this.mpvConnectedPorts.size,
-        (_d = this.transcriptPanel) == null ? void 0 : _d.hidden,
+        (_c = this.transcriptPanel) == null ? void 0 : _c.hidden,
         this.panelMode
       ].join(":");
       if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
@@ -18493,10 +19122,8 @@ ${spelling}`);
             </div>
             <button type="button" data-action="load">Load Japanese subtitles</button>
             <button type="button" data-action="load-secondary">Load native subtitles</button>
-            <button type="button" data-action="mpv-connect">${this.mpvConnectedPorts.size ? "Disconnect MPV bridge" : "Connect MPV bridge"}</button>
-            ${hasLines ? `<button type="button" data-action="list">${((_e = this.transcriptPanel) == null ? void 0 : _e.hidden) || this.panelMode !== "lines" ? "Open transcript panel" : "Close transcript panel"}</button>` : ""}
+            ${hasLines ? `<button type="button" data-action="list">${((_d = this.transcriptPanel) == null ? void 0 : _d.hidden) || this.panelMode !== "lines" ? "Open transcript panel" : "Close transcript panel"}</button>` : ""}
             ${hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : ""}
-            ${((_f = this.currentCue) == null ? void 0 : _f.source) === "mpv" ? '<button type="button" data-action="replay-cue">Replay current MPV line</button>' : ""}
             ${hasSecondary ? `<button type="button" data-action="toggle-secondary" aria-pressed="${this.options.getSettings().subtitleSecondaryVisible}">${this.options.getSettings().subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off"}</button>` : ""}
         `);
     }
@@ -18512,7 +19139,7 @@ ${spelling}`);
       settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
       this.options.onSettingsChange();
       this.refresh();
-      log$2.info("Subtitle overlay toggled", { visible: settings.subtitleOverlayVisible });
+      log$3.info("Subtitle overlay toggled", { visible: settings.subtitleOverlayVisible });
     }
     toggleSecondarySubtitles() {
       const settings = this.options.getSettings();
@@ -18520,7 +19147,7 @@ ${spelling}`);
       if (!settings.subtitleSecondaryVisible) this.secondaryCue = void 0;
       this.options.onSettingsChange();
       this.render();
-      log$2.info("Secondary subtitles toggled", { visible: settings.subtitleSecondaryVisible });
+      log$3.info("Secondary subtitles toggled", { visible: settings.subtitleSecondaryVisible });
     }
     toggleTranscriptPanel() {
       if (!this.transcriptPanel) return;
@@ -18562,8 +19189,7 @@ ${spelling}`);
         this.cues.length,
         this.secondaryCues.length,
         currentIndex,
-        this.options.getSettings().subtitleTranscriptPlacement,
-        this.mpvConnectedPorts.size ? [...this.mpvConnectedPorts].join(",") : ""
+        this.options.getSettings().subtitleTranscriptPlacement
       ].join(":");
       if (!force && this.lastTranscriptSignature === signature) {
         this.updateTranscriptActiveLine(currentIndex);
@@ -18574,18 +19200,16 @@ ${spelling}`);
       setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Transcript</span>
-                <div class="jpdb-subtitle-placement" aria-label="Transcript position">
-                    <button type="button" data-action="transcript-left" aria-pressed="${placement === "left"}" title="Move transcript left" aria-label="Move transcript left">${subtitleIcon("panel-left")}</button>
-                    <button type="button" data-action="transcript-right" aria-pressed="${placement === "right"}" title="Move transcript right" aria-label="Move transcript right">${subtitleIcon("panel-right")}</button>
-                    <button type="button" data-action="transcript-bottom" aria-pressed="${placement === "bottom"}" title="Move transcript below" aria-label="Move transcript below">${subtitleIcon("panel-bottom")}</button>
-                </div>
+                ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Close subtitle lines" aria-label="Close subtitle lines">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${this.cues.map((cue, index) => this.renderTranscriptRow(cue, index, currentIndex)).join("")}
             </div>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize transcript" aria-label="Resize transcript panel"></button>
         `);
       this.bindTranscriptScroller();
+      this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel();
       this.scrollTranscriptToActive();
       this.scheduleTranscriptHydration(currentIndex);
@@ -18593,7 +19217,6 @@ ${spelling}`);
     renderTranscriptRow(cue, index, currentIndex) {
       var _a;
       const secondary = (_a = findAlignedCue(this.secondaryCues, cue)) == null ? void 0 : _a.text.trim();
-      const replay = cue.source === "mpv" ? `<button class="jpdb-subtitle-row-replay" type="button" data-action="replay-cue" data-index="${index}" title="Replay MPV audio" aria-label="Replay MPV audio">${subtitleIcon("play")}</button>` : "";
       return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-index="${index}" data-row-index="${index}">
                 <button class="jpdb-subtitle-row-seek" type="button" data-action="cue" data-index="${index}" title="Jump to ${formatSubtitleTime(cue.start)}" aria-label="Jump to subtitle at ${formatSubtitleTime(cue.start)}">${subtitleIcon("play")}</button>
@@ -18602,7 +19225,6 @@ ${spelling}`);
                     <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}">${escapeWithBreaks(cue.text)}</strong>
                     ${secondary ? `<em class="jpdb-subtitle-row-translation">${escapeWithBreaks(secondary)}</em>` : ""}
                 </div>
-                ${replay}
             </div>
         `;
     }
@@ -18630,6 +19252,50 @@ ${spelling}`);
       if (!scroller || scroller.dataset.transcriptHydrationBound === "true") return;
       scroller.dataset.transcriptHydrationBound = "true";
       scroller.addEventListener("scroll", () => this.scheduleTranscriptHydration(), { passive: true });
+    }
+    bindTranscriptResizeHandle() {
+      var _a;
+      const handle = (_a = this.transcriptPanel) == null ? void 0 : _a.querySelector("[data-resize-transcript]");
+      if (!handle || handle.dataset.transcriptResizeBound === "true") return;
+      handle.dataset.transcriptResizeBound = "true";
+      handle.addEventListener("pointerdown", (event) => this.startTranscriptResize(event));
+    }
+    startTranscriptResize(event) {
+      var _a, _b;
+      if (!this.transcriptPanel) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const placement = this.options.getSettings().subtitleTranscriptPlacement;
+      const panelRect = this.transcriptPanel.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startWidth = panelRect.width;
+      const startHeight = panelRect.height;
+      (_b = (_a = event.currentTarget).setPointerCapture) == null ? void 0 : _b.call(_a, event.pointerId);
+      const onMove = (moveEvent) => {
+        var _a2, _b2, _c, _d, _e, _f;
+        if (placement === "bottom" || window.innerWidth <= 700 || ((_a2 = window.matchMedia) == null ? void 0 : _a2.call(window, "(pointer: coarse)").matches)) {
+          const nextHeight = clampNumber(startHeight + startY - moveEvent.clientY, 150, Math.max(150, window.innerHeight - TRANSCRIPT_PANEL_MARGIN * 3));
+          this.transcriptPanelSize.bottomHeight = Math.round(nextHeight);
+          const bottom = Math.min(window.innerHeight - TRANSCRIPT_PANEL_MARGIN, panelRect.bottom);
+          (_b2 = this.transcriptPanel) == null ? void 0 : _b2.style.setProperty("top", `${Math.max(TRANSCRIPT_PANEL_MARGIN, bottom - nextHeight)}px`);
+          (_c = this.transcriptPanel) == null ? void 0 : _c.style.setProperty("height", `${Math.round(nextHeight)}px`);
+          (_d = this.transcriptPanel) == null ? void 0 : _d.style.setProperty("max-height", `${Math.round(nextHeight)}px`);
+        } else {
+          const delta = placement === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX;
+          const nextWidth = clampNumber(startWidth + delta, 260, Math.max(260, window.innerWidth - TRANSCRIPT_PANEL_MARGIN * 3));
+          this.transcriptPanelSize.sideWidth = Math.round(nextWidth);
+          if (placement === "right") (_e = this.transcriptPanel) == null ? void 0 : _e.style.setProperty("left", `${Math.max(TRANSCRIPT_PANEL_MARGIN, panelRect.right - nextWidth)}px`);
+          (_f = this.transcriptPanel) == null ? void 0 : _f.style.setProperty("width", `${Math.round(nextWidth)}px`);
+        }
+        saveTranscriptPanelSize(this.transcriptPanelSize);
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp, { once: true });
     }
     scheduleTranscriptHydration(preferredIndex = this.activeTranscriptIndex()) {
       if (this.transcriptHydrateFrame) return;
@@ -18700,22 +19366,23 @@ ${spelling}`);
         }
       } catch (error) {
         target.dataset.parsedKey = key;
-        log$2.debug("Transcript row parse failed quietly", { index, length: cue.text.length }, error);
+        log$3.debug("Transcript row parse failed quietly", { index, length: cue.text.length }, error);
       }
     }
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "tracks") return;
       const tracks = this.tracks;
+      const placement = this.options.getSettings().subtitleTranscriptPlacement;
       setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
+                ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
                     <button type="button" data-action="load">Load Japanese subtitles</button>
                     <button type="button" data-action="load-secondary">Load native subtitles</button>
-                    <button type="button" data-action="mpv-connect">${this.mpvConnectedPorts.size ? "Disconnect MPV" : "Connect MPV"}</button>
                 </div>
                 ${tracks.length ? tracks.map((track) => `
                     <div class="jpdb-subtitle-track-row ${track.id === this.selectedTrackId || track.id === this.secondaryTrackId ? "active" : ""}" data-track-id="${escapeHtml$1(track.id)}">
@@ -18728,7 +19395,9 @@ ${spelling}`);
                     </div>
                 `).join("") : '<div class="jpdb-subtitle-list-empty">No subtitle tracks found yet. Load a file, turn on captions, or play the video for a moment.</div>'}
             </div>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize subtitle tracks" aria-label="Resize subtitle tracks panel"></button>
         `);
+      this.bindTranscriptResizeHandle();
     }
     async choosePrimaryTrack(id) {
       if (!id) return;
@@ -18746,7 +19415,7 @@ ${spelling}`);
       this.renderTranscriptPanel(true);
       this.positionTranscriptPanel();
       this.syncControls();
-      log$2.info("Subtitle transcript placement changed", { placement });
+      log$3.info("Subtitle transcript placement changed", { placement });
     }
     positionTranscriptPanel() {
       var _a, _b;
@@ -18761,7 +19430,7 @@ ${spelling}`);
         viewportHeight,
         compactPanel: viewportWidth <= 700 || ((_b = window.matchMedia) == null ? void 0 : _b.call(window, "(pointer: coarse)").matches)
       });
-      applyTranscriptPanelLayout(panel, layout);
+      applyTranscriptPanelLayout(panel, resizeTranscriptPanelLayout(layout, this.transcriptPanelSize));
     }
     scheduleAlignToVideo() {
       if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
@@ -18772,6 +19441,7 @@ ${spelling}`);
     }
   }
   const TRANSCRIPT_PANEL_MARGIN = 10;
+  const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
   function computeTranscriptPanelLayout(options) {
     const margin = TRANSCRIPT_PANEL_MARGIN;
     const videoRect = usableVideoRect(options.videoRect) ? options.videoRect : void 0;
@@ -18784,11 +19454,13 @@ ${spelling}`);
   function compactTranscriptPanelLayout(viewportWidth, viewportHeight, margin) {
     const top = Math.max(margin, viewportHeight - Math.min(390, viewportHeight * 0.48) - margin);
     return {
+      placement: "bottom",
       left: margin,
       top,
       width: viewportWidth - margin * 2,
       height: viewportHeight - top - margin,
       viewportWidth,
+      viewportHeight,
       margin
     };
   }
@@ -18807,14 +19479,14 @@ ${spelling}`);
   function rightTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableRight) {
     const width = Math.min(460, viewportWidth - margin * 2);
     if (availableRight < 280) {
-      return { left: Math.max(margin, viewportWidth - width - margin), top: Math.max(margin, videoRect.top), width, height: Math.min(Math.max(280, videoRect.height), viewportHeight - margin), viewportWidth, margin };
+      return { placement: "right", left: Math.max(margin, viewportWidth - width - margin), top: Math.max(margin, videoRect.top), width, height: Math.min(Math.max(280, videoRect.height), viewportHeight - margin), viewportWidth, viewportHeight, margin };
     }
     const top = Math.max(margin, videoRect.top);
-    return { left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, margin };
+    return { placement: "right", left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
   }
   function leftTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableLeft) {
     const top = Math.max(margin, videoRect.top);
-    const fallback = { left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, margin };
+    const fallback = { placement: "left", left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
     if (availableLeft < 280) return fallback;
     const width = Math.min(460, availableLeft);
     return { ...fallback, left: Math.max(margin, videoRect.left - width - margin), width };
@@ -18825,17 +19497,32 @@ ${spelling}`);
     const preferredTop = videoRect.bottom + margin;
     const below = viewportHeight - preferredTop - margin;
     const top = below < 150 ? Math.max(margin, viewportHeight - Math.min(360, viewportHeight * 0.42) - margin) : preferredTop;
-    return { left, top, width, height: Math.min(360, viewportHeight - top - margin), viewportWidth, margin };
+    return { placement: "bottom", left, top, width, height: Math.min(360, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
   }
   function viewportTranscriptPanelLayout(placement, viewportWidth, viewportHeight, margin) {
     const width = placement === "bottom" ? viewportWidth - margin * 2 : Math.min(460, viewportWidth - margin * 2);
     if (placement === "bottom") {
       const top2 = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
-      return { left: margin, top: top2, width, height: viewportHeight - top2 - margin, viewportWidth, margin };
+      return { placement, left: margin, top: top2, width, height: viewportHeight - top2 - margin, viewportWidth, viewportHeight, margin };
     }
     const top = 68;
     const left = placement === "left" ? margin : Math.max(margin, viewportWidth - width - margin);
-    return { left, top, width, height: viewportHeight - top - margin, viewportWidth, margin };
+    return { placement, left, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
+  }
+  function resizeTranscriptPanelLayout(layout, size) {
+    const maxWidth = layout.viewportWidth - layout.margin * 2;
+    if (layout.placement === "bottom") {
+      const maxHeight = Math.max(150, layout.viewportHeight - layout.margin * 2);
+      const height = size.bottomHeight ? clampNumber(size.bottomHeight, 150, maxHeight) : layout.height;
+      const top = Math.max(layout.margin, Math.min(layout.top, layout.viewportHeight - height - layout.margin));
+      return { ...layout, top, height };
+    }
+    const width = size.sideWidth ? clampNumber(size.sideWidth, 260, Math.max(260, maxWidth)) : layout.width;
+    if (layout.placement === "right") {
+      const right = Math.min(layout.viewportWidth - layout.margin, layout.left + layout.width);
+      return { ...layout, left: Math.max(layout.margin, right - width), width };
+    }
+    return { ...layout, width };
   }
   function applyTranscriptPanelLayout(panel, layout) {
     panel.style.left = `${Math.round(layout.left)}px`;
@@ -18843,7 +19530,38 @@ ${spelling}`);
     panel.style.right = "auto";
     panel.style.bottom = "auto";
     panel.style.width = `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`;
+    panel.style.height = `${Math.round(Math.max(150, layout.height))}px`;
     panel.style.maxHeight = `${Math.round(Math.max(150, layout.height))}px`;
+  }
+  function renderTranscriptPlacementControls(placement) {
+    return `
+        <div class="jpdb-subtitle-placement" aria-label="Panel position">
+            <button type="button" data-action="transcript-left" aria-pressed="${placement === "left"}" title="Move panel left" aria-label="Move panel left">${subtitleIcon("panel-left")}</button>
+            <button type="button" data-action="transcript-right" aria-pressed="${placement === "right"}" title="Move panel right" aria-label="Move panel right">${subtitleIcon("panel-right")}</button>
+            <button type="button" data-action="transcript-bottom" aria-pressed="${placement === "bottom"}" title="Move panel below" aria-label="Move panel below">${subtitleIcon("panel-bottom")}</button>
+        </div>
+    `;
+  }
+  function loadTranscriptPanelSize() {
+    try {
+      const raw = localStorage.getItem(TRANSCRIPT_PANEL_SIZE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return {
+        sideWidth: Number.isFinite(parsed.sideWidth) ? parsed.sideWidth : void 0,
+        bottomHeight: Number.isFinite(parsed.bottomHeight) ? parsed.bottomHeight : void 0
+      };
+    } catch {
+      return {};
+    }
+  }
+  function saveTranscriptPanelSize(size) {
+    try {
+      localStorage.setItem(TRANSCRIPT_PANEL_SIZE_KEY, JSON.stringify(size));
+    } catch {
+    }
+  }
+  function clampNumber(value, min, max) {
+    return Math.min(Math.max(value, min), Math.max(min, max));
   }
   function usableVideoRect(rect) {
     return Boolean(rect && rect.width >= 120 && rect.height >= 80);
@@ -18857,8 +19575,6 @@ ${spelling}`);
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
-      plug: '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/>',
-      "plug-on": '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/><path d="M18 5l2-2"/><path d="M20 9h2"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
       transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'
     };
@@ -18870,7 +19586,6 @@ ${spelling}`);
   function formatTrackKind(kind) {
     if (kind === "native") return "page track";
     if (kind === "youtube") return "YouTube captions";
-    if (kind === "mpv") return "MPV bridge";
     return "loaded file";
   }
   function getCueText(cue) {
@@ -18991,15 +19706,6 @@ ${spelling}`);
       overlap: Math.max(0, Math.min(cue.end, item.end) - Math.max(cue.start, item.start)),
       startDistance: Math.abs(cue.start - item.start)
     })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]) == null ? void 0 : _a.item;
-  }
-  function parseMpvPorts(value) {
-    return [...new Set(value.split(/[\s,]+/).map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0 && item <= 65535))];
-  }
-  function mpvMediaKey(type, port, id) {
-    return `${type}:${port}:${id}`;
-  }
-  function mpvDataUrl(type, base64) {
-    return type === "audio" ? `data:audio/mpeg;base64,${base64}` : `data:image/jpeg;base64,${base64}`;
   }
   function isJapaneseTrack(label = "", language = "") {
     return /(^|\b)(ja|jpn|japanese|日本語)(\b|$)/i.test(`${label} ${language}`);
@@ -19132,7 +19838,7 @@ ${spelling}`);
   function requestText(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$2.debug("Subtitle request via userscript API", { host: safeHost(url) });
+      log$3.debug("Subtitle request via userscript API", { host: safeHost(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -19145,7 +19851,7 @@ ${spelling}`);
         });
       });
     }
-    log$2.debug("Subtitle request via fetch", { host: safeHost(url) });
+    log$3.debug("Subtitle request via fetch", { host: safeHost(url) });
     return fetch(url, { signal: AbortSignal.timeout(8e3) }).then((response) => {
       if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
       return response.text();
@@ -19166,7 +19872,7 @@ ${spelling}`);
       return value ? "inline-or-invalid" : "";
     }
   }
-  function mutationInsideReaderRoot$2(mutation) {
+  function mutationInsideReaderRoot$1(mutation) {
     const nodes = [
       mutation.target,
       ...Array.from(mutation.addedNodes),
@@ -19233,7 +19939,7 @@ ${spelling}`);
   const JAPANESE_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff]/g;
   const KANA_RE = /[\u3040-\u30ff]/g;
   const LATIN_WORD_RE = /[a-z]{3,}/gi;
-  const log$1 = Logger.scope("YouTubeFilter");
+  const log$2 = Logger.scope("YouTubeFilter");
   function isYouTubeHost(hostname = location.hostname) {
     return YOUTUBE_HOST_RE.test(hostname);
   }
@@ -19258,7 +19964,7 @@ ${spelling}`);
       if (card && !card.closest("[data-jpdb-reader-root]")) cards.add(card);
     });
     const result = [...cards].filter((card) => card.isConnected);
-    log$1.debugThrottled("collect-cards", 2e3, "Collected YouTube video cards", { count: result.length });
+    log$2.debugThrottled("collect-cards", 2e3, "Collected YouTube video cards", { count: result.length });
     return result;
   }
   function readYouTubeCardText(card) {
@@ -19282,38 +19988,38 @@ ${spelling}`);
     init() {
       var _a;
       if (!isYouTubeHost()) {
-        log$1.debug("YouTube filter initialization skipped", { hostname: location.hostname });
+        log$2.debug("YouTube filter initialization skipped", { hostname: location.hostname });
         return;
       }
       (_a = this.observer) == null ? void 0 : _a.disconnect();
       this.observer = new MutationObserver((mutations) => {
-        if (mutations.every(mutationInsideReaderRoot$1)) return;
+        if (mutations.every(mutationInsideReaderRoot)) return;
         this.schedule(350);
       });
       this.observer.observe(document.body, { childList: true, subtree: true });
       window.addEventListener("yt-navigate-finish", () => this.schedule(120));
       window.addEventListener("popstate", () => this.schedule(120));
       this.schedule(300);
-      log$1.info("YouTube filter initialized", { enabled: this.options.getSettings().youtubeImmersionEnabled });
+      log$2.info("YouTube filter initialized", { enabled: this.options.getSettings().youtubeImmersionEnabled });
     }
     refresh() {
       if (!isYouTubeHost()) return;
       if (!this.options.getSettings().youtubeImmersionEnabled) {
-        log$1.debug("YouTube filter refresh disabled by settings");
+        log$2.debug("YouTube filter refresh disabled by settings");
         this.clear();
         return;
       }
-      log$1.debug("YouTube filter refresh scheduled");
+      log$2.debug("YouTube filter refresh scheduled");
       this.schedule(0);
     }
     schedule(delay) {
       window.clearTimeout(this.timer);
       this.timer = window.setTimeout(() => this.scan(), delay);
-      log$1.debugThrottled("schedule", 1e3, "YouTube filter scan scheduled", { delay });
+      log$2.debugThrottled("schedule", 1e3, "YouTube filter scan scheduled", { delay });
     }
     scan() {
       var _a;
-      const done = log$1.time("YouTube filter scan");
+      const done = log$2.time("YouTube filter scan");
       const settings = this.options.getSettings();
       if (!settings.youtubeImmersionEnabled) {
         this.clear();
@@ -19336,7 +20042,7 @@ ${spelling}`);
       }
       if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount, settings);
       else (_a = this.bar) == null ? void 0 : _a.remove();
-      log$1.debug("YouTube filter scan completed", { filteredCount, shownCount, revealed: this.revealed });
+      log$2.debug("YouTube filter scan completed", { filteredCount, shownCount, revealed: this.revealed });
       done();
     }
     hideCard(card) {
@@ -19374,11 +20080,11 @@ ${spelling}`);
           const action = (_a2 = event.target.closest("[data-action]")) == null ? void 0 : _a2.dataset.action;
           if (action === "show-anyway") {
             this.revealed = !this.revealed;
-            log$1.info("YouTube filter reveal toggled", { revealed: this.revealed });
+            log$2.info("YouTube filter reveal toggled", { revealed: this.revealed });
             this.schedule(0);
           }
           if (action === "turn-off") {
-            log$1.info("YouTube filter turn-off clicked");
+            log$2.info("YouTube filter turn-off clicked");
             (_c = (_b = this.options).setEnabled) == null ? void 0 : _c.call(_b, false);
             if (!this.options.setEnabled) this.clear();
           }
@@ -19404,10 +20110,10 @@ ${spelling}`);
       document.querySelectorAll('[data-yomu-youtube-filtered="true"]').forEach((card) => this.showCard(card));
       (_a = this.bar) == null ? void 0 : _a.remove();
       this.bar = void 0;
-      log$1.debug("YouTube filter cleared");
+      log$2.debug("YouTube filter cleared");
     }
   }
-  function mutationInsideReaderRoot$1(mutation) {
+  function mutationInsideReaderRoot(mutation) {
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
     return nodes.every((node) => {
       var _a;
@@ -19415,272 +20121,10 @@ ${spelling}`);
       return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
     });
   }
-  const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
-  const log = Logger.scope("ReaderApp");
-  const AUTO_SCAN_OBSERVER_OPTIONS = { childList: true, subtree: true, characterData: true };
-  const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
-  const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
-  const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
-  const LOCAL_TERM_TAG_LABELS = /* @__PURE__ */ new Map([
-    ["n", "noun"],
-    ["pn", "pronoun"],
-    ["r", "rare"],
-    ["uk", "usually kana"],
-    ["adj-i", "i-adjective"],
-    ["adj-na", "na-adjective"],
-    ["adv", "adverb"],
-    ["exp", "expression"],
-    ["int", "interjection"],
-    ["prt", "particle"],
-    ["suf", "suffix"],
-    ["pref", "prefix"],
-    ["vs", "suru verb"],
-    ["vi", "intransitive"],
-    ["vt", "transitive"]
-  ]);
-  const JAPANESE_QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
-  const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
-  const LOCAL_DICTIONARIES_SOURCE_ID = "__local_dictionaries__";
+  const log$1 = Logger.scope("ReaderApp");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
-  const POINTER_TEXT_SKIP_SELECTOR = [
-    "script",
-    "style",
-    "noscript",
-    "textarea",
-    "input",
-    "select",
-    "button",
-    "option",
-    "summary",
-    "svg",
-    "use",
-    "rt",
-    "rp",
-    '[contenteditable="true"]',
-    '[role="button"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    "[onclick]",
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
-  function cardKey(card) {
-    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-  }
-  function localTermTags(entries) {
-    const tags = entries.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map(localTermTagLabel).filter(Boolean);
-    return [...new Set(tags)].slice(0, 8);
-  }
-  function localTermTagLabel(tag) {
-    const normalized = tag.toLowerCase();
-    if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return "";
-    return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
-  }
-  function hasRichStructuredGlossary(value) {
-    if (!value || typeof value !== "object") return false;
-    if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
-    const record = value;
-    const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
-    if (record.type === "image" || "path" in record || tag === "img" || tag === "table") return true;
-    return hasRichStructuredGlossary(record.content);
-  }
-  function pillStyle(key) {
-    const hue = stableHue(key);
-    return `--chip-bg:hsl(${hue} 70% 36%);--chip-border:hsl(${hue} 72% 50%);--chip-text:#fff;`;
-  }
-  function bestFrequencyEntries(entries) {
-    const bestByDictionary = /* @__PURE__ */ new Map();
-    const others = [];
-    for (const entry of entries) {
-      if (entry.mode !== "freq") {
-        others.push(entry);
-        continue;
-      }
-      const current = bestByDictionary.get(entry.dictionary);
-      if (!current || metaFrequencyRank(entry.data) < metaFrequencyRank(current.data)) bestByDictionary.set(entry.dictionary, entry);
-    }
-    return [...bestByDictionary.values(), ...others];
-  }
-  function dictionaryPreferencePriority(settings, dictionary) {
-    const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
-    return (preference == null ? void 0 : preference.priority) ?? Number.MAX_SAFE_INTEGER;
-  }
-  function metaFrequencyRank(value) {
-    if (typeof value === "number") return value;
-    if (typeof value === "string") return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
-    if (!value || typeof value !== "object") return Number.POSITIVE_INFINITY;
-    const record = value;
-    return metaFrequencyRank(record.frequency ?? record.value ?? record.displayValue);
-  }
-  function normalizeFrequencyChipValue(label, value) {
-    var _a;
-    const marker = (_a = label.match(/[㋕㋐]$/u)) == null ? void 0 : _a[0];
-    return marker && value.endsWith(marker) ? value.slice(0, -marker.length) : value;
-  }
-  async function waitForInstantData(promise, timeoutMs) {
-    let timeout = 0;
-    return Promise.race([
-      promise,
-      new Promise((resolve) => {
-        timeout = window.setTimeout(() => resolve(null), timeoutMs);
-      })
-    ]).finally(() => window.clearTimeout(timeout));
-  }
-  function stableHue(value) {
-    let hash = 0;
-    for (let index = 0; index < value.length; index++) hash = (hash << 5) - hash + value.charCodeAt(index) | 0;
-    return Math.abs(hash) % 360;
-  }
-  function formatLookupUrl(template, values) {
-    const replacements = {
-      query: values.query,
-      word: values.word,
-      term: values.word,
-      reading: values.reading,
-      vid: values.vid,
-      sid: values.sid
-    };
-    const url = template.replace(/\{([a-z]+)\}/gi, (_, key) => encodeURIComponent(replacements[key.toLowerCase()] ?? values.query));
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
-    } catch {
-      return "";
-    }
-  }
-  function caretTextPositionFromPoint(x, y) {
-    var _a, _b;
-    const doc = document;
-    const position = (_a = doc.caretPositionFromPoint) == null ? void 0 : _a.call(doc, x, y);
-    if ((position == null ? void 0 : position.offsetNode.nodeType) === Node.TEXT_NODE) {
-      return { node: position.offsetNode, offset: position.offset };
-    }
-    const range = (_b = doc.caretRangeFromPoint) == null ? void 0 : _b.call(doc, x, y);
-    if ((range == null ? void 0 : range.startContainer.nodeType) === Node.TEXT_NODE) {
-      return { node: range.startContainer, offset: range.startOffset };
-    }
-    return null;
-  }
-  function japaneseRunAt(text2, offset) {
-    let index = Math.min(Math.max(offset, 0), text2.length - 1);
-    if (!JAPANESE_RUN_RE.test(text2[index] ?? "") && index > 0 && JAPANESE_RUN_RE.test(text2[index - 1] ?? "")) index--;
-    if (!JAPANESE_RUN_RE.test(text2[index] ?? "")) return null;
-    let start = index;
-    let end = index + 1;
-    while (start > 0 && JAPANESE_RUN_RE.test(text2[start - 1])) start--;
-    while (end < text2.length && JAPANESE_RUN_RE.test(text2[end])) end++;
-    return { start, end, offset: index };
-  }
-  function pointerTextCharacterOffset(node, caretOffset, x, y) {
-    const parent = node.parentElement;
-    if (!parent || !isPointerTextParentEligible(parent)) return null;
-    const clamped = Math.min(Math.max(caretOffset, 0), node.data.length - 1);
-    const candidates = [clamped, clamped - 1, clamped + 1].filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
-    return candidates.find((offset) => textCharacterContainsPoint(node, offset, x, y)) ?? null;
-  }
-  function isPointerTextParentEligible(parent) {
-    var _a;
-    let current = parent;
-    while (current) {
-      if (current.matches(POINTER_TEXT_SKIP_SELECTOR)) return false;
-      if (current.hasAttribute("hidden") || current.hasAttribute("inert")) return false;
-      if (((_a = current.getAttribute("aria-hidden")) == null ? void 0 : _a.toLowerCase()) === "true") return false;
-      const style = getComputedStyle(current);
-      if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
-      if (Number(style.opacity || "1") <= 0) return false;
-      if (isScreenReaderOnlyElement(current, style)) return false;
-      current = current.parentElement;
-    }
-    return true;
-  }
-  function isScreenReaderOnlyElement(element2, style) {
-    if (SCREEN_READER_ONLY_CLASS_RE.test(element2.className || "")) return true;
-    const rect = element2.getBoundingClientRect();
-    const clipped = style.clip && style.clip !== "auto" || style.clipPath && style.clipPath !== "none";
-    if (clipped && rect.width <= 2 && rect.height <= 2) return true;
-    return style.position === "absolute" && style.overflow === "hidden" && rect.width <= 2 && rect.height <= 2;
-  }
-  function textCharacterContainsPoint(node, offset, x, y) {
-    var _a;
-    if (!node.data.length) return false;
-    const start = Math.min(Math.max(offset, 0), node.data.length - 1);
-    const range = document.createRange();
-    try {
-      range.setStart(node, start);
-      range.setEnd(node, start + 1);
-      return Array.from(range.getClientRects()).some((rect) => rectContainsPoint(rect, x, y));
-    } finally {
-      (_a = range.detach) == null ? void 0 : _a.call(range);
-    }
-  }
-  function rectContainsPoint(rect, x, y) {
-    const right = rect.right || rect.left + rect.width;
-    const bottom = rect.bottom || rect.top + rect.height;
-    const slack = 1;
-    return right > rect.left && bottom > rect.top && x >= rect.left - slack && x <= right + slack && y >= rect.top - slack && y <= bottom + slack;
-  }
-  function normalizeImmersionSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function queryKey(value) {
-    return normalizeImmersionSearchQuery(value).replace(/\s+/g, "").toLowerCase();
-  }
-  function queryLength(value) {
-    return Array.from(queryKey(value)).length;
-  }
-  function queryHasKanji(value) {
-    return /[\u3400-\u9fff々〆]/u.test(value);
-  }
-  function isUsefulImmersionFallbackQuery(query, exactQuery) {
-    if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
-  }
-  function uniqueImmersionQueries(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const result = [];
-    for (const value of values) {
-      const query = normalizeImmersionSearchQuery(value);
-      const key = queryKey(query);
-      if (!query || seen.has(key)) continue;
-      seen.add(key);
-      result.push(query);
-    }
-    return result;
-  }
-  function immersionFallbackFragments(value) {
-    const fragments = [];
-    const runs = normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE) ?? [];
-    for (const run of runs) {
-      const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE) ?? [];
-      fragments.push(...scriptGroups);
-      if (scriptGroups.length > 1) {
-        fragments.push(...scriptGroups.filter(queryHasKanji));
-      }
-    }
-    return uniqueImmersionQueries(fragments).sort((a, b) => Number(queryHasKanji(b)) - Number(queryHasKanji(a)) || queryLength(b) - queryLength(a));
-  }
-  function createAudioPreviewCard() {
-    return {
-      vid: 0,
-      sid: 0,
-      rid: 0,
-      spelling: "よむ",
-      reading: "よむ",
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: [],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "fallback"
-    };
-  }
   class ReaderApp {
     constructor() {
       __publicField(this, "abortController", new AbortController());
@@ -19697,6 +20141,7 @@ ${spelling}`);
       __publicField(this, "anki", new AnkiConnectClient(() => this.settings));
       __publicField(this, "rtk", new RtkClient());
       __publicField(this, "dictionaries", new YomitanDictionaryStore());
+      __publicField(this, "floatingButton", new FloatingButtonController());
       __publicField(this, "parser", new ReaderParser({
         getSettings: () => this.settings,
         jpdb: this.jpdb,
@@ -19708,7 +20153,7 @@ ${spelling}`);
         jpdb: this.jpdb,
         parser: this.parser,
         dictionaries: this.dictionaries,
-        ensureStarterDictionary: (onProgress) => this.ensureStarterDictionaryInstalled(onProgress),
+        ensureStarterDictionary: (onProgress) => this.settingsDialog.ensureStarterDictionaryInstalled(onProgress),
         onSettingsChange: () => saveSettings(this.settings),
         showSettings: (panel) => this.showSettings(panel),
         dismiss: (options) => this.dismiss(options)
@@ -19732,8 +20177,7 @@ ${spelling}`);
       __publicField(this, "subtitles", new SubtitlePlayerController({
         getSettings: () => this.settings,
         parseJapanese: async (text2) => (await this.parseJapanese([text2]))[0] ?? [],
-        onSettingsChange: () => void saveSettings(this.settings),
-        onToast: (message) => this.toast(message)
+        onSettingsChange: () => void saveSettings(this.settings)
       }));
       __publicField(this, "ocr", new ImageOcrController({
         getSettings: () => this.settings,
@@ -19745,9 +20189,44 @@ ${spelling}`);
         getSettings: () => this.settings,
         setEnabled: (enabled) => void this.setYoutubeImmersionEnabled(enabled)
       }));
+      __publicField(this, "settingsDialog", new SettingsDialogController({
+        getSettings: () => this.settings,
+        setSettings: (settings) => {
+          this.settings = settings;
+        },
+        jpdb: this.jpdb,
+        dictionaries: this.dictionaries,
+        anki: this.anki,
+        audio: this.audio,
+        subtitles: this.subtitles,
+        ocr: this.ocr,
+        youtube: this.youtube,
+        jpdbExtensions: this.jpdbExtensions,
+        createBackdrop: () => this.createBackdrop(),
+        mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
+        dismiss: () => this.dismiss(),
+        toast: (message) => this.toast(message),
+        applyTheme: () => this.applyTheme(),
+        applyAccentColor: (color) => this.applyAccentColor(color),
+        applyWordColors: (settings) => this.applyWordColors(settings),
+        installFab: () => this.installFab(),
+        refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
+        scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),
+        refreshNewTabIfCurrent: () => {
+          if (this.newTab.isCurrentPage()) void this.newTab.renderPage();
+        },
+        clearDictionarySourceOpenOverrides: () => this.dictionarySourceOpenOverrides.clear(),
+        beginSettingsPreview: (accent, language) => {
+          this.settingsPreviewOriginalAccent = accent;
+          this.settingsPreviewOriginalLanguage = language;
+        },
+        clearSettingsPreview: () => {
+          this.settingsPreviewOriginalAccent = void 0;
+          this.settingsPreviewOriginalLanguage = void 0;
+        }
+      }));
       __publicField(this, "activePopover");
       __publicField(this, "activeBackdrop");
-      __publicField(this, "fab");
       __publicField(this, "lastCard");
       __publicField(this, "lastAnkiLookup");
       __publicField(this, "selectionTimer");
@@ -19803,20 +20282,19 @@ ${spelling}`);
       __publicField(this, "suppressWordClickUntil", 0);
       __publicField(this, "pressLookup");
       __publicField(this, "suppressMiddleAuxClickUntil", 0);
-      __publicField(this, "starterDictionaryDownload");
       configureLogger({ settingsProvider: () => this.settings });
     }
     async init(options) {
-      const done = log.time("init", { href: location.href, devMode: Logger.isDevMode() });
+      const done = log$1.time("init", { href: location.href, devMode: Logger.isDevMode() });
       this.settings = await loadSettings();
       if (options == null ? void 0 : options.isDemo) {
         this.settings.onboardingSeen = true;
         this.isDemo = true;
       }
       this.settings = applyUrlBootstrapSettings(this.settings);
-      log.info("Settings loaded", loggingSettingsSummary(this.settings));
+      log$1.info("Settings loaded", loggingSettingsSummary(this.settings));
       const dictionaryWarmup = this.settings.localDictionariesEnabled ? this.dictionaries.warm(this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local dictionary warmup failed", error);
+        log$1.warn("Local dictionary warmup failed", error);
       }) : Promise.resolve();
       this.installStyles();
       this.applyTheme();
@@ -19846,7 +20324,7 @@ ${spelling}`);
         GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
         GM_registerMenuCommand(`${APP_NAME} scan visible page`, () => this.scanVisiblePage());
         GM_registerMenuCommand(`${APP_NAME} scan nearby images`, () => this.ocr.scanVisible());
-        GM_registerMenuCommand(`${APP_NAME} connect MPV subtitles`, () => this.subtitles.connectMpv());
+        GM_registerMenuCommand(`${APP_NAME} open video player`, () => this.openVideoPlayer());
         GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
         GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
           this.settings.showFloatingButton = !this.settings.showFloatingButton;
@@ -19854,15 +20332,21 @@ ${spelling}`);
         });
       }
     }
+    openVideoPlayer() {
+      const opened = window.open(VIDEO_PLAYER_PAGE_URL, "_blank");
+      if (opened) opened.opener = null;
+      if (!opened) location.href = VIDEO_PLAYER_PAGE_URL;
+      log$1.info("Video player page opened", { url: VIDEO_PLAYER_PAGE_URL });
+    }
     installStyles() {
       if (typeof GM_addStyle === "function") {
         GM_addStyle(READER_CSS);
-        log.debug("Styles installed via GM_addStyle");
+        log$1.debug("Styles installed via GM_addStyle");
       } else {
         const style = document.createElement("style");
         style.textContent = READER_CSS;
         appendToDocumentHead(style);
-        log.debug("Styles installed via document head");
+        log$1.debug("Styles installed via document head");
       }
     }
     applyTheme() {
@@ -19876,7 +20360,7 @@ ${spelling}`);
       document.documentElement.classList.toggle("jpdb-reader-highlight-status", wordHighlightMode === "status");
       document.documentElement.classList.toggle("jpdb-reader-highlight-pitch", wordHighlightMode === "pitch");
       document.documentElement.classList.toggle("jpdb-reader-highlight-off", wordHighlightMode === "off");
-      log.debug("Theme applied", {
+      log$1.debug("Theme applied", {
         theme: this.settings.theme,
         popupMode: this.settings.popupMode,
         furiganaMode,
@@ -19885,14 +20369,14 @@ ${spelling}`);
     }
     async refreshDictionaryStyles() {
       const css = this.settings.localDictionariesEnabled ? await this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Dictionary styles unavailable", error);
+        log$1.warn("Dictionary styles unavailable", error);
         return "";
       }) : "";
       const existing = this.dictionaryStyleElement ?? document.getElementById("jpdb-reader-yomitan-dictionary-styles");
       if (!css.trim()) {
         existing == null ? void 0 : existing.remove();
         this.dictionaryStyleElement = void 0;
-        log.debug("Dictionary styles cleared");
+        log$1.debug("Dictionary styles cleared");
         return;
       }
       const style = existing ?? document.createElement("style");
@@ -19900,13 +20384,13 @@ ${spelling}`);
       style.textContent = css;
       if (!style.isConnected) appendToDocumentHead(style);
       this.dictionaryStyleElement = style;
-      log.debug("Dictionary styles refreshed", { bytes: css.length });
+      log$1.debug("Dictionary styles refreshed", { bytes: css.length });
     }
     scheduleDictionaryRescan() {
       var _a;
       if ((_a = this.activePopover) == null ? void 0 : _a.classList.contains("jpdb-reader-settings")) {
         this.dictionaryRescanPending = true;
-        log.debug("Dictionary rescan deferred until settings closes");
+        log$1.debug("Dictionary rescan deferred until settings closes");
         return;
       }
       window.setTimeout(() => void this.reparseVisiblePage(), 120);
@@ -19916,10 +20400,10 @@ ${spelling}`);
       this.parser.clearLocalCache();
       const unwrapped = this.pauseAutoScanObserver(() => unwrapReaderWords(document));
       if (!this.canParseJapanese()) {
-        log.debug("Reader words unwrapped without reparse because parsing is disabled", { unwrapped });
+        log$1.debug("Reader words unwrapped without reparse because parsing is disabled", { unwrapped });
         return;
       }
-      log.debug("Reparsing visible page", { unwrapped });
+      log$1.debug("Reparsing visible page", { unwrapped });
       await this.scanVisiblePage({ silent: true });
     }
     applyAccentColor(color) {
@@ -19943,96 +20427,15 @@ ${spelling}`);
       });
     }
     installFab() {
-      var _a;
-      (_a = this.fab) == null ? void 0 : _a.remove();
-      this.fab = void 0;
-      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => element2.remove());
-      if (!this.settings.showFloatingButton) {
-        log.debug("Floating puck disabled");
-        return;
-      }
-      const button2 = document.createElement("button");
-      button2.className = "jpdb-reader-fab";
-      button2.type = "button";
-      button2.textContent = APP_PUCK;
-      button2.title = APP_NAME;
-      button2.dataset.jpdbReaderRoot = "true";
-      if (this.settings.puckPositionX !== void 0 && this.settings.puckPositionY !== void 0) {
-        button2.style.left = `${this.settings.puckPositionX}px`;
-        button2.style.top = `${this.settings.puckPositionY}px`;
-        button2.style.right = "auto";
-        button2.style.bottom = "auto";
-      }
-      let dragging = false;
-      let moved = false;
-      let startX = 0;
-      let startY = 0;
-      let originX = 0;
-      let originY = 0;
-      const clampPuck = (x, y) => {
-        const rect = button2.getBoundingClientRect();
-        const margin = 8;
-        return {
-          x: Math.max(margin, Math.min(window.innerWidth - rect.width - margin, x)),
-          y: Math.max(margin, Math.min(window.innerHeight - rect.height - margin, y))
-        };
-      };
-      const savePuckPosition = () => {
-        const rect = button2.getBoundingClientRect();
-        const position = clampPuck(rect.left, rect.top);
-        this.settings.puckPositionX = Math.round(position.x);
-        this.settings.puckPositionY = Math.round(position.y);
-        void saveSettings(this.settings);
-      };
-      button2.addEventListener("pointerdown", (event) => {
-        var _a2;
-        if (event.button !== 0) return;
-        dragging = true;
-        moved = false;
-        startX = event.clientX;
-        startY = event.clientY;
-        const rect = button2.getBoundingClientRect();
-        originX = rect.left;
-        originY = rect.top;
-        (_a2 = button2.setPointerCapture) == null ? void 0 : _a2.call(button2, event.pointerId);
-      });
-      button2.addEventListener("pointermove", (event) => {
-        if (!dragging) return;
-        const dx = event.clientX - startX;
-        const dy = event.clientY - startY;
-        if (Math.hypot(dx, dy) > 4) moved = true;
-        if (!moved) return;
-        event.preventDefault();
-        const position = clampPuck(originX + dx, originY + dy);
-        button2.style.left = `${position.x}px`;
-        button2.style.top = `${position.y}px`;
-        button2.style.right = "auto";
-        button2.style.bottom = "auto";
-      }, { passive: false });
-      button2.addEventListener("pointerup", (event) => {
-        var _a2;
-        if (!dragging) return;
-        dragging = false;
-        (_a2 = button2.releasePointerCapture) == null ? void 0 : _a2.call(button2, event.pointerId);
-        if (moved) savePuckPosition();
-      });
-      button2.addEventListener("click", (event) => {
-        if (moved) {
-          event.preventDefault();
-          event.stopPropagation();
-          moved = false;
-          return;
-        }
-        this.showSettings();
-      });
-      document.body.appendChild(button2);
-      this.fab = button2;
-      log.debug("Floating puck installed", {
-        restoredPosition: this.settings.puckPositionX !== void 0 && this.settings.puckPositionY !== void 0
-      });
+      this.floatingButton.install(
+        this.settings,
+        () => void saveSettings(this.settings),
+        () => this.showSettings()
+      );
+      log$1.debug("Floating puck refreshed", { enabled: this.settings.showFloatingButton });
     }
     destroy() {
-      var _a, _b, _c, _d, _e, _f;
+      var _a, _b, _c, _d, _e;
       this.isDestroyed = true;
       this.abortController.abort();
       (_a = this.autoScanObserver) == null ? void 0 : _a.disconnect();
@@ -20048,9 +20451,9 @@ ${spelling}`);
       }
       (_b = this.activePopoverResizeObserver) == null ? void 0 : _b.disconnect();
       this.newTab.destroy();
-      (_c = this.fab) == null ? void 0 : _c.remove();
-      (_d = this.activePopover) == null ? void 0 : _d.remove();
-      (_e = this.activeBackdrop) == null ? void 0 : _e.remove();
+      this.floatingButton.destroy();
+      (_c = this.activePopover) == null ? void 0 : _c.remove();
+      (_d = this.activeBackdrop) == null ? void 0 : _d.remove();
       document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el2) => {
         if (el2.classList.contains("jpdb-reader-word") || el2.classList.contains("jpdb-reader-ruby")) {
           const text2 = document.createTextNode(el2.textContent || "");
@@ -20059,7 +20462,7 @@ ${spelling}`);
           el2.remove();
         }
       });
-      (_f = this.dictionaryStyleElement) == null ? void 0 : _f.remove();
+      (_e = this.dictionaryStyleElement) == null ? void 0 : _e.remove();
       document.querySelectorAll("[data-jpdb-reader-root]").forEach((el2) => el2.remove());
     }
     setupAutoScan() {
@@ -20067,14 +20470,14 @@ ${spelling}`);
       (_a = this.autoScanObserver) == null ? void 0 : _a.disconnect();
       this.autoScanObserver = new MutationObserver((mutations) => {
         if (mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
-        else if (mutations.every(mutationInsideReaderRoot)) return;
+        else if (mutations.every(mutationInsideReaderRoot$2)) return;
         else this.scheduleAutoScan(450);
       });
       this.observeAutoScanMutations();
       window.addEventListener("scroll", () => this.scheduleAutoScan(500), { passive: true });
       window.addEventListener("resize", () => this.scheduleAutoScan(700), { passive: true });
       this.scheduleAutoScan(600);
-      log.debug("Auto-scan observer installed");
+      log$1.debug("Auto-scan observer installed");
     }
     observeAutoScanMutations() {
       var _a;
@@ -20114,7 +20517,7 @@ ${spelling}`);
       this.asbScanTimer = window.setTimeout(() => void this.scanAsbPlayerSubtitles(), delay);
     }
     bindEvents() {
-      log.debug("Binding reader event handlers");
+      log$1.debug("Binding reader event handlers");
       document.addEventListener("click", (event) => {
         var _a, _b, _c, _d;
         if (this.isDestroyed) return;
@@ -20215,20 +20618,20 @@ ${spelling}`);
         const escapeClose = this.settings.shortcuts.closePopup.trim().toLowerCase() === "escape" && event.key === "Escape";
         if ((escapeClose || matchesShortcut(event, this.settings.shortcuts.closePopup)) && this.hasOpenReaderDialog()) {
           event.preventDefault();
-          log.debug("Shortcut closing active reader dialog");
+          log$1.debug("Shortcut closing active reader dialog");
           this.dismiss({ suppressHoverTarget: true });
           return;
         }
         if ((this.settings.shortcuts.hoverLookup ?? "").trim() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
         if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
           event.preventDefault();
-          log.info("Shortcut triggered visible page scan");
+          log$1.info("Shortcut triggered visible page scan");
           void this.scanVisiblePage({ silent: true });
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
           event.preventDefault();
-          log.info("Shortcut opened settings");
+          log$1.info("Shortcut opened settings");
           this.showSettings();
           return;
         }
@@ -20237,25 +20640,25 @@ ${spelling}`);
           this.settings.ocrEnabled = !this.settings.ocrEnabled;
           void saveSettings(this.settings);
           this.ocr.refresh();
-          log.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
+          log$1.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
           this.toast(this.settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.toggleYoutubeImmersion)) {
           event.preventDefault();
-          log.info("Shortcut toggled YouTube filter");
+          log$1.info("Shortcut toggled YouTube filter");
           void this.toggleYoutubeImmersion();
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
           event.preventDefault();
-          log.info("Shortcut triggered image scan");
+          log$1.info("Shortcut triggered image scan");
           void this.ocr.scanVisible();
           return;
         }
         if (this.lastCard && this.activePopover && matchesShortcut(event, this.settings.shortcuts.playAudio)) {
           event.preventDefault();
-          log.debug("Shortcut triggered audio playback", { term: this.lastCard.spelling });
+          log$1.debug("Shortcut triggered audio playback", { term: this.lastCard.spelling });
           void this.playAudio(this.lastCard);
           return;
         }
@@ -20266,7 +20669,7 @@ ${spelling}`);
           if (!ankiCardId && !this.settings.jpdbMiningEnabled) return;
           const promise = ankiCardId ? this.anki.answerCard(ankiCardId, grade) : this.jpdb.reviewCard(this.lastCard, grade);
           void promise.catch((error) => {
-            log.warn("Shortcut review failed", { grade, ankiCardId: Number.isFinite(ankiCardId) ? ankiCardId : void 0 }, error);
+            log$1.warn("Shortcut review failed", { grade, ankiCardId: Number.isFinite(ankiCardId) ? ankiCardId : void 0 }, error);
             this.toast(error instanceof Error ? error.message : "Review failed.");
           });
         }
@@ -20391,7 +20794,7 @@ ${spelling}`);
       this.suppressMiddleAuxClickUntil = Date.now() + 1200;
       this.suppressSelectionLookupUntil = Date.now() + 350;
       document.documentElement.classList.add("jpdb-reader-middle-scan-active");
-      log.debug("Middle-mouse scan started");
+      log$1.debug("Middle-mouse scan started");
       try {
         if (event.target instanceof Element) (_b = (_a = event.target).setPointerCapture) == null ? void 0 : _b.call(_a, event.pointerId);
       } catch {
@@ -20401,7 +20804,7 @@ ${spelling}`);
       var _a, _b;
       this.suppressMiddleAuxClickUntil = Date.now() + 700;
       document.documentElement.classList.remove("jpdb-reader-middle-scan-active");
-      log.debug("Middle-mouse scan finished");
+      log$1.debug("Middle-mouse scan finished");
       try {
         (_b = (_a = pressLookup.captureTarget) == null ? void 0 : _a.releasePointerCapture) == null ? void 0 : _b.call(_a, pressLookup.pointerId);
       } catch {
@@ -20436,7 +20839,7 @@ ${spelling}`);
     }
     preloadHoverWordAudio(word) {
       const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
-      if (card) this.audio.preload(card, { sourceLimit: 1, candidateLimit: 1 });
+      if (card) this.audio.preload(card, { sourceLimit: 2, candidateLimit: 1 });
     }
     canLookupReaderWord(word) {
       if (!word.closest("[data-jpdb-reader-root]")) return true;
@@ -20681,7 +21084,7 @@ ${spelling}`);
       return `text-pending:${this.hoverAnchorId(candidate.anchor)}:${candidate.start}:${candidate.end}:${candidate.text.length}`;
     }
     activePointerTextLookupKey(candidate, start, end, card) {
-      return `text:${this.hoverAnchorId(candidate.anchor)}:${start}:${end}:${cardKey(card)}`;
+      return `text:${this.hoverAnchorId(candidate.anchor)}:${start}:${end}:${cardKey$2(card)}`;
     }
     hoverAnchorId(anchor) {
       const existing = this.hoverAnchorIds.get(anchor);
@@ -20721,14 +21124,14 @@ ${spelling}`);
       this.settings.youtubeImmersionEnabled = enabled;
       await saveSettings(this.settings);
       this.youtube.refresh();
-      log.info("YouTube immersion setting changed", { enabled });
+      log$1.info("YouTube immersion setting changed", { enabled });
       this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
     }
     hasOpenReaderDialog() {
       return Boolean(this.activePopover || this.activeBackdrop || document.querySelector("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop"));
     }
     async parseJapanese(paragraphs) {
-      log.debugThrottled("parse-japanese", 1500, "Parsing Japanese text", { paragraphs: paragraphs.length });
+      log$1.debugThrottled("parse-japanese", 1500, "Parsing Japanese text", { paragraphs: paragraphs.length });
       return this.parser.parse(paragraphs);
     }
     canParseJapanese() {
@@ -20747,7 +21150,7 @@ ${spelling}`);
       const selected = getSelectionText();
       if (selected.length < 1 || selected.length > 120 || !HAS_JAPANESE.test(selected)) return;
       if ((_b = (_a = document.activeElement) == null ? void 0 : _a.closest) == null ? void 0 : _b.call(_a, "[data-jpdb-reader-root]")) return;
-      log.debug("Looking up selected text", { length: selected.length });
+      log$1.debug("Looking up selected text", { length: selected.length });
       await this.lookupText(selected, getSelectionSentence());
     }
     async lookupText(text2, sentence = text2, options = {}) {
@@ -20758,30 +21161,30 @@ ${spelling}`);
       const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
       const navigation = options.navigation ?? "reset";
       const preservePosition = options.preservePosition ?? (navigation !== "reset" && Boolean(this.activePopover));
-      const done = log.time("lookupText", { length: selected.length, trigger });
+      const done = log$1.time("lookupText", { length: selected.length, trigger });
       try {
         const [tokens] = await this.parseJapanese([sentence]);
         const selectedToken = pickTokenForSelection(tokens, selected);
         if (!selectedToken) {
           if (tokens.length) {
-            log.debug("Lookup produced token list", { selected, tokenCount: tokens.length });
+            log$1.debug("Lookup produced token list", { selected, tokenCount: tokens.length });
             this.showTokenList(tokens, selected, anchor, { trigger, navigation, preservePosition });
             return;
           }
           const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
           if (localEntries.length) {
-            log.debug("Lookup fell back to local dictionary entry", { selected, entries: localEntries.length });
+            log$1.debug("Lookup fell back to local dictionary entry", { selected, entries: localEntries.length });
             void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition });
             return;
           }
-          log.debug("Lookup found no entries; showing fallback card", { selected });
+          log$1.debug("Lookup found no entries; showing fallback card", { selected });
           void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition });
           return;
         }
-        log.debug("Lookup selected token", { selected, term: selectedToken.card.spelling, source: selectedToken.card.source ?? "jpdb" });
+        log$1.debug("Lookup selected token", { selected, term: selectedToken.card.spelling, source: selectedToken.card.source ?? "jpdb" });
         void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, anchor, { trigger, navigation, preservePosition });
       } catch (error) {
-        log.warn("Lookup failed; trying local fallback", { selected }, error);
+        log$1.warn("Lookup failed; trying local fallback", { selected }, error);
         const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
         if (localEntries.length) void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition });
         else {
@@ -20807,10 +21210,10 @@ ${spelling}`);
       if (!HAS_JAPANESE.test(query)) return;
       const normalizedReading = reading.replace(/\s+/g, " ").trim();
       const navigation = trigger === "modal" ? "push-current" : "reset";
-      const done = log.time("dictionaryReferenceLookup", { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
+      const done = log$1.time("dictionaryReferenceLookup", { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
       try {
         const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(query, normalizedReading || query, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
-          log.warn("Dictionary reference local lookup failed", { query, reading: normalizedReading, sourceDictionary }, error);
+          log$1.warn("Dictionary reference local lookup failed", { query, reading: normalizedReading, sourceDictionary }, error);
           return [];
         }) : [];
         const preferredEntry = localEntries.find((entry) => entry.dictionary === sourceDictionary) ?? localEntries[0];
@@ -20858,7 +21261,7 @@ ${spelling}`);
     async showLookupCandidate(candidate, trigger, options = {}) {
       const sentence = candidate.text.replace(/\s+/g, " ").trim();
       if (!sentence || !HAS_JAPANESE.test(sentence)) return;
-      const done = log.time("lookupTextAtPointer", { length: sentence.length, offset: candidate.offset, trigger });
+      const done = log$1.time("lookupTextAtPointer", { length: sentence.length, offset: candidate.offset, trigger });
       try {
         const [tokens] = await this.parseJapanese([candidate.text]);
         const token = (tokens ?? []).find(
@@ -20892,7 +21295,7 @@ ${spelling}`);
         }
         const fallbackTerm = fallbackLookupTermAtOffset(candidate.text, candidate.offset);
         if (fallbackTerm) {
-          log.debug("Pointer text lookup found no entries; showing fallback card", { fallbackTerm, offset: candidate.offset });
+          log$1.debug("Pointer text lookup found no entries; showing fallback card", { fallbackTerm, offset: candidate.offset });
           const card = this.parser.fallbackCardFromText(fallbackTerm);
           const pointerTextLookup = { anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end };
           await this.showCard(card, sentence, candidate.anchor, {
@@ -20905,9 +21308,9 @@ ${spelling}`);
           });
           return;
         }
-        log.debug("Pointer text lookup found no local entry", { offset: candidate.offset });
+        log$1.debug("Pointer text lookup found no local entry", { offset: candidate.offset });
       } catch (error) {
-        log.debug("Pointer text lookup failed quietly", { offset: candidate.offset }, error);
+        log$1.debug("Pointer text lookup failed quietly", { offset: candidate.offset }, error);
       } finally {
         done();
       }
@@ -20933,15 +21336,15 @@ ${spelling}`);
     }
     async scanVisiblePage(options = {}) {
       if (this.visiblePageScanInFlight) {
-        log.debugThrottled("visible-page-scan-skipped", 1e3, "Visible page scan skipped because one is already running");
+        log$1.debugThrottled("visible-page-scan-skipped", 1e3, "Visible page scan skipped because one is already running");
         return;
       }
       this.visiblePageScanInFlight = true;
-      const done = log.time("scanVisiblePage", { silent: Boolean(options.silent) });
+      const done = log$1.time("scanVisiblePage", { silent: Boolean(options.silent) });
       try {
         const targets = collectScanTargets();
         if (!targets.length) {
-          log.debug("Visible page scan found no targets", { silent: Boolean(options.silent) });
+          log$1.debug("Visible page scan found no targets", { silent: Boolean(options.silent) });
           if (!options.silent) this.toast("No unscanned Japanese text found.");
           return;
         }
@@ -20951,12 +21354,12 @@ ${spelling}`);
         });
         this.preloadImmersionKitForTokens(parsed.flat());
         void this.enrichAnkiWords(parsed.flat());
-        log.debugThrottled("visible-page-scan-applied", 2500, "Visible page scan applied tokens", {
+        log$1.debugThrottled("visible-page-scan-applied", 2500, "Visible page scan applied tokens", {
           targets: targets.length,
           tokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0)
         });
       } catch (error) {
-        log.warn("Visible page scan failed", error);
+        log$1.warn("Visible page scan failed", error);
         if (!options.silent) this.toast(error instanceof Error ? error.message : "JPDB scan failed.");
       } finally {
         this.visiblePageScanInFlight = false;
@@ -20975,12 +21378,12 @@ ${spelling}`);
         });
         this.preloadImmersionKitForTokens(parsed.flat());
         void this.enrichAnkiWords(parsed.flat());
-        log.debugThrottled("asb-scan", 2500, "ASB subtitles scanned", {
+        log$1.debugThrottled("asb-scan", 2500, "ASB subtitles scanned", {
           targets: targets.length,
           tokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0)
         });
       } catch (error) {
-        log.debugThrottled("asb-scan-failed", 5e3, "ASB subtitle scan failed quietly", error);
+        log$1.debugThrottled("asb-scan-failed", 5e3, "ASB subtitle scan failed quietly", error);
       }
     }
     async showWord(word, options = {}) {
@@ -20988,7 +21391,7 @@ ${spelling}`);
       const sid = Number(word.dataset.sid);
       const card = this.getCachedCard(vid, sid);
       if (!card) {
-        log.warn("Clicked word missing from cache", { vid, sid });
+        log$1.warn("Clicked word missing from cache", { vid, sid });
         this.toast("That word is no longer in the local JPDB cache. Scan it again.");
         return;
       }
@@ -21004,8 +21407,8 @@ ${spelling}`);
         this.refreshActiveHoverAnchor(word);
         return;
       }
-      log.debug("Showing word card from rendered token", { term: card.spelling, trigger, source: card.source ?? "jpdb" });
-      if (trigger === "hover") this.audio.preload(card, { sourceLimit: 1, candidateLimit: 1 });
+      log$1.debug("Showing word card from rendered token", { term: card.spelling, trigger, source: card.source ?? "jpdb" });
+      if (trigger === "hover") this.audio.preload(card, { sourceLimit: 2, candidateLimit: 1 });
       await this.showCard(card, word.dataset.sentence || void 0, anchor, {
         trigger,
         navigation,
@@ -21018,7 +21421,7 @@ ${spelling}`);
       if (!tokens.length) return;
       const trigger = options.trigger === "hover" ? "hover" : "modal";
       if (trigger === "modal" && (options.navigation ?? "reset") === "reset") this.clearWordNavigation();
-      log.debug("Rendering token disambiguation popup", { selected, tokens: tokens.length, trigger });
+      log$1.debug("Rendering token disambiguation popup", { selected, tokens: tokens.length, trigger });
       const popover = this.createPopover();
       setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
@@ -21043,7 +21446,7 @@ ${spelling}`);
       void this.parsePopoverJapanese(popover);
     }
     showLocalDictionaryPopup(term, entries, anchor, trigger = "modal") {
-      log.debug("Rendering local dictionary popup", { term, entries: entries.length, trigger });
+      log$1.debug("Rendering local dictionary popup", { term, entries: entries.length, trigger });
       const popover = this.createPopover();
       const grouped = groupTermEntriesByDictionary(entries);
       setInnerHtml(popover, `
@@ -21055,9 +21458,12 @@ ${spelling}`);
                 </div>
             </div>
             <div class="jpdb-reader-definition-stack">
-                ${this.renderLocalDefinitionSourcesSection(
+                ${renderLocalDefinitionSourcesSection(
       Array.from(grouped.keys()),
       grouped,
+      this.settings,
+      (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded),
+      (name) => this.dictionaryLabel(name),
       { spelling: term, reading: "" }
     )}
             </div>
@@ -21079,16 +21485,17 @@ ${spelling}`);
       const hoverLookupGeneration = trigger === "hover" ? options.hoverLookupGeneration : void 0;
       const isCurrentHoverCard = () => hoverLookupGeneration === void 0 || this.hoverLookupGeneration === hoverLookupGeneration;
       this.updateWordNavigation(card, sentence, trigger, navigation);
-      const done = log.time("showCard", { term: card.spelling, source: card.source ?? "jpdb", trigger });
+      const done = log$1.time("showCard", { term: card.spelling, source: card.source ?? "jpdb", trigger });
       if (((_a = this.activeMiningContext) == null ? void 0 : _a.term) !== card.spelling || this.activeMiningContext.sentence !== (sentence || "").replace(/\s+/g, " ").trim()) {
         this.rememberPageMiningContext(card, sentence, anchor);
       }
       const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null };
       this.lastAnkiLookup = fallbackAnkiLookup;
       const renderData = this.loadCardRenderData(card);
+      const immersionExamples = this.settings.immersionKitEnabled ? this.searchImmersionKitExamples(card) : void 0;
       const instantLocalEntries = await waitForInstantData(renderData.localEntries, INSTANT_DICTIONARY_RENDER_WAIT_MS);
       if (!isCurrentHoverCard()) {
-        log.debug("Discarding stale hover card before mount", { term: card.spelling, hoverLookupGeneration });
+        log$1.debug("Discarding stale hover card before mount", { term: card.spelling, hoverLookupGeneration });
         done();
         return;
       }
@@ -21108,11 +21515,12 @@ ${spelling}`);
         pointerTextLookup: options.pointerTextLookup
       });
       const requestId = ++this.cardRenderRequest;
-      log.debug("Card shell mounted", { term: card.spelling, trigger, instantLocalEntries: (instantLocalEntries == null ? void 0 : instantLocalEntries.length) ?? 0 });
+      log$1.debug("Card shell mounted", { term: card.spelling, trigger, instantLocalEntries: (instantLocalEntries == null ? void 0 : instantLocalEntries.length) ?? 0 });
       if (options.autoPlay !== false && isCurrentHoverCard() && this.shouldAutoPlay(card)) {
         void this.playAudio(card, { hoverLookupGeneration });
       }
       if (instantLocalEntries == null ? void 0 : instantLocalEntries.length) void this.parsePopoverJapanese(popover);
+      this.installStudyTranslationLoader(popover, sentence);
       let fullRenderCompleted = false;
       if (!instantLocalEntries) {
         void renderData.localEntries.then((localEntries2) => {
@@ -21124,7 +21532,7 @@ ${spelling}`);
             ankiLookup: this.lastAnkiLookup ?? fallbackAnkiLookup,
             loading: true
           }));
-          log.debug("Card local dictionaries rendered", { term: card.spelling, localEntries: localEntries2.length });
+          log$1.debug("Card local dictionaries rendered", { term: card.spelling, localEntries: localEntries2.length });
           this.repositionActivePopover();
           void this.parsePopoverJapanese(popover);
         });
@@ -21132,7 +21540,7 @@ ${spelling}`);
       const { localEntries, kanjiEntries, metaEntries, ankiLookup } = await renderData.all;
       fullRenderCompleted = true;
       if (!isCurrentHoverCard() || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) {
-        log.debug("Discarding stale card render", { term: card.spelling, requestId });
+        log$1.debug("Discarding stale card render", { term: card.spelling, requestId });
         done();
         return;
       }
@@ -21145,7 +21553,7 @@ ${spelling}`);
         ankiLookup,
         loading: false
       }));
-      log.debug("Card rendered", {
+      log$1.debug("Card rendered", {
         term: card.spelling,
         localEntries: localEntries.length,
         kanjiEntries: kanjiEntries.length,
@@ -21155,7 +21563,7 @@ ${spelling}`);
       });
       this.repositionActivePopover();
       void this.parsePopoverJapanese(popover);
-      void this.loadImmersionKitExamples(popover, card, trigger);
+      void this.loadImmersionKitExamples(popover, card, trigger, immersionExamples);
       this.installStudyTranslationLoader(popover, sentence);
       done();
     }
@@ -21176,7 +21584,7 @@ ${spelling}`);
                     <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${uiText(language, "blacklistHint")}">${cardStates.includes("blacklisted") ? uiText(language, "unlist") : uiText(language, "blacklist")}</button>
                 </div>
             ` : "";
-      const reviewButtons = !data.loading && this.settings.enableReviews && (hasJpdb && this.settings.jpdbMiningEnabled || ((_a = data.ankiLookup.primary) == null ? void 0 : _a.primaryCardId)) ? this.renderReviewButtons(data.ankiLookup.primary) : "";
+      const reviewButtons = !data.loading && this.settings.enableReviews && (hasJpdb && this.settings.jpdbMiningEnabled || ((_a = data.ankiLookup.primary) == null ? void 0 : _a.primaryCardId)) ? renderReviewButtons(this.settings, data.ankiLookup.primary) : "";
       const metaItems = [
         card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "",
         hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(state)}</span>` : "",
@@ -21203,11 +21611,11 @@ ${spelling}`);
             ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(cardPosDetails)}">${escapeHtml$1(cardPos)}</div>` : ""}
             ${this.renderDefinitionSources(card, data.localEntries, sentence)}
             ${loadingDetails}
-            ${data.loading ? "" : this.renderAnkiExistingSection(data.ankiLookup, storedContext)}
-            ${this.renderKanjiDefinitions(data.kanjiEntries)}
+            ${data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, storedContext)}
+            ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dictionaryLabel(name))}
             <div class="jpdb-reader-actions">
                 ${jpdbActionRow}
-                ${data.loading ? "" : this.renderAnkiActionRow(data.ankiLookup)}
+                ${data.loading ? "" : renderAnkiActionRow(data.ankiLookup, this.settings)}
                 ${reviewButtons}
             </div>
         `;
@@ -21217,7 +21625,7 @@ ${spelling}`);
       const now = Date.now();
       const cached = this.cardRenderDataCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log.debug("Card render data cache hit", { term: card.spelling });
+        log$1.debug("Card render data cache hit", { term: card.spelling });
         return cached.load;
       }
       const load = this.fetchCardRenderData(card);
@@ -21230,23 +21638,23 @@ ${spelling}`);
     }
     fetchCardRenderData(card) {
       const localEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
+        log$1.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }) : Promise.resolve([]);
       const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
+        log$1.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }) : Promise.resolve([]);
       const metaEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch((error) => {
-        log.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
+        log$1.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }) : Promise.resolve([]);
       const jpdbPublicPitchPromise = this.settings.showPitchAccent && !card.pitchAccent.length ? this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
+        log$1.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }) : Promise.resolve([]);
       const ankiLookupPromise = this.settings.ankiEnabled ? this.anki.findExistingCards(card).catch((error) => {
-        log.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
+        log$1.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
         return { state: "not-in-deck", notes: [], primary: null };
       }) : Promise.resolve({ state: "not-in-deck", notes: [], primary: null });
       const all = Promise.all([
@@ -21263,7 +21671,7 @@ ${spelling}`);
     }
     cardRenderDataCacheKey(card) {
       return JSON.stringify({
-        card: cardKey(card),
+        card: cardKey$2(card),
         local: this.settings.localDictionariesEnabled,
         kanji: this.settings.localDictionaryShowKanji,
         max: this.settings.localDictionaryMaxResults,
@@ -21321,7 +21729,7 @@ ${spelling}`);
       this.currentWordNavigation = void 0;
     }
     isSameNavigationCard(first2, second) {
-      return cardKey(first2.card) === cardKey(second.card);
+      return cardKey$2(first2.card) === cardKey$2(second.card);
     }
     renderWordHistoryNavigation(language, trigger) {
       if (trigger !== "modal") return "";
@@ -21383,17 +21791,13 @@ ${spelling}`);
         const classes = `jpdb-reader-pill jpdb-reader-action-pill${link.id === "jpdb" ? " jpdb-reader-jpdb-pill" : ""}`;
         return `<a class="${classes}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener" style="${style}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</a>`;
       }).filter(Boolean);
-      const frequencyPills = bestFrequencyEntries(metaEntries).filter((entry) => entry.mode === "freq").sort((a, b) => {
-        const priority = dictionaryPreferencePriority(this.settings, a.dictionary) - dictionaryPreferencePriority(this.settings, b.dictionary);
-        if (priority) return priority;
-        return this.dictionaryLabel(a.dictionary).localeCompare(this.dictionaryLabel(b.dictionary), "ja");
-      }).map((entry) => this.renderFrequencyPill(entry)).filter(Boolean).slice(0, 8);
+      const frequencyPills = renderFrequencyPills(metaEntries, this.settings, (name) => this.dictionaryLabel(name));
       const pills = [...linkPills, ...frequencyPills];
       return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join("")}</div>` : "";
     }
     async showKanjiCard(card, kanji, sentence, anchor, options = {}) {
       if (!isKanjiCharacter(kanji)) return;
-      log.debug("Rendering kanji card", { term: card.spelling, kanji });
+      log$1.debug("Rendering kanji card", { term: card.spelling, kanji });
       const popover = this.createPopover();
       const kanjiCharacters2 = uniqueKanji(card.spelling);
       const index = Math.max(0, kanjiCharacters2.indexOf(kanji));
@@ -21461,13 +21865,22 @@ ${spelling}`);
     renderKanjiSourceMounts(kanji, language) {
       return orderedKanjiSourceIds(this.settings).map((sourceId) => {
         if (sourceId === KANJI_STROKE_SOURCE_ID) {
-          const sourceStateKey = this.kanjiSourceStateKey(KANJI_STROKE_SOURCE_ID);
+          const sourceStateKey = kanjiSourceStateKey(KANJI_STROKE_SOURCE_ID);
           return renderKanjiPractice(null, kanji, language, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey);
         }
         if (sourceId === KANJI_JPDB_SOURCE_ID) return "<div data-kanji-jpdb-mount></div>";
         if (sourceId === KANJI_RTK_SOURCE_ID) return "<div data-kanji-rtk-mount></div>";
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return "<div data-kanji-definitions-mount></div>";
-        if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return this.renderSimilarKanjiWordsShell(kanji, language);
+        if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) {
+          const sourceStateKey = kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
+          return renderSimilarKanjiWordsShell(
+            kanji,
+            language,
+            sourceStateKey,
+            this.isDictionarySourceOpen(sourceStateKey),
+            (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded)
+          );
+        }
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return "<div data-kanji-origin-mount></div>";
         return "";
       }).join("");
@@ -21488,17 +21901,17 @@ ${spelling}`);
       const renderRtk = () => {
         if (!popover.isConnected || !(rtkMount == null ? void 0 : rtkMount.isConnected)) return;
         const componentSummaries = buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries);
-        const sourceStateKey = this.kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
+        const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
         setInnerHtml(rtkMount, renderRtkInfo(rtkInfo, componentSummaries, language, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey));
         this.repositionActivePopover();
       };
       const jpdbInfoPromise = detailsPromises.jpdbInfo.then((info) => {
         jpdbInfo = info;
         if (!popover.isConnected) return;
-        log.debug("JPDB kanji details loaded", { kanji, hasJpdbInfo: Boolean(jpdbInfo) });
+        log$1.debug("JPDB kanji details loaded", { kanji, hasJpdbInfo: Boolean(jpdbInfo) });
         renderKeyword();
         if (jpdbMount == null ? void 0 : jpdbMount.isConnected) {
-          const sourceStateKey = this.kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
+          const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
           setInnerHtml(jpdbMount, renderJpdbKanjiInfo(jpdbInfo, language, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey));
         }
         renderRtk();
@@ -21506,21 +21919,23 @@ ${spelling}`);
       const kanjiEntriesPromise = detailsPromises.kanjiEntries.then((entries) => {
         kanjiEntries = entries;
         if (!popover.isConnected) return;
-        log.debug("Local kanji details loaded", { kanji, entries: kanjiEntries.length });
+        log$1.debug("Local kanji details loaded", { kanji, entries: kanjiEntries.length });
         renderKeyword();
-        if (definitionsMount == null ? void 0 : definitionsMount.isConnected) setInnerHtml(definitionsMount, this.renderKanjiDefinitions(kanjiEntries));
+        if (definitionsMount == null ? void 0 : definitionsMount.isConnected) {
+          setInnerHtml(definitionsMount, renderKanjiDefinitions(kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dictionaryLabel(name)));
+        }
         renderRtk();
       });
       const rtkInfoPromise = detailsPromises.rtkInfo.then((info) => {
         rtkInfo = info;
         if (!popover.isConnected) return;
-        log.debug("RTK kanji details loaded", { kanji, hasRtkInfo: Boolean(rtkInfo) });
+        log$1.debug("RTK kanji details loaded", { kanji, hasRtkInfo: Boolean(rtkInfo) });
         renderKeyword();
         renderRtk();
       });
       await Promise.all([jpdbInfoPromise, kanjiEntriesPromise, rtkInfoPromise]);
       if (!popover.isConnected) return;
-      log.debug("Kanji details loaded", {
+      log$1.debug("Kanji details loaded", {
         kanji,
         hasJpdbInfo: Boolean(jpdbInfo),
         localKanjiEntries: kanjiEntries.length,
@@ -21558,7 +21973,7 @@ ${spelling}`);
       let localEntries = [];
       const render = () => {
         if (!popover.isConnected || !section.isConnected || !mount.isConnected) return;
-        const content = this.renderSimilarKanjiWordsContent(localEntries, jpdbVocabulary, card);
+        const content = renderSimilarKanjiWordsContent(localEntries, jpdbVocabulary, card, this.settings, (name) => this.dictionaryLabel(name));
         setInnerHtml(mount, content || `<div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, jpdbLoaded && localLoaded ? "noSimilarWords" : "loadingSimilarWords")}</div>`);
         this.repositionActivePopover();
       };
@@ -21583,7 +21998,7 @@ ${spelling}`);
           render();
         }) : Promise.resolve();
         void Promise.all([jpdbVocabularyPromise, localEntriesPromise]).then(() => {
-          log.debug("Similar kanji words loaded", { kanji, entries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length });
+          log$1.debug("Similar kanji words loaded", { kanji, entries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length });
         });
       };
       section.addEventListener("toggle", load);
@@ -21594,14 +22009,14 @@ ${spelling}`);
       if (!mount) return;
       const entries = await promise;
       if (!popover.isConnected || !mount.isConnected) return;
-      log.debug("Similar kanji words loaded", { kanji, entries: entries.length, jpdbVocabulary: jpdbVocabulary.length });
-      setInnerHtml(mount, this.renderSimilarKanjiWordsContent(entries, jpdbVocabulary, card));
+      log$1.debug("Similar kanji words loaded", { kanji, entries: entries.length, jpdbVocabulary: jpdbVocabulary.length });
+      setInnerHtml(mount, renderSimilarKanjiWordsContent(entries, jpdbVocabulary, card, this.settings, (name) => this.dictionaryLabel(name)));
     }
     async renderKanjiVGInto(popover, kanjiVGPromise, kanji, language) {
       var _a, _b;
       const info = await kanjiVGPromise;
       if (!info || !popover.isConnected) return;
-      log.debug("KanjiVG loaded", { kanji, strokes: info.strokeCount });
+      log$1.debug("KanjiVG loaded", { kanji, strokes: info.strokeCount });
       const stage = Array.from(popover.querySelectorAll(".jpdb-reader-doodle-stage")).find((candidate) => candidate.dataset.kanji === kanji);
       const ghost = stage == null ? void 0 : stage.querySelector(".jpdb-reader-doodle-ghost");
       const help = (_a = stage == null ? void 0 : stage.closest(".jpdb-reader-kanjivg")) == null ? void 0 : _a.querySelector(".jpdb-reader-help");
@@ -21616,14 +22031,14 @@ ${spelling}`);
       const mount = popover.querySelector("[data-kanji-origin-mount]");
       if (!mount) return;
       const sourceInfo = await this.kanjiOrigin.lookup(kanji, { ...this.settings, kanjiOriginWiktionaryEnabled: false }).catch((error) => {
-        log.warn("Kanji origin lookup failed", { kanji }, error);
+        log$1.warn("Kanji origin lookup failed", { kanji }, error);
         return null;
       });
       if (!popover.isConnected || !mount.isConnected) return;
-      log.debug("Kanji origin rendered", { kanji, hasSourceInfo: Boolean(sourceInfo) });
+      log$1.debug("Kanji origin rendered", { kanji, hasSourceInfo: Boolean(sourceInfo) });
       const facts = buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
       const graph = this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo) : null;
-      const sourceStateKey = this.kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
+      const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
       setInnerHtml(mount, renderKanjiOrigins(facts, graph, sourceInfo, this.settings, this.settings.interfaceLanguage, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey));
       mount.querySelectorAll("[data-radical-frame]").forEach((image) => {
         image.addEventListener("error", () => image.remove(), { once: true });
@@ -21775,14 +22190,21 @@ ${spelling}`);
         setup,
         ...sourceIds.map((sourceId) => {
           if ((card.source === "local" || card.source === "anki" || card.source === "fallback") && sourceId === JPDB_DEFINITION_SOURCE_ID) return "";
-          if (sourceId === JPDB_DEFINITION_SOURCE_ID) return this.renderJpdbDefinitionSource(card);
+          if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded));
           if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.renderStudyTranslationSource(sentence);
           if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.renderStudyGrammarSource(sentence);
           if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
           if (grouped.has(sourceId)) {
             if (renderedDictionaries) return "";
             renderedDictionaries = true;
-            return this.renderLocalDefinitionSourcesSection(dictionarySourceIds, grouped, card);
+            return renderLocalDefinitionSourcesSection(
+              dictionarySourceIds,
+              grouped,
+              this.settings,
+              (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded),
+              (name) => this.dictionaryLabel(name),
+              card
+            );
           }
           return "";
         })
@@ -21794,7 +22216,7 @@ ${spelling}`);
       if (this.settings.apiKey.trim() || this.settings.dictionaryPreferences.length) return "";
       const language = this.settings.interfaceLanguage;
       return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-fallback-setup" ${this.dictionarySourceAttributes(this.definitionSourceStateKey(FALLBACK_SETUP_SOURCE_ID), true)}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-fallback-setup" ${this.dictionarySourceAttributes(definitionSourceStateKey(FALLBACK_SETUP_SOURCE_ID), true)}>
                 <summary class="jpdb-reader-local-title">${uiText(language, "fallbackSetupTitle")}</summary>
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-help">${uiText(language, "fallbackSetupCopy")}</div>
@@ -21809,7 +22231,7 @@ ${spelling}`);
     renderImmersionKitMount() {
       if (!this.settings.immersionKitEnabled) return "";
       return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceAttributes(this.definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, "immersionKit")}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, "loadingExamples")}</div>
             </details>
@@ -21818,7 +22240,7 @@ ${spelling}`);
     renderStudyTranslationSource(sentence) {
       if (!sentence || !this.settings.studyTranslationEnabled) return "";
       return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.dictionarySourceAttributes(this.definitionSourceStateKey(STUDY_TRANSLATION_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.dictionarySourceAttributes(definitionSourceStateKey(STUDY_TRANSLATION_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">Translation</summary>
                 <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
                     <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
@@ -21841,7 +22263,7 @@ ${spelling}`);
       const hints = detectGrammarHints(sentence);
       if (!hints.length) return "";
       return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" ${this.dictionarySourceAttributes(this.definitionSourceStateKey(STUDY_GRAMMAR_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" ${this.dictionarySourceAttributes(definitionSourceStateKey(STUDY_GRAMMAR_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">Grammar</summary>
                 <div class="jpdb-reader-study-panel">
                     ${renderGrammarHints(hints, sentence)}
@@ -21882,28 +22304,27 @@ ${spelling}`);
         void this.parsePopoverJapanese(container);
         void this.enrichAnkiWords(tokens);
       } catch (error) {
-        log.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
+        log$1.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
         if (!container.isConnected) return;
         const result = container.querySelector("[data-study-translation-result]");
         if (result) result.textContent = "Translation unavailable.";
       }
     }
-    async loadImmersionKitExamples(popover, card, trigger = "modal") {
+    async loadImmersionKitExamples(popover, card, trigger = "modal", searchPromise = this.searchImmersionKitExamples(card)) {
       const container = popover.querySelector("[data-immersion-kit]");
       if (!container) return;
       try {
-        const result = await this.searchImmersionKitExamples(card);
+        const result = await searchPromise;
         const { examples } = result;
         if (!popover.isConnected || !container.isConnected) return;
         if (!examples.length) {
-          log.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
+          log$1.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
           this.renderCompactImmersionKitEmpty(container);
           return;
         }
-        log.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
+        log$1.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
         let index = this.immersionStartIndex(card, examples);
         let renderRequest = 0;
-        let hoverAudioPlayed = false;
         let hoverAudioCanPlay = false;
         let hoverAudioActive = false;
         requestAnimationFrame(() => {
@@ -21920,20 +22341,20 @@ ${spelling}`);
           event.preventDefault();
           event.stopPropagation();
           const action = button2.dataset.immersionAction;
-          if (action === "previous") render(index - 1, this.settings.immersionKitAutoPlayAudio, true);
-          if (action === "next") render(index + 1, this.settings.immersionKitAutoPlayAudio, true);
+          if (action === "previous") render(index - 1, true, true);
+          if (action === "next") render(index + 1, true, true);
           if (action === "audio") void this.playImmersionKitExample(examples[index]);
         });
         const handleImmersionHover = (event) => {
-          var _a;
-          if (!hoverAudioCanPlay || hoverAudioPlayed || !this.settings.immersionKitPlayOnHover) return;
-          const cannotHover = ((_a = window.matchMedia) == null ? void 0 : _a.call(window, "(hover: none)").matches) ?? false;
+          var _a, _b, _c;
+          const media = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-example-media");
+          if (!media || !hoverAudioCanPlay || !this.settings.immersionKitPlayOnHover) return;
+          const cannotHover = ((_c = window.matchMedia) == null ? void 0 : _c.call(window, "(hover: none)").matches) ?? false;
           const pointerType = "pointerType" in event ? event.pointerType : "mouse";
           if (pointerType === "touch" || cannotHover) return;
-          if (container.contains(event.relatedTarget)) return;
-          hoverAudioPlayed = true;
+          if (media.contains(event.relatedTarget)) return;
           hoverAudioActive = true;
-          void this.playImmersionKitExample(examples[index], true, () => hoverAudioActive && container.isConnected && container.matches(":hover"));
+          void this.playImmersionKitExample(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(":hover"));
         };
         container.addEventListener("pointerover", handleImmersionHover);
         container.addEventListener("mouseover", handleImmersionHover);
@@ -21945,9 +22366,9 @@ ${spelling}`);
           hoverAudioCanPlay = true;
           hoverAudioActive = false;
         });
-        render(index, trigger !== "hover" && this.settings.immersionKitAutoPlayAudio);
+        render(index, false);
       } catch (error) {
-        log.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$1.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         if (!popover.isConnected || !container.isConnected) return;
         this.renderCompactImmersionKitEmpty(container);
       }
@@ -21957,7 +22378,7 @@ ${spelling}`);
       const now = Date.now();
       const cached = this.immersionSearchResultCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log.debug("Immersion Kit result cache hit", { term: card.spelling });
+        log$1.debug("Immersion Kit result cache hit", { term: card.spelling });
         return cached.promise;
       }
       const promise = this.fetchImmersionKitExamples(card).catch((error) => {
@@ -22012,7 +22433,7 @@ ${spelling}`);
       if (card.reading !== card.spelling) add(card.reading);
       if (this.canParseJapanese()) {
         const [tokens] = await this.parseJapanese([card.spelling]).catch((error) => {
-          log.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
+          log$1.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
           return [[]];
         });
         const tokenQueries = (tokens ?? []).map((token) => ({
@@ -22042,7 +22463,7 @@ ${spelling}`);
     }
     immersionStartIndex(card, examples) {
       var _a;
-      const context = ((_a = this.activeMiningContext) == null ? void 0 : _a.term) === card.spelling ? this.activeMiningContext : this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+      const context = ((_a = this.activeMiningContext) == null ? void 0 : _a.term) === card.spelling ? this.activeMiningContext : this.immersionContextByCardKey.get(cardKey$2(card)) ?? loadMiningContext(card.spelling);
       if (!context || context.sourceKind !== "immersion-kit") return 0;
       const sentenceIndex = examples.findIndex((example) => example.sentence === context.sentence);
       if (sentenceIndex >= 0) return sentenceIndex;
@@ -22056,11 +22477,11 @@ ${spelling}`);
       const imageUrl = imageUrls[0] ?? "";
       const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, examples.length, imageUrl));
       if (storedContext) {
-        this.immersionContextByCardKey.set(cardKey(card), storedContext);
+        this.immersionContextByCardKey.set(cardKey$2(card), storedContext);
         if (promoteMiningContext || !this.activeMiningContext || this.activeMiningContext.term !== card.spelling) {
           this.activeMiningContext = storedContext;
         }
-        log.debug("Immersion mining context stored", {
+        log$1.debug("Immersion mining context stored", {
           term: card.spelling,
           sourceTitle: storedContext.sourceTitle,
           index,
@@ -22081,7 +22502,6 @@ ${spelling}`);
                     <div class="jpdb-reader-example-meta ${hasFallbackQuery ? "has-query" : ""}">
                         <span class="jpdb-reader-example-source">${escapeHtml$1(example.sourceTitle)}</span>
                         ${fallbackQuery}
-                        <span class="jpdb-reader-example-count">${index + 1}/${examples.length}</span>
                     </div>
                     <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
                         <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}" aria-label="${uiText(language, "previousExample")}">‹</button>
@@ -22090,8 +22510,8 @@ ${spelling}`);
                     </div>
                 </div>
                 <div class="jpdb-reader-example-body">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
                     ${image}
+                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
                     ${translation}
                 </div>
             </div>
@@ -22134,7 +22554,7 @@ ${spelling}`);
         void this.parsePopoverJapanese(container);
         void this.enrichAnkiWords(tokens ?? []);
         this.repositionActivePopover();
-      }).catch((error) => log.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
+      }).catch((error) => log$1.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
       if (playAudio) void this.playImmersionKitExample(example, true);
     }
     highlightImmersionTarget(sentence, card) {
@@ -22153,14 +22573,14 @@ ${spelling}`);
       const urls = this.immersionMediaUrls(example, "sound");
       const url = urls[0] ?? "";
       if (!url) {
-        log.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
+        log$1.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
         if (!quiet) this.toast("No Immersion Kit audio for this example.");
         return;
       }
       let requestId = 0;
       try {
         if (this.isImmersionKitAudioBusy(url)) {
-          log.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
+          log$1.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
           return;
         }
         requestId = ++this.immersionKitAudioRequestId;
@@ -22194,10 +22614,10 @@ ${spelling}`);
           this.clearImmersionKitAudio();
           return;
         }
-        log.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
+        log$1.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
       } catch (error) {
         if (!requestId || requestId === this.immersionKitAudioRequestId) this.clearImmersionKitAudio();
-        log.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
+        log$1.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
         if (!quiet) this.toast(error instanceof Error ? error.message : "Immersion Kit audio failed.");
       }
     }
@@ -22231,21 +22651,21 @@ ${spelling}`);
         targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
         const tokens = parsed.flat();
         void this.enrichAnkiWords(tokens);
-        log.debug("Popover nested text parsed", { targets: targets.length, tokens: tokens.length });
+        log$1.debug("Popover nested text parsed", { targets: targets.length, tokens: tokens.length });
       } catch (error) {
-        log.debug("Popover nested text parsing failed quietly", error);
+        log$1.debug("Popover nested text parsing failed quietly", error);
       }
     }
     async enrichAnkiWords(tokens) {
       if (!this.settings.ankiEnabled) return;
       const seen = /* @__PURE__ */ new Set();
       const uniqueTokens = tokens.filter((token) => {
-        const key = cardKey(token.card);
+        const key = cardKey$2(token.card);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       }).slice(0, 16);
-      if (uniqueTokens.length) log.debug("Enriching rendered words with Anki state", { tokens: uniqueTokens.length });
+      if (uniqueTokens.length) log$1.debug("Enriching rendered words with Anki state", { tokens: uniqueTokens.length });
       for (const token of uniqueTokens) {
         const lookup = await this.anki.findExistingCards(token.card);
         this.applyAnkiLookupToRenderedWords(token.card, lookup);
@@ -22262,187 +22682,11 @@ ${spelling}`);
         queued++;
         if (queued >= 2) break;
       }
-      if (queued) log.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
-    }
-    renderJpdbDefinitionSource(card) {
-      const meanings = card.meanings.slice(0, 6).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning.glosses.join("; "))}</div>`).join("");
-      if (!meanings) return "";
-      return `
-            <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${this.dictionarySourceAttributes(this.definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
-                <summary class="jpdb-reader-local-title">JPDB</summary>
-                <div class="jpdb-reader-meanings">${meanings}</div>
-            </details>
-        `;
-    }
-    renderLocalDefinitionSourcesSection(dictionaries, grouped, reference) {
-      const groupsByDictionary = dictionaries.map((dictionary) => ({
-        dictionary,
-        groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? [])
-      })).filter((source) => source.groups.length);
-      const dictionarySections = groupsByDictionary.map((source) => this.renderLocalDictionaryGroup(source.dictionary, source.groups, reference)).filter(Boolean);
-      if (!dictionarySections.length) return "";
-      const language = this.settings.interfaceLanguage;
-      const sourceCount = groupsByDictionary.length;
-      const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-      const status = [
-        `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
-        `${termCount} entr${termCount === 1 ? "y" : "ies"}`
-      ].join(" · ");
-      return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${this.dictionarySourceAttributes(this.definitionSourceStateKey(LOCAL_DICTIONARIES_SOURCE_ID))}>
-                <summary class="jpdb-reader-local-title">
-                    <span>${uiText(language, "dictionaries")}</span>
-                    <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
-                </summary>
-                <div class="jpdb-reader-dictionary-source-list">
-                    ${dictionarySections.join("")}
-                </div>
-            </details>
-        `;
-    }
-    renderLocalDictionaryGroup(dictionary, groups, reference) {
-      const entryCount = groups.length;
-      return `
-            <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${this.dictionarySourceAttributes(this.localDictionaryStateKey(dictionary))}>
-                <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(this.dictionaryLabel(dictionary))}">
-                    <span>${escapeHtml$1(this.dictionaryLabel(dictionary))}</span>
-                    <span class="jpdb-reader-source-status">${entryCount} entr${entryCount === 1 ? "y" : "ies"}</span>
-                </summary>
-                <div class="jpdb-reader-local-terms">
-                    ${groups.map((group) => this.renderLocalTermGroup(dictionary, group, reference, { showDictionaryTag: false })).join("")}
-                </div>
-            </details>
-        `;
-    }
-    renderLocalTermGroup(dictionary, group, reference, options = {}) {
-      const repeatsLookupHeadword = Boolean(reference) && group.expression === (reference == null ? void 0 : reference.spelling) && (!reference.reading || group.reading === reference.reading || group.reading === group.expression);
-      const tags = localTermTags(group.entries);
-      const showDictionaryTag = options.showDictionaryTag ?? true;
-      const tagItems = [
-        showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(this.dictionaryLabel(dictionary))}</span>` : "",
-        ...tags.map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
-      ].filter(Boolean);
-      const tagHtml = tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
-      const showFullGlossary = group.entries.some((entry) => this.hasAdditionalLocalDictionaryText(entry));
-      const meaningHtml = showFullGlossary ? this.renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false }) : group.meanings.length ? `<div class="jpdb-reader-local-senses">
-                ${group.meanings.slice(0, 8).map((meaning, index) => `
-                    <div class="jpdb-reader-local-sense">
-                        ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
-                        <span>${escapeHtml$1(meaning)}</span>
-                    </div>
-                `).join("")}
-            </div>` : this.renderLocalGlossaryEntries(dictionary, group.entries);
-      const frequency = group.frequency !== void 0 ? `<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.frequency))}</span>` : "";
-      return `
-            <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-                ${repeatsLookupHeadword ? "" : `<div class="jpdb-reader-local-head">
-                    <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
-                    ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : ""}
-                    ${frequency}
-                </div>`}
-                ${tagHtml}
-                ${meaningHtml}
-            </article>
-        `;
-    }
-    renderLocalGlossaryEntries(dictionary, entries, options = {}) {
-      const showIndex = options.showIndex ?? entries.length > 1;
-      const entryHtml = entries.map((entry, index) => {
-        const content = entry.glossary.slice(0, 4).map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
-        if (!content) return "";
-        return `
-                <div class="jpdb-reader-local-glossary-entry ${showIndex ? "" : "no-index"}">
-                    ${showIndex ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ""}
-                    <div>${content}</div>
-                </div>
-            `;
-      }).filter(Boolean).join("");
-      if (!entryHtml) return "";
-      return `
-            <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(dictionary)}">
-                ${entryHtml}
-            </div>
-        `;
-    }
-    hasAdditionalLocalDictionaryText(entry) {
-      const summary = summarizeLearnerGlossary(entry);
-      return entry.glossary.some((item) => {
-        if (hasRichStructuredGlossary(item)) return true;
-        const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
-        if (!text2 || text2 === summary) return false;
-        return HAS_JAPANESE.test(text2);
-      });
-    }
-    renderKanjiDefinitions(entries) {
-      if (!entries.length) return "";
-      return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${this.dictionarySourceAttributes(this.kanjiSourceStateKey(KANJI_DICTIONARIES_SOURCE_ID))}>
-                <summary class="jpdb-reader-local-title">Kanji dictionaries</summary>
-                ${entries.map((entry) => `
-                    <div class="jpdb-reader-local-entry">
-                        <div class="jpdb-reader-local-head">
-                            <span class="jpdb-reader-kanji-char">${escapeHtml$1(entry.character)}</span>
-                            <span class="jpdb-reader-local-dict">${escapeHtml$1(this.dictionaryLabel(entry.dictionary))}</span>
-                        </div>
-                        <div class="jpdb-reader-kanji-readings">
-                            ${entry.onyomi.length ? `<span>On ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
-                            ${entry.kunyomi.length ? `<span>Kun ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
-                        </div>
-                        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(entry.dictionary)}">
-                            ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$1(meaning)}</div>`).join("")}
-                        </div>
-                    </div>
-                `).join("")}
-            </details>
-        `;
-    }
-    renderSimilarKanjiWordsShell(kanji, language) {
-      const sourceStateKey = this.kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
-      const help = uiText(language, this.isDictionarySourceOpen(sourceStateKey) ? "loadingSimilarWords" : "openToLoadSimilarWords");
-      return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words ${this.dictionarySourceAttributes(sourceStateKey)}>
-                <summary class="jpdb-reader-local-title">Words using ${escapeHtml$1(kanji)}</summary>
-                <div data-kanji-similar-mount>
-                    <div class="jpdb-reader-help">${help}</div>
-                </div>
-            </details>
-        `;
-    }
-    renderSimilarKanjiWordsContent(entries, jpdbVocabulary, currentCard) {
-      const words = mergeSimilarKanjiWords(entries, jpdbVocabulary, currentCard, (name) => this.dictionaryLabel(name)).slice(0, this.settings.similarKanjiWordLimit);
-      if (!words.length) return "";
-      return `
-            <div class="jpdb-reader-similar-grid">
-                ${words.map((entry) => `
-                    <button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(entry.expression)}" title="${escapeHtml$1(entry.source)}${entry.meaning ? `: ${escapeHtml$1(entry.meaning)}` : ""}">
-                        <span class="jpdb-reader-similar-word-head">
-                            <span>${escapeHtml$1(entry.expression)}</span>
-                            ${entry.frequency ? `<em>#${entry.frequency}</em>` : ""}
-                        </span>
-                        ${entry.reading && entry.reading !== entry.expression ? `<small class="jpdb-reader-similar-reading">${escapeHtml$1(entry.reading)}</small>` : ""}
-                        ${entry.meaning ? `<small class="jpdb-reader-similar-meaning">${escapeHtml$1(entry.meaning)}</small>` : ""}
-                    </button>
-                `).join("")}
-            </div>
-        `;
-    }
-    renderFrequencyPill(entry) {
-      const label = this.dictionaryLabel(entry.dictionary);
-      const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
-      return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(label)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
+      if (queued) log$1.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
     }
     dictionaryLabel(name) {
       var _a;
       return ((_a = this.settings.dictionaryPreferences.find((item) => item.name === name)) == null ? void 0 : _a.alias) || name;
-    }
-    definitionSourceStateKey(sourceId) {
-      return `definition-source:${sourceId}`;
-    }
-    localDictionaryStateKey(dictionary) {
-      return `definition-dictionary:${dictionary}`;
-    }
-    kanjiSourceStateKey(sourceId) {
-      return `kanji:${sourceId}`;
     }
     isDictionarySourceOpen(sourceStateKey, initiallyExpanded = this.settings.dictionarySourcesInitiallyExpanded) {
       return this.dictionarySourceOpenOverrides.get(sourceStateKey) ?? initiallyExpanded;
@@ -22458,7 +22702,7 @@ ${spelling}`);
         const stored2 = saveMiningContext(card.spelling, immersionContextFromElement(cleanSentence, immersionCard));
         if (stored2) {
           this.activeMiningContext = stored2;
-          log.debug("Mining context captured from Immersion Kit", { term: card.spelling, sourceTitle: stored2.sourceTitle });
+          log$1.debug("Mining context captured from Immersion Kit", { term: card.spelling, sourceTitle: stored2.sourceTitle });
         }
         return;
       }
@@ -22470,7 +22714,7 @@ ${spelling}`);
       const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
       if (stored) {
         this.activeMiningContext = stored;
-        log.debug("Mining context captured from page", { term: card.spelling, sourceKind });
+        log$1.debug("Mining context captured from page", { term: card.spelling, sourceKind });
       }
     }
     applyAnkiLookupToRenderedWords(card, ankiLookup) {
@@ -22484,100 +22728,6 @@ ${spelling}`);
         word.title = `Anki: ${ankiLookup.state}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
       });
     }
-    renderAnkiActionRow(ankiLookup) {
-      if (!this.settings.ankiEnabled) return "";
-      if (ankiLookup.primary) {
-        return `
-                <div class="jpdb-reader-row" style="--cols: 1">
-                    <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${ankiLookup.primary.noteId}">Edit in Anki</button>
-                </div>
-            `;
-      }
-      return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(this.settings.interfaceLanguage, "addToAnki")}</button></div>`;
-    }
-    renderAnkiExistingSection(ankiLookup, storedContext) {
-      const note = ankiLookup.primary;
-      if (!note) return "";
-      const decks = note.deckNames.length ? note.deckNames.join(", ") : "Anki";
-      const sentence = note.fields.Sentence || note.fields.Example || note.fields.SentenceExpression || "";
-      const meaning = note.fields.Meaning || note.fields.Definition || note.fields.Glossary || "";
-      const source = note.fields.Source || note.fields.Url || "";
-      const lastContext = storedContext ? `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml$1(contextLabel(storedContext))}</span><small>${escapeHtml$1(storedContext.sentence)}</small></div>` : "";
-      return `
-            <details class="jpdb-reader-anki-existing">
-                <summary>
-                    <span><span class="jpdb-reader-state-dot jpdb-${note.state}"></span>Already in Anki</span>
-                    <small>${escapeHtml$1(decks)} · ${escapeHtml$1(note.modelName)}</small>
-                </summary>
-                <div class="jpdb-reader-anki-card-preview">
-                    ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml$1(sentence)}</span></div>` : ""}
-                    ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml$1(meaning.slice(0, 420))}</span></div>` : ""}
-                    ${source ? `<div><strong>Source</strong><span>${escapeHtml$1(source)}</span></div>` : ""}
-                    ${lastContext}
-                </div>
-            </details>
-        `;
-    }
-    renderReviewButtons(ankiNote = null) {
-      const ankiAttrs = (ankiNote == null ? void 0 : ankiNote.primaryCardId) ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
-      if (this.settings.twoButtonReviews) {
-        return `
-                <div class="jpdb-reader-row" style="--cols: 2">
-                    <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail"${ankiAttrs}>FAIL</button>
-                    <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass"${ankiAttrs}>PASS</button>
-                </div>
-            `;
-      }
-      return `
-            <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 5">
-                <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing"${ankiAttrs}>NOTHING</button>
-                <button class="jpdb-reader-btn something" data-action="grade" data-grade="something"${ankiAttrs}>SOMETHING</button>
-                <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard"${ankiAttrs}>HARD</button>
-                <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay"${ankiAttrs}>OKAY</button>
-                <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy"${ankiAttrs}>EASY</button>
-            </div>
-        `;
-    }
-    renderStudyTools(sentence) {
-      if (!sentence || !this.settings.studyTranslationEnabled && !this.settings.studyGrammarEnabled) return "";
-      const showGrammar = this.settings.studyGrammarEnabled && detectGrammarHints(sentence).length > 0;
-      if (!this.settings.studyTranslationEnabled && !showGrammar) return "";
-      return `
-            <section class="jpdb-reader-study-tools">
-                <div class="jpdb-reader-study-actions">
-                    ${this.settings.studyTranslationEnabled ? '<button class="jpdb-reader-icon-mini" data-action="study-translate" type="button" title="Translate sentence">Translate</button>' : ""}
-                    ${showGrammar ? '<button class="jpdb-reader-icon-mini" data-action="study-grammar" type="button" title="Show grammar hints">Grammar</button>' : ""}
-                </div>
-                <div class="jpdb-reader-study-panel" data-study-panel hidden></div>
-            </section>
-        `;
-    }
-    async renderStudyToolResult(button2, action, sentence) {
-      var _a;
-      const panel = (_a = button2.closest(".jpdb-reader-study-tools")) == null ? void 0 : _a.querySelector("[data-study-panel]");
-      if (!panel || !sentence) return;
-      panel.hidden = false;
-      panel.textContent = action === "study-translate" ? "Translating..." : "Finding grammar...";
-      const done = log.time("studyTool", { action, sentenceLength: sentence.length });
-      if (action === "study-translate") {
-        try {
-          const translated = await translateJapaneseSentence(sentence);
-          setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">Meaning</div><div class="jpdb-reader-study-translation">${escapeHtml$1(translated)}</div></div>`);
-          return;
-        } finally {
-          done();
-        }
-      }
-      const hints = detectGrammarHints(sentence);
-      if (!hints.length) {
-        panel.hidden = true;
-        panel.textContent = "";
-        done();
-        return;
-      }
-      setInnerHtml(panel, renderGrammarHints(hints, sentence));
-      done();
-    }
     async handleCardAction(button2, card, sentence) {
       var _a;
       if (button2.disabled) return;
@@ -22585,13 +22735,13 @@ ${spelling}`);
       const action = button2.dataset.action;
       const anchor = ((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0;
       const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
-      const done = log.time("cardAction", { action, term: card.spelling, trigger });
+      const done = log$1.time("cardAction", { action, term: card.spelling, trigger });
       try {
         const shouldRefresh = await this.performCardAction(action, button2, card, sentence);
         if (shouldRefresh) await this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: "preserve", preservePosition: true });
-        log.info("Card action completed", { action, term: card.spelling });
+        log$1.info("Card action completed", { action, term: card.spelling });
       } catch (error) {
-        log.warn("Card action failed", { action, term: card.spelling }, error);
+        log$1.warn("Card action failed", { action, term: card.spelling }, error);
         this.toast(error instanceof Error ? error.message : "Action failed.");
       } finally {
         done();
@@ -22602,7 +22752,7 @@ ${spelling}`);
       switch (action) {
         case "study-translate":
         case "study-grammar":
-          await this.renderStudyToolResult(button2, action, sentence);
+          await renderStudyToolResult(button2, action, sentence);
           return false;
         case "study-read-sentence":
           await this.playSentenceAudio(sentence);
@@ -22674,10 +22824,10 @@ ${spelling}`);
       await this.jpdb.reviewCard(card, grade);
     }
     async addToAnki(card, sentence) {
-      const done = log.time("addToAnki", { term: card.spelling, hasSentence: Boolean(sentence) });
+      const done = log$1.time("addToAnki", { term: card.spelling, hasSentence: Boolean(sentence) });
       const existing = await this.anki.findExistingCards(card);
       if (existing.primary) {
-        log.info("Anki add skipped because note already exists", { term: card.spelling, noteId: existing.primary.noteId });
+        log$1.info("Anki add skipped because note already exists", { term: card.spelling, noteId: existing.primary.noteId });
         this.toast("Already in Anki. Use Edit in Anki instead.");
         await this.showCard(card, sentence, this.activePopoverAnchor, { autoPlay: false, trigger: this.activePopoverMode === "hover" ? "hover" : "modal", navigation: "preserve", preservePosition: true });
         done();
@@ -22698,7 +22848,7 @@ ${spelling}`);
         sourceTitle: context.sourceTitle || document.title,
         sourceUrl: context.sourceUrl || location.href
       });
-      log.info("Card sent to Anki", {
+      log$1.info("Card sent to Anki", {
         term: card.spelling,
         sourceKind: context.sourceKind,
         hasImage: Boolean(context.imageDataUrl),
@@ -22712,9 +22862,8 @@ ${spelling}`);
     async resolveMiningContext(card, sentence) {
       var _a;
       const activeContext = ((_a = this.activeMiningContext) == null ? void 0 : _a.term) === card.spelling ? this.activeMiningContext : void 0;
-      const storedImmersionContext = this.immersionContextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+      const storedImmersionContext = this.immersionContextByCardKey.get(cardKey$2(card)) ?? loadMiningContext(card.spelling);
       const anchor = this.activePopoverAnchor;
-      const mpvImageDataUrl = this.settings.ankiCaptureScreenshot && (anchor == null ? void 0 : anchor.closest(".jpdb-subtitle-player")) ? await this.subtitles.captureCurrentMpvFrame(sentence) : void 0;
       const context = await resolveMiningContext({
         term: card.spelling,
         sentence,
@@ -22726,10 +22875,10 @@ ${spelling}`);
           hasVideo: Boolean(anchor == null ? void 0 : anchor.closest(".jpdb-subtitle-player")) || Boolean(document.querySelector("video"))
         }),
         imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : void 0,
-        videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() ?? mpvImageDataUrl : void 0,
+        videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : void 0,
         fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs)
       });
-      log.debug("Mining context resolved", {
+      log$1.debug("Mining context resolved", {
         term: card.spelling,
         sourceKind: context.sourceKind,
         hasImage: Boolean(context.imageDataUrl),
@@ -22741,11 +22890,11 @@ ${spelling}`);
     async toggleDeck(card, state, deck) {
       if (normalizeCardStates(card.cardState).includes(state)) {
         await this.jpdb.removeFromDeck(deck, card);
-        log.info("Card removed from deck", { term: card.spelling, deck, state });
+        log$1.info("Card removed from deck", { term: card.spelling, deck, state });
         this.toast("Removed from deck.");
       } else {
         await this.jpdb.addToDeck(deck, card);
-        log.info("Card added to deck", { term: card.spelling, deck, state });
+        log$1.info("Card added to deck", { term: card.spelling, deck, state });
         this.toast("Added to deck.");
       }
     }
@@ -22755,9 +22904,9 @@ ${spelling}`);
         this.stopImmersionKitAudio();
         const played = await this.audio.play(card, { isCurrent });
         if (!played) return;
-        log.debug("Term audio playback started", { term: card.spelling });
+        log$1.debug("Term audio playback started", { term: card.spelling });
       } catch (error) {
-        log.warn("Term audio playback failed", { term: card.spelling }, error);
+        log$1.warn("Term audio playback failed", { term: card.spelling }, error);
         this.toast(error instanceof Error ? error.message : "Audio playback failed.");
       }
     }
@@ -22770,442 +22919,17 @@ ${spelling}`);
       )) == null ? void 0 : _a.voice.trim()) ?? "";
       this.stopImmersionKitAudio();
       await this.audio.playJapaneseText(text2, voice);
-      log.debug("Sentence text-to-speech playback started", { sentenceLength: text2.length, voice: voice || "auto" });
+      log$1.debug("Sentence text-to-speech playback started", { sentenceLength: text2.length, voice: voice || "auto" });
     }
     showSettings(panel) {
-      var _a, _b, _c, _d, _e, _f, _g;
-      log.info("Opening settings", { panel: panel ?? "default" });
-      const form = document.createElement("form");
-      form.className = "jpdb-reader-settings";
-      form.dataset.jpdbReaderRoot = "true";
-      form.setAttribute("role", "dialog");
-      form.setAttribute("aria-modal", "true");
-      form.setAttribute("aria-label", SETTINGS_TITLE);
-      form.tabIndex = -1;
-      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL));
-      localizeSettingsForm(form, this.settings.interfaceLanguage);
-      if (panel) activateSettingsPanel(form, panel);
-      const backdrop = this.createBackdrop();
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const data = new FormData(form);
-        const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
-        this.settings = readFormSettings(data, this.settings);
-        if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
-          this.dictionarySourceOpenOverrides.clear();
-        }
-        void saveSettings(this.settings).then(() => {
-          log.info("Settings saved", loggingSettingsSummary(this.settings));
-          this.jpdb.clear();
-          this.applyTheme();
-          void this.refreshDictionaryStyles();
-          this.installFab();
-          this.subtitles.refresh();
-          this.ocr.refresh();
-          this.youtube.refresh();
-          this.jpdbExtensions.refresh();
-          this.settingsPreviewOriginalAccent = void 0;
-          this.settingsPreviewOriginalLanguage = void 0;
-          this.dismiss();
-          this.scheduleDictionaryRescan();
-          if (this.newTab.isCurrentPage()) void this.newTab.renderPage();
-          this.toast("Settings saved.");
-        }).catch((error) => {
-          log.error("Settings save failed", error);
-          this.toast(error instanceof Error ? error.message : "Settings save failed.");
-        });
-      });
-      (_a = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _a.addEventListener("click", () => this.dismiss());
-      (_b = form.querySelector('input[name="accentColor"]')) == null ? void 0 : _b.addEventListener("input", (event) => {
-        this.applyAccentColor(event.currentTarget.value);
-      });
-      form.querySelectorAll('input[name^="wordColor"]').forEach((input2) => {
-        input2.addEventListener("input", () => this.applyWordColors(readFormSettings(new FormData(form), this.settings)));
-      });
-      syncSubtitlePreview(form);
-      form.addEventListener("input", (event) => {
-        var _a2;
-        const name = ((_a2 = event.target) == null ? void 0 : _a2.name) ?? "";
-        if (name.startsWith("subtitle")) syncSubtitlePreview(form);
-      });
-      form.addEventListener("change", (event) => {
-        var _a2;
-        const name = ((_a2 = event.target) == null ? void 0 : _a2.name) ?? "";
-        if (name.startsWith("subtitle")) syncSubtitlePreview(form);
-      });
-      (_c = form.querySelector('select[name="interfaceLanguage"]')) == null ? void 0 : _c.addEventListener("change", (event) => {
-        const value = event.currentTarget.value;
-        if (value === "auto" || value === "en" || value === "ja") {
-          this.settings.interfaceLanguage = value;
-          localizeSettingsForm(form, value);
-          syncSubtitlePreview(form);
-          this.installFab();
-        }
-      });
-      (_d = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _d.addEventListener("change", (event) => {
-        const value = event.currentTarget.value;
-        form.querySelectorAll("[data-local-ocr]").forEach((node) => {
-          node.hidden = value !== "local-service";
-        });
-        form.querySelectorAll("[data-cloud-ocr]").forEach((node) => {
-          node.hidden = value !== "cloud-vision";
-        });
-      });
-      syncBrowserTtsVoiceOptions(form);
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
-      }
-      (_e = form.querySelector('input[name="enableReviews"]')) == null ? void 0 : _e.addEventListener("change", () => syncReviewSettingsVisibility(form));
-      (_f = form.querySelector('select[name="twoButtonReviews"]')) == null ? void 0 : _f.addEventListener("change", () => syncReviewSettingsVisibility(form));
-      (_g = form.querySelector('input[name="apiKey"]')) == null ? void 0 : _g.addEventListener("change", () => void this.refreshDeckControls(form));
-      form.addEventListener("change", (event) => {
-        const sourceSelect = event.target.closest('select[name^="audioSources."][name$=".type"]');
-        if (sourceSelect) {
-          syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value);
-          syncBrowserTtsVoiceOptions(form);
-        }
-        const templateSelect = event.target.closest('select[name="ankiTemplateMode"]');
-        if (templateSelect) {
-          const preview = form.querySelector("[data-anki-template-preview]");
-          if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
-        }
-      });
-      installShortcutCapture(form);
-      installSourceRowDrag(form);
-      form.addEventListener("click", (event) => {
-        const control = event.target.closest("[data-action]");
-        const action = control == null ? void 0 : control.dataset.action;
-        if (!action || action === "cancel") return;
-        event.preventDefault();
-        event.stopPropagation();
-        void this.handleSettingsAction(form, action, control);
-      });
+      this.settingsDialog.open(panel);
+    }
+    mountSettingsDialog(backdrop, form) {
       this.dismiss();
-      this.settingsPreviewOriginalAccent = this.settings.accentColor;
-      this.settingsPreviewOriginalLanguage = this.settings.interfaceLanguage;
       document.body.append(backdrop, form);
       this.activeBackdrop = backdrop;
       this.activePopover = form;
       form.focus();
-      void this.refreshDictionaryStatus(form);
-      void this.refreshDeckControls(form);
-    }
-    async refreshDeckControls(form) {
-      var _a;
-      const container = form.querySelector("[data-jpdb-decks]");
-      if (!container) return;
-      const apiKey = ((_a = form.querySelector('input[name="apiKey"]')) == null ? void 0 : _a.value.trim()) ?? this.settings.apiKey.trim();
-      if (!apiKey) {
-        log.debug("Deck controls rendered without API key");
-        setInnerHtml(container, renderDeckControls(this.settings, [], false));
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        return;
-      }
-      const originalKey = this.settings.apiKey;
-      this.settings.apiKey = apiKey;
-      try {
-        const decks = await this.jpdb.listDecks();
-        log.debug("Deck controls loaded", { decks: decks.length });
-        setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true));
-      } catch (error) {
-        log.warn("Deck controls failed to load", error);
-        setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true));
-      } finally {
-        this.settings.apiKey = originalKey;
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      }
-    }
-    async refreshDictionaryStatus(form) {
-      const status = form.querySelector("[data-dictionary-status]");
-      const priorities = form.querySelector(".jpdb-reader-dictionary-priorities");
-      const recommended = form.querySelector("[data-recommended-dictionaries]");
-      try {
-        const summary = await this.dictionaries.summary();
-        log.debug("Dictionary status loaded", summary);
-        const names = summary.dictionaries.map((item) => item.title);
-        const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
-        const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
-        if (merged.length !== this.settings.dictionaryPreferences.length) {
-          this.settings.dictionaryPreferences = merged;
-          await saveSettings(this.settings);
-        }
-        await this.refreshDictionaryStyles();
-        if (status) {
-          status.textContent = summary.dictionaries.length ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.` : "No local dictionaries imported yet.";
-        }
-        if (priorities) setInnerHtml(priorities, renderDictionarySourceRows(this.settings));
-        if (recommended) setInnerHtml(recommended, renderRecommendedDictionaries(summary.dictionaries));
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      } catch (error) {
-        log.warn("Dictionary status unavailable", error);
-        if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
-      }
-    }
-    async ensureStarterDictionaryInstalled(onProgress, force = false) {
-      if (this.starterDictionaryDownload) return this.starterDictionaryDownload;
-      this.starterDictionaryDownload = this.downloadStarterDictionaries(onProgress, force).finally(() => {
-        this.starterDictionaryDownload = void 0;
-      });
-      return this.starterDictionaryDownload;
-    }
-    async downloadStarterDictionaries(onProgress, force = false) {
-      const summary = await this.dictionaries.summary();
-      const missing = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => STARTER_DICTIONARY_IDS.includes(dictionary.id)).filter((dictionary) => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
-      if (!missing.length || !force && summary.terms > 0) return false;
-      let importedEntries = 0;
-      for (const [index, dictionary] of missing.entries()) {
-        onProgress == null ? void 0 : onProgress(`Downloading ${dictionary.name} (${index + 1}/${missing.length})...`);
-        log.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
-        const imported = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => onProgress == null ? void 0 : onProgress(message));
-        importedEntries += imported.entries;
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries, imported.dictionaryTypes ?? {});
-        this.settings.localDictionariesEnabled = true;
-        await saveSettings(this.settings);
-        await this.refreshDictionaryStyles();
-        this.scheduleDictionaryRescan();
-      }
-      onProgress == null ? void 0 : onProgress(`JMdict ready: ${importedEntries.toLocaleString()} records imported.`);
-      log.info("Starter dictionaries downloaded", { dictionaries: missing.length, importedEntries });
-      return true;
-    }
-    async handleSettingsAction(form, action, control) {
-      const status = form.querySelector("[data-import-status]");
-      const setStatus = (message) => {
-        if (status) status.textContent = message;
-      };
-      try {
-        if (this.handleSettingsEditorAction(form, action, control)) return;
-        if (await this.handleSettingsAudioAction(form, action, control)) return;
-        if (await this.handleSettingsDictionaryAction(form, action, control, setStatus)) return;
-        if (await this.handleSettingsImportExportAction(form, action, setStatus)) return;
-        if (await this.handleSettingsConnectionAction(form, action, control)) return;
-        await this.handleSettingsSupportAction(action, setStatus);
-      } catch (error) {
-        log.warn("Settings action failed", { action }, error);
-        if (action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary") control == null ? void 0 : control.removeAttribute("disabled");
-        setStatus(error instanceof Error ? error.message : "Import failed.");
-      }
-    }
-    handleSettingsEditorAction(form, action, control) {
-      if (action === "settings-panel") {
-        log.debug("Settings panel selected", { panel: (control == null ? void 0 : control.dataset.panel) ?? "basics" });
-        activateSettingsPanel(form, (control == null ? void 0 : control.dataset.panel) ?? "basics");
-        return true;
-      }
-      if (action === "dictionary-source-up" || action === "dictionary-source-down") {
-        log.debug("Dictionary source order changed", { action });
-        updateSourceRowEditor(form, action, control);
-        return true;
-      }
-      if (action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down") {
-        log.debug("Audio source editor changed", { action });
-        updateAudioSourceEditor(form, action, control);
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        syncBrowserTtsVoiceOptions(form);
-        return true;
-      }
-      if (action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down") {
-        log.debug("Lookup link editor changed", { action });
-        updateDictionaryLookupLinkEditor(form, action, control);
-        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        return true;
-      }
-      return false;
-    }
-    async handleSettingsAudioAction(form, action, control) {
-      if (action !== "preview-audio") return false;
-      const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
-      const previous = this.settings;
-      const previewSettings = readFormSettings(new FormData(form), this.settings);
-      const row = button2 == null ? void 0 : button2.closest("[data-audio-source-row]");
-      if (row) {
-        const rowIndex = Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
-        const source = previewSettings.audioSources[rowIndex];
-        if (source) {
-          previewSettings.audioSources = [{ ...source, enabled: true }];
-          previewSettings.audioEnableDefaultSources = false;
-        }
-      }
-      this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
-      button2 == null ? void 0 : button2.setAttribute("disabled", "true");
-      try {
-        this.toast("Playing よむ...");
-        await this.audio.play(createAudioPreviewCard());
-        log.info("Audio settings preview started");
-      } catch (error) {
-        log.warn("Audio settings preview failed", error);
-        this.toast(error instanceof Error ? error.message : "Audio preview failed.");
-      } finally {
-        this.settings = previous;
-        button2 == null ? void 0 : button2.removeAttribute("disabled");
-      }
-      return true;
-    }
-    async handleSettingsDictionaryAction(form, action, control, setStatus) {
-      if (action === "delete-yomitan-dictionary") {
-        await this.deleteDictionaryFromSettings(form, control, setStatus);
-        return true;
-      }
-      if (action === "import-yomitan-dictionary") {
-        await this.importDictionaryFromSettings(form, setStatus);
-        return true;
-      }
-      if (action === "download-recommended-dictionary") {
-        await this.downloadRecommendedDictionaryFromSettings(form, control, setStatus);
-        return true;
-      }
-      if (action === "export-yomitan-dictionary") {
-        const blob = await this.dictionaries.exportJson();
-        downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
-        setStatus("Dictionaries exported.");
-        log.info("Dictionaries exported");
-        return true;
-      }
-      return false;
-    }
-    async handleSettingsImportExportAction(form, action, setStatus) {
-      if (action === "import-yomitan-settings") {
-        await this.importReaderSettingsFromFile(form, setStatus);
-        return true;
-      }
-      if (action === "export-reader-settings") {
-        downloadBlob(new Blob([JSON.stringify({
-          formatName: "yomu-reader-settings",
-          formatVersion: 1,
-          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          settings: this.settings
-        }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
-        setStatus("Settings exported.");
-        log.info("Settings exported");
-        return true;
-      }
-      return false;
-    }
-    async handleSettingsConnectionAction(form, action, control) {
-      if (action !== "test-anki") return false;
-      const ankiStatus = form.querySelector("[data-anki-status]");
-      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const button2 = control instanceof HTMLButtonElement ? control : control == null ? void 0 : control.closest("button");
-      const setAnkiStatus = (message, tone) => {
-        if (!ankiStatus) return;
-        ankiStatus.textContent = message;
-        ankiStatus.dataset.statusTone = tone;
-      };
-      const previous = this.settings;
-      this.settings = readFormSettings(new FormData(form), this.settings);
-      button2 == null ? void 0 : button2.setAttribute("disabled", "true");
-      setAnkiStatus(uiText(language, "ankiTesting"), "pending");
-      try {
-        const connected = await this.anki.isConnected();
-        if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
-        await this.anki.ensureDeckAndModel();
-        const readyMessage = resolveUiLanguage(language) === "ja" ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。` : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
-        setAnkiStatus(readyMessage, "success");
-        log.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
-        log.warn("Anki settings test failed", error);
-        setAnkiStatus(message, "error");
-        this.toast(message);
-      } finally {
-        this.settings = previous;
-        button2 == null ? void 0 : button2.removeAttribute("disabled");
-      }
-      return true;
-    }
-    async handleSettingsSupportAction(action, setStatus) {
-      if (action === "copy-discord") {
-        await copyText(SUPPORT_LINKS.discordUsername);
-        log.debug("Support Discord username copied");
-        this.toast(`Copied Discord username: ${SUPPORT_LINKS.discordUsername}`);
-        return true;
-      }
-      if (action === "copy-newtab-url") {
-        await copyText(NEW_TAB_PAGE_URL);
-        log.debug("New tab URL copied");
-        this.toast("New tab address copied.");
-        return true;
-      }
-      setStatus("");
-      return false;
-    }
-    async deleteDictionaryFromSettings(form, control, setStatus) {
-      const dictionary = control == null ? void 0 : control.dataset.dictionaryName;
-      if (!dictionary) throw new Error("Dictionary not found.");
-      if (!window.confirm(`Remove "${dictionary}" and all of its imported entries?`)) return;
-      control == null ? void 0 : control.setAttribute("disabled", "true");
-      setStatus(`Removing ${dictionary}...`);
-      await this.dictionaries.deleteDictionary(dictionary);
-      this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-      await saveSettings(this.settings);
-      await this.refreshDictionaryStyles();
-      this.scheduleDictionaryRescan();
-      await this.refreshDictionaryStatus(form);
-      setStatus(`Removed ${dictionary}.`);
-      log.info("Dictionary removed", { dictionary });
-    }
-    async importDictionaryFromSettings(form, setStatus) {
-      const file = await pickFile(form, "dictionary");
-      if (!file) return;
-      const summary = await this.dictionaries.importFile(file, (message) => setStatus(message));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
-      await saveSettings(this.settings);
-      await this.refreshDictionaryStyles();
-      this.scheduleDictionaryRescan();
-      setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
-      log.info("Dictionary file imported", summary);
-      await this.refreshDictionaryStatus(form);
-    }
-    async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
-      const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
-      const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : void 0;
-      if (!dictionary) throw new Error("Recommended dictionary not found.");
-      control == null ? void 0 : control.setAttribute("disabled", "true");
-      setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
-      log.info("Downloading selected dictionary", { dictionary: dictionary.name });
-      const summary = await this.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
-      await saveSettings(this.settings);
-      await this.refreshDictionaryStyles();
-      this.scheduleDictionaryRescan();
-      setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
-      await this.refreshDictionaryStatus(form);
-      log.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
-    }
-    async importReaderSettingsFromFile(form, setStatus) {
-      const file = await pickFile(form, "settings");
-      if (!file) return;
-      const json = JSON.parse(await file.text());
-      const readerSettings = getReaderSettingsExport(json);
-      if (readerSettings) {
-        this.settings = { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } };
-      } else {
-        const imported = parseYomitanSettingsExport(json);
-        this.settings = {
-          ...this.settings,
-          ...imported.settings,
-          shortcuts: {
-            ...this.settings.shortcuts,
-            ...imported.settings.shortcuts ?? {}
-          }
-        };
-      }
-      const importedSummary = await this.dictionaries.summary().catch(() => ({ dictionaries: [] }));
-      const importedNames = importedSummary.dictionaries.map((item) => item.title);
-      const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames, importedTypes);
-      await saveSettings(this.settings);
-      setStatus("Settings imported.");
-      this.applyTheme();
-      void this.refreshDictionaryStyles();
-      this.scheduleDictionaryRescan();
-      this.installFab();
-      this.subtitles.refresh();
-      this.youtube.refresh();
-      this.jpdbExtensions.refresh();
-      this.settingsPreviewOriginalAccent = void 0;
-      log.info("Settings imported", loggingSettingsSummary(this.settings));
-      this.showSettings();
     }
     createPopover() {
       const popover = document.createElement("div");
@@ -23267,7 +22991,7 @@ ${spelling}`);
         this.installHoverPopoverLifecycle(popover);
         this.startHoverWatch();
       } else popover.focus();
-      log.debug("Popover mounted", {
+      log$1.debug("Popover mounted", {
         mode,
         sheet: popover.classList.contains("jpdb-reader-sheet"),
         hasAnchor: Boolean(resolvedAnchor),
@@ -23335,7 +23059,7 @@ ${spelling}`);
       const sourceStateKey = details.dataset.sourceStateKey;
       if (!sourceStateKey) return;
       this.dictionarySourceOpenOverrides.set(sourceStateKey, details.open);
-      log.debug("Dictionary source open state remembered", { sourceStateKey, open: details.open });
+      log$1.debug("Dictionary source open state remembered", { sourceStateKey, open: details.open });
       this.repositionActivePopover();
     }
     installHoverPopoverLifecycle(popover) {
@@ -23501,14 +23225,14 @@ ${spelling}`);
       this.activeHoverLookupKey = "";
       this.activePointerTextLookup = void 0;
       if (!options.preserveNavigation) this.clearWordNavigation();
-      if (hadDialog) log.debug("Reader dialog dismissed", { suppressHoverTarget: Boolean(options.suppressHoverTarget) });
+      if (hadDialog) log$1.debug("Reader dialog dismissed", { suppressHoverTarget: Boolean(options.suppressHoverTarget) });
       if (hadSettingsDialog && this.dictionaryRescanPending) {
         this.dictionaryRescanPending = false;
         window.setTimeout(() => this.scheduleDictionaryRescan(), 80);
       }
     }
     toast(message) {
-      log.debug("Toast shown", { message });
+      log$1.debug("Toast shown", { message });
       const toast = document.createElement("div");
       toast.className = "jpdb-reader-toast";
       toast.dataset.jpdbReaderRoot = "true";
@@ -23519,54 +23243,7 @@ ${spelling}`);
       window.setTimeout(() => toast.remove(), 3200);
     }
   }
-  function graphEllipseOffset(dx, dy, rx, ry) {
-    const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
-    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
-  }
-  function formatGraphCoordinate(value) {
-    return Number(value.toFixed(2)).toString();
-  }
-  function graphEdgeCurveControl(x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bend = Math.min(4.6, Math.max(1.8, distance * 0.08));
-    const sign = y1 <= y2 ? 1 : -1;
-    return {
-      x: (x1 + x2) / 2 - dy / distance * bend * sign,
-      y: (y1 + y2) / 2 + dx / distance * bend * sign
-    };
-  }
-  function graphQuadraticPoint(x1, y1, cx, cy, x2, y2, t) {
-    const mt = 1 - t;
-    return {
-      x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
-      y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2
-    };
-  }
-  function mutationTouchesAsbPlayer(mutation) {
-    const nodes = [
-      mutation.target,
-      ...Array.from(mutation.addedNodes)
-    ];
-    return nodes.some((node) => {
-      var _a;
-      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
-    });
-  }
-  function mutationInsideReaderRoot(mutation) {
-    const nodes = [
-      mutation.target,
-      ...Array.from(mutation.addedNodes),
-      ...Array.from(mutation.removedNodes)
-    ];
-    return nodes.every((node) => {
-      var _a;
-      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean((_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, "[data-jpdb-reader-root]"));
-    });
-  }
+  const log = Logger.scope("ReaderBoot");
   const RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
   function bootReaderApp() {
     var _a, _b;
@@ -23650,15 +23327,17 @@ ${spelling}`);
       log.info("Yielding to another Yomu runtime", { current: kind, next: nextKind });
       app.destroy();
       releaseYomuRuntime(ownerId);
-      const bootWindow = window;
-      if (bootWindow.__yomuRuntimeOwnerId === ownerId) {
-        bootWindow.__yomuReaderAppInitialized = false;
-        delete bootWindow.__yomuRuntimeOwnerId;
-        delete bootWindow.__yomuRuntimeKind;
-        if (bootWindow.__yomuDemoApp === app) delete bootWindow.__yomuDemoApp;
-        if (bootWindow.__yomuRealApp === app) delete bootWindow.__yomuRealApp;
-      }
+      clearBootWindowOwner(app, ownerId);
     });
+  }
+  function clearBootWindowOwner(app, ownerId) {
+    const bootWindow = window;
+    if (bootWindow.__yomuRuntimeOwnerId !== ownerId) return;
+    bootWindow.__yomuReaderAppInitialized = false;
+    delete bootWindow.__yomuRuntimeOwnerId;
+    delete bootWindow.__yomuRuntimeKind;
+    if (bootWindow.__yomuDemoApp === app) delete bootWindow.__yomuDemoApp;
+    if (bootWindow.__yomuRealApp === app) delete bootWindow.__yomuRealApp;
   }
   function releaseYomuRuntime(ownerId) {
     const marker = document.getElementById(RUNTIME_MARKER_ID);

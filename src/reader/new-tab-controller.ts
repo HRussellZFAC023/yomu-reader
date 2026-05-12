@@ -5,14 +5,9 @@ import { el, fragment, replaceChildrenWith } from './dom-builder';
 import type { JpdbClient } from './jpdb';
 import { Logger } from './logger';
 import {
-    NEW_TAB_FILTERS,
-    NEW_TAB_SORT_OPTIONS,
-    NEW_TAB_SOURCE_OPTIONS,
     buildNewTabPalette,
     cardKey,
-    cardStateLabel,
     createNewTabStateChannel,
-    filterNewTabCards,
     firstCardMeaning,
     hasSavedNewTabUiState,
     isYomuNewTabUrl,
@@ -20,8 +15,6 @@ import {
     loadNewTabUiState,
     saveNewTabUiState,
     shuffleCards,
-    sortNewTabCards,
-    uniqueStrings,
     type NewTabUiState,
 } from './new-tab';
 import type { ReaderParser } from './reader-parser';
@@ -43,29 +36,38 @@ interface NewTabControllerDependencies {
 interface NewTabLoadResult {
     cards: JPDBCard[];
     sourceLabel: string;
-    sourceNotes: string[];
+}
+
+interface NewTabStudySlots {
+    prompt: HTMLElement | null;
+    answer: HTMLElement | null;
+    meaning: HTMLElement | null;
+    count: HTMLElement | null;
+    status: HTMLElement | null;
+    reveal: HTMLButtonElement | null;
 }
 
 const log = Logger.scope('NewTab');
-const SESSION_CARD_KEY = 'jpdb-reader-newtab-current-card';
+const SESSION_WORD_KEY = 'jpdb-reader-newtab-current-word';
 const JPDB_ALL_DECKS = 'all';
 const JPDB_DECK_SAMPLE_LIMIT = 6;
-const JPDB_CARDS_PER_DECK = 36;
-const NEW_TAB_CARD_LIMIT = 180;
+const JPDB_WORDS_PER_DECK = 36;
+const NEW_TAB_WORD_LIMIT = 180;
 
 export class NewTabController {
-    private allCards: JPDBCard[] = [];
-    private visibleCards: JPDBCard[] = [];
+    private allWords: JPDBCard[] = [];
+    private visibleWords: JPDBCard[] = [];
     private index = 0;
     private sourceLabel = '';
-    private sourceNotes: string[] = [];
-    private query = '';
     private state: NewTabUiState;
     private readonly stateChannel: ReturnType<typeof createNewTabStateChannel>;
 
     constructor(private readonly dependencies: NewTabControllerDependencies) {
         const saved = loadNewTabUiState();
-        this.state = { ...saved, source: hasSavedNewTabUiState() ? saved.source : dependencies.getSettings().newTabSource };
+        this.state = {
+            ...saved,
+            source: hasSavedNewTabUiState() ? saved.source : dependencies.getSettings().newTabSource,
+        };
         this.stateChannel = createNewTabStateChannel(state => this.applyExternalState(state));
     }
 
@@ -96,18 +98,15 @@ export class NewTabController {
             root.dataset.newtabBound = 'true';
         }
 
-        const hasReaderMarkup = !!root.querySelector('[data-newtab-card]') && root.dataset.standaloneNewtab !== 'true';
-        if (isNew || !hasReaderMarkup) {
+        const hasStudyMarkup = !!root.querySelector('[data-newtab-study]') && root.dataset.standaloneNewtab !== 'true';
+        if (isNew || !hasStudyMarkup) {
             delete root.dataset.standaloneNewtab;
             root.replaceChildren(this.renderEnabledContent());
-            this.syncControls(root);
+            this.syncMode(root);
         }
 
-        if (isNew || !hasReaderMarkup || this.allCards.length === 0) {
-            await this.loadCardsInto(root, true);
-        } else {
-            this.applyCards(root, true);
-        }
+        if (isNew || !hasStudyMarkup || this.allWords.length === 0) await this.loadWordsInto(root, true);
+        else this.applyWords(root, true);
     }
 
     destroy(): void {
@@ -118,102 +117,33 @@ export class NewTabController {
         return fragment(
             el('div', { class: 'jpdb-reader-newtab-shell' },
                 el('header', { class: 'jpdb-reader-newtab-topbar' },
-                    el('a', { class: 'jpdb-reader-newtab-brand', href: SUPPORT_LINKS.docs, 'aria-label': `Open ${APP_NAME} home page` },
-                        el('span', { class: 'jpdb-reader-newtab-brand-mark' }, APP_PUCK),
-                        el('span', { class: 'jpdb-reader-newtab-brand-text' },
-                            el('strong', null, APP_NAME),
-                            el('span', null, 'new tab'),
-                        ),
+                    el('a', { class: 'jpdb-reader-newtab-brand', href: SUPPORT_LINKS.docs, 'aria-label': `Open ${APP_NAME}` }, APP_PUCK),
+                    el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': 'Study mode' },
+                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, 'Word'),
+                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, 'Kanji'),
                     ),
-                    el('div', { class: 'jpdb-reader-newtab-health', dataset: { newtabSummary: true } }, 'Loading study sources...'),
-                    el('button', { class: 'jpdb-reader-newtab-icon-button', type: 'button', dataset: { newtabAction: 'settings' } }, 'Settings'),
+                    el('button', {
+                        class: 'jpdb-reader-newtab-overflow',
+                        type: 'button',
+                        dataset: { newtabAction: 'settings' },
+                        'aria-label': `Open ${APP_NAME} settings`,
+                    }, '...'),
                 ),
-                el('div', { class: 'jpdb-reader-newtab-workspace' },
-                    this.renderStage(),
-                    this.renderSidePanel(),
+                el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
+                    el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true } }, '0 / 0'),
+                    el('div', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, 'よむ'),
+                    el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
+                        el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
+                        el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
+                    ),
+                    el('div', { class: 'jpdb-reader-newtab-status', dataset: { newtabStatus: true } }, 'Loading...'),
                 ),
-            ),
-            el('button', {
-                class: 'jpdb-reader-newtab-puck',
-                type: 'button',
-                dataset: { newtabAction: 'settings' },
-                'aria-label': `Open ${APP_NAME} settings`,
-            }, APP_PUCK),
-        );
-    }
-
-    private renderStage(): HTMLElement {
-        return el('section', { class: 'jpdb-reader-newtab-stage', 'aria-live': 'polite' },
-            el('div', { class: 'jpdb-reader-newtab-card', dataset: { newtabCard: true }, tabIndex: 0 },
-                el('div', { class: 'jpdb-reader-newtab-card-head' },
-                    el('span', { dataset: { newtabCardKicker: true } }, 'Word'),
-                    el('span', { dataset: { newtabCardCount: true } }, '0 / 0'),
-                ),
-                el('div', { class: 'jpdb-reader-newtab-visual', dataset: { newtabVisual: true }, 'aria-hidden': 'true' }, '読'),
-                el('div', { class: 'jpdb-reader-newtab-word', dataset: { newtabExpression: true }, lang: 'ja' }, '読'),
-                el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
-                    el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
-                    el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
-                ),
-                el('div', { class: 'jpdb-reader-newtab-concealed', dataset: { newtabConcealed: true } }, 'Recall it, then reveal.'),
-                el('div', { class: 'jpdb-reader-newtab-meta', dataset: { newtabMeta: true } }),
-            ),
-            el('div', { class: 'jpdb-reader-newtab-controls' },
-                el('button', { class: 'jpdb-reader-newtab-button', type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
-                el('button', { class: 'jpdb-reader-newtab-button primary', type: 'button', dataset: { newtabAction: 'next' } }, 'Next'),
-                el('div', { class: 'jpdb-reader-newtab-status', dataset: { newtabStatus: true } }, 'Loading words...'),
-            ),
-        );
-    }
-
-    private renderSidePanel(): HTMLElement {
-        return el('aside', { class: 'jpdb-reader-newtab-side', 'aria-label': 'Study controls' },
-            el('section', { class: 'jpdb-reader-newtab-panel' },
-                el('div', { class: 'jpdb-reader-newtab-panel-head' },
-                    el('span', null, 'Mode'),
-                    el('button', { type: 'button', dataset: { newtabAction: 'reload' } }, 'Refresh sources'),
-                ),
-                el('div', { class: 'jpdb-reader-newtab-segmented', role: 'group', 'aria-label': 'Study mode' },
-                    el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, 'Word'),
-                    el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, 'Kanji'),
-                ),
-                el('div', { class: 'jpdb-reader-newtab-form-grid' },
-                    el('label', null, 'Source', this.renderSelect('newtabSource', NEW_TAB_SOURCE_OPTIONS)),
-                    el('label', null, 'Sort', this.renderSelect('newtabSort', NEW_TAB_SORT_OPTIONS)),
-                ),
-                el('label', { class: 'jpdb-reader-newtab-search' }, 'Search',
-                    el('input', {
-                        dataset: { newtabSearch: true },
-                        type: 'search',
-                        'aria-label': 'Search words',
-                        placeholder: 'Search spelling, reading, or meaning...',
-                        autocomplete: 'off',
-                    }),
+                el('nav', { class: 'jpdb-reader-newtab-controls', 'aria-label': 'Study navigation' },
+                    el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': 'Previous word' }, 'Previous'),
+                    el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
+                    el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': 'Next word' }, 'Next'),
                 ),
             ),
-            el('section', { class: 'jpdb-reader-newtab-panel' },
-                el('div', { class: 'jpdb-reader-newtab-panel-head' },
-                    el('span', null, 'Show only'),
-                    el('span', { dataset: { newtabFilterCount: true } }, '0 words'),
-                ),
-                el('div', { class: 'jpdb-reader-newtab-filter-grid', dataset: { newtabFilters: true } },
-                    NEW_TAB_FILTERS.map(filter => el('button', { type: 'button', dataset: { newtabAction: 'filter', filter: filter.value } }, filter.label)),
-                ),
-            ),
-            el('section', { class: 'jpdb-reader-newtab-panel jpdb-reader-newtab-queue-panel' },
-                el('div', { class: 'jpdb-reader-newtab-panel-head' },
-                    el('span', null, '2D review tray'),
-                    el('span', { dataset: { newtabTrayNote: true } }, 'Pick any word'),
-                ),
-                el('div', { class: 'jpdb-reader-newtab-list', dataset: { newtabList: true } }),
-            ),
-            el('section', { class: 'jpdb-reader-newtab-source-note', dataset: { newtabSourceNote: true } }),
-        );
-    }
-
-    private renderSelect(datasetName: string, options: readonly { value: string; label: string }[]): HTMLSelectElement {
-        return el('select', { dataset: { [datasetName]: true } },
-            options.map(option => el('option', { value: option.value }, option.label)),
         );
     }
 
@@ -226,72 +156,32 @@ export class NewTabController {
                 this.dependencies.showSettings('basics');
                 return;
             }
-            if (action === 'reload') {
-                event.preventDefault();
-                void this.loadCardsInto(root, false);
-                return;
-            }
             if (action === 'next') {
                 event.preventDefault();
-                this.showNextCard();
+                this.showNextWord();
+                return;
+            }
+            if (action === 'previous') {
+                event.preventDefault();
+                this.showPreviousWord();
                 return;
             }
             if (action === 'reveal') {
                 event.preventDefault();
-                this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveCard: true });
+                this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
                 return;
             }
             if (action === 'mode') {
                 event.preventDefault();
                 const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode === 'kanji' ? 'kanji' : 'word';
-                this.setState({ mode, revealAnswer: false }, root, { preserveCard: false });
+                this.setState({ mode, revealAnswer: false }, root, { preserveWord: false });
                 return;
             }
-            if (action === 'filter') {
+            const study = target.closest<HTMLElement>('[data-newtab-study]');
+            if (study && !target.closest('.jpdb-reader-word')) {
                 event.preventDefault();
-                const filter = target.closest<HTMLElement>('[data-filter]')?.dataset.filter;
-                if (NEW_TAB_FILTERS.some(item => item.value === filter)) {
-                    this.setState({ filter: filter as NewTabUiState['filter'], revealAnswer: false }, root, { preserveCard: false });
-                }
-                return;
+                if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveWord: true });
             }
-            const listItem = target.closest<HTMLElement>('[data-newtab-card-key]');
-            if (listItem) {
-                event.preventDefault();
-                const nextIndex = this.visibleCards.findIndex(card => cardKey(card) === listItem.dataset.newtabCardKey);
-                if (nextIndex >= 0) {
-                    this.index = nextIndex;
-                    this.state.revealAnswer = false;
-                    this.persistState();
-                    this.renderCard(root, this.visibleCards[this.index]);
-                }
-                return;
-            }
-            const card = target.closest<HTMLElement>('[data-newtab-card]');
-            if (card && !target.closest('.jpdb-reader-word')) {
-                event.preventDefault();
-                if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveCard: true });
-                else this.showNextCard();
-            }
-        });
-
-        root.addEventListener('change', event => {
-            const target = event.target as HTMLElement;
-            if (target.matches('[data-newtab-source]')) {
-                const value = (target as HTMLSelectElement).value as NewTabUiState['source'];
-                this.setState({ source: value, revealAnswer: false }, root, { preserveCard: false, reload: true });
-            }
-            if (target.matches('[data-newtab-sort]')) {
-                const value = (target as HTMLSelectElement).value as NewTabUiState['sort'];
-                this.setState({ sort: value, revealAnswer: false }, root, { preserveCard: false });
-            }
-        });
-
-        root.addEventListener('input', event => {
-            const target = event.target as HTMLElement;
-            if (!target.matches('[data-newtab-search]')) return;
-            this.query = (target as HTMLInputElement).value;
-            this.applyCards(root, false);
         });
 
         root.addEventListener('keydown', event => {
@@ -299,13 +189,18 @@ export class NewTabController {
             if (target?.matches('input, select, textarea')) return;
             if (event.key === 'ArrowRight' || event.key === 'n') {
                 event.preventDefault();
-                this.showNextCard();
+                this.showNextWord();
+                return;
+            }
+            if (event.key === 'ArrowLeft' || event.key === 'p') {
+                event.preventDefault();
+                this.showPreviousWord();
                 return;
             }
             if (event.key === ' ' || event.key === 'Enter') {
                 event.preventDefault();
-                if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveCard: true });
-                else this.showNextCard();
+                if (!this.state.revealAnswer) this.setState({ revealAnswer: true }, root, { preserveWord: true });
+                else this.showNextWord();
             }
         });
     }
@@ -323,62 +218,49 @@ export class NewTabController {
         document.documentElement.style.setProperty('--jpdb-newtab-shadow', palette.shadow);
     }
 
-    private async loadCardsInto(root: HTMLElement, preferStoredCard: boolean): Promise<void> {
-        const setStatus = (message: string) => this.setStatus(root, message);
-
+    private async loadWordsInto(root: HTMLElement, preferStoredWord: boolean): Promise<void> {
         try {
-            this.syncControls(root);
-            setStatus('Loading study sources...');
-            this.renderSourceNote(root, ['Checking Anki, JPDB, and local dictionaries in that order.']);
-            const result = await this.loadCards(setStatus);
-            this.allCards = dedupeCards(result.cards).slice(0, NEW_TAB_CARD_LIMIT);
+            this.setStatus(root, 'Loading...');
+            const result = await this.loadWords(message => this.setStatus(root, message));
+            this.allWords = dedupeWords(result.cards).slice(0, NEW_TAB_WORD_LIMIT);
             this.sourceLabel = result.sourceLabel;
-            this.sourceNotes = result.sourceNotes;
-            this.dependencies.parser.cacheCards(this.allCards);
-            if (!this.allCards.length) {
-                setStatus('No study words found yet.');
-                this.renderEmptyCard(root, 'No study words yet', 'Connect JPDB or Anki, or let the starter dictionary finish downloading.');
-                this.renderSourceNote(root, this.sourceNotes);
+            this.dependencies.parser.cacheCards(this.allWords);
+            if (!this.allWords.length) {
+                this.renderEmpty(root, 'よむ', 'No words yet.');
                 return;
             }
-            this.applyCards(root, preferStoredCard);
-            setStatus(this.sourceLabel);
+            this.applyWords(root, preferStoredWord);
         } catch (error) {
             log.warn('Failed to load words', error);
-            this.setStatus(root, error instanceof Error ? error.message : 'Could not load words.');
-            this.renderEmptyCard(root, 'Could not load words', 'The new tab page will keep working once a source responds.');
+            this.renderEmpty(root, 'よむ', 'Could not load words.');
         }
     }
 
-    private async loadCards(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
+    private async loadWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
         const source = this.state.source;
         const sourceOrder = source === 'auto'
             ? ['anki', 'jpdb', 'dictionary'] as const
             : [source] as const;
-        const notes: string[] = [];
         const labels: string[] = [];
         const cards: JPDBCard[] = [];
 
         for (const item of sourceOrder) {
             if (item === 'anki') {
-                const result = await this.loadAnkiCards();
-                notes.push(...result.sourceNotes);
+                const result = await this.loadAnkiWords();
                 if (result.cards.length) {
                     cards.push(...result.cards);
                     labels.push(result.sourceLabel);
                 }
             }
             if (item === 'jpdb') {
-                const result = await this.loadJpdbCards();
-                notes.push(...result.sourceNotes);
+                const result = await this.loadJpdbWords();
                 if (result.cards.length) {
                     cards.push(...result.cards);
                     labels.push(result.sourceLabel);
                 }
             }
             if (item === 'dictionary') {
-                const result = await this.loadDictionaryCards(onProgress, cards.length === 0 || source === 'dictionary');
-                notes.push(...result.sourceNotes);
+                const result = await this.loadDictionaryWords(onProgress, cards.length === 0 || source === 'dictionary');
                 if (result.cards.length) {
                     cards.push(...result.cards);
                     labels.push(result.sourceLabel);
@@ -389,79 +271,53 @@ export class NewTabController {
         return {
             cards,
             sourceLabel: labels.length ? labels.join(' + ') : 'No source',
-            sourceNotes: notes.length ? notes : ['No source returned study words yet.'],
         };
     }
 
-    private async loadAnkiCards(): Promise<NewTabLoadResult> {
+    private async loadAnkiWords(): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        if (!settings.ankiEnabled) {
-            return { cards: [], sourceLabel: 'Anki not connected', sourceNotes: ['Anki can be connected later from Settings.'] };
-        }
+        if (!settings.ankiEnabled) return { cards: [], sourceLabel: 'Anki' };
         const cards = await this.dependencies.anki.listNewTabCards(80).catch(error => {
             log.debug('Anki new tab source unavailable', error);
             return [];
         });
-        return {
-            cards,
-            sourceLabel: cards.length ? `Anki: ${settings.ankiDeck}` : 'Anki: no cards',
-            sourceNotes: [cards.length ? `Loaded ${cards.length} Anki cards from ${settings.ankiDeck}.` : 'Anki is enabled, but no cards were available.'],
-        };
+        return { cards, sourceLabel: cards.length ? 'Anki' : 'Anki' };
     }
 
-    private async loadDictionaryCards(onProgress?: (message: string) => void, installIfEmpty = true): Promise<NewTabLoadResult> {
+    private async loadDictionaryWords(onProgress?: (message: string) => void, installIfEmpty = true): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        const notes: string[] = [];
         try {
             let summary = await this.dependencies.dictionaries.summary().catch(() => null);
             let entries = summary?.terms
                 ? await this.dependencies.dictionaries.listRandomTopTerms(90, 4000, settings.dictionaryPreferences)
                 : [];
             if (!entries.length && installIfEmpty) {
-                onProgress?.('Downloading JMdict starter dictionary...');
-                notes.push('No local dictionary words were ready, so Yomu started the JMdict starter dictionary download.');
-                const installed = await this.dependencies.ensureStarterDictionary(message => {
-                    notes.push(message);
-                    onProgress?.(message);
-                });
+                onProgress?.('Downloading dictionary...');
+                const installed = await this.dependencies.ensureStarterDictionary(onProgress);
                 if (installed) {
                     summary = await this.dependencies.dictionaries.summary().catch(() => summary);
                     entries = await this.dependencies.dictionaries.listRandomTopTerms(90, 4000, settings.dictionaryPreferences);
                 }
             }
-            const cards = entries.map(entry => this.dependencies.parser.localCardFromEntry(entry));
-            const dictionaryNames = summary?.dictionaries.map(dictionary => dictionary.title).slice(0, 3).join(', ');
             return {
-                cards,
-                sourceLabel: cards.length ? 'Dictionaries' : 'Dictionaries: no words',
-                sourceNotes: [
-                    cards.length
-                        ? `Loaded ${cards.length} local dictionary words${dictionaryNames ? ` from ${dictionaryNames}` : ''}.`
-                        : 'No local dictionary words are installed yet.',
-                    ...notes.slice(-2),
-                ],
+                cards: entries.map(entry => this.dependencies.parser.localCardFromEntry(entry)),
+                sourceLabel: 'Dictionary',
             };
         } catch (error) {
-            log.debug('Dictionary card load failed', error);
-            return { cards: [], sourceLabel: 'Dictionary: error', sourceNotes: ['Local dictionary lookup failed.'] };
+            log.debug('Dictionary word load failed', error);
+            return { cards: [], sourceLabel: 'Dictionary' };
         }
     }
 
-    private async loadJpdbCards(): Promise<NewTabLoadResult> {
+    private async loadJpdbWords(): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        if (!settings.apiKey.trim()) {
-            return { cards: [], sourceLabel: 'JPDB not connected', sourceNotes: ['JPDB can be connected later from Settings.'] };
-        }
+        if (!settings.apiKey.trim()) return { cards: [], sourceLabel: 'JPDB' };
 
         const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
         if (selectedDeck !== JPDB_ALL_DECKS) {
             try {
                 const cards = await this.dependencies.jpdb.listDeckCards(selectedDeck, 90);
-                return {
-                    cards,
-                    sourceLabel: cards.length ? `JPDB: ${selectedDeck}` : 'JPDB: no words',
-                    sourceNotes: [cards.length ? `Loaded random words from JPDB deck ${selectedDeck}.` : `JPDB deck ${selectedDeck} did not return words.`],
-                };
+                return { cards, sourceLabel: 'JPDB' };
             } catch (error) {
                 log.debug('JPDB selected deck load failed', { deckId: selectedDeck }, error);
             }
@@ -472,39 +328,22 @@ export class NewTabController {
             .filter(deck => !/(never\s*-?\s*forget|blacklist|suspend)/i.test(`${deck.id} ${deck.name}`))
             .slice(0, JPDB_DECK_SAMPLE_LIMIT);
         const cards: JPDBCard[] = [];
-        const loadedDecks: string[] = [];
         for (const deck of eligibleDecks) {
             try {
-                const deckCards = await this.dependencies.jpdb.listDeckCards(deck.id, JPDB_CARDS_PER_DECK);
-                if (deckCards.length) {
-                    cards.push(...deckCards);
-                    loadedDecks.push(deck.name);
-                }
+                cards.push(...await this.dependencies.jpdb.listDeckCards(deck.id, JPDB_WORDS_PER_DECK));
             } catch (error) {
                 log.debug('JPDB all-decks sample failed', { deck: deck.id }, error);
             }
         }
 
-        return {
-            cards,
-            sourceLabel: cards.length ? `JPDB: ${loadedDecks.length} decks` : 'JPDB: no words',
-            sourceNotes: [
-                cards.length
-                    ? `Sampled ${cards.length} JPDB words across ${loadedDecks.length} user decks, excluding never-forget style decks by default.`
-                    : 'JPDB did not return deck words yet.',
-            ],
-        };
+        return { cards, sourceLabel: 'JPDB' };
     }
 
-    private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveCard: boolean; reload?: boolean }): void {
+    private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveWord: boolean }): void {
         this.state = { ...this.state, ...patch };
         this.persistState();
-        this.syncControls(root);
-        if (options.reload) {
-            void this.loadCardsInto(root, options.preserveCard);
-            return;
-        }
-        this.applyCards(root, options.preserveCard);
+        this.syncMode(root);
+        this.applyWords(root, options.preserveWord);
     }
 
     private applyExternalState(state: NewTabUiState): void {
@@ -512,8 +351,8 @@ export class NewTabController {
         this.state = state;
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
         if (!root) return;
-        this.syncControls(root);
-        this.applyCards(root, true);
+        this.syncMode(root);
+        this.applyWords(root, true);
     }
 
     private persistState(): void {
@@ -521,149 +360,99 @@ export class NewTabController {
         this.stateChannel.publish(this.state);
     }
 
-    private applyCards(root: HTMLElement, preferStoredCard: boolean): void {
-        this.syncControls(root);
-        const baseCards = this.state.mode === 'kanji'
-            ? this.allCards.filter(card => kanjiCharacters(card.spelling).length > 0)
-            : this.allCards;
-        const filtered = filterNewTabCards(baseCards, this.state.filter, this.query);
-        this.visibleCards = this.state.sort === 'random'
-            ? shuffleCards(filtered)
-            : sortNewTabCards(filtered, this.state.sort);
-        const count = root.querySelector<HTMLElement>('[data-newtab-filter-count]');
-        if (count) count.textContent = `${this.visibleCards.length.toLocaleString()} word${this.visibleCards.length === 1 ? '' : 's'}`;
-        if (!this.visibleCards.length) {
+    private applyWords(root: HTMLElement, preferStoredWord: boolean): void {
+        this.syncMode(root);
+        const baseWords = this.state.mode === 'kanji'
+            ? this.allWords.filter(card => kanjiCharacters(card.spelling).length > 0)
+            : this.allWords;
+        this.visibleWords = shuffleCards(baseWords);
+        if (!this.visibleWords.length) {
             this.index = 0;
-            this.renderEmptyCard(root, 'No matching words', 'Try All, Dictionary, or another source.');
+            this.renderEmpty(root, 'よむ', 'No kanji words yet.');
             return;
         }
-        this.index = this.resolveInitialIndex(preferStoredCard);
-        this.renderCard(root, this.visibleCards[this.index]);
+        this.index = this.resolveInitialIndex(preferStoredWord);
+        this.renderWord(root, this.visibleWords[this.index]);
     }
 
-    private resolveInitialIndex(preferStoredCard: boolean): number {
-        if (preferStoredCard) {
-            const stored = this.readStoredCardKey();
+    private resolveInitialIndex(preferStoredWord: boolean): number {
+        if (preferStoredWord) {
+            const stored = this.readStoredWordKey();
             if (stored?.signature === this.currentSessionSignature()) {
-                const index = this.visibleCards.findIndex(card => cardKey(card) === stored.key);
+                const index = this.visibleWords.findIndex(card => cardKey(card) === stored.key);
                 if (index >= 0) return index;
             }
         }
         return 0;
     }
 
-    private showNextCard(): void {
+    private showNextWord(): void {
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
-        if (!root || !this.visibleCards.length) return;
+        if (!root || !this.visibleWords.length) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
-        this.index = (this.index + 1) % this.visibleCards.length;
+        this.index = (this.index + 1) % this.visibleWords.length;
         this.state.revealAnswer = false;
         this.persistState();
-        this.renderCard(root, this.visibleCards[this.index]);
+        this.renderWord(root, this.visibleWords[this.index]);
     }
 
-    private renderCard(root: HTMLElement, card: JPDBCard): void {
-        this.writeStoredCardKey(card);
+    private showPreviousWord(): void {
+        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        if (!root || !this.visibleWords.length) return;
+        this.dependencies.dismiss({ suppressHoverTarget: false });
+        this.index = (this.index - 1 + this.visibleWords.length) % this.visibleWords.length;
+        this.state.revealAnswer = false;
+        this.persistState();
+        this.renderWord(root, this.visibleWords[this.index]);
+    }
+
+    private renderWord(root: HTMLElement, card: JPDBCard): void {
+        this.writeStoredWordKey(card);
         root.classList.toggle('jpdb-reader-newtab-revealed', this.state.revealAnswer);
         root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji');
-        const expression = root.querySelector<HTMLElement>('[data-newtab-expression]');
-        const reading = root.querySelector<HTMLElement>('[data-newtab-reading]');
-        const meaning = root.querySelector<HTMLElement>('[data-newtab-meaning]');
-        const visual = root.querySelector<HTMLElement>('[data-newtab-visual]');
-        const concealed = root.querySelector<HTMLElement>('[data-newtab-concealed]');
-        const meta = root.querySelector<HTMLElement>('[data-newtab-meta]');
-        const kicker = root.querySelector<HTMLElement>('[data-newtab-card-kicker]');
-        const count = root.querySelector<HTMLElement>('[data-newtab-card-count]');
-        const reveal = root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]');
+        const slots = this.studySlots(root);
         const state = primaryCardState(card.cardState);
 
-        if (this.state.mode === 'kanji') {
-            const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '字';
-            if (kicker) kicker.textContent = 'Kanji recall';
-            if (expression) expression.textContent = kanji;
-            if (visual) visual.textContent = kanji;
-            if (reading) replaceChildrenWith(reading, this.renderReaderWord(card, state));
-            if (meaning) meaning.textContent = `${card.reading}${firstCardMeaning(card) ? ` · ${firstCardMeaning(card)}` : ''}`;
-            if (concealed) concealed.textContent = 'Which word uses this kanji?';
-        } else {
-            if (kicker) kicker.textContent = 'Word recall';
-            if (expression) replaceChildrenWith(expression, this.renderReaderWord(card, state));
-            if (visual) visual.textContent = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '読';
-            if (reading) reading.textContent = card.reading && card.reading !== card.spelling ? card.reading : 'Reading hidden';
-            if (meaning) meaning.textContent = firstCardMeaning(card) || 'Open the word popup for local dictionary details.';
-            if (concealed) concealed.textContent = 'Reading and meaning are hidden until reveal.';
-        }
+        if (this.state.mode === 'kanji') this.renderKanjiPrompt(slots, card, state);
+        else this.renderWordPrompt(slots, card, state);
 
-        if (meta) {
-            const frequency = card.frequencyRank ? `Top ${card.frequencyRank.toLocaleString()}` : 'No frequency';
-            replaceChildrenWith(meta,
-                el('span', null, cardStateLabel(card)),
-                el('span', null, sourceLabel(card)),
-                el('span', null, frequency),
-            );
-        }
-        if (count) count.textContent = `${this.index + 1} / ${this.visibleCards.length}`;
-        if (reveal) reveal.textContent = this.state.revealAnswer ? 'Hide answer' : 'Reveal';
-        this.setStatus(root, this.sourceLabel || `${this.index + 1}/${this.visibleCards.length}`);
-        this.renderList(root, card);
-        this.renderSummary(root);
-        this.renderSourceNote(root, this.sourceNotes);
+        if (slots.count) slots.count.textContent = `${this.index + 1} / ${this.visibleWords.length}`;
+        if (slots.reveal) slots.reveal.textContent = this.state.revealAnswer ? 'Hide' : 'Reveal';
+        if (slots.status) slots.status.textContent = this.sourceLabel;
     }
 
-    private renderList(root: HTMLElement, activeCard: JPDBCard): void {
-        const list = root.querySelector<HTMLElement>('[data-newtab-list]');
-        if (!list) return;
-        const activeKey = cardKey(activeCard);
-        const items = this.visibleCards.slice(0, 18);
-        replaceChildrenWith(list, items.map(card => {
-            const key = cardKey(card);
-            const active = key === activeKey;
-            return el('button', {
-                class: `jpdb-reader-newtab-list-item${active ? ' active' : ''}`,
-                type: 'button',
-                dataset: { newtabCardKey: key },
-            },
-                el('span', { lang: 'ja' }, card.spelling),
-                el('small', null, cardStateLabel(card)),
-            );
-        }));
+    private studySlots(root: HTMLElement): NewTabStudySlots {
+        return {
+            prompt: root.querySelector<HTMLElement>('[data-newtab-prompt]'),
+            answer: root.querySelector<HTMLElement>('[data-newtab-reading]'),
+            meaning: root.querySelector<HTMLElement>('[data-newtab-meaning]'),
+            count: root.querySelector<HTMLElement>('[data-newtab-count]'),
+            status: root.querySelector<HTMLElement>('[data-newtab-status]'),
+            reveal: root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]'),
+        };
     }
 
-    private renderSummary(root: HTMLElement): void {
-        const summary = root.querySelector<HTMLElement>('[data-newtab-summary]');
-        if (!summary) return;
-        const counts = new Map<string, number>();
-        for (const card of this.allCards) counts.set(cardStateLabel(card), (counts.get(cardStateLabel(card)) ?? 0) + 1);
-        const topCounts = [...counts.entries()].slice(0, 4).map(([label, count]) => `${label} ${count}`).join(' · ');
-        summary.textContent = topCounts || 'Ready';
+    private renderKanjiPrompt(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
+        const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '字';
+        if (slots.prompt) slots.prompt.textContent = kanji;
+        if (slots.answer) replaceChildrenWith(slots.answer, this.renderReaderWord(card, state));
+        if (slots.meaning) slots.meaning.textContent = `${card.reading}${firstCardMeaning(card) ? ` · ${firstCardMeaning(card)}` : ''}`;
     }
 
-    private renderSourceNote(root: HTMLElement, notes: string[]): void {
-        const note = root.querySelector<HTMLElement>('[data-newtab-source-note]');
-        if (!note) return;
-        replaceChildrenWith(note, notes.filter(Boolean).slice(0, 4).map(item => el('p', null, item)));
+    private renderWordPrompt(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
+        if (slots.prompt) replaceChildrenWith(slots.prompt, this.renderReaderWord(card, state));
+        if (slots.answer) slots.answer.textContent = card.reading && card.reading !== card.spelling ? card.reading : '';
+        if (slots.meaning) slots.meaning.textContent = firstCardMeaning(card);
     }
 
-    private renderEmptyCard(root: HTMLElement, title: string, message: string): void {
-        root.classList.remove('jpdb-reader-newtab-revealed');
-        const expression = root.querySelector<HTMLElement>('[data-newtab-expression]');
-        const reading = root.querySelector<HTMLElement>('[data-newtab-reading]');
-        const meaning = root.querySelector<HTMLElement>('[data-newtab-meaning]');
-        const visual = root.querySelector<HTMLElement>('[data-newtab-visual]');
-        const concealed = root.querySelector<HTMLElement>('[data-newtab-concealed]');
-        const meta = root.querySelector<HTMLElement>('[data-newtab-meta]');
-        const list = root.querySelector<HTMLElement>('[data-newtab-list]');
-        if (expression) expression.textContent = 'よむ';
-        if (reading) reading.textContent = title;
-        if (meaning) meaning.textContent = message;
-        if (visual) visual.textContent = 'よ';
-        if (concealed) concealed.textContent = message;
-        if (meta) replaceChildrenWith(meta,
-            el('span', null, 'Dictionary fallback'),
-            el('span', null, 'JPDB optional'),
-            el('span', null, 'Anki optional'),
-        );
-        if (list) list.replaceChildren();
+    private renderEmpty(root: HTMLElement, prompt: string, message: string): void {
+        root.classList.add('jpdb-reader-newtab-revealed');
+        const slots = this.studySlots(root);
+        if (slots.prompt) slots.prompt.textContent = prompt;
+        if (slots.answer) slots.answer.textContent = message;
+        if (slots.meaning) slots.meaning.textContent = '';
+        if (slots.count) slots.count.textContent = '0 / 0';
+        if (slots.status) slots.status.textContent = '';
     }
 
     private renderReaderWord(card: JPDBCard, state: string): HTMLSpanElement {
@@ -679,17 +468,10 @@ export class NewTabController {
         }, card.spelling);
     }
 
-    private syncControls(root: HTMLElement): void {
+    private syncMode(root: HTMLElement): void {
         root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="mode"]').forEach(button => {
             button.dataset.active = String(button.dataset.mode === this.state.mode);
         });
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="filter"]').forEach(button => {
-            button.dataset.active = String(button.dataset.filter === this.state.filter);
-        });
-        const source = root.querySelector<HTMLSelectElement>('[data-newtab-source]');
-        if (source) source.value = this.state.source;
-        const sort = root.querySelector<HTMLSelectElement>('[data-newtab-sort]');
-        if (sort) sort.value = this.state.sort;
     }
 
     private setStatus(root: HTMLElement, message: string): void {
@@ -698,12 +480,12 @@ export class NewTabController {
     }
 
     private currentSessionSignature(): string {
-        return [this.state.source, this.state.sort, this.state.filter, this.state.mode, this.query.trim(), this.sourceLabel].join('|');
+        return [this.state.source, this.state.mode, this.sourceLabel].join('|');
     }
 
-    private readStoredCardKey(): { signature: string; key: string } | null {
+    private readStoredWordKey(): { signature: string; key: string } | null {
         try {
-            const raw = sessionStorage.getItem(SESSION_CARD_KEY);
+            const raw = sessionStorage.getItem(SESSION_WORD_KEY);
             if (!raw) return null;
             const value = JSON.parse(raw) as Partial<{ signature: string; key: string }>;
             return typeof value.signature === 'string' && typeof value.key === 'string' ? { signature: value.signature, key: value.key } : null;
@@ -712,19 +494,19 @@ export class NewTabController {
         }
     }
 
-    private writeStoredCardKey(card: JPDBCard): void {
+    private writeStoredWordKey(card: JPDBCard): void {
         try {
-            sessionStorage.setItem(SESSION_CARD_KEY, JSON.stringify({
+            sessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
                 signature: this.currentSessionSignature(),
                 key: cardKey(card),
             }));
         } catch {
-            // Session storage is a convenience for refresh stability; ignore blocked storage.
+            // Refresh stability is a convenience; the page still works without storage.
         }
     }
 }
 
-function dedupeCards(cards: JPDBCard[]): JPDBCard[] {
+function dedupeWords(cards: JPDBCard[]): JPDBCard[] {
     const seen = new Map<string, JPDBCard>();
     for (const card of cards) {
         const key = `${card.spelling}\n${card.reading}`;
@@ -738,10 +520,4 @@ function sourcePriority(card: JPDBCard): number {
     if (!card.source || card.source === 'jpdb') return 0;
     if (card.source === 'anki') return 1;
     return 2;
-}
-
-function sourceLabel(card: JPDBCard): string {
-    if (card.source === 'local') return 'Dictionary';
-    if (card.source === 'anki') return 'Anki';
-    return 'JPDB';
 }

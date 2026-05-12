@@ -16,6 +16,10 @@ hero:
       text: Start Here
       link: /getting-started
     - theme: alt
+      text: Video Player
+      link: /video-player/index.html
+      target: _self
+    - theme: alt
       text: See Features
       link: /features
 features:
@@ -52,6 +56,7 @@ It is meant for learners who want the useful parts of paid reading suites withou
 
 - [Getting Started](/getting-started) walks through installing a userscript manager, installing よむ, and doing your first lookup.
 - [Features](/features) explains the main tools with screenshots and plain-language examples.
+- [Video Player](/video-player/index.html) opens local browser-supported video and subtitle files from the hosted GitHub Pages app.
 - [Local Audio](/local-audio) shows the hosted Ultimate Yomitan Audio path first, then the self-hosted server path for people who want local files.
 - [Support](/support) has GitHub issues, Discord, donations, and the current install links.
 - [Changelog](/changelog) shows what changed in each release. It is generated from the repository changelog.

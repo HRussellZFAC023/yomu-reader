@@ -1,0 +1,367 @@
+.jpdb-reader-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  max-width: min(520px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  border: 1px solid var(--jpdb-reader-border);
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.jpdb-reader-settings {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, calc(100vw - 20px));
+  max-height: min(760px, calc(100vh - 20px));
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.jpdb-reader-settings-head {
+  flex: 0 0 auto;
+  padding: 18px 18px 0;
+}
+.jpdb-reader-settings-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow: visible;
+  padding: 0 18px 8px;
+}
+.jpdb-reader-settings-tab {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-muted);
+  font: 800 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.jpdb-reader-settings-tab[aria-selected="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
+  background: var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-settings-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 0 18px 96px;
+  -webkit-overflow-scrolling: touch;
+}
+.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; color: var(--jpdb-reader-text) !important; }
+.jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; margin: 12px 0; padding: 12px; }
+.jpdb-reader-settings legend { color: var(--jpdb-reader-muted); padding: 0 6px; }
+.jpdb-reader-settings label { display: grid; gap: 5px; margin: 10px 0; color: var(--jpdb-reader-muted) !important; font-size: 12px; }
+.jpdb-reader-settings input,
+.jpdb-reader-settings select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+  border-radius: 7px;
+  border: 1px solid var(--jpdb-reader-border);
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  padding: 8px;
+}
+.jpdb-reader-settings input[type="color"] {
+  padding: 3px;
+  cursor: pointer;
+}
+.jpdb-reader-settings input[type="checkbox"],
+.jpdb-reader-settings input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--jpdb-reader-border);
+  background: var(--jpdb-reader-surface-2);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+}
+.jpdb-reader-settings input[type="checkbox"] { border-radius: 7px; }
+.jpdb-reader-settings input[type="radio"] { border-radius: 999px; }
+.jpdb-reader-settings input[type="checkbox"]:checked,
+.jpdb-reader-settings input[type="radio"]:checked {
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent);
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-settings input[type="checkbox"]:checked::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  border-left: 2.5px solid #11161d;
+  border-bottom: 2.5px solid #11161d;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.jpdb-reader-settings input[type="radio"]:checked::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #11161d;
+}
+.jpdb-reader-settings input[type="checkbox"]:focus-visible,
+.jpdb-reader-settings input[type="radio"]:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 3px;
+}
+.jpdb-reader-settings input[type="file"][data-file] {
+  display: none !important;
+}
+.jpdb-reader-settings [hidden] {
+  display: none !important;
+}
+.jpdb-reader-settings .inline { display: flex; align-items: center; gap: 12px; min-height: 32px; }
+.jpdb-reader-settings .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.jpdb-reader-shortcut-group { display: contents; }
+.jpdb-reader-settings .footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0;
+  background: var(--jpdb-reader-bg);
+  border-top: 1px solid var(--jpdb-reader-border);
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  box-shadow: 0 -10px 24px rgba(0,0,0,.18);
+}
+.jpdb-reader-settings .footer .jpdb-reader-btn {
+  min-width: 92px;
+  padding-inline: 18px;
+  font-size: 13px;
+}
+.jpdb-reader-settings a { color: var(--jpdb-reader-accent-readable) !important; text-decoration: underline; text-underline-offset: 3px; }
+.jpdb-reader-settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.jpdb-reader-settings-actions .jpdb-reader-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 12px;
+  text-align: center;
+  text-decoration: none !important;
+}
+.jpdb-reader-support-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 14px;
+}
+.jpdb-reader-support-title {
+  color: var(--jpdb-reader-text);
+  font-size: 15px;
+  font-weight: 850;
+}
+.jpdb-reader-support-card p {
+  margin: 8px 0 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.jpdb-reader-support-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.jpdb-reader-support-actions .jpdb-reader-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  text-align: center;
+  text-decoration: none !important;
+}
+.jpdb-reader-dictionary-status {
+  margin: 10px 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+}
+.jpdb-reader-dictionary-priorities,
+.jpdb-reader-kanji-priorities,
+.jpdb-reader-audio-sources { display: grid; gap: 7px; margin: 10px 0; }
+.jpdb-reader-recommended-dictionaries {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.jpdb-reader-recommended-title {
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+  font-size: 13px;
+}
+.jpdb-reader-recommended-group {
+  display: grid;
+  gap: 7px;
+}
+.jpdb-reader-recommended-group-title {
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.jpdb-reader-recommended-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 10px;
+}
+.jpdb-reader-recommended-name {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: var(--jpdb-reader-text);
+  font-weight: 800;
+  font-size: 13px;
+}
+.jpdb-reader-recommended-name a {
+  font-size: 12px;
+  font-weight: 700;
+}
+.jpdb-reader-order-head,
+.jpdb-reader-order-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.jpdb-reader-dictionary-head,
+.jpdb-reader-dictionary-row,
+.jpdb-reader-audio-source-head,
+.jpdb-reader-audio-source-row {
+  grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, .8fr) 74px 58px;
+}
+.jpdb-reader-dictionary-head.compact,
+.jpdb-reader-dictionary-row.compact {
+  grid-template-columns: 48px minmax(160px, 1fr) 74px 58px;
+}
+.jpdb-reader-order-head {
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.jpdb-reader-order-row {
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 8px;
+  width: 100%;
+  cursor: grab;
+}
+.jpdb-reader-order-row.jpdb-reader-dragging {
+  opacity: .58;
+  border-color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-dictionary-row-help {
+  grid-column: 2 / -1;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.jpdb-reader-settings .jpdb-reader-dictionary-toggle { margin: 0; justify-content: center; color: var(--jpdb-reader-text); }
+.jpdb-reader-lookup-link-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) minmax(108px, max-content);
+  gap: 8px;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.jpdb-reader-lookup-link-head,
+.jpdb-reader-lookup-link-row {
+  grid-template-columns: 44px minmax(170px, 315px) minmax(0, 1fr) minmax(108px, max-content);
+}
+.jpdb-reader-lookup-link-row {
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  padding: 8px;
+  width: 100%;
+}
+.jpdb-reader-audio-source-choice select,
+.jpdb-reader-audio-source-fields input,
+.jpdb-reader-audio-source-fields select { min-width: 0; width: 100%; }
+.jpdb-reader-lookup-link-row input { min-width: 0; }
+.jpdb-reader-lookup-link-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+.jpdb-reader-lookup-link-actions .jpdb-reader-btn {
+  width: auto !important;
+  min-width: 86px !important;
+  padding-inline: 16px !important;
+}
+.jpdb-reader-settings .jpdb-reader-audio-index { margin: 0; min-height: 38px; justify-content: center; color: var(--jpdb-reader-text); }
+.jpdb-reader-audio-source-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.jpdb-reader-audio-source-fields { display: grid; gap: 6px; }
+.jpdb-reader-row-tools {
+  display: flex;
+  gap: 5px;
+  justify-content: flex-end;
+}
+.jpdb-reader-icon-mini {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 !important;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+  font: 800 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-reader-icon-mini svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-reader-icon-mini:hover,
+.jpdb-reader-icon-mini:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}

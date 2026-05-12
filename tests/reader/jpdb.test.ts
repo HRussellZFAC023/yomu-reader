@@ -817,6 +817,10 @@ describe('reader helpers', () => {
         await waitForExpect(() => {
             expect(document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent).toContain('自然でない');
             expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('Code Geass');
+        });
+        expect(played).not.toContain('blob:http://localhost/fushizen.mp3');
+        document.querySelector<HTMLButtonElement>('[data-yomu-immersion-action="audio"]')?.click();
+        await waitForExpect(() => {
             expect(played).toContain('blob:http://localhost/fushizen.mp3');
         });
         backController.destroy();
@@ -1339,7 +1343,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('autoplays the first Immersion Kit example and keeps image fallbacks wired on initial render', async () => {
+    it('keeps Immersion Kit image fallbacks wired without autoplaying initial render', async () => {
         const app = new ReaderApp();
         const container = document.createElement('details');
         container.setAttribute('data-immersion-kit', '');
@@ -1385,12 +1389,15 @@ describe('reader helpers', () => {
         await internals.loadImmersionKitExamples(popover, card);
 
         const image = container.querySelector<HTMLImageElement>('[data-immersion-image]');
-        expect(playSpy).toHaveBeenCalledWith(example, true);
+        expect(playSpy).not.toHaveBeenCalled();
         expect(image?.src).toBe('https://media.test/bad.jpg');
 
         image?.dispatchEvent(new Event('error'));
 
         expect(image?.src).toBe('https://media.test/good.jpg');
+
+        container.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
+        expect(playSpy).toHaveBeenCalledWith(example, true);
     });
 
     it('plays Immersion Kit hover audio only after entering the Immersion Kit panel', async () => {
@@ -1427,7 +1434,7 @@ describe('reader helpers', () => {
             ...DEFAULT_SETTINGS,
             immersionKitAutoPlayAudio: true,
             immersionKitPlayOnHover: true,
-            immersionKitShowImages: false,
+            immersionKitShowImages: true,
         };
         internals.searchImmersionKitExamples = vi.fn(async () => ({
             examples: [example],
@@ -1447,7 +1454,7 @@ describe('reader helpers', () => {
         const enter = new Event('pointerover', { bubbles: true }) as PointerEvent;
         Object.defineProperty(enter, 'pointerType', { value: 'mouse' });
         Object.defineProperty(enter, 'relatedTarget', { value: document.body });
-        container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dispatchEvent(enter);
+        container.querySelector<HTMLElement>('.jpdb-reader-example-media')?.dispatchEvent(enter);
 
         expect(playSpy).toHaveBeenCalledWith(example, true, expect.any(Function));
     });
