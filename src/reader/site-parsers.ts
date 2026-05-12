@@ -12,6 +12,8 @@ export interface SiteParserProfile {
     description: string;
     roots: string[];
     exclude?: string;
+    allowUiText?: boolean;
+    minLength?: number;
     matches(url: URL): boolean;
 }
 
@@ -39,6 +41,67 @@ const COMMON_EXCLUDE = [
 const log = Logger.scope('SiteParsers');
 
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
+    {
+        id: 'jpdb-parser',
+        name: 'JPDB',
+        description: 'JPDB dictionary, review, and search result Japanese text.',
+        roots: [
+            '.result.vocabulary',
+            '.result.kanji',
+            '.results .result',
+            '.subsection-meanings',
+            '.subsection-usages',
+            '.subsection-pitch-accent',
+            '.subsection-spelling',
+            '.primary-spelling',
+            '.review-card',
+            '.answer',
+            '.sentence',
+        ],
+        exclude: [
+            COMMON_EXCLUDE,
+            '.nav',
+            '.subsection-label',
+            '.vocabulary-audio',
+            '.icon-link',
+            '[data-audio]',
+        ].join(','),
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'jpdb.io' || url.hostname.endsWith('.jpdb.io'),
+    },
+    {
+        id: 'jisho-parser',
+        name: 'Jisho',
+        description: 'Jisho word, kanji, and example sentence result text.',
+        roots: [
+            '.concept_light-representation .text',
+            '.concept_light-readings .text',
+            '.japanese_sentence',
+            '.sentence_content',
+            '.kanji_light_content',
+            '.kanji-details__main-readings',
+            '.kanji-details__main-meanings',
+        ],
+        exclude: [
+            COMMON_EXCLUDE,
+            '.furigana',
+            '.english',
+            '.debug',
+            '.concept_light-status',
+            '.concept_light-tag',
+            '.concept_light-tags',
+            '.concept_light-common',
+            '.concept_light-readings .furigana',
+            '.meaning-tags',
+            '.meaning-wrapper',
+            '.links',
+            '.result_count',
+        ].join(','),
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'jisho.org' || url.hostname.endsWith('.jisho.org'),
+    },
     {
         id: 'luna-translator-parser',
         name: 'Luna Translator',
@@ -191,7 +254,7 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
         for (const root of roots) {
             const remaining = limit - targets.length;
             if (remaining <= 0) break;
-            const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE);
+            const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE, { allowUiText: profile.allowUiText, minLength: profile.minLength });
             for (const target of collected) {
                 const firstNode = target.fragments[0]?.node;
                 if (!firstNode || seen.has(firstNode)) continue;

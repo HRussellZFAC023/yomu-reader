@@ -82,6 +82,8 @@ export class SubtitlePlayerController {
     private lastMenuSignature = '';
     private lastTranscriptSignature = '';
     private transcriptScrollFrame?: number;
+    private transcriptHydrateFrame?: number;
+    private transcriptHydrationSerial = 0;
     private mpvSockets = new Map<number, WebSocket>();
     private mpvConnectedPorts = new Set<number>();
     private mpvMediaRequests = new Map<string, MpvMediaRequest>();
@@ -330,6 +332,7 @@ export class SubtitlePlayerController {
             return;
         }
         const rect = this.video.getBoundingClientRect();
+        this.root.classList.toggle('jpdb-subtitle-compact-video', rect.width < 560 || rect.height < 260);
         if (rect.width < 120 || rect.height < 80) {
             this.root.style.left = '0';
             this.root.style.top = '0';
@@ -1003,9 +1006,9 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-list-head">
                 <span>Transcript</span>
                 <div class="jpdb-subtitle-placement" aria-label="Transcript position">
-                    <button type="button" data-action="transcript-left" aria-pressed="${placement === 'left'}" title="Move transcript left">L</button>
-                    <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move transcript right">R</button>
-                    <button type="button" data-action="transcript-bottom" aria-pressed="${placement === 'bottom'}" title="Move transcript below">B</button>
+                    <button type="button" data-action="transcript-left" aria-pressed="${placement === 'left'}" title="Move transcript left" aria-label="Move transcript left">${subtitleIcon('panel-left')}</button>
+                    <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move transcript right" aria-label="Move transcript right">${subtitleIcon('panel-right')}</button>
+                    <button type="button" data-action="transcript-bottom" aria-pressed="${placement === 'bottom'}" title="Move transcript below" aria-label="Move transcript below">${subtitleIcon('panel-bottom')}</button>
                 </div>
                 <button class="jpdb-subtitle-close" type="button" data-action="list" aria-label="Close subtitle lines">×</button>
             </div>
@@ -1013,22 +1016,25 @@ export class SubtitlePlayerController {
                 ${this.cues.map((cue, index) => this.renderTranscriptRow(cue, index, currentIndex)).join('')}
             </div>
         `);
+        this.bindTranscriptScroller();
         this.positionTranscriptPanel();
         this.scrollTranscriptToActive();
+        this.scheduleTranscriptHydration(currentIndex);
     }
 
     private renderTranscriptRow(cue: SubtitleCue, index: number, currentIndex: number): string {
         const secondary = findAlignedCue(this.secondaryCues, cue)?.text.trim();
         const replay = cue.source === 'mpv'
-            ? `<button class="jpdb-subtitle-row-replay" type="button" data-action="replay-cue" data-index="${index}" title="Replay MPV audio">Play</button>`
+            ? `<button class="jpdb-subtitle-row-replay" type="button" data-action="replay-cue" data-index="${index}" title="Replay MPV audio" aria-label="Replay MPV audio">${subtitleIcon('play')}</button>`
             : '';
         return `
-            <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-row-index="${index}">
-                <button class="jpdb-subtitle-row-main" type="button" data-action="cue" data-index="${index}">
+            <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-action="cue" data-index="${index}" data-row-index="${index}">
+                <button class="jpdb-subtitle-row-seek" type="button" data-action="cue" data-index="${index}" title="Jump to ${formatSubtitleTime(cue.start)}" aria-label="Jump to subtitle at ${formatSubtitleTime(cue.start)}">${subtitleIcon('play')}</button>
+                <div class="jpdb-subtitle-row-body">
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
-                    <strong>${escapeWithBreaks(cue.text)}</strong>
-                    ${secondary ? `<em>${escapeWithBreaks(secondary)}</em>` : ''}
-                </button>
+                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}">${escapeWithBreaks(cue.text)}</strong>
+                    ${secondary ? `<em class="jpdb-subtitle-row-translation">${escapeWithBreaks(secondary)}</em>` : ''}
+                </div>
                 ${replay}
             </div>
         `;
@@ -1041,6 +1047,7 @@ export class SubtitlePlayerController {
         const active = this.transcriptPanel.querySelector<HTMLElement>(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
         if (active) active.classList.add('active');
         this.scrollTranscriptToActive();
+        this.scheduleTranscriptHydration(currentIndex);
     }
 
     private scrollTranscriptToActive(): void {
@@ -1051,6 +1058,92 @@ export class SubtitlePlayerController {
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             active?.scrollIntoView({ block: 'center', inline: 'nearest' });
         });
+    }
+
+    private bindTranscriptScroller(): void {
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        if (!scroller || scroller.dataset.transcriptHydrationBound === 'true') return;
+        scroller.dataset.transcriptHydrationBound = 'true';
+        scroller.addEventListener('scroll', () => this.scheduleTranscriptHydration(), { passive: true });
+    }
+
+    private scheduleTranscriptHydration(preferredIndex = this.activeTranscriptIndex()): void {
+        if (this.transcriptHydrateFrame) return;
+        this.transcriptHydrateFrame = requestAnimationFrame(() => {
+            this.transcriptHydrateFrame = undefined;
+            void this.hydrateTranscriptRows(preferredIndex);
+        });
+    }
+
+    private activeTranscriptIndex(): number {
+        return this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) : -1;
+    }
+
+    private async hydrateTranscriptRows(preferredIndex: number): Promise<void> {
+        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
+        const settings = this.options.getSettings();
+        if (!settings.apiKey && !settings.localDictionariesEnabled) return;
+        const serial = ++this.transcriptHydrationSerial;
+        const indexes = this.transcriptHydrationIndexes(preferredIndex);
+        for (const index of indexes) {
+            if (serial !== this.transcriptHydrationSerial) return;
+            await this.hydrateTranscriptRow(index, settings);
+        }
+    }
+
+    private transcriptHydrationIndexes(preferredIndex: number): number[] {
+        const indexes = new Set<number>();
+        if (preferredIndex >= 0) {
+            for (let index = preferredIndex - 4; index <= preferredIndex + 4; index++) {
+                if (index >= 0 && index < this.cues.length) indexes.add(index);
+            }
+        } else {
+            for (let index = 0; index < Math.min(10, this.cues.length); index++) indexes.add(index);
+        }
+
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        const scrollerRect = scroller?.getBoundingClientRect();
+        if (scroller && scrollerRect) {
+            for (const row of Array.from(scroller.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'))) {
+                const rect = row.getBoundingClientRect();
+                if (rect.bottom < scrollerRect.top || rect.top > scrollerRect.bottom) continue;
+                const index = Number(row.dataset.rowIndex);
+                if (Number.isInteger(index)) indexes.add(index);
+                if (indexes.size >= 18) break;
+            }
+        }
+
+        return [...indexes].sort((a, b) => a - b);
+    }
+
+    private async hydrateTranscriptRow(index: number, settings: ReaderSettings): Promise<void> {
+        const cue = this.cues[index];
+        const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
+        if (!cue || !target) return;
+        const key = `${settings.showFurigana}:${settings.hideKnownFurigana}:${cue.text}`;
+        if (target.dataset.parsedKey === key) return;
+
+        const cached = this.parsedHtmlCache.get(key);
+        if (cached) {
+            target.dataset.parsedKey = key;
+            setInnerHtml(target, cached);
+            return;
+        }
+
+        try {
+            const tokens = await this.options.parseJapanese(cue.text);
+            const html = withBreaks(renderTokensToHtml(cue.text, tokens, settings));
+            this.parsedHtmlCache.set(key, html);
+            if (this.parsedHtmlCache.size > 80) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+            const currentTarget = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
+            if (currentTarget?.textContent?.replace(/\s+/g, ' ').trim() === cue.text.replace(/\s+/g, ' ').trim()) {
+                currentTarget.dataset.parsedKey = key;
+                setInnerHtml(currentTarget, html);
+            }
+        } catch (error) {
+            target.dataset.parsedKey = key;
+            log.debug('Transcript row parse failed quietly', { index, length: cue.text.length }, error);
+        }
     }
 
     private renderTrackPanel(): void {
@@ -1105,73 +1198,16 @@ export class SubtitlePlayerController {
     private positionTranscriptPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden) return;
         const panel = this.transcriptPanel;
-        const placement = this.options.getSettings().subtitleTranscriptPlacement;
-        const margin = 10;
         const viewportWidth = Math.max(320, window.innerWidth);
         const viewportHeight = Math.max(240, window.innerHeight);
-        const compactPanel = viewportWidth <= 700 || window.matchMedia?.('(pointer: coarse)').matches;
-        const videoRect = this.video?.getBoundingClientRect();
-        const hasVideoRect = Boolean(videoRect && videoRect.width >= 120 && videoRect.height >= 80);
-        const anchor = hasVideoRect && videoRect
-            ? videoRect
-            : new DOMRect(0, 0, viewportWidth, viewportHeight);
-
-        let left = margin;
-        let top = Math.max(margin, anchor.top);
-        let width = Math.min(460, viewportWidth - margin * 2);
-        let height = Math.min(Math.max(280, anchor.height), viewportHeight - top - margin);
-
-        if (compactPanel) {
-            left = margin;
-            width = viewportWidth - margin * 2;
-            top = Math.max(margin, viewportHeight - Math.min(390, viewportHeight * 0.48) - margin);
-            height = viewportHeight - top - margin;
-        } else if (placement === 'right' && hasVideoRect && videoRect) {
-            const availableRight = viewportWidth - videoRect.right - margin * 2;
-            if (availableRight >= 280) {
-                left = videoRect.right + margin;
-                width = Math.min(460, availableRight);
-                top = Math.max(margin, videoRect.top);
-                height = Math.min(videoRect.height, viewportHeight - top - margin);
-            } else {
-                left = Math.max(margin, viewportWidth - width - margin);
-            }
-        } else if (placement === 'left' && hasVideoRect && videoRect) {
-            const availableLeft = videoRect.left - margin * 2;
-            if (availableLeft >= 280) {
-                width = Math.min(460, availableLeft);
-                left = Math.max(margin, videoRect.left - width - margin);
-                top = Math.max(margin, videoRect.top);
-                height = Math.min(videoRect.height, viewportHeight - top - margin);
-            }
-        } else if (placement === 'bottom' && hasVideoRect && videoRect) {
-            left = Math.max(margin, Math.min(videoRect.left, viewportWidth - width - margin));
-            width = Math.min(Math.max(320, videoRect.width), viewportWidth - margin * 2);
-            top = videoRect.bottom + margin;
-            const below = viewportHeight - top - margin;
-            if (below < 180) top = Math.max(margin, viewportHeight - Math.min(360, viewportHeight * 0.42) - margin);
-            height = Math.min(360, viewportHeight - top - margin);
-        } else if (placement === 'left') {
-            left = margin;
-            top = 68;
-            height = viewportHeight - top - margin;
-        } else if (placement === 'bottom') {
-            left = margin;
-            top = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
-            width = viewportWidth - margin * 2;
-            height = viewportHeight - top - margin;
-        } else {
-            left = Math.max(margin, viewportWidth - width - margin);
-            top = 68;
-            height = viewportHeight - top - margin;
-        }
-
-        panel.style.left = `${Math.round(left)}px`;
-        panel.style.top = `${Math.round(top)}px`;
-        panel.style.right = 'auto';
-        panel.style.bottom = 'auto';
-        panel.style.width = `${Math.round(Math.max(260, Math.min(width, viewportWidth - margin * 2)))}px`;
-        panel.style.maxHeight = `${Math.round(Math.max(180, height))}px`;
+        const layout = computeTranscriptPanelLayout({
+            placement: this.options.getSettings().subtitleTranscriptPlacement,
+            videoRect: this.video?.getBoundingClientRect(),
+            viewportWidth,
+            viewportHeight,
+            compactPanel: viewportWidth <= 700 || window.matchMedia?.('(pointer: coarse)').matches,
+        });
+        applyTranscriptPanelLayout(panel, layout);
     }
 
     private scheduleAlignToVideo(): void {
@@ -1183,13 +1219,143 @@ export class SubtitlePlayerController {
     }
 }
 
-type SubtitleIconName = 'eye' | 'eye-off' | 'menu' | 'plug' | 'plug-on' | 'tracks' | 'transcript';
+interface TranscriptPanelLayoutOptions {
+    placement: ReaderSettings['subtitleTranscriptPlacement'];
+    videoRect?: DOMRect;
+    viewportWidth: number;
+    viewportHeight: number;
+    compactPanel: boolean;
+}
+
+interface TranscriptPanelLayout {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    viewportWidth: number;
+    margin: number;
+}
+
+const TRANSCRIPT_PANEL_MARGIN = 10;
+
+function computeTranscriptPanelLayout(options: TranscriptPanelLayoutOptions): TranscriptPanelLayout {
+    const margin = TRANSCRIPT_PANEL_MARGIN;
+    const videoRect = usableVideoRect(options.videoRect) ? options.videoRect : undefined;
+    if (options.compactPanel) return compactTranscriptPanelLayout(options.viewportWidth, options.viewportHeight, margin);
+    if (videoRect) {
+        return videoAnchoredTranscriptLayout(options.placement, videoRect, options.viewportWidth, options.viewportHeight, margin);
+    }
+    return viewportTranscriptPanelLayout(options.placement, options.viewportWidth, options.viewportHeight, margin);
+}
+
+function compactTranscriptPanelLayout(viewportWidth: number, viewportHeight: number, margin: number): TranscriptPanelLayout {
+    const top = Math.max(margin, viewportHeight - Math.min(390, viewportHeight * 0.48) - margin);
+    return {
+        left: margin,
+        top,
+        width: viewportWidth - margin * 2,
+        height: viewportHeight - top - margin,
+        viewportWidth,
+        margin,
+    };
+}
+
+function videoAnchoredTranscriptLayout(
+    placement: ReaderSettings['subtitleTranscriptPlacement'],
+    videoRect: DOMRect,
+    viewportWidth: number,
+    viewportHeight: number,
+    margin: number,
+): TranscriptPanelLayout {
+    const availableRight = viewportWidth - videoRect.right - margin * 2;
+    const availableLeft = videoRect.left - margin * 2;
+    const belowVideo = viewportHeight - videoRect.bottom - margin;
+    const effectivePlacement = shouldUseBottomTranscriptFallback(placement, availableLeft, availableRight, belowVideo)
+        ? 'bottom'
+        : placement;
+
+    if (effectivePlacement === 'right') return rightTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableRight);
+    if (effectivePlacement === 'left') return leftTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableLeft);
+    return bottomTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin);
+}
+
+function shouldUseBottomTranscriptFallback(
+    placement: ReaderSettings['subtitleTranscriptPlacement'],
+    availableLeft: number,
+    availableRight: number,
+    belowVideo: number,
+): boolean {
+    return ((placement === 'right' && availableRight < 280) || (placement === 'left' && availableLeft < 280)) && belowVideo >= 150;
+}
+
+function rightTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableRight: number): TranscriptPanelLayout {
+    const width = Math.min(460, viewportWidth - margin * 2);
+    if (availableRight < 280) {
+        return { left: Math.max(margin, viewportWidth - width - margin), top: Math.max(margin, videoRect.top), width, height: Math.min(Math.max(280, videoRect.height), viewportHeight - margin), viewportWidth, margin };
+    }
+    const top = Math.max(margin, videoRect.top);
+    return { left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, margin };
+}
+
+function leftTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableLeft: number): TranscriptPanelLayout {
+    const top = Math.max(margin, videoRect.top);
+    const fallback = { left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, margin };
+    if (availableLeft < 280) return fallback;
+    const width = Math.min(460, availableLeft);
+    return { ...fallback, left: Math.max(margin, videoRect.left - width - margin), width };
+}
+
+function bottomTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number): TranscriptPanelLayout {
+    const width = Math.min(Math.max(320, videoRect.width), viewportWidth - margin * 2);
+    const left = Math.max(margin, Math.min(videoRect.left, viewportWidth - width - margin));
+    const preferredTop = videoRect.bottom + margin;
+    const below = viewportHeight - preferredTop - margin;
+    const top = below < 150
+        ? Math.max(margin, viewportHeight - Math.min(360, viewportHeight * 0.42) - margin)
+        : preferredTop;
+    return { left, top, width, height: Math.min(360, viewportHeight - top - margin), viewportWidth, margin };
+}
+
+function viewportTranscriptPanelLayout(
+    placement: ReaderSettings['subtitleTranscriptPlacement'],
+    viewportWidth: number,
+    viewportHeight: number,
+    margin: number,
+): TranscriptPanelLayout {
+    const width = placement === 'bottom' ? viewportWidth - margin * 2 : Math.min(460, viewportWidth - margin * 2);
+    if (placement === 'bottom') {
+        const top = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
+        return { left: margin, top, width, height: viewportHeight - top - margin, viewportWidth, margin };
+    }
+    const top = 68;
+    const left = placement === 'left' ? margin : Math.max(margin, viewportWidth - width - margin);
+    return { left, top, width, height: viewportHeight - top - margin, viewportWidth, margin };
+}
+
+function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelLayout): void {
+    panel.style.left = `${Math.round(layout.left)}px`;
+    panel.style.top = `${Math.round(layout.top)}px`;
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.width = `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`;
+    panel.style.maxHeight = `${Math.round(Math.max(150, layout.height))}px`;
+}
+
+function usableVideoRect(rect?: DOMRect): rect is DOMRect {
+    return Boolean(rect && rect.width >= 120 && rect.height >= 80);
+}
+
+type SubtitleIconName = 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'plug' | 'plug-on' | 'tracks' | 'transcript';
 
 function subtitleIcon(name: SubtitleIconName): string {
     const paths: Record<SubtitleIconName, string> = {
         eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
         'eye-off': '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
         menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
+        'panel-bottom': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
+        'panel-left': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
+        'panel-right': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
+        play: '<path d="M8 5v14l11-7-11-7Z"/>',
         plug: '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/>',
         'plug-on': '<path d="M9 7v5"/><path d="M15 7v5"/><path d="M7 12h10v2a5 5 0 0 1-10 0v-2Z"/><path d="M12 19v3"/><path d="M18 5l2-2"/><path d="M20 9h2"/>',
         tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',

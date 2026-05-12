@@ -19,23 +19,23 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 ## Features
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
-- JPDB mining actions for add, Never Forget, blacklist, and review grades.
+- JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
 - Optional Anki mining through AnkiConnect, with a よむ note type created automatically, existing-card detection, Anki grading, and best-effort context images from Immersion Kit, video, OCR, or image mining.
 - Yomitan dictionary imports: automatic JMdict starter download, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
-- Immersion Kit example sentences inside word popups, with optional thumbnails, audio, translations, length filters, source filters, and tappable Japanese inside each example.
+- Immersion Kit example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, browser text-to-speech, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR that works without setup through Google Lens, with Cloud Vision and local OCR app support for MangaOCR, PaddleOCR, and Apple Vision style results.
-- ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video.
-- Optional MPV subtitle bridge support for local videos played through `mpv-subtitleminer`, including live subtitle mining and replayable MPV line audio when the local bridge is running.
+- ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
+- Optional MPV subtitle bridge support for local videos played through `mpv-subtitleminer`, including live subtitle mining and replayable MPV line audio when the local bridge is running. It stays out of the main rail until you enable or connect it.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
 - Optional new-tab study page at `https://hrussellzfac023.github.io/kotoba-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
 - Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
 - First-run welcome screen explains the core workflow once, then stays out of the way.
-- Configurable accent color for the reader controls.
+- Configurable accent color and word highlight mode, including pitch-accent colors when JPDB/Anki mining status is not being used.
 
 ## GreasyFork Summary
 
@@ -212,9 +212,9 @@ npm run prefill:greasyfork
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
-- MPV support connects to a locally running [`mpv-subtitleminer`](https://github.com/friedrich-de/mpv-subtitleminer) bridge on the configured localhost ports. よむ does not bundle mpv, ffmpeg, or the Rust bridge binary.
-- iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, and the new-tab study page, but desktop helpers such as AnkiConnect, MPV, self-hosted audio, and local OCR servers must be reachable over the network. Autoplay and protected/cross-origin media capture are also browser-limited on iOS, so よむ keeps copy/JPDB/dictionary fallbacks visible.
-- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
+- MPV support connects to a locally running [`mpv-subtitleminer`](https://github.com/friedrich-de/mpv-subtitleminer) bridge on the configured localhost ports. よむ does not bundle mpv, ffmpeg, or the Rust bridge binary, and the bridge is opt-in from settings, the userscript menu, or the subtitle overflow menu.
+- iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, and the new-tab study page, but desktop helpers such as AnkiConnect, MPV, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
+- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional, but they directly buy maintenance time and make it more realistic for me to keep building this. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
 
 ## Support
 
@@ -223,7 +223,7 @@ npm run prefill:greasyfork
 - Discord: `henry281199`
 - Donate: https://paypal.me/HenryRussell163
 
-Donation note: feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ.
+Donation note: feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ. Even a small donation helps keep the project alive.
 
 ## Credits and References
 

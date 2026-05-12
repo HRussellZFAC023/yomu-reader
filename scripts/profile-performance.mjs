@@ -232,12 +232,47 @@ if (!LIVE) await page.route('**/*', async route => {
     return route.continue();
 });
 
-await page.goto(`${ORIGIN}/reader-test.html?apiKey=${encodeURIComponent(API_KEY || 'profile-key')}`, { waitUntil: 'domcontentloaded' });
+const profileUrl = new URL(`${ORIGIN}/reader-test.html`);
+profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');
+if (!LIVE) profileUrl.searchParams.set('audio', 'https://audio.profile.test/source?term={term}&reading={reading}');
+await page.goto(profileUrl.toString(), { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.jpdb-reader-word', { timeout: 10000 });
 
 const firstWord = page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first();
+const hoverAt = await page.evaluate(() => performance.now());
+await firstWord.hover();
+await page.waitForSelector('.jpdb-reader-popover', { timeout: 10000 });
+const hoverPopoverAt = await page.evaluate(() => performance.now());
+await page.waitForFunction(start => window.__yomuProfileEvents.some(event => event.t >= start && (event.name === 'audio.play' || event.name === 'audio.play.failed')), hoverAt, { timeout: 12000 }).catch(() => {});
+const hoverAudioAt = await page.evaluate(start => window.__yomuProfileEvents.find(event => event.t >= start && event.name.startsWith('audio.play'))?.t ?? null, hoverAt);
+const hoverAwayAt = await page.evaluate(() => performance.now());
+await page.mouse.move(1272, 892);
+await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3000 }).catch(() => {});
+const hoverClosed = await page.locator('.jpdb-reader-popover').count().then(count => count === 0);
+const hoverCloseAt = hoverClosed ? await page.evaluate(() => performance.now()) : null;
+const hoverCloseDebug = hoverClosed ? null : await page.evaluate(() => {
+    const describe = element => element ? {
+        tag: element.tagName,
+        className: element.className,
+        text: element.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) ?? '',
+    } : null;
+    const popover = document.querySelector('.jpdb-reader-popover');
+    const word = document.querySelector('.jpdb-reader-word:hover');
+    return {
+        elementAtAwayPoint: describe(document.elementFromPoint(1272, 892)),
+        hovered: Array.from(document.querySelectorAll(':hover')).slice(-6).map(describe),
+        ariaModal: popover?.getAttribute('aria-modal') ?? null,
+        backdropCount: document.querySelectorAll('.jpdb-reader-backdrop').length,
+        popoverBox: popover?.getBoundingClientRect().toJSON?.() ?? null,
+        wordHover: describe(word),
+    };
+});
+if (!hoverClosed) await page.keyboard.press('Escape');
+
+const clickWord = page.locator('.jpdb-reader-word').filter({ hasText: '今日' }).first();
+await page.evaluate(() => { window.__yomuProfileEvents = []; });
 const clickAt = await page.evaluate(() => performance.now());
-await firstWord.click();
+await clickWord.click();
 await page.waitForSelector('.jpdb-reader-popover', { timeout: 10000 });
 const popoverAt = await page.evaluate(() => performance.now());
 await page.waitForFunction(() => window.__yomuProfileEvents.some(event => event.name === 'audio.play' || event.name === 'audio.play.failed'), null, { timeout: 12000 }).catch(() => {});
@@ -262,11 +297,19 @@ const slowRequests = requests
     .map(request => ({ url: request.url.replace(/profile-key/g, '[redacted]'), ms: Math.round(request.end - request.start), status: request.status }))
     .sort((a, b) => b.ms - a.ms)
     .slice(0, 12);
+const pendingSlowRequests = requests
+    .filter(request => !request.end && performance.now() - request.start > 500)
+    .map(request => ({ url: request.url.replace(/profile-key/g, '[redacted]'), pendingMs: Math.round(performance.now() - request.start) }))
+    .sort((a, b) => b.pendingMs - a.pendingMs)
+    .slice(0, 12);
 
 console.log(JSON.stringify({
     origin: ORIGIN,
     injectedDelayMs: SLOW_MS,
     timingsMs: {
+        hoverToPopover: Math.round(hoverPopoverAt - hoverAt),
+        hoverToAudioPlayAttempt: hoverAudioAt ? Math.round(hoverAudioAt - hoverAt) : null,
+        hoverAwayToClose: hoverCloseAt ? Math.round(hoverCloseAt - hoverAwayAt) : null,
         clickToPopover: Math.round(popoverAt - clickAt),
         clickToAudioPlayAttempt: audioAt ? Math.round(audioAt - clickAt) : null,
         kanjiClickToShell: Math.round(kanjiShellAt - kanjiClickAt),
@@ -278,6 +321,8 @@ console.log(JSON.stringify({
         topYomuMessages: Object.entries(logCounts).sort(([, a], [, b]) => b - a).slice(0, 10),
     },
     slowRequests,
+    pendingSlowRequests,
+    hoverCloseDebug,
 }, null, 2));
 
 await browser.close();
@@ -318,7 +363,14 @@ function mockKanjiHtml(kanji) {
 }
 
 function mockKanjiVgSvg() {
-    return '<svg xmlns="http://www.w3.org/2000/svg"><g id="kvg:StrokePaths_profile"><path d="M10 10L80 80"/></g></svg>';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
+        <g id="kvg:StrokePaths_profile">
+            <path d="M53,13 C44,29 31,42 15,51" />
+            <path d="M57,14 C68,29 82,40 96,48" />
+            <path d="M38,54 C49,58 63,58 76,54" />
+            <path d="M30,70 H78 L62,91" />
+        </g>
+    </svg>`;
 }
 
 function mockKanjiMap() {

@@ -1,5 +1,5 @@
 import { Logger } from './logger';
-import type { AnkiTemplateMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings } from './types';
+import type { AnkiTemplateMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderSettings, WordHighlightMode } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
 const log = Logger.scope('Settings');
@@ -81,6 +81,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     jpdbUchisenEnabled: true,
     jpdbRtkEnabled: true,
     jpdbImmersionKitEnabled: true,
+    jpdbImmersionKitAutoPlayReviewAudio: true,
     jpdbLocalDictionariesEnabled: true,
     jpdbReviewUiEnabled: true,
     jpdbAutoRevealSentenceEnabled: true,
@@ -120,13 +121,14 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     immersionKitShowTranslation: false,
     immersionKitShowImages: true,
     immersionKitAutoPlayAudio: true,
+    immersionKitPlayOnHover: true,
     immersionKitPlaybackRate: 1,
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
     lookupOnMiddleMouse: true,
-    hoverOpenDelayMs: 120,
-    hoverCloseDelayMs: 260,
+    hoverOpenDelayMs: 0,
+    hoverCloseDelayMs: 80,
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     autoScanJapanese: true,
@@ -134,11 +136,13 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     showFloatingButton: true,
     newTabEnabled: false,
     newTabSource: 'auto',
-    newTabJpdbDeck: 'never-forget',
+    newTabJpdbDeck: 'all',
     puckPositionX: undefined,
     puckPositionY: undefined,
     showFurigana: true,
+    furiganaMode: 'auto',
     showPitchAccent: true,
+    wordHighlightMode: 'auto',
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
@@ -182,7 +186,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleFontWeight: 850,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
-    mpvSubtitleMiningEnabled: true,
+    mpvSubtitleMiningEnabled: false,
     mpvSubtitleAutoConnect: false,
     mpvSubtitleHost: '127.0.0.1',
     mpvSubtitlePorts: '61777, 61778, 61779, 61780, 61781',
@@ -202,6 +206,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiCaptureScreenshot: true,
     theme: 'auto',
     popupMode: 'auto',
+    jpdbMiningEnabled: true,
     miningDeck: 'forq',
     neverForgetDeck: 'never-forget',
     blacklistDeck: 'blacklist',
@@ -249,6 +254,7 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         value?.dictionaryLookupLinks,
         !hasSavedLookupLinks && Boolean(value?.apiKey?.trim()),
     );
+    const audioSourceUrl = audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL;
     return {
         ...DEFAULT_SETTINGS,
         ...(value ?? {}),
@@ -271,33 +277,14 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         wordColorIgnored: sanitizeAccentColor(value?.wordColorIgnored, DEFAULT_SETTINGS.wordColorIgnored),
         puckPositionX: normalizeOptionalCoordinate(value?.puckPositionX),
         puckPositionY: normalizeOptionalCoordinate(value?.puckPositionY),
+        showFurigana: typeof value?.showFurigana === 'boolean' ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
+        furiganaMode: normalizeFuriganaMode(value?.furiganaMode, value),
+        hideKnownFurigana: typeof value?.hideKnownFurigana === 'boolean' ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
+        wordHighlightMode: normalizeWordHighlightMode(value?.wordHighlightMode),
         audioSources,
-        audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
-        audioFallbackChimeEnabled: typeof value?.audioFallbackChimeEnabled === 'boolean' ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
-        immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-        immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-        immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-        immersionKitMaxLength: clampNumber(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
-        immersionKitCategory: normalizeImmersionKitCategory(value?.immersionKitCategory),
-        immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
-        immersionKitPlaybackRate: clampNumber(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
-        ocrProvider: normalizeOcrProvider(value?.ocrProvider),
-        ocrEngine: normalizeOcrEngine(value?.ocrEngine),
-        ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
-        ocrOutlineColor: sanitizeAccentColor(value?.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
-        ocrBackgroundColor: sanitizeAccentColor(value?.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-        ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-        ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
-        subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
-        subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
-        subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
-        subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
-        subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-        subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
-        subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
-        subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
-        mpvSubtitleHost: normalizeMpvHost(value?.mpvSubtitleHost),
-        mpvSubtitlePorts: normalizeMpvPorts(value?.mpvSubtitlePorts),
+        audioSourceUrl,
+        ...normalizeMediaSettings(value),
+        ...normalizeSubtitleSettings(value),
         jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === 'boolean' ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
         jpdbKanjiPriority: clampNumber(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
         rtkPriority: clampNumber(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
@@ -317,6 +304,7 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         studyGrammarPriority: clampNumber(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
         enableLogging: typeof value?.enableLogging === 'boolean' ? value.enableLogging : DEFAULT_SETTINGS.enableLogging,
         ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
+        jpdbMiningEnabled: typeof value?.jpdbMiningEnabled === 'boolean' ? value.jpdbMiningEnabled : DEFAULT_SETTINGS.jpdbMiningEnabled,
         miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
@@ -324,6 +312,45 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         dictionaryPreferences: normalizeDictionaryPreferences(value?.dictionaryPreferences),
         dictionaryLookupLinks,
         shortcuts,
+    };
+}
+
+function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
+        audioFallbackChimeEnabled: typeof value?.audioFallbackChimeEnabled === 'boolean' ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
+        immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+        immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+        immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+        immersionKitMaxLength: clampNumber(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+        immersionKitCategory: normalizeImmersionKitCategory(value?.immersionKitCategory),
+        immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
+        immersionKitPlaybackRate: clampNumber(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+        jpdbImmersionKitAutoPlayReviewAudio: typeof value?.jpdbImmersionKitAutoPlayReviewAudio === 'boolean'
+            ? value.jpdbImmersionKitAutoPlayReviewAudio
+            : DEFAULT_SETTINGS.jpdbImmersionKitAutoPlayReviewAudio,
+        immersionKitPlayOnHover: typeof value?.immersionKitPlayOnHover === 'boolean' ? value.immersionKitPlayOnHover : DEFAULT_SETTINGS.immersionKitPlayOnHover,
+        ocrProvider: normalizeOcrProvider(value?.ocrProvider),
+        ocrEngine: normalizeOcrEngine(value?.ocrEngine),
+        ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
+        ocrOutlineColor: sanitizeAccentColor(value?.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
+        ocrBackgroundColor: sanitizeAccentColor(value?.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
+        ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+        ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
+    };
+}
+
+function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    return {
+        subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
+        subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
+        subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
+        subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
+        subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
+        subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+        subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
+        subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
+        mpvSubtitleHost: normalizeMpvHost(value?.mpvSubtitleHost),
+        mpvSubtitlePorts: normalizeMpvPorts(value?.mpvSubtitlePorts),
     };
 }
 
@@ -407,8 +434,40 @@ function normalizeNewTabSource(value: unknown): ReaderSettings['newTabSource'] {
     return value === 'jpdb' || value === 'anki' || value === 'auto' || value === 'dictionary' ? value : DEFAULT_SETTINGS.newTabSource;
 }
 
+function normalizeWordHighlightMode(value: unknown): WordHighlightMode {
+    return value === 'status' || value === 'pitch' || value === 'auto' || value === 'off'
+        ? value
+        : DEFAULT_SETTINGS.wordHighlightMode;
+}
+
+function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
+    if (value === 'auto' || value === 'all' || value === 'difficult-kanji' || value === 'known-status' || value === 'off') return value;
+    if (settings && Object.prototype.hasOwnProperty.call(settings, 'showFurigana') && settings.showFurigana === false) return 'off';
+    if (settings && Object.prototype.hasOwnProperty.call(settings, 'hideKnownFurigana') && settings.hideKnownFurigana === false) return 'all';
+    return DEFAULT_SETTINGS.furiganaMode;
+}
+
 function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+export function hasMiningStatusSource(settings: ReaderSettings): boolean {
+    return settings.ankiEnabled || (settings.jpdbMiningEnabled && Boolean(settings.apiKey.trim()));
+}
+
+export function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
+    return settings.ankiEnabled || Boolean(settings.apiKey.trim());
+}
+
+export function effectiveWordHighlightMode(settings: ReaderSettings): Exclude<WordHighlightMode, 'auto'> {
+    if (settings.wordHighlightMode === 'status' || settings.wordHighlightMode === 'pitch' || settings.wordHighlightMode === 'off') return settings.wordHighlightMode;
+    return hasMiningStatusSource(settings) ? 'status' : 'pitch';
+}
+
+export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
+    if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
+    if (settings.furiganaMode === 'all' || settings.furiganaMode === 'difficult-kanji' || settings.furiganaMode === 'known-status') return settings.furiganaMode;
+    return hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'difficult-kanji';
 }
 
 export function sanitizeAccentColor(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
@@ -726,6 +785,9 @@ function settingsSummary(settings: ReaderSettings): Record<string, unknown> {
         subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
         youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
         ankiEnabled: settings.ankiEnabled,
+        jpdbMiningEnabled: settings.jpdbMiningEnabled,
+        furiganaMode: settings.furiganaMode,
+        wordHighlightMode: settings.wordHighlightMode,
         theme: settings.theme,
     };
 }

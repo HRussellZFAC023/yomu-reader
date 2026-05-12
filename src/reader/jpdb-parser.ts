@@ -2,7 +2,7 @@ import { Logger } from './logger';
 import { normalizeCardStates } from './card-state';
 import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
 
-const SMALL_KANA = new Set('ゃゅょァィゥェォッャュョ');
+const COMBINING_KANA = new Set('ゃゅょぁぃぅぇぉャュョァィゥェォ');
 const log = Logger.scope('JpdbParser');
 
 export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
@@ -168,30 +168,40 @@ export function getPitchClass(pitchAccent: string[], reading: string): string {
     if (!pitchAccent.length) return '';
 
     const [pitch] = pitchAccent;
-    const parts = pitch.split('');
-    const first = parts.shift();
-    const last = parts.pop();
-    if (!first || !last) return '';
+    const levels = Array.from(pitch).filter(level => level === 'H' || level === 'L');
+    if (levels.length < 2) return '';
 
-    if (reading.length > 1 && SMALL_KANA.has(reading.charAt(1)) && first === parts[0]) {
-        parts.shift();
-    }
+    const rises = countPitchTransitions(levels, 'L', 'H');
+    const drops = countPitchTransitions(levels, 'H', 'L');
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === 'H' && level === 'L');
+    const startsLow = levels[0] === 'L';
+    const startsHigh = levels[0] === 'H';
+    const endsLow = levels[levels.length - 1] === 'L';
+    const moraCount = countMorae(reading);
 
-    const rises = (pitch.match(/LH/g) ?? []).length;
-    const drops = (pitch.match(/HL/g) ?? []).length;
-    const startsLow = first === 'L';
-    const startsHigh = !startsLow;
-    const endsLow = last === 'L';
-    const endsHigh = !endsLow;
-    const allHigh = !parts.includes('L');
-
-    if (reading.length === 1 && pitch === 'HL') return 'odaka';
-    if (startsHigh && drops === 1 && parts[0] === 'L') return 'atamadaka';
-    if (startsLow && endsLow && rises === 1) return 'nakadaka';
-    if (startsLow && rises === 1 && (endsLow || parts.length === 1)) return 'odaka';
-    if (startsLow && allHigh && endsHigh) return 'heiban';
+    if (startsHigh && drops === 1) return 'atamadaka';
+    if (moraCount && startsLow && dropAt === moraCount) return 'odaka';
+    if (startsLow && rises === 1 && !endsLow) return 'heiban';
+    if (startsLow && rises === 1 && endsLow) return 'nakadaka';
     if (rises > 1 || drops > 1) return 'kifuku';
     return '';
+}
+
+function countPitchTransitions(levels: string[], from: string, to: string): number {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+        if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+}
+
+function countMorae(reading: string): number {
+    let count = 0;
+    for (const char of Array.from(reading)) {
+        if (count > 0 && COMBINING_KANA.has(char)) continue;
+        count++;
+    }
+    return count;
 }
 
 function assignWordWithReading(token: JPDBToken): void {

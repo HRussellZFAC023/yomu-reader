@@ -66,7 +66,7 @@ export class ReaderParser {
     }
 
     isJpdbBackedCard(card: JPDBCard): boolean {
-        return card.source !== 'local' && card.vid > 0 && card.sid > 0 && Boolean(this.dependencies.getSettings().apiKey.trim());
+        return (!card.source || card.source === 'jpdb') && card.vid > 0 && card.sid > 0 && Boolean(this.dependencies.getSettings().apiKey.trim());
     }
 
     getCachedCard(vid: number, sid: number): JPDBCard | undefined {
@@ -75,7 +75,7 @@ export class ReaderParser {
 
     cacheCards(cards: JPDBCard[]): void {
         cards.forEach(card => {
-            if (card.source === 'local' || card.vid <= 0 || card.sid <= 0) {
+            if ((card.source && card.source !== 'jpdb') || card.vid <= 0 || card.sid <= 0) {
                 this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
             }
         });

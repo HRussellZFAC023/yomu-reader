@@ -8,7 +8,7 @@ import { applyTokensToScanTarget, applyTokensToTextNode, collectTextTargetsIn, r
 import { ImmersionKitClient } from '../../src/reader/immersion-kit';
 import { splitJapaneseSentences } from '../../src/reader/jpdb';
 import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
-import { parseJpdbReviewCardValue, parseUchisenImages } from '../../src/reader/jpdb-extensions';
+import { JpdbExtensionsController, parseJpdbReviewCardValue, parseUchisenImages } from '../../src/reader/jpdb-extensions';
 import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
 import { parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
@@ -19,7 +19,7 @@ import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr'
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { mergeSimilarKanjiWords, renderKanjiOrigins, renderPitch, summarizeLearnerGlossary } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
-import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
+import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveWordHighlightMode, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { detectGrammarHints } from '../../src/reader/study-tools';
 import { READER_CSS } from '../../src/reader/styles';
@@ -41,6 +41,22 @@ const card: JPDBCard = {
     pitchAccent: ['LHH'],
     wordWithReading: null,
 };
+
+async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
+    const start = Date.now();
+    let lastError: unknown;
+    while (Date.now() - start < timeoutMs) {
+        try {
+            await assertion();
+            return;
+        } catch (error) {
+            lastError = error;
+            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+    }
+    if (lastError) throw lastError;
+    await assertion();
+}
 
 describe('reader helpers', () => {
     it('normalizes JPDB card states before using them for reader word classes', () => {
@@ -70,7 +86,27 @@ describe('reader helpers', () => {
         expect(READER_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-color:\s*transparent\s*!important;/);
         expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-new,[\s\S]*?background:\s*var\(--jpdb-reader-state-new-soft,[^;]+!important;/);
         expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-known,[\s\S]*?text-decoration-color:\s*var\(--jpdb-reader-state-known,[^;]+!important;/);
+        expect(READER_CSS).toMatch(/\.jpdb-reader-highlight-pitch \.jpdb-reader-word\.jpdb-pitch-heiban[\s\S]*?text-decoration-color:\s*#359eff\s*!important;/);
         expect(READER_CSS).toMatch(/\.jpdb-ocr-line \.jpdb-reader-word\s*\{[^}]*text-decoration:\s*none\s*!important;/);
+    });
+
+    it('defaults word highlight colors to pitch when mining status is not configured', () => {
+        expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false })).toBe('pitch');
+        expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: true })).toBe('status');
+        expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false })).toBe('pitch');
+        expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status', apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false })).toBe('status');
+
+        const html = renderTokensToHtml('読む', [{
+            card,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: 'heiban',
+            sentence: '読む',
+        }], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false });
+
+        expect(html).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
     });
 
     it('formats Yomitan-compatible audio URLs', () => {
@@ -207,6 +243,230 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('adds local dictionaries and Immersion Kit to JPDB romaji search results', async () => {
+        window.history.replaceState(null, '', '/search?q=HAHA&lang=english#a');
+        document.body.innerHTML = `
+            <div class="container bugfix">
+                <div class="results search">
+                    <div id="result-0">
+                        <div class="result vocabulary">
+                            <div class="subsection-spelling with-furigana">
+                                <div class="primary-spelling"><div class="spelling"><div><ruby class="v">母<rt>はは</rt></ruby></div></div></div>
+                            </div>
+                            <div class="vbox grow gap">
+                                <div class="subsection-meanings">
+                                    <h6 class="subsection-label">Meanings</h6>
+                                    <div class="subsection"><div class="description">1. mother</div></div>
+                                </div>
+                                <div class="subsection-other-spellings alt-section">
+                                    <div class="subsection"><div class="alt-spelling"><a class="plain" href="/vocabulary/1514990/%E6%AF%8D/%E3%81%AF%E3%81%AF?lang=english#a"><ruby>母<rt>はは</rt></ruby></a></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const immersionQueries: string[] = [];
+        const controller = new JpdbExtensionsController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                showFloatingButton: false,
+                autoScanJapanese: false,
+                scanVisiblePage: false,
+                audioViaBlob: false,
+                immersionKitShowImages: false,
+                localDictionariesEnabled: true,
+                jpdbLocalDictionariesEnabled: true,
+                immersionKitEnabled: true,
+                jpdbImmersionKitEnabled: true,
+                jpdbKanjiDoodleEnabled: false,
+                jpdbKanjiEnabled: false,
+                jpdbRtkEnabled: false,
+                jpdbUchisenEnabled: false,
+            }),
+            dictionaries: {
+                lookup: vi.fn(async (term: string) => term === 'はは'
+                    ? [{
+                        expression: 'はは',
+                        reading: '',
+                        glossary: ['mother; mama'],
+                        dictionary: '小学館例解学習国語 第十二版',
+                        score: 1,
+                    }]
+                    : []),
+            } as unknown as YomitanDictionaryStore,
+            immersionKit: {
+                search: vi.fn(async (query: string) => {
+                    immersionQueries.push(query);
+                    return query === 'HAHA'
+                        ? [{
+                            id: 'anime_test_1',
+                            sentence: 'ははっ｡',
+                            sentenceWithFurigana: '',
+                            translation: 'The police are here!',
+                            sourceTitle: 'My Hero Academia',
+                            titleSlug: 'my_hero_academia',
+                            category: 'anime',
+                            soundFile: 'audio.mp3',
+                            imageFile: '',
+                            soundUrl: 'https://audio.test/haha.mp3',
+                            imageUrl: '',
+                        }]
+                        : [];
+                }),
+                mediaUrl: vi.fn(() => 'https://audio.test/haha.mp3'),
+                fetchDataUrl: vi.fn(),
+                fetchBlobUrl: vi.fn(),
+            } as unknown as ImmersionKitClient,
+            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
+            rtk: { lookup: vi.fn(async () => null) } as never,
+            audio: { play: vi.fn(async () => undefined) } as never,
+        });
+
+        (controller as unknown as { run: () => void }).run();
+
+        await waitForExpect(() => {
+            expect(document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent).toContain('mother; mama');
+            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('My Hero Academia');
+        });
+        expect(immersionQueries[0]).toBe('HAHA');
+        controller.destroy();
+    });
+
+    it('uses JPDB review answer readings for local dictionaries, keeps RTK collapsed on front, and autoplays review Immersion Kit audio', async () => {
+        const played: string[] = [];
+        class FakeAudio {
+            playbackRate = 1;
+            ended = false;
+            constructor(public src: string) {}
+            addEventListener(): void {}
+            pause(): void {}
+            play(): Promise<void> {
+                played.push(this.src);
+                return Promise.resolve();
+            }
+        }
+        vi.stubGlobal('Audio', FakeAudio);
+
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: false,
+            autoScanJapanese: false,
+            scanVisiblePage: false,
+            audioViaBlob: false,
+            immersionKitShowImages: false,
+            localDictionariesEnabled: true,
+            jpdbLocalDictionariesEnabled: true,
+            immersionKitEnabled: true,
+            jpdbImmersionKitEnabled: true,
+            jpdbImmersionKitAutoPlayReviewAudio: true,
+            jpdbKanjiDoodleEnabled: false,
+            jpdbKanjiEnabled: false,
+            jpdbUchisenEnabled: false,
+            jpdbRtkEnabled: true,
+            rtkEnabled: true,
+        };
+
+        document.body.innerHTML = `
+            <div class="nav minimal"><div class="menu"><a class="nav-item" href="/learn">Learn (<span style="color:red">121</span>)</a><a class="nav-item" href="/decks">Decks</a></div><button class="menu-icon">menu</button></div>
+            <div class="answer-box">
+                <input name="c" value="kb,漢">
+                <div class="plain kanji-keyword">Chinese</div>
+            </div>
+        `;
+        window.history.replaceState(null, '', '/review?c=kb,%E6%BC%A2#a');
+        const frontController = new JpdbExtensionsController({
+            getSettings: () => settings,
+            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
+            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
+            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
+            rtk: {
+                lookup: vi.fn(async () => ({
+                    kanji: '漢',
+                    keyword: 'Sino-',
+                    frameNumber: '100',
+                    onYomi: 'カン',
+                    kunYomi: '',
+                    elements: 'water, mouth',
+                    heisigStory: 'Water between countries.',
+                    heisigComment: '',
+                    koohiiStories: [],
+                })),
+            } as never,
+            audio: { play: vi.fn(async () => undefined) } as never,
+        });
+        (frontController as unknown as { run: () => void }).run();
+        await waitForExpect(() => {
+            expect(document.querySelector('.nav-item')?.textContent).toContain('Items left (121)');
+            expect(document.querySelector('#yomu-jpdb-rtk details')?.hasAttribute('open')).toBe(false);
+        });
+        frontController.destroy();
+
+        window.history.replaceState(null, '', '/review?c=vf%2C1492670%2C2652238148&r=1#a');
+        document.body.innerHTML = `
+            <div class="nav minimal"><div class="menu"><a class="nav-item" href="/learn">Learn (<span style="color:red">121</span>)</a><a class="nav-item" href="/decks">Decks</a></div><button class="menu-icon">menu</button></div>
+            <div class="review-reveal">
+                <div class="answer-box">
+                    <div class="plain" style="display:none"><a class="plain" href="/vocabulary/1492670/%E4%B8%8D%E8%87%AA%E7%84%B6#a"><ruby>不<rt>ふ</rt></ruby><ruby>自<rt>し</rt></ruby><ruby>然<rt>ぜん</rt></ruby></a></div>
+                    <div class="sentence">この文章は<span class="highlight"><ruby>不<rt>ふ</rt></ruby><ruby>自<rt>し</rt></ruby><ruby>然<rt>ぜん</rt></ruby></span>に感じます。</div>
+                </div>
+                <div class="result vocabulary">
+                    <div class="subsection-meanings">
+                        <h6 class="subsection-label">Meanings</h6>
+                        <div class="subsection"><div class="description">1. unnatural</div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        const backController = new JpdbExtensionsController({
+            getSettings: () => settings,
+            dictionaries: {
+                lookup: vi.fn(async (term: string) => term === 'ふしぜん'
+                    ? [{
+                        expression: 'ふしぜん',
+                        reading: '',
+                        glossary: ['わざとらしいこと。自然でないこと。'],
+                        dictionary: '小学館例解学習国語 第十二版',
+                        score: 1,
+                    }]
+                    : []),
+            } as unknown as YomitanDictionaryStore,
+            immersionKit: {
+                search: vi.fn(async (query: string) => query === '不自然'
+                    ? [{
+                        id: 'anime_code_geass_1',
+                        sentence: 'うん とっても不自然',
+                        sentenceWithFurigana: '',
+                        translation: 'Yeah... This is pretty unnatural.',
+                        sourceTitle: 'Code Geass',
+                        titleSlug: 'code_geass',
+                        category: 'anime',
+                        soundFile: '',
+                        imageFile: '',
+                        soundUrl: 'https://audio.test/fushizen.mp3',
+                        imageUrl: '',
+                    }]
+                    : []),
+                mediaUrl: vi.fn(() => 'https://audio.test/fushizen.mp3'),
+                fetchDataUrl: vi.fn(),
+                fetchBlobUrl: vi.fn(),
+            } as unknown as ImmersionKitClient,
+            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
+            rtk: { lookup: vi.fn(async () => null) } as never,
+            audio: { play: vi.fn(async () => undefined) } as never,
+        });
+        (backController as unknown as { run: () => void }).run();
+        await waitForExpect(() => {
+            expect(document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent).toContain('自然でない');
+            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('Code Geass');
+            expect(played).toContain('https://audio.test/fushizen.mp3');
+        });
+        backController.destroy();
+        vi.unstubAllGlobals();
+    });
+
     it('skips the JapanesePod101 unavailable clip and plays the next source', async () => {
         const played: string[] = [];
         class FakeAudio {
@@ -248,6 +508,51 @@ describe('reader helpers', () => {
             await player.play(card);
 
             expect(played).toEqual(['http://x.test/audio.mp3']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('caches custom JSON audio candidates across repeated plays', async () => {
+        const played: string[] = [];
+        let sourceRequests = 0;
+        class FakeAudio {
+            preload = '';
+            constructor(public src: string) {}
+            play(): Promise<void> {
+                played.push(this.src);
+                return Promise.resolve();
+            }
+            pause(): void {}
+        }
+        vi.stubGlobal('Audio', FakeAudio);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                sourceRequests += 1;
+                details.onload?.({
+                    status: 200,
+                    response: JSON.stringify({ audioSources: [{ url: 'http://x.test/audio.mp3' }] }),
+                    responseText: JSON.stringify({ audioSources: [{ url: 'http://x.test/audio.mp3' }] }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom-json', url: 'http://x.test/source?term={term}', voice: '', enabled: true },
+                ],
+            }));
+
+            await player.play(card);
+            await player.play(card);
+
+            expect(sourceRequests).toBe(1);
+            expect(played).toEqual(['http://x.test/audio.mp3', 'http://x.test/audio.mp3']);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -304,6 +609,11 @@ describe('reader helpers', () => {
         const event = new KeyboardEvent('keydown', { key: 'J', altKey: true, shiftKey: true });
         expect(matchesShortcut(event, 'Alt+Shift+J')).toBe(true);
         expect(matchesShortcut(event, 'Alt+J')).toBe(false);
+    });
+
+    it('defaults hover lookup to immediate open with a short close grace', () => {
+        expect(DEFAULT_SETTINGS.hoverOpenDelayMs).toBe(0);
+        expect(DEFAULT_SETTINGS.hoverCloseDelayMs).toBeLessThanOrEqual(100);
     });
 
     it('preserves an intentionally empty Yomitan-style audio source list', () => {
@@ -1212,6 +1522,8 @@ describe('reader helpers', () => {
 
     it('ports the supported site parser list from anki-jpdb.reader, including the newer NHK host', () => {
         expect(SITE_PARSER_PROFILES.map(profile => profile.id)).toEqual(expect.arrayContaining([
+            'jpdb-parser',
+            'jisho-parser',
             'luna-translator-parser',
             'texthooker-parser',
             'exstatic-parser',
@@ -1228,6 +1540,77 @@ describe('reader helpers', () => {
         ]));
         expect(getMatchingSiteParsers('https://news.web.nhk/news/easy/ne2026050812537/ne2026050812537.html').map(profile => profile.id))
             .toContain('nhk-parser');
+    });
+
+    it('uses Jisho-specific fragment parsing for result text split across furigana spans', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 900,
+            top: 0,
+            bottom: 220,
+            width: 900,
+            height: 220,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <div id="main_results">
+                <div class="concept_light clearfix">
+                    <div class="concept_light-readings japanese japanese_gothic" lang="ja">
+                        <div class="concept_light-representation">
+                            <span class="furigana"><span>きのう</span></span>
+                            <span class="text">昨日</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sentence_content">
+                    <ul class="japanese_sentence japanese japanese_gothic" lang="ja">
+                        <li style="display:inline"><span class="furigana">きのう</span><span class="unlinked">昨日</span></li>すき焼きを食べました。
+                    </ul>
+                    <div class="english">I ate sukiyaki yesterday.</div>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jisho.org/search/%E6%98%A8%E6%97%A5');
+        rectSpy.mockRestore();
+
+        const normalizedTargets = targets.map(target => target.text.replace(/\s+/g, ''));
+        expect(normalizedTargets).toContain('昨日');
+        expect(normalizedTargets).toContain('昨日すき焼きを食べました。');
+        expect(normalizedTargets.some(text => text.includes('きのう昨日'))).toBe(false);
+    });
+
+    it('uses JPDB-specific fragment parsing for dictionary result pages', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 900,
+            top: 0,
+            bottom: 260,
+            width: 900,
+            height: 260,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <div class="result vocabulary">
+                <div class="subsection-spelling with-furigana">
+                    <div class="primary-spelling"><ruby>母<rt>はは</rt></ruby></div>
+                    <div>ハハ</div>
+                </div>
+                <div class="subsection-meanings">
+                    <h6 class="subsection-label">Meanings</h6>
+                    <div class="description">かか was used by children</div>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jpdb.io/search?q=HAHA&lang=english#a');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining(['母', 'ハハ', 'かか was used by children']));
     });
 
     it('does not scan form labels, required badges, or compact UI chips', () => {

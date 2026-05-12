@@ -49,6 +49,20 @@ interface DoodleState {
     cleanup: Array<() => void>;
 }
 
+interface JpdbTermTarget {
+    term: string;
+    reading: string;
+    queries: string[];
+    anchor: HTMLElement;
+}
+
+interface LocalDictionaryTarget {
+    term: string;
+    reading: string;
+    alternates: string[];
+    anchor: HTMLElement;
+}
+
 export class JpdbExtensionsController {
     private observer?: MutationObserver;
     private timer?: number;
@@ -57,6 +71,7 @@ export class JpdbExtensionsController {
     private uchisenKanji = '';
     private jpdbKanji = '';
     private immersionKey = '';
+    private reviewImmersionAutoPlayKey = '';
     private localDictionaryKeys = new Set<string>();
     private sourceOpenOverrides = new Map<string, boolean>();
     private currentObjectUrl = '';
@@ -74,6 +89,11 @@ export class JpdbExtensionsController {
         });
         this.observer.observe(document.documentElement, { childList: true, subtree: true });
         log.info('JPDB page add-ons initialized', { href: location.href });
+    }
+
+    destroy(): void {
+        this.observer?.disconnect();
+        window.clearTimeout(this.timer);
     }
 
     refresh(): void {
@@ -155,14 +175,25 @@ export class JpdbExtensionsController {
 
     private applyReviewUiTweak(): void {
         if (!isReviewPage()) return;
-        const firstItem = document.querySelector<HTMLElement>('.menu .nav-item:first-child');
-        if (!firstItem) return;
-        const label = firstItem.querySelector('a, div') ?? firstItem;
-        if (!label.getAttribute('data-yomu-original-text')) {
-            label.setAttribute('data-yomu-original-text', label.textContent?.trim() ?? '');
+        const menu = document.querySelector<HTMLElement>('.nav .menu, .menu');
+        if (!menu) return;
+        let item = menu.querySelector<HTMLElement>('.nav-item:first-child, a[href="/learn"], [href="/learn"]');
+        if (!item) {
+            item = document.createElement('div');
+            item.className = 'nav-item';
+            item.dataset.yomuCreatedNavItem = 'true';
+            menu.prepend(item);
         }
-        const original = label.getAttribute('data-yomu-original-text') || label.textContent || '';
-        label.textContent = original.replace(/\bLearn\b/i, 'Items left');
+        item.classList.add('nav-item');
+        if (!item.hasAttribute('href')) item.setAttribute('href', '/learn');
+        if (!item.getAttribute('data-yomu-original-html')) {
+            item.setAttribute('data-yomu-original-html', item.innerHTML);
+        }
+        const original = item.getAttribute('data-yomu-original-html') || item.innerHTML || item.textContent || '';
+        const count = reviewItemsLeftCount(original);
+        setInnerHtml(item, count
+            ? `Items left (<span class="yomu-jpdb-items-left-count">${escapeHtml(count)}</span>)`
+            : 'Items left');
     }
 
     private showReviewExamplesByDefault(): void {
@@ -183,6 +214,11 @@ export class JpdbExtensionsController {
 
     private restoreReviewUiTweak(): void {
         document.documentElement.classList.remove('yomu-jpdb-review-compact-nav');
+        document.querySelectorAll<HTMLElement>('[data-yomu-created-nav-item]').forEach(element => element.remove());
+        document.querySelectorAll<HTMLElement>('[data-yomu-original-html]').forEach(element => {
+            element.innerHTML = element.getAttribute('data-yomu-original-html') ?? element.innerHTML;
+            element.removeAttribute('data-yomu-original-html');
+        });
         document.querySelectorAll<HTMLElement>('[data-yomu-original-text]').forEach(element => {
             element.textContent = element.getAttribute('data-yomu-original-text') ?? element.textContent;
             element.removeAttribute('data-yomu-original-text');
@@ -247,7 +283,7 @@ export class JpdbExtensionsController {
             return;
         }
         log.debug('JPDB add-on RTK rendered', { kanji });
-        setInnerHtml(container, renderRtkPanel(info));
+        setInnerHtml(container, renderRtkPanel(info, !isKanjiReviewFront()));
     }
 
     private async renderUchisen(kanji: string): Promise<void> {
@@ -360,7 +396,7 @@ export class JpdbExtensionsController {
     private async renderImmersionKit(): Promise<void> {
         const target = currentJpdbTermTarget();
         if (!target) return;
-        const key = `${location.pathname}:${target.term}`;
+        const key = `${location.href}:${target.term}:${target.queries.join('|')}`;
         if (this.immersionKey === key && document.getElementById(IMMERSION_ID)) return;
         this.immersionKey = key;
         removeElement(IMMERSION_ID);
@@ -372,23 +408,21 @@ export class JpdbExtensionsController {
         `);
         insertAfter(target.anchor, container);
 
-        const examples = await this.options.immersionKit.search(target.term, this.options.getSettings()).catch(error => {
-            log.warn('JPDB add-on Immersion Kit search failed', { term: target.term }, error);
-            return [];
-        });
+        const result = await this.searchImmersionExamples(target);
         if (!container.isConnected || this.immersionKey !== key) return;
+        const { examples, query } = result;
         if (!examples.length) {
-            log.debug('JPDB add-on Immersion Kit returned no examples', { term: target.term });
+            log.debug('JPDB add-on Immersion Kit returned no examples', { term: target.term, queries: target.queries });
             setInnerHtml(container, `
                 <div class="yomu-jpdb-card-title">Immersion Kit</div>
                 <div class="jpdb-reader-help">No examples found for ${escapeHtml(target.term)}.</div>
             `);
             return;
         }
-        log.debug('JPDB add-on Immersion Kit rendered', { term: target.term, examples: examples.length });
+        log.debug('JPDB add-on Immersion Kit rendered', { term: target.term, query, examples: examples.length });
 
-        let index = savedImmersionIndex(target.term, examples.length);
-        const render = () => renderImmersionPanel(container, examples, index, target.term, this.options.immersionKit, this.options.getSettings());
+        let index = savedImmersionIndex(query, examples.length);
+        const render = () => renderImmersionPanel(container, examples, index, query, this.options.immersionKit, this.options.getSettings());
         container.addEventListener('click', event => {
             const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-yomu-immersion-action]')?.dataset.yomuImmersionAction;
             if (!action) return;
@@ -399,6 +433,11 @@ export class JpdbExtensionsController {
             if (action !== 'audio') render();
         });
         render();
+        const settings = this.options.getSettings();
+        if (settings.jpdbImmersionKitAutoPlayReviewAudio && isReviewAnswer() && this.reviewImmersionAutoPlayKey !== key) {
+            this.reviewImmersionAutoPlayKey = key;
+            playExampleAudio(examples[index], this.options.immersionKit, settings);
+        }
     }
 
     private async renderLocalDictionaries(): Promise<void> {
@@ -409,12 +448,7 @@ export class JpdbExtensionsController {
             if (this.localDictionaryKeys.has(key) && target.anchor.parentElement?.querySelector(`[data-yomu-local-key="${cssEscape(key)}"]`)) continue;
             this.localDictionaryKeys.add(key);
             target.anchor.parentElement?.querySelectorAll<HTMLElement>(`[data-yomu-local-key="${cssEscape(key)}"]`).forEach(node => node.remove());
-            const entries = await this.options.dictionaries
-                .lookup(target.term, target.reading, Math.min(settings.localDictionaryMaxResults, 8), settings.dictionaryPreferences)
-                .catch(error => {
-                    log.warn('JPDB add-on local dictionary lookup failed', { term: target.term, reading: target.reading }, error);
-                    return [];
-                });
+            const entries = await this.lookupLocalDictionaryEntries(target, settings);
             if (!entries.length || !target.anchor.isConnected) continue;
             const container = createAddonCard('', 'Imported dictionaries');
             container.classList.add('yomu-jpdb-local-dictionaries');
@@ -428,6 +462,47 @@ export class JpdbExtensionsController {
             insertAfter(target.anchor, container);
             log.debug('JPDB add-on local dictionaries rendered', { term: target.term, entries: entries.length });
         }
+    }
+
+    private async searchImmersionExamples(target: JpdbTermTarget): Promise<{ examples: ImmersionKitExample[]; query: string }> {
+        for (const query of target.queries) {
+            const examples = await this.options.immersionKit.search(query, this.options.getSettings()).catch(error => {
+                log.warn('JPDB add-on Immersion Kit search failed', { term: target.term, query }, error);
+                return [];
+            });
+            if (examples.length) return { examples, query };
+        }
+        return { examples: [], query: target.term };
+    }
+
+    private async lookupLocalDictionaryEntries(target: LocalDictionaryTarget, settings: ReaderSettings): Promise<YomitanTermEntry[]> {
+        const limit = Math.min(settings.localDictionaryMaxResults, 8);
+        const variants = localDictionaryLookupVariants(target);
+        const entries: YomitanTermEntry[] = [];
+        const variantRank = new Map<string, number>();
+
+        for (let index = 0; index < variants.length; index++) {
+            const variant = variants[index];
+            const found = await this.options.dictionaries
+                .lookup(variant.term, variant.reading, limit, settings.dictionaryPreferences)
+                .catch(error => {
+                    log.warn('JPDB add-on local dictionary lookup failed', { term: variant.term, reading: variant.reading, original: target.term }, error);
+                    return [];
+                });
+            for (const entry of found) {
+                entries.push(entry);
+                const key = localDictionaryEntryKey(entry);
+                variantRank.set(key, Math.min(variantRank.get(key) ?? index, index));
+            }
+        }
+
+        return uniqueLocalDictionaryEntries(entries)
+            .sort((a, b) =>
+                dictionaryPreferencePriority(a.dictionary, settings) - dictionaryPreferencePriority(b.dictionary, settings)
+                || (variantRank.get(localDictionaryEntryKey(a)) ?? 999) - (variantRank.get(localDictionaryEntryKey(b)) ?? 999)
+                || (b.score ?? 0) - (a.score ?? 0),
+            )
+            .slice(0, limit);
     }
 
     private removeLocalDictionaries(): void {
@@ -584,13 +659,13 @@ export function parseUchisenImages(html: string): UchisenImage[] {
     });
 }
 
-function renderRtkPanel(info: RtkInfo): string {
+function renderRtkPanel(info: RtkInfo, initiallyExpanded = true): string {
     const readings = [info.onYomi ? `On: ${info.onYomi}` : '', info.kunYomi ? `Kun: ${info.kunYomi}` : ''].filter(Boolean).join(' · ');
-    return `
-        <div class="yomu-jpdb-card-title">
-            <span>RTK</span>
-            ${info.frameNumber ? `<span class="yomu-jpdb-counter">#${escapeHtml(info.frameNumber)}</span>` : ''}
-        </div>
+    const title = `
+        <span>RTK</span>
+        ${info.frameNumber ? `<span class="yomu-jpdb-counter">#${escapeHtml(info.frameNumber)}</span>` : ''}
+    `;
+    const body = `
         <div class="yomu-jpdb-facts">
             <span><strong>Keyword</strong>${escapeHtml(info.keyword)}</span>
             ${readings ? `<span><strong>Readings</strong>${escapeHtml(readings)}</span>` : ''}
@@ -600,6 +675,15 @@ function renderRtkPanel(info: RtkInfo): string {
         ${info.heisigComment ? `<section><h6>Heisig comment</h6><p>${escapeHtml(info.heisigComment)}</p></section>` : ''}
         ${info.koohiiStories.length ? `<section><h6>Koohii stories</h6>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</section>` : ''}
     `;
+    if (!initiallyExpanded) {
+        return `
+            <details class="yomu-jpdb-collapsible-card">
+                <summary class="yomu-jpdb-card-title">${title}</summary>
+                <div class="yomu-jpdb-collapsible-body">${body}</div>
+            </details>
+        `;
+    }
+    return `<div class="yomu-jpdb-card-title">${title}</div>${body}`;
 }
 
 function renderJpdbKanjiPanel(info: JpdbKanjiInfo): string {
@@ -916,30 +1000,39 @@ function savedImmersionIndex(term: string, total: number): number {
     return Number.isFinite(index) && index !== undefined && index >= 0 && index < total ? index : 0;
 }
 
-function currentJpdbTermTarget(): { term: string; anchor: HTMLElement } | null {
-    const term = extractCurrentTerm();
+function currentJpdbTermTarget(): JpdbTermTarget | null {
+    const pageTerm = extractCurrentTermTarget();
+    const searchQuery = extractSearchQuery();
+    const term = isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? '';
     if (!term) return null;
     const anchor = document.querySelector<HTMLElement>('.subsection-meanings')
         ?? document.querySelector<HTMLElement>('.result.vocabulary')
         ?? document.querySelector<HTMLElement>('.answer-box')
         ?? document.querySelector<HTMLElement>('main')
         ?? document.body;
-    return { term, anchor };
+    const queries = isSearchPage()
+        ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])])
+        : uniqueLookupValues([pageTerm?.term, pageTerm?.reading, term, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])]);
+    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], anchor };
 }
 
-function currentLocalDictionaryTargets(): Array<{ term: string; reading: string; anchor: HTMLElement }> {
+function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
     if (isDeckPage() || isSearchPage()) {
         return Array.from(document.querySelectorAll<HTMLElement>('.result.vocabulary, .entry'))
             .map(section => {
                 const term = extractTermFromElement(section);
-                return term ? { ...term, anchor: section.querySelector<HTMLElement>('.subsection-meanings') ?? section } : null;
+                return term ? {
+                    ...term,
+                    alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section)]),
+                    anchor: section.querySelector<HTMLElement>('.subsection-meanings') ?? section,
+                } : null;
             })
-            .filter((item): item is { term: string; reading: string; anchor: HTMLElement } => item !== null)
+            .filter((item): item is LocalDictionaryTarget => item !== null)
             .slice(0, 16);
     }
     const target = currentJpdbTermTarget();
     if (!target) return [];
-    return [{ term: target.term, reading: extractReadingFromUrl() || target.term, anchor: target.anchor }];
+    return [{ term: target.term, reading: target.reading, alternates: target.queries, anchor: target.anchor }];
 }
 
 function currentAudioTargets(): Array<{ term: string; reading: string; link: HTMLElement }> {
@@ -973,10 +1066,22 @@ function extractTermFromAudioLink(link: HTMLElement): { term: string; reading: s
 }
 
 function extractCurrentTerm(): string {
-    const fromUrl = extractTermFromUrl();
-    if (fromUrl) return fromUrl;
+    return extractCurrentTermTarget()?.term ?? '';
+}
+
+function extractCurrentTermTarget(): { term: string; reading: string } | null {
     const fromPage = extractTermFromElement(document.body);
-    return fromPage?.term ?? '';
+    const fromUrl = extractTermFromUrl();
+    if (fromUrl) {
+        const pageReading = fromPage?.term === fromUrl ? fromPage.reading : '';
+        return { term: fromUrl, reading: extractReadingFromUrl() || pageReading || fromUrl };
+    }
+    return fromPage;
+}
+
+function extractSearchQuery(): string {
+    if (!isSearchPage()) return '';
+    return cleanText(new URLSearchParams(location.search).get('q') ?? '');
 }
 
 function extractTermFromUrl(): string {
@@ -1036,6 +1141,80 @@ function extractReadingText(root: Node): string {
         return rt || extractBaseText(element);
     }
     return Array.from(element.childNodes).map(extractReadingText).join('');
+}
+
+function extractAlternateTerms(root: ParentNode): string[] {
+    return Array.from(root.querySelectorAll<HTMLElement>('.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]'))
+        .flatMap(element => {
+            const fromText = cleanText(extractBaseText(element)) || cleanText(element.textContent ?? '');
+            const href = element instanceof HTMLAnchorElement ? element : element.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"]');
+            const fromHref = href ? vocabularyPathTerm(href.pathname) : '';
+            return [fromText, fromHref];
+        })
+        .filter(value => value && JAPANESE_RE.test(value));
+}
+
+function searchResultTerms(limit: number): Array<{ term: string; reading: string }> {
+    if (!isSearchPage()) return [];
+    return Array.from(document.querySelectorAll<HTMLElement>('.result.vocabulary, .entry'))
+        .map(section => extractTermFromElement(section))
+        .filter((item): item is { term: string; reading: string } => item !== null)
+        .slice(0, limit);
+}
+
+function vocabularyPathTerm(pathname: string): string {
+    const parts = pathname.split('/').filter(Boolean);
+    return parts[0] === 'vocabulary' && parts[2] ? decodePathPart(parts[2]) : '';
+}
+
+function uniqueLookupValues(values: Array<string | undefined | null>): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const value of values) {
+        const text = cleanText(value ?? '');
+        const key = text.replace(/\s+/g, '').toLowerCase();
+        if (!text || seen.has(key)) continue;
+        seen.add(key);
+        result.push(text);
+    }
+    return result;
+}
+
+function localDictionaryLookupVariants(target: LocalDictionaryTarget): Array<{ term: string; reading: string }> {
+    const variants: Array<{ term: string; reading: string }> = [];
+    const add = (term: string, reading = '') => {
+        const cleanTerm = cleanText(term);
+        const cleanReading = cleanText(reading);
+        if (!cleanTerm) return;
+        if (variants.some(item => item.term === cleanTerm && item.reading === cleanReading)) return;
+        variants.push({ term: cleanTerm, reading: cleanReading });
+    };
+    add(target.term, target.reading);
+    add(target.reading);
+    for (const alternate of target.alternates) {
+        add(alternate, alternate === target.term ? target.reading : '');
+        if (target.reading && alternate !== target.reading) add(alternate, target.reading);
+    }
+    return variants;
+}
+
+function uniqueLocalDictionaryEntries(entries: YomitanTermEntry[]): YomitanTermEntry[] {
+    const seen = new Set<string>();
+    return entries.filter(entry => {
+        const key = localDictionaryEntryKey(entry);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function localDictionaryEntryKey(entry: YomitanTermEntry): string {
+    return `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${JSON.stringify(entry.glossary).slice(0, 120)}`;
+}
+
+function dictionaryPreferencePriority(dictionary: string, settings: ReaderSettings): number {
+    const preference = settings.dictionaryPreferences.find(item => item.name === dictionary);
+    return preference?.priority ?? 999;
 }
 
 function extractCurrentKanji(): string {
@@ -1197,6 +1376,11 @@ function cleanText(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
 
+function reviewItemsLeftCount(htmlOrText: string): string {
+    const decoded = decodeEntities(htmlOrText.replace(/<[^>]+>/g, ' '));
+    return decoded.match(/\(([\d,]+)\)/)?.[1] ?? decoded.match(/\b(\d{1,6})\b/)?.[1] ?? '';
+}
+
 function firstJapaneseRun(value: string): string {
     return value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)?.[0] ?? cleanText(value);
 }
@@ -1324,7 +1508,7 @@ async function storageDelete(key: string): Promise<void> {
 }
 
 function cssEscape(value: string): string {
-    if ('CSS' in window && typeof CSS.escape === 'function') return CSS.escape(value);
+    if (typeof window.CSS?.escape === 'function') return window.CSS.escape(value);
     return value.replace(/["\\]/g, '\\$&');
 }
 

@@ -17,7 +17,7 @@ export function renderSupportPanel(): string {
             <div>
                 <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
                 <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                <p>Donations are optional, but they genuinely help. If you donate and leave a よむ feature request in the message, I will personally read it and implement it when it is feasible, legal, and within project scope.</p>
+                <p>Donations are optional, but they directly buy maintenance time and make it more realistic for me to keep building よむ. If you donate and leave a よむ feature request in the message, I will personally read it and implement it when it is feasible, legal, and within project scope.</p>
             </div>
             <div class="jpdb-reader-support-actions">
                 <a class="jpdb-reader-btn primary" href="${SUPPORT_LINKS.docs}" target="_blank" rel="noopener" data-support-link="docs">Documentation</a>
@@ -58,6 +58,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <div data-jpdb-decks>
                     ${renderDeckControls(settings, [], Boolean(settings.apiKey.trim()))}
                 </div>
+                ${checkbox('jpdbMiningEnabled', 'Enable JPDB mining actions', settings.jpdbMiningEnabled)}
                 ${checkbox('addToForq', 'Also add mined cards to forq', settings.addToForq)}
                 ${checkbox('enableReviews', 'Enable review actions', settings.enableReviews)}
                 <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
@@ -70,6 +71,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                         ${checkbox('jpdbUchisenEnabled', 'Uchisen mnemonic carousel', settings.jpdbUchisenEnabled)}
                         ${checkbox('jpdbRtkEnabled', 'RTK story panel', settings.jpdbRtkEnabled)}
                         ${checkbox('jpdbImmersionKitEnabled', 'Immersion Kit examples on JPDB', settings.jpdbImmersionKitEnabled)}
+                        ${checkbox('jpdbImmersionKitAutoPlayReviewAudio', 'Play Immersion Kit audio on JPDB answer reveal', settings.jpdbImmersionKitAutoPlayReviewAudio)}
                         ${checkbox('jpdbLocalDictionariesEnabled', 'Imported dictionary entries on JPDB', settings.jpdbLocalDictionariesEnabled)}
                         ${checkbox('jpdbReviewUiEnabled', 'Compact review navigation', settings.jpdbReviewUiEnabled)}
                         ${checkbox('jpdbAutoRevealSentenceEnabled', 'Auto-reveal answer sentence', settings.jpdbAutoRevealSentenceEnabled)}
@@ -91,14 +93,14 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     <div class="jpdb-reader-local-title">New tab</div>
                     <div class="grid">
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
-                        ${select('newTabSource', 'New tab word source', settings.newTabSource, [['auto', 'Auto: Anki, then JPDB, then Dictionary'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary (Top 2000)']])}
+                        ${select('newTabSource', 'New tab word source', settings.newTabSource, [['auto', 'Auto: Anki + JPDB + Dictionary'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary (Top 4000)']])}
                         <label>New tab address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Opening the page turns the study screen on automatically.</div>
+                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. If your browser will not accept the URL directly, set it in Chrome or your browser's new-tab settings using a new-tab redirect/override extension.</div>
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Word colors</div>
@@ -136,6 +138,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('immersionKitShowTranslation', 'Show example translations', settings.immersionKitShowTranslation)}
                     ${checkbox('immersionKitShowImages', 'Show example thumbnails', settings.immersionKitShowImages)}
                     ${checkbox('immersionKitAutoPlayAudio', 'Play example audio after next/previous', settings.immersionKitAutoPlayAudio)}
+                    ${checkbox('immersionKitPlayOnHover', 'Play first example audio on hover', settings.immersionKitPlayOnHover)}
                     ${select('immersionKitCategory', 'Example source', settings.immersionKitCategory, [['all', 'All'], ['anime', 'Anime'], ['drama', 'Drama'], ['games', 'Games']])}
                     ${select('immersionKitSort', 'Example order', settings.immersionKitSort, [['sentence_length:asc', 'Shortest first'], ['sentence_length:desc', 'Longest first'], ['random', 'Random']])}
                     ${input('immersionKitLimit', 'Examples per word', String(settings.immersionKitLimit), 'number', { min: 1, max: 12, step: 1 })}
@@ -158,6 +161,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('showFloatingButton', 'Toggle floating puck on pages', settings.showFloatingButton)}
                     ${checkbox('showFurigana', 'Enable furigana annotations', settings.showFurigana)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
+                    ${select('wordHighlightMode', 'Word highlight colors', settings.wordHighlightMode, [['auto', 'Automatic'], ['status', 'Known/mining status'], ['pitch', 'Pitch accent']])}
                     ${checkbox('hideKnownFurigana', 'Hide furigana for known cards only', settings.hideKnownFurigana)}
                 </div>
                 <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
@@ -397,6 +401,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     const labelKeys: Array<[string, Parameters<typeof uiText>[1]]> = [
         ['apiKey', 'apiKey'],
         ['newTabJpdbDeck', 'newTabJpdbDeck'],
+        ['jpdbMiningEnabled', 'jpdbMiningEnabled'],
         ['addToForq', 'addToForq'],
         ['enableReviews', 'enableReviews'],
         ['twoButtonReviews', 'reviewRatingScale'],
@@ -423,6 +428,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['showFloatingButton', 'showFloatingButton'],
         ['showFurigana', 'showFurigana'],
         ['showPitchAccent', 'showPitchAccent'],
+        ['wordHighlightMode', 'wordHighlightMode'],
         ['hideKnownFurigana', 'hideKnownFurigana'],
         ['kanjivgEnabled', 'kanjivgEnabled'],
         ['kanjiOriginsEnabled', 'kanjiOriginsEnabled'],
@@ -444,6 +450,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['immersionKitShowTranslation', 'immersionKitShowTranslation'],
         ['immersionKitShowImages', 'immersionKitShowImages'],
         ['immersionKitAutoPlayAudio', 'immersionKitAutoPlayAudio'],
+        ['jpdbImmersionKitAutoPlayReviewAudio', 'jpdbImmersionKitAutoPlayReviewAudio'],
         ['immersionKitCategory', 'immersionKitCategory'],
         ['immersionKitSort', 'immersionKitSort'],
         ['immersionKitLimit', 'immersionKitLimit'],
@@ -550,6 +557,11 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('auto')],
         ['sheet', text('bottomSheet')],
         ['popover', text('popover')],
+    ]);
+    setSelectOptionLabels(form, 'wordHighlightMode', [
+        ['auto', text('automatic')],
+        ['status', text('highlightKnownStatus')],
+        ['pitch', text('highlightPitchAccent')],
     ]);
     setSelectOptionLabels(form, 'newTabSource', [
         ['auto', text('newTabAuto')],
@@ -1074,7 +1086,7 @@ export function renderDeckControls(settings: ReaderSettings, decks: JPDBDeck[], 
     const disabled = !hasApiKey || !decks.length;
     const deckOptions = decks.map(deck => [deck.id, deck.name] as [string, string]);
     const miningOptions = [['forq', 'FORQ'], ...deckOptions] as [string, string][];
-    const newTabOptions = [['never-forget', 'Never forget'], ...deckOptions] as [string, string][];
+    const newTabOptions = [['all', 'All study decks'], ['never-forget', 'Never forget'], ...deckOptions] as [string, string][];
     return `
         <div class="grid">
             ${deckSelect('miningDeck', 'Mining deck', settings.miningDeck, miningOptions, disabled)}
@@ -1251,6 +1263,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         jpdbUchisenEnabled: has('jpdbUchisenEnabled'),
         jpdbRtkEnabled: has('jpdbRtkEnabled'),
         jpdbImmersionKitEnabled: has('jpdbImmersionKitEnabled'),
+        jpdbImmersionKitAutoPlayReviewAudio: has('jpdbImmersionKitAutoPlayReviewAudio'),
         jpdbLocalDictionariesEnabled: has('jpdbLocalDictionariesEnabled'),
         jpdbReviewUiEnabled: has('jpdbReviewUiEnabled'),
         jpdbAutoRevealSentenceEnabled: has('jpdbAutoRevealSentenceEnabled'),
@@ -1297,6 +1310,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         immersionKitShowTranslation: has('immersionKitShowTranslation'),
         immersionKitShowImages: has('immersionKitShowImages'),
         immersionKitAutoPlayAudio: has('immersionKitAutoPlayAudio'),
+        immersionKitPlayOnHover: has('immersionKitPlayOnHover'),
         immersionKitPlaybackRate: Math.max(0.5, Math.min(2, number('immersionKitPlaybackRate', current.immersionKitPlaybackRate))),
         parseSelection: has('parseSelection'),
         lookupOnClick: has('lookupOnClick'),
@@ -1314,6 +1328,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         showFurigana: has('showFurigana'),
         showPitchAccent: has('showPitchAccent'),
+        wordHighlightMode: ['auto', 'status', 'pitch'].includes(get('wordHighlightMode')) ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode'] : current.wordHighlightMode,
         hideKnownFurigana: has('hideKnownFurigana'),
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
@@ -1379,6 +1394,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         enableLogging: has('enableLogging'),
         theme: get('theme') as ReaderSettings['theme'],
         popupMode: get('popupMode') as ReaderSettings['popupMode'],
+        jpdbMiningEnabled: has('jpdbMiningEnabled'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',
         blacklistDeck: get('blacklistDeck').trim() || 'blacklist',

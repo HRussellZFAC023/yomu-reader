@@ -59,6 +59,7 @@ const baseSettings = {
     immersionKitShowTranslation: false,
     immersionKitShowImages: true,
     immersionKitAutoPlayAudio: true,
+    immersionKitPlayOnHover: true,
     immersionKitPlaybackRate: 1,
     parseSelection: true,
     lookupOnClick: true,
@@ -393,6 +394,10 @@ function mockImmersionMedia(url) {
     if (mediaPath.endsWith('.mp3')) return textQaResponse('fake-mp3', 'audio/mpeg');
     const label = mediaPath.includes('steins_gate') || mediaPath.includes('Steins') ? 'Steins Gate' : 'Example';
     return textQaResponse(mockImageSvg(label), 'image/svg+xml; charset=utf-8');
+}
+
+function immersionAudioRequestCount(requests) {
+    return requests.filter(request => request.url.includes('apiv2.immersionkit.com/download_media') && /mp3/i.test(request.url)).length;
 }
 
 async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
@@ -787,9 +792,11 @@ function mockUchisenHtml(kanji) {
 
 function mockKanjiVgSvg() {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
-        <path d="M10,10 C25,30 45,30 60,10" />
-        <path d="M18,58 L82,58" />
-        <text transform="matrix(1 0 0 1 8 12)">1</text>
+        <path d="M53,13 C44,29 31,42 15,51" />
+        <path d="M57,14 C68,29 82,40 96,48" />
+        <path d="M38,54 C49,58 63,58 76,54" />
+        <path d="M30,70 H78 L62,91" />
+        <text transform="matrix(1 0 0 1 50 10)">1</text>
     </svg>`;
 }
 
@@ -1521,6 +1528,7 @@ async function auditJpdbSearchCompatibility(browser) {
         throw new Error(`local dictionaries did not render on JPDB search results: ${JSON.stringify(await jpdbLocalDictionaryDebug(page))}: ${error instanceof Error ? error.message : String(error)}`);
     });
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length >= 4, 10000, 'jpdb.io search fixture text was not scanned');
+    await waitForAudit(page, () => [...document.querySelectorAll('ruby .jpdb-reader-word')].some(node => node.textContent?.includes('読')), 10000, 'native ruby word on jpdb.io was not wrapped for lookup');
     const scanSnapshot = await page.evaluate(() => {
         const decoratedTag = document.querySelector('.yomu-jpdb-local-dictionaries [data-sc-content="part-of-speech-info"]');
         return {
@@ -1718,6 +1726,7 @@ async function auditImmersionKitPopover(browser, server) {
         immersionKitShowTranslation: false,
         immersionKitShowImages: true,
         immersionKitAutoPlayAudio: false,
+        immersionKitPlayOnHover: true,
     });
     await page.route(`${server.origin}/immersion-fixture.html`, route => route.fulfill({
         status: 200,
@@ -1751,6 +1760,13 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
+    const audioRequestsBeforeHover = immersionAudioRequestCount(requests);
+    await page.locator('.jpdb-reader-example-card').hover();
+    await waitForNodeAudit(() => immersionAudioRequestCount(requests) > audioRequestsBeforeHover, 6000, 'Immersion Kit hover did not request first example audio');
+    const audioRequestsAfterHover = immersionAudioRequestCount(requests);
+    await page.dispatchEvent('.jpdb-reader-example-card', 'pointerover', { pointerType: 'mouse', bubbles: true });
+    await page.waitForTimeout(250);
+    assertAudit(immersionAudioRequestCount(requests) === audioRequestsAfterHover, 'Immersion Kit hover audio should only auto-play once');
     await page.locator('.jpdb-reader-btn.easy').click();
     await waitForNodeAudit(() => requests.some(request => request.action === 'answerCards'), 6000, 'Anki grading did not send through AnkiConnect');
     const reviewToastCount = await page.locator('.jpdb-reader-toast').filter({ hasText: 'review sent' }).count();
@@ -1768,6 +1784,8 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(addNoteRequests.some(request => request.ankiSentence?.includes('新しい本') && request.ankiHasPicture), `Anki addNote did not include the selected Immersion Kit sentence and image: ${JSON.stringify(addNoteRequests)}`);
     await assertAccessibleSurface(page, 'Immersion Kit popup examples', '.jpdb-reader-popover');
     await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
+    await page.locator('[data-immersion-action="audio"]').click();
+    await waitForNodeAudit(() => immersionAudioRequestCount(requests) > audioRequestsAfterHover, 6000, 'Immersion Kit manual audio button did not request audio after hover autoplay');
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
 }
@@ -1968,6 +1986,7 @@ async function auditVideoFixture(browser, server) {
             menuHidden: document.querySelector('.jpdb-subtitle-menu')?.hasAttribute('hidden'),
             visibleFileInputs: document.querySelectorAll('.jpdb-subtitle-player input[type="file"]:not([hidden])').length,
             transcriptVisible: Boolean(document.querySelector('.jpdb-subtitle-list:not([hidden])')),
+            mpvRailVisible: Boolean(document.querySelector('.jpdb-subtitle-rail button[data-action="mpv-connect"]:not([hidden])')),
             obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
             subtitleBackground: primaryStyle?.backgroundImage ?? '',
@@ -1979,6 +1998,7 @@ async function auditVideoFixture(browser, server) {
     assertAudit(snapshot.buttons.some(button => button.action === 'list' && /transcript/i.test(button.label)) && snapshot.buttons.some(button => button.action === 'menu') && snapshot.buttons.some(button => button.action === 'tracks'), 'subtitle icon controls are missing');
     assertAudit(snapshot.visibleFileInputs === 0, 'subtitle file inputs are visible over the video');
     assertAudit(!snapshot.transcriptVisible, 'transcript panel should be off by default');
+    assertAudit(!snapshot.mpvRailVisible, 'MPV bridge control should stay out of the main rail until enabled');
     assertAudit(!snapshot.obsoleteStatusText, 'obsolete no-subtitle status text is visible over the controls');
     assertAudit(snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読'), 'subtitle fixture cue is not visible');
     assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');
@@ -1993,6 +2013,30 @@ async function auditVideoFixture(browser, server) {
         const panel = document.querySelector('.jpdb-subtitle-list');
         return panel && !panel.hasAttribute('hidden') && panel.textContent?.includes('Transcript') && panel.querySelector('.jpdb-subtitle-list-row.active');
     }, 3000, 'transcript panel did not open with active-line highlighting');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-subtitle-list .jpdb-reader-word').length > 0, 8000, 'transcript rows did not hydrate into lookup words');
+    const desktopTranscriptLayout = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
+        const video = document.querySelector('video')?.getBoundingClientRect();
+        if (!panel || !video) return null;
+        return {
+            panelLeft: panel.left,
+            panelRight: panel.right,
+            panelTop: panel.top,
+            panelBottom: panel.bottom,
+            videoLeft: video.left,
+            videoRight: video.right,
+            videoTop: video.top,
+            videoBottom: video.bottom,
+        };
+    });
+    assertAudit(Boolean(desktopTranscriptLayout), 'desktop transcript layout could not be measured');
+    assertAudit(
+        desktopTranscriptLayout.panelTop >= desktopTranscriptLayout.videoBottom - 4
+            || desktopTranscriptLayout.panelRight <= desktopTranscriptLayout.videoLeft + 4
+            || desktopTranscriptLayout.panelLeft >= desktopTranscriptLayout.videoRight - 4,
+        `desktop transcript panel overlaps the video instead of sitting beside or below it: ${JSON.stringify(desktopTranscriptLayout)}`,
+    );
+    await page.screenshot({ path: path.join(ARTIFACTS, 'video-fixture.png'), fullPage: false });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     const mobileTranscript = await waitForAudit(page, () => {
@@ -2009,7 +2053,7 @@ async function auditVideoFixture(browser, server) {
     }, 3000, 'mobile transcript panel did not stay visible');
     assertAudit(mobileTranscript.width >= mobileTranscript.viewportWidth - 24 && mobileTranscript.top > mobileTranscript.viewportHeight * 0.42, `mobile transcript panel is not bottom-sheet sized: ${JSON.stringify(mobileTranscript)}`);
     await assertAccessibleSurface(page, 'subtitle player fixture', '.jpdb-subtitle-player');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'video-fixture.png'), fullPage: false });
+    await page.screenshot({ path: path.join(ARTIFACTS, 'video-fixture-mobile.png'), fullPage: false });
     await page.close();
     record('subtitle player fixture', 'pass', 'watched a cue with JPDB highlighting and readable subtitle backing');
 }

@@ -37,7 +37,7 @@ Server app:
 
 The original server is [aramrw/yomichan_audio_server](https://github.com/aramrw/yomichan_audio_server). We use our fork because large local audio folders should answer quickly, and the caching/lookup improvements used here were not merged upstream.
 
-If the server page does not offer a normal app download for your computer, this path currently requires command-line setup. In that case, the hosted option above is the practical choice for non-technical users.
+If the server page does not offer a normal app download for your computer, this path currently requires command-line setup. That means opening Terminal or PowerShell and keeping a helper program running. If that already sounds annoying, use the hosted option above; it is the friendlier route and it works fine with よむ.
 
 Put the downloaded folders inside one folder named `audio`. The finished folder should look roughly like this:
 
@@ -71,7 +71,7 @@ On Windows, open PowerShell in that folder and run:
 .\yomichan_audio_server.exe --port 9393 --audio .\audio --log full
 ```
 
-Leave that window open. If you close it, local audio stops.
+Leave that window open. If you close it, local audio stops. Nothing is broken when that happens; よむ will just fall back to the next audio source.
 
 The URL you paste into よむ must use the same port:
 
