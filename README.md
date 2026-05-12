@@ -175,7 +175,7 @@ http://127.0.0.1:5174/reader-video-test.html?apiKey=YOUR_JPDB_API_KEY
 http://127.0.0.1:5174/reader-ocr-test.html?apiKey=YOUR_JPDB_API_KEY
 ```
 
-`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Refresh the target page manually when you want to pick up the latest rebuild. Set `YOMU_DEV_AUTO_RELOAD=1 npm run dev` if you want open pages to poll the harness and reload after rebuilds. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
+`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Refresh the target page manually when you want to pick up the latest rebuild. Set `YOMU_DEV_AUTO_RELOAD=1 npm run dev` if you want open pages to poll the harness and reload after rebuilds. Console logging stays off by default, including local dev installs; use `YOMU_ENABLE_LOGS=1 npm run dev` when you want the dev server to enable console logs automatically. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
 
 The production userscript is written to:
 

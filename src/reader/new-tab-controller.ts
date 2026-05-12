@@ -98,7 +98,7 @@ export class NewTabController {
             root.dataset.newtabBound = 'true';
         }
 
-        const hasStudyMarkup = !!root.querySelector('[data-newtab-study]') && root.dataset.standaloneNewtab !== 'true';
+        const hasStudyMarkup = !!root.querySelector('[data-newtab-study]');
         if (isNew || !hasStudyMarkup) {
             delete root.dataset.standaloneNewtab;
             root.replaceChildren(this.renderEnabledContent());
@@ -226,9 +226,14 @@ export class NewTabController {
             this.sourceLabel = result.sourceLabel;
             this.dependencies.parser.cacheCards(this.allWords);
             if (!this.allWords.length) {
+                if (root.dataset.standaloneNewtab === 'true') {
+                    this.setStatus(root, '');
+                    return;
+                }
                 this.renderEmpty(root, 'よむ', 'No words yet.');
                 return;
             }
+            delete root.dataset.standaloneNewtab;
             this.applyWords(root, preferStoredWord);
         } catch (error) {
             log.warn('Failed to load words', error);
