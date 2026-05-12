@@ -1054,6 +1054,7 @@
     puckPositionX: void 0,
     puckPositionY: void 0,
     showFurigana: true,
+    furiganaMode: "auto",
     showPitchAccent: true,
     wordHighlightMode: "auto",
     hideKnownFurigana: true,
@@ -1188,6 +1189,9 @@
       wordColorIgnored: sanitizeAccentColor(value == null ? void 0 : value.wordColorIgnored, DEFAULT_SETTINGS.wordColorIgnored),
       puckPositionX: normalizeOptionalCoordinate(value == null ? void 0 : value.puckPositionX),
       puckPositionY: normalizeOptionalCoordinate(value == null ? void 0 : value.puckPositionY),
+      showFurigana: typeof (value == null ? void 0 : value.showFurigana) === "boolean" ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
+      furiganaMode: normalizeFuriganaMode(value == null ? void 0 : value.furiganaMode, value),
+      hideKnownFurigana: typeof (value == null ? void 0 : value.hideKnownFurigana) === "boolean" ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
       wordHighlightMode: normalizeWordHighlightMode(value == null ? void 0 : value.wordHighlightMode),
       audioSources,
       audioSourceUrl,
@@ -1317,7 +1321,13 @@
     return value === "jpdb" || value === "anki" || value === "auto" || value === "dictionary" ? value : DEFAULT_SETTINGS.newTabSource;
   }
   function normalizeWordHighlightMode(value) {
-    return value === "status" || value === "pitch" || value === "auto" ? value : DEFAULT_SETTINGS.wordHighlightMode;
+    return value === "status" || value === "pitch" || value === "auto" || value === "off" ? value : DEFAULT_SETTINGS.wordHighlightMode;
+  }
+  function normalizeFuriganaMode(value, settings) {
+    if (value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "off") return value;
+    if (settings && Object.prototype.hasOwnProperty.call(settings, "showFurigana") && settings.showFurigana === false) return "off";
+    if (settings && Object.prototype.hasOwnProperty.call(settings, "hideKnownFurigana") && settings.hideKnownFurigana === false) return "all";
+    return DEFAULT_SETTINGS.furiganaMode;
   }
   function normalizeDeckIdSetting(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -1325,9 +1335,17 @@
   function hasMiningStatusSource(settings) {
     return settings.ankiEnabled || settings.jpdbMiningEnabled && Boolean(settings.apiKey.trim());
   }
+  function hasPersonalizedFuriganaSource(settings) {
+    return settings.ankiEnabled || Boolean(settings.apiKey.trim());
+  }
   function effectiveWordHighlightMode(settings) {
-    if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch") return settings.wordHighlightMode;
+    if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch" || settings.wordHighlightMode === "off") return settings.wordHighlightMode;
     return hasMiningStatusSource(settings) ? "status" : "pitch";
+  }
+  function effectiveFuriganaMode(settings) {
+    if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
+    if (settings.furiganaMode === "all" || settings.furiganaMode === "difficult-kanji" || settings.furiganaMode === "known-status") return settings.furiganaMode;
+    return hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
   }
   function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
     if (typeof value !== "string") return fallback;
@@ -1596,11 +1614,16 @@
       youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
       ankiEnabled: settings.ankiEnabled,
       jpdbMiningEnabled: settings.jpdbMiningEnabled,
+      furiganaMode: settings.furiganaMode,
       wordHighlightMode: settings.wordHighlightMode,
       theme: settings.theme
     };
   }
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+  const EASY_FURIGANA_KANJI = new Set(
+    "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
+  );
   const log$v = Logger.scope("Dom");
   let trustedHtmlPolicy;
   const SKIP_SELECTOR = [
@@ -2006,7 +2029,7 @@
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? "";
     span.tabIndex = 0;
-    if (settings.showFurigana && token.rubies.length && options.allowRuby !== false) {
+    if (shouldRenderRuby(surface, token, settings, options.allowRuby)) {
       setInnerHtml(span, renderRuby(surface, token));
     } else {
       span.textContent = surface;
@@ -2015,8 +2038,21 @@
   }
   function renderTokenHtml(surface, token, settings) {
     const state = primaryCardState(token.card.cardState);
-    const content = settings.showFurigana && token.rubies.length ? renderRuby(surface, token) : escapeHtml$1(surface);
+    const content = shouldRenderRuby(surface, token, settings) ? renderRuby(surface, token) : escapeHtml$1(surface);
     return `<span class="${readerWordClassName(state, token, settings)}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}" tabindex="0">${content}</span>`;
+  }
+  function shouldRenderRuby(surface, token, settings, allowRuby = true) {
+    if (!allowRuby || !token.rubies.length) return false;
+    const mode = effectiveFuriganaMode(settings);
+    if (mode === "off") return false;
+    if (mode === "difficult-kanji") return hasDifficultKanji(surface);
+    return true;
+  }
+  function hasDifficultKanji(surface) {
+    for (const char of surface) {
+      if (KANJI_RE$2.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+    }
+    return false;
   }
   function readerWordClassName(state, token, settings) {
     const classes = ["jpdb-reader-word", `jpdb-${state}`];
