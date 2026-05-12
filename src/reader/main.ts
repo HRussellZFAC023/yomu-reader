@@ -147,6 +147,7 @@ const LOCAL_DICTIONARIES_SOURCE_ID = '__local_dictionaries__';
 const CARD_RENDER_DATA_CACHE_TTL_MS = 30_000;
 const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
 const IMMERSION_SEARCH_CACHE_TTL_MS = 30_000;
+const TERM_AUDIO_PRELOAD_LIMIT = 8;
 
 interface KanjiDetailPromises {
     jpdbInfo: Promise<JpdbKanjiInfo | null>;
@@ -337,6 +338,7 @@ export class ReaderApp {
     private immersionKitAudioLoadingKey = '';
     private immersionKitAudioRequestId = 0;
     private immersionPreloadTerms = new Set<string>();
+    private preloadedTermAudioKeys = new Set<string>();
     private activeMiningContext?: MiningContext;
     private wordNavigationStack: CardNavigationEntry[] = [];
     private currentWordNavigation?: CardNavigationEntry;
@@ -1548,6 +1550,7 @@ export class ReaderApp {
             this.pauseAutoScanObserver(() => {
                 targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             });
+            this.preloadTermAudioForTokens(parsed.flat());
             this.preloadImmersionKitForTokens(parsed.flat());
             void this.enrichAnkiWords(parsed.flat());
             log.debugThrottled('visible-page-scan-applied', 2500, 'Visible page scan applied tokens', {
@@ -1575,6 +1578,7 @@ export class ReaderApp {
             this.pauseAutoScanObserver(() => {
                 targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             });
+            this.preloadTermAudioForTokens(parsed.flat());
             this.preloadImmersionKitForTokens(parsed.flat());
             void this.enrichAnkiWords(parsed.flat());
             log.debugThrottled('asb-scan', 2500, 'ASB subtitles scanned', {
@@ -3001,6 +3005,7 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
             const tokens = parsed.flat();
+            this.preloadTermAudioForTokens(tokens);
             void this.enrichAnkiWords(tokens);
             log.debug('Popover nested text parsed', { targets: targets.length, tokens: tokens.length });
         } catch (error) {
@@ -3037,6 +3042,21 @@ export class ReaderApp {
             if (queued >= 2) break;
         }
         if (queued) log.debugThrottled('immersion-preload', 2500, 'Immersion Kit preloads queued', { queued });
+    }
+
+    private preloadTermAudioForTokens(tokens: JPDBToken[]): void {
+        if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
+
+        let queued = 0;
+        for (const token of tokens) {
+            const key = cardKey(token.card);
+            if (this.preloadedTermAudioKeys.has(key)) continue;
+            this.preloadedTermAudioKeys.add(key);
+            this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1 });
+            queued++;
+            if (queued >= TERM_AUDIO_PRELOAD_LIMIT) break;
+        }
+        if (queued) log.debugThrottled('term-audio-preload', 2500, 'Term audio preloads queued', { queued });
     }
 
     private dictionaryLabel(name: string): string {

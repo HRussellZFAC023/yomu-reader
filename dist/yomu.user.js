@@ -6688,8 +6688,17 @@ ${styles}
     }
   }
   function getYomitanProfileOptions(value) {
+    var _a;
     if (!value || typeof value !== "object") return null;
     const record = value;
+    const rootOptions = record.options;
+    if (rootOptions && typeof rootOptions === "object") {
+      const rootOptionRecord = rootOptions;
+      const profiles2 = Array.isArray(rootOptionRecord.profiles) ? rootOptionRecord.profiles : [];
+      const profileOptions = (_a = profiles2.find((item) => item && typeof item === "object")) == null ? void 0 : _a.options;
+      if (profileOptions && typeof profileOptions === "object") return profileOptions;
+      return rootOptionRecord;
+    }
     const profiles = Array.isArray(record.profiles) ? record.profiles : [];
     const profile = profiles.find((item) => item && typeof item === "object") ?? record;
     const options = profile.options;
@@ -20134,6 +20143,7 @@ ${spelling}`);
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
+  const TERM_AUDIO_PRELOAD_LIMIT = 8;
   class ReaderApp {
     constructor() {
       __publicField(this, "abortController", new AbortController());
@@ -20277,6 +20287,7 @@ ${spelling}`);
       __publicField(this, "immersionKitAudioLoadingKey", "");
       __publicField(this, "immersionKitAudioRequestId", 0);
       __publicField(this, "immersionPreloadTerms", /* @__PURE__ */ new Set());
+      __publicField(this, "preloadedTermAudioKeys", /* @__PURE__ */ new Set());
       __publicField(this, "activeMiningContext");
       __publicField(this, "wordNavigationStack", []);
       __publicField(this, "currentWordNavigation");
@@ -21361,6 +21372,7 @@ ${spelling}`);
         this.pauseAutoScanObserver(() => {
           targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
         });
+        this.preloadTermAudioForTokens(parsed.flat());
         this.preloadImmersionKitForTokens(parsed.flat());
         void this.enrichAnkiWords(parsed.flat());
         log$1.debugThrottled("visible-page-scan-applied", 2500, "Visible page scan applied tokens", {
@@ -21385,6 +21397,7 @@ ${spelling}`);
         this.pauseAutoScanObserver(() => {
           targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
         });
+        this.preloadTermAudioForTokens(parsed.flat());
         this.preloadImmersionKitForTokens(parsed.flat());
         void this.enrichAnkiWords(parsed.flat());
         log$1.debugThrottled("asb-scan", 2500, "ASB subtitles scanned", {
@@ -22659,6 +22672,7 @@ ${spelling}`);
         if (!popover.isConnected) return;
         targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
         const tokens = parsed.flat();
+        this.preloadTermAudioForTokens(tokens);
         void this.enrichAnkiWords(tokens);
         log$1.debug("Popover nested text parsed", { targets: targets.length, tokens: tokens.length });
       } catch (error) {
@@ -22692,6 +22706,19 @@ ${spelling}`);
         if (queued >= 2) break;
       }
       if (queued) log$1.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
+    }
+    preloadTermAudioForTokens(tokens) {
+      if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
+      let queued = 0;
+      for (const token of tokens) {
+        const key = cardKey$2(token.card);
+        if (this.preloadedTermAudioKeys.has(key)) continue;
+        this.preloadedTermAudioKeys.add(key);
+        this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1 });
+        queued++;
+        if (queued >= TERM_AUDIO_PRELOAD_LIMIT) break;
+      }
+      if (queued) log$1.debugThrottled("term-audio-preload", 2500, "Term audio preloads queued", { queued });
     }
     dictionaryLabel(name) {
       var _a;

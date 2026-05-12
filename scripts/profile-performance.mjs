@@ -207,7 +207,10 @@ await page.addInitScript(({ settings, live }) => {
 }, { settings, live: LIVE });
 
 if (!LIVE) await page.route('**/*', async route => {
-    const url = new URL(route.request().url());
+    let url = new URL(route.request().url());
+    if (url.hostname === '127.0.0.1' && url.pathname === '/__jpdb-reader-audio-proxy' && url.searchParams.get('url')) {
+        url = new URL(url.searchParams.get('url'));
+    }
     if (url.hostname === 'jpdb.io' && url.pathname === '/api/v1/parse') {
         const body = JSON.parse(route.request().postData() || '{}');
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockParse(body)) });
