@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { ObjectUrlCache } from './object-url-cache';
 import type { ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -7,25 +8,103 @@ const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const log = Logger.scope('ImmersionKit');
 
-const TITLE_OVERRIDES: Record<string, string> = {
-    steins_gate: 'Steins Gate',
-    toradora_: 'Toradora!',
-    your_name: 'Your Name',
-    weathering_with_you: 'Weathering With You',
-    from_up_on_poppy_hill: 'From Up on Poppy Hill',
-    spirited_away: 'Spirited Away',
-    hunter_x_hunter: 'Hunter × Hunter',
-    fullmetal_alchemist_brotherhood: 'Fullmetal Alchemist: Brotherhood',
-    attack_on_titan: 'Attack on Titan',
-    angel_beats_: 'Angel Beats!',
-    durarara__: 'Durarara!!',
+// Immersion Kit media paths use these canonical deck titles, while search results only include slugs.
+const IMMERSION_KIT_TITLES: Record<string, string> = {
+    your_lie_in_april: 'Your Lie in April',
+    princess_mononoke: 'Princess Mononoke',
+    girls_band_cry: 'Girls Band Cry',
+    only_yesterday: 'Only Yesterday',
+    chobits: 'Chobits',
     k_on_: 'K-On!',
-    kanon__2006_: 'Kanon (2006)',
-    new_game_: 'New Game!',
-    demon_slayer: 'Demon Slayer',
-    sound__euphonium: 'Sound! Euphonium',
+    weathering_with_you: 'Weathering with You',
+    from_the_new_world: 'From the New World',
+    grave_of_the_fireflies: 'Grave of the Fireflies',
+    steins_gate: 'Steins Gate',
+    sword_art_online: 'Sword Art Online',
+    nisekoi: 'Nisekoi',
+    death_note: 'Death Note',
+    wolf_children: 'Wolf Children',
+    demon_slayer___kimetsu_no_yaiba: 'Demon Slayer - Kimetsu no Yaiba',
+    your_name: 'Your Name',
+    alya_sometimes_hides_her_feelings_in_russian: 'Alya Sometimes Hides Her Feelings in Russian',
+    cardcaptor_sakura: 'Cardcaptor Sakura',
+    kill_la_kill: 'Kill la Kill',
+    howl_s_moving_castle: "Howl's Moving Castle",
+    whisper_of_the_heart: 'Whisper of the Heart',
+    bunny_drop: 'Bunny Drop',
+    fermat_kitchen: 'Fermat Kitchen',
+    haruhi_suzumiya: 'Haruhi Suzumiya',
+    hunter_x_hunter: 'Hunter × Hunter',
     god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
+    assassination_classroom_season_1: 'Assassination Classroom Season 1',
+    durarara__: 'Durarara!!',
+    bakemonogatari: 'Bakemonogatari',
+    hyouka: 'Hyouka',
+    relife: 'ReLIFE',
+    from_up_on_poppy_hill: 'From Up on Poppy Hill',
+    sound__euphonium: 'Sound! Euphonium',
+    lucky_star: 'Lucky Star',
+    kokoro_connect: 'Kokoro Connect',
+    my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
+    is_the_order_a_rabbit: 'Is The Order a Rabbit',
+    clannad: 'Clannad',
+    angel_beats_: 'Angel Beats!',
+    daily_lives_of_high_school_boys: 'Daily Lives of High School Boys',
+    new_game_: 'New Game!',
+    the_wind_rises: 'The Wind Rises',
+    fate_zero: 'Fate Zero',
+    toradora_: 'Toradora!',
+    anohana_the_flower_we_saw_that_day: 'Anohana the flower we saw that day',
+    wandering_witch_the_journey_of_elaina: 'Wandering Witch The Journey of Elaina',
+    kino_s_journey: "Kino's Journey",
+    boku_no_hero_academia_season_1: 'Boku no Hero Academia Season 1',
+    fullmetal_alchemist_brotherhood: 'Fullmetal Alchemist Brotherhood',
+    one_week_friends: 'One Week Friends',
+    erased: 'Erased',
+    mononoke: 'Mononoke',
+    little_witch_academia: 'Little Witch Academia',
     re_zero___starting_life_in_another_world: 'Re Zero − Starting Life in Another World',
+    fruits_basket_season_1: 'Fruits Basket Season 1',
+    mahou_shoujo_madoka_magica: 'Mahou Shoujo Madoka Magica',
+    the_irregular_at_magic_high_school: 'The Irregular at Magic High School',
+    clannad_after_story: 'Clannad After Story',
+    frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
+    kakegurui: 'Kakegurui',
+    the_garden_of_words: 'The Garden of Words',
+    when_marnie_was_there: 'When Marnie Was There',
+    castle_in_the_sky: 'Castle in the sky',
+    shirokuma_cafe: 'Shirokuma Cafe',
+    my_neighbor_totoro: 'My Neighbor Totoro',
+    kiki_s_delivery_service: "Kiki's Delivery Service",
+    the_girl_who_leapt_through_time: 'The Girl Who Leapt Through Time',
+    fate_stay_night_unlimited_blade_works: 'Fate Stay Night Unlimited Blade Works',
+    code_geass_season_1: 'Code Geass Season 1',
+    the_world_god_only_knows: 'The World God Only Knows',
+    the_pet_girl_of_sakurasou: 'The Pet Girl of Sakurasou',
+    no_game_no_life: 'No Game No Life',
+    kanon__2006_: 'Kanon (2006)',
+    psycho_pass: 'Psycho Pass',
+    the_cat_returns: 'The Cat Returns',
+    the_secret_world_of_arrietty: 'The Secret World of Arrietty',
+    spirited_away: 'Spirited Away',
+    noragami: 'Noragami',
+    fairy_tail: 'Fairy Tail',
+    i_m_taking_the_day_off: "I'm Taking the Day Off",
+    border: 'Border',
+    weakest_beast: 'Weakest Beast',
+    mob_psycho_100: 'Mob Psycho 100',
+    the_journalist: 'The Journalist',
+    sailor_suit_and_machine_gun__2006_: 'Sailor Suit and Machine Gun (2006)',
+    smoking: 'Smoking',
+    i_am_mita__your_housekeeper: 'I am Mita, Your Housekeeper',
+    good_morning_call: 'Good Morning Call',
+    overprotected_kahoko: 'Overprotected Kahoko',
+    quartet: 'Quartet',
+    million_yen_woman: 'Million Yen Woman',
+    legal_high_season_1: 'Legal High Season 1',
+    witcher_3: 'Witcher 3',
+    cyberpunk_2077: 'Cyberpunk 2077',
+    skyrim: 'Skyrim',
 };
 
 export interface ImmersionKitExample {
@@ -46,7 +125,7 @@ export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
     private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
     private preloadKeys = new Set<string>();
-    private mediaBlobUrlCache = new Map<string, { expiresAt: number; promise: Promise<string> }>();
+    private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS, 'immersion-kit-media');
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
         const query = term.trim();
@@ -164,32 +243,12 @@ export class ImmersionKitClient {
     async fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string> {
         const urls = Array.isArray(url) ? url : [url];
         const key = urls.join('\u0001');
-        const now = Date.now();
-        const cached = this.mediaBlobUrlCache.get(key);
-        if (cached && cached.expiresAt > now) {
-            log.debug('Blob URL cache hit', { host: safeHost(url) });
-            return cached.promise;
-        }
-
-        let promise!: Promise<string>;
-        promise = requestFirstBlob(url, timeoutMs)
-            .then(blob => {
-                const blobUrl = URL.createObjectURL(blob);
-                log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
-                const timeout = window.setTimeout(() => {
-                    if (this.mediaBlobUrlCache.get(key)?.promise !== promise) return;
-                    this.mediaBlobUrlCache.delete(key);
-                    URL.revokeObjectURL(blobUrl);
-                }, MEDIA_BLOB_CACHE_TTL_MS);
-                (timeout as unknown as { unref?: () => void }).unref?.();
-                return blobUrl;
-            })
-            .catch(error => {
-                if (this.mediaBlobUrlCache.get(key)?.promise === promise) this.mediaBlobUrlCache.delete(key);
-                throw error;
-            });
-        this.mediaBlobUrlCache.set(key, { expiresAt: now + MEDIA_BLOB_CACHE_TTL_MS, promise });
-        return promise;
+        return this.mediaBlobUrlCache.getOrCreate(key, async () => {
+            const blob = await requestFirstBlob(url, timeoutMs);
+            const blobUrl = URL.createObjectURL(blob);
+            log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
+            return blobUrl;
+        });
     }
 
     async fetchDataUrl(url: string | string[], timeoutMs: number): Promise<string> {
@@ -254,7 +313,7 @@ function categoryFromId(id: string): string {
 
 function titleFromSlug(slug: string): string {
     if (!slug) return 'Unknown';
-    const override = TITLE_OVERRIDES[slug];
+    const override = IMMERSION_KIT_TITLES[slug];
     if (override) return override;
     return slug
         .replace(/_+$/g, '')
@@ -267,8 +326,8 @@ function titleFromSlug(slug: string): string {
 function mediaTitleCandidates(example: ImmersionKitExample, file: string): string[] {
     const slug = example.titleSlug || titleSlugFromId(example.id);
     return uniqueStrings([
-        example.sourceTitle,
         titleFromSlug(slug),
+        example.sourceTitle,
         titleFromMediaFile(file),
         slug,
     ].filter(Boolean));
@@ -421,6 +480,7 @@ async function requestFirstBlob(urls: string | string[], timeoutMs: number): Pro
 
 function isErrorDocumentBlob(blob: Blob): boolean {
     const type = blob.type.toLowerCase();
+    if (type.startsWith('image/') || type.startsWith('audio/') || type.startsWith('video/')) return false;
     return type.includes('xml') || type.includes('html') || type.includes('json') || type.startsWith('text/');
 }
 

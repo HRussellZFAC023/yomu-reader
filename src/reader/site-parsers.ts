@@ -14,6 +14,7 @@ export interface SiteParserProfile {
     exclude?: string;
     allowUiText?: boolean;
     minLength?: number;
+    includeGenericPageText?: boolean;
     matches(url: URL): boolean;
 }
 
@@ -142,9 +143,19 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     },
     {
         id: 'youtube-comments-parser',
-        name: 'YouTube comments',
-        description: 'Japanese comments in YouTube comment views.',
-        roots: ['ytd-comment-view-model', '#content-text'],
+        name: 'YouTube watch text',
+        description: 'Japanese video metadata and comments in YouTube watch views.',
+        roots: [
+            'ytd-watch-metadata h1',
+            'ytd-watch-metadata #title',
+            'ytd-watch-metadata #description',
+            'ytd-watch-metadata #description-inline-expander',
+            'ytd-watch-metadata ytd-text-inline-expander',
+            'ytd-watch-metadata #attributed-snippet-text',
+            'ytd-comment-view-model',
+            '#content-text',
+        ],
+        includeGenericPageText: true,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
@@ -270,7 +281,23 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
 
 export function collectScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] {
     const siteTargets = collectSiteScanTargets(limit, href);
-    if (siteTargets !== null) return siteTargets;
+    if (siteTargets !== null) {
+        const profiles = getMatchingSiteParsers(href);
+        if (!profiles.some(profile => profile.includeGenericPageText) || siteTargets.length >= limit) {
+            return siteTargets;
+        }
+
+        const genericTargets = collectVisibleTextTargets(limit - siteTargets.length);
+        const seenNodes = new Set<Text>();
+        for (const target of siteTargets) {
+            if ('node' in target) seenNodes.add(target.node);
+            else target.fragments.forEach(fragment => seenNodes.add(fragment.node));
+        }
+        return [
+            ...siteTargets,
+            ...genericTargets.filter(target => !seenNodes.has(target.node)),
+        ].slice(0, limit);
+    }
     return collectVisibleTextTargets(limit);
 }
 

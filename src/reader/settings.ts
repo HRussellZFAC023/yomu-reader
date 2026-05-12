@@ -186,14 +186,14 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
     subtitleControlsMode: 'auto',
-    subtitleFontSize: 32,
+    subtitleFontSize: 28,
     subtitleBottomOffset: 12,
     subtitleTextColor: '#ffffff',
     subtitleOutlineColor: '#000000',
     subtitleBackgroundColor: '#181b20',
-    subtitleBackgroundOpacity: 0.32,
+    subtitleBackgroundOpacity: 0.18,
     subtitleFontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    subtitleFontWeight: 850,
+    subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
     mpvSubtitleMiningEnabled: false,
@@ -218,7 +218,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupMode: 'auto',
     popoverWidth: 430,
     popoverHeight: 540,
-    popoverHeightMode: 'available',
+    popoverHeightMode: 'fixed',
     jpdbMiningEnabled: true,
     miningDeck: 'forq',
     neverForgetDeck: 'never-forget',
@@ -316,9 +316,11 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
         studyGrammarEnabled: typeof value?.studyGrammarEnabled === 'boolean' ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
         studyGrammarPriority: clampNumber(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
         enableLogging: typeof value?.enableLogging === 'boolean' ? value.enableLogging : DEFAULT_SETTINGS.enableLogging,
+        theme: normalizeTheme(value?.theme),
+        popupMode: normalizePopupMode(value?.popupMode),
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
         popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
-        popoverHeightMode: value?.popoverHeightMode === 'fixed' ? 'fixed' : DEFAULT_SETTINGS.popoverHeightMode,
+        popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
         ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
         jpdbMiningEnabled: typeof value?.jpdbMiningEnabled === 'boolean' ? value.jpdbMiningEnabled : DEFAULT_SETTINGS.jpdbMiningEnabled,
         miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
@@ -333,7 +335,7 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        audioViaBlob: true,
+        audioViaBlob: typeof value?.audioViaBlob === 'boolean' ? value.audioViaBlob : DEFAULT_SETTINGS.audioViaBlob,
         audioFallbackChimeEnabled: typeof value?.audioFallbackChimeEnabled === 'boolean' ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
         immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
@@ -389,6 +391,18 @@ function normalizeAnkiTemplateMode(value: unknown): AnkiTemplateMode {
 
 function normalizeInterfaceLanguage(value: unknown): InterfaceLanguage {
     return value === 'en' || value === 'ja' || value === 'auto' ? value : DEFAULT_SETTINGS.interfaceLanguage;
+}
+
+function normalizeTheme(value: unknown): ReaderSettings['theme'] {
+    return value === 'dark' || value === 'light' || value === 'auto' ? value : DEFAULT_SETTINGS.theme;
+}
+
+function normalizePopupMode(value: unknown): ReaderSettings['popupMode'] {
+    return value === 'sheet' || value === 'popover' || value === 'auto' ? value : DEFAULT_SETTINGS.popupMode;
+}
+
+function normalizePopoverHeightMode(value: unknown): ReaderSettings['popoverHeightMode'] {
+    return value === 'fixed' || value === 'available' ? value : DEFAULT_SETTINGS.popoverHeightMode;
 }
 
 function normalizeImmersionKitCategory(value: unknown): ImmersionKitCategory {
