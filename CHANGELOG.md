@@ -6,6 +6,13 @@ Releases: https://github.com/HRussellZFAC023/kotoba-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
 
+## [0.4.1] - 2026-05-12
+
+### Fixed
+
+- Completed the furigana/highlight settings UI so the existing furigana modes, hidden-known behavior, and highlight-off mode are exposed consistently in settings.
+- Updated subtitle/transcript parsing cache keys so furigana and word-highlight mode changes refresh parsed subtitle lines correctly.
+
 ## [0.4.0] - 2026-05-12
 
 ### Added

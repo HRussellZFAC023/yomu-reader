@@ -19,7 +19,8 @@ import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr'
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { mergeSimilarKanjiWords, renderKanjiOrigins, renderPitch, summarizeLearnerGlossary } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
-import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveWordHighlightMode, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
+import { ReaderParser } from '../../src/reader/reader-parser';
+import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveWordHighlightMode, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from '../../src/reader/settings';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { detectGrammarHints } from '../../src/reader/study-tools';
 import { READER_CSS } from '../../src/reader/styles';
@@ -95,6 +96,7 @@ describe('reader helpers', () => {
         expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: true })).toBe('status');
         expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false })).toBe('pitch');
         expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status', apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false })).toBe('status');
+        expect(effectiveWordHighlightMode({ ...DEFAULT_SETTINGS, wordHighlightMode: 'off' })).toBe('off');
 
         const html = renderTokensToHtml('読む', [{
             card,
@@ -107,6 +109,70 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false });
 
         expect(html).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
+        expect(READER_CSS).toMatch(/\.jpdb-reader-highlight-off \.jpdb-reader-word,[\s\S]*?text-decoration-color:\s*transparent\s*!important;/);
+    });
+
+    it('defaults furigana to difficult kanji without personalization and known-status with JPDB or Anki data', () => {
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' })).toBe('difficult-kanji');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, furiganaMode: 'auto' })).toBe('known-status');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'off' })).toBe('off');
+    });
+
+    it('can hide furigana for easy kanji while still showing it for difficult kanji', () => {
+        const easyToken: JPDBToken = {
+            card: { ...card, spelling: '日本', reading: 'にほん' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'にほん', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '日本',
+        };
+        const difficultToken: JPDBToken = {
+            card: { ...card, spelling: '鬱', reading: 'うつ' },
+            start: 0,
+            end: 1,
+            length: 1,
+            rubies: [{ text: 'うつ', start: 0, end: 1, length: 1 }],
+            pitchClass: '',
+            sentence: '鬱',
+        };
+
+        expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
+            .not.toContain('<rt');
+        expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
+            .toContain('<rt class="jpdb-reader-furi">うつ</rt>');
+        expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
+            .toContain('<rt class="jpdb-reader-furi">にほん</rt>');
+        expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, furiganaMode: 'off' }))
+            .not.toContain('<rt');
+    });
+
+    it('emits furigana from local dictionary fallback without a JPDB API key', async () => {
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                expression: '漢字',
+                reading: 'かんじ',
+                glossary: ['Chinese characters'],
+                dictionary: 'JMdict',
+            },
+            start: 0,
+            end: 2,
+            surface: '漢字',
+        }]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, furiganaMode: 'all' }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        const [tokens] = await parser.parse(['漢字を書く']);
+
+        expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
+        expect(tokens[0].rubies).toEqual([{ text: 'かんじ', start: 0, end: 2, length: 2 }]);
+        expect(renderTokensToHtml('漢字を書く', tokens, { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
+            .toContain('<rt class="jpdb-reader-furi">かんじ</rt>');
     });
 
     it('formats Yomitan-compatible audio URLs', () => {

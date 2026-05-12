@@ -159,10 +159,9 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('autoScanJapanese', 'Auto-scan when Japanese is detected', settings.autoScanJapanese)}
                     ${checkbox('scanVisiblePage', 'Scan visible page on load', settings.scanVisiblePage)}
                     ${checkbox('showFloatingButton', 'Toggle floating puck on pages', settings.showFloatingButton)}
-                    ${checkbox('showFurigana', 'Enable furigana annotations', settings.showFurigana)}
+                    ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide known words'], ['all', 'All parsed words'], ['off', 'Off']])}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
-                    ${select('wordHighlightMode', 'Word highlight colors', settings.wordHighlightMode, [['auto', 'Automatic'], ['status', 'Known/mining status'], ['pitch', 'Pitch accent']])}
-                    ${checkbox('hideKnownFurigana', 'Hide furigana for known cards only', settings.hideKnownFurigana)}
+                    ${select('wordHighlightMode', 'Word highlight colors', settings.wordHighlightMode, [['auto', 'Automatic'], ['status', 'Known/mining status'], ['pitch', 'Pitch accent'], ['off', 'Off']])}
                 </div>
                 <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
             </fieldset>
@@ -426,10 +425,9 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['autoScanJapanese', 'autoScanJapanese'],
         ['scanVisiblePage', 'scanVisiblePage'],
         ['showFloatingButton', 'showFloatingButton'],
-        ['showFurigana', 'showFurigana'],
+        ['furiganaMode', 'furiganaMode'],
         ['showPitchAccent', 'showPitchAccent'],
         ['wordHighlightMode', 'wordHighlightMode'],
-        ['hideKnownFurigana', 'hideKnownFurigana'],
         ['kanjivgEnabled', 'kanjivgEnabled'],
         ['kanjiOriginsEnabled', 'kanjiOriginsEnabled'],
         ['kanjiOriginKanjiMapEnabled', 'kanjiOriginKanjiMapEnabled'],
@@ -562,6 +560,14 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('automatic')],
         ['status', text('highlightKnownStatus')],
         ['pitch', text('highlightPitchAccent')],
+        ['off', text('off')],
+    ]);
+    setSelectOptionLabels(form, 'furiganaMode', [
+        ['auto', text('automatic')],
+        ['difficult-kanji', text('furiganaDifficultKanji')],
+        ['known-status', text('furiganaHideKnown')],
+        ['all', text('furiganaAllParsed')],
+        ['off', text('off')],
     ]);
     setSelectOptionLabels(form, 'newTabSource', [
         ['auto', text('newTabAuto')],
@@ -1326,10 +1332,11 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         newTabEnabled: has('newTabEnabled'),
         newTabSource: ['auto', 'jpdb', 'anki', 'dictionary'].includes(get('newTabSource')) ? get('newTabSource') as ReaderSettings['newTabSource'] : current.newTabSource,
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
-        showFurigana: has('showFurigana'),
+        showFurigana: get('furiganaMode') !== 'off',
+        furiganaMode: ['auto', 'all', 'difficult-kanji', 'known-status', 'off'].includes(get('furiganaMode')) ? get('furiganaMode') as ReaderSettings['furiganaMode'] : current.furiganaMode,
         showPitchAccent: has('showPitchAccent'),
-        wordHighlightMode: ['auto', 'status', 'pitch'].includes(get('wordHighlightMode')) ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode'] : current.wordHighlightMode,
-        hideKnownFurigana: has('hideKnownFurigana'),
+        wordHighlightMode: ['auto', 'status', 'pitch', 'off'].includes(get('wordHighlightMode')) ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode'] : current.wordHighlightMode,
+        hideKnownFurigana: get('furiganaMode') === 'known-status',
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
         ocrShowTextOverlay: has('ocrShowTextOverlay'),

@@ -722,6 +722,13 @@ export const READER_CSS = `
   background: rgba(144,80,246,.14) !important;
   text-decoration-color: #9050f6 !important;
 }
+.jpdb-reader-highlight-off .jpdb-reader-word,
+.jpdb-reader-highlight-off .jpdb-reader-word:is(:hover,:focus,.jpdb-reader-hover) {
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  text-decoration-color: transparent !important;
+}
 .jpdb-reader-newtab-word .jpdb-reader-word {
   background: transparent !important;
   color: inherit !important;
@@ -891,6 +898,13 @@ export const READER_CSS = `
 .jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku,
 .jpdb-reader-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-pitch-kifuku,
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku { color: #9050f6 !important; }
+.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word,
+.jpdb-reader-highlight-off .asbplayer-subtitles-container-bottom .jpdb-reader-word,
+.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word {
+  background: transparent !important;
+  color: inherit !important;
+  text-decoration-color: transparent !important;
+}
 
 .jpdb-reader-fab {
   position: fixed;
@@ -3339,6 +3353,11 @@ button.jpdb-reader-jpdb-pill {
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-nakadaka { color: #fba840 !important; }
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-odaka { color: #57ccb7 !important; }
 .jpdb-reader-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word.jpdb-pitch-kifuku { color: #9050f6 !important; }
+.jpdb-reader-highlight-off .jpdb-subtitle-primary .jpdb-reader-word {
+  background: transparent !important;
+  color: var(--subtitle-color) !important;
+  text-decoration-color: transparent !important;
+}
 .jpdb-subtitle-primary .jpdb-reader-furi { color: currentColor; opacity: .8; }
 .jpdb-reader-subtitle-preview {
   min-height: 94px;

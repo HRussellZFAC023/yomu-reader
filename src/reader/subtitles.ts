@@ -404,7 +404,7 @@ export class SubtitlePlayerController {
 
     private async renderParsedPrimary(text: string): Promise<void> {
         const settings = this.options.getSettings();
-        const key = `${settings.showFurigana}:${settings.hideKnownFurigana}:${text}`;
+        const key = `${settings.showFurigana}:${settings.furiganaMode}:${settings.hideKnownFurigana}:${settings.wordHighlightMode}:${text}`;
         const serial = ++this.renderSerial;
         const cached = this.parsedHtmlCache.get(key);
         if (cached) {
@@ -1120,7 +1120,7 @@ export class SubtitlePlayerController {
         const cue = this.cues[index];
         const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
         if (!cue || !target) return;
-        const key = `${settings.showFurigana}:${settings.hideKnownFurigana}:${cue.text}`;
+        const key = `${settings.showFurigana}:${settings.furiganaMode}:${settings.hideKnownFurigana}:${settings.wordHighlightMode}:${cue.text}`;
         if (target.dataset.parsedKey === key) return;
 
         const cached = this.parsedHtmlCache.get(key);
