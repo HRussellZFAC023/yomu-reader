@@ -21,6 +21,7 @@ interface PopoverSizeRect {
 
 interface PopoverPositionOptions {
     followPoint?: { x: number; y: number };
+    maxHeight?: number;
 }
 
 export function pauseActiveVideo(): void {
@@ -77,8 +78,9 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
     const viewport = getPopoverViewport();
     const viewportHeight = viewport.bottom - viewport.top;
     const viewportWidth = viewport.right - viewport.left;
+    const maxFrameHeight = Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
     popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
-    popover.style.maxHeight = `${Math.max(0, viewportHeight)}px`;
+    popover.style.maxHeight = `${maxFrameHeight}px`;
     const width = popover.offsetWidth;
     const height = popover.offsetHeight;
     const fallbackLeft = (viewport.left + viewport.right - width) / 2;

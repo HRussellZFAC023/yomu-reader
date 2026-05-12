@@ -364,6 +364,36 @@ describe('reader helpers', () => {
         expect(DEFAULT_SETTINGS.audioFallbackChimeEnabled).toBe(true);
     });
 
+    it('reads arbitrary Japanese sentence text aloud with browser TTS', async () => {
+        const spoken: string[] = [];
+        class FakeSpeechSynthesisUtterance {
+            lang = '';
+            voice: SpeechSynthesisVoice | null = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+
+            constructor(public text: string) {}
+        }
+        vi.stubGlobal('SpeechSynthesisUtterance', FakeSpeechSynthesisUtterance);
+        vi.stubGlobal('speechSynthesis', {
+            cancel: vi.fn(),
+            getVoices: vi.fn(() => []),
+            speak: vi.fn((utterance: FakeSpeechSynthesisUtterance) => {
+                spoken.push(utterance.text);
+                utterance.onend?.();
+            }),
+        });
+
+        try {
+            const player = new AudioPlayer(() => DEFAULT_SETTINGS);
+            await player.playJapaneseText(' 警察が来た！ ');
+
+            expect(spoken).toEqual(['警察が来た！']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('renders pitch accent graphs from local Yomitan metadata without a JPDB card pitch', () => {
         const html = renderPitch({
             ...card,
@@ -857,6 +887,68 @@ describe('reader helpers', () => {
         }
     });
 
+    it('reuses preloaded audio blobs for immediate playback', async () => {
+        const played: string[] = [];
+        let blobRequests = 0;
+        class FakeAudio {
+            preload = '';
+            constructor(public src: string) {}
+            play(): Promise<void> {
+                played.push(this.src);
+                return Promise.resolve();
+            }
+            pause(): void {}
+        }
+        vi.stubGlobal('Audio', FakeAudio);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/preloaded-audio'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                blobRequests += 1;
+                details.onload?.({
+                    status: 200,
+                    response: new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/mpeg' }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/audio.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            player.preload(card);
+            await waitForExpect(() => expect(blobRequests).toBe(1));
+            await player.play(card);
+
+            expect(blobRequests).toBe(1);
+            expect(played).toEqual(['blob:http://localhost/preloaded-audio']);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('plays custom audio candidates through userscript blob fetch', async () => {
         const played: string[] = [];
         class FakeAudio {
@@ -996,6 +1088,34 @@ describe('reader helpers', () => {
         }
     });
 
+    it('uses Immersion Kit title overrides for media folders with punctuation', async () => {
+        const client = new ImmersionKitClient();
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: () => Promise.resolve({
+                status: 200,
+                responseText: JSON.stringify({
+                    examples: [{
+                        id: 'anime_re_zero___starting_life_in_another_world_000001845',
+                        sentence: 'ああ　確かめたいことがあるんでな',
+                        image: 'A_ReZeroS01_E03_1_0.27.20.620.jpg',
+                        sound: 'A_ReZeroS01_E03_1_0.27.19.100-0.27.22.140.mp3',
+                        title: 're_zero___starting_life_in_another_world',
+                    }],
+                }),
+            }),
+        });
+
+        try {
+            const [example] = await client.search('確かめたいこと', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
+
+            expect(example.sourceTitle).toBe('Re Zero − Starting Life in Another World');
+            expect(client.mediaUrls(example, 'sound')[0]).toContain('Re+Zero+%E2%88%92+Starting+Life+in+Another+World');
+            expect(client.mediaUrls(example, 'sound')).toContain('https://us-southeast-1.linodeobjects.com/immersionkit/media/anime/Re%20Zero%20%E2%88%92%20Starting%20Life%20in%20Another%20World/media/A_ReZeroS01_E03_1_0.27.19.100-0.27.22.140.mp3');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('tries the next Immersion Kit media candidate when the first one is an error document', async () => {
         const client = new ImmersionKitClient();
         const originalCreateObjectUrl = URL.createObjectURL;
@@ -1078,6 +1198,64 @@ describe('reader helpers', () => {
         image?.dispatchEvent(new Event('error'));
 
         expect(image?.src).toBe('https://media.test/good.jpg');
+    });
+
+    it('plays Immersion Kit hover audio only after entering the Immersion Kit panel', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('details');
+        container.setAttribute('data-immersion-kit', '');
+        const popover = document.createElement('div');
+        popover.append(container);
+        document.body.append(popover);
+
+        const example = {
+            id: 'anime_test_000001',
+            sentence: 'これは発音です',
+            sentenceWithFurigana: '',
+            translation: '',
+            sourceTitle: 'Test Source',
+            titleSlug: 'test_source',
+            category: 'anime',
+            soundFile: 'line.mp3',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const playSpy = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            loadImmersionKitExamples(popover: HTMLElement, card: JPDBCard, trigger?: 'modal' | 'hover'): Promise<void>;
+            searchImmersionKitExamples(card: JPDBCard): Promise<unknown>;
+            parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
+            playImmersionKitExample(example: unknown, quiet?: boolean): Promise<void>;
+            immersionMediaUrls(example: unknown, kind: 'image' | 'sound'): string[];
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            immersionKitAutoPlayAudio: true,
+            immersionKitPlayOnHover: true,
+            immersionKitShowImages: false,
+        };
+        internals.searchImmersionKitExamples = vi.fn(async () => ({
+            examples: [example],
+            query: '発音',
+            usedFallback: false,
+            triedQueries: ['発音'],
+        }));
+        internals.parseJapanese = vi.fn(async () => []);
+        internals.playImmersionKitExample = playSpy;
+        internals.immersionMediaUrls = vi.fn(() => ['https://media.test/line.mp3']);
+
+        await internals.loadImmersionKitExamples(popover, card, 'hover');
+
+        expect(playSpy).not.toHaveBeenCalled();
+
+        const enter = new Event('pointerenter') as PointerEvent;
+        Object.defineProperty(enter, 'pointerType', { value: 'mouse' });
+        Object.defineProperty(enter, 'relatedTarget', { value: document.body });
+        container.dispatchEvent(enter);
+
+        expect(playSpy).toHaveBeenCalledWith(example, true);
     });
 
     it('does not treat normal-sized JapanesePod101 audio as unavailable', async () => {
