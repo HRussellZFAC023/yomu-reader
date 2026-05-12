@@ -1004,93 +1004,6 @@ export class YomitanDictionaryStore {
     }
 }
 
-export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImport {
-    const done = log.time('Yomitan settings export parse');
-    const profileOptions = getYomitanProfileOptions(value);
-    if (!profileOptions) {
-        done();
-        log.warn('Yomitan settings export rejected', { reason: 'missing-profile-options' });
-        throw new Error('This does not look like a Yomitan settings export.');
-    }
-
-    const settings: YomitanSettingsImport['settings'] = {};
-    const audio = profileOptions.audio as Record<string, unknown> | undefined;
-    const general = profileOptions.general as Record<string, unknown> | undefined;
-    const scanning = profileOptions.scanning as Record<string, unknown> | undefined;
-    const inputs = profileOptions.inputs as { hotkeys?: Array<Record<string, unknown>> } | undefined;
-
-    if (typeof audio?.enabled === 'boolean') settings.audioEnabled = audio.enabled;
-    if (typeof audio?.autoPlay === 'boolean') settings.autoPlayAudio = audio.autoPlay;
-    if (typeof audio?.enableDefaultAudioSources === 'boolean') settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
-    if (Array.isArray(audio?.sources)) {
-        settings.audioSources = audio.sources
-            .map(normalizeAudioSource)
-            .filter((source): source is NonNullable<ReturnType<typeof normalizeAudioSource>> => source !== null);
-        settings.audioSourceUrl = settings.audioSources.find(source => source.url)?.url;
-    }
-    if (general?.popupTheme === 'dark' || general?.popupTheme === 'light') settings.theme = general.popupTheme;
-    if (typeof general?.popupHeight === 'number' && general.popupHeight > 0) {
-        settings.subtitleBottomOffset = Math.max(6, Math.min(24, Math.round(general.popupVerticalOffset as number || 12)));
-    }
-    if (typeof scanning?.selectText === 'boolean') settings.parseSelection = scanning.selectText;
-    if (typeof scanning?.scanWithoutMousemove === 'boolean') settings.autoScanJapanese = scanning.scanWithoutMousemove;
-    const scanInput = Array.isArray(scanning?.inputs)
-        ? (scanning.inputs as Array<Record<string, unknown>>).find(input => input && typeof input === 'object')
-        : null;
-    if (scanInput) {
-        const include = String(scanInput.include ?? '').toLowerCase();
-        const modifier = ['shift', 'alt', 'ctrl', 'meta'].find(key => include.includes(key));
-        if (modifier) {
-            settings.lookupOnHover = true;
-            settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
-        } else {
-            const options = scanInput.options as Record<string, unknown> | undefined;
-            if (options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === '') {
-                settings.lookupOnHover = true;
-                settings.shortcuts = { ...settings.shortcuts, hoverLookup: '' };
-            }
-        }
-    }
-    if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
-    settings.yomitanSettingsBackup = value;
-
-    const playAudio = inputs?.hotkeys?.find(hotkey => hotkey.action === 'playAudio' && hotkey.enabled !== false);
-    if (playAudio) {
-        const key = String(playAudio.key || '').replace(/^Key/, '');
-        const modifiers = Array.isArray(playAudio.modifiers) ? playAudio.modifiers.map(v => String(v)) : [];
-        settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join('+') };
-    }
-
-    const dictionaryPreferences = Array.isArray(profileOptions.dictionaries)
-        ? profileOptions.dictionaries
-            .map((item, index): DictionaryPreference | null => {
-                const record = item as Record<string, unknown>;
-                if (typeof record?.name !== 'string') return null;
-                return {
-                    name: record.name,
-                    alias: typeof record.alias === 'string' && record.alias ? record.alias : record.name,
-                    enabled: record.enabled !== false,
-                    priority: index,
-                    allowSecondarySearches: record.allowSecondarySearches === true,
-                };
-            })
-            .filter((item): item is DictionaryPreference => item !== null)
-        : [];
-    settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryPreferences);
-
-    const result = {
-        settings,
-        dictionaryNames: settings.dictionaryPreferences.filter(item => item.enabled).map(item => item.name),
-    };
-    log.info('Yomitan settings export parsed', {
-        dictionaryPreferences: settings.dictionaryPreferences.length,
-        enabledDictionaries: result.dictionaryNames.length,
-        importedAudioSources: settings.audioSources?.length ?? 0,
-    });
-    done();
-    return result;
-}
-
 function importEntryStores(): EntryStoreName[] {
     return ['terms', 'kanji', 'termMeta', 'kanjiMeta'];
 }
@@ -1283,12 +1196,6 @@ function isReaderDictionaryExport(value: unknown): value is {
         );
 }
 
-function getYomitanProfileOptions(value: unknown): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object') return null;
-    const options = (value as { options?: { profiles?: Array<{ options?: Record<string, unknown> }> } }).options;
-    return options?.profiles?.[0]?.options ?? null;
-}
-
 function filenameFromUrl(url: string): string {
     try {
         const parsed = new URL(url);
@@ -1469,8 +1376,4 @@ function deleteByDictionary(db: IDBDatabase, storeName: StoreName, dictionary: s
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     });
-}
-
-function capitalize(value: string): string {
-    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
