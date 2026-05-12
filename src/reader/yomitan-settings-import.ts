@@ -95,6 +95,14 @@ function applyScanInputSettings(settings: YomitanSettingsImport['settings'], sca
 function getYomitanProfileOptions(value: unknown): Record<string, unknown> | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
+    const rootOptions = record.options;
+    if (rootOptions && typeof rootOptions === 'object') {
+        const rootOptionRecord = rootOptions as Record<string, unknown>;
+        const profiles = Array.isArray(rootOptionRecord.profiles) ? rootOptionRecord.profiles as Array<Record<string, unknown>> : [];
+        const profileOptions = profiles.find(item => item && typeof item === 'object')?.options;
+        if (profileOptions && typeof profileOptions === 'object') return profileOptions as Record<string, unknown>;
+        return rootOptionRecord;
+    }
     const profiles = Array.isArray(record.profiles) ? record.profiles as Array<Record<string, unknown>> : [];
     const profile = profiles.find(item => item && typeof item === 'object') ?? record;
     const options = (profile as Record<string, unknown>).options;
