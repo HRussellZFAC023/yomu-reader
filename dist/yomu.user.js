@@ -14008,6 +14008,7 @@ ${normalizedReading}`;
     bindRootEvents(root) {
       root.addEventListener("click", (event) => {
         var _a, _b;
+        if (root.dataset.standaloneNewtab === "true" && !this.allWords.length) return;
         const target = event.target;
         const action = (_a = target.closest("[data-newtab-action]")) == null ? void 0 : _a.dataset.newtabAction;
         if (action === "settings") {
@@ -14043,6 +14044,7 @@ ${normalizedReading}`;
         }
       });
       root.addEventListener("keydown", (event) => {
+        if (root.dataset.standaloneNewtab === "true" && !this.allWords.length) return;
         const target = event.target;
         if (target == null ? void 0 : target.matches("input, select, textarea")) return;
         if (event.key === "ArrowRight" || event.key === "n") {
