@@ -423,7 +423,7 @@
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
   const STORAGE_KEY = "jpdb-popup-reader-settings";
-  const log$C = Logger.scope("Settings");
+  const log$D = Logger.scope("Settings");
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = "#5ea780";
   const DEFAULT_WORD_COLORS = {
@@ -921,7 +921,7 @@
     const audio = (_b = params.get("audio")) == null ? void 0 : _b.trim();
     const ocr = (_c = params.get("ocr")) == null ? void 0 : _c.trim();
     if (!apiKey && !audio && !ocr) return settings;
-    log$C.info("Applying URL bootstrap settings", {
+    log$D.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(apiKey),
       hasAudio: Boolean(audio),
       hasOcr: Boolean(ocr)
@@ -956,19 +956,19 @@
     if (typeof GM_getValue === "function") {
       try {
         const settings = mergeSettings(await GM_getValue(STORAGE_KEY, null));
-        log$C.debug("Loaded settings from userscript storage", settingsSummary(settings));
+        log$D.debug("Loaded settings from userscript storage", settingsSummary(settings));
         return settings;
       } catch (error) {
-        log$C.warn("Userscript settings load failed, using defaults", { error });
+        log$D.warn("Userscript settings load failed, using defaults", { error });
         return mergeSettings(null);
       }
     }
     try {
       const settings = mergeSettings(JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"));
-      log$C.debug("Loaded settings from localStorage", settingsSummary(settings));
+      log$D.debug("Loaded settings from localStorage", settingsSummary(settings));
       return settings;
     } catch (error) {
-      log$C.warn("Local settings load failed, using defaults", { error });
+      log$D.warn("Local settings load failed, using defaults", { error });
       return mergeSettings(null);
     }
   }
@@ -976,18 +976,18 @@
     if (typeof GM_setValue === "function") {
       try {
         await GM_setValue(STORAGE_KEY, settings);
-        log$C.debug("Saved settings to userscript storage", settingsSummary(settings));
+        log$D.debug("Saved settings to userscript storage", settingsSummary(settings));
         return;
       } catch (error) {
-        log$C.warn("Userscript settings save failed", { error });
+        log$D.warn("Userscript settings save failed", { error });
         throw error;
       }
     }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-      log$C.debug("Saved settings to localStorage", settingsSummary(settings));
+      log$D.debug("Saved settings to localStorage", settingsSummary(settings));
     } catch (error) {
-      log$C.warn("Local settings save failed", { error });
+      log$D.warn("Local settings save failed", { error });
       throw error;
     }
   }
@@ -1195,7 +1195,7 @@
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const log$B = Logger.scope("Dom");
+  const log$C = Logger.scope("Dom");
   let trustedHtmlPolicy;
   const SKIP_SELECTOR = [
     "script",
@@ -1488,7 +1488,7 @@
       word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
     }
     parents.forEach((parent) => parent.normalize());
-    log$B.debug("Unwrapped reader words", { count: words.length });
+    log$C.debug("Unwrapped reader words", { count: words.length });
     return words.length;
   }
   function readerWordSurfaceText(element2) {
@@ -1525,7 +1525,7 @@
       fragment2.append(document.createTextNode(text2.slice(offset)));
     }
     target.node.replaceWith(fragment2);
-    log$B.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
+    log$C.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
   }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!tokens.length || !target.fragments.length) return;
@@ -1563,7 +1563,7 @@
       if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
       fragmentInfo.node.replaceWith(replacement);
     }
-    log$B.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
+    log$C.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
       tokens: safeTokens.length,
       fragments: target.fragments.length,
       textLength: target.text.length,
@@ -1581,7 +1581,7 @@
       offset = token.end;
     }
     if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
-    log$B.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
+    log$C.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
     return html;
   }
   function renderHighlightedTextHtml(text2, targets, className) {
@@ -1801,7 +1801,7 @@
     const controlShape = style.display.includes("flex") || style.display.includes("grid") || style.display === "inline-block" || Number.parseFloat(style.borderRadius) > 0 || style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
     return controlShape && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
   }
-  const log$A = Logger.scope("ObjectUrlCache");
+  const log$B = Logger.scope("ObjectUrlCache");
   class ObjectUrlCache {
     constructor(ttlMs, label) {
       __publicField(this, "entries", /* @__PURE__ */ new Map());
@@ -1812,7 +1812,7 @@
       const now = Date.now();
       const cached = this.entries.get(key);
       if (cached && cached.expiresAt > now) {
-        log$A.debug("Object URL cache hit", { label: this.label });
+        log$B.debug("Object URL cache hit", { label: this.label });
         return cached.promise;
       }
       if (cached) this.delete(key);
@@ -1848,22 +1848,22 @@
     }
   }
   var _monkeyWindow = /* @__PURE__ */ (() => window)();
-  const log$z = Logger.scope("Userscript");
+  const log$A = Logger.scope("Userscript");
   function getUserscriptHttpRequest() {
     for (const source of userscriptRequestSources()) {
       const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
       if (directRequest) {
-        log$z.debug("Userscript HTTP request resolved", { source: sourceLabel(source), path: "GM_xmlhttpRequest" });
+        log$A.debug("Userscript HTTP request resolved", { source: sourceLabel(source), path: "GM_xmlhttpRequest" });
         return directRequest.bind(source);
       }
       const gm = source.GM;
       const gmRequest = asUserscriptRequest(gm == null ? void 0 : gm.xmlHttpRequest) ?? asUserscriptRequest(gm == null ? void 0 : gm.xmlhttpRequest);
       if (gmRequest) {
-        log$z.debug("Userscript HTTP request resolved", { source: sourceLabel(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
+        log$A.debug("Userscript HTTP request resolved", { source: sourceLabel(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
         return gmRequest.bind(gm);
       }
     }
-    log$z.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
+    log$A.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
     return void 0;
   }
   function userscriptRequestSources() {
@@ -1884,7 +1884,7 @@
     if (typeof document === "undefined") return [];
     const record = document;
     const windows = Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => record[key]);
-    log$z.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
+    log$A.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
     return windows;
   }
   function isRequestSource(value) {
@@ -1906,7 +1906,7 @@
   const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
   const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
-  const log$y = Logger.scope("Audio");
+  const log$z = Logger.scope("Audio");
   class AudioPlayer {
     constructor(getSettings) {
       __publicField(this, "current");
@@ -1928,15 +1928,15 @@
       const sources = getOrderedAudioSources(settings);
       this.stopCurrent();
       if (!sources.length) {
-        log$y.warn("No audio sources configured", { term: card.spelling });
+        log$z.warn("No audio sources configured", { term: card.spelling });
         return await this.playMissingAudioFallback(settings, requestId, isCurrent);
       }
-      const done = log$y.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
+      const done = log$z.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
       const errors = [];
       const triedUrls = /* @__PURE__ */ new Set();
       for (const source of sources) {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-          log$y.debug("Audio request superseded", { term: card.spelling, requestId });
+          log$z.debug("Audio request superseded", { term: card.spelling, requestId });
           done();
           return false;
         }
@@ -1947,18 +1947,18 @@
             return false;
           }
           if (played) {
-            log$y.debug("Audio source succeeded", { term: card.spelling, source: source.type });
+            log$z.debug("Audio source succeeded", { term: card.spelling, source: source.type });
             done();
             return true;
           }
         } catch (error) {
-          log$y.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
+          log$z.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
           errors.push(error instanceof Error ? error.message : String(error));
         }
       }
       done();
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$y.warn("No playable audio found", { term: card.spelling, errors });
+      log$z.warn("No playable audio found", { term: card.spelling, errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     preload(card, options = {}) {
@@ -1976,15 +1976,15 @@
             if (triedUrls.has(candidateKey2)) continue;
             triedUrls.add(candidateKey2);
             preconnectAudioUrl(candidate.url);
-            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$y.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
+            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$z.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
           }
-        }).catch((error) => log$y.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
+        }).catch((error) => log$z.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
       }
     }
     stop() {
       this.playRequestId++;
       this.stopCurrent();
-      log$y.debug("Audio stopped");
+      log$z.debug("Audio stopped");
     }
     async playJapaneseText(text2, voiceName = "") {
       const requestId = ++this.playRequestId;
@@ -1993,7 +1993,7 @@
       this.stopCurrent();
       await this.playTextToSpeech(trimmed, voiceName);
       if (requestId !== this.playRequestId) this.stopCurrent();
-      log$y.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
+      log$z.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
     }
     stopCurrent() {
       var _a;
@@ -2012,17 +2012,17 @@
       if (source.type === "text-to-speech" || source.type === "text-to-speech-reading") {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
-        log$y.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
+        log$z.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
         return this.isPlaybackCurrent(requestId, isCurrent);
       }
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$y.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
+      log$z.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
       const bagKey = getAudioBagKey(source, card);
       for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
         const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
         if (triedUrls.has(candidateKey2)) {
-          log$y.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
+          log$z.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
           continue;
         }
         triedUrls.add(candidateKey2);
@@ -2032,10 +2032,10 @@
           const played = await this.playPreparedAudio(audio, requestId, isCurrent);
           if (!played) return false;
           this.shuffledAudio.markPlayed(bagKey, id);
-          log$y.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
+          log$z.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
           return true;
         } catch (error) {
-          log$y.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
+          log$z.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
         }
       }
       return false;
@@ -2095,7 +2095,7 @@
       const now = Date.now();
       const cached = this.candidateCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log$y.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
+        log$z.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
         return cached.promise.then(cloneAudioCandidates);
       }
       let promise;
@@ -2120,7 +2120,7 @@
         throw new Error("JapanesePod101 has no audio for this term.");
       }
       const blobUrl = URL.createObjectURL(response);
-      log$y.debug("Audio blob URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size });
+      log$z.debug("Audio blob URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size });
       return blobUrl;
     }
     playTextToSpeech(text2, voiceName) {
@@ -2139,17 +2139,17 @@
     }
     async playMissingAudioFallback(settings, requestId, isCurrent) {
       if (!settings.audioFallbackChimeEnabled) {
-        log$y.debug("Missing-audio fallback is silent");
+        log$z.debug("Missing-audio fallback is silent");
         return false;
       }
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       try {
         const played = await this.playSoftChime(requestId, isCurrent);
         if (!played) return false;
-        log$y.debug("Missing-audio fallback chime played");
+        log$z.debug("Missing-audio fallback chime played");
         return true;
       } catch (error) {
-        log$y.debug("Missing-audio fallback chime unavailable", {}, error);
+        log$z.debug("Missing-audio fallback chime unavailable", {}, error);
         return false;
       }
     }
@@ -2403,7 +2403,7 @@
     const url = getProxyUrl(responseUrl);
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$y.debug("Audio request via userscript API", { responseType, host: safeHost$6(url) });
+      log$z.debug("Audio request via userscript API", { responseType, host: safeHost$6(url) });
       return new Promise((resolve, reject) => {
         const handleLoad = (response) => {
           if (response.status >= 200 && response.status < 300) {
@@ -2426,7 +2426,7 @@
         }
       });
     }
-    log$y.debug("Audio request via fetch", { responseType, host: safeHost$6(url) });
+    log$z.debug("Audio request via fetch", { responseType, host: safeHost$6(url) });
     return fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).then(async (response) => {
       if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
       return responseType === "blob" ? await response.blob() : await response.text();
@@ -2519,7 +2519,7 @@
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$x = Logger.scope("MiningContext");
+  const log$y = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -2569,7 +2569,7 @@
     videoImageDataUrl,
     fetchImageDataUrl
   }) {
-    const done = log$x.time("Resolve mining context", {
+    const done = log$y.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
       activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
@@ -2581,20 +2581,20 @@
     const cleanSentence = normalizeMiningSentence(sentence);
     try {
       if (imageDataUrl && cleanSentence) {
-        log$x.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
+        log$y.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
         return miningContextWithImage(term, cleanSentence, "image", imageDataUrl);
       }
       if (videoImageDataUrl && cleanSentence) {
-        log$x.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
+        log$y.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
         return miningContextWithImage(term, cleanSentence, "video", videoImageDataUrl);
       }
       const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
       if (chosen && shouldUseImmersionContext(settings, chosen)) {
         const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch((error) => {
-          log$x.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
+          log$y.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
           return void 0;
         }) : void 0;
-        log$x.debug("Using immersion mining context", {
+        log$y.debug("Using immersion mining context", {
           term,
           sourceTitle: chosen.sourceTitle,
           hasImageUrl: Boolean(chosen.imageUrl),
@@ -2604,7 +2604,7 @@
       }
       const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
       const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-      log$x.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
+      log$y.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
       return result;
     } finally {
       done();
@@ -2612,7 +2612,7 @@
   }
   function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
     const context = pageMiningContext(sentence, sourceKind);
-    log$x.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
+    log$y.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
     return {
       ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
       imageDataUrl
@@ -2621,14 +2621,14 @@
   function saveMiningContext(term, context) {
     const stored = createStoredMiningContext(term, context);
     if (!stored) {
-      log$x.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
+      log$y.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
       return null;
     }
     try {
       localStorage.setItem(contextStorageKey(stored.term), JSON.stringify(stored));
-      log$x.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
+      log$y.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
     } catch (error) {
-      log$x.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$y.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -2638,14 +2638,14 @@
     try {
       const raw = localStorage.getItem(contextStorageKey(normalized));
       if (!raw) {
-        log$x.debug("Mining context cache miss", { term: normalized });
+        log$y.debug("Mining context cache miss", { term: normalized });
         return null;
       }
       const context = parseStoredMiningContext(JSON.parse(raw), normalized);
-      log$x.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
+      log$y.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
       return context;
     } catch (error) {
-      log$x.warn("Mining context load failed", { term: normalized, error });
+      log$y.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -2700,7 +2700,7 @@
     if (!isMiningSourceKind(value.sourceKind)) return null;
     const updatedAt = Number(value.updatedAt);
     if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
-      log$x.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
+      log$y.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
       return null;
     }
     const context = createStoredMiningContext(expectedTerm, {
@@ -5859,7 +5859,7 @@
   })(jszip_min);
   var jszip_minExports = jszip_min.exports;
   const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(jszip_minExports);
-  const log$w = Logger.scope("Deinflect");
+  const log$x = Logger.scope("Deinflect");
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -6009,7 +6009,7 @@
       }
     }
     const sorted = results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-    log$w.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
+    log$x.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
       source,
       candidates: sorted.length,
       derived: sorted.filter((candidate) => candidate.depth > 0).length
@@ -6071,10 +6071,239 @@
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
   }
-  const log$v = Logger.scope("YomitanRanking");
+  async function readDexieTableRowCounts(file) {
+    const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
+    const tablesIndex = head.indexOf('"tables"');
+    if (tablesIndex < 0) return {};
+    const arrayStart = head.indexOf("[", tablesIndex);
+    if (arrayStart < 0) return {};
+    const arrayEnd = findJsonArrayEnd(head, arrayStart);
+    if (arrayEnd < 0) return {};
+    const tables = JSON.parse(head.slice(arrayStart, arrayEnd + 1));
+    const counts = {};
+    for (const table of tables) {
+      if (!table || typeof table !== "object") continue;
+      const record = table;
+      if (typeof record.name === "string" && typeof record.rowCount === "number") counts[record.name] = record.rowCount;
+    }
+    return counts;
+  }
+  async function streamDexieTables(file, handlers, onTable) {
+    if (typeof file.stream !== "function" || typeof TextDecoderStream === "undefined") {
+      await streamDexieTablesFromText(await readBlobText(file), handlers, onTable);
+      return;
+    }
+    const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+    const state = {
+      buffer: "",
+      mode: "seek-table",
+      tableName: "",
+      rowStart: -1,
+      depth: 0,
+      inString: false,
+      escaped: false
+    };
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      state.buffer += value;
+      await processDexieStreamBuffer(state, handlers, onTable);
+    }
+  }
+  function readBlobText(blob) {
+    if (typeof blob.text === "function") return blob.text();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.readAsText(blob);
+    });
+  }
+  async function processDexieStreamBuffer(state, handlers, onTable) {
+    let progress = true;
+    while (progress) {
+      progress = false;
+      if (state.mode === "seek-table") progress = seekDexieTable(state);
+      if (state.mode === "seek-rows") progress = seekDexieRows(state, onTable) || progress;
+      if (state.mode === "rows") progress = await readDexieRows(state, handlers) || progress;
+    }
+  }
+  function seekDexieTable(state) {
+    const tableIndex = state.buffer.indexOf('"tableName"');
+    if (tableIndex < 0) {
+      state.buffer = state.buffer.slice(-32);
+      return false;
+    }
+    const colon = state.buffer.indexOf(":", tableIndex);
+    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
+    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
+    if (end < 0) return false;
+    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1));
+    state.buffer = state.buffer.slice(end + 1);
+    state.mode = "seek-rows";
+    return true;
+  }
+  function seekDexieRows(state, onTable) {
+    const rowsIndex = state.buffer.indexOf('"rows"');
+    if (rowsIndex < 0) {
+      state.buffer = state.buffer.slice(-32);
+      return false;
+    }
+    const arrayIndex = state.buffer.indexOf("[", rowsIndex);
+    if (arrayIndex < 0) return false;
+    state.buffer = state.buffer.slice(arrayIndex + 1);
+    state.mode = "rows";
+    resetDexieRowState(state);
+    onTable == null ? void 0 : onTable(state.tableName);
+    return true;
+  }
+  function resetDexieRowState(state) {
+    state.rowStart = -1;
+    state.depth = 0;
+    state.inString = false;
+    state.escaped = false;
+  }
+  async function readDexieRows(state, handlers) {
+    handlers[state.tableName];
+    let progress = false;
+    for (let index = 0; index < state.buffer.length; index++) {
+      const char = state.buffer[index];
+      if (advanceStringState(state, char)) continue;
+      if (char === "{") {
+        if (state.depth === 0) state.rowStart = index;
+        state.depth++;
+        continue;
+      }
+      if (char === "}") {
+        progress = await finishDexieRow(state, handlers, index) || progress;
+        if (progress && state.rowStart === -1) index = -1;
+        continue;
+      }
+      if (state.depth === 0 && char === "]") {
+        state.buffer = state.buffer.slice(index + 1);
+        state.mode = "seek-table";
+        state.tableName = "";
+        return true;
+      }
+    }
+    if (!progress) compactDexieRowBuffer(state);
+    return progress;
+  }
+  async function finishDexieRow(state, handlers, index) {
+    state.depth--;
+    if (state.depth !== 0 || state.rowStart < 0) return false;
+    const handler = handlers[state.tableName];
+    if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
+    state.buffer = state.buffer.slice(index + 1);
+    state.rowStart = -1;
+    return true;
+  }
+  function advanceStringState(state, char) {
+    if (state.inString) {
+      if (state.escaped) state.escaped = false;
+      else if (char === "\\") state.escaped = true;
+      else if (char === '"') state.inString = false;
+      return true;
+    }
+    if (char !== '"') return false;
+    state.inString = true;
+    return true;
+  }
+  function compactDexieRowBuffer(state) {
+    if (state.rowStart > 0) {
+      state.buffer = state.buffer.slice(state.rowStart);
+      state.rowStart = 0;
+    } else if (state.depth === 0 && state.buffer.length > 4096) {
+      state.buffer = state.buffer.slice(-4096);
+    }
+  }
+  function findJsonArrayEnd(text2, start) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text2.length; index++) {
+      const char = text2[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+      if (char === "[") depth++;
+      if (char === "]") {
+        depth--;
+        if (depth === 0) return index;
+      }
+    }
+    return -1;
+  }
+  async function streamDexieTablesFromText(text2, handlers, onTable) {
+    let offset = 0;
+    while (true) {
+      const tableIndex = text2.indexOf('"tableName"', offset);
+      if (tableIndex < 0) return;
+      const colon = text2.indexOf(":", tableIndex);
+      const quote = colon >= 0 ? text2.indexOf('"', colon) : -1;
+      const end = quote >= 0 ? findJsonStringEnd(text2, quote) : -1;
+      if (end < 0) return;
+      const tableName = JSON.parse(text2.slice(quote, end + 1));
+      const rowsIndex = text2.indexOf('"rows"', end);
+      const arrayStart = rowsIndex >= 0 ? text2.indexOf("[", rowsIndex) : -1;
+      if (arrayStart < 0) return;
+      onTable == null ? void 0 : onTable(tableName);
+      offset = await streamDexieRowsFromText(text2, arrayStart, tableName, handlers);
+    }
+  }
+  async function streamDexieRowsFromText(text2, arrayStart, tableName, handlers) {
+    const handler = handlers[tableName];
+    let depth = 0;
+    let rowStart = -1;
+    let inString = false;
+    let escaped = false;
+    for (let index = arrayStart + 1; index < text2.length; index++) {
+      const char = text2[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+      if (char === "{") {
+        if (depth === 0) rowStart = index;
+        depth++;
+        continue;
+      }
+      if (char === "}") {
+        depth--;
+        if (depth === 0 && rowStart >= 0 && handler) await handler(JSON.parse(text2.slice(rowStart, index + 1)));
+        continue;
+      }
+      if (depth === 0 && char === "]") return index + 1;
+    }
+    return text2.length;
+  }
+  function findJsonStringEnd(value, quoteIndex) {
+    let escaped = false;
+    for (let index = quoteIndex + 1; index < value.length; index++) {
+      const char = value[index];
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') return index;
+    }
+    return -1;
+  }
+  const log$w = Logger.scope("YomitanRanking");
   function dictionaryRank(preferences) {
     const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
-    log$v.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
+    log$w.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
     return rank;
   }
   function dictionaryEnabled(dictionary, rank) {
@@ -6115,7 +6344,7 @@ ${candidate.depth}`;
       if (selected.length >= limit) break;
     }
     const result = selected.sort((a, b) => a.start - b.start);
-    log$v.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
+    log$w.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
     return result;
   }
   function isJpdbFrequencyDictionary(dictionary) {
@@ -6181,7 +6410,7 @@ ${candidate.depth}`;
     listStyleType: "list-style-type"
   };
   const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
-  const log$u = Logger.scope("YomitanGlossary");
+  const log$v = Logger.scope("YomitanGlossary");
   function glossaryToText(value) {
     if (value == null) return "";
     if (typeof value === "string") return value;
@@ -6198,7 +6427,7 @@ ${candidate.depth}`;
   }
   function glossaryToHtml(value, dictionary = "", options = {}) {
     const html = renderGlossaryValue(value, { dictionary, internalSearchLinks: options.internalSearchLinks ?? false, root: true });
-    log$u.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
+    log$v.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
     return html;
   }
   function renderDictionaryScopedStyles(dictionaries, preferences = []) {
@@ -6211,7 +6440,7 @@ ${candidate.depth}`;
 ${styles}
 }`;
     }).filter(Boolean).join("\n");
-    log$u.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
+    log$v.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
     return css;
   }
   function renderGlossaryValue(value, context) {
@@ -6381,6 +6610,79 @@ ${styles}
   }
   function escapeHtml(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  const log$u = Logger.scope("YomitanSettingsImport");
+  function parseYomitanSettingsExport(value) {
+    var _a, _b, _c;
+    const done = log$u.time("Yomitan settings export parse");
+    const profileOptions = getYomitanProfileOptions(value);
+    if (!profileOptions) {
+      done();
+      log$u.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      throw new Error("This does not look like a Yomitan settings export.");
+    }
+    const settings = {};
+    const audio = profileOptions.audio;
+    const general = profileOptions.general;
+    const scanning = profileOptions.scanning;
+    const inputs = profileOptions.inputs;
+    if (typeof (audio == null ? void 0 : audio.enabled) === "boolean") settings.audioEnabled = audio.enabled;
+    if (typeof (audio == null ? void 0 : audio.autoPlay) === "boolean") settings.autoPlayAudio = audio.autoPlay;
+    if (typeof (audio == null ? void 0 : audio.enableDefaultAudioSources) === "boolean") settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
+    if (Array.isArray(audio == null ? void 0 : audio.sources)) {
+      settings.audioSources = audio.sources.map(normalizeAudioSource).filter((source) => source !== null);
+      settings.audioSourceUrl = (_a = settings.audioSources.find((source) => source.url)) == null ? void 0 : _a.url;
+    }
+    if ((general == null ? void 0 : general.popupTheme) === "dark" || (general == null ? void 0 : general.popupTheme) === "light") settings.theme = general.popupTheme;
+    if (typeof (general == null ? void 0 : general.popupHeight) === "number" && general.popupHeight > 0) {
+      settings.subtitleBottomOffset = Math.max(6, Math.min(24, Math.round(general.popupVerticalOffset || 12)));
+    }
+    if (typeof (scanning == null ? void 0 : scanning.selectText) === "boolean") settings.parseSelection = scanning.selectText;
+    if (typeof (scanning == null ? void 0 : scanning.scanWithoutMousemove) === "boolean") settings.autoScanJapanese = scanning.scanWithoutMousemove;
+    applyScanInputSettings(settings, scanning);
+    if (typeof (general == null ? void 0 : general.maxResults) === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+    settings.yomitanSettingsBackup = value;
+    const playAudio = (_b = inputs == null ? void 0 : inputs.hotkeys) == null ? void 0 : _b.find((hotkey) => hotkey.action === "playAudio" && hotkey.enabled !== false);
+    if (playAudio) {
+      const key = String(playAudio.key || "").replace(/^Key/, "");
+      const modifiers = Array.isArray(playAudio.modifiers) ? playAudio.modifiers.map((v) => String(v)) : [];
+      settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join("+") };
+    }
+    done();
+    log$u.info("Yomitan settings import parsed", {
+      hasAudioSources: Boolean((_c = settings.audioSources) == null ? void 0 : _c.length),
+      parseSelection: settings.parseSelection,
+      autoScanJapanese: settings.autoScanJapanese,
+      theme: settings.theme
+    });
+    return { settings, raw: value };
+  }
+  function applyScanInputSettings(settings, scanning) {
+    const scanInput = Array.isArray(scanning == null ? void 0 : scanning.inputs) ? scanning.inputs.find((input2) => input2 && typeof input2 === "object") : null;
+    if (!scanInput) return;
+    const include = String(scanInput.include ?? "").toLowerCase();
+    const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
+    if (modifier) {
+      settings.lookupOnHover = true;
+      settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
+      return;
+    }
+    const options = scanInput.options;
+    if ((options == null ? void 0 : options.scanOnPenHover) === true || (options == null ? void 0 : options.scanOnTouchTap) === true || include === "") {
+      settings.lookupOnHover = true;
+      settings.shortcuts = { ...settings.shortcuts, hoverLookup: "" };
+    }
+  }
+  function getYomitanProfileOptions(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const profiles = Array.isArray(record.profiles) ? record.profiles : [];
+    const profile = profiles.find((item) => item && typeof item === "object") ?? record;
+    const options = profile.options;
+    return options && typeof options === "object" ? options : null;
+  }
+  function capitalize(value) {
+    return value ? `${value[0].toUpperCase()}${value.slice(1).toLowerCase()}` : value;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
   const DB_VERSION = 2;
@@ -7264,80 +7566,6 @@ ${entry.reading}`;
       this.dictionaryStyleCssCache.clear();
     }
   }
-  function parseYomitanSettingsExport(value) {
-    var _a, _b, _c;
-    const done = log$t.time("Yomitan settings export parse");
-    const profileOptions = getYomitanProfileOptions(value);
-    if (!profileOptions) {
-      done();
-      log$t.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
-      throw new Error("This does not look like a Yomitan settings export.");
-    }
-    const settings = {};
-    const audio = profileOptions.audio;
-    const general = profileOptions.general;
-    const scanning = profileOptions.scanning;
-    const inputs = profileOptions.inputs;
-    if (typeof (audio == null ? void 0 : audio.enabled) === "boolean") settings.audioEnabled = audio.enabled;
-    if (typeof (audio == null ? void 0 : audio.autoPlay) === "boolean") settings.autoPlayAudio = audio.autoPlay;
-    if (typeof (audio == null ? void 0 : audio.enableDefaultAudioSources) === "boolean") settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
-    if (Array.isArray(audio == null ? void 0 : audio.sources)) {
-      settings.audioSources = audio.sources.map(normalizeAudioSource).filter((source) => source !== null);
-      settings.audioSourceUrl = (_a = settings.audioSources.find((source) => source.url)) == null ? void 0 : _a.url;
-    }
-    if ((general == null ? void 0 : general.popupTheme) === "dark" || (general == null ? void 0 : general.popupTheme) === "light") settings.theme = general.popupTheme;
-    if (typeof (general == null ? void 0 : general.popupHeight) === "number" && general.popupHeight > 0) {
-      settings.subtitleBottomOffset = Math.max(6, Math.min(24, Math.round(general.popupVerticalOffset || 12)));
-    }
-    if (typeof (scanning == null ? void 0 : scanning.selectText) === "boolean") settings.parseSelection = scanning.selectText;
-    if (typeof (scanning == null ? void 0 : scanning.scanWithoutMousemove) === "boolean") settings.autoScanJapanese = scanning.scanWithoutMousemove;
-    const scanInput = Array.isArray(scanning == null ? void 0 : scanning.inputs) ? scanning.inputs.find((input2) => input2 && typeof input2 === "object") : null;
-    if (scanInput) {
-      const include = String(scanInput.include ?? "").toLowerCase();
-      const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
-      if (modifier) {
-        settings.lookupOnHover = true;
-        settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
-      } else {
-        const options = scanInput.options;
-        if ((options == null ? void 0 : options.scanOnPenHover) === true || (options == null ? void 0 : options.scanOnTouchTap) === true || include === "") {
-          settings.lookupOnHover = true;
-          settings.shortcuts = { ...settings.shortcuts, hoverLookup: "" };
-        }
-      }
-    }
-    if (typeof (general == null ? void 0 : general.maxResults) === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
-    settings.yomitanSettingsBackup = value;
-    const playAudio = (_b = inputs == null ? void 0 : inputs.hotkeys) == null ? void 0 : _b.find((hotkey) => hotkey.action === "playAudio" && hotkey.enabled !== false);
-    if (playAudio) {
-      const key = String(playAudio.key || "").replace(/^Key/, "");
-      const modifiers = Array.isArray(playAudio.modifiers) ? playAudio.modifiers.map((v) => String(v)) : [];
-      settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join("+") };
-    }
-    const dictionaryPreferences = Array.isArray(profileOptions.dictionaries) ? profileOptions.dictionaries.map((item, index) => {
-      const record = item;
-      if (typeof (record == null ? void 0 : record.name) !== "string") return null;
-      return {
-        name: record.name,
-        alias: typeof record.alias === "string" && record.alias ? record.alias : record.name,
-        enabled: record.enabled !== false,
-        priority: index,
-        allowSecondarySearches: record.allowSecondarySearches === true
-      };
-    }).filter((item) => item !== null) : [];
-    settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryPreferences);
-    const result = {
-      settings,
-      dictionaryNames: settings.dictionaryPreferences.filter((item) => item.enabled).map((item) => item.name)
-    };
-    log$t.info("Yomitan settings export parsed", {
-      dictionaryPreferences: settings.dictionaryPreferences.length,
-      enabledDictionaries: result.dictionaryNames.length,
-      importedAudioSources: ((_c = settings.audioSources) == null ? void 0 : _c.length) ?? 0
-    });
-    done();
-    return result;
-  }
   function importEntryStores() {
     return ["terms", "kanji", "termMeta", "kanjiMeta"];
   }
@@ -7375,219 +7603,6 @@ ${entry.reading}`;
     for (const entry of json.termMeta ?? []) bump(entry.dictionary, "termMeta");
     for (const entry of json.kanjiMeta ?? []) bump(entry.dictionary, "kanjiMeta");
     return Object.fromEntries([...(json.dictionaries ?? []).map((info) => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)]), ...[...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)])]);
-  }
-  async function readDexieTableRowCounts(file) {
-    const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
-    const tablesIndex = head.indexOf('"tables"');
-    if (tablesIndex < 0) return {};
-    const arrayStart = head.indexOf("[", tablesIndex);
-    if (arrayStart < 0) return {};
-    const arrayEnd = findJsonArrayEnd(head, arrayStart);
-    if (arrayEnd < 0) return {};
-    const tables = JSON.parse(head.slice(arrayStart, arrayEnd + 1));
-    const counts = {};
-    for (const table of tables) {
-      if (!table || typeof table !== "object") continue;
-      const record = table;
-      if (typeof record.name === "string" && typeof record.rowCount === "number") {
-        counts[record.name] = record.rowCount;
-      }
-    }
-    return counts;
-  }
-  async function streamDexieTables(file, handlers, onTable) {
-    if (typeof file.stream !== "function" || typeof TextDecoderStream === "undefined") {
-      await streamDexieTablesFromText(await readBlobText(file), handlers, onTable);
-      return;
-    }
-    const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
-    const state = {
-      buffer: "",
-      mode: "seek-table",
-      tableName: "",
-      rowStart: -1,
-      depth: 0,
-      inString: false,
-      escaped: false
-    };
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      state.buffer += value;
-      await processDexieStreamBuffer(state, handlers, onTable);
-    }
-  }
-  async function processDexieStreamBuffer(state, handlers, onTable) {
-    let progress = true;
-    while (progress) {
-      progress = false;
-      if (state.mode === "seek-table") progress = seekDexieTable(state);
-      if (state.mode === "seek-rows") progress = seekDexieRows(state, onTable) || progress;
-      if (state.mode === "rows") progress = await readDexieRows(state, handlers) || progress;
-    }
-  }
-  function seekDexieTable(state) {
-    const tableIndex = state.buffer.indexOf('"tableName"');
-    if (tableIndex < 0) {
-      state.buffer = state.buffer.slice(-32);
-      return false;
-    }
-    const colon = state.buffer.indexOf(":", tableIndex);
-    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
-    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
-    if (end < 0) return false;
-    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1));
-    state.buffer = state.buffer.slice(end + 1);
-    state.mode = "seek-rows";
-    return true;
-  }
-  function seekDexieRows(state, onTable) {
-    const rowsIndex = state.buffer.indexOf('"rows"');
-    if (rowsIndex < 0) {
-      state.buffer = state.buffer.slice(-32);
-      return false;
-    }
-    const arrayIndex = state.buffer.indexOf("[", rowsIndex);
-    if (arrayIndex < 0) return false;
-    state.buffer = state.buffer.slice(arrayIndex + 1);
-    state.mode = "rows";
-    resetDexieRowState(state);
-    onTable == null ? void 0 : onTable(state.tableName);
-    return true;
-  }
-  function resetDexieRowState(state) {
-    state.rowStart = -1;
-    state.depth = 0;
-    state.inString = false;
-    state.escaped = false;
-  }
-  async function readDexieRows(state, handlers) {
-    const handler = handlers[state.tableName];
-    let progress = false;
-    for (let index = 0; index < state.buffer.length; index++) {
-      const char = state.buffer[index];
-      if (advanceStringState(state, char)) continue;
-      if (char === "{") {
-        if (state.depth === 0) state.rowStart = index;
-        state.depth++;
-        continue;
-      }
-      if (char === "}") {
-        state.depth--;
-        if (state.depth === 0 && state.rowStart >= 0) {
-          if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
-          state.buffer = state.buffer.slice(index + 1);
-          index = -1;
-          state.rowStart = -1;
-          progress = true;
-        }
-        continue;
-      }
-      if (state.depth === 0 && char === "]") {
-        state.buffer = state.buffer.slice(index + 1);
-        state.mode = "seek-table";
-        state.tableName = "";
-        return true;
-      }
-    }
-    if (!progress) compactDexieRowBuffer(state);
-    return progress;
-  }
-  function advanceStringState(state, char) {
-    if (state.inString) {
-      if (state.escaped) state.escaped = false;
-      else if (char === "\\") state.escaped = true;
-      else if (char === '"') state.inString = false;
-      return true;
-    }
-    if (char !== '"') return false;
-    state.inString = true;
-    return true;
-  }
-  function compactDexieRowBuffer(state) {
-    if (state.rowStart > 0) {
-      state.buffer = state.buffer.slice(state.rowStart);
-      state.rowStart = 0;
-    } else if (state.depth === 0 && state.buffer.length > 4096) {
-      state.buffer = state.buffer.slice(-4096);
-    }
-  }
-  function findJsonArrayEnd(text2, start) {
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let index = start; index < text2.length; index++) {
-      const char = text2[index];
-      if (inString) {
-        if (escaped) escaped = false;
-        else if (char === "\\") escaped = true;
-        else if (char === '"') inString = false;
-        continue;
-      }
-      if (char === '"') {
-        inString = true;
-        continue;
-      }
-      if (char === "[") {
-        depth++;
-        continue;
-      }
-      if (char === "]") {
-        depth--;
-        if (depth === 0) return index;
-      }
-    }
-    return -1;
-  }
-  async function streamDexieTablesFromText(text2, handlers, onTable) {
-    let offset = 0;
-    while (true) {
-      const tableIndex = text2.indexOf('"tableName"', offset);
-      if (tableIndex < 0) return;
-      const colon = text2.indexOf(":", tableIndex);
-      const quote = colon >= 0 ? text2.indexOf('"', colon) : -1;
-      const end = quote >= 0 ? findJsonStringEnd(text2, quote) : -1;
-      if (end < 0) return;
-      const tableName = JSON.parse(text2.slice(quote, end + 1));
-      const rowsIndex = text2.indexOf('"rows"', end);
-      const arrayStart = rowsIndex >= 0 ? text2.indexOf("[", rowsIndex) : -1;
-      if (arrayStart < 0) return;
-      onTable == null ? void 0 : onTable(tableName);
-      const handler = handlers[tableName];
-      let depth = 0;
-      let rowStart = -1;
-      let inString = false;
-      let escaped = false;
-      for (let index = arrayStart + 1; index < text2.length; index++) {
-        const char = text2[index];
-        if (inString) {
-          if (escaped) escaped = false;
-          else if (char === "\\") escaped = true;
-          else if (char === '"') inString = false;
-          continue;
-        }
-        if (char === '"') {
-          inString = true;
-          continue;
-        }
-        if (char === "{") {
-          if (depth === 0) rowStart = index;
-          depth++;
-          continue;
-        }
-        if (char === "}") {
-          depth--;
-          if (depth === 0 && rowStart >= 0 && handler) {
-            await handler(JSON.parse(text2.slice(rowStart, index + 1)));
-          }
-          continue;
-        }
-        if (depth === 0 && char === "]") {
-          offset = index + 1;
-          break;
-        }
-      }
-    }
   }
   function normalizeZipTermRow(row, dictionary) {
     if (!Array.isArray(row)) return null;
@@ -7701,12 +7716,6 @@ ${entry.reading}`;
   }
   function isReaderDictionaryExport(value) {
     return !!value && typeof value === "object" && ["yomu-yomitan-dictionaries", "jpdb-reader-yomitan-dictionaries"].includes(value.formatName ?? "") && (Array.isArray(value.entries) || Array.isArray(value.terms) || Array.isArray(value.kanji));
-  }
-  function getYomitanProfileOptions(value) {
-    var _a, _b;
-    if (!value || typeof value !== "object") return null;
-    const options = value.options;
-    return ((_b = (_a = options == null ? void 0 : options.profiles) == null ? void 0 : _a[0]) == null ? void 0 : _b.options) ?? null;
   }
   function filenameFromUrl(url) {
     try {
@@ -7872,32 +7881,6 @@ ${entry.reading}`;
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  }
-  function findJsonStringEnd(value, quoteIndex) {
-    let escaped = false;
-    for (let index = quoteIndex + 1; index < value.length; index++) {
-      const char = value[index];
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === '"') return index;
-    }
-    return -1;
-  }
-  function readBlobText(blob) {
-    if (typeof blob.text === "function") return blob.text();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(blob);
-    });
-  }
-  async function readZipText(zip, filename) {
-    const file = zip.file(filename);
-    return file ? await file.async("string") : "";
-  }
-  function capitalize(value) {
-    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
   }
   const ANKI_VERSION = 6;
   const log$s = Logger.scope("Anki");
@@ -14245,7 +14228,7 @@ ${normalizedReading}`;
       else this.renderWordPrompt(slots, card, state);
       if (slots.count) slots.count.textContent = `${this.index + 1} / ${this.visibleWords.length}`;
       if (slots.reveal) slots.reveal.textContent = this.state.revealAnswer ? "Hide" : "Reveal";
-      if (slots.status) slots.status.textContent = this.sourceLabel;
+      if (slots.status) slots.status.textContent = "";
     }
     studySlots(root) {
       return {

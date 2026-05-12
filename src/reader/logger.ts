@@ -39,8 +39,9 @@ const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|sec
 const LOOP_DETECTION_THRESHOLD = 60;
 const LOOP_DETECTION_WINDOW_MS = 1000;
 
-const env = (import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string; PROD?: boolean } }).env;
+const env = (import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string; PROD?: boolean; VITE_YOMU_ENABLE_LOGS?: string } }).env;
 const BUILD_IS_DEV_MODE = Boolean(env?.MODE === 'development' || (env?.DEV && !env.PROD && env.MODE !== 'test'));
+const BUILD_LOGGING_ENABLED = env?.VITE_YOMU_ENABLE_LOGS === '1' || env?.VITE_YOMU_ENABLE_LOGS === 'true';
 
 class ScopedLogger {
     constructor(private parent: LoggerImpl, private scopeName: string) {}
@@ -107,7 +108,7 @@ class LoggerImpl {
     }
 
     isEnabled(): boolean {
-        if (isDevMode()) return true;
+        if (BUILD_LOGGING_ENABLED) return true;
         if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
         try {
             return this.settingsProvider?.().enableLogging === true;

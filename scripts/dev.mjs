@@ -20,10 +20,15 @@ const installPath = '/yomu.user.js';
 const runtimePath = '/__yomu-dev-runtime.js';
 const versionPath = '/__yomu-dev-version.json';
 const autoReload = process.env.YOMU_DEV_AUTO_RELOAD === '1';
+const loggingEnabled = isEnabledEnv(process.env.YOMU_ENABLE_LOGS);
 
 let closing = false;
 const builder = spawn(process.execPath, [viteBin, 'build', '--watch', '--mode', 'development'], {
     cwd: root,
+    env: {
+        ...process.env,
+        VITE_YOMU_ENABLE_LOGS: loggingEnabled ? '1' : '',
+    },
     stdio: ['ignore', 'inherit', 'inherit'],
 });
 
@@ -76,6 +81,7 @@ server.listen(port, host, () => {
     console.log(`[dev] Install userscript: ${origin}/yomu.user.js`);
     console.log(`[dev] Runtime bundle:     ${origin}${runtimePath}`);
     console.log(`[dev] Auto reload:        ${autoReload ? 'on' : 'off'}`);
+    console.log(`[dev] Console logging:    ${loggingEnabled ? 'on' : 'off'}${loggingEnabled ? '' : ' (set YOMU_ENABLE_LOGS=1 to enable)'}`);
     console.log(`[dev] Fixtures:           ${origin}/reader-test.html`);
 });
 
@@ -149,6 +155,7 @@ function devBootstrap() {
   const runtimeUrl = ${JSON.stringify(`${origin}${runtimePath}`)};
   const versionUrl = ${JSON.stringify(`${origin}${versionPath}`)};
   const autoReload = ${JSON.stringify(autoReload)};
+  const loggingEnabled = ${JSON.stringify(loggingEnabled)};
   const pollMs = 1500;
   const reloadKey = '__yomu_dev_reload_version__';
   let currentVersion = '';
@@ -162,6 +169,7 @@ function devBootstrap() {
     const [version, source] = await Promise.all([readVersion(), requestText(runtimeUrl)]);
     currentVersion = version;
     window.__YOMU_DEV_VERSION__ = currentVersion;
+    if (loggingEnabled) window.__YOMU_ENABLE_LOGS__ = true;
     if (sessionStorage.getItem(reloadKey) === currentVersion) sessionStorage.removeItem(reloadKey);
     if (autoReload) window.setInterval(checkForUpdate, pollMs);
     runRuntime(source);
@@ -197,6 +205,7 @@ function devBootstrap() {
     const bridgeKey = '__yomu_dev_bridge_' + randomId();
     const mountedKey = '__monkeyWindow-yomu-dev-' + randomId();
     page.__YOMU_DEV_VERSION__ = currentVersion;
+    if (loggingEnabled) page.__YOMU_ENABLE_LOGS__ = true;
     page[bridgeKey] = userscriptApiBridge();
     try {
       const script = GM_addElement('script', {
@@ -406,6 +415,10 @@ function canListen(candidate) {
             probe.close(() => resolve(true));
         });
     });
+}
+
+function isEnabledEnv(value) {
+    return /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
 }
 
 function shutdown(code) {
