@@ -15,7 +15,7 @@ Use that hosted URL like this:
 1. Open よむ settings with the floating よむ button or `Alt+Shift+J`.
 2. Go to Audio.
 3. Press Add audio source.
-4. Set Type to Custom URL JSON.
+4. Set Type to Custom URL.
 5. Paste the personal URL you were given.
 6. Save and test a lookup.
 
@@ -94,7 +94,7 @@ You should see JSON with `audioSources`.
 3. Open the Audio section.
 4. Make sure Enable audio playback for terms is on.
 5. Press Add audio source.
-6. Set Type to Custom URL JSON.
+6. Set Type to Custom URL.
 7. Paste:
 
 ```text
@@ -234,7 +234,7 @@ Use that base URL in よむ:
 https://desktop.your-tailnet.ts.net/?term={term}&reading={reading}
 ```
 
-Paste that Tailscale URL into Settings > Audio > Custom URL JSON on every device that should use the computer's audio server.
+Paste that Tailscale URL into Settings > Audio > Custom URL on every device that should use the computer's audio server.
 
 Tailscale Serve keeps the service private to your tailnet. You do not need Tailscale Funnel for this, because Funnel exposes services to the public internet.
 

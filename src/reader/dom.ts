@@ -207,7 +207,6 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
 }
 
 export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: { includeReaderRoot?: boolean } = {}): TextTarget[] {
-    const done = log.time('Collect text targets', { limit, visibleOnly, includeReaderRoot: options.includeReaderRoot, root: nodeLabel(root) });
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const text = node.textContent?.trim() ?? '';
@@ -235,8 +234,6 @@ export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true,
             hasNativeRuby: Boolean(parent.closest('ruby')),
         });
     }
-    log.debug('Collected text targets', { count: targets.length, limit, root: nodeLabel(root) });
-    done();
     return targets;
 }
 
@@ -245,9 +242,8 @@ export function collectFragmentTextTargetsIn(
     limit = 40,
     visibleOnly = true,
     excludeSelector = '',
-    options: { allowUiText?: boolean; minLength?: number } = {},
+    options: { allowUiText?: boolean; minLength?: number; includeReaderRoot?: boolean } = {},
 ): FragmentTextTarget[] {
-    const done = log.time('Collect fragment text targets', { limit, visibleOnly, root: nodeLabel(root), hasExcludeSelector: Boolean(excludeSelector) });
     const targets: FragmentTextTarget[] = [];
     const fragments: TextFragment[] = [];
 
@@ -287,7 +283,7 @@ export function collectFragmentTextTargetsIn(
         const element = node as HTMLElement;
         const tagName = element.tagName;
         if (tagName === 'RT' || tagName === 'RP') return;
-        if (element.closest('[data-jpdb-reader-root]')) return;
+        if (!options.includeReaderRoot && element.closest('[data-jpdb-reader-root]')) return;
         if (element.matches(FRAGMENT_SKIP_SELECTOR) || (excludeSelector && element.matches(excludeSelector))) {
             flush();
             return;
@@ -316,8 +312,6 @@ export function collectFragmentTextTargetsIn(
 
     visit(root);
     flush();
-    log.debug('Collected fragment text targets', { count: targets.length, limit, root: nodeLabel(root) });
-    done();
     return targets;
 }
 
@@ -643,8 +637,13 @@ function fragileByTypography(
 ): boolean {
     const centered = style.textAlign === 'center';
     const heading = DISPLAY_HEADING_RE.test(element.tagName);
+    if (heading && isReadableArticleHeading(element, compactLength)) return false;
     if (heading && compactLength <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35)) return true;
     return !prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600);
+}
+
+function isReadableArticleHeading(element: HTMLElement, compactLength: number): boolean {
+    return compactLength >= 4 && Boolean(element.closest('article, main, [role="main"]'));
 }
 
 function hasUiBox(style: CSSStyleDeclaration): boolean {

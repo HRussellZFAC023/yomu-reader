@@ -40,7 +40,7 @@ const LOOP_DETECTION_THRESHOLD = 60;
 const LOOP_DETECTION_WINDOW_MS = 1000;
 
 const env = (import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string; PROD?: boolean } }).env;
-const IS_DEV_MODE = Boolean(env?.MODE === 'development' || (env?.DEV && !env.PROD && env.MODE !== 'test'));
+const BUILD_IS_DEV_MODE = Boolean(env?.MODE === 'development' || (env?.DEV && !env.PROD && env.MODE !== 'test'));
 
 class ScopedLogger {
     constructor(private parent: LoggerImpl, private scopeName: string) {}
@@ -107,6 +107,7 @@ class LoggerImpl {
     }
 
     isEnabled(): boolean {
+        if (isDevMode()) return true;
         if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
         try {
             return this.settingsProvider?.().enableLogging === true;
@@ -116,7 +117,7 @@ class LoggerImpl {
     }
 
     isDevMode(): boolean {
-        return IS_DEV_MODE;
+        return isDevMode();
     }
 
     enable(persist = false): void {
@@ -132,7 +133,7 @@ class LoggerImpl {
     }
 
     debug(scope: string, message: string, ...args: unknown[]): void {
-        this.write('debug', scope, message, args, console.debug, DEBUG_STYLE);
+        this.write('debug', scope, message, args, writeDebugToConsole, DEBUG_STYLE);
     }
 
     info(scope: string, message: string, ...args: unknown[]): void {
@@ -148,7 +149,7 @@ class LoggerImpl {
     }
 
     trace(scope: string, message: string, ...args: unknown[]): void {
-        this.write('trace', scope, message, args, console.debug, TRACE_STYLE, true);
+        this.write('trace', scope, message, args, writeDebugToConsole, TRACE_STYLE, true);
     }
 
     debugThrottled(key: string, intervalMs: number, scope: string, message: string, ...args: unknown[]): void {
@@ -207,7 +208,7 @@ class LoggerImpl {
             }));
 
         console.group(`%c${LOG_PREFIX}%c Diagnostics`, LOG_STYLE, SCOPE_STYLE);
-        console.info('Enabled:', this.isEnabled(), 'Dev mode:', IS_DEV_MODE);
+        console.info('Enabled:', this.isEnabled(), 'Dev mode:', isDevMode());
         console.info('Recent logs:');
         console.table(logs.map(entry => ({
             time: new Date(entry.timestamp).toISOString().slice(11, 23),
@@ -238,7 +239,7 @@ class LoggerImpl {
 
         if (includeStack && level === 'trace') {
             const stack = new Error().stack?.split('\n').slice(2).join('\n');
-            if (stack) console.debug(`%c${stack}`, DEBUG_STYLE);
+            if (stack) writeDebugToConsole(`%c${stack}`, DEBUG_STYLE);
         }
     }
 
@@ -301,6 +302,16 @@ export function loggingSettingsSummary(settings: ReaderSettings): Record<string,
         subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
         youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
     };
+}
+
+function isDevMode(): boolean {
+    if (BUILD_IS_DEV_MODE) return true;
+    return typeof window !== 'undefined' && typeof (window as Window & { __YOMU_DEV_VERSION__?: unknown }).__YOMU_DEV_VERSION__ === 'string';
+}
+
+function writeDebugToConsole(...args: unknown[]): void {
+    if (isDevMode()) console.log(...args);
+    else console.debug(...args);
 }
 
 function getRuntimeLoggingOverride(): boolean {

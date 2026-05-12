@@ -26,9 +26,16 @@ export function formatMetaFrequency(value: unknown): string {
     if (typeof value === 'number' || typeof value === 'string') return `#${value}`;
     if (!value || typeof value !== 'object') return '';
     const record = value as Record<string, unknown>;
-    const display = record.displayValue ?? record.frequency ?? record.value;
+    const display = scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
     if (display == null) return '';
-    return `#${String(display)}`;
+    return `#${display}`;
+}
+
+function scalarMetaValue(value: unknown): string | null {
+    if (typeof value === 'number' || typeof value === 'string') return String(value);
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    return scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
 }
 
 export function formatMetaPitch(value: unknown): string {
@@ -56,6 +63,44 @@ export function groupTermEntriesByDictionary(entries: YomitanTermEntry[]): Map<s
     }
     log.debug('Grouped term entries by dictionary', { entries: entries.length, dictionaries: grouped.size });
     return grouped;
+}
+
+export interface LearnerTermGroup {
+    expression: string;
+    reading: string;
+    entries: YomitanTermEntry[];
+    meanings: string[];
+    frequency?: number;
+}
+
+export function groupTermEntriesByHeadword(entries: YomitanTermEntry[]): LearnerTermGroup[] {
+    const grouped = new Map<string, LearnerTermGroup>();
+    const meaningKeys = new Map<string, Set<string>>();
+    for (const entry of entries) {
+        const expression = entry.expression || entry.reading;
+        const reading = entry.reading || '';
+        const key = `${expression}\n${reading}`;
+        const group = grouped.get(key) ?? { expression, reading, entries: [], meanings: [] };
+        group.entries.push(entry);
+        if (entry.jpdbFrequency !== undefined && (group.frequency === undefined || entry.jpdbFrequency < group.frequency)) {
+            group.frequency = entry.jpdbFrequency;
+        }
+
+        const meaning = summarizeLearnerGlossary(entry);
+        if (meaning) {
+            const seen = meaningKeys.get(key) ?? new Set<string>();
+            const meaningKey = meaning.toLocaleLowerCase();
+            if (!seen.has(meaningKey)) {
+                seen.add(meaningKey);
+                group.meanings.push(meaning);
+            }
+            meaningKeys.set(key, seen);
+        }
+
+        grouped.set(key, group);
+    }
+    log.debug('Grouped term entries by headword', { entries: entries.length, headwords: grouped.size });
+    return [...grouped.values()];
 }
 
 export interface RtkComponentSummary {

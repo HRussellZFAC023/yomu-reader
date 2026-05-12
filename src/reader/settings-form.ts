@@ -2,12 +2,13 @@ import { NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { AUDIO_GUIDE_URL, AUDIO_SOURCE_OPTIONS, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
+import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
 import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage, JPDBDeck, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
 import { definitionSourceRows, kanjiSourceRows, type SettingsSourceRow } from './source-sections';
 import type { YomitanDictionaryInfo } from './yomitan';
+import { speakerIcon } from './popup-render';
 
 const log = Logger.scope('SettingsForm');
 
@@ -17,17 +18,15 @@ export function renderSupportPanel(): string {
             <div>
                 <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
                 <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                <p>Donations are optional, but they directly buy maintenance time and make it more realistic for me to keep building よむ. If you donate and leave a よむ feature request in the message, I will personally read it and implement it when it is feasible, legal, and within project scope.</p>
+                <p>Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished.</p>
             </div>
             <div class="jpdb-reader-support-actions">
-                <a class="jpdb-reader-btn primary" href="${SUPPORT_LINKS.docs}" target="_blank" rel="noopener" data-support-link="docs">Documentation</a>
                 <a class="jpdb-reader-btn add" href="${SUPPORT_LINKS.paypal}" target="_blank" rel="noopener" data-support-link="paypal">Donate</a>
                 <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.issues}" target="_blank" rel="noopener" data-support-link="issues">Report issue</a>
                 <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.github}" target="_blank" rel="noopener" data-support-link="github">GitHub</a>
                 <button class="jpdb-reader-btn" type="button" data-action="copy-discord" data-support-link="discord">Copy Discord</button>
             </div>
             <div class="jpdb-reader-help">Discord: ${SUPPORT_LINKS.discordUsername}</div>
-            <div class="jpdb-reader-help">Credits: mobile Anki handoff, template, translation, and grammar workflow ideas were informed by <a href="${SUPPORT_LINKS.yomikiri}" target="_blank" rel="noopener">Yomikiri</a>.</div>
         </div>
     `;
 }
@@ -123,10 +122,9 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 ${checkbox('audioFallbackChimeEnabled', 'Play a soft chime when no audio is available', settings.audioFallbackChimeEnabled)}
                 <div class="grid">
                     ${select('audioSelectionMode', 'When a source has several clips', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
-                    ${checkbox('audioViaBlob', 'Fetch as blob for iOS Tampermonkey', settings.audioViaBlob)}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(settings.audioTimeoutMs), 'number')}
                 </div>
-                <div class="jpdb-reader-audio-sources">
+                <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
                     ${renderAudioSourceEditor(settings.audioSources)}
                 </div>
                 <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
@@ -268,14 +266,14 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             </fieldset>
             <fieldset data-settings-panel="mining" hidden>
                 <legend>Study tools</legend>
-                <div class="jpdb-reader-help">Sentence translation and grammar hints now appear automatically as collapsed popup sources. Reorder or toggle them from Dictionaries.</div>
+                <div class="jpdb-reader-help">Sentence translation and grammar hints appear as popup sources. Reorder, toggle, or choose their default open state from Dictionaries.</div>
             </fieldset>
             <fieldset data-settings-panel="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
                     ${checkbox('jpdbDefinitionsEnabled', 'Show JPDB definitions', settings.jpdbDefinitionsEnabled)}
                     ${checkbox('localDictionariesEnabled', 'Show imported dictionary definitions', settings.localDictionariesEnabled)}
-                    ${checkbox('dictionarySourcesInitiallyExpanded', 'Open dictionary sources by default', settings.dictionarySourcesInitiallyExpanded)}
+                    ${checkbox('dictionarySourcesInitiallyExpanded', 'Open popup sources by default', settings.dictionarySourcesInitiallyExpanded)}
                     ${input('localDictionaryMaxResults', 'Dictionary result limit', String(settings.localDictionaryMaxResults), 'number')}
                 </div>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status>Checking imported dictionaries...</div>
@@ -442,7 +440,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['audioEnableDefaultSources', 'audioEnableDefaultSources'],
         ['audioFallbackChimeEnabled', 'audioFallbackChimeEnabled'],
         ['audioSelectionMode', 'audioSelectionMode'],
-        ['audioViaBlob', 'audioViaBlob'],
         ['audioTimeoutMs', 'audioTimeoutMs'],
         ['immersionKitEnabled', 'immersionKitEnabled'],
         ['immersionKitShowTranslation', 'immersionKitShowTranslation'],
@@ -667,9 +664,11 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     form.querySelector<HTMLButtonElement>('[data-action="export-reader-settings"]')?.replaceChildren(text('exportSettings'));
     form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-dictionary"]')?.replaceChildren(text('importDictionaries'));
     form.querySelector<HTMLButtonElement>('[data-action="export-yomitan-dictionary"]')?.replaceChildren(text('exportDictionaries'));
+    form.querySelectorAll<HTMLButtonElement>('[data-action="preview-audio"]').forEach(button => {
+        button.title = text('previewAudio');
+        button.setAttribute('aria-label', text('previewAudio'));
+    });
     form.querySelector<HTMLButtonElement>('[data-action="audio-source-add"]')?.replaceChildren(text('addAudioSource'));
-    form.querySelector<HTMLButtonElement>('[data-action="download-starter-dictionaries"]')?.replaceChildren(text('downloadMissingRecommended'));
-    form.querySelector<HTMLButtonElement>('[data-action="refresh-dictionaries"]')?.replaceChildren(text('refreshInstalledList'));
     form.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.replaceChildren(text('cancel'));
     form.querySelector<HTMLButtonElement>('button[type="submit"]')?.replaceChildren(text('save'));
 
@@ -754,7 +753,6 @@ function localizeSupportPanel(form: HTMLFormElement, language: InterfaceLanguage
     const paragraphs = support.querySelectorAll('p');
     paragraphs[0]?.replaceChildren(text('supportCopy'));
     paragraphs[1]?.replaceChildren(text('supportDonation'));
-    support.querySelector<HTMLElement>('[data-support-link="docs"]')?.replaceChildren(text('documentation'));
     support.querySelector<HTMLElement>('[data-support-link="paypal"]')?.replaceChildren(text('donate'));
     support.querySelector<HTMLElement>('[data-support-link="issues"]')?.replaceChildren(text('reportIssue'));
     support.querySelector<HTMLElement>('[data-support-link="github"]')?.replaceChildren(text('github'));
@@ -792,11 +790,12 @@ export function activateSettingsPanel(form: HTMLFormElement, panel: string): voi
 
 export function renderAudioSourceEditor(sources: AudioSourceSetting[]): string {
     return `
-        <div class="jpdb-reader-audio-source-head">
-            <span>#</span>
+        <div class="jpdb-reader-audio-source-head jpdb-reader-order-head">
+            <span>On</span>
             <span>Audio source</span>
             <span>URL / voice</span>
-            <span></span>
+            <span>Order</span>
+            <span>Remove</span>
         </div>
         ${renderAudioSourceRows(audioSourceRowsForSettings(sources))}
         <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">Add audio source</button>
@@ -818,28 +817,42 @@ function renderAudioSourceRows(rows: AudioSourceSetting[]): string {
     return `
         <input type="hidden" name="audioSourceCount" value="${count}">
         ${rows.map((source, index) => `
-            <div class="jpdb-reader-audio-source-row" data-audio-source-row data-index="${index}">
-                <label class="inline jpdb-reader-audio-index">
+            <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" draggable="true" data-source-row data-audio-source-row data-source-id="audio-${index}">
+                <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
                     <input name="audioSources.${index}.enabled" type="checkbox" ${source.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
                 </label>
-                <select name="audioSources.${index}.type" aria-label="Audio source ${index + 1}">
-                    ${AUDIO_SOURCE_OPTIONS.map(([optionValue, text]) =>
-                        `<option value="${escapeHtml(optionValue)}" ${optionValue === source.type ? 'selected' : ''}>${escapeHtml(text)}</option>`,
-                    ).join('')}
-                </select>
+                <div class="jpdb-reader-audio-source-choice">
+                    <select name="audioSources.${index}.type" aria-label="Audio source ${index + 1}">
+                        ${audioSourceSelectOptions(source.type).map(([optionValue, text]) =>
+                            `<option value="${escapeHtml(optionValue)}" ${optionValue === source.type ? 'selected' : ''}>${escapeHtml(text)}</option>`,
+                        ).join('')}
+                    </select>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="Preview audio" aria-label="Preview audio">${speakerIcon()}</button>
+                </div>
                 <div class="jpdb-reader-audio-source-fields">
                     <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${audioUrlPlaceholder(source.type)}" ${audioSourceUsesUrl(source.type) ? '' : 'hidden'}>
-                    <input data-audio-voice-field name="audioSources.${index}.voice" type="text" value="${escapeHtml(source.voice)}" placeholder="${audioVoicePlaceholder(source.type)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
+                    <select data-audio-voice-field name="audioSources.${index}.voice" aria-label="Text-to-speech voice ${index + 1}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
+                        <option value="${escapeHtml(source.voice)}">${escapeHtml(source.voice || 'Automatic browser voice')}</option>
+                    </select>
                 </div>
                 <div class="jpdb-reader-row-tools" aria-label="Audio source order">
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
+                </div>
+                <div class="jpdb-reader-row-tools">
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="Remove" aria-label="Remove">${miniIcon('remove')}</button>
                 </div>
             </div>
         `).join('')}
     `;
+}
+
+function audioSourceSelectOptions(type: AudioSourceSetting['type']): [AudioSourceSetting['type'], string][] {
+    if (type === 'custom') {
+        return [...AUDIO_SOURCE_UI_OPTIONS, ['custom', `${AUDIO_SOURCE_LABELS.custom} (advanced)`]];
+    }
+    return AUDIO_SOURCE_UI_OPTIONS;
 }
 
 export function audioSourceRowsForSettings(sources: AudioSourceSetting[]): AudioSourceSetting[] {
@@ -848,13 +861,9 @@ export function audioSourceRowsForSettings(sources: AudioSourceSetting[]): Audio
 }
 
 function audioUrlPlaceholder(type: AudioSourceSetting['type']): string {
-    if (type === 'custom' || type === 'custom-json') return 'URL for this custom source';
+    if (type === 'custom-json') return 'Yomitan or Ultimate audio source URL';
+    if (type === 'custom') return 'Direct audio file URL';
     return 'Built-in source, no URL needed';
-}
-
-function audioVoicePlaceholder(type: AudioSourceSetting['type']): string {
-    if (type === 'text-to-speech' || type === 'text-to-speech-reading') return 'Voice name';
-    return 'No voice needed';
 }
 
 function audioSourceUsesUrl(type: string): boolean {
@@ -871,26 +880,51 @@ export function syncAudioSourceRow(row: Element | null, type: string): void {
     row.querySelectorAll<HTMLElement>('[data-audio-voice-field]').forEach(node => { node.hidden = !audioSourceUsesVoice(type); });
 }
 
+export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
+    const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
+    const sortedVoices = voices.slice().sort((a, b) => {
+        const aJapanese = a.lang.toLowerCase().startsWith('ja') ? 0 : 1;
+        const bJapanese = b.lang.toLowerCase().startsWith('ja') ? 0 : 1;
+        return aJapanese - bJapanese
+            || a.lang.localeCompare(b.lang)
+            || a.name.localeCompare(b.name);
+    });
+
+    form.querySelectorAll<HTMLSelectElement>('select[data-audio-voice-field]').forEach(select => {
+        const selected = select.value || select.dataset.selectedVoice || '';
+        const options = [
+            `<option value="" ${selected ? '' : 'selected'}>Automatic browser voice</option>`,
+            ...sortedVoices.map(voice => {
+                const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ''}${voice.default ? ' - default' : ''}`;
+                return `<option value="${escapeHtml(voice.name)}" ${voice.name === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            }),
+        ];
+        if (selected && !sortedVoices.some(voice => voice.name === selected)) {
+            options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(`Saved voice: ${selected}`)}</option>`);
+        }
+        setInnerHtml(select, options.join(''));
+    });
+}
+
 export function updateAudioSourceEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
     const container = form.querySelector<HTMLElement>('.jpdb-reader-audio-sources');
     if (!container) return;
-    const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
     const row = control?.closest<HTMLElement>('[data-audio-source-row]');
-    const index = row ? Array.from(container.querySelectorAll('[data-audio-source-row]')).indexOf(row) : -1;
+    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
+    const index = row ? rows.indexOf(row) : -1;
 
+    if (action === 'audio-source-up' || action === 'audio-source-down') {
+        moveSourceRow(container, index, action === 'audio-source-up' ? index - 1 : index + 1);
+        log.debug('Reordered audio source row', { action, rows: rows.length });
+        return;
+    }
+
+    const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
     if (action === 'audio-source-add' && sources.length < 12) {
         sources.push({ type: 'custom-json', url: '', voice: '', enabled: true });
     }
     if (action === 'audio-source-remove' && index >= 0 && sources.length > 1) {
         sources.splice(index, 1);
-    }
-    if (action === 'audio-source-up' && index > 0) {
-        const [source] = sources.splice(index, 1);
-        sources.splice(index - 1, 0, source);
-    }
-    if (action === 'audio-source-down' && index >= 0 && index < sources.length - 1) {
-        const [source] = sources.splice(index, 1);
-        sources.splice(index + 1, 0, source);
     }
     setInnerHtml(container, renderAudioSourceEditor(sources));
     log.debug('Updated audio source editor', { action, rows: sources.length });
@@ -906,7 +940,9 @@ export function renderDictionaryLookupLinkEditor(links: DictionaryLookupLink[]):
             <span></span>
         </div>
         ${renderDictionaryLookupLinkRows(rows)}
-        <button class="jpdb-reader-btn" type="button" data-action="lookup-link-add">Add lookup pill</button>
+        <div class="jpdb-reader-lookup-link-actions">
+            <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
+        </div>
     `;
 }
 
@@ -920,8 +956,9 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
                     <span>${index + 1}</span>
                 </label>
                 <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml(link.label)}" aria-label="Lookup pill label">
-                <input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">
+                <input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="${link.action === 'copy' ? 'Copies the current word' : 'https://takoboto.jp/?q={query}'}" aria-label="Lookup URL template" ${link.action === 'copy' ? 'readonly' : ''}>
                 <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
+                <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? 'open')}">
                 <div class="jpdb-reader-row-tools" aria-label="Lookup pill order">
                     <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
@@ -946,6 +983,7 @@ export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[
             label,
             urlTemplate,
             enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
+            action: get(`dictionaryLookupLinks.${index}.action`) === 'copy' ? 'copy' : 'open',
         });
     }
 
@@ -980,18 +1018,18 @@ export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: 
     log.debug('Updated lookup link editor', { action, rows: links.length });
 }
 
-export function updateDictionarySourceEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
+export function updateSourceRowEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
     const row = control?.closest<HTMLElement>('[data-source-row]');
     const container = row?.closest<HTMLElement>('[data-source-editor]');
     if (!container || !row) return;
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
     const index = rows.indexOf(row);
     const targetIndex = action === 'dictionary-source-up' ? index - 1 : index + 1;
-    moveDictionarySourceRow(container, index, targetIndex);
-    log.debug('Updated dictionary source editor', { action, rows: rows.length });
+    moveSourceRow(container, index, targetIndex);
+    log.debug('Updated ordered source editor', { action, rows: rows.length });
 }
 
-export function installDictionarySourceDrag(form: HTMLFormElement): void {
+export function installSourceRowDrag(form: HTMLFormElement): void {
     let dragged: HTMLElement | null = null;
     form.addEventListener('dragstart', event => {
         const row = (event.target as HTMLElement).closest<HTMLElement>('[data-source-row]');
@@ -1000,47 +1038,63 @@ export function installDictionarySourceDrag(form: HTMLFormElement): void {
         row.classList.add('jpdb-reader-dragging');
         event.dataTransfer?.setData('text/plain', row.dataset.sourceId ?? '');
         event.dataTransfer?.setDragImage(row, 18, 18);
-        log.debug('Dictionary source drag started', { sourceId: row.dataset.sourceId });
+        log.debug('Source row drag started', { sourceId: row.dataset.sourceId });
     });
     form.addEventListener('dragover', event => {
         if (!dragged) return;
         const row = (event.target as HTMLElement).closest<HTMLElement>('[data-source-row]');
-        if (row && row !== dragged) event.preventDefault();
+        if (row && row !== dragged && row.closest('[data-source-editor]') === dragged.closest('[data-source-editor]')) event.preventDefault();
     });
     form.addEventListener('drop', event => {
         if (!dragged) return;
         const target = (event.target as HTMLElement).closest<HTMLElement>('[data-source-row]');
         const container = dragged.closest<HTMLElement>('[data-source-editor]');
-        if (!target || !container || target === dragged) return;
+        if (!target || !container || target === dragged || target.closest('[data-source-editor]') !== container) return;
         event.preventDefault();
         const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
-        moveDictionarySourceRow(container, rows.indexOf(dragged), rows.indexOf(target));
-        log.debug('Dictionary source dropped', { from: rows.indexOf(dragged), to: rows.indexOf(target) });
+        moveSourceRow(container, rows.indexOf(dragged), rows.indexOf(target));
+        log.debug('Source row dropped', { from: rows.indexOf(dragged), to: rows.indexOf(target) });
     });
     form.addEventListener('dragend', () => {
         dragged?.classList.remove('jpdb-reader-dragging');
-        if (dragged) log.debug('Dictionary source drag ended', { sourceId: dragged.dataset.sourceId });
+        if (dragged) log.debug('Source row drag ended', { sourceId: dragged.dataset.sourceId });
         dragged = null;
     });
 }
 
-function moveDictionarySourceRow(container: HTMLElement, index: number, targetIndex: number): void {
+function moveSourceRow(container: HTMLElement, index: number, targetIndex: number): void {
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
     if (index < 0 || targetIndex < 0 || index >= rows.length || targetIndex >= rows.length || index === targetIndex) return;
     const row = rows[index];
     const target = rows[targetIndex];
     if (targetIndex < index) container.insertBefore(row, target);
     else container.insertBefore(row, target.nextSibling);
-    syncDictionarySourcePriorities(container);
+    syncSourceRowOrder(container);
 }
 
-function syncDictionarySourcePriorities(container: HTMLElement): void {
+function syncSourceRowOrder(container: HTMLElement): void {
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
     rows.forEach((row, index) => {
         const priority = row.querySelector<HTMLInputElement>('input[name$=".priority"]');
         if (priority) priority.value = String(index);
-        const indexLabel = row.querySelector('.jpdb-reader-dictionary-toggle span');
+        const indexLabel = row.querySelector('.jpdb-reader-order-toggle span');
         if (indexLabel) indexLabel.textContent = String(index + 1);
+    });
+    if (container.matches('[data-audio-source-editor]')) syncAudioSourceIndexes(container, rows);
+}
+
+function syncAudioSourceIndexes(container: HTMLElement, rows = Array.from(container.querySelectorAll<HTMLElement>('[data-audio-source-row]'))): void {
+    rows.forEach((row, index) => {
+        row.dataset.sourceId = `audio-${index}`;
+        row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name^="audioSources."]').forEach(control => {
+            control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
+            if (control instanceof HTMLSelectElement && control.name.endsWith('.type')) {
+                control.setAttribute('aria-label', `Audio source ${index + 1}`);
+            }
+            if (control instanceof HTMLSelectElement && control.name.endsWith('.voice')) {
+                control.setAttribute('aria-label', `Text-to-speech voice ${index + 1}`);
+            }
+        });
     });
 }
 
@@ -1146,31 +1200,48 @@ export function renderAnkiTemplatePreview(settings: ReaderSettings): string {
 
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const rows = definitionSourceRows(settings);
-    if (rows.length === 4) return `
+    const visibleNames = new Set(rows.filter(row => row.removable).map(row => row.name));
+    const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
+    const hidden = hiddenPreferences.map(preference => {
+        const index = settings.dictionaryPreferences.indexOf(preference);
+        return `
+            <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml(preference.name)}">
+            <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml(preference.alias)}">
+            <input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml(preference.type ?? 'terms')}">
+        `;
+    }).join('');
+    const metadataHelp = hiddenPreferences.length
+        ? '<div class="jpdb-reader-help">Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data instead of definition source cards.</div>'
+        : '';
+    if (!rows.some(row => row.removable)) return `
         <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
-        ${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', showAlias: true })}
+        ${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}
+        ${metadataHelp}
+        ${hidden}
     `;
-    return renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', showAlias: true });
+    return `${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}`;
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: false });
 }
 
-function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel: string; countName?: string; showAlias: boolean }): string {
+function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel: string; countName?: string; countValue?: number; showAlias: boolean }): string {
     const removableCount = rows.filter(row => row.removable).length;
     return `
-        <div class="jpdb-reader-dictionary-head ${options.showAlias ? '' : 'compact'}">
+        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${options.showAlias ? '' : 'compact'}">
             <span>On</span>
             <span>${escapeHtml(options.sourceLabel)}</span>
             ${options.showAlias ? '<span>Alias</span>' : ''}
             <span>Order</span>
             <span>Remove</span>
         </div>
-        ${options.countName ? `<input type="hidden" name="${escapeHtml(options.countName)}" value="${removableCount}">` : ''}
+        ${options.countName ? `<input type="hidden" name="${escapeHtml(options.countName)}" value="${options.countValue ?? removableCount}">` : ''}
         ${rows.map((row, index) => `
-            <div class="jpdb-reader-dictionary-row ${options.showAlias ? '' : 'compact'}" draggable="true" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
-                <label class="inline jpdb-reader-dictionary-toggle">
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${options.showAlias ? '' : 'compact'}" draggable="true" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
+                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                     <input name="${row.prefix}.enabled" type="checkbox" ${row.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
                 </label>
@@ -1184,6 +1255,7 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
                 <div class="jpdb-reader-row-tools">
                     ${row.removable ? `<button type="button" class="jpdb-reader-icon-mini" data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml(row.name)}" title="Remove imported dictionary" aria-label="Remove imported dictionary">${miniIcon('remove')}</button>` : ''}
                 </div>
+                ${row.removable ? `<input name="${row.prefix}.type" type="hidden" value="terms">` : ''}
                 ${row.help ? `<div class="jpdb-reader-dictionary-row-help">${escapeHtml(row.help)}</div>` : ''}
             </div>
         `).join('')}
@@ -1198,11 +1270,7 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
     ];
 
     return `
-        <div class="jpdb-reader-recommended-title">Starter dictionary</div>
-        <div class="jpdb-reader-settings-actions">
-            <button class="jpdb-reader-btn" type="button" data-action="download-starter-dictionaries">Download JMdict</button>
-            <button class="jpdb-reader-btn" type="button" data-action="refresh-dictionaries">Refresh installed list</button>
-        </div>
+        <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
         ${groups.map(([category, label]) => {
             const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter(dictionary => dictionary.category === category);
             if (!dictionaries.length) return '';
@@ -1265,11 +1333,12 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const wordHighlightMode = ['auto', 'status', 'pitch', 'off'].includes(get('wordHighlightMode'))
         ? get('wordHighlightMode') as ReaderSettings['wordHighlightMode']
         : current.wordHighlightMode;
+    const jpdbDefinitionsRowPresent = has('jpdbDefinitions.name') || has('jpdbDefinitions.priority') || has('jpdbDefinitions.enabled');
     const settings: ReaderSettings = {
         ...current,
         apiKey: get('apiKey').trim(),
         interfaceLanguage: ['auto', 'en', 'ja'].includes(get('interfaceLanguage')) ? get('interfaceLanguage') as ReaderSettings['interfaceLanguage'] : current.interfaceLanguage,
-        jpdbDefinitionsEnabled: has('jpdbDefinitions.enabled'),
+        jpdbDefinitionsEnabled: has('jpdbDefinitionsEnabled') && (!jpdbDefinitionsRowPresent || has('jpdbDefinitions.enabled')),
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
         jpdbExtensionsEnabled: has('jpdbExtensionsEnabled'),
         jpdbUchisenEnabled: has('jpdbUchisenEnabled'),
@@ -1307,7 +1376,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         wordColorDue: sanitizeAccentColor(get('wordColorDue'), current.wordColorDue),
         wordColorFailed: sanitizeAccentColor(get('wordColorFailed'), current.wordColorFailed),
         wordColorIgnored: sanitizeAccentColor(get('wordColorIgnored'), current.wordColorIgnored),
-        audioViaBlob: has('audioViaBlob'),
+        audioViaBlob: true,
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
         audioSelectionMode: (get('audioSelectionMode') === 'random' ? 'random' : 'first') as ReaderSettings['audioSelectionMode'],
@@ -1464,9 +1533,14 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
         alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
         enabled: data.has(`dictionaryPreferences.${index}.enabled`),
         priority: readNumber(get(`dictionaryPreferences.${index}.priority`), index),
+        type: readDictionaryType(get(`dictionaryPreferences.${index}.type`)),
     }))
         .filter(item => item.name)
         .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+}
+
+function readDictionaryType(value: string): DictionaryPreference['type'] {
+    return value === 'kanji' || value === 'frequency' || value === 'metadata' ? value : 'terms';
 }
 
 export function readAudioSources(data: FormData): AudioSourceSetting[] {

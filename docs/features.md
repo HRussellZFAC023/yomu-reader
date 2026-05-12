@@ -78,6 +78,6 @@ On iPhone and iPad, this is often the easiest daily-review surface because it av
 
 ## Help And Support In Settings
 
-The Help tab includes docs, GitHub issues, Discord, and donation links so users do not need to search the repository when something goes wrong.
+The Help tab includes GitHub issues, Discord, and donation links so users do not need to search the repository when something goes wrong.
 
 ![Yomu mobile Help settings screenshot](./assets/screenshots/settings-mobile-help.png)

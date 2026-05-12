@@ -37,7 +37,7 @@ export class AudioPlayer {
             return;
         }
 
-        const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: settings.audioViaBlob });
+        const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: true });
         const errors: string[] = [];
         const triedUrls = new Set<string>();
         for (const source of sources) {
@@ -105,23 +105,27 @@ export class AudioPlayer {
             }
             triedUrls.add(candidateKey);
             try {
-                const audioUrl = shouldFetchCandidateAsBlob(settings, candidate)
+                const audioUrl = shouldFetchCandidateAsBlob(candidate)
                     ? await this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode)
                     : candidate.url;
                 if (requestId !== this.playRequestId) return true;
-                const audio = new Audio(audioUrl);
-                audio.preload = 'auto';
-                this.current = audio;
-                await audio.play();
-                if (requestId !== this.playRequestId) audio.pause();
+                await this.playAudioUrl(audioUrl, requestId);
                 this.shuffledAudio.markPlayed(bagKey, id);
                 log.debug('Audio candidate playing', { source: source.type, viaBlob: audioUrl.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
                 return true;
-            } catch {
-                // Try the next source or candidate.
+            } catch (error) {
+                log.debug('Audio candidate failed', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) }, error);
             }
         }
         return false;
+    }
+
+    private async playAudioUrl(audioUrl: string, requestId: number): Promise<void> {
+        const audio = new Audio(audioUrl);
+        audio.preload = 'auto';
+        this.current = audio;
+        await audio.play();
+        if (requestId !== this.playRequestId) audio.pause();
     }
 
     private getCachedAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
@@ -302,17 +306,30 @@ export function findAudioUrls(value: unknown, sourceUrl?: string): string[] {
     if (!value) return [];
     if (typeof value === 'string') {
         if (value.startsWith('data:audio/')) return [value];
-        if (/^https?:\/\//.test(value)) return [normalizeAudioUrl(value, sourceUrl)];
+        if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
         return [];
     }
     if (Array.isArray(value)) {
-        return value.flatMap(item => findAudioUrls(item, sourceUrl));
+        return uniqueAudioUrls(value.flatMap(item => findAudioUrls(item, sourceUrl)));
     }
     if (typeof value === 'object') {
         const record = value as Record<string, unknown>;
-        const direct = ['url', 'audio', 'audioUrl', 'src', 'source'].flatMap(key => findAudioUrls(record[key], sourceUrl));
-        if (direct.length) return direct;
-        return Object.values(record).flatMap(nested => findAudioUrls(nested, sourceUrl));
+        const preferred = [
+            ...findAudioUrls(record.audioSources, sourceUrl),
+            ...findAudioUrls(record.sources, sourceUrl),
+            ...findAudioUrls(record.audio, sourceUrl),
+            ...findAudioUrls(record.audioUrl, sourceUrl),
+            ...findAudioUrls(record.src, sourceUrl),
+            ...findAudioUrls(record.source, sourceUrl),
+        ];
+        const directUrl = typeof record.url === 'string' && isLikelyAudioRecord(record)
+            ? findAudioUrls(record.url, sourceUrl)
+            : [];
+        const known = uniqueAudioUrls([...preferred, ...directUrl]);
+        if (known.length) return known;
+        return uniqueAudioUrls(Object.entries(record)
+            .filter(([key]) => !['url', 'audioSources', 'sources', 'audio', 'audioUrl', 'src', 'source'].includes(key))
+            .flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
     }
     return [];
 }
@@ -525,23 +542,39 @@ function normalizeAttemptedAudioUrl(value: string): string {
     }
 }
 
-function shouldFetchCandidateAsBlob(settings: ReaderSettings, candidate: AudioCandidate): boolean {
-    return shouldFetchAudioAsBlob(settings)
-        || isJapanesePod101Url(candidate.url)
-        || isJapanesePod101Url(candidate.sourceUrl);
+function isLikelyAudioRecord(record: Record<string, unknown>): boolean {
+    return typeof record.url === 'string'
+        && (
+            isLikelyAudioUrl(record.url)
+            || ['audio', 'audioSource'].includes(String(record.type ?? ''))
+            || typeof record.name === 'string'
+        );
 }
 
-function shouldFetchAudioAsBlob(settings: ReaderSettings): boolean {
-    return settings.audioViaBlob && isLikelyIosBrowser();
+function isLikelyAudioUrl(value: string): boolean {
+    if (value.startsWith('data:audio/')) return true;
+    try {
+        const url = new URL(value, location.href);
+        const pathname = url.pathname.toLowerCase();
+        return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/.test(pathname)
+            || /(^|[-_/])(audio|sound|voice|pronunciation)([-_/]|$)/i.test(pathname);
+    } catch {
+        return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)(?:$|[?#])/i.test(value);
+    }
 }
 
-function isLikelyIosBrowser(): boolean {
-    if (typeof navigator === 'undefined') return false;
-    const platform = navigator.platform || '';
-    const userAgent = navigator.userAgent || '';
-    return /iPad|iPhone|iPod/i.test(platform)
-        || /iPad|iPhone|iPod/i.test(userAgent)
-        || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function uniqueAudioUrls(urls: string[]): string[] {
+    const seen = new Set<string>();
+    return urls.filter(url => {
+        const key = normalizeAttemptedAudioUrl(url);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function shouldFetchCandidateAsBlob(candidate: AudioCandidate): boolean {
+    return !candidate.url.startsWith('blob:');
 }
 
 function getProxyUrl(url: string): string {

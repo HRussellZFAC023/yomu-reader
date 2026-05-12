@@ -43,10 +43,12 @@ export class OnboardingController {
         this.panel.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'welcomeLabel'));
         this.panel.tabIndex = -1;
 
-        const closeButton = button('×');
-        closeButton.className = 'jpdb-reader-onboarding-close';
+        const closeButton = button('');
+        closeButton.className = 'jpdb-reader-icon-mini jpdb-reader-onboarding-close';
         closeButton.dataset.onboardingAction = 'close';
+        closeButton.title = uiText(this.options.getSettings().interfaceLanguage, 'closeOnboarding');
         closeButton.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'closeOnboarding'));
+        closeButton.innerHTML = closeIcon();
         closeButton.addEventListener('click', () => void this.complete(false));
 
         const eyebrow = element('div', 'jpdb-reader-onboarding-eyebrow', uiText(this.options.getSettings().interfaceLanguage, 'onboardingEyebrow'));
@@ -147,7 +149,9 @@ export class OnboardingController {
         });
         panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language, 'onboardingAddApiKey'));
         panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language, 'onboardingUseWithoutApiKey'));
-        panel.querySelector('[data-onboarding-action="close"]')?.setAttribute('aria-label', uiText(language, 'closeOnboarding'));
+        const closeButton = panel.querySelector('[data-onboarding-action="close"]');
+        closeButton?.setAttribute('aria-label', uiText(language, 'closeOnboarding'));
+        closeButton?.setAttribute('title', uiText(language, 'closeOnboarding'));
         panel.querySelector('.jpdb-reader-onboarding-note')?.replaceChildren(uiText(language, 'onboardingNote'));
     }
 
@@ -205,4 +209,8 @@ function button(text: string): HTMLButtonElement {
     node.type = 'button';
     node.textContent = text;
     return node;
+}
+
+function closeIcon(): string {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
 }

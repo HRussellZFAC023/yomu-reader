@@ -914,7 +914,7 @@ export class SubtitlePlayerController {
         setInnerHtml(this.menuEl, `
             <div class="jpdb-subtitle-menu-head">
                 <span>Options</span>
-                <button class="jpdb-subtitle-close" type="button" data-action="menu" aria-label="Close subtitle options">×</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="Close subtitle options" aria-label="Close subtitle options">${closeIcon()}</button>
             </div>
             <button type="button" data-action="load">Load Japanese subtitles</button>
             <button type="button" data-action="load-secondary">Load native subtitles</button>
@@ -1010,7 +1010,7 @@ export class SubtitlePlayerController {
                     <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move transcript right" aria-label="Move transcript right">${subtitleIcon('panel-right')}</button>
                     <button type="button" data-action="transcript-bottom" aria-pressed="${placement === 'bottom'}" title="Move transcript below" aria-label="Move transcript below">${subtitleIcon('panel-bottom')}</button>
                 </div>
-                <button class="jpdb-subtitle-close" type="button" data-action="list" aria-label="Close subtitle lines">×</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Close subtitle lines" aria-label="Close subtitle lines">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${this.cues.map((cue, index) => this.renderTranscriptRow(cue, index, currentIndex)).join('')}
@@ -1152,7 +1152,7 @@ export class SubtitlePlayerController {
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
-                <button class="jpdb-subtitle-close" type="button" data-action="tracks" aria-label="Close subtitle tracks">×</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
@@ -1362,6 +1362,10 @@ function subtitleIcon(name: SubtitleIconName): string {
         transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
     };
     return `<svg class="jpdb-subtitle-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;
+}
+
+function closeIcon(): string {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
 }
 
 function formatTrackKind(kind: SubtitleTrackOption['kind']): string {

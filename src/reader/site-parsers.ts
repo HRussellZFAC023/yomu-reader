@@ -38,6 +38,7 @@ const COMMON_EXCLUDE = [
     '[aria-label*="聞"]',
     '[aria-label*="音声"]',
 ].join(',');
+const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const log = Logger.scope('SiteParsers');
 
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
@@ -225,22 +226,18 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'asbplayer',
         description: 'asbplayer subtitle overlays.',
         roots: ['.asbplayer-offscreen', '.asbplayer-subtitles-container-bottom'],
-        matches: () => true,
+        matches: () => Boolean(document.querySelector(ASBPLAYER_ROOT_SELECTOR)),
     },
 ];
 
 export function getMatchingSiteParsers(href = window.location.href): SiteParserProfile[] {
     const url = new URL(href, window.location.href);
-    const profiles = SITE_PARSER_PROFILES.filter(profile => profile.matches(url));
-    log.debugThrottled('matching-parsers', 2000, 'Matched site parsers', { href: url.href, profiles: profiles.map(profile => profile.id) });
-    return profiles;
+    return SITE_PARSER_PROFILES.filter(profile => profile.matches(url));
 }
 
 export function collectSiteScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] | null {
-    const done = log.time('Collect site scan targets', { limit, href });
     const profiles = getMatchingSiteParsers(href);
     if (!profiles.length) {
-        done();
         return null;
     }
 
@@ -266,22 +263,15 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
     }
 
     if (targets.length) {
-        log.debug('Collected site scan targets', { count: targets.length, profiles: profiles.map(profile => profile.id) });
-        done();
         return targets;
     }
-    const fallback = profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
-    log.debug('No site scan targets collected', { profiles: profiles.map(profile => profile.id), fallbackToVisible: fallback === null });
-    done();
-    return fallback;
+    return profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
 }
 
 export function collectScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] {
     const siteTargets = collectSiteScanTargets(limit, href);
     if (siteTargets !== null) return siteTargets;
-    const targets = collectVisibleTextTargets(limit);
-    log.debug('Collected visible scan targets', { count: targets.length, limit });
-    return targets;
+    return collectVisibleTextTargets(limit);
 }
 
 function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
