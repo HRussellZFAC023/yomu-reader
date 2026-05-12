@@ -14,12 +14,10 @@ npm run check
 Use the browser QA audit for fixture coverage:
 
 ```bash
-npm run qa:audit
-npm run qa:docs-a11y
-npm run qa:complexity
+npm run qa
 ```
 
-The audit mocks JPDB and kanji-source network calls for deterministic local runs. Use `.env` for local-only API keys; it is ignored by Git. `npm run qa:jpdb-live` is the narrow live JPDB key smoke test.
+The audit mocks JPDB and kanji-source network calls for deterministic local runs. Use `.env` for local-only API keys; it is ignored by Git. `npm run qa:live` is the narrow live JPDB key smoke test.
 
 ## Constraints
 
@@ -47,5 +45,5 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 - Before finishing user-facing work, check that `README.md`, the relevant `docs/` page, and credits/license notes all describe the same behavior.
 - Before finishing large UI work, run the Playwright screenshots plus axe/docs accessibility and complexity checks, or record why a check could not run.
 - Put beginner-facing docs in `docs/` and keep install guidance plain enough for someone who has never used a userscript manager.
-- When screenshots need refreshing, run `npm run qa:audit` and copy the relevant Playwright screenshots from `qa-artifacts/` into `docs/assets/screenshots/`.
+- When screenshots need refreshing, run `npm run qa` and copy the relevant Playwright screenshots from `qa-artifacts/` into `docs/assets/screenshots/`.
 - Run `npm run docs:build` after documentation or VitePress theme changes.

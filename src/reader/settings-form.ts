@@ -1493,7 +1493,7 @@ export function readAudioSources(data: FormData): AudioSourceSetting[] {
 export function getReaderSettingsExport(value: unknown): ReaderSettings | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as { formatName?: string; settings?: unknown };
-    return (record.formatName === 'yomu-reader-settings' || record.formatName === 'kotoba-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
+    return (record.formatName === 'yomu-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
         && record.settings
         && typeof record.settings === 'object'
         ? record.settings as ReaderSettings

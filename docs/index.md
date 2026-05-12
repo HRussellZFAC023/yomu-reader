@@ -9,6 +9,10 @@ hero:
     alt: よむ app icon
   actions:
     - theme: brand
+      text: Try Demo
+      link: /newtab/index.html
+      target: _self
+    - theme: alt
       text: Start Here
       link: /getting-started
     - theme: alt

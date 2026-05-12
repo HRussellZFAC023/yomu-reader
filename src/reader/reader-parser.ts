@@ -4,6 +4,7 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanTermEntry } from './yomitan';
 
 const LOCAL_MATCH_LIMIT = 40;
+const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserDependencies {
@@ -109,6 +110,27 @@ export class ReaderParser {
         return card;
     }
 
+    fallbackCardFromText(text: string): JPDBCard {
+        const spelling = normalizeFallbackTerm(text);
+        const id = -stableLocalId(`fallback\n${spelling}`);
+        const card: JPDBCard = {
+            vid: id,
+            sid: id,
+            rid: 0,
+            spelling,
+            reading: spelling,
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'fallback',
+        };
+        this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
+        return card;
+    }
+
     private canUseLocalDictionaryFallback(): boolean {
         return this.dependencies.getSettings().localDictionariesEnabled;
     }
@@ -134,6 +156,22 @@ export class ReaderParser {
             };
         });
     }
+}
+
+export function fallbackLookupTermAtOffset(text: string, offset: number): string {
+    const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)));
+    for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
+        const start = match.index ?? 0;
+        const end = start + match[0].length;
+        if ((start <= clampedOffset && clampedOffset < end) || (start < clampedOffset && clampedOffset <= end)) {
+            return normalizeFallbackTerm(match[0]);
+        }
+    }
+    return normalizeFallbackTerm(text);
+}
+
+function normalizeFallbackTerm(text: string): string {
+    return text.replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
 function stableLocalId(value: string): number {

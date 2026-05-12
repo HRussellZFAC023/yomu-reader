@@ -1288,7 +1288,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
         body: document.body.textContent ?? '',
     }));
     assertAudit(snapshot.title.includes('New Tab'), 'new-tab document title is missing');
-    assertAudit(snapshot.brandHref === 'https://hrussellzfac023.github.io/kotoba-reader/', 'new-tab brand link does not open the docs home page');
+    assertAudit(snapshot.brandHref === 'https://hrussellzfac023.github.io/yomu-reader/', 'new-tab brand link does not open the docs home page');
     assertAudit(/今日|今朝|今週|読む/.test(snapshot.expression), `new-tab did not render a top dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.status.includes('Dictionaries'), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);

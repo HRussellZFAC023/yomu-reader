@@ -13,6 +13,7 @@ const COPY = {
         onboardingAddApiKey: 'Add API key',
         onboardingAddLocalDictionaries: 'Add local dictionaries',
         onboardingUseWithoutApiKey: 'Use without API key',
+        closeOnboarding: 'Close welcome',
         onboardingNote: 'YouTube immersion filtering is included, but starts off. Enable it only when you want a stricter Japanese-only YouTube session.',
         featureText: 'Text',
         featureTextBody: 'Hover or tap Japanese words once a page is scanned.',
@@ -327,6 +328,10 @@ const COPY = {
         blacklistHint: 'Ignore this exact word. Use this for particles, kana, or words you do not want to mine.',
         addToAnki: 'Add to Anki',
         noDefinitions: 'No enabled definition source returned results.',
+        fallbackSetupTitle: 'Dictionary setup',
+        fallbackSetupCopy: 'No JPDB key or local dictionary is connected yet. This starter card can still copy the term, play browser audio, open external lookup links, and inspect kanji.',
+        fallbackSetupDictionaries: 'Add dictionaries',
+        fallbackSetupJpdb: 'Add JPDB key',
     },
     ja: {
         settingsTitle: `${APP_NAME} 設定`,
@@ -337,6 +342,7 @@ const COPY = {
         onboardingAddApiKey: 'APIキーを追加',
         onboardingAddLocalDictionaries: 'ローカル辞書を追加',
         onboardingUseWithoutApiKey: 'APIキーなしで使う',
+        closeOnboarding: 'ようこそ画面を閉じる',
         onboardingNote: 'YouTube没入フィルターも入っていますが、最初はオフです。日本語動画だけに集中したい時にオンにしてください。',
         featureText: '文章',
         featureTextBody: 'ページを読み取ると、日本語の単語をホバーまたはタップできます。',
@@ -651,6 +657,10 @@ const COPY = {
         blacklistHint: 'この語を除外します。助詞・かな・採掘したくない語に使います。',
         addToAnki: 'Ankiに追加',
         noDefinitions: '有効な辞書ソースから定義が見つかりませんでした。',
+        fallbackSetupTitle: '辞書セットアップ',
+        fallbackSetupCopy: 'JPDBキーやローカル辞書はまだ接続されていません。この簡易カードでも単語のコピー、ブラウザ音声、外部辞書リンク、漢字確認は使えます。',
+        fallbackSetupDictionaries: '辞書を追加',
+        fallbackSetupJpdb: 'JPDBキーを追加',
     },
 } as const;
 

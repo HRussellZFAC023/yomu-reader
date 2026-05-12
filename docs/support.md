@@ -10,9 +10,9 @@ I am trying to keep よむ generous instead of locking core study features behin
 
 ## Links
 
-- Install userscript: [dist/yomu.user.js](https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js)
-- Source code: [GitHub repository](https://github.com/HRussellZFAC023/kotoba-reader)
-- Bug reports and feature requests: [GitHub issues](https://github.com/HRussellZFAC023/kotoba-reader/issues)
+- Install userscript: [dist/yomu.user.js](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
+- Source code: [GitHub repository](https://github.com/HRussellZFAC023/yomu-reader)
+- Bug reports and feature requests: [GitHub issues](https://github.com/HRussellZFAC023/yomu-reader/issues)
 - Donations: [PayPal](https://paypal.me/HenryRussell163)
 - Discord: `henry281199`
 

@@ -1,0 +1,21 @@
+import { ssrRenderAttrs, ssrRenderAttr } from "vue/server-renderer";
+import { _ as _imports_0 } from "./hover-lookup.B5xDY3WW.js";
+import { _ as _imports_1 } from "./settings.Ztf2tTsj.js";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"","description":"","frontmatter":{"layout":"home","hero":{"name":"よむ","text":"Free Japanese lookup and mining for the web","tagline":"Tap or hover Japanese text, read manga images, mine subtitles, import Yomitan dictionaries, and study with JPDB or Anki without paying for a full study suite.","image":{"src":"/yomu-icon.svg","alt":"よむ app icon"},"actions":[{"theme":"brand","text":"Try Demo","link":"/newtab/index.html","target":"_self"},{"theme":"alt","text":"Start Here","link":"/getting-started"},{"theme":"alt","text":"See Features","link":"/features"}]},"features":[{"title":"Friendly first install","details":"Step-by-step setup for Chrome, Firefox, Safari, iPhone, and iPad. No coding knowledge needed."},{"title":"Built for real studying","details":"JPDB mining, imported Yomitan dictionaries, kanji pages, Immersion Kit examples, OCR, and subtitle mining in one reader."},{"title":"Free and maintainable","details":"The docs, changelog, screenshots, and GitHub Pages deployment live in the same repository as the userscript."}]},"headers":[],"relativePath":"index.md","filePath":"index.md","lastUpdated":1778570535000}');
+const _sfc_main = { name: "index.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><div class="yomu-callout"><strong>Extension coming soon:</strong> よむ is available today as a userscript. Native Chrome, Firefox, and Safari extensions are planned, but the userscript is the current supported install path. </div><h2 id="what-it-does" tabindex="-1">What It Does <a class="header-anchor" href="#what-it-does" aria-label="Permalink to &quot;What It Does&quot;">​</a></h2><p>よむ is a small helper that runs inside your browser. When you point it at Japanese text, subtitles, or manga images, it opens a clean popup with readings, meanings, mining actions, examples, kanji details, and audio.</p><p>It is meant for learners who want the useful parts of paid reading suites without turning study into another subscription. You can start with JPDB only, import local Yomitan dictionaries later, or connect Anki when you are ready.</p><div class="yomu-shot-grid"><figure><img${ssrRenderAttr("src", _imports_0)} alt="Yomu popup lookup on Japanese text"><figcaption>Popup lookup with JPDB state, definitions, kanji, mining, and review actions.</figcaption></figure><figure><img${ssrRenderAttr("src", _imports_1)} alt="Yomu settings on desktop"><figcaption>Settings stay grouped by normal tasks: basics, dictionaries, media, mining, shortcuts, and help.</figcaption></figure></div><h2 id="good-first-pages" tabindex="-1">Good First Pages <a class="header-anchor" href="#good-first-pages" aria-label="Permalink to &quot;Good First Pages&quot;">​</a></h2><ul><li><a href="/yomu-reader/getting-started">Getting Started</a> walks through installing a userscript manager, installing よむ, and doing your first lookup.</li><li><a href="/yomu-reader/features">Features</a> explains the main tools with screenshots and plain-language examples.</li><li><a href="/yomu-reader/local-audio">Local Audio</a> shows the hosted Ultimate Yomitan Audio path first, then the self-hosted server path for people who want local files.</li><li><a href="/yomu-reader/support">Support</a> has GitHub issues, Discord, donations, and the current install links.</li><li><a href="/yomu-reader/changelog">Changelog</a> shows what changed in each release. It is generated from the repository changelog.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("index.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const index = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  index as default
+};

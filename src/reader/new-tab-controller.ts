@@ -1,6 +1,6 @@
 import type { AnkiConnectClient } from './anki';
 import { primaryCardState } from './card-state';
-import { APP_NAME, APP_PUCK } from './constants';
+import { APP_NAME, APP_PUCK, SUPPORT_LINKS } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import type { JpdbClient } from './jpdb';
 import { Logger } from './logger';
@@ -118,7 +118,7 @@ export class NewTabController {
         return `
             <div class="jpdb-reader-newtab-shell">
                 <header class="jpdb-reader-newtab-topbar">
-                    <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/kotoba-reader/" aria-label="Open ${APP_NAME} home page">
+                    <a class="jpdb-reader-newtab-brand" href="${SUPPORT_LINKS.docs}" aria-label="Open ${APP_NAME} home page">
                         <span class="jpdb-reader-newtab-brand-mark">${APP_PUCK}</span>
                         <span class="jpdb-reader-newtab-brand-text">
                             <strong>${APP_NAME}</strong>

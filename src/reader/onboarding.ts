@@ -43,6 +43,12 @@ export class OnboardingController {
         this.panel.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'welcomeLabel'));
         this.panel.tabIndex = -1;
 
+        const closeButton = button('×');
+        closeButton.className = 'jpdb-reader-onboarding-close';
+        closeButton.dataset.onboardingAction = 'close';
+        closeButton.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'closeOnboarding'));
+        closeButton.addEventListener('click', () => void this.complete(false));
+
         const eyebrow = element('div', 'jpdb-reader-onboarding-eyebrow', uiText(this.options.getSettings().interfaceLanguage, 'onboardingEyebrow'));
         const title = element('h2', '', APP_NAME);
         const copy = element(
@@ -105,7 +111,7 @@ export class OnboardingController {
         });
 
         const note = element('p', 'jpdb-reader-onboarding-note', uiText(this.options.getSettings().interfaceLanguage, 'onboardingNote'));
-        this.panel.append(eyebrow, title, copy, language, actions, featureGrid, note);
+        this.panel.append(closeButton, eyebrow, title, copy, language, actions, featureGrid, note);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
     }
@@ -141,6 +147,7 @@ export class OnboardingController {
         });
         panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language, 'onboardingAddApiKey'));
         panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language, 'onboardingUseWithoutApiKey'));
+        panel.querySelector('[data-onboarding-action="close"]')?.setAttribute('aria-label', uiText(language, 'closeOnboarding'));
         panel.querySelector('.jpdb-reader-onboarding-note')?.replaceChildren(uiText(language, 'onboardingNote'));
     }
 

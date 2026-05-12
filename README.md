@@ -2,16 +2,16 @@
 
 JPDB/Yomitan popup reader for Japanese text, audio, manga OCR, and video subtitles on any website.
 
-[![CI](https://github.com/HRussellZFAC023/kotoba-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/HRussellZFAC023/kotoba-reader/actions/workflows/ci.yml)
+[![CI](https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml)
 
 ## Install
 
-Friendly guide: https://hrussellzfac023.github.io/kotoba-reader/getting-started
+Friendly guide: https://hrussellzfac023.github.io/yomu-reader/getting-started
 
 The built userscript is:
 
 ```text
-https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
+https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 ```
 
 After the GreasyFork page is live, install from GreasyFork so normal users get the friendlier install/update path.
@@ -33,7 +33,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
 - Optional MPV subtitle bridge support for local videos played through `mpv-subtitleminer`, including live subtitle mining and replayable MPV line audio when the local bridge is running. It stays out of the main rail until you enable or connect it.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
-- Optional new-tab study page at `https://hrussellzfac023.github.io/kotoba-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
+- Optional new-tab study page at `https://hrussellzfac023.github.io/yomu-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
 - Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
 - First-run welcome screen explains the core workflow once, then stays out of the way.
 - Configurable accent color and word highlight mode, including pitch-accent colors when JPDB/Anki mining status is not being used.
@@ -54,7 +54,7 @@ Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, 
 
 Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format.
 
-Local setup guide: https://hrussellzfac023.github.io/kotoba-reader/local-audio
+Local setup guide: https://hrussellzfac023.github.io/yomu-reader/local-audio
 
 Hosted Ultimate Yomitan Audio guide: https://animecards.site/yomitan_audio/
 
@@ -81,7 +81,7 @@ Anki mobile note: AnkiConnect is an Anki desktop add-on, so direct one-tap Anki 
 Use this address as a browser new-tab/home-page URL or add it to the iPad Home Screen:
 
 ```text
-https://hrussellzfac023.github.io/kotoba-reader/newtab/
+https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
 The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is enabled and reachable, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ downloads JMdict as the starter dictionary and shows downloading progress instead of a setup warning. Tapping a word opens the same popup dictionary used on normal pages.
@@ -137,23 +137,15 @@ npm run check
 Run the reproducible browser QA audit:
 
 ```bash
-npm run qa:audit
-npm run qa:docs-a11y
-npm run qa:complexity
+npm run qa
 ```
 
-For the whole release gate, run:
-
-```bash
-npm run qa:full
-```
-
-This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB, Immersion Kit, and kanji source requests for deterministic fixture coverage, checks settings, new tab, JPDB pages, recursive Immersion Kit examples, OCR touch targets, YouTube filtering, and subtitle mining, then runs axe/WCAG-style checks against the product surfaces and GitHub Pages docs. Screenshots are written to `qa-artifacts/`. Complexity is capped by `npm run qa:complexity`.
+This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB, Immersion Kit, and kanji source requests for deterministic fixture coverage, checks settings, new tab, JPDB pages, recursive Immersion Kit examples, OCR touch targets, YouTube filtering, and subtitle mining, then runs axe/WCAG-style checks and the complexity audit. Screenshots are written to `qa-artifacts/`.
 
 Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path:
 
 ```bash
-npm run qa:jpdb-live
+npm run qa:live
 ```
 
 The full product checklist and manual release scripts live in [`docs/verification-plan.md`](docs/verification-plan.md).
@@ -164,13 +156,16 @@ Run the local fixtures:
 npm run dev
 ```
 
-Then open:
+Then install the CSP-safe local userscript or open a fixture. If 5174 is busy, use the port printed by `npm run dev`:
 
 ```text
+http://127.0.0.1:5174/yomu.user.js
 http://127.0.0.1:5174/reader-test.html
 http://127.0.0.1:5174/reader-video-test.html?apiKey=YOUR_JPDB_API_KEY
 http://127.0.0.1:5174/reader-ocr-test.html?apiKey=YOUR_JPDB_API_KEY
 ```
+
+`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves it as a local dev install named `よむ dev`. Its update URL points at the local server, so Tampermonkey can pull rebuilt copies when you check for updates. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
 
 The production userscript is written to:
 
@@ -190,7 +185,7 @@ GitHub Actions cover CI, userscript bundling, docs deployment, and release publi
 GreasyFork does not provide a general write API for unattended publishing. Its supported update paths are the logged-in prefill form and GitHub/GitLab/Bitbucket webhook/update checks. For the initial GreasyFork publish, use the built code from `dist/yomu.user.js`, then configure GreasyFork to sync from:
 
 ```text
-https://raw.githubusercontent.com/HRussellZFAC023/kotoba-reader/main/dist/yomu.user.js
+https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 ```
 
 After that, pushes to `main` rebuild the userscript and GreasyFork can pick up the new raw file through its sync/webhook flow.
@@ -198,7 +193,7 @@ After that, pushes to `main` rebuild the userscript and GreasyFork can pick up t
 For the first manual publish, this helper opens a local page that posts the current built script to GreasyFork's official prefill form:
 
 ```bash
-npm run prefill:greasyfork
+npm run publish:greasyfork
 ```
 
 ## Notes
@@ -219,8 +214,8 @@ npm run prefill:greasyfork
 
 ## Support
 
-- Documentation: https://hrussellzfac023.github.io/kotoba-reader/
-- Issues and source: https://github.com/HRussellZFAC023/kotoba-reader/issues
+- Documentation: https://hrussellzfac023.github.io/yomu-reader/
+- Issues and source: https://github.com/HRussellZFAC023/yomu-reader/issues
 - Discord: `henry281199`
 - Donate: https://paypal.me/HenryRussell163
 
@@ -256,7 +251,7 @@ Donation note: feature requests left in the PayPal message get personal attentio
 
 | Source | License / terms used by よむ |
 | --- | --- |
-| [よむ source code](https://github.com/HRussellZFAC023/kotoba-reader) | MIT |
+| [よむ source code](https://github.com/HRussellZFAC023/yomu-reader) | MIT |
 | [KanjiVG](https://github.com/KanjiVG/kanjivg) | Creative Commons Attribution-ShareAlike 3.0 |
 | [JMdict / JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) | JMdict data is EDRDG CC BY-SA 4.0; yomidevs packaging code is MIT; よむ downloads the ZIP into user browser storage rather than bundling it |
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |

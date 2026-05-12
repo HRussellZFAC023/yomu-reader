@@ -33,7 +33,7 @@ async function startDocsServer(root) {
     const server = createServer(async (req, res) => {
         try {
             const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-            const pathname = decodeURIComponent(url.pathname).replace(/^\/kotoba-reader/, '') || '/';
+            const pathname = decodeURIComponent(url.pathname).replace(/^\/yomu-reader/, '') || '/';
             const filePath = await resolveDocsFile(root, pathname);
             const body = await readFile(filePath);
             res.statusCode = 200;
@@ -47,7 +47,7 @@ async function startDocsServer(root) {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     return {
-        origin: `http://127.0.0.1:${address.port}/kotoba-reader`,
+        origin: `http://127.0.0.1:${address.port}/yomu-reader`,
         close: () => new Promise(resolve => server.close(resolve)),
     };
 }
