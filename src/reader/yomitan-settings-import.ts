@@ -1,5 +1,5 @@
 import { Logger } from './logger';
-import { normalizeAudioSource } from './settings';
+import { normalizeAudioSource, normalizeDictionaryPreferences } from './settings';
 import type { YomitanSettingsImport } from './yomitan-types';
 
 const log = Logger.scope('YomitanSettingsImport');
@@ -36,6 +36,15 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
     if (typeof scanning?.scanWithoutMousemove === 'boolean') settings.autoScanJapanese = scanning.scanWithoutMousemove;
     applyScanInputSettings(settings, scanning);
     if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+    const dictionaryNames = readDictionaryNames(profileOptions);
+    if (dictionaryNames.length) {
+        settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryNames.map((name, index) => ({
+            name,
+            alias: name,
+            enabled: true,
+            priority: index,
+        })));
+    }
     settings.yomitanSettingsBackup = value;
 
     const playAudio = inputs?.hotkeys?.find(hotkey => hotkey.action === 'playAudio' && hotkey.enabled !== false);
@@ -51,7 +60,17 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
         autoScanJapanese: settings.autoScanJapanese,
         theme: settings.theme,
     });
-    return { settings, raw: value };
+    return { settings, dictionaryNames };
+}
+
+function readDictionaryNames(profileOptions: Record<string, unknown>): string[] {
+    const dictionaries = Array.isArray(profileOptions.dictionaries)
+        ? profileOptions.dictionaries as Array<Record<string, unknown>>
+        : [];
+    return dictionaries
+        .filter(item => item.enabled !== false)
+        .map(item => typeof item.name === 'string' ? item.name.trim() : '')
+        .filter(Boolean);
 }
 
 function applyScanInputSettings(settings: YomitanSettingsImport['settings'], scanning: Record<string, unknown> | undefined): void {

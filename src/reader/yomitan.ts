@@ -1054,6 +1054,12 @@ function dictionaryTypesFromReaderExport(json: {
     return Object.fromEntries([...(json.dictionaries ?? []).map(info => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)] as const), ...[...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)] as const)]);
 }
 
+async function readZipText(zip: JSZip, name: string): Promise<string> {
+    const file = zip.file(name);
+    if (!file) throw new Error(`${name} not found.`);
+    return file.async('string');
+}
+
 function normalizeZipTermRow(row: unknown, dictionary: string): YomitanTermEntry | null {
     if (!Array.isArray(row)) return null;
     const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;

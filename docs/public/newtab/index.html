@@ -166,7 +166,7 @@
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
     }
-    .jpdb-reader-newtab-controls button[data-reveal] {
+    .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
       background: var(--ink);
       border-color: transparent;
       color: var(--bg);
@@ -186,24 +186,24 @@
       <header class="jpdb-reader-newtab-topbar">
         <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">よむ</a>
         <div class="jpdb-reader-newtab-mode" role="group" aria-label="Study mode">
-          <button type="button" data-mode="word" data-active="true">Word</button>
-          <button type="button" data-mode="kanji">Kanji</button>
+          <button type="button" data-newtab-action="mode" data-mode="word" data-active="true">Word</button>
+          <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
         </div>
         <a class="jpdb-reader-newtab-overflow" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">...</a>
       </header>
-      <section class="jpdb-reader-newtab-study" data-study>
-        <div class="jpdb-reader-newtab-count" data-count>1 / 16</div>
-        <div class="jpdb-reader-newtab-prompt" data-prompt lang="ja">読む</div>
-        <div class="jpdb-reader-newtab-answer" data-answer>
-          <div class="jpdb-reader-newtab-reading" data-reading lang="ja">よむ</div>
-          <div class="jpdb-reader-newtab-meaning" data-meaning>to read</div>
+      <section class="jpdb-reader-newtab-study" data-newtab-study>
+        <div class="jpdb-reader-newtab-count" data-newtab-count>1 / 16</div>
+        <div class="jpdb-reader-newtab-prompt" data-newtab-prompt lang="ja">読む</div>
+        <div class="jpdb-reader-newtab-answer" data-newtab-answer>
+          <div class="jpdb-reader-newtab-reading" data-newtab-reading lang="ja">よむ</div>
+          <div class="jpdb-reader-newtab-meaning" data-newtab-meaning>to read</div>
         </div>
-        <div class="jpdb-reader-newtab-status" data-status></div>
+        <div class="jpdb-reader-newtab-status" data-newtab-status></div>
       </section>
       <nav class="jpdb-reader-newtab-controls" aria-label="Study navigation">
-        <button type="button" data-prev>Previous</button>
-        <button type="button" data-reveal>Reveal</button>
-        <button type="button" data-next>Next</button>
+        <button type="button" data-newtab-action="previous">Previous</button>
+        <button type="button" data-newtab-action="reveal">Reveal</button>
+        <button type="button" data-newtab-action="next">Next</button>
       </nav>
     </div>
   </main>
@@ -217,11 +217,11 @@
         ['今日', 'きょう', 'today'], ['明日', 'あした', 'tomorrow'], ['時間', 'じかん', 'time'], ['日本語', 'にほんご', 'Japanese']
       ];
       const root = document.querySelector('[data-jpdb-reader-root]');
-      const prompt = root.querySelector('[data-prompt]');
-      const reading = root.querySelector('[data-reading]');
-      const meaning = root.querySelector('[data-meaning]');
-      const count = root.querySelector('[data-count]');
-      const reveal = root.querySelector('[data-reveal]');
+      const prompt = root.querySelector('[data-newtab-prompt]');
+      const reading = root.querySelector('[data-newtab-reading]');
+      const meaning = root.querySelector('[data-newtab-meaning]');
+      const count = root.querySelector('[data-newtab-count]');
+      const reveal = root.querySelector('[data-newtab-action="reveal"]');
       let index = Number(sessionStorage.getItem('yomu-demo-word') || Math.floor(Math.random() * words.length));
       let mode = 'word';
       let shown = false;
@@ -239,9 +239,9 @@
         sessionStorage.setItem('yomu-demo-word', String(index));
       };
       root.addEventListener('click', event => {
-        if (event.target.closest('[data-next]')) { index = (index + 1) % words.length; shown = false; draw(); return; }
-        if (event.target.closest('[data-prev]')) { index = (index - 1 + words.length) % words.length; shown = false; draw(); return; }
-        if (event.target.closest('[data-reveal]')) { shown = !shown; draw(); return; }
+        if (event.target.closest('[data-newtab-action="next"]')) { index = (index + 1) % words.length; shown = false; draw(); return; }
+        if (event.target.closest('[data-newtab-action="previous"]')) { index = (index - 1 + words.length) % words.length; shown = false; draw(); return; }
+        if (event.target.closest('[data-newtab-action="reveal"]')) { shown = !shown; draw(); return; }
         const modeButton = event.target.closest('[data-mode]');
         if (modeButton) {
           mode = modeButton.dataset.mode === 'kanji' ? 'kanji' : 'word';
@@ -250,11 +250,11 @@
           draw();
           return;
         }
-        if (event.target.closest('[data-study]')) { shown = true; draw(); }
+        if (event.target.closest('[data-newtab-study]')) { shown = true; draw(); }
       });
       draw();
     })();
   </script>
-  <script src="https://cdn.jsdelivr.net/gh/HRussellZFAC023/yomu-reader@main/dist/yomu.user.js"></script>
+  <script src="../yomu.user.js"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress';
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
-const userscriptUrl = `https://cdn.jsdelivr.net/gh/HRussellZFAC023/${repositoryName}@main/dist/yomu.user.js`;
+const userscriptUrl = `${base}yomu.user.js`;
 
 export default defineConfig({
     title: 'よむ',
