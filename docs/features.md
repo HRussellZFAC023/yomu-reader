@@ -6,35 +6,47 @@
 
 Tap, select, or hover Japanese text to open a popup. The popup can show JPDB definitions, imported local dictionary entries, pitch and frequency data, audio, example sentences, kanji details, and optional mining actions.
 
-![Yomu popup lookup screenshot](./assets/screenshots/hover-lookup.png)
-
 JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, and optional context images.
 
 Furigana and word colors are separate controls. You can keep the automatic behavior, show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by JPDB/Anki state, color them by pitch accent, or turn highlight coloring off.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
+  <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
+</figure>
 
 ## Yomitan Dictionaries
 
 よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you add a starter dictionary.
 
-![Yomu dictionary settings screenshot](./assets/screenshots/settings.png)
-
 This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
+  <figcaption>Dictionary import and source ordering controls.</figcaption>
+</figure>
 
 ## Kanji Drilldown
 
 Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
 
-![Yomu JPDB kanji add-on screenshot](./assets/screenshots/jpdb-kanji.png)
-
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+  <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
+</figure>
 
 ## Image And Manga OCR
 
 OCR lets you tap Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, Google Lens by default, Google Cloud Vision with your own key, or a local OCR app/server for engines such as MangaOCR, PaddleOCR, Apple Vision style results, and YomiNinja-shaped responses.
 
-![Yomu OCR screenshot](./assets/screenshots/ocr-fixture.png)
-
 Recognized text stays lightweight: touch targets sit over the image without covering it until you tap or hover.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
+  <figcaption>Image OCR settings for manga and embedded image text.</figcaption>
+</figure>
 
 ## Video Subtitle Mining
 
@@ -44,23 +56,32 @@ The transcript is meant to work as a reading surface too: visible Japanese lines
 
 For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
-![Yomu subtitle mining screenshot](./assets/screenshots/video-subtitles.png)
-
 You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and can be opened from the subtitle controls or overflow menu. On phones it becomes a bottom panel so the video stays usable.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-video-player.png'" alt="The よむ transcript panel open on a live Comprehensible Japanese YouTube video.">
+  <figcaption>Transcript controls on a live Comprehensible Japanese video.</figcaption>
+</figure>
 
 ## Immersion Kit Examples
 
 Immersion Kit examples can appear directly inside word popups. On desktop, the first example can play its audio once when you hover the card; it will not keep replaying unless you press the speaker button. Example sentences are tappable too, so you can jump from one unknown word to the next without leaving the flow.
 
-![Yomu Immersion Kit examples screenshot](./assets/screenshots/immersion-kit.png)
-
 You can choose example categories, length limits, image visibility, translation visibility, playback speed, and whether that one-time hover audio is enabled. On iPhone and iPad, use the speaker button because touch screens do not have hover and Safari limits autoplay.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
+  <figcaption>Immersion Kit lives inside the same popup flow.</figcaption>
+</figure>
 
 ## YouTube Immersion Mode
 
 The optional YouTube mode hides non-Japanese-looking recommendation cards, search results, and sidebars. It is off by default and includes reveal controls so you can show hidden videos again or turn the mode off quickly.
 
-![Yomu YouTube immersion mode screenshot](./assets/screenshots/youtube-filter.png)
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-youtube-cij.png'" alt="YouTube search results for Comprehensible Japanese with the よむ filter bar showing hidden non-Japanese-looking items.">
+  <figcaption>YouTube immersion filtering on Comprehensible Japanese results.</figcaption>
+</figure>
 
 ## New Tab Study Page
 
@@ -72,12 +93,18 @@ https://hrussellzfac023.github.io/yomu-reader/newtab/
 
 Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts with one explicit Add dictionary step so the demo never hides setup work.
 
-![Yomu new-tab study page screenshot](./assets/screenshots/newtab-dictionary.png)
-
 On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real JPDB study card.">
+  <figcaption>New-tab study using the current app defaults.</figcaption>
+</figure>
 
 ## Help And Support In Settings
 
 The Help tab includes GitHub issues, Discord, and donation links so users do not need to search the repository when something goes wrong.
 
-![Yomu mobile Help settings screenshot](./assets/screenshots/settings-mobile-help.png)
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">
+  <figcaption>Support links live inside settings.</figcaption>
+</figure>

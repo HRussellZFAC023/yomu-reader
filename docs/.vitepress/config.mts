@@ -3,7 +3,6 @@ import { defineConfig } from 'vitepress';
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
-const userscriptUrl = `${base}yomu.user.js`;
 
 export default defineConfig({
     title: 'よむ',
@@ -18,7 +17,6 @@ export default defineConfig({
         ['meta', { property: 'og:title', content: 'よむ - Free Japanese popup reader' }],
         ['meta', { property: 'og:description', content: 'Install a friendly JPDB/Yomitan reader for lookup, mining, OCR, subtitles, and iPad-friendly study.' }],
         ['meta', { property: 'og:url', content: siteUrl }],
-        ['script', { src: userscriptUrl, defer: '' }],
     ],
     themeConfig: {
         logo: '/yomu-icon.svg',
@@ -30,7 +28,7 @@ export default defineConfig({
             { text: 'Changelog', link: '/changelog' },
             { text: 'Support', link: '/support' },
             { text: 'Video Player', link: '/video-player/index.html', target: '_self' },
-            { text: 'Demo', link: '/newtab/index.html', target: '_self' },
+            { text: 'New Tab', link: '/newtab/index.html', target: '_self' },
         ],
         sidebar: [
             {
@@ -59,7 +57,7 @@ export default defineConfig({
         ],
         footer: {
             message: 'Free userscript now. Chrome, Firefox, and Safari extensions are coming soon.',
-            copyright: 'Released under the MIT license.',
+            copyright: 'Released under the GPL-3.0-or-later license.',
         },
     },
 });

@@ -82,7 +82,7 @@ server.listen(port, host, () => {
     console.log(`[dev] Runtime bundle:     ${origin}${runtimePath}`);
     console.log(`[dev] Auto reload:        ${autoReload ? 'on' : 'off'}`);
     console.log(`[dev] Console logging:    ${loggingEnabled ? 'on' : 'off'}${loggingEnabled ? '' : ' (set YOMU_ENABLE_LOGS=1 to enable)'}`);
-    console.log(`[dev] Fixtures:           ${origin}/reader-test.html`);
+    console.log(`[dev] Local app:          ${origin}/newtab/`);
 });
 
 process.on('SIGINT', () => shutdown(0));
@@ -368,9 +368,7 @@ function devIndex() {
 <body>
   <h1>よむ dev</h1>
   <p><a href="/yomu.user.js">Install the local dev userscript</a></p>
-  <p><a href="/reader-test.html">Reader fixture</a></p>
-  <p><a href="/reader-video-test.html">Video fixture</a></p>
-  <p><a href="/reader-ocr-test.html">OCR fixture</a></p>
+  <p><a href="/newtab/">Open the local new tab app</a></p>
 </body>`;
 }
 

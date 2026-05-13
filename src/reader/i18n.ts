@@ -645,7 +645,7 @@ const COPY = {
         homepage: 'ホームページ',
         download: 'ダウンロード',
         update: '更新',
-        noLocalDictionaries: 'ローカル辞書はまだありません。辞書の学習カードを使う時はJMdictを追加してください。',
+        noLocalDictionaries: 'ローカル辞書はまだありません。辞書の学習カードを使う時は辞書を追加してください。',
         checkingDictionaries: 'インポート済み辞書を確認中...',
         dictionaryOnlyJpdb: '現在の定義ソースはJPDBのみです。Yomitan辞書をインポートすると、ローカル辞書や母語辞書の定義を追加できます。',
         localDictionaryText: '辞書本文',

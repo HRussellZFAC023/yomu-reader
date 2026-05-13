@@ -11,7 +11,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 ### Changed
 
 - Added a visible light/dark theme switch in settings and refreshed the new-tab theme switch without the old logo halo treatment.
-- Regenerated the docs screenshots from real Playwright runs, including the kanji drilldown with KanjiVG strokes, sticky mining controls, new-tab light mode, subtitles, OCR, and Immersion Kit.
+- Removed the stale hosted screenshot gallery and old public reader/video/OCR test pages from the docs deployment.
 - Tightened popup action styling so kanji-card lookup pills and mining/review buttons sit more quietly in the layout.
 
 ### Fixed
@@ -19,7 +19,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Locked mining controls to the bottom of fixed-height popups, with the expand/minimize control in a slim gutter instead of floating over action buttons.
 - Replaced the cramped icon plus on Add to deck with the plain text label `Add to deck +`.
 - Restored reliable JPDB kanji drilldown, review doodle preview carryover, OCR parsing, subtitle transcript layout, and new-tab fallback coverage in the Playwright QA pass.
-- Excluded the hosted docs/new-tab pages from the userscript metadata so old deploys do not self-inject into the website and create misleading console noise.
+- Stopped the docs site from self-injecting the userscript bundle, removing misleading CORS and lookup noise on GitHub Pages.
 
 ## [0.4.3] - 2026-05-13
 

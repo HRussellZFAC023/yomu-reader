@@ -399,22 +399,34 @@ button.jpdb-reader-action-pill {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
-    gap: 8px;
+    gap: 0 8px;
   }
   .jpdb-reader-heading {
     display: contents;
   }
   .jpdb-reader-title-row {
     grid-column: 1;
+    grid-row: 1;
   }
   .jpdb-reader-card-tools {
+    display: contents;
+  }
+  .jpdb-reader-pitch {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: -3px;
+  }
+  .jpdb-reader-audio-control {
     grid-column: 2;
     grid-row: 1;
+    margin-left: auto;
   }
   .jpdb-reader-word-pills {
     grid-column: 1 / -1;
+    grid-row: 3;
     width: auto;
     gap: 4px;
+    margin-top: 5px;
   }
   .jpdb-reader-pill {
     padding: 3px 7px !important;

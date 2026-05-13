@@ -101,7 +101,7 @@ The page uses your accent color as the background, adjusts foreground colors for
 OCR is designed for manga and image-heavy pages on iPhone/iPad:
 
 - Images near the viewport are detected and queued quietly when auto-scan is enabled.
-- Embedded image OCR metadata is available instantly when a site or test fixture provides it.
+- Embedded image OCR metadata is available instantly when a site provides it.
 - Google Lens is the default deeper OCR path, with the protobuf endpoint first and the web upload path as a fallback.
 - Advanced modes support Google Cloud Vision directly with an API key, or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style OCR outputs.
 - OCR results are cached per image for the current page.
@@ -150,7 +150,7 @@ Run the reproducible browser QA audit:
 npm run qa
 ```
 
-This builds the userscript, emulates Tampermonkey storage/network APIs in Playwright, mocks JPDB, Immersion Kit, and kanji source requests for deterministic fixture coverage, checks settings, new tab, JPDB pages, recursive Immersion Kit examples, OCR touch targets, YouTube filtering, and subtitle mining, then runs axe/WCAG-style checks and the complexity audit. Screenshots are written to `qa-artifacts/`.
+This builds the userscript, runs deterministic Playwright regression checks for settings, new tab, JPDB pages, recursive Immersion Kit examples, OCR touch targets, YouTube filtering, and subtitle mining, then runs axe/WCAG-style checks and the complexity audit. Evidence is written to `qa-artifacts/`.
 
 Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path:
 
@@ -160,19 +160,17 @@ npm run qa:live
 
 The full product checklist and manual release scripts live in [`docs/verification-plan.md`](docs/verification-plan.md).
 
-Run the local fixtures:
+Run the local development server:
 
 ```bash
 npm run dev
 ```
 
-Then install the CSP-safe local userscript or open a fixture. If 5174 is busy, use the port printed by `npm run dev`:
+Then install the CSP-safe local userscript or open the local app. If 5174 is busy, use the port printed by `npm run dev`:
 
 ```text
 http://127.0.0.1:5174/yomu.user.js
-http://127.0.0.1:5174/reader-test.html
-http://127.0.0.1:5174/reader-video-test.html?apiKey=YOUR_JPDB_API_KEY
-http://127.0.0.1:5174/reader-ocr-test.html?apiKey=YOUR_JPDB_API_KEY
+http://127.0.0.1:5174/newtab/
 ```
 
 `npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Refresh the target page manually when you want to pick up the latest rebuild. Set `YOMU_DEV_AUTO_RELOAD=1 npm run dev` if you want open pages to poll the harness and reload after rebuilds. Console logging stays off by default, including local dev installs; use `YOMU_ENABLE_LOGS=1 npm run dev` when you want the dev server to enable console logs automatically. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
@@ -259,7 +257,7 @@ Donation note: feature requests left in the PayPal message get personal attentio
 
 | Source | License / terms used by よむ |
 | --- | --- |
-| [よむ source code](https://github.com/HRussellZFAC023/yomu-reader) | MIT |
+| [よむ source code](https://github.com/HRussellZFAC023/yomu-reader) | GPL-3.0-or-later |
 | [KanjiVG](https://github.com/KanjiVG/kanjivg) | Creative Commons Attribution-ShareAlike 3.0 |
 | [JMdict / JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) | JMdict data is EDRDG CC BY-SA 4.0; yomidevs packaging code is MIT; よむ downloads the ZIP into user browser storage rather than bundling it |
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |

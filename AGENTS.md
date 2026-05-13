@@ -11,13 +11,13 @@ npm ci
 npm run check
 ```
 
-Use the browser QA audit for fixture coverage:
+Use the browser QA audit for regression coverage:
 
 ```bash
 npm run qa
 ```
 
-The audit mocks JPDB and kanji-source network calls for deterministic local runs. Use `.env` for local-only API keys; it is ignored by Git. `npm run qa:live` is the narrow live JPDB key smoke test.
+The audit uses deterministic local network responses for repeatable regression runs. Use `.env` for local-only API keys; it is ignored by Git. `npm run qa:live` is the narrow live JPDB key smoke test. Any script that needs live JPDB or third-party data must load `.env` through `scripts/qa-env.mjs` before reading env vars.
 
 ## Constraints
 
@@ -36,7 +36,7 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 
 - Relevant tests are added or updated for any behavior change.
 - `npm run check` passes.
-- Browser-impacting changes have screenshot or DOM evidence from `scripts/qa-audit.mjs`, a local fixture, or a clearly described manual/browser flow.
+- Browser-impacting changes have DOM evidence from `scripts/qa-audit.mjs` or a clearly described manual/browser flow.
 - README claims match implemented behavior.
 - Main README and GitHub Pages docs are updated together for user-facing behavior, install steps, credits, and limitations.
 - New external data/source usage is documented with license and attribution.
@@ -46,7 +46,7 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 - Keep `CHANGELOG.md` up to date for every user-facing release. The website changelog includes this file directly through `docs/changelog.md`, so do not duplicate release notes elsewhere.
 - Always publish user-facing versions through the GitHub Releases tab: create/push a `v*` tag or run the `Release` workflow, verify with `gh release view <tag>` that the release is non-draft, marked as the latest when appropriate, and includes the built `yomu.user.js` asset.
 - Before finishing user-facing work, check that `README.md`, the relevant `docs/` page, and credits/license notes all describe the same behavior.
-- Before finishing large UI work, run the Playwright screenshots plus axe/docs accessibility and complexity checks, or record why a check could not run.
+- Before finishing large UI work, run the Playwright DOM checks plus axe/docs accessibility and complexity checks, or record why a check could not run.
 - Put beginner-facing docs in `docs/` and keep install guidance plain enough for someone who has never used a userscript manager.
-- When screenshots need refreshing, run `npm run qa` and copy the relevant Playwright screenshots from `qa-artifacts/` into `docs/assets/screenshots/`.
+- Do not add docs/product screenshots unless they are captured from the current real app in Browser and explicitly approved.
 - Run `npm run docs:build` after documentation or VitePress theme changes.

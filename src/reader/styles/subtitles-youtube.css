@@ -193,7 +193,10 @@
   place-items: center;
   min-width: 34px;
   width: 34px;
+  max-width: 34px;
+  min-height: 34px;
   height: 34px;
+  max-height: 34px;
   padding: 0;
   flex: 0 0 auto;
   white-space: nowrap;
@@ -239,7 +242,10 @@
 .jpdb-subtitle-compact-video .jpdb-subtitle-rail button {
   min-width: 32px;
   width: 32px;
+  max-width: 32px;
+  min-height: 32px;
   height: 32px;
+  max-height: 32px;
 }
 .jpdb-subtitle-menu {
   position: absolute;
@@ -822,8 +828,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-rail button {
     height: 34px;
+    min-height: 34px;
+    max-height: 34px;
     min-width: 34px;
     width: 34px;
+    max-width: 34px;
     padding: 0;
     font-size: 11px;
   }
