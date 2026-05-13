@@ -21,7 +21,7 @@
       --radius: 8px;
     }
 
-    :root.jpdb-reader-theme-light {
+    :root.yomu-page-theme-light {
       color-scheme: light;
       --bg: #ffffff;
       --ink: #171a1f;
@@ -32,9 +32,17 @@
       --accent: #5ea780;
       --accent-ink: #ffffff;
       --shadow: rgba(20,30,45,.12);
+      --jpdb-reader-bg: #ffffff;
+      --jpdb-reader-surface: #f7f8fa;
+      --jpdb-reader-surface-2: #eef1f4;
+      --jpdb-reader-text: #171a1f;
+      --jpdb-reader-muted: #596272;
+      --jpdb-reader-faint: #7b8493;
+      --jpdb-reader-border: rgba(20,30,45,.16);
+      --jpdb-reader-hover: rgba(20,30,45,.07);
     }
 
-    :root.jpdb-reader-theme-dark {
+    :root.yomu-page-theme-dark {
       color-scheme: dark;
       --bg: #101316;
       --ink: #f5f7f6;
@@ -45,6 +53,14 @@
       --accent: #6cc98e;
       --accent-ink: #0b1710;
       --shadow: rgba(0,0,0,.32);
+      --jpdb-reader-bg: #181b20;
+      --jpdb-reader-surface: #20242b;
+      --jpdb-reader-surface-2: #282e37;
+      --jpdb-reader-text: #f2f4f8;
+      --jpdb-reader-muted: #aab2c0;
+      --jpdb-reader-faint: #6f7a89;
+      --jpdb-reader-border: rgba(255,255,255,.12);
+      --jpdb-reader-hover: rgba(255,255,255,.08);
     }
 
     * { box-sizing: border-box; }
@@ -180,14 +196,15 @@
       place-items: center;
       border: 2px dashed var(--line);
       border-radius: var(--radius);
-      color: var(--muted);
+      color: rgba(245,247,246,.72);
       text-align: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,.72);
       pointer-events: none;
     }
 
     .empty strong {
       display: block;
-      color: var(--ink);
+      color: #f5f7f6;
       font-size: 20px;
       margin-bottom: 6px;
     }
@@ -283,8 +300,8 @@
       }
 
       function applyTheme(theme) {
-        document.documentElement.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
-        document.documentElement.classList.toggle('jpdb-reader-theme-light', theme === 'light');
+        document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
+        document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
         if (themeIcon) themeIcon.textContent = theme === 'dark' ? '☀' : '☾';
         if (themeToggle) {
           const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';

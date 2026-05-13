@@ -66,7 +66,7 @@ interface SettingsDialogDependencies {
     scheduleDictionaryRescan: () => void;
     refreshNewTabIfCurrent: () => void;
     clearDictionarySourceOpenOverrides: () => void;
-    beginSettingsPreview: (accent: string, language: InterfaceLanguage) => void;
+    beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
     clearSettingsPreview: () => void;
 }
 
@@ -88,7 +88,7 @@ export class SettingsDialogController {
         this.bindLivePreview(form);
         this.bindEditorControls(form);
         this.dependencies.mountDialog(backdrop, form);
-        this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage);
+        this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
     }
@@ -164,6 +164,14 @@ export class SettingsDialogController {
         });
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
+        });
+        form.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach(input => {
+            input.addEventListener('change', event => {
+                const value = (event.currentTarget as HTMLInputElement).value;
+                if (value !== 'auto' && value !== 'dark' && value !== 'light') return;
+                this.settings.theme = value;
+                this.dependencies.applyTheme();
+            });
         });
         syncSubtitlePreview(form);
         form.addEventListener('input', event => {

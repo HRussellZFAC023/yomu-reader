@@ -326,13 +326,15 @@ export class ReaderApp {
             if (this.newTab.isCurrentPage()) void this.newTab.renderPage();
         },
         clearDictionarySourceOpenOverrides: () => this.dictionarySourceOpenOverrides.clear(),
-        beginSettingsPreview: (accent, language) => {
+        beginSettingsPreview: (accent, language, theme) => {
             this.settingsPreviewOriginalAccent = accent;
             this.settingsPreviewOriginalLanguage = language;
+            this.settingsPreviewOriginalTheme = theme;
         },
         clearSettingsPreview: () => {
             this.settingsPreviewOriginalAccent = undefined;
             this.settingsPreviewOriginalLanguage = undefined;
+            this.settingsPreviewOriginalTheme = undefined;
         },
     });
     private activePopover?: HTMLElement;
@@ -368,6 +370,7 @@ export class ReaderApp {
     private popoverRepositionFrame?: number;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
+    private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private dictionaryStyleElement?: HTMLStyleElement;
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
@@ -3183,8 +3186,13 @@ export class ReaderApp {
         if (this.settingsPreviewOriginalLanguage !== undefined && this.activePopover?.classList.contains('jpdb-reader-settings')) {
             this.settings.interfaceLanguage = this.settingsPreviewOriginalLanguage;
         }
+        if (this.settingsPreviewOriginalTheme !== undefined && this.activePopover?.classList.contains('jpdb-reader-settings')) {
+            this.settings.theme = this.settingsPreviewOriginalTheme;
+            this.applyTheme();
+        }
         this.settingsPreviewOriginalAccent = undefined;
         this.settingsPreviewOriginalLanguage = undefined;
+        this.settingsPreviewOriginalTheme = undefined;
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
         this.activePopoverResizeObserver?.disconnect();
