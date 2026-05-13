@@ -6,6 +6,12 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [0.4.5] - 2026-05-13
+
+### Fixed
+
+- Aligned the settings light/dark switch so it sits cleanly in the settings control row.
+
 ## [0.4.4] - 2026-05-13
 
 ### Changed
