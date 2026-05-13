@@ -1,4 +1,5 @@
 import type { ReaderSettings } from './types';
+import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'trace';
 type ConsoleWriter = (...args: unknown[]) => void;
@@ -318,7 +319,7 @@ function writeDebugToConsole(...args: unknown[]): void {
 function getRuntimeLoggingOverride(): boolean {
     if (typeof window !== 'undefined' && Boolean((window as Window & { __YOMU_ENABLE_LOGS__?: boolean }).__YOMU_ENABLE_LOGS__)) return true;
     try {
-        return typeof localStorage !== 'undefined' && localStorage.getItem(RUNTIME_LOG_KEY) === 'true';
+        return gmStorageGetSync<boolean>(RUNTIME_LOG_KEY, false) === true;
     } catch {
         return false;
     }
@@ -326,9 +327,8 @@ function getRuntimeLoggingOverride(): boolean {
 
 function setRuntimeLoggingOverride(enabled: boolean): void {
     try {
-        if (typeof localStorage === 'undefined') return;
-        if (enabled) localStorage.setItem(RUNTIME_LOG_KEY, 'true');
-        else localStorage.removeItem(RUNTIME_LOG_KEY);
+        if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+        else gmStorageDeleteSync(RUNTIME_LOG_KEY);
     } catch {
         // Storage can be unavailable on some embedded pages; runtime forceEnabled still applies.
     }

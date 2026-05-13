@@ -63,6 +63,67 @@
 [data-jpdb-reader-root] * {
   box-sizing: border-box;
 }
+[data-jpdb-reader-root] :where(a) {
+  border-bottom: 0;
+  color: inherit;
+  outline: revert;
+  text-decoration: none;
+}
+[data-jpdb-reader-root] :where(button) {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  cursor: pointer;
+  display: inline-block;
+  font: inherit;
+  height: auto;
+  line-height: normal;
+  margin: 0;
+  padding: 0;
+  text-align: inherit;
+  text-decoration: none;
+  transform: none;
+  transition: none;
+  white-space: normal;
+}
+[data-jpdb-reader-root] :where(input, select, textarea) {
+  appearance: auto;
+  -webkit-appearance: auto;
+  background: revert;
+  border: revert;
+  border-radius: revert;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  height: auto;
+  margin: 0;
+  padding: revert;
+  transform: none;
+  transition: none;
+  width: auto;
+}
+[data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) {
+  letter-spacing: normal;
+  line-height: revert;
+  margin: revert;
+  padding: revert;
+}
+[data-jpdb-reader-root] :where(table) {
+  border-collapse: revert;
+  border-spacing: revert;
+}
+[data-jpdb-reader-root] :where(th, td) {
+  border: revert;
+  text-align: revert;
+}
+[data-jpdb-reader-root] :where(rt) {
+  font-size: revert;
+  opacity: revert;
+}
 [data-jpdb-reader-root] button,
 [data-jpdb-reader-root] input,
 [data-jpdb-reader-root] select,

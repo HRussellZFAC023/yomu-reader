@@ -20,7 +20,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
-- JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, RTK keywords, stories, components, local kanji dictionaries, and related words.
+- JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
 - Optional Anki mining through AnkiConnect, with a よむ note type created automatically, existing-card detection, Anki grading, and best-effort context images from Immersion Kit, video, OCR, or image mining.
 - Yomitan dictionary imports: automatic JMdict starter download, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
@@ -214,7 +214,7 @@ npm run publish:greasyfork
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
 - Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, component graph, and radical images can be toggled separately.
-- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles. JPDB page add-ons for Uchisen, RTK, Immersion Kit, local dictionaries, compact review navigation, auto-revealed review sentences, always-visible review examples, and kanji doodling can be toggled independently.
+- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles. JPDB page add-ons for Uchisen, RTK, Immersion Kit, local dictionaries, compact review navigation, auto-revealed review example sentences, always-visible review examples, and kanji doodling can be toggled independently. Review reveal audio can use either Immersion Kit example audio or よむ's configured word audio sources, and those two autoplay options stay mutually exclusive.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.

@@ -85,8 +85,11 @@ export function currentJpdbTermTarget(): JpdbTermTarget | null {
     if (!term) return null;
     const anchor = document.querySelector<HTMLElement>('.subsection-meanings')
         ?? document.querySelector<HTMLElement>('.result.vocabulary')
+        ?? document.querySelector<HTMLElement>('.subsection-used-in')
+        ?? document.querySelector<HTMLElement>('.cross-table')
         ?? document.querySelector<HTMLElement>('.answer-box')
         ?? document.querySelector<HTMLElement>('main')
+        ?? document.body.firstElementChild as HTMLElement | null
         ?? document.body;
     const queries = isSearchPage()
         ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])])

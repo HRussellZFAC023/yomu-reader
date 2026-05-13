@@ -25,6 +25,31 @@
   display: flex;
   flex-direction: column;
 }
+.jpdb-reader-settings button,
+.jpdb-reader-settings input,
+.jpdb-reader-settings select,
+.jpdb-reader-settings textarea,
+.jpdb-reader-settings fieldset,
+.jpdb-reader-settings legend {
+  margin: 0;
+  letter-spacing: 0;
+}
+.jpdb-reader-settings input,
+.jpdb-reader-settings select,
+.jpdb-reader-settings textarea {
+  box-shadow: none;
+  transform: none;
+  transition-property: background-color, border-color, box-shadow, color, opacity;
+}
+.jpdb-reader-settings input:hover,
+.jpdb-reader-settings input:focus,
+.jpdb-reader-settings input:active {
+  transform: none;
+}
+.jpdb-reader-settings input[type="checkbox"]::before,
+.jpdb-reader-settings input[type="radio"]::before {
+  content: none !important;
+}
 .jpdb-reader-settings-head {
   flex: 0 0 auto;
   padding: 18px 18px 0;
@@ -47,11 +72,24 @@
   font: 800 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
   white-space: nowrap;
+  transform: translateY(-0.01rem);
+  transition: background .2s ease-in-out, border-color .2s ease-in-out, box-shadow .2s ease-in-out, color .2s ease-in-out, transform .2s ease-in-out;
 }
 .jpdb-reader-settings-tab[aria-selected="true"] {
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent-readable);
   background: var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-settings-tab:hover,
+.jpdb-reader-settings-tab:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
+  color: var(--jpdb-reader-accent-readable);
+  transform: translateY(-0.25rem);
+  outline: none;
+}
+.jpdb-reader-settings-tab:active {
+  transform: scale(.98);
 }
 .jpdb-reader-settings-scroll {
   min-height: 0;
@@ -59,12 +97,13 @@
   padding: 0 18px 96px;
   -webkit-overflow-scrolling: touch;
 }
-.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; color: var(--jpdb-reader-text) !important; }
+.jpdb-reader-settings h2 { margin: 0 0 12px; font-size: 20px; line-height: 1.45; color: var(--jpdb-reader-text) !important; }
 .jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; margin: 12px 0; padding: 12px; }
 .jpdb-reader-settings legend { color: var(--jpdb-reader-muted); padding: 0 6px; }
 .jpdb-reader-settings label { display: grid; gap: 5px; margin: 10px 0; color: var(--jpdb-reader-muted) !important; font-size: 12px; }
 .jpdb-reader-settings input,
-.jpdb-reader-settings select {
+.jpdb-reader-settings select,
+.jpdb-reader-field-display {
   width: 100%;
   box-sizing: border-box;
   min-height: 38px;
@@ -72,7 +111,19 @@
   border: 1px solid var(--jpdb-reader-border);
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
+  font: 700 12px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  height: 38px;
   padding: 8px;
+  transition: background-color .14s ease, border-color .14s ease, box-shadow .14s ease, color .14s ease;
+}
+.jpdb-reader-field-display {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 .jpdb-reader-settings input[type="color"] {
   padding: 3px;
@@ -147,7 +198,17 @@
   padding-inline: 18px;
   font-size: 13px;
 }
-.jpdb-reader-settings a { color: var(--jpdb-reader-accent-readable) !important; text-decoration: underline; text-underline-offset: 3px; }
+.jpdb-reader-settings .footer .jpdb-reader-btn[data-action="cancel"] {
+  color: var(--jpdb-reader-text);
+  border-color: var(--jpdb-reader-border);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-text) 5%);
+}
+.jpdb-reader-settings .footer .jpdb-reader-btn.add {
+  color: var(--jpdb-reader-accent-readable);
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, var(--jpdb-reader-accent) 18%);
+}
+.jpdb-reader-settings a:not(.jpdb-reader-btn) { color: var(--jpdb-reader-accent-readable) !important; text-decoration: underline; text-underline-offset: 3px; }
 .jpdb-reader-settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
 .jpdb-reader-settings-actions .jpdb-reader-btn {
   display: inline-flex;
@@ -182,13 +243,25 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
+.jpdb-reader-help-links-card {
+  margin-bottom: 12px;
+}
+.jpdb-reader-help-links-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .jpdb-reader-support-actions .jpdb-reader-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 42px;
+  padding-inline: 10px;
   text-align: center;
   text-decoration: none !important;
+}
+.jpdb-reader-support-actions .jpdb-reader-btn.add {
+  border-color: var(--jpdb-reader-text);
+  background: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-bg) !important;
 }
 .jpdb-reader-dictionary-status {
   margin: 10px 0;
@@ -197,7 +270,8 @@
 }
 .jpdb-reader-dictionary-priorities,
 .jpdb-reader-kanji-priorities,
-.jpdb-reader-audio-sources { display: grid; gap: 7px; margin: 10px 0; }
+.jpdb-reader-audio-sources,
+.jpdb-reader-lookup-links { display: grid; gap: 7px; margin: 10px 0; }
 .jpdb-reader-recommended-dictionaries {
   display: grid;
   gap: 10px;
@@ -229,6 +303,11 @@
   background: var(--jpdb-reader-surface);
   padding: 10px;
 }
+.jpdb-reader-recommended-item .jpdb-reader-btn {
+  width: 100%;
+  min-height: 42px;
+  padding-inline: 10px;
+}
 .jpdb-reader-recommended-name {
   display: flex;
   gap: 10px;
@@ -253,7 +332,9 @@
 .jpdb-reader-dictionary-head,
 .jpdb-reader-dictionary-row,
 .jpdb-reader-audio-source-head,
-.jpdb-reader-audio-source-row {
+.jpdb-reader-audio-source-row,
+.jpdb-reader-lookup-link-head,
+.jpdb-reader-lookup-link-row {
   grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, .8fr) 74px 58px;
 }
 .jpdb-reader-dictionary-head.compact,
@@ -267,6 +348,7 @@
   text-transform: uppercase;
 }
 .jpdb-reader-order-row {
+  position: relative;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface);
@@ -277,6 +359,32 @@
 .jpdb-reader-order-row.jpdb-reader-dragging {
   opacity: .58;
   border-color: var(--jpdb-reader-accent);
+  cursor: grabbing;
+}
+.jpdb-reader-order-row.jpdb-reader-touch-dragging {
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+.jpdb-reader-order-row.jpdb-reader-drop-before,
+.jpdb-reader-order-row.jpdb-reader-drop-after {
+  border-color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-order-row.jpdb-reader-drop-before::before,
+.jpdb-reader-order-row.jpdb-reader-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-accent);
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+  pointer-events: none;
+}
+.jpdb-reader-order-row.jpdb-reader-drop-before::before {
+  top: -7px;
+}
+.jpdb-reader-order-row.jpdb-reader-drop-after::after {
+  bottom: -7px;
 }
 .jpdb-reader-dictionary-row-help {
   grid-column: 2 / -1;
@@ -285,33 +393,24 @@
   line-height: 1.35;
 }
 .jpdb-reader-settings .jpdb-reader-dictionary-toggle { margin: 0; justify-content: center; color: var(--jpdb-reader-text); }
-.jpdb-reader-lookup-link-row {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) minmax(108px, max-content);
-  gap: 8px;
-  align-items: center;
-  box-sizing: border-box;
-  min-width: 0;
-}
-.jpdb-reader-lookup-link-head,
-.jpdb-reader-lookup-link-row {
-  grid-template-columns: 44px minmax(170px, 315px) minmax(0, 1fr) minmax(108px, max-content);
-}
-.jpdb-reader-lookup-link-row {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 8px;
-  width: 100%;
-}
 .jpdb-reader-audio-source-choice select,
 .jpdb-reader-audio-source-fields input,
 .jpdb-reader-audio-source-fields select { min-width: 0; width: 100%; }
 .jpdb-reader-lookup-link-row input { min-width: 0; }
+.jpdb-reader-lookup-link-note {
+  color: var(--jpdb-reader-muted);
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+.jpdb-reader-lookup-link-fixed {
+  width: 34px;
+  height: 34px;
+}
 .jpdb-reader-lookup-link-actions {
   display: flex;
   justify-content: flex-start;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 .jpdb-reader-lookup-link-actions .jpdb-reader-btn {
   width: auto !important;
@@ -348,6 +447,8 @@
   color: var(--jpdb-reader-text);
   cursor: pointer;
   font: 800 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transform: translateY(-0.01rem);
+  transition: background .2s ease-in-out, border-color .2s ease-in-out, box-shadow .2s ease-in-out, color .2s ease-in-out, transform .2s ease-in-out;
 }
 .jpdb-reader-icon-mini svg {
   display: block;
@@ -362,6 +463,23 @@
 .jpdb-reader-icon-mini:hover,
 .jpdb-reader-icon-mini:focus-visible {
   border-color: var(--jpdb-reader-accent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
   color: var(--jpdb-reader-accent);
+  transform: translateY(-0.25rem);
   outline: none;
+}
+.jpdb-reader-icon-mini:active {
+  transform: scale(.98);
+}
+.jpdb-reader-icon-mini[data-immersion-action="previous"],
+.jpdb-reader-icon-mini[data-immersion-action="next"],
+.jpdb-reader-icon-mini[data-yomu-immersion-action="previous"],
+.jpdb-reader-icon-mini[data-yomu-immersion-action="next"],
+.jpdb-reader-icon-mini[data-uchisen-action="previous"],
+.jpdb-reader-icon-mini[data-uchisen-action="next"],
+.jpdb-reader-icon-mini[data-action="kanji-prev"],
+.jpdb-reader-icon-mini[data-action="kanji-next"] {
+  font-size: 19px;
+  line-height: 0;
+  padding-bottom: 2px !important;
 }

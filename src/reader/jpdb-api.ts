@@ -15,7 +15,7 @@ export class JpdbApiClient {
         return this.requestByUrl(`${API_BASE}/${endpoint}`, body);
     }
 
-    async requestByUrl<T>(url: string, body?: Record<string, unknown>): Promise<T> {
+    async requestByUrl<T>(url: string, body?: Record<string, unknown>, options: { response?: 'json' | 'none' } = {}): Promise<T> {
         const token = this.getApiKey();
         const endpoint = endpointLabel(url);
         if (!token) {
@@ -45,7 +45,7 @@ export class JpdbApiClient {
             log.warn('JPDB request failed', { endpoint, status: response.status });
             throw new Error(`JPDB request failed (${response.status}).`);
         }
-        if (!response.text) return undefined as T;
+        if (options.response === 'none' || !response.text) return undefined as T;
 
         const json = JSON.parse(response.text) as T | { error_message?: string };
         if (json && typeof json === 'object' && 'error_message' in json && json.error_message) {

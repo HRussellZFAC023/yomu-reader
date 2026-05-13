@@ -54,7 +54,10 @@ export function bootReaderApp(): void {
             }
         });
     }
-    void app.init().catch(error => {
+    void app.init({
+        isDemo: !isRealRuntime,
+        showWelcome: runtimeKind === 'userscript',
+    }).catch(error => {
         releaseYomuRuntime(ownerId);
         log.error('Initialization failed', error);
         throw error;

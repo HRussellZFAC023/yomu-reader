@@ -1,12 +1,29 @@
 # Support
 
-よむ is free. Donations are optional, but they genuinely matter: they help cover testing devices, services, and maintenance time.
+## Useful Pages
 
-<div class="yomu-callout">
-  <strong>Feature request promise:</strong> if you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within the project’s scope.
+<div class="yomu-link-grid">
+  <a class="yomu-link-card" href="video-player/index.html">
+    <strong>Video Player</strong>
+    <span>Open local browser-supported video and subtitle files in the hosted player.</span>
+  </a>
+  <a class="yomu-link-card" href="newtab/index.html">
+    <strong>New Tab</strong>
+    <span>Use the よむ study screen for JPDB, Anki, or imported dictionary cards.</span>
+  </a>
+  <a class="yomu-link-card" href="./">
+    <strong>Docs</strong>
+    <span>Return to the main documentation hub for setup, features, and changelog pages.</span>
+  </a>
 </div>
 
-## Links
+## Support
+
+よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.
+
+Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Even a small donation helps bring that future closer, and it also encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.
+
+## Project Links
 
 - Install userscript: [dist/yomu.user.js](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
 - Source code: [GitHub repository](https://github.com/HRussellZFAC023/yomu-reader)

@@ -58,6 +58,6 @@ export class ObjectUrlCache {
         if (!entry) return;
         if (entry.timeoutId !== undefined) window.clearTimeout(entry.timeoutId);
         this.entries.delete(key);
-        if (entry.url) URL.revokeObjectURL(entry.url);
+        if (entry.url?.startsWith('blob:')) URL.revokeObjectURL(entry.url);
     }
 }

@@ -46,7 +46,13 @@ export type AnkiTemplateMode = 'recognition' | 'context';
 
 export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
 
+export type NewTabJpdbReviewMode = 'auto' | 'api-vocabulary' | 'live-review';
+
+export type NewTabKanjiKeywordSource = 'auto' | 'rtk' | 'jpdb' | 'local';
+
 export type WordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
+
+export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
 
 export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' | 'off';
 
@@ -92,6 +98,11 @@ export interface JPDBCard {
     pitchAccent: string[];
     wordWithReading: string | null;
     source?: 'jpdb' | 'local' | 'anki' | 'fallback';
+    sentence?: string;
+    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'anki' | 'dictionary';
+    ankiCardId?: number;
+    jpdbReviewId?: string;
+    kanjiKeyword?: string;
 }
 
 export interface JPDBDeck {
@@ -153,6 +164,18 @@ export interface ReaderSettings {
     wordColorDue: string;
     wordColorFailed: string;
     wordColorIgnored: string;
+    pitchColorHeiban: string;
+    pitchColorAtamadaka: string;
+    pitchColorNakadaka: string;
+    pitchColorOdaka: string;
+    pitchColorKifuku: string;
+    pitchColorUnknown: string;
+    wordHighlightColorSource: ReaderColorSource;
+    wordUnderlineColorSource: ReaderColorSource;
+    wordTextColorSource: ReaderColorSource;
+    subtitleHighlightColorSource: ReaderColorSource;
+    subtitleUnderlineColorSource: ReaderColorSource;
+    subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
     jpdbDefinitionsPriority: number;
     jpdbExtensionsEnabled: boolean;
@@ -160,12 +183,17 @@ export interface ReaderSettings {
     jpdbRtkEnabled: boolean;
     jpdbImmersionKitEnabled: boolean;
     jpdbImmersionKitAutoPlayReviewAudio: boolean;
+    jpdbWordAudioAutoPlayReviewAudio: boolean;
     jpdbLocalDictionariesEnabled: boolean;
     jpdbReviewUiEnabled: boolean;
     jpdbAutoRevealSentenceEnabled: boolean;
     jpdbKanjiDoodleEnabled: boolean;
+    jpdbKanjiAutogradeEnabled: boolean;
+    jpdbPageParsingEnabled: boolean;
     jpdbKanjiEnabled: boolean;
     jpdbKanjiPriority: number;
+    uchisenEnabled: boolean;
+    uchisenPriority: number;
     rtkEnabled: boolean;
     rtkPriority: number;
     kanjivgEnabled: boolean;
@@ -197,9 +225,11 @@ export interface ReaderSettings {
     immersionKitSort: ImmersionKitSort;
     immersionKitExactMatch: boolean;
     immersionKitShowTranslation: boolean;
+    immersionKitRevealTranslationOnClick: boolean;
     immersionKitShowImages: boolean;
     immersionKitAutoPlayAudio: boolean;
     immersionKitPlayOnHover: boolean;
+    immersionKitPlayOnImageClick: boolean;
     immersionKitPlaybackRate: number;
     parseSelection: boolean;
     lookupOnClick: boolean;
@@ -215,6 +245,13 @@ export interface ReaderSettings {
     newTabEnabled: boolean;
     newTabSource: NewTabWordSource;
     newTabJpdbDeck: string;
+    newTabJpdbReviewMode: NewTabJpdbReviewMode;
+    newTabKanjiKeywordSource: NewTabKanjiKeywordSource;
+    newTabParsingEnabled: boolean;
+    newTabOfflineEnabled: boolean;
+    newTabOfflineLimit: number;
+    newTabKanjiAutogradeEnabled: boolean;
+    newTabKanjiAutoSubmit: boolean;
     puckPositionX?: number;
     puckPositionY?: number;
     showFurigana: boolean;
@@ -349,6 +386,7 @@ declare global {
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);
     const GM_getValue: undefined | (<T>(key: string, defaultValue: T) => T | Promise<T>);
     const GM_deleteValue: undefined | ((key: string) => void | Promise<void>);
+    const GM_listValues: undefined | (() => string[] | Promise<string[]>);
     const GM_addStyle: undefined | ((css: string) => void);
     const GM_registerMenuCommand: undefined | ((name: string, fn: () => void) => void);
 }

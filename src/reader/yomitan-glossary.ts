@@ -103,7 +103,7 @@ export function renderDictionaryScopedStyles(dictionaries: YomitanDictionaryInfo
         .map(dictionary => {
             const styles = dictionary.styles?.trim();
             if (!styles) return '';
-            return `${dictionaryScopeSelector(dictionary.title)} {\n${styles}\n}`;
+            return scopeDictionaryStyles(styles, dictionaryScopeSelector(dictionary.title));
         })
         .filter(Boolean)
         .join('\n');
@@ -292,6 +292,25 @@ function camelToKebabCase(value: string): string {
 
 function dictionaryScopeSelector(dictionary: string): string {
     return `[data-dictionary="${dictionary.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+}
+
+function scopeDictionaryStyles(styles: string, scope: string): string {
+    return styles
+        .split('}')
+        .map(block => {
+            const [selectorText, ...declarationParts] = block.split('{');
+            const declarations = declarationParts.join('{').trim();
+            if (!selectorText?.trim() || !declarations) return '';
+            const selector = selectorText.trim();
+            if (selector.startsWith('@')) return `${selector} { ${declarations} }`;
+            const scopedSelectors = selector
+                .split(',')
+                .map(part => `${scope} ${part.trim()}`)
+                .join(', ');
+            return `${scopedSelectors} { ${declarations} }`;
+        })
+        .filter(Boolean)
+        .join('\n');
 }
 
 function escapeHtml(value: string): string {

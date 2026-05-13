@@ -1,14 +1,15 @@
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
+import { createPageMediaUrl } from './page-media-url';
 import type { ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
 const API_BASE = 'https://apiv2.immersionkit.com';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
-const NAVIGATION_EXAMPLE_LIMIT = 24;
+const SEARCH_EXAMPLE_LIMIT = 250;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
-const DEFAULT_EXAMPLE_SORT = 'random';
+const DEFAULT_EXAMPLE_SORT = 'sentence_length:asc';
 const log = Logger.scope('ImmersionKit');
 
 // Immersion Kit media paths use these canonical deck titles, while search results only include slugs.
@@ -136,7 +137,7 @@ export class ImmersionKitClient {
 
         const cacheKey = JSON.stringify({
             query,
-            limit: Math.max(settings.immersionKitLimit, NAVIGATION_EXAMPLE_LIMIT),
+            limit: SEARCH_EXAMPLE_LIMIT,
             min: this.minimumSentenceLength(settings),
             max: settings.immersionKitMaxLength,
             category: settings.immersionKitCategory,
@@ -154,10 +155,9 @@ export class ImmersionKitClient {
             return inflight;
         }
 
-        const resultLimit = Math.max(settings.immersionKitLimit, NAVIGATION_EXAMPLE_LIMIT);
         const params = new URLSearchParams({
             q: query,
-            limit: String(resultLimit * 4),
+            limit: String(SEARCH_EXAMPLE_LIMIT),
             sort: this.apiSort(settings),
         });
         if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
@@ -170,12 +170,10 @@ export class ImmersionKitClient {
                     .map(normalizeExample)
                     .filter((example): example is ImmersionKitExample => Boolean(example))
                     .filter(example => sentenceLength(example.sentence) >= this.minimumSentenceLength(settings))
-                    .filter(example => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength);
+                    .filter(example => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength)
+                    .filter(example => !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query));
 
-                const ordered = this.effectiveSort(settings) === 'random'
-                    ? shuffle(examples)
-                    : examples;
-                const result = ordered.slice(0, resultLimit);
+                const result = examples;
                 this.cache.set(cacheKey, result);
                 log.debug('Search completed', { query, rawExamples: examples.length, returned: result.length });
                 return result;
@@ -189,12 +187,12 @@ export class ImmersionKitClient {
     }
 
     private effectiveSort(settings: ReaderSettings): string {
-        return settings.immersionKitSort === 'sentence_length:asc' ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
+        return settings.immersionKitSort === 'random' ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
     }
 
     private apiSort(settings: ReaderSettings): string {
         const sort = this.effectiveSort(settings);
-        return sort === 'random' ? 'sentence_length:asc' : sort;
+        return sort;
     }
 
     private minimumSentenceLength(settings: ReaderSettings): number {
@@ -262,8 +260,8 @@ export class ImmersionKitClient {
         const key = urls.join('\u0001');
         return this.mediaBlobUrlCache.getOrCreate(key, async () => {
             const blob = await requestFirstBlob(url, timeoutMs);
-            const blobUrl = URL.createObjectURL(blob);
-            log.debug('Blob URL created', { host: safeHost(url), size: blob.size, type: blob.type });
+            const blobUrl = await createPageMediaUrl(blob);
+            log.debug('Media URL created', { host: safeHost(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith('data:') });
             return blobUrl;
         });
     }
@@ -386,13 +384,18 @@ function sentenceLength(sentence: string): number {
     return Array.from(sentence.replace(/\s+/g, '')).length;
 }
 
-function shuffle<T>(items: T[]): T[] {
-    const shuffled = [...items];
-    for (let index = shuffled.length - 1; index > 0; index--) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
-        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
+function requiresSurfaceMatch(query: string): boolean {
+    return /[0-9０-９]/u.test(query);
+}
+
+function sentenceContainsQuery(sentence: string, query: string): boolean {
+    const normalizedSentence = normalizeForSurfaceMatch(sentence);
+    const normalizedQuery = normalizeForSurfaceMatch(query);
+    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
+}
+
+function normalizeForSurfaceMatch(value: string): string {
+    return value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 }
 
 function requestJson(url: string, timeoutMs: number): Promise<unknown> {
@@ -426,6 +429,10 @@ function requestJson(url: string, timeoutMs: number): Promise<unknown> {
             return;
         }
 
+        if (!canUsePageFetch(url)) {
+            reject(new Error('Immersion Kit search needs the Yomu userscript request bridge.'));
+            return;
+        }
         log.debug('JSON request via fetch', { host: safeHost(url) });
         fetch(url, { credentials: 'omit' })
             .then(response => {
@@ -467,6 +474,10 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
             return;
         }
 
+        if (!canUsePageFetch(url)) {
+            reject(new Error('Immersion Kit media needs the Yomu userscript request bridge.'));
+            return;
+        }
         log.debug('Media request via fetch', { host: safeHost(url) });
         fetch(url, { credentials: 'omit' })
             .then(response => {
@@ -479,6 +490,15 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
             })
             .then(resolve, reject);
     });
+}
+
+function canUsePageFetch(url: string): boolean {
+    try {
+        const target = new URL(url, location.href);
+        return target.origin === location.origin || ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+    } catch {
+        return false;
+    }
 }
 
 async function requestFirstBlob(urls: string | string[], timeoutMs: number): Promise<Blob> {

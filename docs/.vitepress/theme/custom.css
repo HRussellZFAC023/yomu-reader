@@ -17,7 +17,7 @@
   --vp-button-alt-border: rgba(20, 30, 45, .18);
   --vp-button-alt-bg: #eef1f4;
   --vp-button-alt-hover-bg: #e3e8ed;
-  --vp-home-hero-name-color: #25573d;
+  --vp-home-hero-name-color: var(--vp-c-brand-2);
 }
 
 .dark {
@@ -45,7 +45,13 @@
 }
 
 .VPImage.logo {
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
+}
+
+.VPNavBarTitle .title {
+  font-weight: 900;
 }
 
 .VPHomeHero .image img {
@@ -158,9 +164,39 @@
   line-height: 1.55;
 }
 
+.yomu-link-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 26px;
+}
+
+.yomu-link-card {
+  display: grid;
+  gap: 6px;
+  min-height: 118px;
+  padding: 16px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+  text-decoration: none !important;
+}
+
+.yomu-link-card strong {
+  color: var(--vp-c-text-1);
+  font-size: 16px;
+}
+
+.yomu-link-card span {
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 @media (max-width: 820px) {
   .yomu-shot-grid,
-  .yomu-platform-list {
+  .yomu-platform-list,
+  .yomu-link-grid {
     grid-template-columns: 1fr;
   }
 }

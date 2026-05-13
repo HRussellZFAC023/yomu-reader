@@ -1,6 +1,7 @@
 import { APP_REPOSITORY_NAME } from './constants';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
+import { gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { CardState, JPDBCard, NewTabWordSource } from './types';
 
 const log = Logger.scope('NewTab');
@@ -8,6 +9,7 @@ const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
 const STATE_CHANNEL_NAME = 'jpdb-reader-newtab-ui';
 
 export interface NewTabPalette {
+    accent: string;
     background: string;
     backgroundText: string;
     surface: string;
@@ -82,17 +84,18 @@ export function isYomuNewTabUrl(value: string): boolean {
 }
 
 export function buildNewTabPalette(accentColor: string): NewTabPalette {
-    const background = sanitizeAccentColor(accentColor);
+    const accent = sanitizeAccentColor(accentColor);
+    const background = mixHex('#f6f8f5', accent, 0.08);
     const backgroundText = readableOn('#141b17', background, 4.5);
     const surface = '#fbfcf8';
     const surfaceText = '#15171c';
-    const accentText = readableOn(background, surface, 4.5);
-    const border = hexToRgba(mixHex(background, '#ffffff', 0.52), 0.68);
-    const softBorder = hexToRgba(mixHex(background, '#15171c', 0.18), 0.24);
-    const surfaceMuted = mixHex(surface, background, 0.08);
+    const accentText = readableOn(accent, surface, 4.5);
+    const border = hexToRgba(mixHex(accent, '#15171c', 0.36), 0.24);
+    const softBorder = hexToRgba(mixHex(accent, '#15171c', 0.18), 0.18);
+    const surfaceMuted = mixHex(surface, accent, 0.05);
     const shadow = 'rgba(18, 28, 23, .20)';
-    const palette = { background, backgroundText, surface, surfaceText, accentText, border, softBorder, surfaceMuted, shadow };
-    log.debug('Built new tab palette', { accentColor: background, backgroundText, accentText });
+    const palette = { accent, background, backgroundText, surface, surfaceText, accentText, border, softBorder, surfaceMuted, shadow };
+    log.debug('Built new tab palette', { accentColor: accent, background, backgroundText, accentText });
     return palette;
 }
 
@@ -143,8 +146,7 @@ export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | un
 
 export function loadNewTabUiState(): NewTabUiState {
     try {
-        const raw = localStorage.getItem(STATE_STORAGE_KEY);
-        return normalizeNewTabUiState(raw ? JSON.parse(raw) as Partial<NewTabUiState> : null);
+        return normalizeNewTabUiState(gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null));
     } catch {
         return { ...DEFAULT_NEW_TAB_UI_STATE };
     }
@@ -152,7 +154,7 @@ export function loadNewTabUiState(): NewTabUiState {
 
 export function hasSavedNewTabUiState(): boolean {
     try {
-        return localStorage.getItem(STATE_STORAGE_KEY) !== null;
+        return gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null) !== null;
     } catch {
         return false;
     }
@@ -160,7 +162,7 @@ export function hasSavedNewTabUiState(): boolean {
 
 export function saveNewTabUiState(state: NewTabUiState): void {
     try {
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(normalizeNewTabUiState(state)));
+        gmStorageSetSync(STATE_STORAGE_KEY, normalizeNewTabUiState(state));
     } catch {
         // Storage may be blocked in hardened browser contexts; the page still works in memory.
     }
@@ -222,7 +224,7 @@ function matchesFilter(card: JPDBCard, filter: NewTabFilter): boolean {
     if (filter === 'study') {
         return card.source === 'local'
             || card.source === 'anki'
-            || card.cardState.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'known' || state === 'not-in-deck');
+            || card.cardState.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'not-in-deck');
     }
     return card.cardState.includes(filter);
 }

@@ -96,7 +96,7 @@
   overflow: visible;
 }
 .jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child {
-  border-top: 0;
+  border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title {
   display: flex;
@@ -154,6 +154,9 @@
   border-radius: 7px;
   background: var(--jpdb-reader-surface);
   padding: 6px;
+}
+.jpdb-reader-kanji > .jpdb-reader-local-entry + .jpdb-reader-local-entry {
+  margin-top: 6px;
 }
 .jpdb-reader-local-terms {
   display: grid;

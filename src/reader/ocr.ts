@@ -42,6 +42,7 @@ interface OcrControllerOptions {
     parseJapanese: (text: string) => Promise<JPDBToken[]>;
     onLookup: LookupText;
     onToast: (message: string) => void;
+    shouldAutoScan?: () => boolean;
 }
 
 const MAX_CACHE_ITEMS = 36;
@@ -75,25 +76,35 @@ export class ImageOcrController {
     init(): void {
         this.refresh();
         window.addEventListener('scroll', () => {
+            if (!this.options.getSettings().ocrEnabled) return;
             this.schedulePosition();
             this.scheduleRefresh(240);
         }, { passive: true });
         window.addEventListener('resize', () => {
+            if (!this.options.getSettings().ocrEnabled) return;
             this.schedulePosition();
             this.scheduleRefresh(300);
         }, { passive: true });
         this.mutationObserver = new MutationObserver(mutations => {
+            const settings = this.options.getSettings();
+            if (!settings.ocrEnabled || !settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false) return;
             if (mutations.some(mutation => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
         });
         this.mutationObserver.observe(document.body, { childList: true, subtree: true });
         log.info('OCR controller initialized');
     }
 
-    refresh(): void {
+    refresh(options: { userRequested?: boolean } = {}): void {
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) {
             this.clear();
             log.debug('OCR disabled; cleared overlays');
+            return;
+        }
+        const hasEmbeddedOcr = Array.from(document.images).some(hasFallbackOcrMetadata);
+        if (!options.userRequested && !hasEmbeddedOcr && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false)) {
+            this.clear();
+            log.debugThrottled('refresh-skipped', 5000, 'OCR auto-scan skipped until Japanese text appears');
             return;
         }
 
@@ -121,7 +132,7 @@ export class ImageOcrController {
     }
 
     async scanVisible(): Promise<void> {
-        this.refresh();
+        this.refresh({ userRequested: true });
         const images = [...this.states.keys()].filter(image => isNearViewport(image, 120));
         if (!images.length) {
             log.debug('Manual OCR scan found no nearby images');
@@ -1000,6 +1011,10 @@ function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): 
     if (settings.ocrProvider === 'local-service') return Boolean(settings.ocrEndpointUrl.trim());
     if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
     return settings.ocrProvider === 'google-lens';
+}
+
+function hasFallbackOcrMetadata(image: HTMLImageElement): boolean {
+    return Boolean(readFallbackOcrResult(image, false));
 }
 
 function isNearViewport(element: Element, margin: number): boolean {

@@ -1,5 +1,6 @@
 import type { ImmersionKitExample } from './immersion-kit';
 import { Logger } from './logger';
+import { gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { ReaderSettings } from './types';
 
 const CONTEXT_PREFIX = 'yomu-mining-context:';
@@ -160,7 +161,7 @@ export function saveMiningContext(term: string, context: MiningContextDraft): St
     }
 
     try {
-        localStorage.setItem(contextStorageKey(stored.term), JSON.stringify(stored));
+        gmStorageSetSync(contextStorageKey(stored.term), stored);
         log.debug('Mining context saved', { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
     } catch (error) {
         log.warn('Mining context save failed', { term: stored.term, sourceKind: stored.sourceKind, error });
@@ -173,12 +174,12 @@ export function loadMiningContext(term: string): StoredMiningContext | null {
     const normalized = term.trim();
     if (!normalized) return null;
     try {
-        const raw = localStorage.getItem(contextStorageKey(normalized));
-        if (!raw) {
+        const stored = gmStorageGetSync<StoredMiningContext | null>(contextStorageKey(normalized), null);
+        if (!stored) {
             log.debug('Mining context cache miss', { term: normalized });
             return null;
         }
-        const context = parseStoredMiningContext(JSON.parse(raw), normalized);
+        const context = parseStoredMiningContext(stored, normalized);
         log.debug('Mining context cache read', { term: normalized, hit: Boolean(context), sourceKind: context?.sourceKind });
         return context;
     } catch (error) {

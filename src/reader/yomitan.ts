@@ -1285,9 +1285,14 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
         });
     }
 
+    const downloadUrl = dictionaryDownloadUrl(url);
+    if (!isFetchableDictionaryUrl(downloadUrl)) {
+        done();
+        throw new Error('Dictionary download needs the Yomu userscript. Install Yomu, or import a local Yomitan ZIP from Settings.');
+    }
+
     let response: Response;
     try {
-        const downloadUrl = dictionaryDownloadUrl(url);
         log.debug('Dictionary download using fetch', { host: safeHost(url), proxied: downloadUrl !== url });
         response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
     } catch (error) {
@@ -1320,6 +1325,15 @@ function dictionaryDownloadUrl(url: string): string {
 
 function isLoopbackPage(): boolean {
     return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+}
+
+function isFetchableDictionaryUrl(url: string): boolean {
+    if (isLoopbackPage()) return true;
+    try {
+        return new URL(url, location.href).origin === location.origin;
+    } catch {
+        return false;
+    }
 }
 
 function splitTags(value: unknown): string[] {

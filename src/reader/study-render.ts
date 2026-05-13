@@ -1,6 +1,6 @@
 import { escapeHtml, setInnerHtml } from './dom';
 import { Logger } from './logger';
-import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from './study-tools';
+import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence } from './study-tools';
 
 const log = Logger.scope('StudyRender');
 
@@ -28,4 +28,28 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     }
     setInnerHtml(panel, renderGrammarHints(hints, sentence));
     done();
+}
+
+export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string): boolean {
+    if (!sentence) return false;
+    if (button.dataset.action === 'study-grammar-toggle-known') {
+        const ruleId = button.dataset.grammarRuleId;
+        if (!ruleId) return false;
+        setGrammarRuleKnown(ruleId, button.dataset.grammarKnown !== 'true');
+        rerenderGrammarPanel(button, sentence);
+        return true;
+    }
+    if (button.dataset.action === 'study-grammar-toggle-known-visibility') {
+        setKnownGrammarVisible(button.getAttribute('aria-pressed') !== 'true');
+        rerenderGrammarPanel(button, sentence);
+        return true;
+    }
+    return false;
+}
+
+function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string): void {
+    const panel = button.closest<HTMLElement>('.jpdb-reader-study-panel');
+    if (!panel) return;
+    const hints = detectGrammarHints(sentence);
+    setInnerHtml(panel, renderGrammarHints(hints, sentence));
 }

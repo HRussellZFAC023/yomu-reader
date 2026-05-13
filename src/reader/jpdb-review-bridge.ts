@@ -1,0 +1,294 @@
+import { parseJpdbReviewCardValue } from './jpdb-page-targets';
+import type { JPDBGrade } from './types';
+
+export const JPDB_REVIEW_BRIDGE_CHANNEL = 'yomu-jpdb-review-bridge';
+
+export interface JpdbReviewBridgeCard {
+    id: string;
+    kind: 'vocabulary' | 'kanji';
+    phase: 'front' | 'back';
+    prompt: string;
+    answer: string;
+    spelling: string;
+    reading: string;
+    sentence: string;
+    kanji: string;
+    keyword: string;
+    itemsLeft: number | null;
+    href: string;
+}
+
+export interface JpdbReviewBridgeStatus {
+    connected: boolean;
+    loginRequired: boolean;
+    card: JpdbReviewBridgeCard | null;
+    message: string;
+}
+
+type BridgeMessage =
+    | { type: 'request-current'; source: 'newtab' }
+    | { type: 'command'; source: 'newtab'; command: 'reveal' }
+    | { type: 'command'; source: 'newtab'; command: 'grade'; grade: JPDBGrade }
+    | { type: 'status'; source: 'jpdb'; status: JpdbReviewBridgeStatus };
+
+export interface JpdbReviewBridgeClient {
+    latestStatus(): JpdbReviewBridgeStatus;
+    requestCurrent(): void;
+    reveal(): void;
+    grade(grade: JPDBGrade): void;
+    onUpdate(listener: (status: JpdbReviewBridgeStatus) => void): () => void;
+    close(): void;
+}
+
+const EMPTY_STATUS: JpdbReviewBridgeStatus = {
+    connected: false,
+    loginRequired: false,
+    card: null,
+    message: 'Open JPDB review in another tab to use live reviews.',
+};
+
+export function createJpdbReviewBridgeClient(): JpdbReviewBridgeClient {
+    if (typeof BroadcastChannel !== 'function') {
+        return {
+            latestStatus: () => EMPTY_STATUS,
+            requestCurrent: () => undefined,
+            reveal: () => undefined,
+            grade: () => undefined,
+            onUpdate: () => () => undefined,
+            close: () => undefined,
+        };
+    }
+
+    const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
+    const listeners = new Set<(status: JpdbReviewBridgeStatus) => void>();
+    let latest = EMPTY_STATUS;
+    channel.onmessage = event => {
+        const message = event.data as Partial<BridgeMessage> | null;
+        if (!message || message.source !== 'jpdb' || message.type !== 'status') return;
+        latest = normalizeStatus(message.status);
+        listeners.forEach(listener => listener(latest));
+    };
+
+    const post = (message: BridgeMessage) => channel.postMessage(message);
+    return {
+        latestStatus: () => latest,
+        requestCurrent: () => post({ type: 'request-current', source: 'newtab' }),
+        reveal: () => post({ type: 'command', source: 'newtab', command: 'reveal' }),
+        grade: grade => post({ type: 'command', source: 'newtab', command: 'grade', grade }),
+        onUpdate(listener) {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+        },
+        close: () => channel.close(),
+    };
+}
+
+export function initJpdbReviewPageBridge(): void {
+    if (typeof BroadcastChannel !== 'function') return;
+    if (location.hostname !== 'jpdb.io' || !location.pathname.startsWith('/review')) return;
+
+    const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
+    const publish = () => {
+        channel.postMessage({
+            type: 'status',
+            source: 'jpdb',
+            status: parseJpdbReviewDocument(document, location.href),
+        } satisfies BridgeMessage);
+    };
+    const schedulePublish = debounce(publish, 160);
+    channel.onmessage = event => {
+        const message = event.data as Partial<BridgeMessage> | null;
+        if (!message || message.source !== 'newtab') return;
+        if (message.type === 'request-current') {
+            publish();
+            return;
+        }
+        if (message.type !== 'command') return;
+        if (message.command === 'reveal') clickRevealControl();
+        if (message.command === 'grade' && message.grade) clickGradeControl(message.grade);
+        window.setTimeout(publish, 300);
+        window.setTimeout(publish, 900);
+    };
+
+    new MutationObserver(schedulePublish).observe(document.body, { childList: true, subtree: true, attributes: true });
+    publish();
+}
+
+export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBridgeStatus {
+    const url = safeUrl(href);
+    const cardValue = url?.searchParams.get('c')
+        ?? doc.querySelector<HTMLInputElement>('input[name="c"]')?.value
+        ?? '';
+    const response = url?.searchParams.get('r')
+        ?? doc.querySelector<HTMLInputElement>('input[name="r"]')?.value
+        ?? null;
+    const cardState = parseJpdbReviewCardValue(cardValue, response);
+    const loginRequired = Boolean(doc.querySelector('form[action*="/login"], input[name="password"], a[href^="/login"]'));
+    if (loginRequired) {
+        return { connected: true, loginRequired: true, card: null, message: 'Log in to JPDB, then open /review again.' };
+    }
+
+    const kindLabel = cleanText(doc.querySelector<HTMLElement>('.kind')?.textContent ?? '');
+    const sentenceElement = doc.querySelector<HTMLElement>('.card-sentence .sentence, .sentence, .plain');
+    const sentence = cleanText(sentenceElement?.textContent ?? '');
+    const highlighted = cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? '');
+    const kanji = cardState.kanji || firstKanji(doc.querySelector<HTMLElement>('.kanji, a.kanji.plain')?.textContent ?? '');
+    const isKanji = cardState.isKanji || /kanji/i.test(kindLabel) || Boolean(kanji && !highlighted && doc.querySelector('.kanji'));
+    const phase = cardState.phase === 'after' || url?.searchParams.has('r') || Boolean(doc.querySelector('.review-hidden, .answer-box'))
+        ? 'back'
+        : 'front';
+    const keyword = sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? '');
+    const spelling = isKanji ? kanji : highlighted || firstJapaneseRun(sentence) || cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '');
+    const prompt = isKanji ? keyword || cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '') || kanji : sentence || spelling;
+    const answer = isKanji ? kanji : spelling;
+    if (!spelling && !kanji && !cardValue) {
+        return { connected: true, loginRequired: false, card: null, message: 'JPDB review is open but no review card was detected.' };
+    }
+
+    return {
+        connected: true,
+        loginRequired: false,
+        message: '',
+        card: {
+            id: cardValue || `${spelling}:${readingFromDocument(doc)}`,
+            kind: isKanji ? 'kanji' : 'vocabulary',
+            phase,
+            prompt,
+            answer,
+            spelling: spelling || kanji,
+            reading: isKanji ? '' : readingFromDocument(doc),
+            sentence,
+            kanji,
+            keyword,
+            itemsLeft: itemsLeft(doc),
+            href,
+        },
+    };
+}
+
+function clickRevealControl(): void {
+    const direct = findControl(['reveal', 'show answer', 'answer']);
+    if (direct) {
+        direct.click();
+        return;
+    }
+    const form = Array.from(document.querySelectorAll<HTMLFormElement>('form'))
+        .find(item => item.innerHTML.includes('name="r"') || item.action.includes('/review'));
+    const submit = form?.querySelector<HTMLElement>('button, input[type="submit"]');
+    if (submit) submit.click();
+    else form?.requestSubmit?.();
+}
+
+function clickGradeControl(grade: JPDBGrade): void {
+    const terms = gradeTerms(grade);
+    const control = findControl(terms);
+    if (control) {
+        control.click();
+        return;
+    }
+    const form = Array.from(document.querySelectorAll<HTMLFormElement>('form'))
+        .find(item => terms.some(term => formText(item).includes(term)));
+    const submit = form?.querySelector<HTMLElement>('button, input[type="submit"]');
+    if (submit) submit.click();
+    else form?.requestSubmit?.();
+}
+
+function findControl(terms: string[]): HTMLElement | null {
+    const controls = Array.from(document.querySelectorAll<HTMLElement>('button, input[type="submit"], a[href]'));
+    return controls.find(control => {
+        if (control.closest('[data-yomu-jpdb-addon], [data-jpdb-reader-root]')) return false;
+        const text = formText(control);
+        return terms.some(term => text.includes(term));
+    }) ?? null;
+}
+
+function gradeTerms(grade: JPDBGrade): string[] {
+    switch (grade) {
+        case 'nothing':
+            return ['nothing', 'again', 'forgot'];
+        case 'something':
+            return ['something'];
+        case 'hard':
+            return ['hard'];
+        case 'okay':
+            return ['okay', 'ok', 'good'];
+        case 'easy':
+            return ['easy'];
+        case 'fail':
+            return ['fail', 'nothing', 'again'];
+        case 'pass':
+            return ['pass', 'okay', 'good', 'easy'];
+        default:
+            return [grade];
+    }
+}
+
+function formText(element: HTMLElement): string {
+    const input = element as HTMLInputElement;
+    return cleanText([
+        element.textContent,
+        input.value,
+        input.name,
+        element.getAttribute('aria-label'),
+        element.getAttribute('title'),
+        element.className,
+        element.getAttribute('data-grade'),
+    ].filter(Boolean).join(' ')).toLocaleLowerCase();
+}
+
+function normalizeStatus(value: unknown): JpdbReviewBridgeStatus {
+    if (!value || typeof value !== 'object') return EMPTY_STATUS;
+    const status = value as Partial<JpdbReviewBridgeStatus>;
+    return {
+        connected: Boolean(status.connected),
+        loginRequired: Boolean(status.loginRequired),
+        card: status.card ?? null,
+        message: typeof status.message === 'string' ? status.message : '',
+    };
+}
+
+function sectionText(doc: Document, label: string): string {
+    const heading = Array.from(doc.querySelectorAll<HTMLElement>('.subsection-label'))
+        .find(element => cleanText(element.textContent ?? '').toLocaleLowerCase() === label.toLocaleLowerCase());
+    return cleanText(heading?.parentElement?.querySelector<HTMLElement>('.subsection')?.textContent ?? '');
+}
+
+function readingFromDocument(doc: Document): string {
+    return cleanText(doc.querySelector<HTMLElement>('.plain ruby rt, rt, .reading')?.textContent ?? '');
+}
+
+function itemsLeft(doc: Document): number | null {
+    const text = cleanText(doc.body.textContent ?? '');
+    const match = /items?\s+left\s*\((\d+)\)|items?\s+left\s+(\d+)/i.exec(text);
+    if (!match) return null;
+    const value = Number(match[1] ?? match[2]);
+    return Number.isFinite(value) ? value : null;
+}
+
+function firstJapaneseRun(value: string): string {
+    return cleanText(value.match(/[\u3040-\u30ff\u3400-\u9fff々〆ー]+/u)?.[0] ?? '');
+}
+
+function firstKanji(value: string): string {
+    return Array.from(value).find(character => /[\u3400-\u9fff々〆]/u.test(character)) ?? '';
+}
+
+function cleanText(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+}
+
+function safeUrl(value: string): URL | null {
+    try {
+        return value ? new URL(value, location.href) : new URL(location.href);
+    } catch {
+        return null;
+    }
+}
+
+function debounce(callback: () => void, delay: number): () => void {
+    let timer = 0;
+    return () => {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(callback, delay);
+    };
+}

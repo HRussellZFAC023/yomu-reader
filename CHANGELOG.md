@@ -6,6 +6,20 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [0.4.3] - 2026-05-13
+
+### Changed
+
+- Simplified the hosted video page into a single native video host so Yomu's normal subtitle overlay, track picker, transcript sidebar, and mining controls own the full subtitle workflow.
+- Reworked YouTube/local subtitle sidebars around a transcript-first Lines surface, with left/bottom/right placement, auto-scroll, and fullscreen behavior that hides page chrome while keeping Yomu subtitles visible.
+- Pre-warmed parsed subtitle styling and dynamically fit subtitle font size to the actual video bounds to avoid unstyled flashes and overflow.
+
+### Fixed
+
+- Removed the hosted video page's custom file queue, layout sidebar, and Clear button so it no longer behaves like a second video player.
+- Prevented Yomu and YouTube/native captions from displaying at the same time, with a hidden fallback for current-line YouTube captions when timedtext returns no cue list.
+- Stopped idle subtitle/sidebar layout loops from repeatedly writing player styles, and kept the floating puck away from unfocused video surfaces.
+
 ## [0.4.2] - 2026-05-12
 
 ### Added
@@ -13,6 +27,8 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Added richer learner grammar cues for common particles, polite forms, conditionals, negatives, and verb endings, with matched sentence context and guide links.
 - Added local dictionary/new-tab and source-order improvements from the current workspace changes.
 - Added a hosted video-player page for local browser-supported media and subtitle files.
+- Added Uchisen as an ordered kanji-popup source and brought Uchisen, RTK, and stroke practice into JPDB kanji/review surfaces.
+- Added JPDB review reveal word-audio autoplay using よむ's configured Yomitan-compatible audio sources.
 
 ### Changed
 
@@ -21,12 +37,14 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Moved reader styles into the bundled stylesheet path while keeping the userscript self-contained.
 - Tuned default subtitle appearance to be smaller, lighter, and closer to ASB-style captions.
 - Replaced the legacy subtitle-bridge menu action with an Open Video Player action that launches the GitHub Pages player.
+- Renamed the JPDB review sentence toggle to "Auto-reveal review example sentences" and made Immersion Kit reveal audio mutually exclusive with よむ word reveal audio.
 
 ### Fixed
 
 - Removed the misleading “Pattern hints are best guesses from the full sentence shape.” note and the redundant grammar cue count.
 - Tightened grammar matching so forms such as `読みました` and `確認できます` show cleaner “Found in” text and `できます` is not mistaken for the particle `で`.
 - Prevented detected page captions from stacking artificial DOM line breaks, and expanded the subtitle backing/shadow so furigana stays visually covered.
+- Cleared JPDB Immersion Kit reveal audio automatically when the global or JPDB Immersion Kit add-ons are disabled.
 
 ## [0.4.1] - 2026-05-12
 

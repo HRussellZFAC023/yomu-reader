@@ -1315,7 +1315,23 @@ async function auditNewTabDictionaryFallback(browser, server) {
         if (message.type() === 'error') consoleErrors.push(message.text());
     });
     page.on('pageerror', error => pageErrors.push(error.message));
-    await page.goto(`${server.origin}/newtab/index.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}/newtab/index.html?static=1`, { waitUntil: 'domcontentloaded' });
+    await waitForAudit(page, () => {
+        const body = document.body.textContent ?? '';
+        return body.includes('Start with a dictionary')
+            && body.includes('Add dictionary')
+            && !body.includes('Loading...')
+            && !document.querySelector('[data-newtab-card]');
+    }, 4000, 'new-tab first-run setup state did not render');
+    const setupSnapshot = await page.evaluate(() => ({
+        hasLoadDictionary: Boolean(document.querySelector('[data-newtab-action="load-dictionary"]')),
+        hasConnectJpdb: Boolean(document.querySelector('[data-newtab-action="connect-jpdb"]')),
+        hasSettings: Boolean(document.querySelector('[data-newtab-action="settings"]')),
+        body: document.body.textContent ?? '',
+    }));
+    assertAudit(setupSnapshot.hasLoadDictionary && setupSnapshot.hasConnectJpdb && setupSnapshot.hasSettings, `new-tab setup actions are missing: ${JSON.stringify(setupSnapshot)}`);
+    assertAudit(!/今日|今朝|今週|読む/.test(setupSnapshot.body), 'first-run new-tab setup rendered hardcoded dictionary words before the user loaded a dictionary');
+
     await seedLocalKanjiDictionaries(page);
     await injectUserscript(page);
     await waitForAudit(page, () => {
@@ -1346,12 +1362,12 @@ async function auditNewTabDictionaryFallback(browser, server) {
     assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.status.includes('Dictionaries'), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.settingsButton === 'Settings', 'new-tab settings button is missing');
-    assertAudit(!/off|warning|No dictionary enabled/i.test(snapshot.body), 'new-tab still shows old warning/off copy');
+    assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
     assertAudit(!consoleErrors.length && !pageErrors.length, `new-tab produced browser errors: ${JSON.stringify({ consoleErrors, pageErrors })}`);
     await assertAccessibleSurface(page, 'new-tab dictionary fallback', '.jpdb-reader-newtab');
     await page.screenshot({ path: path.join(ARTIFACTS, 'newtab-dictionary.png'), fullPage: false });
     await page.close();
-    record('new-tab dictionary fallback', 'pass', 'auto-enables and renders top local dictionary words without setup warnings');
+    record('new-tab dictionary fallback', 'pass', 'first-run setup is explicit, then seeded local dictionaries render without setup warnings');
 }
 
 async function auditBloomeeAutoScan(browser) {
@@ -1457,7 +1473,17 @@ async function assertTodayKanjiDrilldown(page) {
     assertAudit(/KANJIDIC|now|day|sun|book|read/.test(kanjiSnapshot.localKanjiText), 'local kanji dictionary section is missing');
     assertAudit(kanjiSnapshot.similarWords > 0, 'kanji drilldown did not show JPDB used-in words');
     await assertAccessibleSurface(page, 'hover lookup kanji drilldown', '.jpdb-reader-popover');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'hover-lookup.png'), fullPage: false });
+    await page.evaluate(() => {
+        const popover = document.querySelector('.jpdb-reader-popover');
+        const stage = document.querySelector('.jpdb-reader-doodle-stage');
+        if (popover instanceof HTMLElement && stage instanceof HTMLElement) {
+            popover.scrollTop = Math.max(0, stage.offsetTop - 92);
+        }
+    });
+    await page.screenshot({
+        path: path.join(ARTIFACTS, 'hover-lookup.png'),
+        clip: { x: 0, y: 0, width: 640, height: 660 },
+    });
 }
 
 async function auditHoverLookup(browser, server) {

@@ -28,19 +28,31 @@
       const params = new URLSearchParams(location.search);
       const apiKey = params.get('apiKey');
       const audioSourceUrl = params.get('audio');
-      if (apiKey) {
+      const enabled = name => params.get(name) === '1' || params.get(name) === 'true';
+      const full = enabled('full');
+      const audioFixtureEnabled = full || enabled('audio') || enabled('autoplay') || Boolean(audioSourceUrl);
+      const immersionFixtureEnabled = full || enabled('immersion') || enabled('immersionImages');
+      let existingSettings = {};
+      try {
+        existingSettings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}') || {};
+      } catch {
+        existingSettings = {};
+      }
+      if (params.get('fixture') !== '0') {
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
-          apiKey,
+          ...existingSettings,
+          apiKey: apiKey || existingSettings.apiKey || '',
           onboardingSeen: true,
           interfaceLanguage: 'auto',
           accentColor: '#5ea780',
+          enableLogging: enabled('logs'),
           jpdbDefinitionsEnabled: true,
           jpdbDefinitionsPriority: 0,
           rtkEnabled: true,
           kanjivgEnabled: true,
           similarKanjiWords: true,
           similarKanjiWordLimit: 8,
-          audioEnabled: true,
+          audioEnabled: audioFixtureEnabled,
           audioSources: audioSourceUrl
             ? [{ type: 'custom-json', url: audioSourceUrl, voice: '', enabled: true }]
             : [
@@ -50,7 +62,7 @@
             ],
           audioEnableDefaultSources: true,
           audioSourceUrl,
-          autoPlayAudio: true,
+          autoPlayAudio: full || enabled('autoplay'),
           audioViaBlob: true,
           audioSelectionMode: 'random',
           parseSelection: true,
@@ -64,8 +76,8 @@
           showFurigana: true,
           showPitchAccent: true,
           hideKnownFurigana: true,
-          ocrEnabled: true,
-          ocrAutoScanImages: true,
+          ocrEnabled: full || enabled('ocr'),
+          ocrAutoScanImages: full || enabled('ocr'),
           ocrShowTextOverlay: false,
           ocrProvider: 'google-lens',
           ocrEndpointUrl: '',
@@ -84,8 +96,8 @@
           localDictionaryMaxResults: 12,
           localDictionaryShowKanji: true,
           dictionaryPreferences: [],
-          subtitlePlayerEnabled: true,
-          subtitleAutoDetect: true,
+          subtitlePlayerEnabled: full || enabled('subtitles'),
+          subtitleAutoDetect: full || enabled('subtitles'),
           subtitleOverlayVisible: true,
           subtitleSecondaryVisible: true,
           subtitleControlsMode: 'auto',
@@ -102,6 +114,11 @@
           youtubeImmersionEnabled: false,
           youtubeShowFilterNotice: true,
           ankiEnabled: false,
+          immersionKitEnabled: immersionFixtureEnabled,
+          immersionKitShowImages: full || enabled('immersionImages'),
+          immersionKitAutoPlayAudio: false,
+          immersionKitPlayOnHover: false,
+          studyTranslationEnabled: full || enabled('translation'),
           ankiConnectUrl: 'http://127.0.0.1:8765',
           ankiDeck: 'Yomu',
           ankiModel: 'Yomu Japanese',

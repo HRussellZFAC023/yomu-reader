@@ -19,7 +19,7 @@ export function createAudioPreviewCard(): JPDBCard {
         vid: 0,
         sid: 0,
         rid: 0,
-        spelling: 'よむ',
+        spelling: '読む',
         reading: 'よむ',
         frequencyRank: null,
         partOfSpeech: [],

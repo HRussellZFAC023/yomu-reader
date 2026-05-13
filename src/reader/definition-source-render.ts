@@ -59,11 +59,13 @@ export function renderKanjiDefinitions(
     entries: YomitanKanjiEntry[],
     sourceAttributes: SourceAttributes,
     dictionaryLabel: DictionaryLabel,
+    sourceId = KANJI_DICTIONARIES_SOURCE_ID,
+    title = 'Kanji dictionaries',
 ): string {
     if (!entries.length) return '';
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(KANJI_DICTIONARIES_SOURCE_ID))}>
-            <summary class="jpdb-reader-local-title">Kanji dictionaries</summary>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             ${entries.map(entry => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">

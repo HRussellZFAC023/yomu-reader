@@ -1,6 +1,6 @@
 import { Logger } from './logger';
 import { primaryCardState } from './card-state';
-import { effectiveFuriganaMode, effectiveWordHighlightMode } from './settings';
+import { effectiveFuriganaMode } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
@@ -207,6 +207,27 @@ export function getSelectionSentence(): string {
 
 export function collectVisibleTextTargets(limit = 40): TextTarget[] {
     return collectTextTargetsIn(document.body, limit, true);
+}
+
+export function documentHasJapaneseText(limit = 200000): boolean {
+    if (!document.body) return false;
+    let inspected = 0;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent || parent.closest(SKIP_SELECTOR) || parent.closest(READER_ROOT_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        },
+    });
+
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        const text = node.textContent ?? '';
+        if (HAS_JAPANESE.test(text)) return true;
+        inspected += text.length;
+        if (inspected >= limit) return false;
+    }
+    return false;
 }
 
 export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: { includeReaderRoot?: boolean } = {}): TextTarget[] {
@@ -575,10 +596,7 @@ function hasDifficultKanji(surface: string): boolean {
 }
 
 function readerWordClassName(state: string, token: JPDBToken, settings: ReaderSettings): string {
-    const classes = ['jpdb-reader-word', `jpdb-${state}`];
-    if (effectiveWordHighlightMode(settings) === 'pitch') {
-        classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
-    }
+    const classes = ['jpdb-reader-word', `jpdb-${state}`, `jpdb-pitch-${safePitchClass(token.pitchClass)}`];
     return classes.join(' ');
 }
 

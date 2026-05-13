@@ -43,7 +43,6 @@
       align-items: center;
       gap: 12px;
     }
-    .jpdb-reader-newtab-brand,
     .jpdb-reader-newtab-overflow {
       width: 40px;
       height: 40px;
@@ -61,9 +60,26 @@
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
     }
+    .jpdb-reader-newtab-brand {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      text-decoration: none;
+    }
     .jpdb-reader-newtab-overflow {
       padding-bottom: 6px;
       font-size: 20px;
+    }
+    .jpdb-reader-newtab-brand img {
+      display: block;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
     }
     .jpdb-reader-newtab-mode {
       justify-self: center;
@@ -184,7 +200,9 @@
   <main class="jpdb-reader-newtab" data-jpdb-reader-root="true" data-standalone-newtab="true">
     <div class="jpdb-reader-newtab-shell">
       <header class="jpdb-reader-newtab-topbar">
-        <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">よむ</a>
+        <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">
+          <img src="../yomu-icon.svg" alt="" width="32" height="32">
+        </a>
         <div class="jpdb-reader-newtab-mode" role="group" aria-label="Study mode">
           <button type="button" data-newtab-action="mode" data-mode="word" data-active="true">Word</button>
           <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
