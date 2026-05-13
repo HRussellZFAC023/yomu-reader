@@ -6,6 +6,12 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [0.4.7] - 2026-05-13
+
+### Changed
+
+- Tuned Help-card spacing and Add button accent color so settings and kanji controls feel calmer and more consistent.
+
 ## [0.4.6] - 2026-05-13
 
 ### Changed
