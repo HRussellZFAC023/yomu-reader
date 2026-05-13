@@ -2,10 +2,17 @@ import { uiText } from './i18n';
 import { Logger } from './logger';
 import type { InterfaceLanguage } from './types';
 
-type DoodlePoint = { x: number; y: number; pressure: number };
+export type DoodlePoint = { x: number; y: number; pressure: number };
+export type DoodleStroke = DoodlePoint[];
+
+export interface KanjiDoodleOptions {
+    onChange?: (strokes: DoodleStroke[]) => void;
+    onClear?: () => void;
+}
+
 const log = Logger.scope('KanjiDoodle');
 
-export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage): void {
+export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage, options: KanjiDoodleOptions = {}): void {
     const stage = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-stage');
     const canvas = popover.querySelector<HTMLCanvasElement>('.jpdb-reader-doodle-canvas');
     const ghost = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
@@ -28,42 +35,51 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     let pointerId = -1;
     let traceVisible = true;
     let points: DoodlePoint[] = [];
-    let strokes: DoodlePoint[][] = [];
+    let strokes: DoodleStroke[] = [];
+    let canvasRect = canvas.getBoundingClientRect();
 
     const resize = () => {
         const rect = stage.getBoundingClientRect();
         dpr = Math.max(window.devicePixelRatio || 1, 1);
         canvas.width = Math.max(1, Math.round(rect.width * dpr));
         canvas.height = Math.max(1, Math.round(rect.height * dpr));
+        canvasRect = canvas.getBoundingClientRect();
         redraw();
         log.debugThrottled('resize', 1000, 'Kanji doodle resized', { width: canvas.width, height: canvas.height, dpr });
     };
 
     const toPoint = (event: PointerEvent): DoodlePoint => {
-        const rect = canvas.getBoundingClientRect();
         return {
-            x: Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(rect.width, 1))),
-            y: Math.max(0, Math.min(1, (event.clientY - rect.top) / Math.max(rect.height, 1))),
+            x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
+            y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
             pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55)),
         };
     };
 
-    const drawStroke = (stroke: DoodlePoint[]) => {
-        if (!stroke.length) return;
-        context.save();
+    const strokeWidth = (point?: DoodlePoint): number => (
+        Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (point?.pressure ?? 0.55) * 0.42)
+    );
+
+    const setupStroke = (point?: DoodlePoint) => {
         context.strokeStyle = '#141820';
         context.lineCap = 'round';
         context.lineJoin = 'round';
+        context.lineWidth = strokeWidth(point);
+    };
+
+    const drawStroke = (stroke: DoodlePoint[]) => {
+        if (!stroke.length) return;
+        for (let index = 1; index < stroke.length; index += 1) {
+            drawSegment(stroke[index - 1], stroke[index]);
+        }
+    };
+
+    const drawSegment = (from: DoodlePoint, to: DoodlePoint) => {
+        context.save();
+        setupStroke(to);
         context.beginPath();
-        stroke.forEach((point, index) => {
-            const x = point.x * canvas.width;
-            const y = point.y * canvas.height;
-            if (index === 0) context.moveTo(x, y);
-            else context.lineTo(x, y);
-        });
-        const lastPoint = stroke[stroke.length - 1];
-        const width = Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (lastPoint?.pressure ?? 0.55) * 0.42);
-        context.lineWidth = width;
+        context.moveTo(from.x * canvas.width, from.y * canvas.height);
+        context.lineTo(to.x * canvas.width, to.y * canvas.height);
         context.stroke();
         context.restore();
     };
@@ -79,9 +95,9 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         event.stopPropagation();
         drawing = true;
         pointerId = event.pointerId;
+        canvasRect = canvas.getBoundingClientRect();
         points = [toPoint(event)];
         canvas.setPointerCapture?.(event.pointerId);
-        redraw();
         log.debug('Kanji doodle stroke started', { pointerType: event.pointerType, strokes: strokes.length });
     };
 
@@ -94,7 +110,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         const minDistance = event.pointerType === 'pen' ? 0.0015 : 0.0035;
         if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= minDistance) {
             points.push(point);
-            redraw();
+            if (last) drawSegment(last, point);
         }
     };
 
@@ -107,7 +123,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         drawing = false;
         pointerId = -1;
         canvas.releasePointerCapture?.(event.pointerId);
-        redraw();
+        options.onChange?.(strokes.map(stroke => [...stroke]));
         log.debug('Kanji doodle stroke ended', { strokes: strokes.length });
     };
 
@@ -121,6 +137,8 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         strokes = [];
         points = [];
         redraw();
+        options.onClear?.();
+        options.onChange?.([]);
         log.debug('Kanji doodle cleared');
     });
     trace?.addEventListener('click', event => {

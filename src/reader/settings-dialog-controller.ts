@@ -8,6 +8,7 @@ import { JpdbClient } from './jpdb';
 import { Logger, loggingSettingsSummary } from './logger';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from './recommended-dictionaries';
 import { mergeDictionaryPreferences, saveSettings } from './settings';
+import { exportStoredValues, importStoredValues } from './storage';
 import {
     activateSettingsPanel,
     dateStamp,
@@ -161,7 +162,7 @@ export class SettingsDialogController {
         form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('input', event => {
             this.dependencies.applyAccentColor((event.currentTarget as HTMLInputElement).value);
         });
-        form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"]').forEach(input => {
+        form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
         });
         syncSubtitlePreview(form);
@@ -171,6 +172,41 @@ export class SettingsDialogController {
         form.addEventListener('change', event => {
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
         });
+        const syncImmersionTranslationReveal = () => {
+            const translations = form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]');
+            const reveal = form.querySelector<HTMLInputElement>('input[name="immersionKitRevealTranslationOnClick"]');
+            if (!translations || !reveal) return;
+            reveal.disabled = !translations.checked;
+            if (!translations.checked) reveal.checked = false;
+        };
+        form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]')?.addEventListener('change', syncImmersionTranslationReveal);
+        syncImmersionTranslationReveal();
+        const syncJpdbRevealAudio = () => {
+            const audioEnabled = form.querySelector<HTMLInputElement>('input[name="audioEnabled"]');
+            const immersionEnabled = form.querySelector<HTMLInputElement>('input[name="immersionKitEnabled"]');
+            const jpdbImmersionEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbImmersionKitEnabled"]');
+            const immersionRevealAudio = form.querySelector<HTMLInputElement>('input[name="jpdbImmersionKitAutoPlayReviewAudio"]');
+            const wordRevealAudio = form.querySelector<HTMLInputElement>('input[name="jpdbWordAudioAutoPlayReviewAudio"]');
+            if (!immersionRevealAudio || !wordRevealAudio) return;
+
+            const wordAvailable = audioEnabled?.checked ?? true;
+            const immersionAvailable = (immersionEnabled?.checked ?? true) && (jpdbImmersionEnabled?.checked ?? true);
+            if (!wordAvailable) wordRevealAudio.checked = false;
+            wordRevealAudio.disabled = !wordAvailable;
+            if (!immersionAvailable || wordRevealAudio.checked) immersionRevealAudio.checked = false;
+            immersionRevealAudio.disabled = !immersionAvailable || wordRevealAudio.checked;
+            if (immersionRevealAudio.checked) wordRevealAudio.checked = false;
+        };
+        [
+            'audioEnabled',
+            'immersionKitEnabled',
+            'jpdbImmersionKitEnabled',
+            'jpdbImmersionKitAutoPlayReviewAudio',
+            'jpdbWordAudioAutoPlayReviewAudio',
+        ].forEach(name => {
+            form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.addEventListener('change', syncJpdbRevealAudio);
+        });
+        syncJpdbRevealAudio();
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
@@ -298,7 +334,7 @@ export class SettingsDialogController {
             await this.dependencies.refreshDictionaryStyles();
             this.dependencies.scheduleDictionaryRescan();
         }
-        onProgress?.(`JMdict ready: ${importedEntries.toLocaleString()} records imported.`);
+        onProgress?.(`Dictionary ready: ${importedEntries.toLocaleString()} records imported.`);
         log.info('Starter dictionaries downloaded', { dictionaries: missing.length, importedEntries });
         return true;
     }
@@ -412,9 +448,18 @@ export class SettingsDialogController {
         if (action === 'export-reader-settings') {
             downloadBlob(new Blob([JSON.stringify({
                 formatName: 'yomu-reader-settings',
-                formatVersion: 1,
+                formatVersion: 2,
                 exportedAt: new Date().toISOString(),
                 settings: this.settings,
+                storage: await exportStoredValues([
+                    'yomu-mining-context:',
+                    'yomu-jpdb-review-examples-open',
+                    'yomu-jpdb-source-open:',
+                    'yomu-jpdb-uchisen-star:',
+                    'yomu-jpdb-uchisen-index:',
+                    'jpdb-reader-newtab-ui',
+                    'jpdb-reader-transcript-panel-size',
+                ]),
             }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
             setStatus('Settings exported.');
             log.info('Settings exported');
@@ -529,9 +574,10 @@ export class SettingsDialogController {
         this.settings = readerSettings
             ? { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }
             : importedYomitanSettings(json, this.settings);
+        const restoredValues = await importStoredValues(getReaderStorageExport(json));
         await this.mergeImportedDictionaryPreferences();
         await saveSettings(this.settings);
-        setStatus('Settings imported.');
+        setStatus(restoredValues ? `Settings imported. Restored ${restoredValues} stored choices.` : 'Settings imported.');
         this.dependencies.applyTheme();
         void this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
@@ -550,6 +596,14 @@ export class SettingsDialogController {
         const importedTypes = Object.fromEntries(importedSummary.dictionaries.map(item => [item.title, item.type]));
         this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames, importedTypes);
     }
+}
+
+function getReaderStorageExport(value: unknown): unknown {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as { formatName?: string; storage?: unknown };
+    return (record.formatName === 'yomu-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
+        ? record.storage
+        : null;
 }
 
 function importedYomitanSettings(json: unknown, current: ReaderSettings): ReaderSettings {

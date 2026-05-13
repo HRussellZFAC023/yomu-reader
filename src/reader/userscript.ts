@@ -15,14 +15,14 @@ export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
     for (const source of userscriptRequestSources()) {
         const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
         if (directRequest) {
-            log.debug('Userscript HTTP request resolved', { source: sourceLabel(source), path: 'GM_xmlhttpRequest' });
+            log.debugThrottled('resolved-request', 5000, 'Userscript HTTP request resolved', { source: sourceLabel(source), path: 'GM_xmlhttpRequest' });
             return directRequest.bind(source);
         }
 
         const gm = source.GM;
         const gmRequest = asUserscriptRequest(gm?.xmlHttpRequest) ?? asUserscriptRequest(gm?.xmlhttpRequest);
         if (gmRequest) {
-            log.debug('Userscript HTTP request resolved', { source: sourceLabel(source), path: gm?.xmlHttpRequest ? 'GM.xmlHttpRequest' : 'GM.xmlhttpRequest' });
+            log.debugThrottled('resolved-request', 5000, 'Userscript HTTP request resolved', { source: sourceLabel(source), path: gm?.xmlHttpRequest ? 'GM.xmlHttpRequest' : 'GM.xmlhttpRequest' });
             return gmRequest.bind(gm);
         }
     }

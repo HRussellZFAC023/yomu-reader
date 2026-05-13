@@ -262,14 +262,14 @@ function compareOptionalNumber(a?: number, b?: number): number {
     return a - b;
 }
 
-function sourceStateAttribute(sourceStateKey?: string): string {
-    return sourceStateKey ? `data-source-state-key="${escapeHtml(sourceStateKey)}"` : '';
+function sourceStateAttribute(sourceStateKey: string | undefined, initiallyExpanded: boolean): string {
+    return sourceStateKey ? `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"` : '';
 }
 
 export function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
     const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml(kanji)}</div>`;
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey)} ${initiallyExpanded ? 'open' : ''}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'strokePractice')}</summary>
             <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
@@ -303,7 +303,7 @@ export function renderKanjiOrigins(
         ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4)
         : [];
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey)} ${initiallyExpanded ? 'open' : ''}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'originStructure')}</summary>
             ${facts.length ? `<div class="jpdb-reader-kanji-facts">
                 ${facts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
@@ -750,7 +750,7 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
         info.type,
     ].filter(Boolean).map(item => `<span class="jpdb-reader-chip">${escapeHtml(item)}</span>`).join('');
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey)} ${initiallyExpanded ? 'open' : ''}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'readingsComponents')}</summary>
             <div class="jpdb-reader-local-entry">
                 ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ''}
@@ -776,7 +776,7 @@ export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSumm
         .filter(component => component.keyword)
         .map(component => [component.keyword.toLowerCase(), component.kanji] as const));
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey)} ${initiallyExpanded ? 'open' : ''}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">RTK</summary>
             <div class="jpdb-reader-local-entry">
                 <div class="jpdb-reader-rtk-head">

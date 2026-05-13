@@ -53,6 +53,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '.results .result',
             '.subsection-meanings',
             '.subsection-usages',
+            '.subsection-examples',
             '.subsection-pitch-accent',
             '.subsection-spelling',
             '.primary-spelling',

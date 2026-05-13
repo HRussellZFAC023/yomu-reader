@@ -43,6 +43,7 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 ## Changelog and Docs
 
 - Keep `CHANGELOG.md` up to date for every user-facing release. The website changelog includes this file directly through `docs/changelog.md`, so do not duplicate release notes elsewhere.
+- Always publish user-facing versions through the GitHub Releases tab: create/push a `v*` tag or run the `Release` workflow, verify with `gh release view <tag>` that the release is non-draft, marked as the latest when appropriate, and includes the built `yomu.user.js` asset.
 - Before finishing user-facing work, check that `README.md`, the relevant `docs/` page, and credits/license notes all describe the same behavior.
 - Before finishing large UI work, run the Playwright screenshots plus axe/docs accessibility and complexity checks, or record why a check could not run.
 - Put beginner-facing docs in `docs/` and keep install guidance plain enough for someone who has never used a userscript manager.

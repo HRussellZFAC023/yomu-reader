@@ -4,9 +4,11 @@ import type { ReaderSettings } from './types';
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
 export const KANJI_JPDB_SOURCE_ID = '__kanji_jpdb__';
 export const KANJI_RTK_SOURCE_ID = '__kanji_rtk__';
+export const KANJI_UCHISEN_SOURCE_ID = '__kanji_uchisen__';
 export const KANJI_DICTIONARIES_SOURCE_ID = '__kanji_dictionaries__';
 export const KANJI_SIMILAR_WORDS_SOURCE_ID = '__kanji_similar_words__';
 export const KANJI_ORIGINS_SOURCE_ID = '__kanji_origins__';
+export const KANJI_DICTIONARY_SOURCE_PREFIX = '__kanji_dictionary__:';
 
 export interface SettingsSourceRow {
     id: string;
@@ -18,6 +20,7 @@ export interface SettingsSourceRow {
     readonly: boolean;
     help: string;
     removable?: boolean;
+    dictionaryType?: 'terms' | 'kanji';
 }
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
@@ -66,7 +69,10 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
 
     return [
         ...builtInRows,
-        ...settings.dictionaryPreferences.filter(preference => (preference.type ?? 'terms') === 'terms').map((preference, index) => ({
+        ...settings.dictionaryPreferences.filter(preference => {
+            const type = preference.type ?? 'terms';
+            return type === 'terms' || type === 'kanji';
+        }).map(preference => ({
             id: preference.name,
             name: preference.name,
             alias: preference.alias,
@@ -75,12 +81,25 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
             readonly: false,
             removable: true,
+            dictionaryType: preference.type === 'kanji' ? 'kanji' as const : 'terms' as const,
             help: '',
         })),
     ].sort(compareSourceRows);
 }
 
 export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
+    const kanjiDictionaryRows = settings.dictionaryPreferences.filter(preference => preference.type === 'kanji').map(preference => ({
+        id: kanjiDictionarySourceId(preference.name),
+        name: preference.name,
+        alias: preference.alias,
+        enabled: settings.localDictionaryShowKanji && preference.enabled,
+        priority: preference.priority,
+        prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+        readonly: false,
+        removable: true,
+        dictionaryType: 'kanji' as const,
+        help: 'Imported Yomitan kanji dictionary.',
+    }));
     return [
         {
             id: KANJI_STROKE_SOURCE_ID,
@@ -113,6 +132,16 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             help: 'Remembering the Kanji keywords, elements, and stories.',
         },
         {
+            id: KANJI_UCHISEN_SOURCE_ID,
+            name: 'Uchisen',
+            alias: 'Uchisen',
+            enabled: settings.uchisenEnabled,
+            priority: settings.uchisenPriority,
+            prefix: 'uchisen',
+            readonly: true,
+            help: 'Uchisen mnemonic image carousel.',
+        },
+        ...(kanjiDictionaryRows.length ? [] : [{
             id: KANJI_DICTIONARIES_SOURCE_ID,
             name: 'Imported kanji dictionaries',
             alias: 'Imported kanji dictionaries',
@@ -121,7 +150,8 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             prefix: 'kanjiDictionaries',
             readonly: true,
             help: 'Kanji entries from imported Yomitan dictionaries.',
-        },
+        }]),
+        ...kanjiDictionaryRows,
         {
             id: KANJI_SIMILAR_WORDS_SOURCE_ID,
             name: 'Words using this kanji',
@@ -193,7 +223,18 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
 export function orderedKanjiSourceIds(settings: ReaderSettings): string[] {
     return kanjiSourceRows(settings)
         .filter(row => row.enabled)
+        .filter(row => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some(preference => preference.type === 'kanji'))
         .map(row => row.id);
+}
+
+export function kanjiDictionarySourceId(name: string): string {
+    return `${KANJI_DICTIONARY_SOURCE_PREFIX}${name}`;
+}
+
+export function kanjiDictionaryNameFromSourceId(sourceId: string): string | null {
+    return sourceId.startsWith(KANJI_DICTIONARY_SOURCE_PREFIX)
+        ? sourceId.slice(KANJI_DICTIONARY_SOURCE_PREFIX.length)
+        : null;
 }
 
 function compareSourceRows(a: SettingsSourceRow, b: SettingsSourceRow): number {

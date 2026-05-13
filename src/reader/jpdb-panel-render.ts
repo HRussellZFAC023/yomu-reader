@@ -4,7 +4,7 @@ import type { RtkInfo } from './rtk';
 import type { ReaderSettings } from './types';
 import { glossaryToHtml, type YomitanTermEntry } from './yomitan';
 
-export function renderRtkPanel(info: RtkInfo, initiallyExpanded = true): string {
+export function renderRtkPanel(info: RtkInfo, initiallyExpanded = true, sourceAttributes = ''): string {
     const readings = [info.onYomi ? `On: ${info.onYomi}` : '', info.kunYomi ? `Kun: ${info.kunYomi}` : ''].filter(Boolean).join(' · ');
     const title = `
         <span>RTK</span>
@@ -20,15 +20,13 @@ export function renderRtkPanel(info: RtkInfo, initiallyExpanded = true): string 
         ${info.heisigComment ? `<section><h6>Heisig comment</h6><p>${escapeHtml(info.heisigComment)}</p></section>` : ''}
         ${info.koohiiStories.length ? `<section><h6>Koohii stories</h6>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</section>` : ''}
     `;
-    if (!initiallyExpanded) {
-        return `
-            <details class="yomu-jpdb-collapsible-card">
-                <summary class="yomu-jpdb-card-title">${title}</summary>
-                <div class="yomu-jpdb-collapsible-body">${body}</div>
-            </details>
-        `;
-    }
-    return `<div class="yomu-jpdb-card-title">${title}</div>${body}`;
+    const attributes = sourceAttributes || (initiallyExpanded ? 'open' : '');
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-rtk-source" ${attributes}>
+            <summary class="jpdb-reader-local-title">${title}</summary>
+            <div class="jpdb-reader-local-entry yomu-jpdb-collapsible-body">${body}</div>
+        </details>
+    `;
 }
 
 export function renderJpdbKanjiPanel(info: JpdbKanjiInfo): string {
@@ -63,11 +61,10 @@ export function renderLocalDictionaryPanel(entries: YomitanTermEntry[], settings
         byDictionary.set(entry.dictionary, list);
     }
     return `
-        <div class="yomu-jpdb-card-title">Imported dictionaries</div>
         ${[...byDictionary.entries()].map(([dictionary, dictionaryEntries]) => `
             <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceStateAttributes(dictionary)}>
                 <summary class="jpdb-reader-local-head">
-                    <span>${escapeHtml(dictionaryLabel(dictionary, settings))}</span>
+                    <span class="jpdb-reader-example-source">${escapeHtml(dictionaryLabel(dictionary, settings))}</span>
                     <span class="jpdb-reader-local-dict">${dictionaryEntries.length}</span>
                 </summary>
                 <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(dictionary)}">

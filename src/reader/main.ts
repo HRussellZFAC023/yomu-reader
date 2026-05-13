@@ -1,4 +1,5 @@
 import { AudioPlayer } from './audio';
+import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './app-pages';
 import { renderAnkiActionRow, renderAnkiExistingSection, renderReviewButtons } from './anki-render';
 import { AnkiConnectClient, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
 import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
@@ -11,6 +12,7 @@ import {
     appendToDocumentHead,
     applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
+    documentHasJapaneseText,
     collectTextTargetsIn,
     collectVisibleTextTargets,
     escapeHtml,
@@ -35,9 +37,10 @@ import { ImmersionKitClient } from './immersion-kit';
 import { ImmersionPopoverController } from './immersion-popover-controller';
 import { FloatingButtonController } from './floating-button';
 import { JpdbClient } from './jpdb';
-import { JpdbExtensionsController } from './jpdb-extensions';
+import { JpdbExtensionsController, installUchisenCarousel, loadUchisenImages } from './jpdb-extensions';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
+import { createJpdbReviewBridgeClient, initJpdbReviewPageBridge } from './jpdb-review-bridge';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient } from './kanji-origin';
 import { installKanjiDoodle } from './kanji-doodle';
 import { installKanjiGraphDrag } from './kanji-graph-drag';
@@ -53,7 +56,7 @@ import {
     resolveMiningContext as resolveStoredMiningContext,
     type MiningContext,
 } from './mining-context';
-import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NewTabController } from './new-tab-controller';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
@@ -92,6 +95,8 @@ import {
     accentToRgba,
     applyUrlBootstrapSettings,
     effectiveFuriganaMode,
+    effectiveReaderColorSource,
+    effectiveSubtitleColorSource,
     effectiveWordHighlightMode,
     loadSettings,
     matchesShortcut,
@@ -108,13 +113,15 @@ import {
     KANJI_RTK_SOURCE_ID,
     KANJI_SIMILAR_WORDS_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
+    KANJI_UCHISEN_SOURCE_ID,
+    kanjiDictionaryNameFromSourceId,
     orderedDefinitionSourceIds,
     orderedKanjiSourceIds,
 } from './source-sections';
 import { READER_CSS } from './styles';
 import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from './study-tools';
 import { SubtitlePlayerController } from './subtitles';
-import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
+import type { InterfaceLanguage, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderColorSource, ReaderSettings } from './types';
 import { YoutubeImmersionFilter } from './youtube';
 import {
     YomitanDictionaryStore,
@@ -129,6 +136,9 @@ const CARD_RENDER_DATA_CACHE_TTL_MS = 30_000;
 const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
 const TERM_AUDIO_PRELOAD_LIMIT = 8;
 const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
+const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
+const COLOR_CHANNELS = ['highlight', 'underline', 'text'] as const;
+type ColorChannel = typeof COLOR_CHANNELS[number];
 
 interface KanjiDetailPromises {
     jpdbInfo: Promise<JpdbKanjiInfo | null>;
@@ -158,6 +168,8 @@ interface CardRenderData {
     kanjiEntries: YomitanKanjiEntry[];
     metaEntries: YomitanMetaEntry[];
     ankiLookup: AnkiLookupResult;
+    jpdbDecks: JPDBDeck[];
+    ankiDecks: string[];
 }
 
 interface CardRenderDataLoad {
@@ -172,11 +184,28 @@ interface ModalNavigationOptions {
     controlsHtml?: string;
 }
 
+interface ReaderAppInitOptions {
+    isDemo?: boolean;
+    showWelcome?: boolean;
+}
+
 export class ReaderApp {
     private abortController = new AbortController();
     public isDemo = false;
     private isDestroyed = false;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
+    private setImmersionTranslationBlurred = (blurred: boolean): void => {
+        if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
+        this.settings = {
+            ...this.settings,
+            immersionKitRevealTranslationOnClick: blurred,
+        };
+        document.querySelectorAll<HTMLInputElement>('input[name="immersionKitRevealTranslationOnClick"]').forEach(input => {
+            input.checked = blurred;
+        });
+        void saveSettings(this.settings);
+        log.debug('Immersion Kit translation blur preference updated', { blurred });
+    };
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
     private jpdbKanji = new JpdbKanjiClient();
     private jpdbPublicPitch = new JpdbPublicPitchClient();
@@ -186,6 +215,7 @@ export class ReaderApp {
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
+    private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore();
     private cardActions = new CardActionController({
         getSettings: () => this.settings,
@@ -211,6 +241,7 @@ export class ReaderApp {
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         repositionPopover: () => this.repositionActivePopover(),
+        setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
         toast: message => this.toast(message),
     });
     private floatingButton = new FloatingButtonController();
@@ -223,10 +254,16 @@ export class ReaderApp {
         getSettings: () => this.settings,
         anki: this.anki,
         jpdb: this.jpdb,
+        jpdbKanji: this.jpdbKanji,
+        kanjiVG: this.kanjiVG,
+        rtk: this.rtk,
+        immersionKit: this.immersionKit,
+        jpdbReviewBridge: this.jpdbReviewBridge,
         parser: this.parser,
         dictionaries: this.dictionaries,
         ensureStarterDictionary: onProgress => this.settingsDialog.ensureStarterDictionaryInstalled(onProgress),
         onSettingsChange: () => saveSettings(this.settings),
+        applyTheme: () => this.applyTheme(),
         showSettings: panel => this.showSettings(panel),
         dismiss: options => this.dismiss(options),
     });
@@ -237,6 +274,8 @@ export class ReaderApp {
         jpdbKanji: this.jpdbKanji,
         rtk: this.rtk,
         audio: this.audio,
+        parseJapanese: paragraphs => this.parseJapanese(paragraphs),
+        setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
     });
     private onboarding = new OnboardingController({
         getSettings: () => this.settings,
@@ -256,6 +295,7 @@ export class ReaderApp {
         parseJapanese: async text => (await this.parseJapanese([text]))[0] ?? [],
         onLookup: (text, sentence) => this.lookupText(text, sentence),
         onToast: message => this.toast(message),
+        shouldAutoScan: () => this.pageHasJapaneseText,
     });
     private youtube = new YoutubeImmersionFilter({
         getSettings: () => this.settings,
@@ -298,6 +338,7 @@ export class ReaderApp {
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
     private lastCard?: JPDBCard;
+    private lastCardSentence?: string;
     private lastAnkiLookup?: AnkiLookupResult;
     private selectionTimer?: number;
     private autoScanTimer?: number;
@@ -330,6 +371,7 @@ export class ReaderApp {
     private dictionaryStyleElement?: HTMLStyleElement;
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
+    private audioLoadingRequest = 0;
     private cardRenderRequest = 0;
     private dictionaryRescanPending = false;
     private preloadedTermAudioKeys = new Set<string>();
@@ -342,6 +384,7 @@ export class ReaderApp {
     private nextHoverAnchorId = 1;
     private suppressSelectionLookupUntil = 0;
     private suppressWordClickUntil = 0;
+    private pageHasJapaneseText = false;
     private pressLookup?: {
         pointerId: number;
         startX: number;
@@ -357,29 +400,38 @@ export class ReaderApp {
         configureLogger({ settingsProvider: () => this.settings });
     }
 
-    async init(options?: { isDemo?: boolean }): Promise<void> {
+    async init(options?: ReaderAppInitOptions): Promise<void> {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
         this.settings = await loadSettings();
         if (options?.isDemo) {
             this.settings.onboardingSeen = true;
-            
             this.isDemo = true;
         }
+        const shouldShowWelcome = options?.showWelcome ?? !this.isDemo;
         this.settings = applyUrlBootstrapSettings(this.settings);
+        this.pageHasJapaneseText = documentHasJapaneseText();
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
-        const dictionaryWarmup = this.settings.localDictionariesEnabled
+        const shouldWarmDictionaries = this.settings.localDictionariesEnabled && this.newTab.isCurrentPage();
+        const dictionaryWarmup = shouldWarmDictionaries
             ? this.dictionaries.warm(this.settings.dictionaryPreferences).catch(error => {
                 log.warn('Local dictionary warmup failed', error);
             })
             : Promise.resolve();
         this.installStyles();
         this.applyTheme();
-        void dictionaryWarmup.then(() => this.refreshDictionaryStyles());
+        await this.refreshDictionaryStyles();
         this.registerMenuCommands();
         this.bindEvents();
+        initJpdbReviewPageBridge();
         if (this.newTab.isCurrentPage()) {
             await dictionaryWarmup;
             await this.newTab.renderPage();
+            done();
+            return;
+        }
+
+        if (isYomuHostedPassivePage(location.href)) {
+            log.info('Hosted Yomu content page left passive', { href: location.href, demo: this.isDemo });
             done();
             return;
         }
@@ -390,8 +442,10 @@ export class ReaderApp {
         this.youtube.init();
         this.jpdbExtensions.init();
         this.setupAutoScan();
-        await this.onboarding.showIfNeeded();
-        if (this.canParseJapanese() && (this.settings.scanVisiblePage || this.settings.autoScanJapanese)) {
+        if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) {
+            await this.onboarding.showIfNeeded();
+        }
+        if (this.canParseJapanese() && (this.settings.scanVisiblePage || this.settings.autoScanJapanese) && this.pageHasJapaneseText) {
             void this.scanVisiblePage({ silent: true });
         }
         done();
@@ -437,15 +491,37 @@ export class ReaderApp {
         document.documentElement.classList.toggle('jpdb-reader-theme-light', this.settings.theme === 'light');
         const furiganaMode = effectiveFuriganaMode(this.settings);
         const wordHighlightMode = effectiveWordHighlightMode(this.settings);
+        const wordColorSources = {
+            highlight: effectiveReaderColorSource(this.settings, this.settings.wordHighlightColorSource),
+            underline: effectiveReaderColorSource(this.settings, this.settings.wordUnderlineColorSource),
+            text: effectiveReaderColorSource(this.settings, this.settings.wordTextColorSource),
+        } satisfies Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>;
+        const subtitleColorSources = {
+            highlight: effectiveSubtitleColorSource(this.settings, this.settings.subtitleHighlightColorSource),
+            underline: effectiveSubtitleColorSource(this.settings, this.settings.subtitleUnderlineColorSource),
+            text: effectiveSubtitleColorSource(this.settings, this.settings.subtitleTextColorSource),
+        } satisfies Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>;
         document.documentElement.classList.toggle('jpdb-reader-hide-known', furiganaMode === 'known-status');
         document.documentElement.classList.toggle('jpdb-reader-highlight-status', wordHighlightMode === 'status');
         document.documentElement.classList.toggle('jpdb-reader-highlight-pitch', wordHighlightMode === 'pitch');
         document.documentElement.classList.toggle('jpdb-reader-highlight-off', wordHighlightMode === 'off');
+        this.applyColorSourceClasses('word', wordColorSources);
+        this.applyColorSourceClasses('subtitle', subtitleColorSources);
         log.debug('Theme applied', {
             theme: this.settings.theme,
             popupMode: this.settings.popupMode,
             furiganaMode,
             wordHighlightMode,
+            wordColorSources,
+            subtitleColorSources,
+        });
+    }
+
+    private applyColorSourceClasses(scope: 'word' | 'subtitle', sources: Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>): void {
+        COLOR_CHANNELS.forEach(channel => {
+            COLOR_SOURCE_CLASSES.forEach(source => {
+                document.documentElement.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
+            });
         });
     }
 
@@ -512,6 +588,18 @@ export class ReaderApp {
             document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-soft`, accentToRgba(color, 0.16));
             document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-strong`, accentToRgba(color, 0.28));
         });
+        const pitchColorMap = {
+            heiban: { color: sanitizeAccentColor(settings.pitchColorHeiban), alpha: 0.14 },
+            atamadaka: { color: sanitizeAccentColor(settings.pitchColorAtamadaka), alpha: 0.14 },
+            nakadaka: { color: sanitizeAccentColor(settings.pitchColorNakadaka), alpha: 0.16 },
+            odaka: { color: sanitizeAccentColor(settings.pitchColorOdaka), alpha: 0.14 },
+            kifuku: { color: sanitizeAccentColor(settings.pitchColorKifuku), alpha: 0.14 },
+            unknown: { color: sanitizeAccentColor(settings.pitchColorUnknown), alpha: 0 },
+        };
+        Object.entries(pitchColorMap).forEach(([pattern, { color, alpha }]) => {
+            document.documentElement.style.setProperty(`--jpdb-reader-pitch-${pattern}`, color);
+            document.documentElement.style.setProperty(`--jpdb-reader-pitch-${pattern}-soft`, alpha > 0 ? accentToRgba(color, alpha) : 'transparent');
+        });
     }
 
     private installFab(): void {
@@ -561,12 +649,15 @@ export class ReaderApp {
         this.autoScanObserver = new MutationObserver(mutations => {
             if (mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (mutations.every(mutationInsideReaderRoot)) return;
-            else this.scheduleAutoScan(450);
+            else if (mutations.some(mutationMayContainJapaneseText)) {
+                this.pageHasJapaneseText = true;
+                this.scheduleAutoScan(450);
+            }
         });
         this.observeAutoScanMutations();
         window.addEventListener('scroll', () => this.scheduleAutoScan(500), { passive: true });
         window.addEventListener('resize', () => this.scheduleAutoScan(700), { passive: true });
-        this.scheduleAutoScan(600);
+        if (this.pageHasJapaneseText) this.scheduleAutoScan(600);
         log.debug('Auto-scan observer installed');
     }
 
@@ -589,6 +680,7 @@ export class ReaderApp {
     private scheduleAutoScan(delay: number): void {
         if (this.isDestroyed) return;
         if (!this.settings.autoScanJapanese || !this.canParseJapanese()) return;
+        if (!this.pageHasJapaneseText) return;
         const deadline = Date.now() + delay;
         if (this.autoScanTimer && this.autoScanDeadline <= deadline) return;
 
@@ -777,10 +869,18 @@ export class ReaderApp {
                 event.preventDefault();
                 const ankiCardId = this.lastAnkiLookup?.primary?.primaryCardId ?? null;
                 if (!ankiCardId && !this.settings.jpdbMiningEnabled) return;
-                const promise = ankiCardId
-                    ? this.anki.answerCard(ankiCardId, grade)
-                    : this.jpdb.reviewCard(this.lastCard, grade);
-                void promise.catch(error => {
+                const card = this.lastCard;
+                const sentence = this.lastCardSentence;
+                const anchor = this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
+                const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
+                void this.cardActions.reviewGrade(grade, card, sentence, {
+                    ankiCardId: Number.isFinite(ankiCardId) && ankiCardId ? ankiCardId : undefined,
+                }).then(() => this.showCard(card, sentence, anchor, {
+                    autoPlay: false,
+                    trigger,
+                    navigation: 'preserve',
+                    preservePosition: true,
+                })).catch(error => {
                     log.warn('Shortcut review failed', { grade, ankiCardId: Number.isFinite(ankiCardId) ? ankiCardId : undefined }, error);
                     this.toast(error instanceof Error ? error.message : 'Review failed.');
                 });
@@ -1175,7 +1275,7 @@ export class ReaderApp {
             if (activeWord.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
             if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
             void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
-                if (this.hoverLookupGeneration === hoverLookupGeneration && this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
+                if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
             });
         };
         const delay = Math.max(0, this.settings.hoverOpenDelayMs);
@@ -1207,7 +1307,7 @@ export class ReaderApp {
             if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
             if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
             void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => {
-                if (this.hoverLookupGeneration === hoverLookupGeneration && this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
+                if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
             });
         };
         const delay = Math.max(0, this.settings.hoverOpenDelayMs);
@@ -1707,6 +1807,7 @@ export class ReaderApp {
 
     private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: CardDisplayOptions = {}): Promise<void> {
         this.lastCard = card;
+        this.lastCardSentence = sentence;
         const cardStates = normalizeCardStates(card.cardState);
         const state = primaryCardState(cardStates);
         const popover = this.createPopover();
@@ -1736,6 +1837,8 @@ export class ReaderApp {
             kanjiEntries: [],
             metaEntries: [],
             ankiLookup: fallbackAnkiLookup,
+            jpdbDecks: [],
+            ankiDecks: [],
             loading: true,
         };
         setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, initialData));
@@ -1763,6 +1866,8 @@ export class ReaderApp {
                     kanjiEntries: [],
                     metaEntries: [],
                     ankiLookup: this.lastAnkiLookup ?? fallbackAnkiLookup,
+                    jpdbDecks: [],
+                    ankiDecks: [],
                     loading: true,
                 }));
                 log.debug('Card local dictionaries rendered', { term: card.spelling, localEntries: localEntries.length });
@@ -1771,7 +1876,7 @@ export class ReaderApp {
             });
         }
 
-        const { localEntries, kanjiEntries, metaEntries, ankiLookup } = await renderData.all;
+        const { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks } = await renderData.all;
         fullRenderCompleted = true;
         if (!isCurrentHoverCard() || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) {
             log.debug('Discarding stale card render', { term: card.spelling, requestId });
@@ -1785,6 +1890,8 @@ export class ReaderApp {
             kanjiEntries,
             metaEntries,
             ankiLookup,
+            jpdbDecks,
+            ankiDecks,
             loading: false,
         }));
 
@@ -1817,15 +1924,34 @@ export class ReaderApp {
         const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
         const language = this.settings.interfaceLanguage;
         const hasJpdb = this.isJpdbBackedCard(card);
+        const miningDeckLabel = this.settings.miningDeck.trim() || 'forq';
+        const selectedDeckLabel = this.jpdbDeckLabel(miningDeckLabel, data.jpdbDecks);
+        const deckOptions = this.renderDeckChoiceOptions(data.jpdbDecks, data.ankiDecks, hasJpdb && this.settings.jpdbMiningEnabled);
+        const addDeckSelect = deckOptions
+            ? `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}">${deckOptions}</select>`
+            : '';
+        const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
+        const isNeverForget = cardStates.includes('never-forget');
+        const isBlacklisted = cardStates.includes('blacklisted');
+        const neverForgetTitle = isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint');
+        const blacklistTitle = isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint');
+        const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
         const jpdbActionRow = hasJpdb && this.settings.jpdbMiningEnabled ? `
-                <div class="jpdb-reader-row" style="--cols: 3">
-                    <button class="jpdb-reader-btn add" data-action="add">${uiText(language, 'add')}</button>
-                    <button class="jpdb-reader-btn nf" data-action="neverforget" title="${uiText(language, 'neverHint')}">${cardStates.includes('never-forget') ? uiText(language, 'forget') : uiText(language, 'never')}</button>
-                    <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${uiText(language, 'blacklistHint')}">${cardStates.includes('blacklisted') ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
+                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn nf${isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(neverForgetTitle)}" aria-pressed="${isNeverForget}">${isNeverForget ? uiText(language, 'forget') : uiText(language, 'never')}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(blacklistTitle)}" aria-pressed="${isBlacklisted}">${isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
+                    </div>
+                    ${addDeckSelect}
                 </div>
             ` : '';
-        const reviewButtons = !data.loading && this.settings.enableReviews && ((hasJpdb && this.settings.jpdbMiningEnabled) || data.ankiLookup.primary?.primaryCardId)
-            ? renderReviewButtons(this.settings, data.ankiLookup.primary)
+        const miningActions = jpdbActionRow;
+        const ankiActions = data.loading ? '' : (data.ankiLookup.primary || !miningActions ? renderAnkiActionRow(data.ankiLookup, this.settings) : '');
+        const reviewButtons = !reviewBlockReason && !data.loading && this.settings.enableReviews && ((hasJpdb && this.settings.jpdbMiningEnabled) || data.ankiLookup.primary?.primaryCardId)
+            ? renderReviewButtons(this.settings, data.ankiLookup.primary, {
+                title: cardStates.includes('not-in-deck') ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '',
+            })
             : '';
         const metaItems = [
             card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
@@ -1837,33 +1963,87 @@ export class ReaderApp {
             : '';
 
         return `
-            <div class="jpdb-reader-sheet-handle"></div>
-            ${this.renderWordHistoryNavigation(language, trigger)}
-            <div class="jpdb-reader-header">
-                <div class="jpdb-reader-heading">
-                    <div class="jpdb-reader-title-row">
-                        <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling, language)}</div>
-                        ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
-                        ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
+            <div class="jpdb-reader-popover-body">
+                <div class="jpdb-reader-sheet-handle"></div>
+                ${this.renderWordHistoryNavigation(language, trigger)}
+                <div class="jpdb-reader-header">
+                    <div class="jpdb-reader-heading">
+                        <div class="jpdb-reader-title-row">
+                            <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling, language)}</div>
+                            ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
+                            ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
+                        </div>
+                        ${this.renderWordPills(card, jpdbUrl, data.metaEntries)}
                     </div>
-                    ${this.renderWordPills(card, jpdbUrl, data.metaEntries)}
+                    <div class="jpdb-reader-card-tools">
+                        ${this.settings.showPitchAccent ? renderPitch(card, data.metaEntries) : ''}
+                        <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${uiText(language, 'playAudio')}" title="${uiText(language, 'playAudio')}">${speakerIcon()}</button>
+                    </div>
                 </div>
-                <div class="jpdb-reader-card-tools">
-                    ${this.settings.showPitchAccent ? renderPitch(card, data.metaEntries) : ''}
-                    <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${uiText(language, 'playAudio')}" title="${uiText(language, 'playAudio')}">${speakerIcon()}</button>
-                </div>
+                ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(cardPosDetails)}">${escapeHtml(cardPos)}</div>` : ''}
+                ${this.renderDefinitionSources(card, data.localEntries, sentence)}
+                ${loadingDetails}
+                ${data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, storedContext)}
+                ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), name => this.dictionaryLabel(name))}
             </div>
-            ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(cardPosDetails)}">${escapeHtml(cardPos)}</div>` : ''}
-            ${this.renderDefinitionSources(card, data.localEntries, sentence)}
-            ${loadingDetails}
-            ${data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, storedContext)}
-            ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), name => this.dictionaryLabel(name))}
-            <div class="jpdb-reader-actions">
-                ${jpdbActionRow}
-                ${data.loading ? '' : renderAnkiActionRow(data.ankiLookup, this.settings)}
+            <div class="jpdb-reader-actions${miningActions ? ' jpdb-reader-actions-has-mining' : ''}">
+                ${miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse" type="button" data-action="mining-collapse" aria-expanded="true" title="Hide mining actions" aria-label="Hide mining actions">-</button></div>' : ''}
+                ${miningActions}
+                ${ankiActions}
                 ${reviewButtons}
             </div>
         `;
+    }
+
+    private renderDeckChoiceOptions(jpdbDecks: JPDBDeck[], ankiDecks: string[], includeJpdb: boolean): string {
+        const options: Array<[string, string]> = [];
+        const add = (source: 'jpdb' | 'anki', value: string, label: string): void => {
+            const normalizedValue = value.trim();
+            const key = `${source}:${normalizedValue}`;
+            if (!normalizedValue || options.some(([existing]) => existing === key)) return;
+            options.push([key, label]);
+        };
+        if (includeJpdb) {
+            const selected = this.settings.miningDeck.trim() || 'forq';
+            add('jpdb', 'forq', 'JPDB: FORQ');
+            add('jpdb', selected, `JPDB: ${this.jpdbDeckLabel(selected, jpdbDecks)}`);
+            for (const deck of jpdbDecks) {
+                if (this.isSpecialJpdbDeck(deck)) continue;
+                add('jpdb', deck.id, `JPDB: ${deck.name}`);
+            }
+        }
+        if (this.settings.ankiEnabled) {
+            add('anki', this.settings.ankiDeck || 'よむ', `Anki: ${this.settings.ankiDeck || 'よむ'}`);
+            for (const deck of ankiDecks) add('anki', deck, `Anki: ${deck}`);
+        }
+        if (!options.length) return '';
+        const placeholder = `<option value="" disabled selected>${escapeHtml(uiText(this.settings.interfaceLanguage, 'deck'))}</option>`;
+        return placeholder + options
+            .map(([value, label]) => {
+                const [source, ...idParts] = value.split(':');
+                const deckId = idParts.join(':');
+                return `<option value="${escapeHtml(value)}" data-deck-source="${escapeHtml(source)}" data-deck-id="${escapeHtml(deckId)}">${escapeHtml(label)}</option>`;
+            })
+            .join('');
+    }
+
+    private jpdbDeckLabel(deckId: string, decks: JPDBDeck[]): string {
+        if (deckId === 'forq') return 'FORQ';
+        const deck = decks.find(candidate => candidate.id === deckId);
+        return deck?.name || deckId;
+    }
+
+    private isSpecialJpdbDeck(deck: JPDBDeck): boolean {
+        const neverForgetDeck = this.settings.neverForgetDeck.trim();
+        const blacklistDeck = this.settings.blacklistDeck.trim();
+        if (deck.id === neverForgetDeck || deck.id === blacklistDeck) return true;
+        return /never\s*-?\s*forget|blacklist|suspend/i.test(`${deck.id} ${deck.name}`);
+    }
+
+    private reviewBlockReason(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): string {
+        if (cardStates.includes('blacklisted')) return uiText(language, 'reviewBlockedBlacklisted');
+        if (cardStates.includes('never-forget')) return uiText(language, 'reviewBlockedNeverForget');
+        return '';
     }
 
     private loadCardRenderData(card: JPDBCard): CardRenderDataLoad {
@@ -1914,15 +2094,29 @@ export class ReaderApp {
                 return { state: 'not-in-deck', notes: [], primary: null } satisfies AnkiLookupResult;
             })
             : Promise.resolve({ state: 'not-in-deck', notes: [], primary: null } satisfies AnkiLookupResult);
+        const jpdbDecksPromise = this.settings.jpdbMiningEnabled && this.settings.apiKey.trim() && this.isJpdbBackedCard(card)
+            ? this.jpdb.listDecks().catch(error => {
+                log.warn('JPDB deck list failed while rendering card', { term: card.spelling }, error);
+                return [];
+            })
+            : Promise.resolve([]);
+        const ankiDecksPromise = this.settings.ankiEnabled
+            ? this.anki.deckNames().catch(error => {
+                log.warn('Anki deck list failed while rendering card', { term: card.spelling }, error);
+                return [];
+            })
+            : Promise.resolve([]);
         const all = Promise.all([
             localEntriesPromise,
             kanjiEntriesPromise,
             metaEntriesPromise,
             jpdbPublicPitchPromise,
             ankiLookupPromise,
-        ]).then(([localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup]) => {
+            jpdbDecksPromise,
+            ankiDecksPromise,
+        ]).then(([localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks]) => {
             if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
-            return { localEntries, kanjiEntries, metaEntries, ankiLookup };
+            return { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks };
         });
         return { localEntries: localEntriesPromise, all };
     }
@@ -1961,8 +2155,87 @@ export class ReaderApp {
                 void this.showPreviousWord(anchor, trigger);
                 return;
             }
+            if (button.dataset.action === 'mining-collapse') {
+                this.toggleMiningControls(button);
+                return;
+            }
+            if (button.dataset.action === 'deck-picker') {
+                if (this.openDeckPickerForAdd(button, card, sentence)) return;
+            }
+            if (button.dataset.action === 'add' && this.openDeckPickerForAdd(button, card, sentence)) return;
             void this.handleCardAction(button, card, sentence);
         });
+    }
+
+    private toggleMiningControls(button: HTMLButtonElement): void {
+        const actions = button.closest<HTMLElement>('.jpdb-reader-actions');
+        if (!actions) return;
+        const willCollapse = !actions.classList.contains('jpdb-reader-actions-mining-collapsed');
+        actions.classList.toggle('jpdb-reader-actions-mining-collapsed', willCollapse);
+        const expanded = String(!willCollapse);
+        button.setAttribute('aria-expanded', expanded);
+        button.setAttribute('aria-label', willCollapse ? 'Show mining actions' : 'Hide mining actions');
+        button.title = willCollapse ? 'Show mining actions' : 'Hide mining actions';
+        button.textContent = willCollapse ? '+' : '-';
+    }
+
+    private openDeckPickerForAdd(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined): boolean {
+        const picker = button
+            .closest<HTMLElement>('.jpdb-reader-mining-details')
+            ?.querySelector<HTMLSelectElement>('[data-add-deck-select]');
+        if (!picker) return false;
+        const wrapper = picker.closest<HTMLElement>('.jpdb-reader-mining-details');
+        const toggle = wrapper?.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title');
+        if (picker.classList.contains('jpdb-reader-add-deck-select-open')) {
+            picker.focus();
+            return true;
+        }
+
+        const controller = new AbortController();
+        const cleanup = (): void => {
+            controller.abort();
+            picker.classList.remove('jpdb-reader-add-deck-select-open');
+            wrapper?.classList.remove('jpdb-reader-deck-picker-open');
+            toggle?.setAttribute('aria-expanded', 'false');
+            picker.selectedIndex = 0;
+        };
+        picker.addEventListener('change', () => {
+            const option = picker.selectedOptions[0];
+            const deckId = option?.dataset.deckId?.trim();
+            if (!deckId) {
+                cleanup();
+                return;
+            }
+            button.dataset.deckSource = option.dataset.deckSource === 'anki' ? 'anki' : 'jpdb';
+            button.dataset.deckId = deckId;
+            const originalAction = button.dataset.action;
+            button.dataset.action = 'add';
+            cleanup();
+            void this.handleCardAction(button, card, sentence).finally(() => {
+                if (originalAction) button.dataset.action = originalAction;
+                delete button.dataset.deckSource;
+                delete button.dataset.deckId;
+            });
+        }, { signal: controller.signal });
+        picker.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                if (document.activeElement !== picker) cleanup();
+            }, 180);
+        }, { once: true, signal: controller.signal });
+
+        picker.classList.add('jpdb-reader-add-deck-select-open');
+        wrapper?.classList.add('jpdb-reader-deck-picker-open');
+        toggle?.setAttribute('aria-expanded', 'true');
+        picker.focus();
+        const showPicker = (picker as HTMLSelectElement & { showPicker?: () => void }).showPicker;
+        if (showPicker) {
+            try {
+                showPicker.call(picker);
+            } catch {
+                // The temporary visible select is the fallback on browsers without a native picker.
+            }
+        }
+        return true;
     }
 
     private updateWordNavigation(card: JPDBCard, sentence: string | undefined, trigger: 'modal' | 'hover', mode: CardNavigationMode): void {
@@ -2140,6 +2413,9 @@ export class ReaderApp {
         if (this.settings.similarKanjiWords) {
             void this.renderSimilarKanjiWordsProgressively(popover, detailsPromises.jpdbInfo, kanji, card);
         }
+        if (this.settings.uchisenEnabled) {
+            void this.renderUchisenInto(popover, kanji);
+        }
         void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
         if (this.settings.kanjivgEnabled) {
             void this.renderKanjiVGInto(popover, kanjiVGPromise, kanji, language);
@@ -2154,7 +2430,10 @@ export class ReaderApp {
             }
             if (sourceId === KANJI_JPDB_SOURCE_ID) return '<div data-kanji-jpdb-mount></div>';
             if (sourceId === KANJI_RTK_SOURCE_ID) return '<div data-kanji-rtk-mount></div>';
+            if (sourceId === KANJI_UCHISEN_SOURCE_ID) return '<div data-kanji-uchisen-mount></div>';
             if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return '<div data-kanji-definitions-mount></div>';
+            const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
+            if (dictionaryName) return `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`;
             if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
                 return renderSimilarKanjiWordsShell(
@@ -2183,7 +2462,7 @@ export class ReaderApp {
         const keywordMount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
         const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
         const rtkMount = popover.querySelector<HTMLElement>('[data-kanji-rtk-mount]');
-        const definitionsMount = popover.querySelector<HTMLElement>('[data-kanji-definitions-mount]');
+        const definitionsMounts = Array.from(popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]'));
 
         const renderKeyword = () => {
             if (!popover.isConnected || !keywordMount?.isConnected) return;
@@ -2214,8 +2493,19 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             log.debug('Local kanji details loaded', { kanji, entries: kanjiEntries.length });
             renderKeyword();
-            if (definitionsMount?.isConnected) {
-                setInnerHtml(definitionsMount, renderKanjiDefinitions(kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), name => this.dictionaryLabel(name)));
+            for (const definitionsMount of definitionsMounts.filter(mount => mount.isConnected)) {
+                const dictionaryName = definitionsMount.dataset.kanjiDictionary;
+                const sourceId = definitionsMount.dataset.kanjiSourceId ?? KANJI_DICTIONARIES_SOURCE_ID;
+                const visibleEntries = dictionaryName
+                    ? kanjiEntries.filter(entry => entry.dictionary === dictionaryName)
+                    : kanjiEntries;
+                setInnerHtml(definitionsMount, renderKanjiDefinitions(
+                    visibleEntries,
+                    (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded),
+                    name => this.dictionaryLabel(name),
+                    sourceId,
+                    dictionaryName ? this.dictionaryLabel(dictionaryName) : 'Kanji dictionaries',
+                ));
             }
             renderRtk();
         });
@@ -2242,6 +2532,35 @@ export class ReaderApp {
             void this.renderKanjiOriginsInto(popover, kanji, resolvedJpdbInfo, resolvedRtkInfo, null, kanjiEntries);
         }
         void this.parsePopoverJapanese(popover);
+        this.repositionActivePopover();
+    }
+
+    private async renderUchisenInto(popover: HTMLElement, kanji: string): Promise<void> {
+        const mount = popover.querySelector<HTMLElement>('[data-kanji-uchisen-mount]');
+        if (!mount) return;
+        const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
+        const sourceAttributes = () => this.dictionarySourceAttributes(sourceStateKey, this.isDictionarySourceOpen(sourceStateKey));
+        setInnerHtml(mount, `
+            <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source" ${sourceAttributes()}>
+                <summary class="jpdb-reader-local-title">Uchisen</summary>
+                <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">Loading mnemonic images...</div></div>
+            </details>
+        `);
+        const images = await loadUchisenImages(kanji).catch(error => {
+            log.debug('Uchisen kanji details failed quietly', { kanji }, error);
+            return [];
+        });
+        if (!popover.isConnected || !mount.isConnected) return;
+        if (!images.length) {
+            mount.remove();
+            return;
+        }
+        await installUchisenCarousel(mount, kanji, images, {
+            sourceAttributes: sourceAttributes(),
+            detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
+            summaryClass: 'jpdb-reader-local-title',
+            bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
+        });
         this.repositionActivePopover();
     }
 
@@ -2483,7 +2802,7 @@ export class ReaderApp {
                 this.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
                 translateJapaneseSentence(sentence),
             ]);
-            if (!popover.isConnected || !container.isConnected) return;
+            if (!this.isCurrentPopoverRoot(popover) || !container.isConnected) return;
             const original = container.querySelector<HTMLElement>('[data-study-original-render]');
             if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings));
             const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
@@ -2499,15 +2818,20 @@ export class ReaderApp {
     }
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
+        if (!this.isCurrentPopoverRoot(popover)) return;
         const targets = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
             .flatMap(root => collectFragmentTextTargetsIn(root, 24, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
             .slice(0, 24);
         if (!targets.length) return;
+        const parseKey = targets.map(target => target.text).join('\n\n');
+        if (popover.dataset.jpdbReaderParseKey === parseKey || popover.dataset.jpdbReaderParseLoadingKey === parseKey) return;
+        popover.dataset.jpdbReaderParseLoadingKey = parseKey;
 
         try {
             const parsed = await this.parseJapanese(targets.map(target => target.text));
-            if (!popover.isConnected) return;
+            if (!this.isCurrentPopoverRoot(popover) || popover.dataset.jpdbReaderParseLoadingKey !== parseKey) return;
             targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+            popover.dataset.jpdbReaderParseKey = parseKey;
             const tokens = parsed.flat();
             this.preloadTermAudioForTokens(tokens);
             void this.enrichAnkiWords(tokens);
@@ -2515,7 +2839,13 @@ export class ReaderApp {
         } catch (error) {
             log.debug('Popover nested text parsing failed quietly', error);
             // The primary popup already succeeded; nested text parsing is a quiet enhancement.
+        } finally {
+            if (popover.dataset.jpdbReaderParseLoadingKey === parseKey) delete popover.dataset.jpdbReaderParseLoadingKey;
         }
+    }
+
+    private isCurrentPopoverRoot(root: HTMLElement): boolean {
+        return Boolean(root.isConnected && this.activePopover && (root === this.activePopover || this.activePopover.contains(root)));
     }
 
     private async enrichAnkiWords(tokens: JPDBToken[]): Promise<void> {
@@ -2558,7 +2888,8 @@ export class ReaderApp {
     }
 
     private dictionarySourceAttributes(sourceStateKey: string, initiallyExpanded = this.settings.dictionarySourcesInitiallyExpanded): string {
-        return `data-source-state-key="${escapeHtml(sourceStateKey)}"${this.isDictionarySourceOpen(sourceStateKey, initiallyExpanded) ? ' open' : ''}`;
+        const isOpen = this.isDictionarySourceOpen(sourceStateKey, initiallyExpanded);
+        return `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? ' open' : ''}`;
     }
 
     private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
@@ -2624,6 +2955,9 @@ export class ReaderApp {
         const isCurrent = options.hoverLookupGeneration === undefined
             ? undefined
             : () => this.hoverLookupGeneration === options.hoverLookupGeneration;
+        const loadingPopover = this.activePopover;
+        const loadingRequest = ++this.audioLoadingRequest;
+        this.setAudioLoading(loadingPopover, loadingRequest);
         try {
             this.immersionPopover.stopAudio();
             const played = await this.audio.play(card, { isCurrent });
@@ -2632,7 +2966,21 @@ export class ReaderApp {
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);
             this.toast(error instanceof Error ? error.message : 'Audio playback failed.');
+        } finally {
+            this.clearAudioLoading(loadingPopover, loadingRequest);
         }
+    }
+
+    private setAudioLoading(popover: HTMLElement | undefined, requestId: number): void {
+        if (!popover?.isConnected) return;
+        popover.dataset.audioLoading = 'true';
+        popover.dataset.audioLoadingRequest = String(requestId);
+    }
+
+    private clearAudioLoading(popover: HTMLElement | undefined, requestId: number): void {
+        if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
+        delete popover.dataset.audioLoading;
+        delete popover.dataset.audioLoadingRequest;
     }
 
     private async playSentenceAudio(sentence?: string): Promise<void> {
@@ -2765,6 +3113,10 @@ export class ReaderApp {
     private rememberDictionarySourceOpenState(details: HTMLDetailsElement): void {
         const sourceStateKey = details.dataset.sourceStateKey;
         if (!sourceStateKey) return;
+        const rememberedOpen = this.dictionarySourceOpenOverrides.get(sourceStateKey);
+        if (rememberedOpen === details.open) return;
+        const initialOpen = details.dataset.sourceInitialOpen === 'true';
+        if (rememberedOpen === undefined && details.open === initialOpen) return;
         this.dictionarySourceOpenOverrides.set(sourceStateKey, details.open);
         log.debug('Dictionary source open state remembered', { sourceStateKey, open: details.open });
         this.repositionActivePopover();

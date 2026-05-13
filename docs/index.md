@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: よむ
+  name: Reader
   text: Free Japanese lookup and mining for the web
   tagline: Tap or hover Japanese text, read manga images, mine subtitles, import Yomitan dictionaries, and study with JPDB or Anki without paying for a full study suite.
   image:

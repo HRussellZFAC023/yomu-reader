@@ -47,6 +47,7 @@ interface ImmersionPopoverControllerOptions {
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     enrichAnkiWords: (tokens: JPDBToken[]) => void | Promise<void>;
     repositionPopover: () => void;
+    setImmersionTranslationBlurred: (blurred: boolean) => void;
     toast: (message: string) => void;
 }
 
@@ -133,13 +134,33 @@ export class ImmersionPopoverController {
             };
             container.addEventListener('click', event => {
                 const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-immersion-action]');
-                if (!button) return;
+                const media = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-example-media');
+                const translation = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-example-translation');
+                if (translation) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.toggleTranslationBlur(container);
+                    return;
+                }
+                if (!button && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
                 event.preventDefault();
                 event.stopPropagation();
+                if (!button) {
+                    void this.playExampleAudio(examples[index]);
+                    return;
+                }
                 const action = button.dataset.immersionAction;
-                if (action === 'previous') render(index - 1, true, true);
-                if (action === 'next') render(index + 1, true, true);
+                const shouldAutoPlay = this.options.getSettings().immersionKitAutoPlayAudio;
+                if (action === 'previous') render(index - 1, shouldAutoPlay, true);
+                if (action === 'next') render(index + 1, shouldAutoPlay, true);
                 if (action === 'audio') void this.playExampleAudio(examples[index]);
+            });
+            container.addEventListener('keydown', event => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                const translation = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-example-translation');
+                if (!translation) return;
+                event.preventDefault();
+                this.toggleTranslationBlur(container);
             });
             const handleImmersionHover = (event: MouseEvent | PointerEvent) => {
                 const media = (event.target as HTMLElement).closest?.('.jpdb-reader-example-media');
@@ -334,11 +355,18 @@ export class ImmersionPopoverController {
             });
         }
         const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading], 'jpdb-reader-example-target');
-        const translation = settings.immersionKitShowTranslation && example.translation
-            ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>`
-            : '';
+        const translation = renderExampleTranslation(example.translation, settings);
+        const currentImage = container.querySelector<HTMLImageElement>('[data-immersion-image]');
+        const currentMedia = currentImage?.closest<HTMLElement>('.jpdb-reader-example-media') ?? null;
+        const currentImageSrc = currentImage?.currentSrc || currentImage?.src || '';
+        const holdCurrentImage = Boolean(imageUrl && currentImageSrc && currentImage?.isConnected);
+        const heldMediaHeight = holdCurrentImage ? Math.ceil(currentMedia?.getBoundingClientRect().height || currentImage?.getBoundingClientRect().height || 0) : 0;
+        const mediaStyle = heldMediaHeight > 0 ? ` style="min-height:${heldMediaHeight}px"` : '';
+        const imageSrc = holdCurrentImage ? currentImageSrc : '';
+        const imageSrcAttribute = imageSrc ? ` src="${escapeHtml(imageSrc)}"` : '';
+        const holdImageAttribute = holdCurrentImage ? ' data-immersion-hold-until-ready="true"' : '';
         const image = imageUrl
-            ? `<div class="jpdb-reader-example-media"><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}" alt="" loading="eager" decoding="async"></div>`
+            ? `<div class="jpdb-reader-example-media"${mediaStyle}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${holdImageAttribute}${imageSrcAttribute} alt="" loading="eager" decoding="async"></div>`
             : '';
         const hasFallbackQuery = queryKey(searchQuery) !== queryKey(card.spelling);
         const fallbackQuery = hasFallbackQuery
@@ -347,17 +375,19 @@ export class ImmersionPopoverController {
 
         delete container.dataset.immersionEmpty;
         setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title">${uiText(language, 'immersionKit')}</summary>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">Immersion Kit</span>
+                <span class="jpdb-reader-local-dict">${escapeHtml(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
+            </summary>
+            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
+            </div>
             <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
                 <div class="jpdb-reader-example-topline">
                     <div class="jpdb-reader-example-meta ${hasFallbackQuery ? 'has-query' : ''}">
-                        <span class="jpdb-reader-example-source">${escapeHtml(example.sourceTitle)}</span>
                         ${fallbackQuery}
-                    </div>
-                    <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                        <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
-                        <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>
-                        <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
                     </div>
                 </div>
                 <div class="jpdb-reader-example-body">
@@ -377,6 +407,14 @@ export class ImmersionPopoverController {
         };
         container.querySelectorAll<HTMLImageElement>('[data-immersion-image]').forEach(imageElement => {
             let imageCandidateIndex = 0;
+            let imageRequestId = 0;
+            const holdUntilReady = imageElement.dataset.immersionHoldUntilReady === 'true';
+            let pendingImage: HTMLImageElement | null = null;
+            const showImageCandidate = (sourceUrl: string, displayUrl: string): void => {
+                imageElement.dataset.immersionImageSrc = sourceUrl;
+                imageElement.src = displayUrl;
+                imageElement.removeAttribute('data-immersion-hold-until-ready');
+            };
             const loadNextImageCandidate = (): void => {
                 if (!isCurrent() || !imageElement.isConnected) return;
                 const fallbackUrl = imageUrls[imageCandidateIndex++];
@@ -384,8 +422,35 @@ export class ImmersionPopoverController {
                     hideBrokenImage(imageElement);
                     return;
                 }
-                imageElement.dataset.immersionImageSrc = fallbackUrl;
-                imageElement.src = fallbackUrl;
+                const currentSrc = imageElement.currentSrc || imageElement.src;
+                const requestId = ++imageRequestId;
+                this.options.client.fetchBlobUrl(fallbackUrl, this.options.getSettings().audioTimeoutMs)
+                    .then(displayUrl => {
+                        if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
+                        if (!holdUntilReady || currentSrc === displayUrl) {
+                            showImageCandidate(fallbackUrl, displayUrl);
+                            return;
+                        }
+                        const preload = new Image();
+                        pendingImage = preload;
+                        preload.decoding = 'async';
+                        preload.onload = () => {
+                            if (pendingImage !== preload || requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
+                            pendingImage = null;
+                            showImageCandidate(fallbackUrl, displayUrl);
+                            this.options.repositionPopover();
+                        };
+                        preload.onerror = () => {
+                            if (pendingImage !== preload || requestId !== imageRequestId) return;
+                            pendingImage = null;
+                            loadNextImageCandidate();
+                        };
+                        preload.src = displayUrl;
+                    })
+                    .catch(() => {
+                        if (requestId !== imageRequestId) return;
+                        loadNextImageCandidate();
+                    });
             };
             imageElement.addEventListener('error', loadNextImageCandidate);
             imageElement.addEventListener('load', () => this.options.repositionPopover(), { once: true });
@@ -396,6 +461,7 @@ export class ImmersionPopoverController {
             loadNextImageCandidate();
         });
         this.options.repositionPopover();
+        if (playAudio) void this.playExampleAudio(example, true);
         void this.options.parseJapanese([example.sentence])
             .then(([tokens]) => {
                 if (!isCurrent() || !container.isConnected) return;
@@ -408,7 +474,6 @@ export class ImmersionPopoverController {
                 this.options.repositionPopover();
             })
             .catch(error => log.debug('Immersion example sentence parse failed quietly', { term: card.spelling }, error));
-        if (playAudio) void this.playExampleAudio(example, true);
     }
 
     private highlightTarget(sentence: HTMLElement, card: JPDBCard): void {
@@ -422,6 +487,15 @@ export class ImmersionPopoverController {
                 word.classList.add('jpdb-reader-example-target');
             }
         });
+    }
+
+    private toggleTranslationBlur(container: HTMLElement): void {
+        const shouldBlur = !this.options.getSettings().immersionKitRevealTranslationOnClick;
+        this.options.setImmersionTranslationBlurred(shouldBlur);
+        container.querySelectorAll<HTMLElement>('.jpdb-reader-example-translation').forEach(translation => {
+            setTranslationBlurAttributes(translation, shouldBlur, 'immersionTranslationBlurred');
+        });
+        this.options.repositionPopover();
     }
 
     private async playExampleAudio(example: ImmersionKitExample, quiet = false, isCurrent: () => boolean = () => true): Promise<void> {
@@ -497,4 +571,27 @@ export class ImmersionPopoverController {
         if (this.audioLoadingKey === key) return true;
         return Boolean(this.audioElement && this.audioKey === key && !this.audioElement.ended);
     }
+}
+
+function renderExampleTranslation(translation: string, settings: ReaderSettings): string {
+    if (!settings.immersionKitShowTranslation || !translation) return '';
+    const escaped = escapeHtml(translation);
+    if (!settings.immersionKitRevealTranslationOnClick) {
+        return `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escaped}</div>`;
+    }
+    return `<div class="jpdb-reader-example-translation jpdb-reader-parseable" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">${escaped}</div>`;
+}
+
+function setTranslationBlurAttributes(element: HTMLElement, blurred: boolean, key: 'immersionTranslationBlurred'): void {
+    if (blurred) {
+        element.dataset[key] = 'true';
+        element.setAttribute('role', 'button');
+        element.setAttribute('tabindex', '0');
+        element.setAttribute('aria-label', 'Reveal translation');
+        return;
+    }
+    delete element.dataset[key];
+    element.removeAttribute('tabindex');
+    element.removeAttribute('role');
+    element.removeAttribute('aria-label');
 }

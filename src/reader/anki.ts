@@ -93,6 +93,7 @@ export interface AnkiLookupResult {
 }
 
 export interface AnkiCardContext {
+    deckName?: string;
     imageDataUrl?: string;
     localEntries?: YomitanTermEntry[];
     kanjiEntries?: YomitanKanjiEntry[];
@@ -140,22 +141,36 @@ export class AnkiConnectClient {
             const query = [
                 settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : '',
                 settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : '',
+                '-is:suspended',
+                '(is:due OR is:new OR is:learn)',
             ].filter(Boolean).join(' ');
-            const noteIds = await this.invoke<number[]>('findNotes', { query });
-            const sampledIds = sampleAnkiIds(noteIds, Math.max(1, limit * 3));
-            if (!sampledIds.length) {
+            const foundCardIds = await this.invoke<number[]>('findCards', { query });
+            const sampledCardIds = sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
+            if (!sampledCardIds.length) {
                 done();
-                log.debug('No Anki notes available for new tab', { query });
+                log.debug('No due Anki cards available for new tab', { query });
                 return [];
             }
 
-            const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: sampledIds });
-            const cardIds = unique(notes.flatMap(note => note.cards ?? []));
-            const cards = cardIds.length
-                ? await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }).catch((): AnkiCardInfo[] => [])
-                : [];
+            const dueFlags = await this.invoke<boolean[]>('areDue', { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
+            const cards = await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: sampledCardIds }).catch((): AnkiCardInfo[] => []);
+            const dueCards = cards.filter((cardInfo, index) => {
+                if (cardInfo.queue === -1) return false;
+                if (cardInfo.queue === 0 || cardInfo.type === 0) return true;
+                if (cardInfo.queue === 1 || cardInfo.type === 1) return true;
+                if (cardInfo.queue === 3 || cardInfo.type === 3) return true;
+                return Boolean(dueFlags[index]);
+            });
+            if (!dueCards.length) {
+                done();
+                log.debug('Anki cards found but none are reviewable for new tab', { query, cards: cards.length });
+                return [];
+            }
+
+            const noteIds = unique(dueCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
+            const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: noteIds });
             const cardsByNote = new Map<number, AnkiCardInfo[]>();
-            for (const cardInfo of cards) {
+            for (const cardInfo of dueCards) {
                 const noteId = Number(cardInfo.note);
                 if (!Number.isFinite(noteId)) continue;
                 const list = cardsByNote.get(noteId) ?? [];
@@ -168,7 +183,7 @@ export class AnkiConnectClient {
                 .filter((card): card is JPDBCard => card !== null)
                 .slice(0, Math.max(1, limit));
             done();
-            log.debug('Anki new tab cards loaded', { notes: notes.length, cards: result.length });
+            log.debug('Anki new tab cards loaded', { notes: notes.length, cards: result.length, dueCards: dueCards.length });
             return result;
         } catch (error) {
             log.warn('Anki new tab lookup failed; entering cooldown', error);
@@ -278,8 +293,9 @@ export class AnkiConnectClient {
             log.debug('Anki add skipped because Anki is disabled', { term: card.spelling });
             return null;
         }
+        const deckName = options.deckName?.trim() || settings.ankiDeck || 'よむ';
         const note: AnkiNote = {
-            deckName: settings.ankiDeck || 'よむ',
+            deckName,
             modelName: settings.ankiModel || 'よむ Japanese',
             fields: buildYomuAnkiFields(card, sentence, {
                 ...options,
@@ -311,7 +327,7 @@ export class AnkiConnectClient {
         }
 
         try {
-            await this.ensureDeckAndModel();
+            await this.ensureDeckAndModel(deckName);
             const noteId = await this.invoke<number | null>('addNote', { note });
             log.info('Anki note added', { term: card.spelling, noteId });
             return noteId;
@@ -325,9 +341,9 @@ export class AnkiConnectClient {
         }
     }
 
-    async ensureDeckAndModel(): Promise<void> {
+    async ensureDeckAndModel(deckOverride?: string): Promise<void> {
         const settings = this.getSettings();
-        const deckName = settings.ankiDeck || 'よむ';
+        const deckName = deckOverride?.trim() || settings.ankiDeck || 'よむ';
         const modelName = settings.ankiModel || 'よむ Japanese';
         log.debug('Ensuring Anki deck/model', { deckName, modelName });
         await this.invoke<null>('createDeck', { deck: deckName }).catch(error => {
@@ -578,11 +594,13 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | n
     const reading = firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling;
     const meaning = firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '';
     const partOfSpeech = firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']);
+    const sentence = firstField(fields, ['Sentence', 'Example', 'Context', 'ExpressionSentence', 'SentenceAudio']) || '';
     const state = stateFromAnkiCards(cards);
+    const primary = pickPrimaryCard(cards);
     return {
         vid: -stableAnkiId(String(note.noteId)),
         sid: -stableAnkiId(`${note.noteId}:${spelling}`),
-        rid: 0,
+        rid: primary?.cardId ?? note.cards?.[0] ?? 0,
         spelling,
         reading,
         frequencyRank: null,
@@ -595,6 +613,9 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | n
         pitchAccent: [],
         wordWithReading: null,
         source: 'anki',
+        sentence,
+        reviewSource: 'anki',
+        ankiCardId: primary?.cardId ?? note.cards?.[0] ?? undefined,
     };
 }
 

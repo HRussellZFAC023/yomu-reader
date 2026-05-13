@@ -3,28 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Yomu Video Player</title>
+  <title>Yomu Video</title>
   <meta name="color-scheme" content="light dark">
   <style>
     :root {
-      color-scheme: dark;
+      color-scheme: light dark;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --bg: #101316;
       --ink: #f5f7f6;
       --muted: #9aa3a3;
       --panel: #181d21;
-      --panel-2: #20262c;
       --line: rgba(255,255,255,.14);
       --soft-line: rgba(255,255,255,.08);
       --accent: #6cc98e;
       --accent-ink: #0b1710;
-      --blue: #8eb8ff;
-      --amber: #f2c66d;
-      --danger: #ff8f8f;
       --shadow: rgba(0,0,0,.32);
       --radius: 8px;
-      --side-size: 360px;
-      --bottom-size: 260px;
+    }
+
+    :root.jpdb-reader-theme-light {
+      color-scheme: light;
+      --bg: #ffffff;
+      --ink: #171a1f;
+      --muted: #596272;
+      --panel: #f7f8fa;
+      --line: rgba(20,30,45,.16);
+      --soft-line: rgba(20,30,45,.08);
+      --accent: #5ea780;
+      --accent-ink: #ffffff;
+      --shadow: rgba(20,30,45,.12);
+    }
+
+    :root.jpdb-reader-theme-dark {
+      color-scheme: dark;
+      --bg: #101316;
+      --ink: #f5f7f6;
+      --muted: #9aa3a3;
+      --panel: #181d21;
+      --line: rgba(255,255,255,.14);
+      --soft-line: rgba(255,255,255,.08);
+      --accent: #6cc98e;
+      --accent-ink: #0b1710;
+      --shadow: rgba(0,0,0,.32);
     }
 
     * { box-sizing: border-box; }
@@ -33,29 +53,25 @@
       min-height: 100vh;
       min-height: 100dvh;
       margin: 0;
-      background:
-        radial-gradient(circle at 72% -10%, rgba(142,184,255,.12), transparent 330px),
-        linear-gradient(180deg, rgba(108,201,142,.08), transparent 220px),
-        var(--bg);
+      background: var(--bg);
       color: var(--ink);
       overflow-x: hidden;
     }
 
     button,
-    input,
-    select {
+    input {
       font: inherit;
     }
 
     button,
     .file-button {
-      min-height: 40px;
+      min-height: 38px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: var(--panel-2);
+      background: var(--panel);
       color: var(--ink);
       cursor: pointer;
-      font-weight: 750;
+      font-weight: 760;
     }
 
     button:hover,
@@ -66,20 +82,41 @@
       outline-offset: 2px;
     }
 
-    button.primary,
-    .file-button.primary {
+    .file-button {
+      display: inline-grid;
+      place-items: center;
+      padding: 0 14px;
       background: var(--accent);
       border-color: transparent;
       color: var(--accent-ink);
     }
 
-    button:disabled {
-      opacity: .45;
-      cursor: not-allowed;
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-toggle {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .app {
-      width: min(1440px, calc(100vw - 28px));
+      width: min(1240px, calc(100vw - 28px));
       min-height: 100dvh;
       margin: 0 auto;
       display: grid;
@@ -113,100 +150,27 @@
       background: #f7fbf8;
     }
 
-    .brand span {
-      display: grid;
-      gap: 1px;
-    }
-
-    .brand strong {
-      line-height: 1;
-    }
-
-    .top-actions,
-    .layout-switch {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .layout-switch {
-      padding: 3px;
-      border: 1px solid var(--soft-line);
-      border-radius: var(--radius);
-      background: rgba(255,255,255,.045);
-    }
-
-    .layout-switch button {
-      display: inline-grid;
-      place-items: center;
-      width: 34px;
-      min-width: 34px;
-      height: 34px;
-      min-height: 34px;
-      padding: 0;
-      border-color: transparent;
-      background: transparent;
-      line-height: 1;
-    }
-
-    .layout-switch button[aria-pressed="true"] {
-      border-color: color-mix(in srgb, var(--accent) 72%, transparent);
-      background: color-mix(in srgb, var(--accent) 18%, transparent);
-      color: var(--accent);
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(300px, var(--side-size));
-      gap: 14px;
-      min-height: 0;
-    }
-
-    .layout[data-layout="left"] {
-      grid-template-columns: minmax(300px, var(--side-size)) minmax(0, 1fr);
-    }
-
-    .layout[data-layout="left"] .side {
-      order: -1;
-    }
-
-    .layout[data-layout="bottom"] {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: minmax(0, 1fr) minmax(180px, var(--bottom-size));
-    }
-
-    .stage,
-    .side {
+    .stage {
+      position: relative;
       min-width: 0;
+      min-height: min(760px, calc(100dvh - 92px));
+      display: grid;
+      place-items: center;
+      overflow: hidden;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: color-mix(in srgb, var(--panel) 92%, black);
+      background: #050708;
       box-shadow: 0 18px 46px var(--shadow);
-    }
-
-    .stage {
-      display: grid;
-      grid-template-rows: minmax(260px, 1fr) auto;
-      min-height: min(760px, calc(100dvh - 92px));
-      overflow: hidden;
-    }
-
-    .player-wrap {
-      position: relative;
-      display: grid;
-      place-items: center;
-      background:
-        linear-gradient(135deg, rgba(142,184,255,.12), transparent 40%),
-        #050708;
-      min-height: 260px;
     }
 
     video {
       width: 100%;
-      height: 100%;
-      max-height: calc(100dvh - 170px);
-      object-fit: contain;
+      max-width: 100%;
+      height: auto;
+      max-height: calc(100dvh - 110px);
+      display: block;
       background: #050708;
+      object-fit: contain;
     }
 
     .empty {
@@ -224,7 +188,7 @@
     .empty strong {
       display: block;
       color: var(--ink);
-      font-size: 22px;
+      font-size: 20px;
       margin-bottom: 6px;
     }
 
@@ -232,249 +196,20 @@
       display: none;
     }
 
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      padding: 12px;
-      border-top: 1px solid var(--soft-line);
-      background: color-mix(in srgb, var(--panel) 88%, black);
-    }
-
-    .file-button {
-      display: grid;
-      place-items: center;
-      padding: 0 12px;
-      text-align: center;
-    }
-
-    input[type="file"] {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .side {
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto;
-      min-height: 0;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .side-head,
-    .side-foot {
-      padding: 14px;
-      border-bottom: 1px solid var(--soft-line);
-    }
-
-    .side-foot {
-      border-top: 1px solid var(--soft-line);
-      border-bottom: 0;
-    }
-
-    .side-foot[hidden] {
-      display: none;
-    }
-
-    .side-head h1 {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.15;
-    }
-
-    .side-head p,
-    .side-foot p {
-      margin: 6px 0 0;
+    .status {
+      min-width: 0;
       color: var(--muted);
       font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .queue {
-      display: grid;
-      align-content: start;
-      gap: 10px;
-      min-height: 0;
-      overflow: auto;
-      padding: 12px 14px;
-    }
-
-    .media-card {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px;
-      align-items: center;
-      padding: 10px;
-      border: 1px solid var(--soft-line);
-      border-radius: var(--radius);
-      background: color-mix(in srgb, var(--panel-2) 72%, transparent);
-    }
-
-    .media-card strong,
-    .media-card span {
-      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .media-card strong {
-      font-size: 14px;
-    }
-
-    .media-card span {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .pill {
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      padding: 3px 8px;
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .pill.native {
-      color: var(--blue);
-    }
-
-    .status-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      min-height: 24px;
-    }
-
-    .status-bar .warn {
-      color: var(--amber);
-    }
-
-    .status-bar .error {
-      color: var(--danger);
-    }
-
-    .resize-handle {
-      position: absolute;
-      z-index: 2;
-      min-width: 0;
-      min-height: 0;
-      padding: 0;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-      box-shadow: none;
-      touch-action: none;
-    }
-
-    .resize-handle::after {
-      content: "";
-      position: absolute;
-      border-radius: 999px;
-      background: rgba(255,255,255,.2);
-      opacity: .45;
-      transition: opacity .15s ease, background .15s ease;
-    }
-
-    .resize-handle:hover::after,
-    .resize-handle:focus-visible::after {
-      background: var(--accent);
-      opacity: 1;
-    }
-
-    .layout[data-layout="right"] .resize-handle {
-      left: -7px;
-      top: 0;
-      bottom: 0;
-      width: 14px;
-      cursor: ew-resize;
-    }
-
-    .layout[data-layout="left"] .resize-handle {
-      right: -7px;
-      top: 0;
-      bottom: 0;
-      width: 14px;
-      cursor: ew-resize;
-    }
-
-    .layout[data-layout="right"] .resize-handle::after,
-    .layout[data-layout="left"] .resize-handle::after {
-      top: 18px;
-      bottom: 18px;
-      left: 6px;
-      width: 2px;
-    }
-
-    .layout[data-layout="bottom"] .resize-handle {
-      left: 0;
-      right: 0;
-      top: -7px;
-      height: 14px;
-      cursor: ns-resize;
-    }
-
-    .layout[data-layout="bottom"] .resize-handle::after {
-      left: 18px;
-      right: 18px;
-      top: 6px;
-      height: 2px;
-    }
-
-    .drop-active .stage,
-    .drop-active .side {
+    .drop-active .stage {
       border-color: var(--accent);
     }
 
-    @media (max-width: 880px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      .layout[data-layout] {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(180px, var(--bottom-size));
-      }
-
-      .layout[data-layout] .side {
-        order: initial;
-      }
-
-      .layout[data-layout] .resize-handle {
-        left: 0;
-        right: 0;
-        top: -7px;
-        bottom: auto;
-        width: auto;
-        height: 14px;
-        cursor: ns-resize;
-      }
-
-      .layout[data-layout] .resize-handle::after {
-        left: 18px;
-        right: 18px;
-        top: 6px;
-        bottom: auto;
-        width: auto;
-        height: 2px;
-      }
-
-      .stage {
-        min-height: 54dvh;
-      }
-
-      video {
-        max-height: 56dvh;
-      }
-    }
-
-    @media (max-width: 620px) {
+    @media (max-width: 640px) {
       .app {
         width: min(100vw - 18px, 620px);
       }
@@ -484,12 +219,20 @@
         flex-direction: column;
       }
 
-      .controls {
-        grid-template-columns: 1fr 1fr;
+      .top-actions {
+        width: 100%;
       }
 
-      .side-head h1 {
-        font-size: 20px;
+      .file-button {
+        flex: 1 1 auto;
+      }
+
+      .stage {
+        min-height: 58dvh;
+      }
+
+      video {
+        max-height: 62dvh;
       }
     }
   </style>
@@ -499,156 +242,77 @@
     <header class="topbar">
       <a class="brand" href="../" aria-label="Open Yomu home">
         <img src="../yomu-icon.svg" alt="" width="36" height="36">
-        <span>
-          <strong>Yomu Video Player</strong>
-        </span>
+        <strong>Yomu Video</strong>
       </a>
       <div class="top-actions">
-        <div class="layout-switch" aria-label="Panel layout">
-          <button type="button" data-layout-choice="left" title="Panel left" aria-label="Panel left">←</button>
-          <button type="button" data-layout-choice="right" title="Panel right" aria-label="Panel right">→</button>
-          <button type="button" data-layout-choice="bottom" title="Panel below" aria-label="Panel below">↓</button>
-        </div>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme" title="Switch theme"><span data-theme-icon aria-hidden="true">☾</span></button>
+        <label class="file-button">
+          Open video
+          <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
+        </label>
       </div>
     </header>
 
-    <div class="layout" data-layout="right">
-      <section class="stage" data-stage aria-label="Video player">
-        <div class="player-wrap" data-drop-zone>
-          <video controls playsinline preload="metadata" data-video></video>
-          <div class="empty">
-            <div>
-              <strong>Drop a video file</strong>
-              <span>MP4, WebM, MOV, M4V, OGV, and browser-supported media</span>
-            </div>
-          </div>
+    <section class="stage" data-stage aria-label="Video">
+      <video controls playsinline preload="metadata" data-video></video>
+      <div class="empty">
+        <div>
+          <strong>Open or drop a video</strong>
+          <span class="status" data-status>Use the Yomu subtitle controls for tracks, lines, and mining.</span>
         </div>
-        <div class="controls">
-          <label class="file-button primary">
-            Video
-            <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
-          </label>
-          <button type="button" data-clear>Clear</button>
-        </div>
-      </section>
-
-      <aside class="side" aria-label="Loaded files">
-        <div class="side-head">
-          <h1>Files</h1>
-          <p data-media-name>No video loaded</p>
-        </div>
-        <div class="queue" data-media-list>
-          <div class="media-card">
-            <div>
-              <strong>Video</strong>
-              <span>No file selected</span>
-            </div>
-            <span class="pill">empty</span>
-          </div>
-        </div>
-        <div class="side-foot" data-status-bar hidden>
-        </div>
-        <button class="resize-handle" type="button" data-resize-sidebar title="Resize panel" aria-label="Resize panel"></button>
-      </aside>
-    </div>
+      </div>
+    </section>
   </main>
 
   <script>
     (() => {
       const app = document.querySelector('[data-app]');
-      const layout = document.querySelector('[data-layout]');
       const stage = document.querySelector('[data-stage]');
       const video = document.querySelector('[data-video]');
       const videoInput = document.querySelector('[data-video-input]');
-      const statusBar = document.querySelector('[data-status-bar]');
-      const mediaName = document.querySelector('[data-media-name]');
-      const mediaList = document.querySelector('[data-media-list]');
-      const clearButton = document.querySelector('[data-clear]');
-      const layoutButtons = document.querySelectorAll('[data-layout-choice]');
-      const resizeHandle = document.querySelector('[data-resize-sidebar]');
-      const objectUrls = new Set();
-      const layoutStorageKey = 'yomu-video-player-layout';
-      const sideSizeStorageKey = 'yomu-video-player-side-size';
-      const bottomSizeStorageKey = 'yomu-video-player-bottom-size';
+      const status = document.querySelector('[data-status]');
+      const themeToggle = document.querySelector('[data-theme-toggle]');
+      const themeIcon = document.querySelector('[data-theme-icon]');
+      const themeKey = 'yomu-page-theme';
+      let objectUrl = '';
 
-      function setStatus(message, kind) {
-        statusBar.hidden = !message;
-        statusBar.innerHTML = message ? `<div class="status-bar"><span class="${kind || ''}">${escapeHtml(message)}</span></div>` : '';
+      function effectiveTheme() {
+        const saved = localStorage.getItem(themeKey);
+        if (saved === 'dark' || saved === 'light') return saved;
+        return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       }
 
-      function escapeHtml(value) {
-        return String(value).replace(/[&<>"']/g, char => ({
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#39;',
-        }[char]));
+      function applyTheme(theme) {
+        document.documentElement.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
+        document.documentElement.classList.toggle('jpdb-reader-theme-light', theme === 'light');
+        if (themeIcon) themeIcon.textContent = theme === 'dark' ? '☀' : '☾';
+        if (themeToggle) {
+          const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+          themeToggle.setAttribute('aria-label', label);
+          themeToggle.title = label;
+        }
       }
 
-      function objectUrl(blob) {
-        const url = URL.createObjectURL(blob);
-        objectUrls.add(url);
-        return url;
+      applyTheme(effectiveTheme());
+
+      function setStatus(message) {
+        status.textContent = message;
       }
 
-      function clearObjectUrls() {
-        for (const url of objectUrls) URL.revokeObjectURL(url);
-        objectUrls.clear();
+      function revokeObjectUrl() {
+        if (!objectUrl) return;
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = '';
       }
 
       function loadVideo(file) {
         if (!file) return;
-        clearObjectUrls();
-        video.src = objectUrl(file);
+        revokeObjectUrl();
+        objectUrl = URL.createObjectURL(file);
+        video.src = objectUrl;
         video.load();
         stage.classList.add('has-video');
-        mediaName.textContent = file.name;
-        renderMedia(file);
-        setStatus('Video loaded');
-      }
-
-      function renderMedia(file) {
-        mediaList.innerHTML = `
-          <div class="media-card">
-            <div>
-              <strong>${escapeHtml(file.name)}</strong>
-              <span>${formatBytes(file.size)}</span>
-            </div>
-            <span class="pill">video</span>
-          </div>
-        `;
-      }
-
-      function renderEmptyMedia() {
-        mediaList.innerHTML = `
-          <div class="media-card">
-            <div>
-              <strong>Video</strong>
-              <span>No file selected</span>
-            </div>
-            <span class="pill">empty</span>
-          </div>
-        `;
-      }
-
-      function formatBytes(bytes) {
-        if (!Number.isFinite(bytes) || bytes <= 0) return 'Unknown size';
-        const units = ['B', 'KB', 'MB', 'GB'];
-        const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
-        return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-      }
-
-      function clearAll() {
-        video.pause();
-        video.removeAttribute('src');
-        video.load();
-        clearObjectUrls();
-        videoInput.value = '';
-        stage.classList.remove('has-video');
-        mediaName.textContent = 'No video loaded';
-        renderEmptyMedia();
-        setStatus('');
+        setStatus(file.name);
       }
 
       function handleFiles(files) {
@@ -658,71 +322,15 @@
             return;
           }
         }
-        setStatus('Choose a browser-supported video file', 'warn');
-      }
-
-      function setLayout(nextLayout) {
-        const value = ['left', 'right', 'bottom'].includes(nextLayout) ? nextLayout : 'right';
-        layout.dataset.layout = value;
-        localStorage.setItem(layoutStorageKey, value);
-        layoutButtons.forEach(button => {
-          const active = button.dataset.layoutChoice === value;
-          button.setAttribute('aria-pressed', String(active));
-        });
-      }
-
-      function restorePanelState() {
-        setLayout(localStorage.getItem(layoutStorageKey) || 'right');
-        const sideSize = Number(localStorage.getItem(sideSizeStorageKey));
-        const bottomSize = Number(localStorage.getItem(bottomSizeStorageKey));
-        if (Number.isFinite(sideSize)) app.style.setProperty('--side-size', `${clamp(sideSize, 300, 720)}px`);
-        if (Number.isFinite(bottomSize)) app.style.setProperty('--bottom-size', `${clamp(bottomSize, 180, 520)}px`);
-      }
-
-      function startPanelResize(event) {
-        event.preventDefault();
-        resizeHandle.setPointerCapture?.(event.pointerId);
-        const initialLayout = layout.dataset.layout || 'right';
-        const startX = event.clientX;
-        const startY = event.clientY;
-        const rect = layout.getBoundingClientRect();
-        const styles = getComputedStyle(app);
-        const startSideSize = Number.parseFloat(styles.getPropertyValue('--side-size')) || 360;
-        const startBottomSize = Number.parseFloat(styles.getPropertyValue('--bottom-size')) || 260;
-
-        function onMove(moveEvent) {
-          const mobile = window.matchMedia('(max-width: 880px)').matches;
-          if (initialLayout === 'bottom' || mobile) {
-            const next = clamp(startBottomSize + startY - moveEvent.clientY, 180, Math.max(180, rect.height - 260));
-            app.style.setProperty('--bottom-size', `${Math.round(next)}px`);
-            localStorage.setItem(bottomSizeStorageKey, String(Math.round(next)));
-            return;
-          }
-          const delta = initialLayout === 'left' ? moveEvent.clientX - startX : startX - moveEvent.clientX;
-          const next = clamp(startSideSize + delta, 300, Math.max(300, rect.width - 420));
-          app.style.setProperty('--side-size', `${Math.round(next)}px`);
-          localStorage.setItem(sideSizeStorageKey, String(Math.round(next)));
-        }
-
-        function onUp() {
-          window.removeEventListener('pointermove', onMove);
-          window.removeEventListener('pointerup', onUp);
-        }
-
-        window.addEventListener('pointermove', onMove);
-        window.addEventListener('pointerup', onUp, { once: true });
-      }
-
-      function clamp(value, min, max) {
-        return Math.min(Math.max(value, min), Math.max(min, max));
+        setStatus('Choose a browser-supported video file.');
       }
 
       videoInput.addEventListener('change', () => handleFiles(videoInput.files || []));
-      clearButton.addEventListener('click', clearAll);
-      layoutButtons.forEach(button => {
-        button.addEventListener('click', () => setLayout(button.dataset.layoutChoice));
+      themeToggle?.addEventListener('click', () => {
+        const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+        localStorage.setItem(themeKey, next);
+        applyTheme(next);
       });
-      resizeHandle.addEventListener('pointerdown', startPanelResize);
 
       for (const eventName of ['dragenter', 'dragover']) {
         document.addEventListener(eventName, event => {
@@ -739,8 +347,7 @@
         });
       }
 
-      window.addEventListener('pagehide', clearObjectUrls);
-      restorePanelState();
+      window.addEventListener('pagehide', revokeObjectUrl);
     })();
   </script>
   <script src="../yomu.user.js"></script>

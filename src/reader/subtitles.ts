@@ -1,6 +1,7 @@
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { Logger } from './logger';
 import { accentToRgba, matchesShortcut } from './settings';
+import { gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -18,6 +19,8 @@ interface SubtitleTrackOption {
     track?: TextTrack;
     cues?: SubtitleCue[];
     url?: string;
+    youtubeTrack?: unknown;
+    loadingState?: 'idle' | 'loading' | 'ready' | 'waiting' | 'error';
 }
 
 interface SubtitlePlayerOptions {
@@ -27,23 +30,20 @@ interface SubtitlePlayerOptions {
 }
 
 const CAPTION_SELECTOR_LIST = [
-    '.ytp-caption-segment',
     '.caption-visual-line',
-    '.captions-text span',
+    '.captions-text',
     '[data-purpose="captions-text"]',
-    '[class*="subtitle"]',
-    '[class*="caption"]',
-    '[data-testid*="subtitle"]',
+    '.ytp-caption-segment',
 ];
 
 const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
+const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
 const log = Logger.scope('Subtitles');
 
 export class SubtitlePlayerController {
     private root?: HTMLElement;
     private subtitleEl?: HTMLElement;
     private menuEl?: HTMLElement;
-    private statusEl?: HTMLElement;
     private transcriptPanel?: HTMLElement;
     private primaryFileInput?: HTMLInputElement;
     private secondaryFileInput?: HTMLInputElement;
@@ -54,12 +54,14 @@ export class SubtitlePlayerController {
     private currentCue?: SubtitleCue;
     private secondaryCue?: SubtitleCue;
     private observer?: MutationObserver;
+    private videoResizeObserver?: ResizeObserver;
     private discoverTimer?: number;
     private alignFrame?: number;
     private selectedTrackId = '';
     private secondaryTrackId = '';
     private youtubeVideoId = '';
     private lastDomCaption = '';
+    private pendingDomCaption?: { text: string; firstSeenAt: number };
     private parsedHtmlCache = new Map<string, string>();
     private renderSerial = 0;
     private panelMode: 'lines' | 'tracks' = 'lines';
@@ -69,6 +71,13 @@ export class SubtitlePlayerController {
     private transcriptHydrateFrame?: number;
     private transcriptHydrationSerial = 0;
     private transcriptPanelSize = loadTranscriptPanelSize();
+    private lastInsetSignature = '';
+    private lastYomuCaptionsActive = false;
+    private youtubeDomCaptionFallbackTrackId = '';
+    private fullscreen = false;
+    private lastRenderedPrimaryText = '';
+    private lastRenderedPrimaryHtml = '';
+    private parseWarmupSerial = 0;
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -76,14 +85,21 @@ export class SubtitlePlayerController {
         this.install();
         this.observer = new MutationObserver(mutations => {
             if (mutations.every(mutationInsideReaderRoot)) return;
+            if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
             this.scheduleDiscoverVideo();
         });
         this.observer.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('keydown', event => this.handleKeydown(event));
+        document.addEventListener('pointermove', event => this.handlePointerActivity(event), { passive: true });
+        document.addEventListener('fullscreenchange', () => {
+            this.fullscreen = Boolean(document.fullscreenElement);
+            this.syncFullscreenState();
+            this.scheduleAlignToVideo();
+            this.render();
+        });
         window.addEventListener('scroll', () => this.scheduleAlignToVideo(), { passive: true });
         window.addEventListener('resize', () => {
             this.scheduleAlignToVideo();
-            this.positionTranscriptPanel();
         }, { passive: true });
         this.discoverVideo();
         this.tick();
@@ -98,10 +114,13 @@ export class SubtitlePlayerController {
         this.root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
         this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
+        this.root.classList.toggle('jpdb-subtitle-controls-idle', settings.subtitleControlsMode === 'auto' && this.root.classList.contains('jpdb-subtitle-controls-idle'));
         this.root.classList.toggle('jpdb-subtitle-transcript-right', settings.subtitleTranscriptPlacement === 'right');
         this.root.classList.toggle('jpdb-subtitle-transcript-left', settings.subtitleTranscriptPlacement === 'left');
         this.root.classList.toggle('jpdb-subtitle-transcript-bottom', settings.subtitleTranscriptPlacement === 'bottom');
-        this.root.style.setProperty('--subtitle-font-size', `${settings.subtitleFontSize}px`);
+        this.syncFullscreenState();
+        setStylePropertyIfChanged(this.root, '--subtitle-font-size-target', `${settings.subtitleFontSize}px`);
+        setStylePropertyIfChanged(this.root, '--subtitle-font-size', `${settings.subtitleFontSize}px`);
         this.root.style.setProperty('--subtitle-bottom', `${settings.subtitleBottomOffset}%`);
         this.root.style.setProperty('--subtitle-color', settings.subtitleTextColor);
         this.root.style.setProperty('--subtitle-outline', settings.subtitleOutlineColor);
@@ -113,9 +132,10 @@ export class SubtitlePlayerController {
             this.transcriptPanel.hidden = false;
             this.renderTranscriptPanel(true);
         }
-        this.positionTranscriptPanel();
+        this.scheduleAlignToVideo();
         this.syncControls();
         this.render();
+        this.hideControlsImmediately();
         log.debugThrottled('refresh', 2500, 'Subtitle player refreshed', {
             enabled: settings.subtitlePlayerEnabled,
             hasVideo: Boolean(this.video),
@@ -132,11 +152,10 @@ export class SubtitlePlayerController {
         root.dataset.jpdbReaderRoot = 'true';
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
+            <div class="jpdb-subtitle-status" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
                 <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">${subtitleIcon('eye')}</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
-                <button type="button" data-action="list" title="Open transcript" aria-label="Open transcript">${subtitleIcon('transcript')}</button>
-                <span class="jpdb-subtitle-status" data-role="status" hidden></span>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
                 <button type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon('tracks')}</button>
                 <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">${subtitleIcon('menu')}</button>
@@ -148,8 +167,7 @@ export class SubtitlePlayerController {
         `);
         root.addEventListener('click', event => this.handleClick(event));
         this.subtitleEl = root.querySelector('.jpdb-subtitle-text') as HTMLElement;
-        this.menuEl = root.querySelector('.jpdb-subtitle-menu') as HTMLElement;
-        this.statusEl = root.querySelector('[data-role="status"]') as HTMLElement;
+        this.menuEl = root.querySelector<HTMLElement>('.jpdb-subtitle-menu') ?? undefined;
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.primaryFileInput = root.querySelector('input[data-file="primary"]') as HTMLInputElement;
         this.secondaryFileInput = root.querySelector('input[data-file="secondary"]') as HTMLInputElement;
@@ -162,8 +180,11 @@ export class SubtitlePlayerController {
     }
 
     private scheduleDiscoverVideo(): void {
-        window.clearTimeout(this.discoverTimer);
-        this.discoverTimer = window.setTimeout(() => this.discoverVideo(), 120);
+        if (this.discoverTimer !== undefined) return;
+        this.discoverTimer = window.setTimeout(() => {
+            this.discoverTimer = undefined;
+            this.discoverVideo();
+        }, 120);
     }
 
     private discoverVideo(): void {
@@ -181,6 +202,7 @@ export class SubtitlePlayerController {
         if (candidate && candidate !== this.video) {
             this.video = candidate;
             this.attachTextTracks(candidate);
+            this.observeVideoLayout(candidate);
             log.info('Subtitle video detected', videoSummary(candidate));
         }
         void this.discoverYouTubeTracks();
@@ -196,18 +218,59 @@ export class SubtitlePlayerController {
         log.debug('Attached native text track listeners', { tracks: video.textTracks.length });
     }
 
+    private observeVideoLayout(video: HTMLVideoElement): void {
+        this.videoResizeObserver?.disconnect();
+        this.videoResizeObserver = new ResizeObserver(() => this.scheduleAlignToVideo());
+        this.videoResizeObserver.observe(video);
+        video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), { passive: true });
+        video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), { passive: true });
+        video.addEventListener('play', () => this.scheduleAlignToVideo(), { passive: true });
+        this.scheduleAlignToVideo();
+    }
+
     private addNativeTrack(track: TextTrack): void {
         if (this.tracks.some(item => item.track === track)) return;
         const id = `native-${this.tracks.length}`;
         const label = track.label || track.language || `Subtitle ${this.tracks.length + 1}`;
-        this.tracks.push({ id, label, kind: 'native', language: track.language, track });
+        const option: SubtitleTrackOption = { id, label, kind: 'native', language: track.language, track };
+        this.tracks.push(option);
         log.debug('Native subtitle track added', { id, label, language: track.language });
 
         track.addEventListener('cuechange', () => this.updateFromNativeTrack(track));
+        this.maybeAutoSelectNativeTrack(option);
         window.setTimeout(() => {
             this.setNativeTrackModes();
             this.syncControls();
         }, 0);
+        this.syncControls();
+    }
+
+    private maybeAutoSelectNativeTrack(option: SubtitleTrackOption): void {
+        if (!option.track) return;
+        if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) {
+            this.selectedTrackId = option.id;
+            option.track.mode = 'hidden';
+            void this.loadNativeTrackCues(option, 'primary');
+            log.debug('Auto-selected Japanese native subtitle track', { id: option.id, label: option.label });
+        } else if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) {
+            this.secondaryTrackId = option.id;
+            option.track.mode = 'hidden';
+            void this.loadNativeTrackCues(option, 'secondary');
+            log.debug('Auto-selected secondary native subtitle track', { id: option.id, label: option.label });
+        }
+    }
+
+    private async loadNativeTrackCues(option: SubtitleTrackOption, role: 'primary' | 'secondary'): Promise<void> {
+        const track = option.track;
+        if (!track) return;
+        const cues = readTrackCues(track);
+        const loadedCues = cues.length ? cues : await waitForTextTrackCues(track);
+        if (!loadedCues.length) return;
+        if (role === 'primary' && this.selectedTrackId === option.id) this.cues = loadedCues;
+        if (role === 'secondary' && this.secondaryTrackId === option.id) this.secondaryCues = loadedCues;
+        option.loadingState = 'ready';
+        this.updateFromLoadedCues();
+        this.render();
         this.syncControls();
     }
 
@@ -233,10 +296,9 @@ export class SubtitlePlayerController {
     private tick(): void {
         const settings = this.options.getSettings();
         if (settings.subtitlePlayerEnabled) {
-            this.alignToVideo();
             this.refreshNativeCueLists();
             this.updateFromLoadedCues();
-            this.updateFromDomCaptions();
+            if (!isYouTubePage() || (this.selectedTrackId && !this.cues.length)) this.updateFromDomCaptions();
         }
         window.setTimeout(() => this.tick(), 250);
     }
@@ -260,23 +322,18 @@ export class SubtitlePlayerController {
             return;
         }
         const rect = this.video.getBoundingClientRect();
+        this.applyVideoLayout(rect);
+    }
+
+    private applyVideoLayout(rect: DOMRect): void {
+        if (!this.root) return;
         this.root.classList.toggle('jpdb-subtitle-compact-video', rect.width < 560 || rect.height < 260);
         if (rect.width < 120 || rect.height < 80) {
-            this.root.style.left = '0';
-            this.root.style.top = '0';
-            this.root.style.right = 'auto';
-            this.root.style.bottom = 'auto';
-            this.root.style.width = '100%';
-            this.root.style.height = '100%';
+            applyElementLayout(this.root, { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
             this.positionTranscriptPanel();
             return;
         }
-        this.root.style.left = `${rect.left}px`;
-        this.root.style.top = `${rect.top}px`;
-        this.root.style.right = 'auto';
-        this.root.style.bottom = 'auto';
-        this.root.style.width = `${Math.max(260, rect.width)}px`;
-        this.root.style.height = `${Math.max(160, rect.height)}px`;
+        applyElementLayout(this.root, { left: rect.left, top: rect.top, width: Math.max(260, rect.width), height: Math.max(160, rect.height) });
         this.positionTranscriptPanel();
     }
 
@@ -298,14 +355,32 @@ export class SubtitlePlayerController {
             this.render();
             this.renderTranscriptPanel();
             this.syncControls();
+            this.warmParseAroundActiveCue();
         }
     }
 
     private updateFromDomCaptions(): void {
-        if (this.cues.length || this.selectedTrackId) return;
+        if (this.cues.length) return;
+        if (isYouTubePage() && !this.selectedTrackId) return;
+        if (!isYouTubePage() && this.selectedTrackId) return;
         if (!this.options.getSettings().subtitleOverlayVisible) return;
         const text = readPageCaptionText(this.video, this.root);
-        if (!text || text === this.lastDomCaption) return;
+        if (!text) {
+            this.pendingDomCaption = undefined;
+            if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
+                this.currentCue = undefined;
+                this.lastDomCaption = '';
+                this.render();
+                this.syncControls();
+            }
+            return;
+        }
+        const nowMs = performance.now();
+        if (this.pendingDomCaption?.text !== text) {
+            this.pendingDomCaption = { text, firstSeenAt: nowMs };
+            return;
+        }
+        if (nowMs - this.pendingDomCaption.firstSeenAt < 450 || text === this.lastDomCaption) return;
 
         this.lastDomCaption = text;
         const now = this.video?.currentTime ?? 0;
@@ -317,22 +392,38 @@ export class SubtitlePlayerController {
 
     private render(): void {
         if (!this.subtitleEl) return;
+        const settings = this.options.getSettings();
         const text = this.currentCue?.text.trim() ?? '';
         if (!text) {
             setInnerHtml(this.subtitleEl, this.secondaryCue?.text ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : '');
             return;
         }
 
-        const secondary = this.options.getSettings().subtitleSecondaryVisible && this.secondaryCue?.text
+        const secondary = settings.subtitleSecondaryVisible && this.secondaryCue?.text
             ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>`
             : '';
-        setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${escapeWithBreaks(text)}</div>${secondary}`);
-        if (this.options.getSettings().apiKey || this.options.getSettings().localDictionariesEnabled) void this.renderParsedPrimary(text);
+        const parsed = this.parsedHtmlCache.get(this.parseCacheKey(text, settings));
+        const hasParser = this.shouldParseSubtitles(settings);
+        const primary = parsed
+            ? parsed
+            : hasParser && this.lastRenderedPrimaryText === text && this.lastRenderedPrimaryHtml
+                ? this.lastRenderedPrimaryHtml
+                : hasParser
+                    ? `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(text)}</span>`
+                    : escapeWithBreaks(text);
+        setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${primary}</div>${secondary}`);
+        this.fitSubtitleTextToVideo();
+        if (parsed) {
+            this.lastRenderedPrimaryText = text;
+            this.lastRenderedPrimaryHtml = parsed;
+        } else if (hasParser) {
+            void this.renderParsedPrimary(text);
+        }
     }
 
     private async renderParsedPrimary(text: string): Promise<void> {
         const settings = this.options.getSettings();
-        const key = `${settings.showFurigana}:${settings.furiganaMode}:${settings.hideKnownFurigana}:${settings.wordHighlightMode}:${text}`;
+        const key = this.parseCacheKey(text, settings);
         const serial = ++this.renderSerial;
         const cached = this.parsedHtmlCache.get(key);
         if (cached) {
@@ -341,12 +432,11 @@ export class SubtitlePlayerController {
         }
 
         try {
-            const tokens = await this.options.parseJapanese(text);
-            const html = withBreaks(renderTokensToHtml(text, tokens, settings));
-            this.parsedHtmlCache.set(key, html);
-            if (this.parsedHtmlCache.size > 80) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+            const html = await this.parseCueHtml(text, settings);
             this.replacePrimaryHtml(html, serial);
-            log.debug('Subtitle line parsed', { length: text.length, tokens: tokens.length });
+            this.lastRenderedPrimaryText = text;
+            this.lastRenderedPrimaryHtml = html;
+            log.debug('Subtitle line parsed', { length: text.length });
         } catch (error) {
             log.debug('Subtitle line parse failed quietly', { length: text.length }, error);
             // Keep plain selectable subtitles if JPDB is unavailable.
@@ -356,7 +446,83 @@ export class SubtitlePlayerController {
     private replacePrimaryHtml(html: string, serial: number): void {
         if (serial !== this.renderSerial) return;
         const primary = this.subtitleEl?.querySelector('.jpdb-subtitle-primary');
-        if (primary) setInnerHtml(primary, html);
+        if (primary) {
+            setInnerHtml(primary, html);
+            this.fitSubtitleTextToVideo();
+        }
+    }
+
+    private shouldParseSubtitles(settings = this.options.getSettings()): boolean {
+        return Boolean(settings.apiKey || settings.localDictionariesEnabled);
+    }
+
+    private parseCacheKey(text: string, settings = this.options.getSettings()): string {
+        return [
+            settings.showFurigana,
+            settings.furiganaMode,
+            settings.hideKnownFurigana,
+            settings.wordHighlightMode,
+            settings.wordHighlightColorSource,
+            settings.wordUnderlineColorSource,
+            settings.wordTextColorSource,
+            settings.subtitleHighlightColorSource,
+            settings.subtitleUnderlineColorSource,
+            settings.subtitleTextColorSource,
+            text,
+        ].join(':');
+    }
+
+    private async parseCueHtml(text: string, settings = this.options.getSettings()): Promise<string> {
+        const key = this.parseCacheKey(text, settings);
+        const cached = this.parsedHtmlCache.get(key);
+        if (cached) return cached;
+        const tokens = await this.options.parseJapanese(text);
+        const html = withBreaks(renderTokensToHtml(text, tokens, settings));
+        this.parsedHtmlCache.set(key, html);
+        if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+        return html;
+    }
+
+    private warmParseAroundActiveCue(): void {
+        if (!this.shouldParseSubtitles() || !this.cues.length) return;
+        const active = this.activeTranscriptIndex();
+        const start = Math.max(0, active >= 0 ? active - 2 : 0);
+        const end = Math.min(this.cues.length, start + 14);
+        const serial = ++this.parseWarmupSerial;
+        const settings = this.options.getSettings();
+        void (async () => {
+            for (let index = start; index < end; index++) {
+                if (serial !== this.parseWarmupSerial) return;
+                const text = this.cues[index]?.text.trim();
+                if (!text || this.parsedHtmlCache.has(this.parseCacheKey(text, settings))) continue;
+                try {
+                    await this.parseCueHtml(text, settings);
+                } catch (error) {
+                    log.debug('Subtitle pre-parse failed quietly', { index, length: text.length }, error);
+                }
+            }
+            if (this.currentCue?.text.trim()) this.render();
+            this.renderTranscriptPanel(true);
+        })();
+    }
+
+    private fitSubtitleTextToVideo(): void {
+        if (!this.root || !this.subtitleEl) return;
+        const settings = this.options.getSettings();
+        const target = settings.subtitleFontSize;
+        this.root.style.setProperty('--subtitle-font-size', `${target}px`);
+        const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        if (!primary) return;
+        const rootRect = this.root.getBoundingClientRect();
+        const textRect = this.subtitleEl.getBoundingClientRect();
+        const availableHeight = Math.max(34, rootRect.height * Math.max(0.12, Math.min(0.45, settings.subtitleBottomOffset / 100 + 0.18)));
+        const availableWidth = Math.max(120, rootRect.width - 28);
+        if (textRect.height <= availableHeight && textRect.width <= availableWidth) return;
+        const heightScale = availableHeight / Math.max(1, textRect.height);
+        const widthScale = availableWidth / Math.max(1, textRect.width);
+        const scale = Math.min(1, heightScale, widthScale);
+        const fitted = Math.max(16, Math.floor(target * scale));
+        this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
     }
 
     private handleClick(event: MouseEvent): void {
@@ -364,14 +530,20 @@ export class SubtitlePlayerController {
         if (!action) return;
         event.preventDefault();
         event.stopPropagation();
+        this.showControlsTemporarily();
         log.debug('Subtitle control clicked', { action });
 
         if (action === 'cue') this.seekToCue(Number((event.target as HTMLElement).closest<HTMLElement>('[data-index]')?.dataset.index));
         if (action === 'previous') this.seekSubtitle(-1);
         if (action === 'next') this.seekSubtitle(1);
         if (action === 'copy') void this.copySubtitle();
+        if (action === 'copy-row') void this.copySubtitle(Number((event.target as HTMLElement).closest<HTMLElement>('[data-index]')?.dataset.index));
         if (action === 'load') this.primaryFileInput?.click();
         if (action === 'load-secondary') this.secondaryFileInput?.click();
+        if (action === 'menu') {
+            this.toggleMenu();
+            return;
+        }
         if (action === 'list') this.toggleTranscriptPanel();
         if (action === 'tracks') this.toggleTrackPanel();
         if (action === 'transcript-left') this.setTranscriptPlacement('left');
@@ -379,10 +551,54 @@ export class SubtitlePlayerController {
         if (action === 'transcript-bottom') this.setTranscriptPlacement('bottom');
         if (action === 'primary-track') void this.choosePrimaryTrack((event.target as HTMLElement).closest<HTMLElement>('[data-track-id]')?.dataset.trackId);
         if (action === 'secondary-track') void this.chooseSecondaryTrack((event.target as HTMLElement).closest<HTMLElement>('[data-track-id]')?.dataset.trackId);
-        if (action === 'menu') this.toggleMenu();
         if (action === 'toggle') this.toggleSubtitles();
         if (action === 'toggle-secondary') this.toggleSecondarySubtitles();
         this.syncControls();
+    }
+
+    private handlePointerActivity(event: PointerEvent): void {
+        if (this.isPointerNearSubtitleSurface(event.clientX, event.clientY)) {
+            this.showControlsTemporarily();
+        } else {
+            this.hideControlsImmediately();
+        }
+    }
+
+    private showControlsTemporarily(): void {
+        if (!this.root) return;
+        this.root.classList.remove('jpdb-subtitle-controls-idle');
+    }
+
+    private hideControlsImmediately(): void {
+        if (!this.root || !this.shouldAutoIdleControls()) return;
+        this.root.classList.add('jpdb-subtitle-controls-idle');
+    }
+
+    private shouldAutoIdleControls(): boolean {
+        const settings = this.options.getSettings();
+        if (!this.root || settings.subtitleControlsMode !== 'auto') return false;
+        if (this.transcriptPanel && !this.transcriptPanel.hidden) return false;
+        if (this.root.classList.contains('jpdb-subtitle-menu-open')) return false;
+        if (this.root.matches(':focus-within')) return false;
+        if (!this.video && !this.cues.length && !this.currentCue?.text) return false;
+        if (!this.video) return true;
+        const rect = this.video.getBoundingClientRect();
+        return rect.width > 120 && rect.height > 90;
+    }
+
+    private isPointerNearSubtitleSurface(x: number, y: number): boolean {
+        if (!this.root) return false;
+        if (this.pointInElement(this.root.querySelector('.jpdb-subtitle-rail'), x, y)) return true;
+        if (this.transcriptPanel && !this.transcriptPanel.hidden && this.pointInElement(this.transcriptPanel, x, y)) return true;
+        if (!this.video) return true;
+        const rect = this.video.getBoundingClientRect();
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+
+    private pointInElement(element: Element | null, x: number, y: number): boolean {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
     }
 
     private handleKeydown(event: KeyboardEvent): void {
@@ -427,8 +643,11 @@ export class SubtitlePlayerController {
         log.debug('Subtitle cue selected', { index, start: cue.start, end: cue.end });
     }
 
-    private async copySubtitle(): Promise<void> {
-        const text = [this.currentCue?.text.trim(), this.secondaryCue?.text.trim()].filter(Boolean).join('\n');
+    private async copySubtitle(index?: number): Promise<void> {
+        const rowIndex = Number.isInteger(index) ? index as number : undefined;
+        const cue = rowIndex !== undefined ? this.cues[rowIndex] : this.currentCue;
+        const secondary = rowIndex !== undefined && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
+        const text = [cue?.text.trim(), secondary?.text.trim()].filter(Boolean).join('\n');
         if (!text) return;
         await navigator.clipboard?.writeText(text).catch(error => log.warn('Subtitle clipboard copy failed', error));
         log.debug('Subtitle copied', { length: text.length });
@@ -456,16 +675,26 @@ export class SubtitlePlayerController {
 
     private async selectTrack(id: string): Promise<void> {
         this.selectedTrackId = id;
-        if (this.secondaryTrackId === id) this.secondaryTrackId = '';
+        if (this.secondaryTrackId === id) {
+            this.secondaryTrackId = '';
+            this.secondaryCues = [];
+            this.secondaryCue = undefined;
+        }
         this.cues = [];
         this.currentCue = undefined;
+        this.pendingDomCaption = undefined;
         const settings = this.options.getSettings();
         if (!settings.subtitleOverlayVisible) {
             settings.subtitleOverlayVisible = true;
             this.options.onSettingsChange();
         }
+        this.root?.classList.remove('jpdb-subtitle-hidden');
 
-        const selected = this.tracks.find(option => option.id === id);
+        let selected = this.tracks.find(option => option.id === id);
+        if (selected) {
+            selected.loadingState = 'loading';
+            this.renderTrackPanel();
+        }
         if (selected?.cues) this.cues = selected.cues;
         if (selected?.track) {
             selected.track.mode = 'hidden';
@@ -474,26 +703,51 @@ export class SubtitlePlayerController {
             if (!this.cues.length) this.cues = await waitForTextTrackCues(selected.track);
         }
         if (selected?.kind === 'youtube' && selected.url) {
-            const text = await requestText(withYouTubeVttFormat(selected.url));
-            this.cues = parseSubtitleText(text);
+            this.cues = await this.loadYouTubeTrackCues(selected);
+            if (!this.cues.length) {
+                const fallback = await this.loadFirstUsableYouTubeSibling(selected);
+                if (fallback) {
+                    selected = fallback.track;
+                    this.selectedTrackId = fallback.track.id;
+                    this.cues = fallback.cues;
+                }
+            }
             selected.cues = this.cues;
         }
+        if (selected?.kind === 'youtube') {
+            this.youtubeDomCaptionFallbackTrackId = this.cues.length ? '' : selected.id;
+            if (!this.cues.length) activateYouTubeCaptionTrack(selected);
+        } else {
+            this.youtubeDomCaptionFallbackTrackId = '';
+        }
+        if (selected) selected.loadingState = this.cues.length ? 'ready' : 'waiting';
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
+        this.warmParseAroundActiveCue();
         this.render();
-        this.renderTranscriptPanel();
-        this.renderTrackPanel();
+        if (this.shouldStayInTrackSetup()) this.renderTrackPanel();
+        else this.openLinesPanel();
         this.syncControls();
         log.info('Primary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.cues.length });
     }
 
     private async selectSecondaryTrack(id: string): Promise<void> {
-        if (this.selectedTrackId === id) return;
+        if (this.selectedTrackId === id) {
+            this.selectedTrackId = '';
+            this.cues = [];
+            this.currentCue = undefined;
+            this.pendingDomCaption = undefined;
+            this.youtubeDomCaptionFallbackTrackId = '';
+        }
         this.secondaryTrackId = id;
         this.secondaryCues = [];
         this.secondaryCue = undefined;
 
-        const selected = this.tracks.find(option => option.id === id);
+        let selected = this.tracks.find(option => option.id === id);
+        if (selected) {
+            selected.loadingState = 'loading';
+            this.renderTrackPanel();
+        }
         if (selected?.cues) this.secondaryCues = selected.cues;
         if (selected?.track) {
             selected.track.mode = 'hidden';
@@ -502,22 +756,74 @@ export class SubtitlePlayerController {
             if (!this.secondaryCues.length) this.secondaryCues = await waitForTextTrackCues(selected.track);
         }
         if (selected?.kind === 'youtube' && selected.url) {
-            const text = await requestText(withYouTubeVttFormat(selected.url));
-            this.secondaryCues = parseSubtitleText(text);
+            this.secondaryCues = await this.loadYouTubeTrackCues(selected);
+            if (!this.secondaryCues.length) {
+                const fallback = await this.loadFirstUsableYouTubeSibling(selected);
+                if (fallback) {
+                    selected = fallback.track;
+                    this.secondaryTrackId = fallback.track.id;
+                    this.secondaryCues = fallback.cues;
+                }
+            }
             selected.cues = this.secondaryCues;
         }
+        if (selected) selected.loadingState = this.secondaryCues.length ? 'ready' : 'waiting';
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
+        this.warmParseAroundActiveCue();
         this.render();
-        this.renderTrackPanel();
+        if (this.shouldStayInTrackSetup() && this.cues.length) this.openLinesPanel();
+        else if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
+        else this.renderTrackPanel();
         this.syncControls();
         log.info('Secondary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.secondaryCues.length });
     }
 
     private setNativeTrackModes(): void {
+        const yomuCaptionsActive = Boolean(this.options.getSettings().subtitleOverlayVisible && (this.selectedTrackId || this.cues.length || this.currentCue?.text));
+        const needsYouTubeDomFallback = Boolean(this.youtubeDomCaptionFallbackTrackId && this.youtubeDomCaptionFallbackTrackId === this.selectedTrackId);
         for (const option of this.tracks) {
             if (option.track) option.track.mode = option.id === this.selectedTrackId || option.id === this.secondaryTrackId ? 'hidden' : 'disabled';
         }
+        document.documentElement.classList.toggle('jpdb-subtitle-yomu-captions-active', yomuCaptionsActive);
+        if (yomuCaptionsActive && !needsYouTubeDomFallback && !this.lastYomuCaptionsActive) disableYouTubeNativeCaptions();
+        if (!yomuCaptionsActive && this.lastYomuCaptionsActive) {
+            const selected = this.tracks.find(track => track.id === this.selectedTrackId && track.kind === 'youtube');
+            if (selected) activateYouTubeCaptionTrack(selected);
+        }
+        this.lastYomuCaptionsActive = yomuCaptionsActive;
+    }
+
+    private async loadYouTubeTrackCues(track: SubtitleTrackOption): Promise<SubtitleCue[]> {
+        if (!track.url) return [];
+        const preferred = findPreferredYouTubeCaptionCandidate(track);
+        if (preferred && shouldPreferYouTubeTrackUrl(preferred.url, track.url)) {
+            track.url = preferred.url;
+            track.youtubeTrack = preferred.raw;
+        }
+        for (const url of youtubeSubtitleRequestUrls(track.url)) {
+            try {
+                const cues = parseSubtitleText(await requestText(url));
+                if (cues.length) return cues;
+            } catch (error) {
+                log.debug('YouTube subtitle track request failed quietly', { id: track.id, label: track.label, host: safeHost(url) }, error);
+            }
+        }
+        return [];
+    }
+
+    private async loadFirstUsableYouTubeSibling(track: SubtitleTrackOption): Promise<{ track: SubtitleTrackOption; cues: SubtitleCue[] } | null> {
+        const siblings = this.tracks.filter(candidate => candidate.kind === 'youtube'
+            && candidate.id !== track.id
+            && candidate.language === track.language
+            && candidate.url);
+        for (const sibling of siblings) {
+            const cues = sibling.cues?.length ? sibling.cues : await this.loadYouTubeTrackCues(sibling);
+            if (!cues.length) continue;
+            sibling.cues = cues;
+            return { track: sibling, cues };
+        }
+        return null;
     }
 
     private async discoverYouTubeTracks(): Promise<void> {
@@ -534,36 +840,63 @@ export class SubtitlePlayerController {
             this.secondaryCues = this.secondaryTrackId ? this.secondaryCues : [];
             this.currentCue = undefined;
             this.secondaryCue = undefined;
+            this.pendingDomCaption = undefined;
+            this.youtubeDomCaptionFallbackTrackId = '';
             log.debug('YouTube video changed for subtitle discovery', { videoId });
         }
 
         const tracks = getYouTubeCaptionTracks();
         if (!tracks.length) return;
 
+        let added = 0;
+        const existingKeys = new Set(this.tracks
+            .filter(existing => existing.kind === 'youtube')
+            .map(existing => youtubeCaptionTrackIdentity(existing)));
         for (const track of tracks) {
-            if (this.tracks.some(existing => existing.kind === 'youtube' && existing.url === track.url)) continue;
-            this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: 'youtube', language: track.language, url: track.url });
+            const key = youtubeCaptionTrackIdentity(track);
+            const existing = this.tracks.find(option => option.kind === 'youtube' && youtubeCaptionTrackIdentity(option) === key);
+            if (existing) {
+                if (shouldPreferYouTubeTrackUrl(track.url, existing.url)) existing.url = track.url;
+                existing.youtubeTrack = track.raw;
+                continue;
+            }
+            existingKeys.add(key);
+            this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: 'youtube', language: track.language, url: track.url, youtubeTrack: track.raw });
+            added += 1;
         }
-        log.debug('YouTube caption tracks discovered', { tracks: tracks.length });
+        if (!added) return;
 
+        log.debug('YouTube caption tracks discovered', { discovered: tracks.length, added, total: this.tracks.length });
+        this.renderTrackPanel();
         this.syncControls();
     }
 
     private syncControls(): void {
         const settings = this.options.getSettings();
         const hasLines = Boolean(this.cues.length || this.currentCue?.text);
-        this.root?.classList.toggle('jpdb-subtitle-menu-open', !this.menuEl?.hidden);
+        const menuOpen = Boolean(this.menuEl && !this.menuEl.hidden);
+        this.root?.classList.toggle('jpdb-subtitle-menu-open', menuOpen);
         this.root?.classList.toggle('jpdb-subtitle-panel-open', !this.transcriptPanel?.hidden);
         this.root?.classList.toggle('jpdb-subtitle-has-lines', hasLines);
         this.root?.classList.toggle('jpdb-subtitle-has-track', Boolean(this.selectedTrackId || hasLines));
-        if (this.menuEl && !this.menuEl.hidden) this.renderMenu();
+        if (menuOpen) this.renderMenu();
         const secondaryToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle-secondary"]');
         if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off';
         this.syncSubtitleToggle(settings);
         this.syncLineNavigationButtons(hasLines);
-        this.syncTranscriptButton(hasLines);
         this.syncTrackButton();
-        this.syncStatusText();
+        this.syncStatus();
+        this.setNativeTrackModes();
+    }
+
+    private syncStatus(): void {
+        const status = this.root?.querySelector<HTMLElement>('.jpdb-subtitle-status');
+        if (!status) return;
+        if (this.tracks.length) {
+            status.textContent = `${this.tracks.length} subtitle track${this.tracks.length === 1 ? '' : 's'} detected`;
+        } else {
+            status.textContent = 'No subtitle tracks detected yet.';
+        }
     }
 
     private syncSubtitleToggle(settings: ReaderSettings): void {
@@ -576,22 +909,19 @@ export class SubtitlePlayerController {
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {
-        for (const action of ['previous', 'next']) {
-            const button = this.root?.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
-            if (!button) continue;
-            button.hidden = !hasLines;
-            button.disabled = !this.video || !hasLines;
+        const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
+        for (const action of ['previous', 'next'] as const) {
+            const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
+            if (railButton) {
+                railButton.hidden = !hasLines || panelOpen;
+                railButton.disabled = !this.video || !hasLines;
+            }
+            const panelButtons = Array.from(this.transcriptPanel?.querySelectorAll<HTMLButtonElement>(`.jpdb-subtitle-panel-nav [data-action="${action}"]`) ?? []);
+            for (const button of panelButtons) {
+                button.hidden = !hasLines;
+                button.disabled = !this.video || !hasLines;
+            }
         }
-    }
-
-    private syncTranscriptButton(hasLines: boolean): void {
-        const list = this.root?.querySelector<HTMLButtonElement>('[data-action="list"]');
-        if (!list) return;
-        list.hidden = !hasLines;
-        setInnerHtml(list, subtitleIcon('transcript'));
-        list.title = this.transcriptPanel?.hidden || this.panelMode !== 'lines' ? 'Open transcript' : 'Close transcript';
-        list.setAttribute('aria-label', list.title);
-        list.setAttribute('aria-pressed', String(!this.transcriptPanel?.hidden && this.panelMode === 'lines'));
     }
 
     private syncTrackButton(): void {
@@ -604,20 +934,29 @@ export class SubtitlePlayerController {
         tracks.setAttribute('aria-pressed', String(Boolean(this.selectedTrackId)));
     }
 
-    private syncStatusText(): void {
-        if (!this.statusEl) return;
-
-        if (this.cues.length) {
-            const index = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) + 1 : 0;
-            this.statusEl.textContent = index > 0 ? `${index}/${this.cues.length}` : `${this.cues.length}`;
-            this.statusEl.hidden = false;
-        } else if (this.currentCue?.text) {
-            this.statusEl.textContent = 'Page captions';
-            this.statusEl.hidden = false;
-        } else {
-            this.statusEl.textContent = '';
-            this.statusEl.hidden = true;
+    private syncPanelState(): void {
+        const hasLines = Boolean(this.cues.length || this.currentCue?.text);
+        if (this.transcriptPanel && !this.transcriptPanel.hidden) {
+            this.transcriptPanel.classList.toggle('jpdb-subtitle-lines-panel', this.panelMode === 'lines');
+            this.transcriptPanel.classList.toggle('jpdb-subtitle-tracks-panel', this.panelMode === 'tracks');
         }
+        this.syncLineNavigationButtons(hasLines);
+    }
+
+    private shouldStayInTrackSetup(): boolean {
+        return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && this.panelMode === 'tracks');
+    }
+
+    private openLinesPanel(): void {
+        if (!this.transcriptPanel || !this.cues.length) return;
+        this.panelMode = 'lines';
+        this.transcriptPanel.hidden = false;
+        this.options.getSettings().subtitleTranscriptVisible = true;
+        this.options.onSettingsChange();
+        if (this.menuEl) this.menuEl.hidden = true;
+        this.renderTranscriptPanel(true);
+        this.positionTranscriptPanel();
+        this.syncControls();
     }
 
     private renderMenu(): void {
@@ -652,12 +991,15 @@ export class SubtitlePlayerController {
         this.renderMenu();
         this.menuEl.hidden = !this.menuEl.hidden;
         if (!this.menuEl.hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
+        this.root?.classList.toggle('jpdb-subtitle-menu-open', !this.menuEl.hidden);
+        this.root?.classList.toggle('jpdb-subtitle-panel-open', Boolean(this.transcriptPanel && !this.transcriptPanel.hidden));
     }
 
     private toggleSubtitles(): void {
         const settings = this.options.getSettings();
         settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
         this.options.onSettingsChange();
+        this.setNativeTrackModes();
         this.refresh();
         log.info('Subtitle overlay toggled', { visible: settings.subtitleOverlayVisible });
     }
@@ -685,20 +1027,31 @@ export class SubtitlePlayerController {
         if (!this.transcriptPanel.hidden && this.menuEl) this.menuEl.hidden = true;
         this.renderTranscriptPanel(true);
         this.positionTranscriptPanel();
+        this.syncPanelState();
     }
 
     private toggleTrackPanel(): void {
         if (!this.transcriptPanel) return;
-        const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== 'tracks';
-        this.panelMode = 'tracks';
-        this.transcriptPanel.hidden = !shouldOpen;
-        if (shouldOpen) {
-            this.options.getSettings().subtitleTranscriptVisible = false;
-            this.options.onSettingsChange();
+        if (!this.transcriptPanel.hidden && this.panelMode === 'tracks') {
+            if (!this.cues.length) {
+                this.transcriptPanel.hidden = true;
+                this.options.getSettings().subtitleTranscriptVisible = false;
+                this.options.onSettingsChange();
+                this.positionTranscriptPanel();
+                this.syncPanelState();
+                return;
+            }
+            this.openLinesPanel();
+            return;
         }
+        this.panelMode = 'tracks';
+        this.transcriptPanel.hidden = false;
+        this.options.getSettings().subtitleTranscriptVisible = false;
+        this.options.onSettingsChange();
         if (this.menuEl) this.menuEl.hidden = true;
         this.renderTrackPanel();
         this.positionTranscriptPanel();
+        this.syncPanelState();
     }
 
     private renderTranscriptPanel(force = false): void {
@@ -723,7 +1076,9 @@ export class SubtitlePlayerController {
         const placement = this.options.getSettings().subtitleTranscriptPlacement;
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
-                <span>Transcript</span>
+                <span>Lines</span>
+                ${renderPanelNavigationControls(Boolean(this.video && this.cues.length))}
+                <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon('tracks')}</button>
                 ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Close subtitle lines" aria-label="Close subtitle lines">${closeIcon()}</button>
             </div>
@@ -737,17 +1092,25 @@ export class SubtitlePlayerController {
         this.positionTranscriptPanel();
         this.scrollTranscriptToActive();
         this.scheduleTranscriptHydration(currentIndex);
+        this.syncPanelState();
     }
 
     private renderTranscriptRow(cue: SubtitleCue, index: number, currentIndex: number): string {
         const secondary = findAlignedCue(this.secondaryCues, cue)?.text.trim();
+        const settings = this.options.getSettings();
+        const cached = this.parsedHtmlCache.get(this.parseCacheKey(cue.text, settings));
+        const textHtml = cached ?? (this.shouldParseSubtitles(settings)
+            ? `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(cue.text)}</span>`
+            : escapeWithBreaks(cue.text));
         return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-action="cue" data-index="${index}" data-row-index="${index}">
-                <button class="jpdb-subtitle-row-seek" type="button" data-action="cue" data-index="${index}" title="Jump to ${formatSubtitleTime(cue.start)}" aria-label="Jump to subtitle at ${formatSubtitleTime(cue.start)}">${subtitleIcon('play')}</button>
                 <div class="jpdb-subtitle-row-body">
-                    <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}">${escapeWithBreaks(cue.text)}</strong>
+                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parsed-key="${cached ? escapeHtml(this.parseCacheKey(cue.text, settings)) : ''}">${textHtml}</strong>
                     ${secondary ? `<em class="jpdb-subtitle-row-translation">${escapeWithBreaks(secondary)}</em>` : ''}
+                </div>
+                <div class="jpdb-subtitle-row-tools">
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-index="${index}" title="Copy subtitle line" aria-label="Copy subtitle line">${subtitleIcon('copy')}</button>
+                    <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
             </div>
         `;
@@ -815,6 +1178,7 @@ export class SubtitlePlayerController {
                 this.transcriptPanel?.style.setProperty('width', `${Math.round(nextWidth)}px`);
             }
             saveTranscriptPanelSize(this.transcriptPanelSize);
+            this.positionTranscriptPanel();
         };
 
         const onUp = () => {
@@ -879,7 +1243,7 @@ export class SubtitlePlayerController {
         const cue = this.cues[index];
         const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
         if (!cue || !target) return;
-        const key = `${settings.showFurigana}:${settings.furiganaMode}:${settings.hideKnownFurigana}:${settings.wordHighlightMode}:${cue.text}`;
+        const key = this.parseCacheKey(cue.text, settings);
         if (target.dataset.parsedKey === key) return;
 
         const cached = this.parsedHtmlCache.get(key);
@@ -890,10 +1254,7 @@ export class SubtitlePlayerController {
         }
 
         try {
-            const tokens = await this.options.parseJapanese(cue.text);
-            const html = withBreaks(renderTokensToHtml(cue.text, tokens, settings));
-            this.parsedHtmlCache.set(key, html);
-            if (this.parsedHtmlCache.size > 80) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+            const html = await this.parseCueHtml(cue.text, settings);
             const currentTarget = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
             if (currentTarget?.textContent?.replace(/\s+/g, ' ').trim() === cue.text.replace(/\s+/g, ' ').trim()) {
                 currentTarget.dataset.parsedKey = key;
@@ -907,12 +1268,14 @@ export class SubtitlePlayerController {
 
     private renderTrackPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'tracks') return;
-        const tracks = this.tracks;
+        const tracks = [...this.tracks].sort(compareSubtitleTrackOptions);
         const placement = this.options.getSettings().subtitleTranscriptPlacement;
         const autoDetected = tracks.filter(track => track.kind === 'youtube' || track.kind === 'native').length;
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
+                ${this.cues.length ? `<button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Show subtitle lines" aria-label="Show subtitle lines">${subtitleIcon('transcript')}</button>` : ''}
+                ${renderPanelNavigationControls(Boolean(this.video && this.cues.length))}
                 ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
             </div>
@@ -922,33 +1285,87 @@ export class SubtitlePlayerController {
                     <button type="button" data-action="load-secondary">Load native subtitles</button>
                 </div>
                 <div class="jpdb-subtitle-track-summary">${autoDetected ? `${autoDetected} auto-detected option${autoDetected === 1 ? '' : 's'}` : 'Auto-detected YouTube/native tracks will appear here.'}</div>
-                ${tracks.length ? tracks.map(track => `
+                ${tracks.length ? tracks.map(track => {
+                    const isPrimary = track.id === this.selectedTrackId;
+                    const isSecondary = track.id === this.secondaryTrackId;
+                    return `
                     <div class="jpdb-subtitle-track-row ${track.id === this.selectedTrackId || track.id === this.secondaryTrackId ? 'active' : ''}" data-track-id="${escapeHtml(track.id)}">
                         <div class="jpdb-subtitle-track-title">
                             <strong>${escapeHtml(track.label)}</strong>
                             <span>${escapeHtml(formatTrackKind(track.kind))}</span>
                         </div>
-                        <span>${escapeHtml(track.language ? track.language.toUpperCase() : 'Detected')}${track.id === this.selectedTrackId ? ' · Japanese overlay' : ''}${track.id === this.secondaryTrackId ? ' · native overlay' : ''}</span>
+                        <span>${escapeHtml(track.language ? track.language.toUpperCase() : 'Detected')}${isPrimary ? ' · Japanese overlay' : ''}${isSecondary ? ' · native overlay' : ''}${trackStatusText(track)}</span>
                         <div class="jpdb-subtitle-track-actions">
-                            <button type="button" data-action="primary-track" aria-pressed="${track.id === this.selectedTrackId}">Use as Japanese</button>
-                            <button type="button" data-action="secondary-track" aria-pressed="${track.id === this.secondaryTrackId}">Use as native</button>
+                            <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${isPrimary ? 'Unset Japanese' : 'Japanese'}</button>
+                            <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${isSecondary ? 'Unset native' : 'Native'}</button>
                         </div>
                     </div>
-                `).join('') : '<div class="jpdb-subtitle-list-empty">No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.</div>'}
+                `;
+                }).join('') : '<div class="jpdb-subtitle-list-empty">No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.</div>'}
             </div>
             <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize subtitle tracks" aria-label="Resize subtitle tracks panel"></button>
         `);
         this.bindTranscriptResizeHandle();
+        this.syncPanelState();
     }
 
     private async choosePrimaryTrack(id?: string): Promise<void> {
         if (!id) return;
+        if (id === this.selectedTrackId) {
+            this.clearPrimaryTrack();
+            return;
+        }
+        await this.discoverYouTubeTracks();
         await this.selectTrack(id);
     }
 
     private async chooseSecondaryTrack(id?: string): Promise<void> {
         if (!id) return;
+        if (id === this.secondaryTrackId) {
+            this.clearSecondaryTrack();
+            return;
+        }
+        await this.discoverYouTubeTracks();
         await this.selectSecondaryTrack(id);
+    }
+
+    private clearPrimaryTrack(): void {
+        this.selectedTrackId = '';
+        this.cues = [];
+        this.currentCue = undefined;
+        this.lastDomCaption = '';
+        this.pendingDomCaption = undefined;
+        this.youtubeDomCaptionFallbackTrackId = '';
+        this.lastRenderedPrimaryText = '';
+        this.lastRenderedPrimaryHtml = '';
+        for (const track of this.tracks) {
+            if (track.loadingState && track.id !== this.secondaryTrackId) track.loadingState = 'idle';
+        }
+        this.setNativeTrackModes();
+        this.render();
+        if (this.transcriptPanel && !this.transcriptPanel.hidden) {
+            this.panelMode = 'tracks';
+            this.renderTrackPanel();
+        }
+        this.syncControls();
+        log.info('Primary subtitle track cleared');
+    }
+
+    private clearSecondaryTrack(): void {
+        this.secondaryTrackId = '';
+        this.secondaryCues = [];
+        this.secondaryCue = undefined;
+        for (const track of this.tracks) {
+            if (track.loadingState && track.id !== this.selectedTrackId) track.loadingState = 'idle';
+        }
+        this.setNativeTrackModes();
+        this.render();
+        if (this.transcriptPanel && !this.transcriptPanel.hidden) {
+            if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
+            else this.renderTrackPanel();
+        }
+        this.syncControls();
+        log.info('Secondary subtitle track cleared');
     }
 
     private setTranscriptPlacement(placement: ReaderSettings['subtitleTranscriptPlacement']): void {
@@ -963,18 +1380,35 @@ export class SubtitlePlayerController {
     }
 
     private positionTranscriptPanel(): void {
-        if (!this.transcriptPanel || this.transcriptPanel.hidden) return;
+        if (this.fullscreen) {
+            this.clearVideoInsetForTranscriptPanel();
+            return;
+        }
+        if (!this.transcriptPanel || this.transcriptPanel.hidden) {
+            this.clearVideoInsetForTranscriptPanel();
+            return;
+        }
         const panel = this.transcriptPanel;
         const viewportWidth = Math.max(320, window.innerWidth);
         const viewportHeight = Math.max(240, window.innerHeight);
+        const placement = this.options.getSettings().subtitleTranscriptPlacement;
         const layout = computeTranscriptPanelLayout({
-            placement: this.options.getSettings().subtitleTranscriptPlacement,
+            placement,
             videoRect: this.video?.getBoundingClientRect(),
             viewportWidth,
             viewportHeight,
-            compactPanel: viewportWidth <= 700 || window.matchMedia?.('(pointer: coarse)').matches,
+            compactPanel: shouldUseCompactTranscriptPanel(placement, viewportWidth),
         });
-        applyTranscriptPanelLayout(panel, resizeTranscriptPanelLayout(layout, this.transcriptPanelSize));
+        const resizedLayout = resizeTranscriptPanelLayout(layout, this.transcriptPanelSize);
+        applyTranscriptPanelLayout(panel, resizedLayout);
+        this.applyVideoInsetForTranscriptPanel(resizedLayout);
+    }
+
+    private syncFullscreenState(): void {
+        this.fullscreen = Boolean(document.fullscreenElement);
+        document.documentElement.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
+        this.root?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
+        if (this.fullscreen) this.clearVideoInsetForTranscriptPanel();
     }
 
     private scheduleAlignToVideo(): void {
@@ -983,6 +1417,66 @@ export class SubtitlePlayerController {
             this.alignFrame = undefined;
             this.alignToVideo();
         });
+    }
+
+    private applyVideoInsetForTranscriptPanel(layout: TranscriptPanelLayout): void {
+        this.clearVideoInsetForTranscriptPanel();
+        if (!this.root || !this.video || layout.placement === 'bottom') return;
+        const videoRect = this.video.getBoundingClientRect();
+        if (!usableVideoRect(videoRect)) return;
+
+        const panelLeft = layout.left;
+        const panelRight = layout.left + layout.width;
+        const overlapsVertically = layout.top < videoRect.bottom && layout.top + layout.height > videoRect.top;
+        if (!overlapsVertically) return;
+
+        if (layout.placement === 'right') {
+            const right = Math.max(videoRect.left + 260, Math.min(videoRect.right, panelLeft - layout.margin));
+            this.root.style.width = `${Math.round(right - videoRect.left)}px`;
+            this.applyPageVideoInset('right', right - videoRect.left);
+            return;
+        }
+
+        if (layout.placement === 'left') {
+            const left = Math.min(videoRect.right - 260, Math.max(videoRect.left, panelRight + layout.margin));
+            this.root.style.left = `${Math.round(left)}px`;
+            this.root.style.width = `${Math.round(videoRect.right - left)}px`;
+            this.applyPageVideoInset('left', videoRect.right - left);
+        }
+    }
+
+    private clearVideoInsetForTranscriptPanel(): void {
+        if (!this.lastInsetSignature && !document.documentElement.classList.contains('jpdb-subtitle-video-inset-left') && !document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')) return;
+        this.lastInsetSignature = '';
+        document.documentElement.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right');
+        document.documentElement.style.removeProperty('--jpdb-subtitle-video-inset');
+        const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-width');
+        watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-height');
+        for (const element of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element);
+    }
+
+    private applyPageVideoInset(side: 'left' | 'right', playerWidth: number): void {
+        if (this.fullscreen) {
+            this.clearVideoInsetForTranscriptPanel();
+            return;
+        }
+        const inset = `${Math.max(0, Math.round(this.transcriptPanel?.getBoundingClientRect().width ?? 0) + TRANSCRIPT_PANEL_MARGIN)}px`;
+        const width = Math.max(320, Math.round(playerWidth));
+        const aspect = this.video && this.video.videoWidth && this.video.videoHeight
+            ? this.video.videoHeight / this.video.videoWidth
+            : this.video ? this.video.getBoundingClientRect().height / Math.max(1, this.video.getBoundingClientRect().width) : 9 / 16;
+        const height = Number.isFinite(aspect) && aspect > 0 ? Math.round(width * aspect) : 0;
+        const signature = `${side}:${inset}:${width}:${height}`;
+        if (signature === this.lastInsetSignature) return;
+        this.lastInsetSignature = signature;
+        document.documentElement.classList.toggle('jpdb-subtitle-video-inset-left', side === 'left');
+        document.documentElement.classList.toggle('jpdb-subtitle-video-inset-right', side === 'right');
+        document.documentElement.style.setProperty('--jpdb-subtitle-video-inset', inset);
+        const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        watchFlexy?.style.setProperty('--ytd-watch-flexy-player-width', `${width}px`);
+        if (height) watchFlexy?.style.setProperty('--ytd-watch-flexy-player-height', `${height}px`);
+        for (const element of youtubePlayerContainers()) applyYouTubePlayerContainerInset(element, side, width);
     }
 }
 
@@ -1021,6 +1515,10 @@ function computeTranscriptPanelLayout(options: TranscriptPanelLayoutOptions): Tr
         return videoAnchoredTranscriptLayout(options.placement, videoRect, options.viewportWidth, options.viewportHeight, margin);
     }
     return viewportTranscriptPanelLayout(options.placement, options.viewportWidth, options.viewportHeight, margin);
+}
+
+function shouldUseCompactTranscriptPanel(placement: ReaderSettings['subtitleTranscriptPlacement'], viewportWidth: number): boolean {
+    return placement === 'bottom' || viewportWidth < 520;
 }
 
 function compactTranscriptPanelLayout(viewportWidth: number, viewportHeight: number, margin: number): TranscriptPanelLayout {
@@ -1062,21 +1560,26 @@ function shouldUseBottomTranscriptFallback(
     availableRight: number,
     belowVideo: number,
 ): boolean {
-    return ((placement === 'right' && availableRight < 280) || (placement === 'left' && availableLeft < 280)) && belowVideo >= 150;
+    void placement;
+    void availableLeft;
+    void availableRight;
+    void belowVideo;
+    return false;
 }
 
 function rightTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableRight: number): TranscriptPanelLayout {
     const width = Math.min(460, viewportWidth - margin * 2);
     if (availableRight < 280) {
-        return { placement: 'right', left: Math.max(margin, viewportWidth - width - margin), top: Math.max(margin, videoRect.top), width, height: Math.min(Math.max(280, videoRect.height), viewportHeight - margin), viewportWidth, viewportHeight, margin };
+        const top = Math.max(margin, videoRect.top);
+        return { placement: 'right', left: Math.max(margin, viewportWidth - width - margin), top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
     }
     const top = Math.max(margin, videoRect.top);
-    return { placement: 'right', left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
+    return { placement: 'right', left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
 }
 
 function leftTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableLeft: number): TranscriptPanelLayout {
     const top = Math.max(margin, videoRect.top);
-    const fallback = { placement: 'left' as const, left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: Math.min(videoRect.height, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
+    const fallback = { placement: 'left' as const, left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
     if (availableLeft < 280) return fallback;
     const width = Math.min(460, availableLeft);
     return { ...fallback, left: Math.max(margin, videoRect.left - width - margin), width };
@@ -1127,29 +1630,38 @@ function resizeTranscriptPanelLayout(layout: TranscriptPanelLayout, size: Transc
 }
 
 function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelLayout): void {
-    panel.style.left = `${Math.round(layout.left)}px`;
-    panel.style.top = `${Math.round(layout.top)}px`;
-    panel.style.right = 'auto';
-    panel.style.bottom = 'auto';
-    panel.style.width = `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`;
-    panel.style.height = `${Math.round(Math.max(150, layout.height))}px`;
-    panel.style.maxHeight = `${Math.round(Math.max(150, layout.height))}px`;
+    setStylePropertyIfChanged(panel, 'left', `${Math.round(layout.left)}px`);
+    setStylePropertyIfChanged(panel, 'top', `${Math.round(layout.top)}px`);
+    setStylePropertyIfChanged(panel, 'right', 'auto');
+    setStylePropertyIfChanged(panel, 'bottom', 'auto');
+    setStylePropertyIfChanged(panel, 'width', `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`);
+    const height = `${Math.round(Math.max(150, layout.height))}px`;
+    setStylePropertyIfChanged(panel, 'height', height);
+    setStylePropertyIfChanged(panel, 'max-height', height);
 }
 
 function renderTranscriptPlacementControls(placement: ReaderSettings['subtitleTranscriptPlacement']): string {
     return `
         <div class="jpdb-subtitle-placement" aria-label="Panel position">
             <button type="button" data-action="transcript-left" aria-pressed="${placement === 'left'}" title="Move panel left" aria-label="Move panel left">${subtitleIcon('panel-left')}</button>
-            <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move panel right" aria-label="Move panel right">${subtitleIcon('panel-right')}</button>
             <button type="button" data-action="transcript-bottom" aria-pressed="${placement === 'bottom'}" title="Move panel below" aria-label="Move panel below">${subtitleIcon('panel-bottom')}</button>
+            <button type="button" data-action="transcript-right" aria-pressed="${placement === 'right'}" title="Move panel right" aria-label="Move panel right">${subtitleIcon('panel-right')}</button>
+        </div>
+    `;
+}
+
+function renderPanelNavigationControls(enabled: boolean): string {
+    return `
+        <div class="jpdb-subtitle-panel-nav" aria-label="Subtitle navigation">
+            <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle" ${enabled ? '' : 'disabled'}>‹</button>
+            <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle" ${enabled ? '' : 'disabled'}>›</button>
         </div>
     `;
 }
 
 function loadTranscriptPanelSize(): TranscriptPanelSize {
     try {
-        const raw = localStorage.getItem(TRANSCRIPT_PANEL_SIZE_KEY);
-        const parsed = raw ? JSON.parse(raw) as TranscriptPanelSize : {};
+        const parsed = gmStorageGetSync<TranscriptPanelSize>(TRANSCRIPT_PANEL_SIZE_KEY, {});
         return {
             sideWidth: Number.isFinite(parsed.sideWidth) ? parsed.sideWidth : undefined,
             bottomHeight: Number.isFinite(parsed.bottomHeight) ? parsed.bottomHeight : undefined,
@@ -1161,10 +1673,86 @@ function loadTranscriptPanelSize(): TranscriptPanelSize {
 
 function saveTranscriptPanelSize(size: TranscriptPanelSize): void {
     try {
-        localStorage.setItem(TRANSCRIPT_PANEL_SIZE_KEY, JSON.stringify(size));
+        gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size);
     } catch {
         // Best-effort preference only.
     }
+}
+
+function applyElementLayout(element: HTMLElement, layout: { left: number; top: number; width: number; height: number }): void {
+    setStylePropertyIfChanged(element, 'left', `${Math.round(layout.left)}px`);
+    setStylePropertyIfChanged(element, 'top', `${Math.round(layout.top)}px`);
+    setStylePropertyIfChanged(element, 'right', 'auto');
+    setStylePropertyIfChanged(element, 'bottom', 'auto');
+    setStylePropertyIfChanged(element, 'width', `${Math.round(layout.width)}px`);
+    setStylePropertyIfChanged(element, 'height', `${Math.round(layout.height)}px`);
+}
+
+function setStylePropertyIfChanged(element: HTMLElement, property: string, value: string): void {
+    if (element.style.getPropertyValue(property) === value) return;
+    element.style.setProperty(property, value);
+}
+
+function youtubePlayerContainers(): HTMLElement[] {
+    if (!isYouTubePage()) return [];
+    return [
+        document.querySelector<HTMLElement>('ytd-watch-flexy #player-theater-container'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy #player-container'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy #player'),
+    ].filter((element): element is HTMLElement => Boolean(element));
+}
+
+function applyYouTubePlayerContainerInset(element: HTMLElement, side: 'left' | 'right', width: number): void {
+    setStylePropertyIfChanged(element, 'width', `${width}px`);
+    setStylePropertyIfChanged(element, 'max-width', `${width}px`);
+    setStylePropertyIfChanged(element, side === 'left' ? 'margin-left' : 'margin-right', 'var(--jpdb-subtitle-video-inset, 0px)');
+    setStylePropertyIfChanged(element, side === 'left' ? 'margin-right' : 'margin-left', '0px');
+}
+
+function clearYouTubePlayerContainerInset(element: HTMLElement): void {
+    for (const property of ['width', 'max-width', 'margin-left', 'margin-right']) {
+        if (element.style.getPropertyValue(property)) element.style.removeProperty(property);
+    }
+}
+
+function disableYouTubeNativeCaptions(): void {
+    if (!isYouTubePage()) return;
+    const player = document.querySelector('#movie_player') as {
+        unloadModule?: (name: string) => void;
+        setOption?: (module: string, option: string, value: unknown) => void;
+    } | null;
+    try {
+        player?.setOption?.('captions', 'track', {});
+        player?.unloadModule?.('captions');
+    } catch {
+        // YouTube's player API is private and best-effort.
+    }
+}
+
+function activateYouTubeCaptionTrack(track: SubtitleTrackOption): void {
+    if (!isYouTubePage()) return;
+    const player = document.querySelector('#movie_player') as {
+        loadModule?: (name: string) => void;
+        setOption?: (module: string, option: string, value: unknown) => void;
+        getOption?: (module: string, option: string) => unknown;
+        getAudioTrack?: () => { captionTracks?: unknown[] };
+    } | null;
+    if (!player?.setOption) return;
+    try {
+        player.loadModule?.('captions');
+        const candidate = findMatchingYouTubePlayerTrack(track, player) ?? track.youtubeTrack;
+        if (candidate) player.setOption('captions', 'track', candidate);
+        player.setOption('captions', 'reload', true);
+    } catch {
+        // YouTube's player API is private and best-effort.
+    }
+}
+
+function trackStatusText(track: SubtitleTrackOption): string {
+    if (track.loadingState === 'loading') return ' · loading';
+    if (track.loadingState === 'waiting') return ' · waiting for captions';
+    if (track.loadingState === 'error') return ' · failed';
+    return '';
 }
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -1175,10 +1763,11 @@ function usableVideoRect(rect?: DOMRect): rect is DOMRect {
     return Boolean(rect && rect.width >= 120 && rect.height >= 80);
 }
 
-type SubtitleIconName = 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'tracks' | 'transcript';
+type SubtitleIconName = 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'tracks' | 'transcript';
 
 function subtitleIcon(name: SubtitleIconName): string {
     const paths: Record<SubtitleIconName, string> = {
+        copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
         eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
         'eye-off': '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
         menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
@@ -1200,6 +1789,29 @@ function formatTrackKind(kind: SubtitleTrackOption['kind']): string {
     if (kind === 'native') return 'page track';
     if (kind === 'youtube') return 'YouTube captions';
     return 'loaded file';
+}
+
+function compareSubtitleTrackOptions(a: SubtitleTrackOption, b: SubtitleTrackOption): number {
+    return subtitleTrackRank(a) - subtitleTrackRank(b)
+        || (a.language ?? '').localeCompare(b.language ?? '', undefined, { sensitivity: 'base' })
+        || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+}
+
+function subtitleTrackRank(track: SubtitleTrackOption): number {
+    if (track.kind === 'file') return 0;
+    if (isJapaneseSubtitleTrack(track)) return 1;
+    if (isAutoGeneratedSubtitleTrack(track)) return 2;
+    if (isEnglishSubtitleTrack(track)) return 3;
+    if (track.kind === 'native') return 4;
+    return 5;
+}
+
+function isAutoGeneratedSubtitleTrack(track: SubtitleTrackOption): boolean {
+    return /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ''}`);
+}
+
+function isEnglishSubtitleTrack(track: SubtitleTrackOption): boolean {
+    return /(^|\b)(en|eng|english)(\b|$)/i.test(`${track.label} ${track.language ?? ''}`);
 }
 
 function getCueText(cue: VTTCue | TextTrackCue): string {
@@ -1230,6 +1842,10 @@ function waitForTextTrackCues(track: TextTrack, timeoutMs = 900): Promise<Subtit
 }
 
 export function parseSubtitleText(text: string): SubtitleCue[] {
+    const youtubeJson = parseYouTubeJson3SubtitleText(text);
+    if (youtubeJson.length) return youtubeJson;
+    const youtubeXml = parseYouTubeXmlSubtitleText(text);
+    if (youtubeXml.length) return youtubeXml;
     if (/^\s*\[Script Info\]/im.test(text) || /^\s*Dialogue:/im.test(text)) return parseAssSubtitleText(text);
 
     const blocks = text
@@ -1251,6 +1867,49 @@ export function parseSubtitleText(text: string): SubtitleCue[] {
         if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
     }
     return cues.sort((a, b) => a.start - b.start);
+}
+
+function parseYouTubeJson3SubtitleText(text: string): SubtitleCue[] {
+    if (!/^\s*\{/.test(text)) return [];
+    try {
+        const parsed = JSON.parse(text) as {
+            events?: Array<{ tStartMs?: number; dDurationMs?: number; segs?: Array<{ utf8?: string }> }>;
+        };
+        return (parsed.events ?? [])
+            .map(event => {
+                const start = Number(event.tStartMs ?? Number.NaN) / 1000;
+                const duration = Number(event.dDurationMs ?? 0) / 1000;
+                const cueText = (event.segs ?? []).map(seg => seg.utf8 ?? '').join('').replace(/\s+/g, ' ').trim();
+                return { start, end: start + Math.max(duration, 0.75), text: cueText };
+            })
+            .filter(cue => Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.text)
+            .sort((a, b) => a.start - b.start);
+    } catch {
+        return [];
+    }
+}
+
+function parseYouTubeXmlSubtitleText(text: string): SubtitleCue[] {
+    if (!/^\s*</.test(text) || !/(<text\b|<p\b)/i.test(text)) return [];
+    try {
+        const document = new DOMParser().parseFromString(text, 'text/xml');
+        const cues: SubtitleCue[] = [];
+        for (const element of Array.from(document.querySelectorAll('text[start]'))) {
+            const start = Number(element.getAttribute('start'));
+            const duration = Number(element.getAttribute('dur') ?? 0);
+            const cueText = normalizeCaptionText(element.textContent ?? '');
+            if (Number.isFinite(start) && cueText) cues.push({ start, end: start + Math.max(duration, 0.75), text: cueText });
+        }
+        for (const element of Array.from(document.querySelectorAll('p[begin]'))) {
+            const start = parseSubtitleClockValue(element.getAttribute('begin') ?? '');
+            const end = parseSubtitleClockValue(element.getAttribute('end') ?? '');
+            const cueText = normalizeCaptionText(element.textContent ?? '');
+            if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
+        }
+        return cues.sort((a, b) => a.start - b.start);
+    } catch {
+        return [];
+    }
 }
 
 function parseAssSubtitleText(text: string): SubtitleCue[] {
@@ -1320,15 +1979,31 @@ export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLE
         readerRoot,
         false,
     );
-    if (direct) return direct;
-
-    if (!video) return '';
+    if (direct || !video || !isYouTubePage()) {
+        if (direct || !video) return direct;
+    } else {
+        return readHiddenYouTubeCaptionText(readerRoot);
+    }
     return collectCaptionTexts(
-        [...document.body.querySelectorAll<HTMLElement>('div, span, p')],
+        [...document.querySelectorAll<HTMLElement>('span, p, div')],
         video,
         readerRoot,
         true,
     );
+}
+
+function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement): string {
+    const lines: string[] = [];
+    const seen = new Set<string>();
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>('.ytp-caption-segment, .caption-window'))) {
+        if (isCaptionElementExcluded(element, readerRoot)) continue;
+        const text = normalizeCaptionText(element.innerText || element.textContent || '');
+        if (!text || seen.has(text) || !/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) continue;
+        seen.add(text);
+        lines.push(text);
+        if (lines.length >= 2) break;
+    }
+    return lines.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function parseSubtitleTime(value: string): number {
@@ -1336,6 +2011,15 @@ function parseSubtitleTime(value: string): number {
     if (!match) return Number.NaN;
     const [, hours = '0', minutes, seconds, fraction] = match;
     return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, '0')) / 1000;
+}
+
+function parseSubtitleClockValue(value: string): number {
+    const trimmed = value.trim();
+    if (!trimmed) return Number.NaN;
+    if (/^\d+(?:\.\d+)?s$/i.test(trimmed)) return Number(trimmed.slice(0, -1));
+    if (/^\d+(?:\.\d+)?ms$/i.test(trimmed)) return Number(trimmed.slice(0, -2)) / 1000;
+    if (/^\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+    return parseSubtitleTime(trimmed);
 }
 
 function formatSubtitleTime(value: number): string {
@@ -1368,7 +2052,7 @@ function collectCaptionTexts(elements: HTMLElement[], video?: HTMLVideoElement, 
         if (!text || seen.has(text)) continue;
         seen.add(text);
         lines.push(text);
-        if (lines.length >= 3) break;
+        if (lines.length >= 2) break;
     }
     return lines.join(' ').replace(/\s+/g, ' ').trim();
 }
@@ -1408,11 +2092,12 @@ function isCaptionElementExcluded(element: HTMLElement, readerRoot?: HTMLElement
 }
 
 function isCaptionTextShape(element: HTMLElement, text: string): boolean {
+    const allowsChildText = element.matches(CAPTION_CONTAINER_SELECTORS);
     return text.length >= 2
         && text.length <= 180
         && /[\u3040-\u30ff\u3400-\u9fff]/.test(text)
         && text.split('\n').length <= 4
-        && ![...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ''));
+        && (allowsChildText || ![...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? '')));
 }
 
 function isVisibleCaptionRect(element: HTMLElement, rect: DOMRect): boolean {
@@ -1454,7 +2139,24 @@ function getYouTubeVideoId(): string {
     return url.searchParams.get('v') ?? url.pathname.match(/\/shorts\/([^/?]+)/)?.[1] ?? '';
 }
 
-function getYouTubeCaptionTracks(): Array<{ label: string; language?: string; url: string }> {
+function isYouTubePage(): boolean {
+    return /(^|\.)youtube\.com$/i.test(location.hostname);
+}
+
+function isJapaneseSubtitleTrack(track: SubtitleTrackOption): boolean {
+    const language = track.language?.toLowerCase() ?? '';
+    const label = track.label.toLowerCase();
+    return language === 'ja' || language.startsWith('ja-') || /日本語|japanese/.test(label);
+}
+
+interface YouTubeCaptionTrackCandidate {
+    label: string;
+    language?: string;
+    url: string;
+    raw: unknown;
+}
+
+function getYouTubeCaptionTracks(): YouTubeCaptionTrackCandidate[] {
     const playerTracks = getYouTubePlayerCaptionTracks();
     const response = getYouTubePlayerResponse();
     const rawTracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
@@ -1475,13 +2177,13 @@ function getYouTubePlayerCaptionTracks(): unknown[] {
     return (!playerVideoId || !videoId || playerVideoId === videoId) && Array.isArray(tracks) ? tracks : [];
 }
 
-function uniqueYouTubeCaptionTracks(rawTracks: unknown[]): Array<{ label: string; language?: string; url: string }> {
-    const tracks: Array<{ label: string; language?: string; url: string }> = [];
+function uniqueYouTubeCaptionTracks(rawTracks: unknown[]): YouTubeCaptionTrackCandidate[] {
+    const tracks: YouTubeCaptionTrackCandidate[] = [];
     const seen = new Set<string>();
     for (const track of rawTracks) {
         const parsed = parseYouTubeCaptionTrack(track);
         if (!parsed) continue;
-        const key = `${parsed.language ?? ''}:${parsed.label}:${parsed.url}`;
+        const key = youtubeCaptionTrackIdentity(parsed);
         if (seen.has(key)) continue;
         seen.add(key);
         tracks.push(parsed);
@@ -1489,7 +2191,7 @@ function uniqueYouTubeCaptionTracks(rawTracks: unknown[]): Array<{ label: string
     return tracks;
 }
 
-function parseYouTubeCaptionTrack(track: unknown): { label: string; language?: string; url: string } | null {
+function parseYouTubeCaptionTrack(track: unknown): YouTubeCaptionTrackCandidate | null {
     const record = track as {
         url?: string;
         baseUrl?: string;
@@ -1509,12 +2211,68 @@ function parseYouTubeCaptionTrack(track: unknown): { label: string; language?: s
         ?? record.languageName
         ?? language
         ?? 'YouTube subtitles';
-    return { label: `${label}${language ? ` (${language})` : ''}`, language, url: url.toString() };
+    return { label: `${label}${language ? ` (${language})` : ''}`, language, url: url.toString(), raw: track };
 }
 
-function getYouTubePlayerResponse(): { captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: unknown[] } } } | null {
+function youtubeCaptionTrackIdentity(track: { label: string; language?: string }): string {
+    return `${track.language ?? ''}:${track.label
+        .replace(/\([^)]*\)\s*$/u, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()}`;
+}
+
+function findMatchingYouTubePlayerTrack(track: SubtitleTrackOption, player: {
+    getOption?: (module: string, option: string) => unknown;
+    getAudioTrack?: () => { captionTracks?: unknown[] };
+}): unknown {
+    const rawTracks = [
+        ...extractYouTubeTrackArray(player.getAudioTrack?.()?.captionTracks),
+        ...extractYouTubeTrackArray(player.getOption?.('captions', 'tracklist')),
+    ];
+    const targetIdentity = youtubeCaptionTrackIdentity(track);
+    const exact = rawTracks.find(raw => {
+        const parsed = parseYouTubeCaptionTrack(raw);
+        return parsed && youtubeCaptionTrackIdentity(parsed) === targetIdentity;
+    });
+    if (exact) return exact;
+    return rawTracks.find(raw => {
+        const parsed = parseYouTubeCaptionTrack(raw);
+        return parsed?.language && track.language && parsed.language.toLowerCase() === track.language.toLowerCase();
+    }) ?? null;
+}
+
+function findPreferredYouTubeCaptionCandidate(track: SubtitleTrackOption): YouTubeCaptionTrackCandidate | null {
+    if (track.kind !== 'youtube') return null;
+    const candidates = uniqueYouTubeCaptionTracks([
+        ...getYouTubePlayerCaptionTracks(),
+        ...(getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? []),
+    ]);
+    const targetIdentity = youtubeCaptionTrackIdentity(track);
+    return candidates
+        .filter(candidate => youtubeCaptionTrackIdentity(candidate) === targetIdentity
+            || Boolean(candidate.language && track.language && candidate.language.toLowerCase() === track.language.toLowerCase()))
+        .sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url))[0] ?? null;
+}
+
+function extractYouTubeTrackArray(value: unknown): unknown[] {
+    if (Array.isArray(value)) return value;
+    const record = value as { captionTracks?: unknown[] } | null;
+    return Array.isArray(record?.captionTracks) ? record.captionTracks : [];
+}
+
+type YouTubePlayerResponse = {
+    videoDetails?: { videoId?: string };
+    captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: unknown[] } };
+};
+
+function getYouTubePlayerResponse(): YouTubePlayerResponse | null {
+    const videoId = getYouTubeVideoId();
     const fromWindow = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
-    if (fromWindow && typeof fromWindow === 'object') return fromWindow as ReturnType<typeof getYouTubePlayerResponse>;
+    if (isMatchingYouTubePlayerResponse(fromWindow, videoId)) return fromWindow as YouTubePlayerResponse;
+
+    const fromConfig = readYouTubePlayerResponseFromConfig(videoId);
+    if (fromConfig) return fromConfig;
 
     for (const script of Array.from(document.scripts)) {
         const text = script.textContent ?? '';
@@ -1524,7 +2282,8 @@ function getYouTubePlayerResponse(): { captions?: { playerCaptionsTracklistRende
             const raw = extractJsonObject(text, start + marker.length);
             if (!raw) continue;
             try {
-                return JSON.parse(raw) as ReturnType<typeof getYouTubePlayerResponse>;
+                const parsed = JSON.parse(raw) as unknown;
+                if (isMatchingYouTubePlayerResponse(parsed, videoId)) return parsed as YouTubePlayerResponse;
             } catch {
                 // Try the next known marker.
             }
@@ -1532,13 +2291,53 @@ function getYouTubePlayerResponse(): { captions?: { playerCaptionsTracklistRende
         const escaped = text.match(/"playerResponse"\s*:\s*"((?:\\.|[^"\\])+)"/);
         if (escaped?.[1]) {
             try {
-                return JSON.parse(JSON.parse(`"${escaped[1]}"`)) as ReturnType<typeof getYouTubePlayerResponse>;
+                const parsed = JSON.parse(JSON.parse(`"${escaped[1]}"`)) as unknown;
+                if (isMatchingYouTubePlayerResponse(parsed, videoId)) return parsed as YouTubePlayerResponse;
             } catch {
                 // Keep looking through later scripts.
             }
         }
     }
     return null;
+}
+
+function readYouTubePlayerResponseFromConfig(videoId: string): YouTubePlayerResponse | null {
+    const ytcfg = (window as Window & { ytcfg?: { data_?: Record<string, unknown>; get?: (key: string) => unknown } }).ytcfg;
+    const candidates = [
+        ytcfg?.get?.('PLAYER_RESPONSE'),
+        ytcfg?.get?.('PLAYER_VARS'),
+        ytcfg?.data_?.PLAYER_RESPONSE,
+        ytcfg?.data_?.PLAYER_VARS,
+    ];
+    for (const candidate of candidates) {
+        const response = readYouTubePlayerResponseCandidate(candidate);
+        if (isMatchingYouTubePlayerResponse(response, videoId)) return response as YouTubePlayerResponse;
+    }
+    return null;
+}
+
+function readYouTubePlayerResponseCandidate(candidate: unknown): unknown {
+    if (!candidate) return null;
+    if (typeof candidate === 'string') {
+        try {
+            return JSON.parse(candidate);
+        } catch {
+            return null;
+        }
+    }
+    if (typeof candidate === 'object') {
+        const record = candidate as { player_response?: unknown; raw_player_response?: unknown };
+        return readYouTubePlayerResponseCandidate(record.player_response ?? record.raw_player_response) ?? candidate;
+    }
+    return null;
+}
+
+function isMatchingYouTubePlayerResponse(value: unknown, videoId: string): boolean {
+    if (!value || typeof value !== 'object') return false;
+    const response = value as YouTubePlayerResponse;
+    const responseVideoId = response.videoDetails?.videoId;
+    return Boolean(response.captions?.playerCaptionsTracklistRenderer?.captionTracks)
+        && (!videoId || !responseVideoId || responseVideoId === videoId);
 }
 
 function extractJsonObject(text: string, start: number): string | null {
@@ -1569,10 +2368,41 @@ function extractJsonObject(text: string, start: number): string | null {
     return null;
 }
 
-function withYouTubeVttFormat(url: string): string {
+function youtubeSubtitleRequestUrls(url: string): string[] {
+    return uniqueStrings([
+        withYouTubeSubtitleFormat(url, 'vtt'),
+        withYouTubeSubtitleFormat(url, 'json3'),
+        url,
+    ]);
+}
+
+function withYouTubeSubtitleFormat(url: string, format: 'vtt' | 'json3'): string {
     const parsed = new URL(url);
-    parsed.searchParams.set('fmt', 'vtt');
+    parsed.searchParams.set('fmt', format);
     return parsed.href;
+}
+
+function shouldPreferYouTubeTrackUrl(next: string | undefined, current: string | undefined): boolean {
+    return youtubeTrackUrlScore(next) > youtubeTrackUrlScore(current);
+}
+
+function youtubeTrackUrlScore(value: string | undefined): number {
+    if (!value) return 0;
+    try {
+        const url = new URL(value, location.href);
+        return [
+            url.searchParams.has('pot') ? 8 : 0,
+            url.searchParams.has('potc') ? 4 : 0,
+            url.searchParams.has('signature') ? 2 : 0,
+            url.searchParams.has('kind') ? 1 : 0,
+        ].reduce((sum, item) => sum + item, 0);
+    } catch {
+        return 0;
+    }
+}
+
+function uniqueStrings(values: string[]): string[] {
+    return [...new Set(values)];
 }
 
 function requestText(url: string): Promise<string> {
@@ -1624,9 +2454,22 @@ function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
         ...Array.from(mutation.removedNodes),
     ];
     return nodes.every(node => {
-        const element = node.nodeType === Node.ELEMENT_NODE
+        const element = node.nodeType === 1
             ? node as Element
             : node.parentElement;
         return Boolean(element?.closest?.('[data-jpdb-reader-root]'));
     });
+}
+
+function mutationCouldAffectVideoDiscovery(mutation: MutationRecord): boolean {
+    const nodes = [
+        ...Array.from(mutation.addedNodes),
+        ...Array.from(mutation.removedNodes),
+    ];
+    return nodes.some(nodeContainsVideoElement);
+}
+
+function nodeContainsVideoElement(node: Node): boolean {
+    if (node instanceof HTMLVideoElement) return true;
+    return node instanceof Element && Boolean(node.querySelector('video'));
 }

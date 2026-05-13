@@ -69,8 +69,15 @@ const KATAKANA_RE = /[\p{Script=Katakana}]/u;
 const HAN_RE = /[\p{Script=Han}]/u;
 const DECORATIVE_SYMBOL_RE = /[≧≦°ಠ●◕○◯⊙▽△_∩∪ﾟ∇♪ω◇◆◎⌒※☆★♡♥︶︸ಥ¬╯╰┻┳━┛┗┓┏┫┣╋╂┃━─┌┐└┘├┤┴┬╱╲╳]/u;
 const VIDEO_LINK_SELECTOR = 'a[href*="/watch?v="], a[href^="/watch?v="], a[href*="youtube.com/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]';
-const OEMBED_CACHE_PREFIX = 'yomu:youtube-oembed-title:';
 const log = Logger.scope('YouTubeFilter');
+const FILTER_ACTIVE_CLASS = 'jpdb-youtube-filter-active';
+
+type YouTubeCardDecision = 'pending' | 'shown' | 'filtered';
+
+interface YouTubeCardInfo {
+    card: HTMLElement;
+    title: string;
+}
 
 export function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
@@ -106,7 +113,7 @@ export function collectYouTubeVideoCards(root: ParentNode = document): HTMLEleme
 }
 
 export function readYouTubeCardText(card: HTMLElement): string {
-    const title = card.querySelector<HTMLElement>(TITLE_SELECTOR);
+    const title = readYouTubeCardTitleElement(card);
     const titleText = [
         title?.textContent,
         title?.getAttribute('title'),
@@ -125,6 +132,17 @@ function isFilterableYouTubeCard(card: HTMLElement): boolean {
     return Boolean(card.querySelector(TITLE_SELECTOR) && card.querySelector(VIDEO_LINK_SELECTOR));
 }
 
+function readYouTubeCardInfo(card: HTMLElement): YouTubeCardInfo {
+    return {
+        card,
+        title: readYouTubeCardText(card),
+    };
+}
+
+function readYouTubeCardTitleElement(card: HTMLElement): HTMLElement | null {
+    return card.querySelector<HTMLElement>(TITLE_SELECTOR);
+}
+
 function youtubeVideoIdFromHref(href: string): string {
     if (!href) return '';
     try {
@@ -136,13 +154,45 @@ function youtubeVideoIdFromHref(href: string): string {
     }
 }
 
+class YouTubeReplacementRequester {
+    private lastRequest = 0;
+
+    reset(): void {
+        this.lastRequest = 0;
+    }
+
+    request(shownCount: number): void {
+        const now = performance.now();
+        if (now - this.lastRequest < 1200) return;
+        this.lastRequest = now;
+
+        const previousScrollTop = window.scrollY;
+        const scrollTarget = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+        window.dispatchEvent(new Event('scroll'));
+        if (shownCount < 12 && !/jsdom/i.test(navigator.userAgent)) {
+            try {
+                window.scrollTo({ top: scrollTarget, behavior: 'auto' });
+            } catch {
+                // jsdom and some embedded contexts do not implement scrollTo.
+            }
+            window.dispatchEvent(new Event('scroll'));
+            try {
+                window.scrollTo({ top: previousScrollTop, behavior: 'auto' });
+            } catch {
+                // Best-effort replacement nudging only.
+            }
+        }
+    }
+}
+
 export class YoutubeImmersionFilter {
     private observer?: MutationObserver;
     private timer?: number;
+    private timerDue = 0;
+    private noticeTimer?: number;
     private bar?: HTMLElement;
     private revealed = false;
-    private scanId = 0;
-    private originalTitleCache = new Map<string, string | null>();
+    private readonly replacementRequester = new YouTubeReplacementRequester();
 
     constructor(private readonly options: {
         getSettings: () => ReaderSettings;
@@ -162,6 +212,8 @@ export class YoutubeImmersionFilter {
         this.observer.observe(document.body, { childList: true, subtree: true });
         window.addEventListener('yt-navigate-finish', () => this.schedule(120));
         window.addEventListener('popstate', () => this.schedule(120));
+        window.addEventListener('scroll', () => this.schedule(120), { passive: true });
+        this.syncFilterActiveClass();
         this.schedule(300);
         log.info('YouTube filter initialized', { enabled: this.options.getSettings().youtubeImmersionEnabled });
     }
@@ -173,13 +225,21 @@ export class YoutubeImmersionFilter {
             this.clear();
             return;
         }
+        this.syncFilterActiveClass();
         log.debug('YouTube filter refresh scheduled');
         this.schedule(0);
     }
 
     private schedule(delay: number): void {
+        const due = performance.now() + delay;
+        if (this.timer !== undefined && this.timerDue <= due) return;
         window.clearTimeout(this.timer);
-        this.timer = window.setTimeout(() => this.scan(), delay);
+        this.timerDue = due;
+        this.timer = window.setTimeout(() => {
+            this.timer = undefined;
+            this.timerDue = 0;
+            this.scan();
+        }, delay);
         log.debugThrottled('schedule', 1000, 'YouTube filter scan scheduled', { delay });
     }
 
@@ -188,7 +248,6 @@ export class YoutubeImmersionFilter {
     }
 
     private async scanCards(): Promise<void> {
-        const scanId = ++this.scanId;
         const done = log.time('YouTube filter scan');
         const settings = this.options.getSettings();
         if (!settings.youtubeImmersionEnabled) {
@@ -196,24 +255,21 @@ export class YoutubeImmersionFilter {
             done();
             return;
         }
+        this.syncFilterActiveClass();
 
         let filteredCount = 0;
         let shownCount = 0;
+        let pendingCount = 0;
         for (const card of collectYouTubeVideoCards()) {
-            const text = readYouTubeCardText(card);
-            if (!text) continue;
+            const info = readYouTubeCardInfo(card);
+            const decision = this.decideCard(info);
 
-            const videoId = readYouTubeCardVideoId(card);
-            const originalTitle = isProbablyJapaneseYouTubeText(text) ? null : await this.getOriginalTitle(videoId);
-            if (scanId !== this.scanId) {
-                done();
-                return;
+            if (decision === 'pending') {
+                pendingCount += 1;
+                continue;
             }
-
-            const isJapanese = isProbablyJapaneseYouTubeText(text) || Boolean(originalTitle && isProbablyJapaneseYouTubeText(originalTitle));
-            if (!isJapanese) filteredCount += 1;
-            if (isJapanese || this.revealed) {
-                if (originalTitle) this.writeOriginalTitle(card, originalTitle);
+            if (decision === 'filtered') filteredCount += 1;
+            if (decision === 'shown' || this.revealed) {
                 this.showCard(card);
                 shownCount += 1;
             } else {
@@ -222,58 +278,42 @@ export class YoutubeImmersionFilter {
         }
 
         if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount, settings);
-        else this.bar?.remove();
-        log.debug('YouTube filter scan completed', { filteredCount, shownCount, revealed: this.revealed });
+        else this.clearNotice();
+        if (pendingCount) this.schedule(180);
+        if (filteredCount && !this.revealed) {
+            this.replacementRequester.request(shownCount);
+        }
+        log.debug('YouTube filter scan completed', { filteredCount, shownCount, pendingCount, revealed: this.revealed });
         done();
     }
 
-    private async getOriginalTitle(videoId: string): Promise<string | null> {
-        if (!videoId) return null;
-        if (this.originalTitleCache.has(videoId)) return this.originalTitleCache.get(videoId) ?? null;
-
-        const storageKey = `${OEMBED_CACHE_PREFIX}${videoId}`;
-        const cached = sessionStorage.getItem(storageKey);
-        if (cached !== null) {
-            const value = cached || null;
-            this.originalTitleCache.set(videoId, value);
-            return value;
-        }
-
-        try {
-            const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`);
-            if (!response.ok) throw new Error(`oEmbed ${response.status}`);
-            const data = await response.json() as { title?: unknown };
-            const title = typeof data.title === 'string' ? data.title.trim() : '';
-            const value = title || null;
-            this.originalTitleCache.set(videoId, value);
-            sessionStorage.setItem(storageKey, value ?? '');
-            return value;
-        } catch (error) {
-            log.debugThrottled('oembed-title', 3000, 'YouTube oEmbed title lookup failed', { videoId, error });
-            return null;
-        }
-    }
-
-    private writeOriginalTitle(card: HTMLElement, title: string): void {
-        card.dataset.yomuYoutubeOriginalTitle = title;
-        const titleElement = card.querySelector<HTMLElement>(TITLE_SELECTOR);
-        if (titleElement && !isProbablyJapaneseYouTubeText(titleElement.textContent ?? '')) titleElement.textContent = title;
+    private decideCard(info: YouTubeCardInfo): YouTubeCardDecision {
+        if (!info.title) return 'pending';
+        if (isProbablyJapaneseYouTubeText(info.title)) return 'shown';
+        return 'filtered';
     }
 
     private hideCard(card: HTMLElement): void {
+        card.dataset.yomuYoutubeChecked = 'true';
+        card.classList.remove('jpdb-youtube-filter-pending');
         card.classList.add('jpdb-youtube-filtered');
         card.dataset.yomuYoutubeFiltered = 'true';
     }
 
     private showCard(card: HTMLElement): void {
+        card.dataset.yomuYoutubeChecked = 'true';
+        card.classList.remove('jpdb-youtube-filter-pending');
         card.classList.remove('jpdb-youtube-filtered');
         delete card.dataset.yomuYoutubeFiltered;
     }
 
+    private syncFilterActiveClass(): void {
+        document.documentElement.classList.toggle(FILTER_ACTIVE_CLASS, isYouTubeHost() && this.options.getSettings().youtubeImmersionEnabled && !this.revealed);
+    }
+
     private renderNotice(filteredCount: number, shownCount: number, settings: ReaderSettings): void {
         if (!filteredCount) {
-            this.bar?.remove();
-            this.bar = undefined;
+            this.clearNotice();
             return;
         }
 
@@ -320,13 +360,30 @@ export class YoutubeImmersionFilter {
         }
         if (showAnyway) showAnyway.textContent = this.revealed ? uiText(settings.interfaceLanguage, 'youtubeFilterAgain') : uiText(settings.interfaceLanguage, 'youtubeShowAnyway');
         if (turnOff) turnOff.textContent = uiText(settings.interfaceLanguage, 'youtubeTurnOff');
+        window.clearTimeout(this.noticeTimer);
+        this.noticeTimer = window.setTimeout(() => this.clearNotice(), 4500);
+    }
+
+    private clearNotice(): void {
+        window.clearTimeout(this.noticeTimer);
+        this.noticeTimer = undefined;
+        this.bar?.remove();
+        this.bar = undefined;
     }
 
     private clear(): void {
         window.clearTimeout(this.timer);
+        window.clearTimeout(this.noticeTimer);
+        this.timer = undefined;
+        this.timerDue = 0;
+        this.replacementRequester.reset();
         this.revealed = false;
+        document.documentElement.classList.remove(FILTER_ACTIVE_CLASS);
         collectYouTubeVideoCards().forEach(card => this.showCard(card));
         document.querySelectorAll<HTMLElement>('[data-yomu-youtube-filtered="true"]').forEach(card => this.showCard(card));
+        document.querySelectorAll<HTMLElement>('.jpdb-youtube-filter-pending').forEach(card => card.classList.remove('jpdb-youtube-filter-pending'));
+        document.querySelectorAll<HTMLElement>('[data-yomu-youtube-checked="true"]').forEach(card => delete card.dataset.yomuYoutubeChecked);
+        document.querySelectorAll<HTMLElement>('[data-yomu-youtube-checked="pending"]').forEach(card => delete card.dataset.yomuYoutubeChecked);
         this.bar?.remove();
         this.bar = undefined;
         log.debug('YouTube filter cleared');
@@ -336,7 +393,7 @@ export class YoutubeImmersionFilter {
 function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
     return nodes.every(node => {
-        const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+        const element = node.nodeType === 1 ? node as Element : node.parentElement;
         return Boolean(element?.closest?.('[data-jpdb-reader-root]'));
     });
 }

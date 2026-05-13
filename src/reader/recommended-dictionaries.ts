@@ -22,7 +22,7 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         id: 'jmdict',
         category: 'terms',
         name: 'JMdict',
-        description: 'Starter Japanese-English dictionary maintained by EDRDG and packaged for Yomitan. よむ downloads this automatically when dictionary words are needed and no local dictionary is installed.',
+        description: 'Starter Japanese-English dictionary maintained by EDRDG and packaged for Yomitan. Add this when you want local dictionary-backed study words.',
         homepage: 'https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan',
         downloadUrl: 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip',
     },

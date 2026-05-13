@@ -37,6 +37,7 @@ export class JpdbClient {
     private api: JpdbApiClient;
     private cardCache = new Map<string, JPDBCard>();
     private parseCache = new LruCache<string, JPDBToken[][]>(PARSE_CACHE_SIZE);
+    private parseInFlight = new Map<string, Promise<JPDBToken[][]>>();
 
     constructor(getApiKey: () => string) {
         this.api = new JpdbApiClient(getApiKey);
@@ -52,26 +53,20 @@ export class JpdbClient {
             log.debug('Parse cache hit', { paragraphs: text.length, tokens: cached.reduce((sum, tokens) => sum + tokens.length, 0) });
             return cached;
         }
+        const inFlight = this.parseInFlight.get(cacheKey);
+        if (inFlight) {
+            log.debug('Parse in-flight cache hit', { paragraphs: text.length, chars: cacheKey.length });
+            return inFlight;
+        }
 
-        const done = log.time('parse request', { paragraphs: text.length, chars: cacheKey.length });
-        const raw = await this.api.request<JPDBParseResult>('parse', {
-            text,
-            position_length_encoding: 'utf16',
-            token_fields: TOKEN_FIELDS,
-            vocabulary_fields: VOCABULARY_FIELDS,
+        const promise = this.fetchParse(text, cacheKey);
+        this.parseInFlight.set(cacheKey, promise);
+        void promise.then(() => {
+            if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
+        }, () => {
+            if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
         });
-        const cards = jpdbVocabularyToCards(raw.vocabulary);
-        const tokens = jpdbParseResultToTokens(text, raw.tokens, cards);
-
-        this.cacheCards(cards);
-        this.parseCache.set(cacheKey, tokens);
-        log.debug('Parse completed', {
-            paragraphs: tokens.length,
-            tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
-            cards: cards.length,
-        });
-        done();
-        return tokens;
+        return promise;
     }
 
     async reviewCard(card: JPDBCard, grade: JPDBGrade): Promise<void> {
@@ -146,7 +141,7 @@ export class JpdbClient {
                 v: card.vid,
                 s: card.sid,
                 origin: '/',
-            });
+            }, { response: 'none' });
             return;
         }
 
@@ -167,21 +162,49 @@ export class JpdbClient {
     }
 
     private async refreshCard(card: JPDBCard): Promise<void> {
-        const parsed = await this.parse([card.spelling]);
-        const fresh = parsed.flat().find(token => token.card.vid === card.vid && token.card.sid === card.sid)?.card;
+        const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
+            list: [[card.vid, card.sid]],
+            fields: VOCABULARY_FIELDS,
+        });
+        const fresh = jpdbVocabularyToCards((lookup.vocabulary_info ?? []) as JPDBRawVocabulary[])[0];
         if (!fresh) {
             log.warn('Card refresh did not return updated card', { term: card.spelling, vid: card.vid, sid: card.sid });
             return;
         }
 
         this.cardCache.set(cardKey(card.vid, card.sid), fresh);
-        card.cardState = fresh.cardState;
+        Object.assign(card, fresh);
         log.debug('Card refreshed', { term: card.spelling, state: fresh.cardState });
     }
 
     private cacheCards(cards: JPDBCard[]): void {
         for (const card of cards) {
             this.cardCache.set(cardKey(card.vid, card.sid), card);
+        }
+    }
+
+    private async fetchParse(text: string[], cacheKey: string): Promise<JPDBToken[][]> {
+        const done = log.time('parse request', { paragraphs: text.length, chars: cacheKey.length });
+        try {
+            const raw = await this.api.request<JPDBParseResult>('parse', {
+                text,
+                position_length_encoding: 'utf16',
+                token_fields: TOKEN_FIELDS,
+                vocabulary_fields: VOCABULARY_FIELDS,
+            });
+            const cards = jpdbVocabularyToCards(raw.vocabulary);
+            const tokens = jpdbParseResultToTokens(text, raw.tokens, cards);
+
+            this.cacheCards(cards);
+            this.parseCache.set(cacheKey, tokens);
+            log.debug('Parse completed', {
+                paragraphs: tokens.length,
+                tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
+                cards: cards.length,
+            });
+            return tokens;
+        } finally {
+            done();
         }
     }
 }

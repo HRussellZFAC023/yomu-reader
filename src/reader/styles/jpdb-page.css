@@ -1,16 +1,16 @@
 .yomu-jpdb-addon-card {
   display: grid;
-  gap: 9px;
-  margin: 14px 0;
-  padding: 11px 12px;
-  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.20));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 92%, transparent);
+  gap: 7px;
+  margin: 10px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--jpdb-reader-text, inherit);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.42;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--jpdb-reader-border, rgba(127,137,152,.18)) 70%, transparent);
+  box-shadow: none;
 }
 .yomu-jpdb-addon-card,
 .yomu-jpdb-addon-card * {
@@ -65,6 +65,15 @@
   gap: 7px;
   flex-wrap: wrap;
 }
+.yomu-jpdb-toolbar a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--jpdb-reader-accent) !important;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none !important;
+}
 .yomu-jpdb-counter {
   display: inline-flex;
   align-items: center;
@@ -96,6 +105,11 @@
   margin: 0 auto;
   color: var(--jpdb-reader-text);
   white-space: pre-wrap;
+}
+.yomu-jpdb-uchisen-body,
+.yomu-jpdb-doodle-body {
+  display: grid;
+  gap: 9px;
 }
 .yomu-jpdb-facts {
   display: grid;
@@ -185,14 +199,18 @@
 .yomu-jpdb-used-words a span {
   font-weight: 800;
 }
-.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry {
-  background: var(--jpdb-reader-surface-2);
+.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry,
+.yomu-jpdb-immersion-group {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .yomu-jpdb-local-dictionaries {
   gap: 7px;
 }
 .yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group {
-  border-radius: 8px;
+  border-radius: 0;
 }
 .yomu-jpdb-local-dictionaries .jpdb-reader-local-head {
   min-height: 38px;
@@ -200,34 +218,52 @@
 .yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary {
   line-height: 1.45;
 }
+.yomu-jpdb-immersion-group > .jpdb-reader-local-glossary {
+  padding-inline: 0;
+}
+#yomu-jpdb-immersion .jpdb-reader-example-media {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
 .yomu-jpdb-audio-button {
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  min-height: 24px;
-  margin-left: 6px;
-  padding: 2px 7px;
-  border: 1px solid var(--jpdb-reader-border, rgba(127,137,152,.35));
+  width: 1.55em;
+  height: 1.55em;
+  min-width: 1.55em;
+  min-height: 1.55em;
+  margin: 0 0 0 .35em;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
-  background: var(--jpdb-reader-accent-soft, rgba(94,167,128,.16));
-  color: var(--jpdb-reader-accent, currentColor);
+  background: transparent;
+  box-shadow: none;
+  color: currentColor;
   cursor: pointer;
-  font: 800 10px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  opacity: .72;
   vertical-align: middle;
   -webkit-tap-highlight-color: transparent;
+  transform: translateY(.08em);
+  transition: background-color .15s ease, color .15s ease, opacity .15s ease;
 }
 .yomu-jpdb-audio-button:hover,
 .yomu-jpdb-audio-button:focus-visible {
-  border-color: var(--jpdb-reader-accent, currentColor);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--jpdb-reader-accent, currentColor);
+  opacity: 1;
   outline: none;
 }
+.yomu-jpdb-audio-button:active {
+  opacity: .85;
+}
 .yomu-jpdb-audio-button svg {
-  width: 13px;
-  height: 13px;
+  width: 1em;
+  height: 1em;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.2;
+  stroke-width: 2.25;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -244,7 +280,8 @@
 }
 #yomu-jpdb-doodle-root {
   display: grid;
-  place-items: center;
+  align-items: center;
+  justify-items: stretch;
   gap: 10px;
   width: min(100%, 320px);
   margin: 14px auto 8px;
@@ -253,6 +290,11 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 88%, transparent);
   color: var(--jpdb-reader-text);
+}
+#yomu-jpdb-doodle-root .yomu-doodle-stage,
+#yomu-jpdb-doodle-root .yomu-jpdb-toolbar,
+#yomu-jpdb-doodle-root .yomu-doodle-result {
+  justify-self: center;
 }
 .yomu-doodle-stage {
   position: relative;
@@ -331,6 +373,29 @@
 #yomu-jpdb-doodle-root .jpdb-reader-btn {
   min-height: 44px;
   padding-inline: 14px;
+}
+.yomu-doodle-result {
+  min-height: 28px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+.yomu-doodle-result:empty {
+  display: none;
+}
+.yomu-doodle-pass .yomu-doodle-result {
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-known, #7bd88f) 48%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-state-known, #7bd88f) 18%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-text);
+}
+.yomu-doodle-fail .yomu-doodle-result {
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed, #ff6b6b) 48%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-state-failed, #ff6b6b) 18%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-text);
 }
 @media (min-height: 960px) and (min-width: 700px) {
   #yomu-jpdb-doodle-root {

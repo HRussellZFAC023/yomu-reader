@@ -672,58 +672,295 @@
   outline: none;
 }
 
-.jpdb-reader-actions {
-  position: sticky;
-  bottom: -14px;
-  z-index: 4;
-  border-top: 1px solid var(--jpdb-reader-border);
-  margin: 12px -14px -14px;
-  padding: 12px 14px 14px;
+.jpdb-reader-popover:has(.jpdb-reader-popover-body) {
   display: grid;
-  gap: 8px;
-  background:
-    linear-gradient(to bottom, color-mix(in srgb, var(--jpdb-reader-bg) 0%, transparent), var(--jpdb-reader-bg) 16px),
-    var(--jpdb-reader-bg);
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: 0;
 }
-.jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
+.jpdb-reader-popover-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  overscroll-behavior: contain;
+}
+.jpdb-reader-actions {
+  position: relative;
+  z-index: 4;
+  container-type: inline-size;
+  border-top: 1px solid var(--jpdb-reader-border);
+  margin: 0;
+  padding: 6px 14px 15px;
+  display: grid;
+  gap: 6px;
+  background: var(--jpdb-reader-bg);
+  box-shadow: 0 -1px 0 var(--jpdb-reader-bg);
+}
+.jpdb-reader-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 10px; }
+.jpdb-reader-mining-details {
+  position: relative;
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.jpdb-reader-mining-title {
+  position: static;
+  justify-content: center;
+  padding-inline: 10px;
+}
+.jpdb-reader-mining-title:hover,
+.jpdb-reader-mining-title:focus-visible {
+  color: var(--jpdb-reader-state-new, #5aa9ff);
+}
+.jpdb-reader-actions-has-mining {
+  position: relative;
+  padding-top: 26px;
+}
+.jpdb-reader-actions-gutter {
+  position: absolute;
+  top: 3px;
+  right: 12px;
+  left: 12px;
+  height: 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  pointer-events: none;
+}
+.jpdb-reader-mining-collapse {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+  font: 900 17px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  pointer-events: auto;
+  transform: translateY(-0.01rem);
+  transition: color .18s ease-in-out, background .18s ease-in-out, transform .18s ease-in-out;
+}
+.jpdb-reader-mining-collapse:hover,
+.jpdb-reader-mining-collapse:focus-visible {
+  background: var(--jpdb-reader-hover);
+  color: var(--jpdb-reader-accent-readable);
+  outline: none;
+  transform: translateY(-0.08rem);
+}
+.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details {
+  display: none;
+}
+.jpdb-reader-mining-action-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  padding: 0;
+}
+.jpdb-reader-add-deck-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.jpdb-reader-add-deck-select-open {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  margin-top: 6px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  opacity: 1;
+  pointer-events: auto;
+  font: 750 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-reader-grades {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.jpdb-reader-mining-action-row .jpdb-reader-btn {
+  min-width: 0;
+  min-height: 48px;
+  padding-inline: 10px;
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
 .jpdb-reader-grades .jpdb-reader-btn {
   min-width: 0;
-  min-height: 40px;
-  padding-inline: 3px;
-  font-size: 9.5px;
+  min-height: 48px;
+  padding-inline: 6px;
+  font-size: 12px;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: 1;
   white-space: nowrap;
   overflow-wrap: normal;
 }
 .jpdb-reader-btn {
-  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 0 12px;
   border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 90%, currentColor 7%);
   color: var(--jpdb-reader-text);
   cursor: pointer;
-  font: 600 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 750 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  transform: translateY(-0.01rem);
+  transition: background .2s ease-in-out, border-color .2s ease-in-out, box-shadow .2s ease-in-out, color .2s ease-in-out, transform .2s ease-in-out;
 }
-.jpdb-reader-btn:hover { background: var(--jpdb-reader-hover); }
-.jpdb-reader-btn:disabled { opacity: .45; cursor: progress; }
+.jpdb-reader-btn:hover:not(:disabled),
+.jpdb-reader-btn:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, currentColor 15%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 8px 18px rgba(0,0,0,.2);
+  transform: translateY(-0.25rem);
+  outline: none;
+}
+.jpdb-reader-btn:active:not(:disabled) { transform: scale(.98); }
+.jpdb-reader-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .jpdb-reader-btn.primary {
   color: var(--jpdb-reader-accent-readable);
   border-color: var(--jpdb-reader-accent);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, var(--jpdb-reader-accent) 14%);
 }
-.jpdb-reader-btn.add { color: var(--jpdb-reader-accent-readable); border-color: var(--jpdb-reader-accent); }
-.jpdb-reader-btn.nf { color: var(--jpdb-reader-accent-readable); border-color: var(--jpdb-reader-accent); }
+.jpdb-reader-grades .jpdb-reader-btn::before,
+.jpdb-reader-btn.fail::before,
+.jpdb-reader-btn.pass::before {
+  margin-right: 4px;
+  font-weight: 950;
+}
+.jpdb-reader-grades .jpdb-reader-btn.nothing::before,
+.jpdb-reader-grades .jpdb-reader-btn.something::before,
+.jpdb-reader-btn.fail::before { content: "✖"; }
+.jpdb-reader-grades .jpdb-reader-btn.hard::before,
+.jpdb-reader-grades .jpdb-reader-btn.okay::before,
+.jpdb-reader-grades .jpdb-reader-btn.easy::before,
+.jpdb-reader-btn.pass::before { content: "✔"; }
+.jpdb-reader-btn.add {
+  color: var(--jpdb-reader-state-new, #5aa9ff);
+  border-color: var(--jpdb-reader-state-new, #5aa9ff);
+}
+.jpdb-reader-btn.nf {
+  color: var(--jpdb-reader-state-known, #7bd88f);
+  border-color: var(--jpdb-reader-state-known, #7bd88f);
+}
+.jpdb-reader-btn.nf.danger {
+  color: var(--jpdb-reader-state-failed, #ff6b6b);
+  border-color: var(--jpdb-reader-state-failed, #ff6b6b);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, var(--jpdb-reader-state-failed, #ff6b6b) 14%);
+}
 .jpdb-reader-btn.blacklist {
   color: var(--jpdb-reader-state-ignored, #b8a7ff);
   border-color: var(--jpdb-reader-state-ignored, #b8a7ff);
 }
-.jpdb-reader-btn.anki { color: #88a6ff; border-color: #88a6ff; }
-.jpdb-reader-btn.nothing, .jpdb-reader-btn.fail { color: #e74c3c; border-color: #e74c3c; }
-.jpdb-reader-btn.something { color: #f39c12; border-color: #f39c12; }
-.jpdb-reader-btn.hard { color: #f1c40f; border-color: #f1c40f; }
-.jpdb-reader-btn.okay, .jpdb-reader-btn.pass { color: #2ecc71; border-color: #2ecc71; }
-.jpdb-reader-btn.easy { color: #3498db; border-color: #3498db; }
+.jpdb-reader-btn.anki {
+  color: var(--jpdb-reader-state-new, #5aa9ff);
+  border-color: var(--jpdb-reader-state-new, #5aa9ff);
+}
+.jpdb-reader-btn.nothing, .jpdb-reader-btn.fail {
+  color: var(--jpdb-reader-state-failed, #ff6b6b);
+  border-color: var(--jpdb-reader-state-failed, #ff6b6b);
+}
+.jpdb-reader-btn.something {
+  color: var(--jpdb-reader-state-failed, #ff6b6b);
+  border-color: var(--jpdb-reader-state-failed, #ff6b6b);
+}
+.jpdb-reader-btn.hard {
+  color: var(--jpdb-reader-state-due, #ffb454);
+  border-color: var(--jpdb-reader-state-due, #ffb454);
+}
+.jpdb-reader-btn.okay, .jpdb-reader-btn.pass {
+  color: var(--jpdb-reader-state-known, #7bd88f);
+  border-color: var(--jpdb-reader-state-known, #7bd88f);
+}
+.jpdb-reader-btn.easy {
+  color: var(--jpdb-reader-state-new, #5aa9ff);
+  border-color: var(--jpdb-reader-state-new, #5aa9ff);
+}
+
+@container (max-width: 430px) {
+  .jpdb-reader-mining-action-row {
+    gap: 6px;
+  }
+  .jpdb-reader-mining-action-row .jpdb-reader-btn,
+  .jpdb-reader-grades .jpdb-reader-btn {
+    min-height: 44px;
+    font-size: 11px;
+  }
+}
+
+@container (max-width: 340px) {
+  .jpdb-reader-actions {
+    padding: 6px 10px 15px;
+    gap: 6px;
+  }
+  .jpdb-reader-actions-has-mining {
+    padding-top: 24px;
+  }
+  .jpdb-reader-actions-gutter {
+    top: 2px;
+    right: 8px;
+    left: 8px;
+  }
+  .jpdb-reader-row,
+  .jpdb-reader-mining-action-row {
+    gap: 3px;
+  }
+  .jpdb-reader-mining-action-row .jpdb-reader-btn {
+    min-height: 38px;
+    padding-inline: 3px;
+    border-radius: 8px;
+    font-size: 9.5px;
+  }
+  .jpdb-reader-grades .jpdb-reader-btn {
+    min-height: 38px;
+    padding-inline: 1px;
+    border-radius: 8px;
+    font-size: 8.8px;
+  }
+  .jpdb-reader-grades .jpdb-reader-btn::before {
+    margin-right: 2px;
+  }
+}
+
+@container (max-width: 300px) {
+  .jpdb-reader-actions {
+    padding-inline: 8px;
+  }
+  .jpdb-reader-row,
+  .jpdb-reader-mining-action-row {
+    gap: 2px;
+  }
+  .jpdb-reader-grades {
+    grid-template-columns: 1.12fr 1.3fr .86fr .86fr .86fr;
+  }
+  .jpdb-reader-mining-action-row .jpdb-reader-btn {
+    font-size: 8.8px;
+  }
+  .jpdb-reader-grades .jpdb-reader-btn {
+    padding-inline: 0;
+    font-size: 8.2px;
+  }
+  .jpdb-reader-grades .jpdb-reader-btn::before {
+    margin-right: 2px;
+  }
+}
 
 .jpdb-reader-pitch svg { display: block; height: 42px; max-width: 128px; }
 .jpdb-reader-pitch text { fill: var(--jpdb-reader-text); font-size: 12px; }

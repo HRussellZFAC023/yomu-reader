@@ -1,5 +1,6 @@
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
+import { createPageMediaUrl } from './page-media-url';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -15,6 +16,12 @@ interface AudioPlaybackOptions {
 interface AudioPreloadOptions {
     sourceLimit?: number;
     candidateLimit?: number;
+}
+
+interface AudioRequestOptions {
+    method?: 'GET' | 'POST';
+    headers?: Record<string, string>;
+    data?: string;
 }
 
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
@@ -278,8 +285,8 @@ export class AudioPlayer {
         if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
             throw new Error('JapanesePod101 has no audio for this term.');
         }
-        const blobUrl = URL.createObjectURL(response);
-        log.debug('Audio blob URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size });
+        const blobUrl = await createPageMediaUrl(response);
+        log.debug('Audio media URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith('data:') });
         return blobUrl;
     }
 
@@ -288,9 +295,10 @@ export class AudioPlayer {
         return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ja-JP';
-            utterance.voice = speechSynthesis.getVoices().find(voice =>
-                voice.name === voiceName || voice.lang.toLowerCase().startsWith('ja'),
-            ) ?? null;
+            const voices = speechSynthesis.getVoices();
+            utterance.voice = (voiceName ? voices.find(voice => voice.name === voiceName) : undefined)
+                ?? voices.find(voice => voice.lang.toLowerCase().startsWith('ja'))
+                ?? null;
             utterance.onend = () => resolve();
             utterance.onerror = () => reject(new Error('Text-to-speech failed.'));
             this.utterance = utterance;
@@ -494,8 +502,9 @@ async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, ti
             return urls.map(url => ({ url, sourceUrl }));
         }
         case 'jpod101':
-        case 'language-pod-101':
             return [{ url: getJapanesePod101Url(card), sourceUrl: getJapanesePod101Url(card) }];
+        case 'language-pod-101':
+            return (await getLanguagePod101AudioUrls(card, timeoutMs)).map(url => ({ url, sourceUrl: url }));
         case 'jisho':
             return (await getJishoAudioUrls(card, timeoutMs)).map(url => ({ url, sourceUrl: url }));
         case 'lingua-libre':
@@ -579,10 +588,33 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number): Promise<str
     const response = await requestUrl(url, 'text', timeoutMs);
     if (typeof response !== 'string') return [];
 
-    const doc = new DOMParser().parseFromString(response, 'text/html');
-    const audio = doc.getElementById(`audio_${card.spelling}:${card.reading}`) ?? doc.querySelector('audio');
-    const source = audio?.querySelector('source')?.getAttribute('src');
-    return source ? [new URL(source, url).href] : [];
+    const audioHtml = findHtmlElementById(response, 'audio', `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, 'audio');
+    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
+}
+
+async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number): Promise<string[]> {
+    const url = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
+    const data = new URLSearchParams({
+        post: 'dictionary_reference',
+        match_type: 'exact',
+        search_query: card.spelling,
+        vulgar: 'true',
+    }).toString();
+    const response = await requestUrl(url, 'text', timeoutMs, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        data,
+    });
+    if (typeof response !== 'string') return [];
+
+    const urls: string[] = [];
+    for (const row of findHtmlBlocksByClass(response, 'dc-result-row')) {
+        const kanaHtml = findHtmlElementByClass(row, 'span', 'dc-vocab_kana');
+        const kana = stripHtml(kanaHtml ?? '').trim();
+        if (card.reading !== card.spelling && kana !== card.reading) continue;
+        urls.push(...extractAudioSourceUrls(row, url));
+    }
+    return uniqueAudioUrls(urls);
 }
 
 async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number): Promise<string[]> {
@@ -600,16 +632,17 @@ async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wikti
         const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(page.title)}`;
         const info = await requestUrl(infoUrl, 'text', timeoutMs).catch(() => null);
         if (typeof info !== 'string') continue;
-        const filePages = (JSON.parse(info) as { query?: { pages?: Record<string, { imageinfo?: Array<{ url?: string }> }> } }).query?.pages ?? {};
+        const filePages = (JSON.parse(info) as { query?: { pages?: Record<string, { imageinfo?: Array<{ url?: string; user?: string }> }> } }).query?.pages ?? {};
         for (const filePage of Object.values(filePages)) {
             const fileUrl = filePage.imageinfo?.[0]?.url;
-            if (fileUrl) urls.push(fileUrl);
+            const user = filePage.imageinfo?.[0]?.user ?? '';
+            if (fileUrl && isValidCommonsAudioFilename(page.title, user, term, source)) urls.push(fileUrl);
         }
     }
     return urls;
 }
 
-function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number): Promise<unknown> {
+function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
     const url = getProxyUrl(responseUrl);
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
@@ -623,8 +656,10 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
                 }
             };
             const result = userscriptRequest({
-                method: 'GET',
+                method: options.method ?? 'GET',
                 url,
+                headers: options.headers,
+                data: options.data,
                 responseType,
                 timeout: timeoutMs,
                 onload: handleLoad,
@@ -638,10 +673,105 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
     }
 
     log.debug('Audio request via fetch', { responseType, host: safeHost(url) });
-    return fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).then(async response => {
+    return fetch(url, {
+        method: options.method ?? 'GET',
+        headers: options.headers,
+        body: options.data,
+        signal: AbortSignal.timeout(timeoutMs),
+    }).then(async response => {
         if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
         return responseType === 'blob' ? await response.blob() : await response.text();
     });
+}
+
+function findHtmlElementById(html: string, tag: string, id: string): string | null {
+    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, 'i'));
+}
+
+function findHtmlElementByClass(html: string, tag: string, className: string): string | null {
+    return findHtmlElementsByClass(html, tag, className)[0] ?? null;
+}
+
+function findHtmlElementsByClass(html: string, tag: string, className: string): string[] {
+    return findHtmlElements(html, tag).filter(element => htmlElementHasClass(element, tag, className));
+}
+
+function findHtmlBlocksByClass(html: string, className: string): string[] {
+    const starts: number[] = [];
+    const startPattern = /<[^/!][^>]*>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = startPattern.exec(html))) {
+        if (tagAttributesHaveClass(match[0], className)) starts.push(match.index);
+    }
+    return starts.map((start, index) => html.slice(start, starts[index + 1] ?? html.length));
+}
+
+function findHtmlElement(html: string, tag: string, attributePattern?: RegExp): string | null {
+    return findHtmlElements(html, tag, attributePattern)[0] ?? null;
+}
+
+function findHtmlElements(html: string, tag: string, attributePattern?: RegExp): string[] {
+    const pattern = new RegExp(`<${tag}\\b([^>]*)>[\\s\\S]*?<\\/${tag}>`, 'gi');
+    const matches: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(html))) {
+        const attributes = match[1] ?? '';
+        if (!attributePattern || attributePattern.test(attributes)) matches.push(match[0]);
+    }
+    return matches;
+}
+
+function htmlElementHasClass(element: string, tag: string, className: string): boolean {
+    const opening = new RegExp(`^<${tag}\\b([^>]*)>`, 'i').exec(element)?.[1] ?? '';
+    return attributesHaveClass(opening, className);
+}
+
+function tagAttributesHaveClass(openingTag: string, className: string): boolean {
+    const attributes = /^<[^/\s>]+\b([^>]*)>/i.exec(openingTag)?.[1] ?? '';
+    return attributesHaveClass(attributes, className);
+}
+
+function attributesHaveClass(attributes: string, className: string): boolean {
+    return (getHtmlAttribute(attributes, 'class') ?? '').split(/\s+/).includes(className);
+}
+
+function extractAudioSourceUrls(html: string, baseUrl: string): string[] {
+    const urls: string[] = [];
+    const sourcePattern = /<source\b([^>]*)>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = sourcePattern.exec(html))) {
+        const src = getHtmlAttribute(match[1] ?? '', 'src');
+        if (src) urls.push(new URL(src, baseUrl).href);
+    }
+    return uniqueAudioUrls(urls);
+}
+
+function getHtmlAttribute(attributes: string, name: string): string | null {
+    const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i').exec(attributes);
+    return match ? decodeHtmlAttribute(match[2]) : null;
+}
+
+function decodeHtmlAttribute(value: string): string {
+    return value
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+        .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)));
+}
+
+function stripHtml(value: string): string {
+    return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ''));
+}
+
+function isValidCommonsAudioFilename(filename: string | undefined, fileUser: string, term: string, source: 'lingua-libre' | 'wiktionary'): boolean {
+    if (!filename) return false;
+    if (source === 'lingua-libre') {
+        return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp(fileUser)}-${escapeRegExp(term)}\\.wav$`, 'i').test(filename);
+    }
+    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp(term)}\\d*\\.ogg$`, 'i').test(filename);
 }
 
 function normalizeAudioUrl(value: string, sourceUrl?: string): string {
@@ -705,7 +835,10 @@ function uniqueAudioUrls(urls: string[]): string[] {
 
 function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
     if (!audioViaBlob || candidate.url.startsWith('blob:') || candidate.url.startsWith('data:audio/')) return false;
-    return isAppleMobileBrowser() || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
+    return /^https?:\/\//i.test(candidate.url)
+        || isAppleMobileBrowser()
+        || isJapanesePod101Url(candidate.url)
+        || isJapanesePod101Url(candidate.sourceUrl);
 }
 
 function isAppleMobileBrowser(): boolean {
