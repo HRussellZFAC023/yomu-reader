@@ -1,7 +1,7 @@
 import type { AnkiConnectClient } from './anki';
 import { primaryCardState } from './card-state';
 import { APP_NAME, SUPPORT_LINKS } from './constants';
-import { setInnerHtml } from './dom';
+import { renderHighlightedTextHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith } from './dom-builder';
 import type { ImmersionKitClient, ImmersionKitExample } from './immersion-kit';
 import type { JpdbClient } from './jpdb';
@@ -11,6 +11,7 @@ import { assessKanjiStrokes, type KanjiStrokeAssessment } from './kanji-stroke-g
 import type { KanjiVGClient, KanjiVGInfo } from './kanjivg';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from './jpdb-review-bridge';
 import { Logger } from './logger';
+import { speakerIcon } from './popup-render';
 import {
     cardKey,
     createNewTabStateChannel,
@@ -85,6 +86,9 @@ export class NewTabController {
     private keywordCache = new Map<string, string>();
     private kanjiInfoCache = new Map<string, Promise<{ jpdb: JpdbKanjiInfo | null; rtk: RtkInfo | null; vg: KanjiVGInfo | null }>>();
     private immersionCache = new Map<string, Promise<ImmersionKitExample | null>>();
+    private immersionAudio?: HTMLAudioElement;
+    private immersionAudioKey = '';
+    private immersionAudioRequestId = 0;
     private dictionarySetupRequired = false;
 
     constructor(private readonly dependencies: NewTabControllerDependencies) {
@@ -146,8 +150,11 @@ export class NewTabController {
         return fragment(
             el('div', { class: 'jpdb-reader-newtab-shell' },
                 el('header', { class: 'jpdb-reader-newtab-topbar' },
-                    el('a', { class: 'jpdb-reader-newtab-brand', href: SUPPORT_LINKS.docs, 'aria-label': `Open ${APP_NAME}` },
-                        el('img', { src: `${SUPPORT_LINKS.docs}yomu-icon.svg`, alt: '', width: 32, height: 32 }),
+                    el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand' },
+                        el('a', { class: 'title', href: SUPPORT_LINKS.docs, 'aria-label': `Open ${APP_NAME}` },
+                            el('img', { class: 'VPImage logo', src: `${SUPPORT_LINKS.docs}yomu-icon.svg`, alt: '', width: 32, height: 32 }),
+                            el('span', {}, APP_NAME),
+                        ),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': 'Study mode' },
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, 'Word'),
@@ -251,6 +258,12 @@ export class NewTabController {
                 if (grade) void this.gradeCurrentCard(grade);
                 return;
             }
+            if (action === 'newtab-immersion-audio') {
+                event.preventDefault();
+                const current = this.visibleWords[this.index];
+                if (current) void this.playCurrentImmersionAudio(current);
+                return;
+            }
             if (action === 'jpdb-kanji-action') {
                 event.preventDefault();
                 const actionId = target.closest<HTMLElement>('[data-kanji-action-id]')?.dataset.kanjiActionId ?? '';
@@ -293,8 +306,12 @@ export class NewTabController {
 
     private applyPalette(): void {
         const settings = this.dependencies.getSettings();
-        document.documentElement.style.setProperty('--jpdb-newtab-known', settings.wordColorKnown);
-        document.documentElement.style.setProperty('--jpdb-newtab-unknown', settings.wordColorFailed);
+        document.documentElement.style.setProperty('--jpdb-reader-state-new', settings.wordColorNew);
+        document.documentElement.style.setProperty('--jpdb-reader-state-learning', settings.wordColorLearning);
+        document.documentElement.style.setProperty('--jpdb-reader-state-known', settings.wordColorKnown);
+        document.documentElement.style.setProperty('--jpdb-reader-state-due', settings.wordColorDue);
+        document.documentElement.style.setProperty('--jpdb-reader-state-failed', settings.wordColorFailed);
+        document.documentElement.style.setProperty('--jpdb-reader-state-ignored', settings.wordColorIgnored);
     }
 
     private async loadWordsInto(root: HTMLElement, preferStoredWord: boolean): Promise<void> {
@@ -481,8 +498,7 @@ export class NewTabController {
         const cardsForMode = (cards: JPDBCard[]) => this.state.mode === 'kanji'
             ? cards.filter(card => kanjiCharacters(card.spelling).length > 0 || Boolean(card.kanjiKeyword))
             : cards;
-        const reviewableWords = this.allWords.filter(card => shouldShowInStudyQueue(card));
-        const baseWords = cardsForMode(reviewableWords).length ? cardsForMode(reviewableWords) : cardsForMode(this.allWords);
+        const baseWords = selectNewTabStudyPool(cardsForMode(this.allWords));
         this.visibleWords = shuffleCards(baseWords);
         if (!this.visibleWords.length) {
             this.index = 0;
@@ -627,12 +643,97 @@ export class NewTabController {
         const key = cardKey(card);
         const example = await this.loadImmersionExample(card);
         if (!example || cardKey(this.visibleWords[this.index]) !== key || !slots.meaning.isConnected) return;
-        const soundUrl = this.dependencies.immersionKit.mediaUrl(example, 'sound');
-        slots.meaning.append(el('div', { class: 'jpdb-reader-newtab-immersion' },
-            el('div', { class: 'jpdb-reader-newtab-immersion-source' }, example.sourceTitle),
-            el('div', { class: 'jpdb-reader-newtab-immersion-sentence', lang: 'ja' }, example.sentence),
-            soundUrl ? el('audio', { controls: true, preload: 'none', src: soundUrl }) : null,
-        ));
+        slots.meaning.append(this.renderNewTabImmersionCard(card, example));
+        this.loadNewTabImmersionImage(slots.meaning, example);
+    }
+
+    private renderNewTabImmersionCard(card: JPDBCard, example: ImmersionKitExample): HTMLElement {
+        const settings = this.dependencies.getSettings();
+        const sentence = document.createElement('div');
+        sentence.className = 'jpdb-reader-example-sentence jpdb-reader-parseable';
+        sentence.lang = 'ja';
+        setInnerHtml(sentence, renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading], 'jpdb-reader-example-target'));
+
+        const translation = settings.immersionKitShowTranslation && example.translation
+            ? el('div', {
+                class: 'jpdb-reader-example-translation jpdb-reader-parseable',
+                dataset: settings.immersionKitRevealTranslationOnClick ? { yomuImmersionTranslationBlurred: true } : undefined,
+                role: settings.immersionKitRevealTranslationOnClick ? 'button' : undefined,
+                tabindex: settings.immersionKitRevealTranslationOnClick ? '0' : undefined,
+                'aria-label': settings.immersionKitRevealTranslationOnClick ? 'Reveal translation' : undefined,
+            }, example.translation)
+            : null;
+
+        const imageUrls = settings.immersionKitShowImages ? this.dependencies.immersionKit.mediaUrls(example, 'image') : [];
+        const imageUrl = imageUrls[0] ?? '';
+        const audioButton = el('button', {
+            class: 'jpdb-reader-icon-mini',
+            type: 'button',
+            dataset: { newtabAction: 'newtab-immersion-audio' },
+            title: 'Play audio',
+            'aria-label': 'Play audio',
+        });
+        setInnerHtml(audioButton, speakerIcon());
+
+        return el('div', { class: 'jpdb-reader-newtab-immersion' },
+            el('div', { class: 'jpdb-reader-example-summary' },
+                el('span', { class: 'jpdb-reader-example-source' }, 'Immersion Kit'),
+                el('span', { class: 'jpdb-reader-local-dict' }, example.sourceTitle),
+                el('span'),
+                audioButton,
+            ),
+            el('div', { class: `jpdb-reader-example-card ${imageUrl ? 'has-image' : ''}` },
+                el('div', { class: 'jpdb-reader-example-body' },
+                    imageUrl ? el('div', { class: 'jpdb-reader-example-media' },
+                        el('img', { class: 'jpdb-reader-example-image', alt: '', loading: 'eager', decoding: 'async', dataset: { yomuImmersionImageSrc: imageUrl } }),
+                    ) : null,
+                    sentence,
+                    translation,
+                ),
+            ),
+        );
+    }
+
+    private loadNewTabImmersionImage(root: HTMLElement, example: ImmersionKitExample): void {
+        const image = root.querySelector<HTMLImageElement>('.jpdb-reader-newtab-immersion [data-yomu-immersion-image-src]');
+        if (!image) return;
+        const urls = this.dependencies.immersionKit.mediaUrls(example, 'image');
+        const hide = () => {
+            image.closest('.jpdb-reader-example-media')?.remove();
+            root.querySelector<HTMLElement>('.jpdb-reader-newtab-immersion .jpdb-reader-example-card')?.classList.remove('has-image');
+        };
+        image.addEventListener('error', hide, { once: true });
+        void this.dependencies.immersionKit.fetchBlobUrl(urls, this.dependencies.getSettings().audioTimeoutMs)
+            .then(src => {
+                if (image.isConnected) image.src = src;
+            })
+            .catch(hide);
+    }
+
+    private async playCurrentImmersionAudio(card: JPDBCard): Promise<void> {
+        const example = await this.loadImmersionExample(card);
+        if (!example) return;
+        const urls = this.dependencies.immersionKit.mediaUrls(example, 'sound');
+        const key = urls[0] ?? '';
+        if (!key || (this.immersionAudioKey === key && this.immersionAudio && !this.immersionAudio.ended)) return;
+        const requestId = ++this.immersionAudioRequestId;
+        this.immersionAudio?.pause();
+        this.immersionAudio = undefined;
+        this.immersionAudioKey = key;
+        const src = await this.dependencies.immersionKit.fetchBlobUrl(urls, this.dependencies.getSettings().audioTimeoutMs).catch(() => '');
+        if (!src || requestId !== this.immersionAudioRequestId || this.immersionAudioKey !== key) return;
+        const audio = new Audio(src);
+        audio.playbackRate = this.dependencies.getSettings().immersionKitPlaybackRate;
+        this.immersionAudio = audio;
+        const cleanup = () => {
+            if (this.immersionAudio === audio) {
+                this.immersionAudio = undefined;
+                this.immersionAudioKey = '';
+            }
+        };
+        audio.addEventListener('ended', cleanup, { once: true });
+        audio.addEventListener('error', cleanup, { once: true });
+        await audio.play().catch(cleanup);
     }
 
     private loadImmersionExample(card: JPDBCard): Promise<ImmersionKitExample | null> {
@@ -788,7 +889,7 @@ export class NewTabController {
 
     private async installStarterDictionary(root: HTMLElement): Promise<void> {
         if (!getUserscriptHttpRequest()) {
-            this.setStatus(root, 'Dictionary download needs the Yomu userscript. Install Yomu, or import a Yomitan dictionary from Settings.');
+            this.dependencies.showSettings('dictionaries');
             return;
         }
         this.setStatus(root, 'Adding dictionary...');
@@ -897,11 +998,25 @@ export class NewTabController {
                 await this.dependencies.jpdb.reviewCard(card, grade);
             }
             this.setStatus(root, grade === 'pass' || grade === 'easy' || grade === 'okay' ? '✓' : '✕');
-            this.showNextWord();
+            this.advanceAfterGrade(root, card);
         } catch (error) {
             log.warn('New tab grade failed', { term: card.spelling, source: card.source, grade }, error);
             this.setStatus(root, 'Could not submit grade.');
         }
+    }
+
+    private advanceAfterGrade(root: HTMLElement, card: JPDBCard): void {
+        const key = cardKey(card);
+        this.allWords = this.allWords.filter(item => cardKey(item) !== key);
+        this.visibleWords = this.visibleWords.filter(item => cardKey(item) !== key);
+        this.state.revealAnswer = false;
+        this.persistState();
+        if (!this.visibleWords.length) {
+            this.applyWords(root, false);
+            return;
+        }
+        this.index %= this.visibleWords.length;
+        this.renderWord(root, this.visibleWords[this.index]);
     }
 
     private applyJpdbBridgeStatus(status: JpdbReviewBridgeStatus): void {
@@ -1073,6 +1188,19 @@ function shouldShowInStudyQueue(card: JPDBCard): boolean {
     if (card.reviewSource === 'jpdb-live') return true;
     const states = card.cardState ?? [];
     return states.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'not-in-deck');
+}
+
+export function selectNewTabStudyPool(cards: JPDBCard[]): JPDBCard[] {
+    const dueReviewCards = cards.filter(shouldPrioritizeReviewCard);
+    if (dueReviewCards.length) return dueReviewCards;
+    const studyCards = cards.filter(shouldShowInStudyQueue);
+    return studyCards.length ? studyCards : cards;
+}
+
+function shouldPrioritizeReviewCard(card: JPDBCard): boolean {
+    if (card.source === 'local' || card.source === 'fallback') return false;
+    if (card.reviewSource === 'jpdb-live') return true;
+    return (card.cardState ?? []).some(state => state === 'failed' || state === 'due' || state === 'learning');
 }
 
 function sentenceForCard(card: JPDBCard): string {

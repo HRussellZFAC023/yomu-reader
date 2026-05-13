@@ -59,7 +59,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
   description, version, icon, homepage, support URL, update URL, and download URL.
 - [ ] JPDB API keys and local audio URLs used in testing are never committed or bundled.
 - [ ] Production build works on pages with strict CSP/Trusted Types, especially YouTube.
-- [ ] GreasyFork copy is current: summary, description, support links, privacy notes, screenshots,
+- [ ] GreasyFork copy is current: summary, description, support links, privacy notes,
   and update instructions.
 - [ ] GitHub Actions run typecheck, unit tests, build, userscript verification, docs build, docs deployment, and release asset publishing.
 
@@ -188,7 +188,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ### Video subtitles and ASB-style mining
 
-- [ ] Detects video elements on YouTube, CI Japanese, local fixture pages, and ordinary HTML videos.
+- [ ] Detects video elements on YouTube, CI Japanese, internal regression pages, and ordinary HTML videos.
 - [ ] Detects page captions where possible and can load `.srt`, `.vtt`, `.ass`/`.ssa` when provided.
 - [ ] Japanese primary and native-language secondary subtitles can show together.
 - [ ] Subtitle words are tokenized, colored by JPDB status, and tappable.
@@ -276,7 +276,7 @@ Keep this document as the source of truth. Any new feature must add:
 
 - one checklist entry,
 - one unit or contract test,
-- one browser fixture assertion, and
+- one browser regression assertion, and
 - one manual script when the behavior depends on real browsers/services/devices.
 
 ### 2. Automated test layers
@@ -285,9 +285,9 @@ Keep this document as the source of truth. Any new feature must add:
   audio source selection, OCR box normalization, subtitle parsing, Anki field generation.
 - Contract tests: mocked JPDB, mocked AnkiConnect, mocked Google Lens/Cloud Vision/local OCR, mocked
   dictionary downloads, mocked YouTube cards/caption metadata.
-- Browser fixture tests: local pages for article text, NHK-style ruby, forms/buttons, manga images,
+- Browser regression tests: local pages for article text, NHK-style ruby, forms/buttons, manga images,
   vertical OCR, video with dual subtitles, YouTube-like recommendations, strict Trusted Types page.
-- Visual regression: Playwright screenshots for desktop, iPad, iPhone portrait/landscape, dark/light,
+- Visual regression: Browser checks for desktop, iPad, iPhone portrait/landscape, dark/light,
   and major settings tabs. Compare layout metrics, not just pixels: no clipped furigana, no one-char
   vertical wrapping, one popup, visible selected states, action bar not cramped.
 - Real smoke tests: current production userscript on Bloomee, NHK Easy, YouTube, CI Japanese, and one
@@ -295,7 +295,7 @@ Keep this document as the source of truth. Any new feature must add:
 
 ### 3. Manual QA scripts
 
-For each release candidate, run these as written and save screenshots:
+For each release candidate, run these as written and save QA evidence:
 
 1. Fresh install: install `dist/yomu.user.js`, open a Japanese article, finish onboarding, set API key,
    confirm the page reads automatically and no toast appears.
@@ -307,9 +307,9 @@ For each release candidate, run these as written and save screenshots:
    starter, reorder sources, disable JPDB definitions, refresh, and confirm local results remain.
 5. Audio: JapanesePod101 hit, JapanesePod101 miss, Jisho fallback, LanguagePod101 fallback, custom JSON
    list with random clip, iOS blob path, autoplay once.
-6. OCR: Bloomee default Google Lens path, embedded OCR fixture, local OCR fixture, Cloud Vision mock,
+6. OCR: Bloomee default Google Lens path, embedded OCR metadata, local OCR regression page, Cloud Vision mock,
    per-image toggle, vertical text, copy/select OCR text, popup from individual OCR word.
-7. Video: local dual-subtitle fixture, YouTube test video, CI Japanese video, load own subtitle file,
+7. Video: local dual-subtitle regression page, YouTube test video, CI Japanese video, load own subtitle file,
    toggle secondary track, seek cues, copy subtitle, tap subtitle word, mine with screenshot.
 8. Kanji: click each kanji in a multi-kanji word, inspect JPDB facts, imported KANJIDIC, stroke order,
    doodle pad, RTK components, origins graph, related words, back/forward.
@@ -348,8 +348,8 @@ A build should not be published until:
   dictionary counts, active settings, last error, and browser.
 - Add a tiny debug overlay only in QA mode that counts wrapped words, OCR regions, subtitle cues,
   and duplicate popup/audio attempts.
-- Save all QA screenshots under `qa-artifacts/` with stable names and include them in PR/release notes.
-- Track every user-reported screenshot pattern as a fixture: cramped buttons, double popup, clipped
+- Save QA evidence under `qa-artifacts/` with stable names and include it in PR/release notes.
+- Track every user-reported visual pattern as a regression case: cramped buttons, double popup, clipped
   furigana, broken native ruby, OCR text covering images, subtitle hard-to-read, settings fields
   visible in the wrong mode.
 - Prefer presets over more toggles: beginner mode should show fewer settings; advanced mode can reveal

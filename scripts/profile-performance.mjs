@@ -243,7 +243,7 @@ if (!LIVE) await page.route('**/*', async route => {
     return route.continue();
 });
 
-const profileUrl = new URL(`${ORIGIN}/reader-test.html`);
+const profileUrl = new URL(`${ORIGIN}/newtab/`);
 profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');
 if (!LIVE) profileUrl.searchParams.set('audio', 'https://audio.profile.test/source?term={term}&reading={reading}');
 await page.goto(profileUrl.toString(), { waitUntil: 'domcontentloaded' });

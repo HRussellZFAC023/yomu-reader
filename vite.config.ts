@@ -77,7 +77,7 @@ export default defineConfig({
                     'GM_registerMenuCommand',
                 ],
                 'run-at': 'document-idle',
-                license: 'MIT',
+                license: 'GPL-3.0-or-later',
                 icon: userscriptIcon,
                 icon64: userscriptIcon,
                 homepageURL: repoUrl,

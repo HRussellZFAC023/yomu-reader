@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AnkiConnectClient } from '../../src/reader/anki';
+import { NewTabController, selectNewTabStudyPool } from '../../src/reader/new-tab-controller';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb-review-bridge';
 import { assessKanjiStrokes } from '../../src/reader/kanji-stroke-grader';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { JPDBCard } from '../../src/reader/types';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -110,5 +112,65 @@ describe('new tab review helpers', () => {
         expect(cards.map(card => card.spelling)).toEqual(['読む', '書く']);
         expect(cards[0].ankiCardId).toBe(101);
         expect(cards[0].sentence).toBe('本を読む。');
+    });
+
+    it('prioritizes due review cards before introducing new JPDB or Anki cards', () => {
+        const card = (spelling: string, state: JPDBCard['cardState'][number], source: JPDBCard['source']): JPDBCard => ({
+            vid: spelling.charCodeAt(0),
+            sid: 1,
+            rid: 1,
+            spelling,
+            reading: spelling,
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [{ glosses: [spelling], partOfSpeech: [] }],
+            cardState: [state],
+            pitchAccent: [],
+            wordWithReading: null,
+            source,
+        });
+
+        const pool = selectNewTabStudyPool([
+            card('新規', 'new', 'jpdb'),
+            card('失敗', 'failed', 'jpdb'),
+            card('アンキ新規', 'new', 'anki'),
+            card('復習', 'due', 'anki'),
+        ]);
+
+        expect(pool.map(item => item.spelling)).toEqual(['失敗', '復習']);
+        expect(selectNewTabStudyPool([
+            card('新規', 'new', 'jpdb'),
+            card('アンキ新規', 'new', 'anki'),
+        ]).map(item => item.spelling)).toEqual(['新規', 'アンキ新規']);
+    });
+
+    it('opens dictionary settings instead of showing a no-userscript download status', async () => {
+        const showSettings = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+            } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            ensureStarterDictionary: vi.fn(),
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings,
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.innerHTML = '<div data-newtab-status></div>';
+
+        await (controller as unknown as { installStarterDictionary(root: HTMLElement): Promise<void> }).installStarterDictionary(root);
+
+        expect(showSettings).toHaveBeenCalledWith('dictionaries');
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
     });
 });

@@ -240,7 +240,7 @@
     video {
       width: 100%;
       max-width: 100%;
-      height: auto;
+      height: 100%;
       max-height: calc(100dvh - 110px);
       display: block;
       background: #050708;
@@ -249,7 +249,7 @@
 
     .empty {
       position: absolute;
-      inset: 18px;
+      inset: 18px 18px 60px;
       display: grid;
       place-items: center;
       border: 2px dashed var(--line);
@@ -307,7 +307,12 @@
       }
 
       video {
+        height: 100%;
         max-height: 62dvh;
+      }
+
+      .empty {
+        inset: 14px 14px 56px;
       }
     }
   </style>

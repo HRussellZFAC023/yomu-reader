@@ -3710,7 +3710,7 @@ describe('reader helpers', () => {
             </main>
         `;
 
-        const targets = collectScanTargets(10, 'http://127.0.0.1:5174/reader-test.html');
+        const targets = collectScanTargets(10, 'http://127.0.0.1:5174/article/');
         rectSpy.mockRestore();
 
         expect(targets.map(target => target.text)).toEqual([
@@ -3838,11 +3838,11 @@ describe('reader helpers', () => {
 
     it('only enables the asbplayer parser when asbplayer subtitle roots exist', () => {
         document.body.innerHTML = '<main><p>今日は本を読みます。</p></main>';
-        expect(getMatchingSiteParsers('http://127.0.0.1:5174/reader-test.html').map(profile => profile.id))
+        expect(getMatchingSiteParsers('http://127.0.0.1:5174/article/').map(profile => profile.id))
             .not.toContain('asbplayer-parser');
 
         document.body.innerHTML += '<div class="asbplayer-offscreen">今日は読む</div>';
-        expect(getMatchingSiteParsers('http://127.0.0.1:5174/reader-test.html').map(profile => profile.id))
+        expect(getMatchingSiteParsers('http://127.0.0.1:5174/article/').map(profile => profile.id))
             .toContain('asbplayer-parser');
     });
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HRussellZFAC023/yomu-reader.git"

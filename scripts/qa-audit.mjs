@@ -289,12 +289,109 @@ function dataUrl(html) {
     return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
+const QA_READER_PATH = '/__qa__/reader';
+const QA_VIDEO_PATH = '/__qa__/video';
+const QA_JA_SUBTITLES_PATH = '/__qa__/subtitles-ja.vtt';
+const QA_EN_SUBTITLES_PATH = '/__qa__/subtitles-en.vtt';
+
+const QA_JA_SUBTITLES = `WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+今日は字幕を読みます。
+
+00:00:03.000 --> 00:00:06.000
+青空の下で言葉を覚えます。
+`;
+
+const QA_EN_SUBTITLES = `WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+Today I read a new book in a quiet cafe.
+
+00:00:04.000 --> 00:00:08.000
+When I found a difficult word, I checked it right away.
+`;
+
+function qaReaderHtml() {
+    return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>よむ QA Reader</title>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.8; background: #f5f7fa; color: #171a1f; }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 18px 120px; }
+    article { background: white; border: 1px solid rgba(20, 30, 45, .12); border-radius: 8px; padding: 22px; }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>青空の下で日本語を読む</h1>
+      <p>今日は静かな喫茶店で新しい本を読みました。難しい単語を見つけたら、すぐに意味を確認できます。</p>
+      <p>「本当ですか？」と彼女は笑いました。私は辞書を開いて、発音も確かめました。</p>
+      <p>食べる、勉強する、綺麗な景色、そして忘れたくない言葉。</p>
+    </article>
+  </main>
+</body>
+</html>`;
+}
+
+function qaVideoHtml() {
+    return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>よむ QA Video</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #11151a; color: #f2f4f8; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(920px, calc(100vw - 24px)); }
+    .video-shell { position: relative; background: #20242b; }
+    video { width: 100%; aspect-ratio: 16 / 9; background: transparent; display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="video-shell">
+      <video controls crossorigin="anonymous" preload="metadata">
+        <track kind="subtitles" srclang="ja" label="日本語" src="${QA_JA_SUBTITLES_PATH}">
+        <track kind="subtitles" srclang="en" label="English" src="${QA_EN_SUBTITLES_PATH}">
+      </video>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
 async function startStaticServer(root) {
     const server = createServer(async (req, res) => {
         try {
             const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+            if (url.pathname === QA_READER_PATH) {
+                res.statusCode = 200;
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.end(qaReaderHtml());
+                return;
+            }
+            if (url.pathname === QA_VIDEO_PATH) {
+                res.statusCode = 200;
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.end(qaVideoHtml());
+                return;
+            }
+            if (url.pathname === QA_JA_SUBTITLES_PATH || url.pathname === QA_EN_SUBTITLES_PATH) {
+                res.statusCode = 200;
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+                res.end(url.pathname === QA_JA_SUBTITLES_PATH ? QA_JA_SUBTITLES : QA_EN_SUBTITLES);
+                return;
+            }
             const requested = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
-            const filePath = path.join(root, requested === '/' ? 'reader-test.html' : requested);
+            const filePath = path.join(root, requested === '/' ? 'newtab/index.html' : requested);
             const body = await readFile(filePath);
             res.statusCode = 200;
             res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1165,7 +1262,7 @@ async function jpdbLocalDictionaryDebug(page) {
 
 async function auditOnboardingMobile(browser, server) {
     const { page } = await newAuditedPage(browser, null, { width: 390, height: 844 });
-    await page.goto(`${server.origin}/reader-test.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await page.waitForSelector('.jpdb-reader-onboarding', { timeout: 6000 });
     const snapshot = await page.evaluate(() => {
@@ -1211,7 +1308,7 @@ async function auditSettings(browser, server) {
             { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 2 },
         ],
     });
-    await page.goto(`${server.origin}/reader-test.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await openSettingsFromPuck(page);
     await page.selectOption('select[name="interfaceLanguage"]', 'ja');
@@ -1225,8 +1322,10 @@ async function auditSettings(browser, server) {
     assertAudit(localeSnapshot.title === 'よむ 設定' && localeSnapshot.heading === 'よむ 設定', 'changing settings language does not update the dialog title immediately');
     assertAudit(localeSnapshot.save === '保存' && localeSnapshot.cancel === 'キャンセル' && localeSnapshot.firstTab === '基本', 'changing settings language does not update visible controls immediately');
     await page.selectOption('select[name="interfaceLanguage"]', 'en');
-    await page.locator('[data-theme-field]').first().scrollIntoViewIfNeeded();
-    await page.screenshot({ path: path.join(ARTIFACTS, 'settings.png'), fullPage: false });
+    await page.evaluate(() => {
+        document.querySelector('[data-theme-field]')?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    });
+    await page.locator('.jpdb-reader-settings').screenshot({ path: path.join(ARTIFACTS, 'settings.png') });
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
     const hoverShortcut = page.locator('input[name="shortcuts.hoverLookup"]');
     await hoverShortcut.click();
@@ -1309,7 +1408,7 @@ async function auditSettingsMobile(browser, server) {
         showFloatingButton: true,
         ocrEnabled: true,
     }, { width: 390, height: 844 });
-    await page.goto(`${server.origin}/reader-test.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await openSettingsFromPuck(page);
     let snapshot = await page.evaluate(() => {
@@ -1984,8 +2083,14 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
-    await page.locator('[data-immersion-kit]').scrollIntoViewIfNeeded();
-    await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
+    await page.evaluate(() => {
+        const section = document.querySelector('[data-immersion-kit]');
+        const body = document.querySelector('.jpdb-reader-popover-body');
+        if (section instanceof HTMLElement && body instanceof HTMLElement) {
+            body.scrollTop = Math.max(0, section.offsetTop - 32);
+        }
+    });
+    await page.locator('.jpdb-reader-popover').screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png') });
     const audioRequestsBeforeHover = immersionAudioRequestCount(requests);
     const audioPlaysBeforeHover = await audioPlayCount(page);
     await page.locator('.jpdb-reader-example-card').hover();
@@ -2135,6 +2240,7 @@ async function auditYouTubeFilterFixture(browser) {
     assertAudit(hidden.channelOnlyHidden === true, 'Channel-only Japanese text should not keep an English title visible');
     assertAudit(/hid 4/.test(hidden.barText), 'YouTube filter notice did not report hidden cards');
     assertAudit(/Show anyway/.test(hidden.barText), 'YouTube filter notice is missing the Show anyway escape hatch');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'youtube-filter-fixture.png'), fullPage: false });
     if (await page.locator('.jpdb-reader-backdrop').count()) {
         await page.keyboard.press('Escape');
         await waitForAudit(page, () => !document.querySelector('.jpdb-reader-backdrop'), 2000, 'Escape did not clear reader backdrop before YouTube filter actions');
@@ -2149,7 +2255,6 @@ async function auditYouTubeFilterFixture(browser) {
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-youtube-filtered').length === 4, 4000, 'YouTube filter shortcut did not re-enable filtering');
     await page.locator('.jpdb-youtube-filter-bar [data-action="turn-off"]').click();
     await waitForAudit(page, () => !document.querySelector('.jpdb-youtube-filter-bar') && document.querySelectorAll('.jpdb-youtube-filtered').length === 0, 4000, 'Turn off did not persistently disable YouTube filtering');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'youtube-filter-fixture.png'), fullPage: false });
     await page.close();
     record('YouTube immersion filter fixture', 'pass', 'Japanese cards stay visible; Show anyway, Turn off, and Alt+Y work');
 }
@@ -2191,7 +2296,7 @@ async function auditYouTubeLiveSmoke(browser) {
 
 async function auditVideoFixture(browser, server) {
     const { page } = await newAuditedPage(browser, { ...baseSettings, subtitlePlayerEnabled: true, subtitleAutoDetect: true, showFloatingButton: false });
-    await page.goto(`${server.origin}/reader-video-test.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}${QA_VIDEO_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 6000 });
     await waitForAudit(page, () => {

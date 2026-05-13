@@ -9,7 +9,7 @@ hero:
     alt: よむ app icon
   actions:
     - theme: brand
-      text: Try Demo
+      text: New Tab
       link: /newtab/index.html
       target: _self
     - theme: alt
@@ -28,7 +28,7 @@ features:
   - title: Built for real studying
     details: JPDB mining, imported Yomitan dictionaries, kanji pages, Immersion Kit examples, OCR, and subtitle mining in one reader.
   - title: Free and maintainable
-    details: The docs, changelog, screenshots, and GitHub Pages deployment live in the same repository as the userscript.
+    details: The docs, changelog, and GitHub Pages deployment live in the same repository as the userscript.
 ---
 
 <div class="yomu-callout">
@@ -43,19 +43,19 @@ It is meant for learners who want the useful parts of paid reading suites withou
 
 <div class="yomu-shot-grid">
   <figure>
-    <img src="./assets/screenshots/hover-lookup.png" alt="Yomu popup lookup on Japanese text">
-    <figcaption>Popup lookup with JPDB state, definitions, kanji, mining, and review actions.</figcaption>
+    <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
+    <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
   </figure>
   <figure>
-    <img src="./assets/screenshots/settings.png" alt="Yomu settings on desktop">
-    <figcaption>Settings stay grouped by normal tasks: basics, dictionaries, media, mining, shortcuts, and help.</figcaption>
+    <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+    <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
   </figure>
 </div>
 
 ## Good First Pages
 
 - [Getting Started](/getting-started) walks through installing a userscript manager, installing よむ, and doing your first lookup.
-- [Features](/features) explains the main tools with screenshots and plain-language examples.
+- [Features](/features) explains the main tools with plain-language examples.
 - [Video Player](/video-player/index.html) opens local browser-supported video and subtitle files from the hosted GitHub Pages app.
 - [Local Audio](/local-audio) shows the hosted Ultimate Yomitan Audio path first, then the self-hosted server path for people who want local files.
 - [Support](/support) has GitHub issues, Discord, donations, and the current install links.

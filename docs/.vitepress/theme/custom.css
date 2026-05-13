@@ -2,19 +2,20 @@
   --vp-c-brand-1: #25573d;
   --vp-c-brand-2: #3f7659;
   --vp-c-brand-3: #5ea780;
-  --vp-c-brand-soft: rgba(94, 167, 128, .16);
+  --vp-c-brand-soft: rgba(94, 167, 128, 0.16);
   --vp-c-bg: #ffffff;
   --vp-c-bg-alt: #f7f8fa;
   --vp-c-bg-soft: #eef1f4;
   --vp-c-text-1: #171a1f;
   --vp-c-text-2: #596272;
-  --vp-c-divider: rgba(20, 30, 45, .16);
-  --vp-font-family-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --vp-c-divider: rgba(20, 30, 45, 0.16);
+  --vp-font-family-base:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --vp-button-brand-border: #25573d;
   --vp-button-brand-bg: #25573d;
   --vp-button-brand-hover-border: #3f7659;
   --vp-button-brand-hover-bg: #3f7659;
-  --vp-button-alt-border: rgba(20, 30, 45, .18);
+  --vp-button-alt-border: rgba(20, 30, 45, 0.18);
   --vp-button-alt-bg: #eef1f4;
   --vp-button-alt-hover-bg: #e3e8ed;
   --vp-home-hero-name-color: var(--vp-c-brand-2);
@@ -29,8 +30,8 @@
   --vp-c-bg-soft: #282e37;
   --vp-c-text-1: #f2f4f8;
   --vp-c-text-2: #aab2c0;
-  --vp-c-divider: rgba(255, 255, 255, .12);
-  --vp-button-alt-border: rgba(255, 255, 255, .14);
+  --vp-c-divider: rgba(255, 255, 255, 0.12);
+  --vp-button-alt-border: rgba(255, 255, 255, 0.14);
   --vp-button-alt-bg: #282e37;
   --vp-button-alt-hover-bg: #323946;
 }
@@ -56,12 +57,18 @@
   font-weight: 900;
 }
 
-.VPHomeHero .image img {
+.VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
+  display: block;
   width: min(240px, 48vw);
-  border-radius: 24px;
-  border: 3px solid #f7fbf8;
+  height: auto;
+  border-radius: min(53.333px, 10.667vw);
+  border: 6px solid #f7fbf8;
   background: #f7fbf8;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, .22);
+  box-shadow: 0 18px 48px rgba(20, 30, 45, 0.18);
+}
+
+.dark .VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
 .VPSwitchAppearance {
@@ -92,25 +99,26 @@
 
 .vp-doc img[src*="screenshots"] {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #11171d;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .26);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
 }
 
 .yomu-shot-grid figure,
 .vp-doc figure:has(img[src*="screenshots"]) {
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   background: #10161c;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .yomu-callout {
   margin: 20px 0;
   padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--vp-c-brand-2) 42%, var(--vp-c-divider));
+  border: 1px solid
+    color-mix(in srgb, var(--vp-c-brand-2) 42%, var(--vp-c-divider));
   border-radius: 8px;
   background: color-mix(in srgb, var(--vp-c-brand-2) 10%, var(--vp-c-bg-soft));
 }
@@ -134,7 +142,26 @@
   margin: 0;
 }
 
+.yomu-feature-shot {
+  margin: 18px 0 28px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: #10161c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.yomu-feature-shot img {
+  display: block;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #11171d;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+}
+
 .yomu-shot-grid figcaption,
+.yomu-feature-shot figcaption,
 .yomu-caption {
   margin-top: 8px;
   color: #dce4ef;

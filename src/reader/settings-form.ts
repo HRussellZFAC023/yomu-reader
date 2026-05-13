@@ -125,7 +125,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     <div class="jpdb-reader-local-title">New tab</div>
                     <div class="grid">
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
-                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: Anki + JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary demo fallback']])}
+                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: Anki + JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
@@ -420,7 +420,7 @@ function themeSegmentedControl(value: ReaderSettings['theme']): string {
             <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>Theme</span>
             <input type="hidden" name="theme" value="${escapeHtml(value)}" data-theme-value>
             <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
-                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch aria-label="${isLight ? 'Switch to dark theme' : 'Switch to light theme'}" aria-checked="${isLight}" title="${isLight ? 'Switch to dark theme' : 'Switch to light theme'}">
+                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${isLight ? 'Switch to dark theme' : 'Switch to light theme'}" aria-checked="${isLight}" title="${isLight ? 'Switch to dark theme' : 'Switch to light theme'}">
                     <span class="check">
                         <span class="icon">
                             <span class="vpi-sun sun" aria-hidden="true"></span>

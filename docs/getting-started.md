@@ -81,8 +81,6 @@ You can use よむ without a JPDB key by importing Yomitan dictionaries from Set
 2. Tap or hover a word.
 3. Use the popup to read meanings, play audio, open kanji details, or mine the word.
 
-![Yomu popup lookup screenshot](./assets/screenshots/hover-lookup.png)
-
 On phones and tablets, tapping is usually easier than hover. On desktop, hover is faster once you are used to it.
 
 ## 6. Turn On More Tools When You Need Them
@@ -93,8 +91,6 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 - Anki: enable Anki mining when Anki desktop and AnkiConnect are available.
 - New tab: use the よむ new-tab URL as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
-
-![Yomu Help settings screenshot on mobile](./assets/screenshots/settings-mobile-help.png)
 
 ## 7. iPhone And iPad Notes
 
