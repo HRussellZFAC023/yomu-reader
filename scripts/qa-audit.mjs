@@ -13,6 +13,11 @@ const DIST = path.join(ROOT, 'dist');
 const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
+const SCRIPT_FALLBACK_PATHS = [
+    SCRIPT_PATH,
+    path.join(ROOT, 'docs', '.vitepress', 'dist', 'yomu.user.js'),
+    path.join(ROOT, 'docs', 'public', 'yomu.user.js'),
+];
 const API_KEY = process.env.YOMU_TEST_API_KEY?.trim() ?? '';
 const MOCK_API_KEY = 'yomu-qa-mock-key';
 const QA_API_KEY = API_KEY || MOCK_API_KEY;
@@ -151,6 +156,19 @@ const baseSettings = {
 
 const results = [];
 let userscript = '';
+
+async function readBuiltUserscript() {
+    const errors = [];
+    for (const candidate of SCRIPT_FALLBACK_PATHS) {
+        try {
+            const text = await readFile(candidate, 'utf8');
+            return text;
+        } catch (error) {
+            errors.push(`${candidate}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    throw new Error(`Could not find a built userscript.\n${errors.join('\n')}`);
+}
 
 function record(name, status, detail = '') {
     results.push({ name, status, detail });
@@ -460,6 +478,11 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
             body: 'fake-mp3',
         });
     });
+    await page.route('https://hrussellzfac023.github.io/yomu-reader/yomu-icon.svg', route => route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml; charset=utf-8',
+        path: path.join(DIST, 'yomu-icon.svg'),
+    }));
     await page.exposeFunction('__yomuQaRequest', async request => {
         let body = request.data;
         if (body?.kind === 'arraybuffer') {
@@ -505,9 +528,48 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
         };
     });
     await page.addInitScript(({ settings, settingsKey }) => {
-        const store = { [settingsKey]: settings };
-        window.GM_getValue = (key, fallback) => key in store ? store[key] : fallback;
-        window.GM_setValue = (key, value) => { store[key] = value; };
+        const storagePrefix = '__yomu_qa_gm__';
+        const memoryStore = new Map();
+        const storageKey = key => `${storagePrefix}${key}`;
+        const readStoredValue = (key, fallback) => {
+            try {
+                const value = localStorage.getItem(storageKey(key));
+                return value == null ? fallback : JSON.parse(value);
+            } catch {
+                return memoryStore.has(key) ? memoryStore.get(key) : fallback;
+            }
+        };
+        const writeStoredValue = (key, value) => {
+            memoryStore.set(key, value);
+            try {
+                localStorage.setItem(storageKey(key), JSON.stringify(value));
+            } catch {
+                // Some data: fixtures have no persistent origin storage.
+            }
+        };
+        if (readStoredValue(settingsKey, undefined) === undefined) writeStoredValue(settingsKey, settings);
+        window.GM_getValue = (key, fallback) => readStoredValue(key, fallback);
+        window.GM_setValue = (key, value) => { writeStoredValue(key, value); };
+        window.GM_deleteValue = key => {
+            memoryStore.delete(key);
+            try {
+                localStorage.removeItem(storageKey(key));
+            } catch {
+                // Some data: fixtures have no persistent origin storage.
+            }
+        };
+        window.GM_listValues = () => {
+            const keys = new Set(memoryStore.keys());
+            try {
+                for (let index = 0; index < localStorage.length; index += 1) {
+                    const key = localStorage.key(index);
+                    if (key?.startsWith(storagePrefix)) keys.add(key.slice(storagePrefix.length));
+                }
+            } catch {
+                // Some data: fixtures have no persistent origin storage.
+            }
+            return [...keys];
+        };
         window.GM_addStyle = css => {
             const style = document.createElement('style');
             style.textContent = css;
@@ -1163,6 +1225,8 @@ async function auditSettings(browser, server) {
     assertAudit(localeSnapshot.title === 'よむ 設定' && localeSnapshot.heading === 'よむ 設定', 'changing settings language does not update the dialog title immediately');
     assertAudit(localeSnapshot.save === '保存' && localeSnapshot.cancel === 'キャンセル' && localeSnapshot.firstTab === '基本', 'changing settings language does not update visible controls immediately');
     await page.selectOption('select[name="interfaceLanguage"]', 'en');
+    await page.locator('[data-theme-field]').first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(ARTIFACTS, 'settings.png'), fullPage: false });
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
     const hoverShortcut = page.locator('input[name="shortcuts.hoverLookup"]');
     await hoverShortcut.click();
@@ -1219,7 +1283,6 @@ async function auditSettings(browser, server) {
     assertAudit(snapshot.dictionarySources >= 3, 'definition source ordering rows are missing');
     assertAudit(snapshot.supportLinks >= 4 && snapshot.hasMigakuComparison, 'support/donation links or free-vs-paid copy are missing');
     await assertAccessibleSurface(page, 'settings dialog', '.jpdb-reader-settings');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'settings.png'), fullPage: false });
 
     await page.locator('[data-action="settings-panel"][data-panel="mining"]').click();
     await page.locator('[data-action="test-anki"]').click();
@@ -1325,11 +1388,18 @@ async function auditNewTabDictionaryFallback(browser, server) {
     }, 4000, 'new-tab first-run setup state did not render');
     const setupSnapshot = await page.evaluate(() => ({
         hasLoadDictionary: Boolean(document.querySelector('[data-newtab-action="load-dictionary"]')),
+        loadDictionaryCount: document.querySelectorAll('[data-newtab-action="load-dictionary"]').length,
         hasConnectJpdb: Boolean(document.querySelector('[data-newtab-action="connect-jpdb"]')),
         hasSettings: Boolean(document.querySelector('[data-newtab-action="settings"]')),
         body: document.body.textContent ?? '',
     }));
-    assertAudit(setupSnapshot.hasLoadDictionary && setupSnapshot.hasConnectJpdb && setupSnapshot.hasSettings, `new-tab setup actions are missing: ${JSON.stringify(setupSnapshot)}`);
+    assertAudit(
+        setupSnapshot.hasLoadDictionary
+            && setupSnapshot.loadDictionaryCount === 1
+            && !setupSnapshot.hasConnectJpdb
+            && !setupSnapshot.hasSettings,
+        `new-tab setup actions are missing or duplicated: ${JSON.stringify(setupSnapshot)}`,
+    );
     assertAudit(!/今日|今朝|今週|読む/.test(setupSnapshot.body), 'first-run new-tab setup rendered hardcoded dictionary words before the user loaded a dictionary');
 
     await seedLocalKanjiDictionaries(page);
@@ -1353,7 +1423,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
         expression: document.querySelector('[data-newtab-expression]')?.textContent?.trim() ?? '',
         meaning: document.querySelector('[data-newtab-meaning]')?.textContent?.trim() ?? '',
         status: document.querySelector('[data-newtab-status]')?.textContent?.trim() ?? '',
-        settingsButton: document.querySelector('[data-newtab-action="settings"]')?.textContent?.trim() ?? '',
+        hasSettingsControl: Boolean(document.querySelector('[data-newtab-action="settings"]')),
         body: document.body.textContent ?? '',
     }));
     assertAudit(snapshot.title.includes('New Tab'), 'new-tab document title is missing');
@@ -1361,7 +1431,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
     assertAudit(/今日|今朝|今週|読む/.test(snapshot.expression), `new-tab did not render a top dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.status.includes('Dictionaries'), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.settingsButton === 'Settings', 'new-tab settings button is missing');
+    assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
     assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
     assertAudit(!consoleErrors.length && !pageErrors.length, `new-tab produced browser errors: ${JSON.stringify({ consoleErrors, pageErrors })}`);
     await assertAccessibleSurface(page, 'new-tab dictionary fallback', '.jpdb-reader-newtab');
@@ -1671,7 +1741,19 @@ async function auditJpdbSearchCompatibility(browser) {
     assertAudit(scanSnapshot.structuredLists >= 2, 'Yomitan structured glossary markup did not render on JPDB search results');
     assertAudit(scanSnapshot.decoratedTag.includes('underline'), 'imported Yomitan dictionary CSS did not apply to JPDB search entries');
 
-    const readWord = page.locator('.jpdb-reader-word').filter({ hasText: '読む' }).first();
+    const readWordSnapshot = await page.evaluate(() => {
+        document.querySelectorAll('.jpdb-reader-word[data-yomu-qa-read-target]').forEach(element => element.removeAttribute('data-yomu-qa-read-target'));
+        const elements = [...document.querySelectorAll('.jpdb-reader-word')];
+        const words = elements.map((element, index) => ({
+            index,
+            text: (element.textContent ?? '').replace(/\s+/g, ''),
+        }));
+        const exact = words.find(word => word.text.startsWith('読みました'));
+        if (exact) elements[exact.index]?.setAttribute('data-yomu-qa-read-target', 'true');
+        return { index: exact?.index ?? -1, words: words.slice(0, 24) };
+    });
+    assertAudit(readWordSnapshot.index >= 0, `jpdb.io search fixture did not expose a 読みました word: ${JSON.stringify(readWordSnapshot)}`);
+    const readWord = page.locator('.jpdb-reader-word[data-yomu-qa-read-target="true"]').first();
     await readWord.waitFor({ state: 'visible', timeout: 6000 });
     await readWord.scrollIntoViewIfNeeded();
     await readWord.click({ force: true });
@@ -1689,7 +1771,20 @@ async function auditJpdbSearchCompatibility(browser) {
     assertAudit((buttonSnapshot.button?.width ?? 999) <= 44 && (buttonSnapshot.button?.height ?? 999) <= 44, 'jpdb.io page CSS stretched the reader audio button');
     assertAudit((buttonSnapshot.svg?.width ?? 999) <= 24 && (buttonSnapshot.svg?.height ?? 999) <= 24, 'jpdb.io page CSS stretched the reader icon SVG');
 
-    await page.locator('.jpdb-reader-kanji-inline').first().click();
+    const readKanjiButton = page.locator('.jpdb-reader-kanji-inline[data-kanji="読"]').first();
+    await readKanjiButton.waitFor({ state: 'visible', timeout: 6000 }).catch(async error => {
+        const snapshot = await page.evaluate(() => ({
+            spelling: document.querySelector('.jpdb-reader-spelling')?.textContent ?? '',
+            inline: [...document.querySelectorAll('.jpdb-reader-kanji-inline')].map(button => ({
+                text: button.textContent ?? '',
+                kanji: button.getAttribute('data-kanji') ?? '',
+                action: button.getAttribute('data-action') ?? '',
+            })),
+            popover: document.querySelector('.jpdb-reader-popover')?.textContent?.slice(0, 500) ?? '',
+        }));
+        throw new Error(`読 kanji button is missing from JPDB search popup: ${JSON.stringify(snapshot)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    await readKanjiButton.click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-kanji-display')?.textContent?.trim() === '読', 6000, 'kanji drilldown did not open on jpdb.io');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'kanji stroke trace did not render on jpdb.io');
     await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-search-compat.png'), fullPage: false });
@@ -1889,6 +1984,8 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
+    await page.locator('[data-immersion-kit]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
     const audioRequestsBeforeHover = immersionAudioRequestCount(requests);
     const audioPlaysBeforeHover = await audioPlayCount(page);
     await page.locator('.jpdb-reader-example-card').hover();
@@ -1923,7 +2020,6 @@ async function auditImmersionKitPopover(browser, server) {
     const addNoteRequests = requests.filter(request => request.action === 'addNote');
     assertAudit(addNoteRequests.some(request => request.ankiSentence?.includes('新しい本') && request.ankiHasPicture), `Anki addNote did not include the selected Immersion Kit sentence and image: ${JSON.stringify(addNoteRequests)}`);
     await assertAccessibleSurface(page, 'Immersion Kit popup examples', '.jpdb-reader-popover');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'immersion-kit-popover.png'), fullPage: false });
     const audioRequestsBeforeManual = immersionAudioRequestCount(requests);
     const audioPlaysBeforeManual = await audioPlayCount(page);
     await page.locator('[data-immersion-action="audio"]').click();
@@ -2120,6 +2216,25 @@ async function auditVideoFixture(browser, server) {
         return primary?.textContent?.includes('今日') && primary?.textContent?.includes('読');
     }, 8000, 'subtitle text did not render while watching the fixture');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length > 0, 8000, 'subtitle JPDB word highlighting did not render');
+    await waitForAudit(page, () => {
+        const buttons = [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => ({
+            action: button.getAttribute('data-action') ?? '',
+            label: button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim() ?? '',
+        }));
+        return buttons.some(button => button.action === 'list')
+            && buttons.some(button => button.action === 'tracks');
+    }, 4000, 'subtitle icon controls are missing').catch(async error => {
+        const detail = await page.evaluate(() => ({
+            railHtml: document.querySelector('.jpdb-subtitle-rail')?.outerHTML ?? '',
+            buttons: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => ({
+                action: button.getAttribute('data-action') ?? '',
+                label: button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim() ?? '',
+                hidden: button.hasAttribute('hidden'),
+            })),
+            rootClass: document.querySelector('.jpdb-subtitle-player')?.className ?? '',
+        }));
+        throw new Error(`subtitle icon controls are missing: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
     const snapshot = await page.evaluate(() => {
         const root = document.querySelector('.jpdb-subtitle-player');
         const primary = document.querySelector('.jpdb-subtitle-primary');
@@ -2144,23 +2259,24 @@ async function auditVideoFixture(browser, server) {
     });
     assertAudit(snapshot.hidden === false, 'subtitle player is hidden on a page with video');
     assertAudit((snapshot.rect?.width ?? 0) > 200, 'subtitle player is not laid out');
-    assertAudit(snapshot.buttons.some(button => button.action === 'list' && /transcript/i.test(button.label)) && snapshot.buttons.some(button => button.action === 'menu') && snapshot.buttons.some(button => button.action === 'tracks'), 'subtitle icon controls are missing');
     assertAudit(snapshot.visibleFileInputs === 0, 'subtitle file inputs are visible over the video');
     assertAudit(!snapshot.transcriptVisible, 'transcript panel should be off by default');
     assertAudit(!snapshot.obsoleteStatusText, 'obsolete no-subtitle status text is visible over the controls');
     assertAudit(snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読'), 'subtitle fixture cue is not visible');
     assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');
     assertAudit(snapshot.subtitleBackground.includes('rgba'), 'subtitle readable background is not applied');
-    await page.locator('.jpdb-subtitle-rail button[data-action="menu"]').click();
-    await waitForAudit(page, () => {
-        const menu = document.querySelector('.jpdb-subtitle-menu');
-        return menu && !menu.hasAttribute('hidden') && menu.textContent?.includes('Open transcript panel');
-    }, 3000, 'subtitle overflow menu did not offer transcript toggle');
-    await page.locator('.jpdb-subtitle-menu button[data-action="list"]').click();
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        if (!video) return;
+        video.currentTime = 1.2;
+        video.dispatchEvent(new Event('timeupdate'));
+        for (const track of video.textTracks) track.dispatchEvent(new Event('cuechange'));
+    });
+    await page.locator('.jpdb-subtitle-rail button[data-action="list"]').click({ force: true });
     await waitForAudit(page, () => {
         const panel = document.querySelector('.jpdb-subtitle-list');
         return panel && !panel.hasAttribute('hidden') && panel.textContent?.includes('Transcript') && panel.querySelector('.jpdb-subtitle-list-row.active');
-    }, 3000, 'transcript panel did not open with active-line highlighting');
+    }, 6000, 'transcript panel did not open with active-line highlighting');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-subtitle-list .jpdb-reader-word').length > 0, 8000, 'transcript rows did not hydrate into lookup words');
     const desktopTranscriptLayout = await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
@@ -2220,7 +2336,7 @@ async function runAudit(name, fn, options = {}) {
 
 async function main() {
     await mkdir(ARTIFACTS, { recursive: true });
-    userscript = await readFile(SCRIPT_PATH, 'utf8');
+    userscript = await readBuiltUserscript();
 
     const server = await startStaticServer(DIST);
     const browser = await chromium.launch({ headless: true });

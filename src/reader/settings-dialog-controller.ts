@@ -165,13 +165,16 @@ export class SettingsDialogController {
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
         });
-        form.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach(input => {
-            input.addEventListener('change', event => {
-                const value = (event.currentTarget as HTMLInputElement).value;
-                if (value !== 'auto' && value !== 'dark' && value !== 'light') return;
-                this.settings.theme = value;
-                this.dependencies.applyTheme();
-            });
+        this.syncThemeSwitch(form);
+        form.querySelector<HTMLButtonElement>('[data-theme-switch]')?.addEventListener('click', event => {
+            event.preventDefault();
+            const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
+            const current = this.effectiveTheme(input?.value as ReaderSettings['theme'] | undefined);
+            const next = current === 'dark' ? 'light' : 'dark';
+            if (input) input.value = next;
+            this.settings.theme = next;
+            this.dependencies.applyTheme();
+            this.syncThemeSwitch(form);
         });
         syncSubtitlePreview(form);
         form.addEventListener('input', event => {
@@ -261,6 +264,22 @@ export class SettingsDialogController {
         if (!templateSelect) return;
         const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]');
         if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
+    }
+
+    private syncThemeSwitch(form: HTMLFormElement): void {
+        const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
+        const button = form.querySelector<HTMLButtonElement>('[data-theme-switch]');
+        if (!button) return;
+        const theme = this.effectiveTheme(input?.value as ReaderSettings['theme'] | undefined);
+        const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+        button.setAttribute('aria-checked', String(theme === 'light'));
+        button.setAttribute('aria-label', label);
+        button.title = label;
+    }
+
+    private effectiveTheme(value: ReaderSettings['theme'] | undefined): 'dark' | 'light' {
+        if (value === 'dark' || value === 'light') return value;
+        return globalThis.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
 
     private isSubtitleControl(target: EventTarget | null): boolean {

@@ -273,7 +273,7 @@ const COPY = {
         homepage: 'Homepage',
         download: 'Download',
         update: 'Update',
-        noLocalDictionaries: 'No local dictionary installed yet. Add JMdict when you want local dictionary study words.',
+        noLocalDictionaries: 'No local dictionary installed yet. Add a starter dictionary when you want local study words.',
         checkingDictionaries: 'Checking imported dictionaries...',
         dictionaryOnlyJpdb: 'JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.',
         localDictionaryText: 'Dictionary text',

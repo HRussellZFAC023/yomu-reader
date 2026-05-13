@@ -22,7 +22,7 @@ export default defineConfig({
     ],
     themeConfig: {
         logo: '/yomu-icon.svg',
-        siteTitle: 'Reader',
+        siteTitle: 'よむ',
         nav: [
             { text: 'Getting Started', link: '/getting-started' },
             { text: 'Features', link: '/features' },

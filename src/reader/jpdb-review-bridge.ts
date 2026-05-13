@@ -116,15 +116,9 @@ export function initJpdbReviewPageBridge(): void {
 
 export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBridgeStatus {
     const url = safeUrl(href);
-    const cardValue = url?.searchParams.get('c')
-        ?? doc.querySelector<HTMLInputElement>('input[name="c"]')?.value
-        ?? '';
-    const response = url?.searchParams.get('r')
-        ?? doc.querySelector<HTMLInputElement>('input[name="r"]')?.value
-        ?? null;
+    const { cardValue, response } = reviewRequestState(doc, url);
     const cardState = parseJpdbReviewCardValue(cardValue, response);
-    const loginRequired = Boolean(doc.querySelector('form[action*="/login"], input[name="password"], a[href^="/login"]'));
-    if (loginRequired) {
+    if (reviewLoginRequired(doc)) {
         return { connected: true, loginRequired: true, card: null, message: 'Log in to JPDB, then open /review again.' };
     }
 
@@ -132,16 +126,13 @@ export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBri
     const sentenceElement = doc.querySelector<HTMLElement>('.card-sentence .sentence, .sentence, .plain');
     const sentence = cleanText(sentenceElement?.textContent ?? '');
     const highlighted = cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? '');
-    const kanji = cardState.kanji || firstKanji(doc.querySelector<HTMLElement>('.kanji, a.kanji.plain')?.textContent ?? '');
-    const isKanji = cardState.isKanji || /kanji/i.test(kindLabel) || Boolean(kanji && !highlighted && doc.querySelector('.kanji'));
-    const phase = cardState.phase === 'after' || url?.searchParams.has('r') || Boolean(doc.querySelector('.review-hidden, .answer-box'))
-        ? 'back'
-        : 'front';
+    const { kanji, isKanji } = reviewKindInfo(doc, cardState, kindLabel, highlighted);
+    const phase = reviewPhase(doc, url, cardState.phase);
     const keyword = sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? '');
     const spelling = isKanji ? kanji : highlighted || firstJapaneseRun(sentence) || cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '');
     const prompt = isKanji ? keyword || cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '') || kanji : sentence || spelling;
     const answer = isKanji ? kanji : spelling;
-    if (!spelling && !kanji && !cardValue) {
+    if (!hasDetectedReviewCard(spelling, kanji, cardValue)) {
         return { connected: true, loginRequired: false, card: null, message: 'JPDB review is open but no review card was detected.' };
     }
 
@@ -164,6 +155,45 @@ export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBri
             href,
         },
     };
+}
+
+function reviewRequestState(doc: Document, url: URL | null): { cardValue: string; response: string | null } {
+    return {
+        cardValue: url?.searchParams.get('c')
+            ?? doc.querySelector<HTMLInputElement>('input[name="c"]')?.value
+            ?? '',
+        response: url?.searchParams.get('r')
+            ?? doc.querySelector<HTMLInputElement>('input[name="r"]')?.value
+            ?? null,
+    };
+}
+
+function reviewLoginRequired(doc: Document): boolean {
+    return Boolean(doc.querySelector('form[action*="/login"], input[name="password"], a[href^="/login"]'));
+}
+
+function reviewKindInfo(
+    doc: Document,
+    cardState: ReturnType<typeof parseJpdbReviewCardValue>,
+    kindLabel: string,
+    highlighted: string,
+): { kanji: string; isKanji: boolean } {
+    const kanji = cardState.kanji || firstKanji(doc.querySelector<HTMLElement>('.kanji, a.kanji.plain')?.textContent ?? '');
+    const pageHasKanjiCard = Boolean(kanji && !highlighted && doc.querySelector('.kanji'));
+    return {
+        kanji,
+        isKanji: cardState.isKanji || /kanji/i.test(kindLabel) || pageHasKanjiCard,
+    };
+}
+
+function reviewPhase(doc: Document, url: URL | null, phase: ReturnType<typeof parseJpdbReviewCardValue>['phase']): JpdbReviewBridgeCard['phase'] {
+    return phase === 'after' || url?.searchParams.has('r') || Boolean(doc.querySelector('.review-hidden, .answer-box'))
+        ? 'back'
+        : 'front';
+}
+
+function hasDetectedReviewCard(spelling: string, kanji: string, cardValue: string): boolean {
+    return Boolean(spelling || kanji || cardValue);
 }
 
 function clickRevealControl(): void {

@@ -1,6 +1,6 @@
 import { HAS_JAPANESE, escapeHtml } from './dom';
 import { uiText } from './i18n';
-import type { JpdbKanjiInfo, JpdbKanjiVocabulary } from './jpdb-kanji';
+import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from './kanji-origin';
 import type { KanjiVGInfo } from './kanjivg';
 import { Logger } from './logger';
@@ -766,6 +766,23 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
                 ${info.mnemonic ? `<details><summary>${uiText(language, 'jpdbMnemonic')}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : ''}
             </div>
         </details>
+    `;
+}
+
+export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, language: InterfaceLanguage): string {
+    const actions = visibleJpdbKanjiActions(info);
+    if (!actions.length) return '';
+    return `
+        <div class="jpdb-reader-kanji-mining" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+            <div class="jpdb-reader-row jpdb-reader-kanji-mining-row" style="--cols: ${actions.length}">
+                ${actions.map(action => `<button
+                    class="jpdb-reader-btn ${escapeHtml(jpdbKanjiActionClass(action))}"
+                    type="button"
+                    data-action="jpdb-kanji-action"
+                    data-kanji-action-id="${escapeHtml(action.id)}"
+                    title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</button>`).join('')}
+            </div>
+        </div>
     `;
 }
 

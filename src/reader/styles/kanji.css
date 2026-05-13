@@ -33,8 +33,28 @@
   min-width: 0;
 }
 .jpdb-reader-kanji-title-row .jpdb-reader-word-pills {
-  justify-self: end;
-  margin-top: 0;
+  grid-column: 2 / -1;
+  justify-self: start;
+  align-self: start;
+  margin-top: 1px;
+}
+.jpdb-reader-kanji-title-row .jpdb-reader-action-pill {
+  --chip-bg: var(--jpdb-reader-surface) !important;
+  --chip-border: var(--jpdb-reader-border) !important;
+  --chip-text: var(--jpdb-reader-muted) !important;
+}
+.jpdb-reader-kanji-mining {
+  margin-top: 8px;
+  max-width: 420px;
+}
+.jpdb-reader-kanji-mining-row {
+  gap: 8px;
+}
+.jpdb-reader-kanji-mining-row .jpdb-reader-btn {
+  min-height: 34px;
+  border-radius: 8px;
+  padding-inline: 10px;
+  font-size: 12px;
 }
 .jpdb-reader-kanji-keywords {
   display: flex;
@@ -714,14 +734,14 @@
 }
 .jpdb-reader-actions-has-mining {
   position: relative;
-  padding-top: 26px;
+  padding-top: 31px;
 }
 .jpdb-reader-actions-gutter {
   position: absolute;
-  top: 3px;
-  right: 12px;
-  left: 12px;
-  height: 24px;
+  top: 1px;
+  right: 10px;
+  left: 10px;
+  height: 30px;
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -730,10 +750,10 @@
 .jpdb-reader-mining-collapse {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   border: 0;
   border-radius: 5px;
   background: transparent;
@@ -843,6 +863,7 @@
 .jpdb-reader-btn.fail::before,
 .jpdb-reader-btn.pass::before {
   margin-right: 4px;
+  color: var(--button-accent, currentColor);
   font-weight: 950;
 }
 .jpdb-reader-grades .jpdb-reader-btn.nothing::before,
@@ -853,45 +874,39 @@
 .jpdb-reader-grades .jpdb-reader-btn.easy::before,
 .jpdb-reader-btn.pass::before { content: "✔"; }
 .jpdb-reader-btn.add {
-  color: var(--jpdb-reader-state-new, #5aa9ff);
-  border-color: var(--jpdb-reader-state-new, #5aa9ff);
+  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
 }
 .jpdb-reader-btn.nf {
-  color: var(--jpdb-reader-state-known, #7bd88f);
-  border-color: var(--jpdb-reader-state-known, #7bd88f);
+  --button-accent: var(--jpdb-reader-state-known, #7bd88f);
 }
 .jpdb-reader-btn.nf.danger {
-  color: var(--jpdb-reader-state-failed, #ff6b6b);
-  border-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, var(--jpdb-reader-state-failed, #ff6b6b) 14%);
+  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
 }
 .jpdb-reader-btn.blacklist {
-  color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  border-color: var(--jpdb-reader-state-ignored, #b8a7ff);
+  --button-accent: var(--jpdb-reader-state-ignored, #b8a7ff);
 }
 .jpdb-reader-btn.anki {
-  color: var(--jpdb-reader-state-new, #5aa9ff);
-  border-color: var(--jpdb-reader-state-new, #5aa9ff);
+  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
 }
 .jpdb-reader-btn.nothing, .jpdb-reader-btn.fail {
-  color: var(--jpdb-reader-state-failed, #ff6b6b);
-  border-color: var(--jpdb-reader-state-failed, #ff6b6b);
+  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
 }
 .jpdb-reader-btn.something {
-  color: var(--jpdb-reader-state-failed, #ff6b6b);
-  border-color: var(--jpdb-reader-state-failed, #ff6b6b);
+  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
 }
 .jpdb-reader-btn.hard {
-  color: var(--jpdb-reader-state-due, #ffb454);
-  border-color: var(--jpdb-reader-state-due, #ffb454);
+  --button-accent: var(--jpdb-reader-state-due, #ffb454);
 }
 .jpdb-reader-btn.okay, .jpdb-reader-btn.pass {
-  color: var(--jpdb-reader-state-known, #7bd88f);
-  border-color: var(--jpdb-reader-state-known, #7bd88f);
+  --button-accent: var(--jpdb-reader-state-known, #7bd88f);
 }
 .jpdb-reader-btn.easy {
-  color: var(--jpdb-reader-state-new, #5aa9ff);
-  border-color: var(--jpdb-reader-state-new, #5aa9ff);
+  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
+}
+.jpdb-reader-btn:is(.add, .nf, .blacklist, .anki, .nothing, .something, .hard, .okay, .easy, .fail, .pass) {
+  color: var(--jpdb-reader-text);
+  border-color: color-mix(in srgb, var(--button-accent, var(--jpdb-reader-border)) 72%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, var(--button-accent, var(--jpdb-reader-border)) 14%);
 }
 
 @container (max-width: 430px) {
@@ -911,12 +926,19 @@
     gap: 6px;
   }
   .jpdb-reader-actions-has-mining {
-    padding-top: 24px;
+    padding-top: 29px;
   }
   .jpdb-reader-actions-gutter {
-    top: 2px;
+    top: 1px;
     right: 8px;
     left: 8px;
+    height: 28px;
+  }
+  .jpdb-reader-mining-collapse {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
   }
   .jpdb-reader-row,
   .jpdb-reader-mining-action-row {

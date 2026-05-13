@@ -14,7 +14,7 @@ Furigana and word colors are separate controls. You can keep the automatic behav
 
 ## Yomitan Dictionaries
 
-よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you add the JMdict starter dictionary.
+よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you add a starter dictionary.
 
 ![Yomu dictionary settings screenshot](./assets/screenshots/settings.png)
 
@@ -74,7 +74,7 @@ Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut.
 
 ![Yomu new-tab study page screenshot](./assets/screenshots/newtab-dictionary.png)
 
-On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, JMdict-backed dictionary words keep the page useful once a dictionary is installed.
+On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed.
 
 ## Help And Support In Settings
 

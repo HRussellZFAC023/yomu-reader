@@ -294,22 +294,30 @@
   min-width: 0;
 }
 .jpdb-reader-kanji-inline {
-  display: inline;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: inherit;
+  display: inline !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
   cursor: pointer;
-  font: inherit;
-  line-height: inherit;
+  font: inherit !important;
+  line-height: inherit !important;
+  text-align: inherit !important;
+  vertical-align: baseline !important;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-kanji-inline:hover,
 .jpdb-reader-kanji-inline:focus-visible {
-  border-bottom-color: currentColor;
-  outline: none;
+  border-bottom-color: currentColor !important;
+  outline: none !important;
 }
 .jpdb-reader-pill {
   appearance: none;
@@ -342,6 +350,9 @@
 }
 a.jpdb-reader-action-pill,
 button.jpdb-reader-action-pill {
+  --chip-bg: color-mix(in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8%) !important;
+  --chip-border: color-mix(in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border)) !important;
+  --chip-text: var(--jpdb-reader-text) !important;
   cursor: pointer;
   font-family: inherit;
   transform: translateY(-0.01rem) !important;
@@ -352,10 +363,15 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-action-pill:focus-visible {
   color: var(--chip-text, var(--jpdb-reader-text)) !important;
   background: var(--chip-bg, var(--jpdb-reader-surface-2)) !important;
-  transform: translateY(-0.25rem) !important;
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--chip-border, var(--jpdb-reader-accent)) 42%, transparent) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--chip-border, var(--jpdb-reader-accent)) 34%, transparent) !important;
   outline: 2px solid color-mix(in srgb, var(--chip-border, var(--jpdb-reader-accent)) 55%, transparent) !important;
   outline-offset: 1px;
+}
+.jpdb-reader-jpdb-pill {
+  --chip-bg: color-mix(in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface)) !important;
+  --chip-border: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border)) !important;
+  --chip-text: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-reader-action-pill:active {
   transform: scale(.98) !important;

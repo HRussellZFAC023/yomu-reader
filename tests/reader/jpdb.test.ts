@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
@@ -13,7 +14,7 @@ import { ImmersionKitClient } from '../../src/reader/immersion-kit';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb';
 import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
 import { JpdbExtensionsController, parseJpdbReviewCardValue, parseUchisenImages } from '../../src/reader/jpdb-extensions';
-import { parseJpdbKanjiHtml } from '../../src/reader/jpdb-kanji';
+import { parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../src/reader/jpdb-kanji';
 import { parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
@@ -51,6 +52,7 @@ const card: JPDBCard = {
     pitchAccent: ['LHH'],
     wordWithReading: null,
 };
+const READER_WORD_CSS = READER_CSS || readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 
 async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
     const start = Date.now();
@@ -284,22 +286,22 @@ describe('reader helpers', () => {
     });
 
     it('marks reader word visual styling as important so page CSS resets cannot hide clickable words', () => {
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-line:\s*underline\s*!important;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-color:\s*var\(--jpdb-reader-word-underline,\s*transparent\)\s*!important;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*display:\s*inline;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word::after\s*\{[^}]*content:\s*none;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-reader-has-furi\s*\{[^}]*line-height:\s*1\.85;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word ruby\s*\{[^}]*display:\s*ruby;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word rt\.jpdb-reader-furi\s*\{[^}]*display:\s*ruby-text;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word ruby\s*\{[^}]*text-decoration-line:\s*inherit\s*!important;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word ruby\s*\{[^}]*text-decoration-color:\s*inherit\s*!important;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-new,[\s\S]*?--jpdb-reader-source-jpdb-soft:\s*var\(--jpdb-reader-state-new-soft,[^;]+;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-known,[\s\S]*?--jpdb-reader-source-status-decoration:\s*var\(--jpdb-reader-state-known,[^;]+;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word\.jpdb-pitch-heiban[\s\S]*?--jpdb-reader-source-pitch-decoration:\s*var\(--jpdb-reader-pitch-heiban,[^;]+;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word-highlight-status \.jpdb-reader-word\s*\{[^}]*background:\s*var\(--jpdb-reader-source-status-soft,\s*transparent\)\s*!important;/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word-underline-status \.jpdb-reader-word\s*\{[^}]*--jpdb-reader-word-underline:\s*var\(--jpdb-reader-source-status-decoration,\s*transparent\);/);
-        expect(READER_CSS).toMatch(/\.jpdb-reader-word-underline-pitch \.jpdb-reader-word\s*\{[^}]*--jpdb-reader-word-underline:\s*var\(--jpdb-reader-source-pitch-decoration,\s*transparent\);/);
-        expect(READER_CSS).toMatch(/\.jpdb-ocr-line \.jpdb-reader-word\s*\{[^}]*text-decoration:\s*none\s*!important;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-line:\s*underline\s*!important;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*text-decoration-color:\s*var\(--jpdb-reader-word-underline,\s*transparent\)\s*!important;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\s*\{[^}]*display:\s*inline;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word::after\s*\{[^}]*content:\s*none;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\.jpdb-reader-has-furi\s*\{[^}]*line-height:\s*1\.85;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word ruby\s*\{[^}]*display:\s*ruby;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word rt\.jpdb-reader-furi\s*\{[^}]*display:\s*ruby-text;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word ruby\s*\{[^}]*text-decoration-line:\s*inherit\s*!important;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word ruby\s*\{[^}]*text-decoration-color:\s*inherit\s*!important;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\.jpdb-new,[\s\S]*?--jpdb-reader-source-jpdb-soft:\s*var\(--jpdb-reader-state-new-soft,[^;]+;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\.jpdb-known,[\s\S]*?--jpdb-reader-source-status-decoration:\s*var\(--jpdb-reader-state-known,[^;]+;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word\.jpdb-pitch-heiban[\s\S]*?--jpdb-reader-source-pitch-decoration:\s*var\(--jpdb-reader-pitch-heiban,[^;]+;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word-highlight-status \.jpdb-reader-word\s*\{[^}]*background:\s*var\(--jpdb-reader-source-status-soft,\s*transparent\)\s*!important;/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word-underline-status \.jpdb-reader-word\s*\{[^}]*--jpdb-reader-word-underline:\s*var\(--jpdb-reader-source-status-decoration,\s*transparent\);/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-reader-word-underline-pitch \.jpdb-reader-word\s*\{[^}]*--jpdb-reader-word-underline:\s*var\(--jpdb-reader-source-pitch-decoration,\s*transparent\);/);
+        expect(READER_WORD_CSS).toMatch(/\.jpdb-ocr-line \.jpdb-reader-word\s*\{[^}]*text-decoration:\s*none\s*!important;/);
     });
 
     it('defaults word highlight colors to pitch when mining status is not configured', () => {
@@ -3175,6 +3177,43 @@ describe('reader helpers', () => {
         });
     });
 
+    it('surfaces JPDB kanji mining controls only when the kanji page exposes them', () => {
+        const info = parseJpdbKanjiHtml(`
+            <meta name="description" content="Dictionary definition of kanji 読 (よ) — read">
+            <div class="result kanji">
+                <div class="menu">
+                    <form action="/kanji/%E8%AA%AD" method="post">
+                        <input type="hidden" name="csrf" value="token">
+                        <button name="action" value="add">Add to kanji deck</button>
+                        <button name="action" value="never">Never forget</button>
+                    </form>
+                    <a href="/kanji/%E8%AA%AD?blacklist=1">Blacklist</a>
+                </div>
+            </div>
+            <h6 class="subsection-label">Keyword</h6><div class="subsection">read</div>
+        `, '読');
+
+        expect(info?.loggedIn).toBe(true);
+        expect(info?.kanjiReviewsEnabled).toBe(true);
+        expect(visibleJpdbKanjiActions(info).map(action => [action.label, action.role, action.method, action.payload.action])).toEqual([
+            ['Add to kanji deck', 'mine', 'POST', 'add'],
+            ['Never forget', 'neverforget', 'POST', 'never'],
+            ['Blacklist', 'blacklist', 'GET', undefined],
+        ]);
+    });
+
+    it('does not treat JPDB kanji setup links as mining controls', () => {
+        const info = parseJpdbKanjiHtml(`
+            <a href="/login">Login</a>
+            <div class="result kanji"><div class="menu"><a href="/settings">Enable kanji reviews</a></div></div>
+            <h6 class="subsection-label">Keyword</h6><div class="subsection">read</div>
+        `, '読');
+
+        expect(info?.loggedIn).toBe(false);
+        expect(info?.kanjiReviewsEnabled).toBe(false);
+        expect(visibleJpdbKanjiActions(info)).toEqual([]);
+    });
+
     it('parses and de-duplicates Uchisen mnemonic images', () => {
         const images = parseUchisenImages(`
             <div class="kanji_image_loader" data-large="/kanji/1/main.png"></div>
@@ -3246,6 +3285,9 @@ describe('reader helpers', () => {
             usedInKanji: [],
             mnemonic: '',
             vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
         }, { kanji: '読', keyword: 'read', frameNumber: '372', onYomi: '', kunYomi: '', elements: '', componentKanji: [], heisigStory: '', heisigComment: '', koohiiStories: [] }, {
             kanji: '読',
             svg: '<svg></svg>',
@@ -3305,6 +3347,9 @@ describe('reader helpers', () => {
             usedInKanji: [{ kanji: '讀', keyword: 'traditional read' }],
             mnemonic: '',
             vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
         }, {
             kanji: '読',
             keyword: 'read',

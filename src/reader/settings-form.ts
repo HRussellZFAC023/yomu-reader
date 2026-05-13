@@ -414,19 +414,22 @@ export function select(name: string, label: string, value: string, options: [str
 }
 
 function themeSegmentedControl(value: ReaderSettings['theme']): string {
-    const options: Array<[ReaderSettings['theme'], string]> = [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']];
+    const isLight = value === 'light';
     return `
-        <div class="jpdb-reader-segment-field" data-theme-segment>
-            <span class="jpdb-reader-segment-title" id="jpdb-reader-theme-label" data-theme-segment-title>Theme</span>
-            <div class="jpdb-reader-segmented" role="radiogroup" aria-labelledby="jpdb-reader-theme-label">
-                ${options.map(([optionValue, label]) => `
-                    <label>
-                        <input type="radio" name="theme" value="${optionValue}" ${optionValue === value ? 'checked' : ''}>
-                        <span>${escapeHtml(label)}</span>
-                    </label>
-                `).join('')}
+        <label class="jpdb-reader-theme-field" data-theme-field>
+            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>Theme</span>
+            <input type="hidden" name="theme" value="${escapeHtml(value)}" data-theme-value>
+            <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
+                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch aria-label="${isLight ? 'Switch to dark theme' : 'Switch to light theme'}" aria-checked="${isLight}" title="${isLight ? 'Switch to dark theme' : 'Switch to light theme'}">
+                    <span class="check">
+                        <span class="icon">
+                            <span class="vpi-sun sun" aria-hidden="true"></span>
+                            <span class="vpi-moon moon" aria-hidden="true"></span>
+                        </span>
+                    </span>
+                </button>
             </div>
-        </div>
+        </label>
     `;
 }
 
@@ -643,15 +646,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['en', text('english')],
         ['ja', text('japanese')],
     ]);
-    form.querySelector<HTMLElement>('[data-theme-segment-title]')?.replaceChildren(text('theme'));
-    const themeSegment = form.querySelector<HTMLElement>('[data-theme-segment] .jpdb-reader-segmented');
-    themeSegment?.setAttribute('aria-label', text('theme'));
-    form.querySelectorAll<HTMLInputElement>('[data-theme-segment] input[name="theme"]').forEach(inputEl => {
-        const label = inputEl.value === 'dark'
-            ? text('dark')
-            : inputEl.value === 'light' ? text('light') : text('auto');
-        inputEl.closest('label')?.querySelector('span')?.replaceChildren(label);
-    });
+    form.querySelector<HTMLElement>('[data-theme-title]')?.replaceChildren(text('theme'));
     setSelectOptionLabels(form, 'popupMode', [
         ['auto', text('auto')],
         ['sheet', text('bottomSheet')],
