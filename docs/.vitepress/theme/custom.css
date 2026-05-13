@@ -48,6 +48,8 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
+  border: 1px solid #f7fbf8;
+  background: #f7fbf8;
 }
 
 .VPNavBarTitle .title {
@@ -57,6 +59,8 @@
 .VPHomeHero .image img {
   width: min(240px, 48vw);
   border-radius: 24px;
+  border: 3px solid #f7fbf8;
+  background: #f7fbf8;
   box-shadow: 0 18px 48px rgba(0, 0, 0, .22);
 }
 

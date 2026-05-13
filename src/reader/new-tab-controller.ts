@@ -5,7 +5,7 @@ import { setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith } from './dom-builder';
 import type { ImmersionKitClient, ImmersionKitExample } from './immersion-kit';
 import type { JpdbClient } from './jpdb';
-import type { JpdbKanjiClient, JpdbKanjiInfo } from './jpdb-kanji';
+import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
 import { installKanjiDoodle } from './kanji-doodle';
 import { assessKanjiStrokes, type KanjiStrokeAssessment } from './kanji-stroke-grader';
 import type { KanjiVGClient, KanjiVGInfo } from './kanjivg';
@@ -153,13 +153,23 @@ export class NewTabController {
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, 'Word'),
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, 'Kanji'),
                     ),
-                    el('button', {
-                        class: 'jpdb-reader-newtab-theme',
-                        type: 'button',
-                        dataset: { newtabAction: 'theme' },
-                        'aria-label': 'Switch theme',
-                        title: 'Switch theme',
-                    }, el('span', { dataset: { newtabThemeIcon: true }, 'aria-hidden': 'true' }, '☾')),
+                    el('div', { class: 'VPNavBarAppearance appearance jpdb-reader-theme-appearance' },
+                        el('button', {
+                            class: 'VPSwitch VPSwitchAppearance jpdb-reader-theme-switch',
+                            type: 'button',
+                            role: 'switch',
+                            dataset: { newtabAction: 'theme' },
+                            'aria-label': 'Switch to light theme',
+                            'aria-checked': 'false',
+                            title: 'Switch to light theme',
+                        },
+                        el('span', { class: 'check' },
+                            el('span', { class: 'icon' },
+                                el('span', { class: 'vpi-sun sun', 'aria-hidden': 'true' }),
+                                el('span', { class: 'vpi-moon moon', 'aria-hidden': 'true' }),
+                            ),
+                        )),
+                    ),
                     el('button', {
                         class: 'jpdb-reader-newtab-overflow',
                         type: 'button',
@@ -169,7 +179,7 @@ export class NewTabController {
                 ),
                 el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
                     el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true } }, '0 / 0'),
-                    el('div', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, 'よむ'),
+                    el('h1', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, 'よむ'),
                     el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
                         el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
                         el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
@@ -195,7 +205,6 @@ export class NewTabController {
 
     private bindRootEvents(root: HTMLElement): void {
         root.addEventListener('click', event => {
-            if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
             const target = event.target as HTMLElement;
             const action = target.closest<HTMLElement>('[data-newtab-action]')?.dataset.newtabAction;
             if (action === 'settings') {
@@ -208,6 +217,12 @@ export class NewTabController {
                 void this.toggleTheme(root);
                 return;
             }
+            if (action === 'load-dictionary') {
+                event.preventDefault();
+                void this.installStarterDictionary(root);
+                return;
+            }
+            if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
             if (action === 'next') {
                 event.preventDefault();
                 this.showNextWord();
@@ -230,22 +245,16 @@ export class NewTabController {
                 this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
                 return;
             }
-            if (action === 'connect-jpdb') {
-                event.preventDefault();
-                window.open('https://jpdb.io/review', '_blank', 'noopener');
-                this.dependencies.jpdbReviewBridge.requestCurrent();
-                this.setStatus(root, 'Open JPDB review, then come back here.');
-                return;
-            }
-            if (action === 'load-dictionary') {
-                event.preventDefault();
-                void this.installStarterDictionary(root);
-                return;
-            }
             if (action === 'grade') {
                 event.preventDefault();
                 const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
                 if (grade) void this.gradeCurrentCard(grade);
+                return;
+            }
+            if (action === 'jpdb-kanji-action') {
+                event.preventDefault();
+                const actionId = target.closest<HTMLElement>('[data-kanji-action-id]')?.dataset.kanjiActionId ?? '';
+                void this.performJpdbKanjiAction(root, actionId);
                 return;
             }
             if (action === 'mode') {
@@ -311,6 +320,7 @@ export class NewTabController {
                 }
                 if (this.dictionarySetupRequired) {
                     if (this.consumeDictionarySetupRequest()) {
+                        this.renderDictionarySetup(root);
                         await this.installStarterDictionary(root);
                         return;
                     }
@@ -342,7 +352,7 @@ export class NewTabController {
         const source = this.state.source;
         const sourceOrder = source === 'auto'
             ? ['anki', 'jpdb', 'dictionary'] as const
-            : [source] as const;
+            : (source === 'dictionary' ? ['dictionary'] as const : [source, 'dictionary'] as const);
         const labels: string[] = [];
         const cards: JPDBCard[] = [];
 
@@ -397,11 +407,11 @@ export class NewTabController {
             if (!entries.length) this.dictionarySetupRequired = true;
             return {
                 cards: entries.map(entry => this.dependencies.parser.localCardFromEntry(entry)),
-                sourceLabel: 'Dictionary',
+                sourceLabel: 'Dictionaries',
             };
         } catch (error) {
             log.debug('Dictionary word load failed', error);
-            return { cards: [], sourceLabel: 'Dictionary' };
+            return { cards: [], sourceLabel: 'Dictionaries' };
         }
     }
 
@@ -464,14 +474,19 @@ export class NewTabController {
 
     private applyWords(root: HTMLElement, preferStoredWord: boolean): void {
         this.syncMode(root);
+        if (!this.allWords.length && this.dictionarySetupRequired) {
+            this.renderDictionarySetup(root);
+            return;
+        }
+        const cardsForMode = (cards: JPDBCard[]) => this.state.mode === 'kanji'
+            ? cards.filter(card => kanjiCharacters(card.spelling).length > 0 || Boolean(card.kanjiKeyword))
+            : cards;
         const reviewableWords = this.allWords.filter(card => shouldShowInStudyQueue(card));
-        const baseWords = this.state.mode === 'kanji'
-            ? reviewableWords.filter(card => kanjiCharacters(card.spelling).length > 0 || Boolean(card.kanjiKeyword))
-            : reviewableWords;
+        const baseWords = cardsForMode(reviewableWords).length ? cardsForMode(reviewableWords) : cardsForMode(this.allWords);
         this.visibleWords = shuffleCards(baseWords);
         if (!this.visibleWords.length) {
             this.index = 0;
-            this.renderEmpty(root, 'よむ', this.state.mode === 'kanji' ? 'No kanji reviews yet.' : 'No reviews due yet.');
+            this.renderEmpty(root, 'よむ', this.state.mode === 'kanji' ? 'No kanji cards yet.' : 'No words yet.');
             return;
         }
         this.index = this.resolveInitialIndex(preferStoredWord);
@@ -528,7 +543,7 @@ export class NewTabController {
         if (slots.reveal) slots.reveal.textContent = this.state.revealAnswer ? 'Hide' : 'Reveal';
         this.renderControls(slots, card);
         this.renderInstallCta(root);
-        if (slots.status) slots.status.textContent = '';
+        if (slots.status) slots.status.textContent = this.sourceLabel;
     }
 
     private studySlots(root: HTMLElement): NewTabStudySlots {
@@ -658,11 +673,26 @@ export class NewTabController {
         if (slots.meaning) {
             const readings = details.jpdb?.readings.slice(0, 4).map(item => item.reading).join(' / ') || card.reading;
             const meaning = firstCardMeaning(card);
+            const miningActions = this.state.revealAnswer ? this.renderKanjiMiningControls(details.jpdb) : null;
             replaceChildrenWith(slots.meaning,
                 el('div', {}, [readings, meaning].filter(Boolean).join(' · ')),
                 el('div', { class: 'jpdb-reader-newtab-kanji-popover-word' }, this.renderReaderWord(card, state, kanji, sentenceForCard(card))),
+                miningActions,
             );
         }
+    }
+
+    private renderKanjiMiningControls(info: JpdbKanjiInfo | null): HTMLElement | null {
+        const actions = visibleJpdbKanjiActions(info);
+        if (!actions.length) return null;
+        return el('div', { class: 'jpdb-reader-newtab-kanji-mining', role: 'group', 'aria-label': 'JPDB kanji actions' },
+            actions.map(action => el('button', {
+                type: 'button',
+                class: `jpdb-reader-newtab-mini-action ${jpdbKanjiActionClass(action)}`,
+                dataset: { newtabAction: 'jpdb-kanji-action', kanjiActionId: action.id },
+                title: action.label,
+            }, action.label)),
+        );
     }
 
     private loadKanjiDetails(kanji: string): Promise<{ jpdb: JpdbKanjiInfo | null; rtk: RtkInfo | null; vg: KanjiVGInfo | null }> {
@@ -726,12 +756,8 @@ export class NewTabController {
         if (slots.count) slots.count.textContent = '';
         if (slots.status) slots.status.textContent = '';
         if (slots.controls) {
-            const needsJpdb = (this.state.source === 'jpdb' || this.state.source === 'auto')
-                && this.dependencies.getSettings().newTabJpdbReviewMode !== 'api-vocabulary';
             replaceChildrenWith(slots.controls,
-                needsJpdb
-                    ? el('button', { type: 'button', dataset: { newtabAction: 'connect-jpdb' } }, 'Connect JPDB reviews')
-                    : el('button', { type: 'button', dataset: { newtabAction: 'previous' } }, 'Previous'),
+                el('button', { type: 'button', dataset: { newtabAction: 'previous' } }, 'Previous'),
                 el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
                 el('button', { type: 'button', dataset: { newtabAction: 'next' } }, 'Next'),
             );
@@ -803,8 +829,9 @@ export class NewTabController {
 
         if (!this.state.revealAnswer) {
             replaceChildrenWith(slots.controls,
-                el('button', { type: 'button', dataset: { newtabAction: 'skip' } }, 'Skip'),
+                el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': 'Previous word' }, 'Previous'),
                 el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
+                el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': 'Next word' }, 'Next'),
             );
             return;
         }
@@ -831,6 +858,22 @@ export class NewTabController {
             || card.reviewSource === 'jpdb-live'
             || card.source === 'anki'
             || (card.source === 'jpdb' && card.vid > 0 && card.sid > 0);
+    }
+
+    private async performJpdbKanjiAction(root: HTMLElement, actionId: string): Promise<void> {
+        if (!actionId) return;
+        const card = this.visibleWords[this.index];
+        const kanji = card ? (kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '') : '';
+        try {
+            this.setStatus(root, 'Updating JPDB kanji...');
+            await this.dependencies.jpdbKanji.performAction(actionId);
+            if (kanji) this.kanjiInfoCache.delete(kanji);
+            if (card && this.visibleWords[this.index] === card) this.renderWord(root, card);
+            this.setStatus(root, 'JPDB kanji updated.');
+        } catch (error) {
+            log.warn('New tab JPDB kanji action failed', { kanji }, error);
+            this.setStatus(root, 'Could not update JPDB kanji. Enable kanji reviews on JPDB first.');
+        }
     }
 
     private async gradeCurrentCard(grade: JPDBGrade): Promise<void> {
@@ -865,10 +908,7 @@ export class NewTabController {
         this.liveJpdbStatus = status;
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
         if (!root || !(this.state.source === 'jpdb' || this.state.source === 'auto')) return;
-        if (!status.card) {
-            if (!this.allWords.length) this.setStatus(root, status.message || 'Open JPDB review to connect.');
-            return;
-        }
+        if (!status.card) return;
         const card = this.cardFromLiveJpdb(status.card);
         if (!card) return;
         const existingIndex = this.allWords.findIndex(item => item.reviewSource === 'jpdb-live');
@@ -965,11 +1005,10 @@ export class NewTabController {
         const theme = this.effectiveTheme(this.dependencies.getSettings().theme);
         root.dataset.newtabTheme = theme;
         const button = root.querySelector<HTMLButtonElement>('[data-newtab-action="theme"]');
-        const icon = root.querySelector<HTMLElement>('[data-newtab-theme-icon]');
-        if (!button || !icon) return;
-        icon.textContent = theme === 'dark' ? '☀' : '☾';
+        if (!button) return;
         const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
         button.setAttribute('aria-label', label);
+        button.setAttribute('aria-checked', String(theme === 'light'));
         button.title = label;
     }
 

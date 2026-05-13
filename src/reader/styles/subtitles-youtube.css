@@ -69,7 +69,7 @@
   background: transparent !important;
   color: var(--subtitle-color) !important;
   --jpdb-reader-word-underline: transparent;
-  text-decoration-line: underline !important;
+  text-decoration-line: none !important;
   text-decoration-style: solid !important;
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
   text-decoration-thickness: .08em !important;
@@ -94,10 +94,10 @@
 .jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
 .jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
 .jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
-.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }
-.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); }
-.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }
+.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }
 .jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, var(--subtitle-color)) !important; }
 .jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, var(--subtitle-color)) !important; }
 .jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, var(--subtitle-color)) !important; }
@@ -302,15 +302,14 @@ html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment {
   display: none !important;
 }
 html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,
-html.jpdb-subtitle-fullscreen .jpdb-subtitle-rail,
 html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   display: none !important;
 }
 .jpdb-subtitle-resize {
   position: absolute;
   z-index: 2;
-  min-width: 0;
-  min-height: 0;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -331,37 +330,37 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   opacity: 1;
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize {
-  left: -7px;
+  left: 0;
   top: 0;
   bottom: 0;
-  width: 14px;
+  width: 24px;
   cursor: ew-resize;
 }
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
-  right: -7px;
+  right: 0;
   top: 0;
   bottom: 0;
-  width: 14px;
+  width: 24px;
   cursor: ew-resize;
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize::after,
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize::after {
   top: 16px;
   bottom: 16px;
-  left: 6px;
+  left: 11px;
   width: 2px;
 }
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize {
   left: 0;
   right: 0;
-  top: -7px;
-  height: 14px;
+  top: 0;
+  height: 24px;
   cursor: ns-resize;
 }
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize::after {
   left: 16px;
   right: 16px;
-  top: 6px;
+  top: 11px;
   height: 2px;
 }
 .jpdb-subtitle-list-head {
@@ -373,6 +372,32 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));
   color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
   font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-subtitle-panel-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
+}
+.jpdb-subtitle-panel-mode button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: center;
+  box-shadow: none;
+  font-size: 10px;
+}
+.jpdb-subtitle-panel-mode button[aria-pressed="true"] {
+  color: var(--jpdb-reader-text, #fff);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b));
+}
+.jpdb-subtitle-panel-mode button:disabled {
+  opacity: .42;
 }
 .jpdb-subtitle-panel-nav {
   display: inline-flex;
@@ -471,7 +496,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   grid-template-columns: 30px auto;
   align-items: center;
   gap: 12px;
-  color: var(--jpdb-reader-faint, rgba(255,255,255,.64));
+  color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
 }
 .jpdb-subtitle-row-copy {
   display: inline-grid;
@@ -492,7 +517,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: inset 2px 0 0 var(--jpdb-reader-accent);
 }
 .jpdb-subtitle-row-time {
-  color: var(--jpdb-reader-faint, rgba(255,255,255,.55));
+  color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
   font-size: 16px;
   line-height: 1.2;
   font-weight: 760;
@@ -510,6 +535,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-row-text .jpdb-reader-word {
   color: inherit;
   background: transparent;
+  text-decoration-line: none;
   border-radius: 4px;
   padding: 0 1px;
   box-decoration-break: clone;
@@ -793,10 +819,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     right: max(8px, env(safe-area-inset-right));
     bottom: auto;
     gap: 3px;
-  }
-  .jpdb-subtitle-compact-video.jpdb-subtitle-panel-open .jpdb-subtitle-rail,
-  .jpdb-subtitle-compact-video.jpdb-subtitle-menu-open .jpdb-subtitle-rail {
-    top: -44px;
   }
   .jpdb-subtitle-rail button {
     height: 34px;

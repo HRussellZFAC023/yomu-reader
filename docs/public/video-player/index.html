@@ -113,15 +113,73 @@
       gap: 8px;
     }
 
-    .theme-toggle {
+    .VPNavBarAppearance.appearance {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      min-width: 48px;
+      height: 38px;
+    }
+
+    .VPSwitch.VPSwitchAppearance {
+      position: relative;
+      display: block;
+      width: 40px;
+      min-width: 40px;
+      height: 22px;
+      min-height: 22px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--panel) 86%, transparent);
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .VPSwitch .check {
+      position: absolute;
+      top: 1px;
+      left: 1px;
       display: grid;
       place-items: center;
-      width: 38px;
-      min-width: 38px;
-      padding: 0;
-      font-size: 15px;
-      font-weight: 900;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--bg);
+      box-shadow: 0 1px 3px rgba(0,0,0,.28);
+      transition: transform .18s ease, background .18s ease;
     }
+
+    .VPSwitch[aria-checked="true"] .check {
+      transform: translateX(18px);
+    }
+
+    .VPSwitch .icon {
+      position: relative;
+      display: block;
+      width: 14px;
+      height: 14px;
+      color: var(--muted);
+    }
+
+    .VPSwitch .sun,
+    .VPSwitch .moon {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      line-height: 1;
+      transition: opacity .18s ease;
+    }
+
+    .VPSwitch .sun::before { content: "☀"; }
+    .VPSwitch .moon::before { content: "☾"; }
+    .VPSwitch[aria-checked="false"] .sun,
+    .VPSwitch[aria-checked="true"] .moon { opacity: 0; }
+    .VPSwitch[aria-checked="true"] .sun,
+    .VPSwitch[aria-checked="false"] .moon { opacity: 1; }
 
     input[type="file"] {
       position: absolute;
@@ -262,7 +320,16 @@
         <strong>Yomu Video</strong>
       </a>
       <div class="top-actions">
-        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme" title="Switch theme"><span data-theme-icon aria-hidden="true">☾</span></button>
+        <div class="VPNavBarAppearance appearance">
+          <button class="VPSwitch VPSwitchAppearance" type="button" role="switch" data-theme-toggle aria-label="Switch to light theme" aria-checked="false" title="Switch to light theme">
+            <span class="check">
+              <span class="icon">
+                <span class="vpi-sun sun" aria-hidden="true"></span>
+                <span class="vpi-moon moon" aria-hidden="true"></span>
+              </span>
+            </span>
+          </button>
+        </div>
         <label class="file-button">
           Open video
           <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
@@ -289,7 +356,6 @@
       const videoInput = document.querySelector('[data-video-input]');
       const status = document.querySelector('[data-status]');
       const themeToggle = document.querySelector('[data-theme-toggle]');
-      const themeIcon = document.querySelector('[data-theme-icon]');
       const themeKey = 'yomu-page-theme';
       let objectUrl = '';
 
@@ -302,10 +368,10 @@
       function applyTheme(theme) {
         document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
         document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
-        if (themeIcon) themeIcon.textContent = theme === 'dark' ? '☀' : '☾';
         if (themeToggle) {
           const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
           themeToggle.setAttribute('aria-label', label);
+          themeToggle.setAttribute('aria-checked', String(theme === 'light'));
           themeToggle.title = label;
         }
       }

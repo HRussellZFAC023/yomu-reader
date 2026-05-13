@@ -87,7 +87,7 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 
 ## 6. Turn On More Tools When You Need Them
 
-- Dictionaries: choose Add dictionary on the new-tab page or install JMdict from Settings when you want local dictionary study words. You can still import other Yomitan ZIP dictionaries or a Yomitan settings export later.
+- Dictionaries: choose Add dictionary on the new-tab page or install a starter dictionary from Settings when you want local dictionary study words. You can still import other Yomitan ZIP dictionaries or a Yomitan settings export later.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
 - Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](/video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
 - Anki: enable Anki mining when Anki desktop and AnkiConnect are available.

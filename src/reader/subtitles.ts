@@ -127,7 +127,7 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-background-rgba', accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
         this.root.style.setProperty('--subtitle-family', settings.subtitleFontFamily);
         this.root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
-        if (settings.subtitleTranscriptVisible && this.cues.length && this.transcriptPanel?.hidden) {
+        if (settings.subtitleTranscriptVisible && this.hasTranscriptSurface() && this.transcriptPanel?.hidden) {
             this.panelMode = 'lines';
             this.transcriptPanel.hidden = false;
             this.renderTranscriptPanel(true);
@@ -157,8 +157,8 @@ export class SubtitlePlayerController {
                 <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">${subtitleIcon('eye')}</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
+                <button type="button" data-action="list" title="Open transcript panel" aria-label="Open transcript panel">${subtitleIcon('transcript')}</button>
                 <button type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon('tracks')}</button>
-                <button type="button" data-action="menu" title="Subtitle options" aria-label="Subtitle options">${subtitleIcon('menu')}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -546,6 +546,9 @@ export class SubtitlePlayerController {
         }
         if (action === 'list') this.toggleTranscriptPanel();
         if (action === 'tracks') this.toggleTrackPanel();
+        if (action === 'panel-lines') this.openLinesPanel();
+        if (action === 'panel-tracks') this.openTracksPanel();
+        if (action === 'close-panel') this.closeTranscriptPanel();
         if (action === 'transcript-left') this.setTranscriptPlacement('left');
         if (action === 'transcript-right') this.setTranscriptPlacement('right');
         if (action === 'transcript-bottom') this.setTranscriptPlacement('bottom');
@@ -725,8 +728,7 @@ export class SubtitlePlayerController {
         this.updateFromLoadedCues();
         this.warmParseAroundActiveCue();
         this.render();
-        if (this.shouldStayInTrackSetup()) this.renderTrackPanel();
-        else this.openLinesPanel();
+        this.openLinesPanel();
         this.syncControls();
         log.info('Primary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.cues.length });
     }
@@ -742,6 +744,11 @@ export class SubtitlePlayerController {
         this.secondaryTrackId = id;
         this.secondaryCues = [];
         this.secondaryCue = undefined;
+        const settings = this.options.getSettings();
+        if (!settings.subtitleSecondaryVisible) {
+            settings.subtitleSecondaryVisible = true;
+            this.options.onSettingsChange();
+        }
 
         let selected = this.tracks.find(option => option.id === id);
         if (selected) {
@@ -772,7 +779,7 @@ export class SubtitlePlayerController {
         this.updateFromLoadedCues();
         this.warmParseAroundActiveCue();
         this.render();
-        if (this.shouldStayInTrackSetup() && this.cues.length) this.openLinesPanel();
+        if (this.hasTranscriptSurface()) this.openLinesPanel();
         else if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
         else this.renderTrackPanel();
         this.syncControls();
@@ -867,6 +874,13 @@ export class SubtitlePlayerController {
         if (!added) return;
 
         log.debug('YouTube caption tracks discovered', { discovered: tracks.length, added, total: this.tracks.length });
+        const autoTrack = !this.selectedTrackId
+            ? [...this.tracks].filter(track => track.kind === 'youtube' && isJapaneseSubtitleTrack(track)).sort(compareSubtitleTrackOptions)[0]
+            : undefined;
+        if (autoTrack) {
+            void this.selectTrack(autoTrack.id);
+            return;
+        }
         this.renderTrackPanel();
         this.syncControls();
     }
@@ -909,7 +923,7 @@ export class SubtitlePlayerController {
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {
-        const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
+        const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.fullscreen);
         for (const action of ['previous', 'next'] as const) {
             const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
             if (railButton) {
@@ -921,6 +935,13 @@ export class SubtitlePlayerController {
                 button.hidden = !hasLines;
                 button.disabled = !this.video || !hasLines;
             }
+        }
+        const listButton = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="list"]');
+        if (listButton) {
+            listButton.hidden = !hasLines || panelOpen;
+            listButton.disabled = !this.video || !hasLines;
+            listButton.title = panelOpen ? 'Close transcript panel' : 'Open transcript panel';
+            listButton.setAttribute('aria-label', listButton.title);
         }
     }
 
@@ -947,8 +968,12 @@ export class SubtitlePlayerController {
         return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && this.panelMode === 'tracks');
     }
 
+    private hasTranscriptSurface(): boolean {
+        return Boolean(this.cues.length || this.currentCue?.text || this.selectedTrackId);
+    }
+
     private openLinesPanel(): void {
-        if (!this.transcriptPanel || !this.cues.length) return;
+        if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
         this.panelMode = 'lines';
         this.transcriptPanel.hidden = false;
         this.options.getSettings().subtitleTranscriptVisible = true;
@@ -1015,7 +1040,7 @@ export class SubtitlePlayerController {
 
     private toggleTranscriptPanel(): void {
         if (!this.transcriptPanel) return;
-        if (!this.cues.length) {
+        if (!this.cues.length && !this.currentCue?.text) {
             this.toggleTrackPanel();
             return;
         }
@@ -1030,20 +1055,8 @@ export class SubtitlePlayerController {
         this.syncPanelState();
     }
 
-    private toggleTrackPanel(): void {
+    private openTracksPanel(): void {
         if (!this.transcriptPanel) return;
-        if (!this.transcriptPanel.hidden && this.panelMode === 'tracks') {
-            if (!this.cues.length) {
-                this.transcriptPanel.hidden = true;
-                this.options.getSettings().subtitleTranscriptVisible = false;
-                this.options.onSettingsChange();
-                this.positionTranscriptPanel();
-                this.syncPanelState();
-                return;
-            }
-            this.openLinesPanel();
-            return;
-        }
         this.panelMode = 'tracks';
         this.transcriptPanel.hidden = false;
         this.options.getSettings().subtitleTranscriptVisible = false;
@@ -1054,19 +1067,43 @@ export class SubtitlePlayerController {
         this.syncPanelState();
     }
 
-    private renderTranscriptPanel(force = false): void {
-        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
-        if (!this.cues.length) {
-            this.panelMode = 'tracks';
-            this.renderTrackPanel();
+    private closeTranscriptPanel(): void {
+        if (!this.transcriptPanel) return;
+        this.transcriptPanel.hidden = true;
+        this.options.getSettings().subtitleTranscriptVisible = false;
+        this.options.onSettingsChange();
+        this.positionTranscriptPanel();
+        this.syncPanelState();
+    }
+
+    private toggleTrackPanel(): void {
+        if (!this.transcriptPanel) return;
+        if (!this.transcriptPanel.hidden && this.panelMode === 'tracks') {
+            if (!this.hasTranscriptSurface()) {
+                this.transcriptPanel.hidden = true;
+                this.options.getSettings().subtitleTranscriptVisible = false;
+                this.options.onSettingsChange();
+                this.positionTranscriptPanel();
+                this.syncPanelState();
+                return;
+            }
+            this.openLinesPanel();
             return;
         }
-        const currentIndex = this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) : -1;
+        this.openTracksPanel();
+    }
+
+    private renderTranscriptPanel(force = false): void {
+        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
+        const rows = this.cues.length ? this.cues : this.currentCue ? [this.currentCue] : [];
+        const currentIndex = this.cues.length ? this.activeTranscriptIndex() : rows.length ? 0 : -1;
         const signature = [
-            this.cues.length,
+            rows.length,
             this.secondaryCues.length,
             currentIndex,
             this.options.getSettings().subtitleTranscriptPlacement,
+            this.selectedTrackId,
+            this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
         ].join(':');
         if (!force && this.lastTranscriptSignature === signature) {
             this.updateTranscriptActiveLine(currentIndex);
@@ -1076,14 +1113,16 @@ export class SubtitlePlayerController {
         const placement = this.options.getSettings().subtitleTranscriptPlacement;
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
-                <span>Lines</span>
-                ${renderPanelNavigationControls(Boolean(this.video && this.cues.length))}
-                <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon('tracks')}</button>
+                <span>Transcript</span>
+                ${renderPanelModeControls('lines', this.hasTranscriptSurface())}
+                ${renderPanelNavigationControls(Boolean(this.video && rows.length))}
                 ${renderTranscriptPlacementControls(placement)}
                 <button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Close subtitle lines" aria-label="Close subtitle lines">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
-                ${this.cues.map((cue, index) => this.renderTranscriptRow(cue, index, currentIndex)).join('')}
+                ${rows.length
+                    ? rows.map((cue, index) => this.renderTranscriptRow(cue, index, this.cues.length ? currentIndex : 0)).join('')
+                    : this.renderTranscriptWaitingState()}
             </div>
             <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize transcript" aria-label="Resize transcript panel"></button>
         `);
@@ -1114,6 +1153,13 @@ export class SubtitlePlayerController {
                 </div>
             </div>
         `;
+    }
+
+    private renderTranscriptWaitingState(): string {
+        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
+        const label = selected?.label ? ` for ${escapeHtml(selected.label)}` : '';
+        const status = selected?.loadingState === 'loading' ? 'Loading subtitle lines' : 'Waiting for caption lines';
+        return `<div class="jpdb-subtitle-list-empty">${status}${label}. The current line will appear here as soon as captions are available.</div>`;
     }
 
     private updateTranscriptActiveLine(currentIndex: number): void {
@@ -1199,7 +1245,13 @@ export class SubtitlePlayerController {
     }
 
     private activeTranscriptIndex(): number {
-        return this.currentCue ? this.cues.findIndex(cue => cue === this.currentCue) : -1;
+        if (!this.currentCue) return -1;
+        const exact = this.cues.findIndex(cue => cue === this.currentCue);
+        if (exact >= 0) return exact;
+        return this.cues.findIndex(cue =>
+            Math.abs(cue.start - this.currentCue!.start) < 0.05
+            && Math.abs(cue.end - this.currentCue!.end) < 0.05
+            && cue.text.trim() === this.currentCue!.text.trim());
     }
 
     private async hydrateTranscriptRows(preferredIndex: number): Promise<void> {
@@ -1274,10 +1326,10 @@ export class SubtitlePlayerController {
         setInnerHtml(this.transcriptPanel, `
             <div class="jpdb-subtitle-list-head">
                 <span>Subtitle tracks</span>
-                ${this.cues.length ? `<button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Show subtitle lines" aria-label="Show subtitle lines">${subtitleIcon('transcript')}</button>` : ''}
+                ${renderPanelModeControls('tracks', this.hasTranscriptSurface())}
                 ${renderPanelNavigationControls(Boolean(this.video && this.cues.length))}
                 ${renderTranscriptPlacementControls(placement)}
-                <button class="jpdb-reader-icon-mini" type="button" data-action="tracks" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="close-panel" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
@@ -1560,28 +1612,29 @@ function shouldUseBottomTranscriptFallback(
     availableRight: number,
     belowVideo: number,
 ): boolean {
-    void placement;
-    void availableLeft;
-    void availableRight;
-    void belowVideo;
+    if (placement === 'right' && availableRight < 280) return true;
+    if (placement === 'left' && availableLeft < 280) return true;
+    const hasRoomBelow = belowVideo >= 150;
+    if (!hasRoomBelow) return false;
     return false;
 }
 
 function rightTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableRight: number): TranscriptPanelLayout {
-    const width = Math.min(460, viewportWidth - margin * 2);
+    const width = Math.min(Math.max(360, availableRight), viewportWidth - margin * 2);
     if (availableRight < 280) {
         const top = Math.max(margin, videoRect.top);
         return { placement: 'right', left: Math.max(margin, viewportWidth - width - margin), top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
     }
     const top = Math.max(margin, videoRect.top);
-    return { placement: 'right', left: videoRect.right + margin, top, width: Math.min(460, availableRight), height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
+    return { placement: 'right', left: videoRect.right + margin, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
 }
 
 function leftTranscriptPanelLayout(videoRect: DOMRect, viewportWidth: number, viewportHeight: number, margin: number, availableLeft: number): TranscriptPanelLayout {
     const top = Math.max(margin, videoRect.top);
-    const fallback = { placement: 'left' as const, left: margin, top, width: Math.min(460, viewportWidth - margin * 2), height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
+    const fallbackWidth = Math.min(Math.max(360, availableLeft), viewportWidth - margin * 2);
+    const fallback = { placement: 'left' as const, left: margin, top, width: fallbackWidth, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
     if (availableLeft < 280) return fallback;
-    const width = Math.min(460, availableLeft);
+    const width = Math.min(Math.max(360, availableLeft), availableLeft);
     return { ...fallback, left: Math.max(margin, videoRect.left - width - margin), width };
 }
 
@@ -1602,7 +1655,7 @@ function viewportTranscriptPanelLayout(
     viewportHeight: number,
     margin: number,
 ): TranscriptPanelLayout {
-    const width = placement === 'bottom' ? viewportWidth - margin * 2 : Math.min(460, viewportWidth - margin * 2);
+    const width = placement === 'bottom' ? viewportWidth - margin * 2 : Math.min(Math.max(360, viewportWidth * 0.32), viewportWidth - margin * 2);
     if (placement === 'bottom') {
         const top = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
         return { placement, left: margin, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
@@ -1626,7 +1679,8 @@ function resizeTranscriptPanelLayout(layout: TranscriptPanelLayout, size: Transc
         const right = Math.min(layout.viewportWidth - layout.margin, layout.left + layout.width);
         return { ...layout, left: Math.max(layout.margin, right - width), width };
     }
-    return { ...layout, width };
+    const right = Math.min(layout.viewportWidth - layout.margin, layout.left + width);
+    return { ...layout, left: Math.max(layout.margin, right - width), width };
 }
 
 function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelLayout): void {
@@ -1655,6 +1709,15 @@ function renderPanelNavigationControls(enabled: boolean): string {
         <div class="jpdb-subtitle-panel-nav" aria-label="Subtitle navigation">
             <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle" ${enabled ? '' : 'disabled'}>‹</button>
             <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle" ${enabled ? '' : 'disabled'}>›</button>
+        </div>
+    `;
+}
+
+function renderPanelModeControls(mode: 'lines' | 'tracks', canShowLines: boolean): string {
+    return `
+        <div class="jpdb-subtitle-panel-mode" aria-label="Subtitle panel mode">
+            <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>Lines</button>
+            <button type="button" data-action="panel-tracks" aria-pressed="${mode === 'tracks'}">Tracks</button>
         </div>
     `;
 }
@@ -1696,21 +1759,21 @@ function setStylePropertyIfChanged(element: HTMLElement, property: string, value
 function youtubePlayerContainers(): HTMLElement[] {
     if (!isYouTubePage()) return [];
     return [
-        document.querySelector<HTMLElement>('ytd-watch-flexy #player-theater-container'),
-        document.querySelector<HTMLElement>('ytd-watch-flexy #player-container'),
-        document.querySelector<HTMLElement>('ytd-watch-flexy #player'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy #primary'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy #primary-inner'),
     ].filter((element): element is HTMLElement => Boolean(element));
 }
 
 function applyYouTubePlayerContainerInset(element: HTMLElement, side: 'left' | 'right', width: number): void {
     setStylePropertyIfChanged(element, 'width', `${width}px`);
     setStylePropertyIfChanged(element, 'max-width', `${width}px`);
+    setStylePropertyIfChanged(element, 'min-width', '0px');
     setStylePropertyIfChanged(element, side === 'left' ? 'margin-left' : 'margin-right', 'var(--jpdb-subtitle-video-inset, 0px)');
     setStylePropertyIfChanged(element, side === 'left' ? 'margin-right' : 'margin-left', '0px');
 }
 
 function clearYouTubePlayerContainerInset(element: HTMLElement): void {
-    for (const property of ['width', 'max-width', 'margin-left', 'margin-right']) {
+    for (const property of ['width', 'max-width', 'min-width', 'margin-left', 'margin-right']) {
         if (element.style.getPropertyValue(property)) element.style.removeProperty(property);
     }
 }

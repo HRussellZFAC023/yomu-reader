@@ -29,6 +29,7 @@ The audit mocks JPDB and kanji-source network calls for deterministic local runs
 - Treat external kanji/etymology sources as license-sensitive. Check `docs/kanji-source-research.md` before adding a source.
 - Keep visible product naming as `よむ` and the built userscript as `dist/yomu.user.js`.
 - Update `dist/yomu.user.js` by running the build when source changes affect the bundle.
+- Greasy Fork limits scripts to 2 MB. Keep `dist/yomu.user.js` under 2,000,000 bytes and rely on `npm run verify` as the guardrail. Do not compress, pack, or obfuscate the userscript to fit the limit; Greasy Fork forbids that. If size gets tight, remove duplication, purge unused CSS, prefer runtime/hosted assets for nonessential media such as icons, and avoid bundling large datasets.
 - For every task, boldly refactor and cleanup the codebase, fixing techdebt even when not asked, doing so eagerly and vigorosly, no scope is to big. You care about code quality and modularity and structure above all else.
 
 ## Definition of Done

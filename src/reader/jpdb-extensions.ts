@@ -222,6 +222,10 @@ export class JpdbExtensionsController {
         const checkbox = document.querySelector<HTMLInputElement>('#show-checkbox-examples');
         this.installReviewExamplesTracking(checkbox);
         const rememberedOpen = gmStorageGetSync<boolean | null>(REVIEW_EXAMPLES_STORAGE_KEY, null);
+        if (rememberedOpen === null && this.options.getSettings().jpdbAutoRevealSentenceEnabled) {
+            this.setReviewExamplesOpen(true, checkbox);
+            return;
+        }
         if (rememberedOpen === null) return;
         this.setReviewExamplesOpen(rememberedOpen, checkbox);
     }

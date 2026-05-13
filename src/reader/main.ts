@@ -79,6 +79,7 @@ import {
     isKanjiCharacter,
     pickTokenForSelection,
     renderJpdbKanjiInfo,
+    renderJpdbKanjiMiningControls,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
     renderKanjiPractice,
@@ -1929,41 +1930,12 @@ export class ReaderApp {
         const hasJpdb = this.isJpdbBackedCard(card);
         const miningDeckLabel = this.settings.miningDeck.trim() || 'forq';
         const selectedDeckLabel = this.jpdbDeckLabel(miningDeckLabel, data.jpdbDecks);
-        const deckOptions = this.renderDeckChoiceOptions(data.jpdbDecks, data.ankiDecks, hasJpdb && this.settings.jpdbMiningEnabled);
-        const addDeckSelect = deckOptions
-            ? `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}">${deckOptions}</select>`
-            : '';
         const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
-        const isNeverForget = cardStates.includes('never-forget');
-        const isBlacklisted = cardStates.includes('blacklisted');
-        const neverForgetTitle = isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint');
-        const blacklistTitle = isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint');
-        const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-        const jpdbActionRow = hasJpdb && this.settings.jpdbMiningEnabled ? `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(neverForgetTitle)}" aria-pressed="${isNeverForget}">${isNeverForget ? uiText(language, 'forget') : uiText(language, 'never')}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(blacklistTitle)}" aria-pressed="${isBlacklisted}">${isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
-                    </div>
-                    ${addDeckSelect}
-                </div>
-            ` : '';
-        const miningActions = jpdbActionRow;
-        const ankiActions = data.loading ? '' : (data.ankiLookup.primary || !miningActions ? renderAnkiActionRow(data.ankiLookup, this.settings) : '');
-        const reviewButtons = !reviewBlockReason && !data.loading && this.settings.enableReviews && ((hasJpdb && this.settings.jpdbMiningEnabled) || data.ankiLookup.primary?.primaryCardId)
-            ? renderReviewButtons(this.settings, data.ankiLookup.primary, {
-                title: cardStates.includes('not-in-deck') ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '',
-            })
-            : '';
-        const metaItems = [
-            card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
-            hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(state)}</span>` : '',
-            data.ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${data.ankiLookup.state}"></span>Anki ${escapeHtml(data.ankiLookup.state)}</span>` : '',
-        ].filter(Boolean);
-        const loadingDetails = data.loading
-            ? '<div class="jpdb-reader-help" data-card-details-loading>Loading dictionary details...</div>'
-            : '';
+        const miningActions = this.renderJpdbMiningActions(cardStates, language, data, hasJpdb);
+        const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, this.settings);
+        const reviewButtons = this.renderCardReviewButtons(cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language);
+        const metaItems = this.renderCardMetaItems(card, hasJpdb, state, data);
+        const loadingDetails = this.renderCardLoadingDetails(data.loading);
 
         return `
             <div class="jpdb-reader-popover-body">
@@ -1996,6 +1968,61 @@ export class ReaderApp {
                 ${reviewButtons}
             </div>
         `;
+    }
+
+    private renderJpdbMiningActions(
+        cardStates: ReturnType<typeof normalizeCardStates>,
+        language: InterfaceLanguage,
+        data: CardRenderData & { loading: boolean },
+        hasJpdb: boolean,
+    ): string {
+        if (!hasJpdb || !this.settings.jpdbMiningEnabled) return '';
+        const deckOptions = this.renderDeckChoiceOptions(data.jpdbDecks, data.ankiDecks, true);
+        const addDeckSelect = deckOptions
+            ? `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}">${deckOptions}</select>`
+            : '';
+        const isNeverForget = cardStates.includes('never-forget');
+        const isBlacklisted = cardStates.includes('blacklisted');
+        const neverForgetTitle = isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint');
+        const blacklistTitle = isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint');
+        const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
+        return `
+                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn nf${isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(neverForgetTitle)}" aria-pressed="${isNeverForget}">${isNeverForget ? uiText(language, 'forget') : uiText(language, 'never')}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(blacklistTitle)}" aria-pressed="${isBlacklisted}">${isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
+                    </div>
+                    ${addDeckSelect}
+                </div>
+            `;
+    }
+
+    private renderCardReviewButtons(
+        cardStates: ReturnType<typeof normalizeCardStates>,
+        data: CardRenderData & { loading: boolean },
+        hasJpdb: boolean,
+        selectedDeckLabel: string,
+        reviewBlockReason: string,
+        language: InterfaceLanguage,
+    ): string {
+        if (reviewBlockReason || data.loading || !this.settings.enableReviews) return '';
+        if (!((hasJpdb && this.settings.jpdbMiningEnabled) || data.ankiLookup.primary?.primaryCardId)) return '';
+        return renderReviewButtons(this.settings, data.ankiLookup.primary, {
+            title: cardStates.includes('not-in-deck') ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '',
+        });
+    }
+
+    private renderCardMetaItems(card: JPDBCard, hasJpdb: boolean, state: string, data: CardRenderData & { loading: boolean }): string[] {
+        return [
+            card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
+            hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(state)}</span>` : '',
+            data.ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${data.ankiLookup.state}"></span>Anki ${escapeHtml(data.ankiLookup.state)}</span>` : '',
+        ].filter(Boolean);
+    }
+
+    private renderCardLoadingDetails(loading: boolean): string {
+        return loading ? '<div class="jpdb-reader-help" data-card-details-loading>Loading dictionary details...</div>' : '';
     }
 
     private renderDeckChoiceOptions(jpdbDecks: JPDBDeck[], ankiDecks: string[], includeJpdb: boolean): string {
@@ -2358,7 +2385,7 @@ export class ReaderApp {
         const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
         const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
         const language = this.settings.interfaceLanguage;
-        const hasJpdbKanji = Boolean(this.settings.apiKey.trim()) && this.settings.jpdbKanjiEnabled;
+        const hasJpdbKanji = this.settings.jpdbKanjiEnabled;
         const kanjiVGPromise = this.settings.kanjivgEnabled
             ? this.kanjiVG.lookup(kanji).catch(() => null)
             : Promise.resolve(null);
@@ -2389,6 +2416,7 @@ export class ReaderApp {
                         <div data-kanji-keyword-mount><div class="jpdb-reader-help">Loading kanji details...</div></div>
                         ${this.renderWordPills(card, jpdbUrl, [], kanji)}
                     </div>
+                    <div data-kanji-mining-mount hidden></div>
                 </div>
             </div>
             <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
@@ -2404,6 +2432,11 @@ export class ReaderApp {
             event.stopPropagation();
             if (action === 'copy-word') {
                 void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord')));
+                return;
+            }
+            if (action === 'jpdb-kanji-action') {
+                const actionId = actionButton.dataset.kanjiActionId ?? '';
+                void this.performJpdbKanjiAction(actionId, card, kanji, sentence, anchor);
                 return;
             }
             if (action === 'word-back') void this.showCard(card, sentence, anchor, { autoPlay: false, navigation: 'preserve', preservePosition: true });
@@ -2422,6 +2455,18 @@ export class ReaderApp {
         void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
         if (this.settings.kanjivgEnabled) {
             void this.renderKanjiVGInto(popover, kanjiVGPromise, kanji, language);
+        }
+    }
+
+    private async performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {
+        if (!actionId) return;
+        try {
+            await this.jpdbKanji.performAction(actionId);
+            this.toast('JPDB kanji updated.');
+            await this.showKanjiCard(card, kanji, sentence, anchor, { preservePosition: true });
+        } catch (error) {
+            log.warn('JPDB kanji action failed', { kanji }, error);
+            this.toast('Could not update JPDB kanji. Check JPDB kanji reviews are enabled.');
         }
     }
 
@@ -2463,6 +2508,7 @@ export class ReaderApp {
         let kanjiEntries: YomitanKanjiEntry[] = [];
         let rtkInfo: RtkInfo | null = null;
         const keywordMount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
+        const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
         const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
         const rtkMount = popover.querySelector<HTMLElement>('[data-kanji-rtk-mount]');
         const definitionsMounts = Array.from(popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]'));
@@ -2485,6 +2531,11 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             log.debug('JPDB kanji details loaded', { kanji, hasJpdbInfo: Boolean(jpdbInfo) });
             renderKeyword();
+            if (miningMount?.isConnected) {
+                const controls = renderJpdbKanjiMiningControls(jpdbInfo, language);
+                miningMount.hidden = !controls;
+                setInnerHtml(miningMount, controls);
+            }
             if (jpdbMount?.isConnected) {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 setInnerHtml(jpdbMount, renderJpdbKanjiInfo(jpdbInfo, language, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey));
@@ -3052,7 +3103,10 @@ export class ReaderApp {
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
             this.activePopoverResizeObserver.observe(popover);
-            if (previousPopoverRect) placePopoverAtViewportPosition(popover, previousPopoverRect, popoverMaxHeightSetting(this.settings));
+            if (previousPopoverRect) {
+                placePopoverAtViewportPosition(popover, previousPopoverRect, popoverMaxHeightSetting(this.settings));
+                this.syncActivePopoverFixedHeight();
+            }
             else this.repositionActivePopover();
             this.activePopoverPositionLocked = shouldLockPopoverPosition;
             requestAnimationFrame(() => this.repositionActivePopover());
@@ -3074,8 +3128,10 @@ export class ReaderApp {
 
     private repositionActivePopover(): void {
         if (!this.activePopover || this.activePopover.classList.contains('jpdb-reader-sheet')) return;
+        if (this.shouldUseFixedModalHeight(this.activePopover)) this.activePopover.style.height = '';
         if (this.activePopoverPositionLocked) {
             placePopoverAtViewportPosition(this.activePopover, this.activePopover.getBoundingClientRect(), popoverMaxHeightSetting(this.settings));
+            this.syncActivePopoverFixedHeight();
             return;
         }
         if (this.activePopoverAnchor?.isConnected) {
@@ -3092,6 +3148,25 @@ export class ReaderApp {
                 maxHeight: popoverMaxHeightSetting(this.settings),
             },
         );
+        this.syncActivePopoverFixedHeight();
+    }
+
+    private shouldUseFixedModalHeight(popover: HTMLElement): boolean {
+        return this.activePopoverMode !== 'hover'
+            && this.settings.popoverHeightMode === 'fixed'
+            && !popover.classList.contains('jpdb-reader-sheet')
+            && Boolean(popover.querySelector('.jpdb-reader-popover-body'));
+    }
+
+    private syncActivePopoverFixedHeight(): void {
+        const popover = this.activePopover;
+        if (!popover) return;
+        if (!this.shouldUseFixedModalHeight(popover)) {
+            popover.style.height = '';
+            return;
+        }
+        const maxHeight = Number.parseFloat(popover.style.maxHeight);
+        if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
     }
 
     private installDictionarySourceStateTracking(popover: HTMLElement): void {

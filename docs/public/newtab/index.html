@@ -77,7 +77,6 @@
       gap: 8px;
     }
     .jpdb-reader-newtab-brand,
-    .jpdb-reader-newtab-theme,
     .jpdb-reader-newtab-overflow {
       width: 38px;
       height: 38px;
@@ -88,12 +87,6 @@
       background: transparent;
       color: var(--muted);
       text-decoration: none;
-    }
-    .jpdb-reader-newtab-theme {
-      padding: 0;
-      font-size: 15px;
-      font-weight: 900;
-      cursor: pointer;
     }
     .jpdb-reader-newtab-overflow {
       padding-bottom: 4px;
@@ -106,6 +99,8 @@
       width: 30px;
       height: 30px;
       border-radius: 7px;
+      border: 1px solid #f7fbf8;
+      background: #f7fbf8;
     }
     .jpdb-reader-newtab-mode {
       justify-self: center;
@@ -127,11 +122,74 @@
       font-weight: 820;
     }
     .jpdb-reader-newtab-mode button {
+      display: grid;
+      place-items: center;
       min-height: 32px;
       padding: 0 12px;
       background: transparent;
       color: var(--muted);
+      line-height: 1;
+      text-align: center;
     }
+    .jpdb-reader-theme-appearance {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      min-width: 48px;
+      height: 38px;
+    }
+    .jpdb-reader-theme-switch {
+      position: relative;
+      display: block;
+      width: 44px;
+      min-width: 44px;
+      height: 24px;
+      min-height: 24px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--surface) 86%, transparent);
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+    .jpdb-reader-theme-switch .check {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: var(--bg);
+      box-shadow: 0 1px 3px rgba(0,0,0,.28);
+      transition: transform .18s ease, background .18s ease;
+    }
+    .jpdb-reader-theme-switch[aria-checked="true"] .check { transform: translateX(20px); }
+    .jpdb-reader-theme-switch .icon {
+      position: relative;
+      display: block;
+      width: 14px;
+      height: 14px;
+      color: var(--muted);
+    }
+    .jpdb-reader-theme-switch .sun,
+    .jpdb-reader-theme-switch .moon {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      line-height: 1;
+      transition: opacity .18s ease;
+    }
+    .jpdb-reader-theme-switch .sun::before { content: "☀"; }
+    .jpdb-reader-theme-switch .moon::before { content: "☾"; }
+    .jpdb-reader-theme-switch[aria-checked="false"] .sun,
+    .jpdb-reader-theme-switch[aria-checked="true"] .moon { opacity: 0; }
+    .jpdb-reader-theme-switch[aria-checked="true"] .sun,
+    .jpdb-reader-theme-switch[aria-checked="false"] .moon { opacity: 1; }
     .jpdb-reader-newtab-mode button[data-active="true"] {
       background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
       color: var(--ink);
@@ -148,7 +206,7 @@
     }
     .jpdb-reader-newtab-count,
     .jpdb-reader-newtab-status {
-      color: var(--faint);
+      color: var(--ink);
       font-size: 12px;
       line-height: 1.2;
       font-weight: 760;
@@ -156,6 +214,7 @@
     }
     .jpdb-reader-newtab-prompt {
       max-width: min(100%, 720px);
+      margin: 0;
       padding: 0 clamp(8px, 3vw, 22px);
       border: 0;
       border-radius: 0;
@@ -264,12 +323,16 @@
           <button type="button" data-newtab-action="mode" data-mode="word" data-active="true">Word</button>
           <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
         </div>
-        <button class="jpdb-reader-newtab-theme" type="button" data-newtab-action="theme" aria-label="Switch theme" title="Switch theme"><span data-newtab-theme-icon aria-hidden="true">☾</span></button>
+        <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
+          <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-newtab-action="theme" aria-label="Switch to light theme" aria-checked="false" title="Switch to light theme">
+            <span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>
+          </button>
+        </div>
         <a class="jpdb-reader-newtab-overflow" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">...</a>
       </header>
       <section class="jpdb-reader-newtab-study" data-newtab-study>
         <div class="jpdb-reader-newtab-count" data-newtab-count></div>
-        <div class="jpdb-reader-newtab-prompt" data-newtab-prompt lang="en">Start with a dictionary</div>
+        <h1 class="jpdb-reader-newtab-prompt" data-newtab-prompt lang="en">Start with a dictionary</h1>
         <div class="jpdb-reader-newtab-answer" data-newtab-answer>
           <div class="jpdb-reader-newtab-reading" data-newtab-reading>Add a dictionary to turn this page into study cards.</div>
           <div class="jpdb-reader-newtab-meaning" data-newtab-meaning>It stays in this browser and is ready whenever a new tab opens.</div>
@@ -294,12 +357,11 @@
       const applyTheme = theme => {
         document.documentElement.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
         document.documentElement.classList.toggle('jpdb-reader-theme-light', theme === 'light');
-        const icon = root.querySelector('[data-newtab-theme-icon]');
         const button = root.querySelector('[data-newtab-action="theme"]');
-        if (icon) icon.textContent = theme === 'dark' ? '☀' : '☾';
         if (button) {
           const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
           button.setAttribute('aria-label', label);
+          button.setAttribute('aria-checked', String(theme === 'light'));
           button.title = label;
         }
       };

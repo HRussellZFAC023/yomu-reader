@@ -1,5 +1,3 @@
-/// <reference types="vitest" />
-import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
@@ -7,12 +5,9 @@ import pkg from './package.json' with { type: 'json' };
 
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
+const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
 const rawUserscriptUrl = `https://raw.githubusercontent.com/${githubOwner}/${pkg.name}/main/dist/yomu.user.js`;
-const userscriptIconSvg = readFileSync(new URL('./src/reader/assets/yomu-icon.svg', import.meta.url), 'utf8')
-    .replace(/>\s+</g, '><')
-    .replace(/\s+\/>/g, '/>')
-    .trim();
-const userscriptIcon = `data:image/svg+xml,${encodeURIComponent(userscriptIconSvg)}`;
+const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 
 export default defineConfig({
     plugins: [
@@ -54,6 +49,7 @@ export default defineConfig({
                 description: 'JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.',
                 author: 'Henry',
                 match: ['*://*/*', 'file:///*'],
+                exclude: [`${docsUrl}*`],
                 connect: [
                     'jpdb.io',
                     'apiv2.immersionkit.com',
