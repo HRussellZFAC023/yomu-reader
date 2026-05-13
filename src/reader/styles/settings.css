@@ -410,8 +410,11 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
+.jpdb-reader-support-card + .jpdb-reader-support-card {
+  margin-top: 12px;
+}
 .jpdb-reader-help-links-card {
-  margin-bottom: 12px;
+  /* removed redundant margin-bottom */
 }
 .jpdb-reader-help-links-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));

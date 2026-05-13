@@ -874,7 +874,8 @@
 .jpdb-reader-grades .jpdb-reader-btn.easy::before,
 .jpdb-reader-btn.pass::before { content: "✔"; }
 .jpdb-reader-btn.add {
-  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
+  --button-accent: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-reader-btn.nf {
   --button-accent: var(--jpdb-reader-state-known, #7bd88f);
