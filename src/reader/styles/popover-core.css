@@ -15,7 +15,7 @@
   border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0,0,0,.34);
   color: var(--jpdb-reader-text);
-  color-scheme: dark;
+  color-scheme: light dark;
   font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -25,6 +25,31 @@
   overflow: auto;
   padding: 14px;
   container-type: inline-size;
+}
+
+:root.jpdb-reader-theme-dark .jpdb-reader-popover,
+:root.jpdb-reader-theme-dark .jpdb-reader-settings,
+:root.jpdb-reader-theme-dark .jpdb-reader-onboarding {
+  color-scheme: dark;
+}
+:root.jpdb-reader-theme-light .jpdb-reader-popover,
+:root.jpdb-reader-theme-light .jpdb-reader-settings,
+:root.jpdb-reader-theme-light .jpdb-reader-onboarding {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,
+  :root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,
+  :root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding {
+    color-scheme: dark;
+  }
+}
+@media (prefers-color-scheme: light) {
+  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,
+  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,
+  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding {
+    color-scheme: light;
+  }
 }
 
 .jpdb-reader-sheet-handle {
@@ -121,7 +146,7 @@
     var(--jpdb-reader-bg);
   color: var(--jpdb-reader-text);
   box-shadow: 0 26px 70px rgba(0,0,0,.4);
-  color-scheme: dark;
+  color-scheme: light dark;
   font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 .jpdb-reader-onboarding-close {

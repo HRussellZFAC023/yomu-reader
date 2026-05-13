@@ -220,6 +220,7 @@
 }
 
 .jpdb-reader-newtab-controls {
+  justify-self: center;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 8px;

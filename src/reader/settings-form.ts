@@ -113,7 +113,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                 <legend>Interface</legend>
                 <div class="grid">
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
-                    ${select('theme', 'Theme', settings.theme, [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']])}
+                    ${themeSegmentedControl(settings.theme)}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
                     ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
@@ -413,6 +413,23 @@ export function select(name: string, label: string, value: string, options: [str
     ).join('')}</select></label>`;
 }
 
+function themeSegmentedControl(value: ReaderSettings['theme']): string {
+    const options: Array<[ReaderSettings['theme'], string]> = [['auto', 'Auto'], ['dark', 'Dark'], ['light', 'Light']];
+    return `
+        <div class="jpdb-reader-segment-field" data-theme-segment>
+            <span class="jpdb-reader-segment-title" id="jpdb-reader-theme-label" data-theme-segment-title>Theme</span>
+            <div class="jpdb-reader-segmented" role="radiogroup" aria-labelledby="jpdb-reader-theme-label">
+                ${options.map(([optionValue, label]) => `
+                    <label>
+                        <input type="radio" name="theme" value="${optionValue}" ${optionValue === value ? 'checked' : ''}>
+                        <span>${escapeHtml(label)}</span>
+                    </label>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
 export function getFormInterfaceLanguage(form: HTMLFormElement, fallback: InterfaceLanguage): InterfaceLanguage {
     const value = getNamedControl<HTMLSelectElement>(form, 'interfaceLanguage')?.value;
     return value === 'auto' || value === 'en' || value === 'ja' ? value : fallback;
@@ -464,7 +481,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['enableReviews', 'enableReviews'],
         ['twoButtonReviews', 'reviewRatingScale'],
         ['interfaceLanguage', 'settingsLanguage'],
-        ['theme', 'theme'],
         ['popupMode', 'popupMode'],
         ['popoverWidth', 'popoverWidth'],
         ['popoverHeight', 'popoverHeight'],
@@ -627,11 +643,15 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['en', text('english')],
         ['ja', text('japanese')],
     ]);
-    setSelectOptionLabels(form, 'theme', [
-        ['auto', text('auto')],
-        ['dark', text('dark')],
-        ['light', text('light')],
-    ]);
+    form.querySelector<HTMLElement>('[data-theme-segment-title]')?.replaceChildren(text('theme'));
+    const themeSegment = form.querySelector<HTMLElement>('[data-theme-segment] .jpdb-reader-segmented');
+    themeSegment?.setAttribute('aria-label', text('theme'));
+    form.querySelectorAll<HTMLInputElement>('[data-theme-segment] input[name="theme"]').forEach(inputEl => {
+        const label = inputEl.value === 'dark'
+            ? text('dark')
+            : inputEl.value === 'light' ? text('light') : text('auto');
+        inputEl.closest('label')?.querySelector('span')?.replaceChildren(label);
+    });
     setSelectOptionLabels(form, 'popupMode', [
         ['auto', text('auto')],
         ['sheet', text('bottomSheet')],
