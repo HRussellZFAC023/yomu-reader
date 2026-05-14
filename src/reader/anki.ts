@@ -443,6 +443,10 @@ function postJson<T>(url: string, body: string): Promise<T> {
         });
     }
 
+    if (!canFetchAnkiConnect(url)) {
+        return Promise.reject(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
+    }
+
     return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -451,6 +455,16 @@ function postJson<T>(url: string, body: string): Promise<T> {
         if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
         return response.json() as Promise<T>;
     });
+}
+
+function canFetchAnkiConnect(url: string): boolean {
+    try {
+        const target = new URL(url, location.href);
+        if (target.origin === location.origin) return true;
+        return ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+    } catch {
+        return false;
+    }
 }
 
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {

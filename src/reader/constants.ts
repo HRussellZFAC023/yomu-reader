@@ -13,6 +13,7 @@ export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 export const FALLBACK_SETUP_SOURCE_ID = '__fallback_setup__';
 export const JPDB_DEFINITION_SOURCE_ID = '__jpdb__';
 export const JPDB_DEFINITION_EXAMPLES_SOURCE_ID = '__jpdb_examples__';
+export const STUDY_TOOLS_SOURCE_ID = '__study_tools__';
 export const STUDY_TRANSLATION_SOURCE_ID = '__study_translation__';
 export const STUDY_GRAMMAR_SOURCE_ID = '__study_grammar__';
 export const IMMERSION_KIT_SOURCE_ID = '__immersion_kit__';

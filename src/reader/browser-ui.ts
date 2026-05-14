@@ -128,8 +128,11 @@ function getPopoverSourceRects(anchor: HTMLElement | undefined, fallbackRect: DO
     const selection = window.getSelection();
     if (!selection?.rangeCount) return [];
     const range = selection.getRangeAt(0);
-    const selectionRects = rectListToPopoverRects(range.getClientRects());
+    const selectionRects = typeof range.getClientRects === 'function'
+        ? rectListToPopoverRects(range.getClientRects())
+        : [];
     if (selectionRects.length) return selectionRects;
+    if (typeof range.getBoundingClientRect !== 'function') return [];
     const rect = domRectToPopoverRect(range.getBoundingClientRect());
     return hasRectArea(rect) ? [rect] : [];
 }

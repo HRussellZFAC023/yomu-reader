@@ -73,6 +73,7 @@
   font-family: inherit;
   font-weight: 650;
   line-height: 1.25;
+  min-height: 24px;
   text-shadow: 0 2px 2px #000, 0 0 7px rgba(0,0,0,.86);
   cursor: pointer;
   white-space: pre-wrap;
@@ -619,6 +620,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
   box-shadow: inset 2px 0 0 var(--jpdb-reader-accent);
 }
+.jpdb-subtitle-list .jpdb-reader-word {
+  color: inherit !important;
+}
 .jpdb-subtitle-row-time {
   color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
   font-size: 16px;
@@ -653,6 +657,22 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   word-break: break-word;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+}
+.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
+.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
+.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
+.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
+.jpdb-reader-subtitle-underline-status .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }
+.jpdb-reader-subtitle-text-status .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, var(--jpdb-reader-text, #fff)) !important; }
+.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-text, #fff)) !important; }
+.jpdb-reader-subtitle-text-anki .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-text, #fff)) !important; }
+.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-text, #fff)) !important; }
+.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,
+.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby {
+  color: inherit !important;
 }
 .jpdb-subtitle-row-text ruby,
 .jpdb-subtitle-row-text rt,
@@ -841,7 +861,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     top: auto !important;
     bottom: 0 !important;
     width: 100%;
-    max-height: min(70vh, 620px);
+    max-height: min(calc(70vh + var(--jpdb-reader-sheet-drag-up, 0px)), 100vh);
+    max-height: min(calc(70svh + var(--jpdb-reader-sheet-drag-up, 0px)), 100svh);
     border-radius: 16px 16px 0 0;
     padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
   }
@@ -858,7 +879,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
   }
   .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
+    height: 100vh;
     max-height: 100vh;
+    height: 100svh;
     max-height: 100svh;
     border-radius: 0;
     padding-top: max(8px, env(safe-area-inset-top));

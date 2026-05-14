@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import { getUserscriptHttpRequest } from './userscript';
 
 export interface RtkInfo {
@@ -9,17 +10,20 @@ export interface RtkInfo {
     kunYomi: string;
     elements: string;
     componentKanji: string[];
+    elementGlyphs?: Record<string, RtkElementGlyph>;
     heisigStory: string;
     heisigComment: string;
     koohiiStories: string[];
 }
 
 const RTK_BASE_URL = 'https://hrussellzfac023.github.io/rtk';
+const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const log = Logger.scope('RTK');
 
 export class RtkClient {
     private cache = new Map<string, Promise<RtkInfo | null>>();
+    private keywordIndex?: Promise<Map<string, string>>;
 
     lookup(kanji: string): Promise<RtkInfo | null> {
         if (!KANJI_RE.test(kanji)) return Promise.resolve(null);
@@ -43,7 +47,37 @@ export class RtkClient {
         if (!html) return null;
         const info = parseRtkHtml(html, kanji);
         log.debug('RTK info parsed', { kanji, found: Boolean(info), keyword: info?.keyword ?? '' });
-        return info;
+        return info ? this.withElementGlyphs(info) : null;
+    }
+
+    private async withElementGlyphs(info: RtkInfo): Promise<RtkInfo> {
+        const index = await this.lookupKeywordIndex().catch(error => {
+            log.debug('RTK keyword index unavailable', { kanji: info.kanji }, error);
+            return new Map<string, string>();
+        });
+        const elementGlyphs: Record<string, RtkElementGlyph> = {};
+        splitRtkElements(info.elements)
+            .filter(keyword => rtkElementKey(keyword) !== rtkElementKey(info.keyword))
+            .forEach(keyword => {
+                const key = rtkElementKey(keyword);
+                const fallback = rtkElementFallbackGlyph(keyword);
+                const indexedKanji = index.get(key) ?? index.get(compactRtkElementKey(key));
+                const glyph = fallback ?? (indexedKanji ? { glyph: indexedKanji, kanji: indexedKanji } : undefined);
+                if (glyph) elementGlyphs[key] = glyph;
+            });
+        return Object.keys(elementGlyphs).length ? { ...info, elementGlyphs } : info;
+    }
+
+    private lookupKeywordIndex(): Promise<Map<string, string>> {
+        if (!this.keywordIndex) {
+            this.keywordIndex = requestText(RTK_SEARCH_INDEX_URL)
+                .then(parseRtkSearchIndex)
+                .catch(error => {
+                    this.keywordIndex = undefined;
+                    throw error;
+                });
+        }
+        return this.keywordIndex;
     }
 }
 
@@ -73,6 +107,36 @@ export function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
         heisigComment,
         koohiiStories,
     };
+}
+
+export function parseRtkSearchIndex(script: string): Map<string, string> {
+    const entries = new Map<string, string>();
+    const collisions = new Set<string>();
+    const entryRe = /"kanji"\s*:\s*"([^"]+)"[\s\S]*?"keyword"\s*:\s*"([^"]+)"/g;
+    let match: RegExpExecArray | null;
+    while ((match = entryRe.exec(script))) {
+        const kanji = Array.from(match[1] ?? '').find(character => KANJI_RE.test(character)) ?? '';
+        const keyword = match[2] ?? '';
+        if (!kanji || !keyword) continue;
+        addRtkKeywordIndexEntry(entries, collisions, rtkElementKey(keyword), kanji);
+        addRtkKeywordIndexEntry(entries, collisions, compactRtkElementKey(keyword), kanji);
+    }
+    return entries;
+}
+
+function addRtkKeywordIndexEntry(entries: Map<string, string>, collisions: Set<string>, key: string, kanji: string): void {
+    if (!key || collisions.has(key)) return;
+    const existing = entries.get(key);
+    if (existing && existing !== kanji) {
+        entries.delete(key);
+        collisions.add(key);
+        return;
+    }
+    entries.set(key, kanji);
+}
+
+function compactRtkElementKey(value: string): string {
+    return rtkElementKey(value).replace(/\s+/g, '');
 }
 
 function textAfterHeading(doc: Document, label: string): string {

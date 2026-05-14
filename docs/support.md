@@ -21,7 +21,7 @@
 
 よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.
 
-Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Even a small donation helps bring that future closer, and it also encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.
+Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.
 
 ## Project Links
 

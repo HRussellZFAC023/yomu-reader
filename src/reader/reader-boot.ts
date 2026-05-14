@@ -1,6 +1,7 @@
 import { appendToDocumentHead } from './dom';
 import { Logger } from './logger';
 import { ReaderApp } from './main';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent } from './window-events';
 
 type YomuRuntimeKind = 'demo' | 'userscript' | 'extension';
 
@@ -44,10 +45,10 @@ export function bootReaderApp(): void {
     bindRuntimeClaims(app, ownerId, runtimeKind);
     if (isRealRuntime) {
         bootWindow.__yomuRealApp = app;
-        window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
+        dispatchWindowEvent(createWindowCustomEvent('yomu-extension-loaded'));
     } else {
         bootWindow.__yomuDemoApp = app;
-        window.addEventListener('yomu-extension-loaded', () => {
+        addWindowEventListener('yomu-extension-loaded', () => {
             if (bootWindow.__yomuDemoApp === app) {
                 app.destroy();
                 delete bootWindow.__yomuDemoApp;
@@ -88,9 +89,7 @@ function claimYomuRuntime(kind: YomuRuntimeKind): string | null {
         return null;
     }
 
-    window.dispatchEvent(new CustomEvent('yomu-reader-runtime-claim', {
-        detail: { ownerId, kind, priority: runtimePriority(kind) },
-    }));
+    dispatchWindowEvent(createWindowCustomEvent('yomu-reader-runtime-claim', { ownerId, kind, priority: runtimePriority(kind) }));
     const marker = existing ?? document.createElement('meta');
     marker.id = RUNTIME_MARKER_ID;
     marker.dataset.yomuRuntimeKind = kind;
@@ -102,7 +101,7 @@ function claimYomuRuntime(kind: YomuRuntimeKind): string | null {
 }
 
 function bindRuntimeClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): void {
-    window.addEventListener('yomu-reader-runtime-claim', event => {
+    addWindowEventListener('yomu-reader-runtime-claim', event => {
         const detail = (event as CustomEvent).detail as Partial<{ ownerId: string; kind: YomuRuntimeKind; priority: number }> | undefined;
         if (!detail || detail.ownerId === ownerId) return;
         const nextKind = normalizeRuntimeKind(detail.kind);

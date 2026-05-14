@@ -1,10 +1,10 @@
 import { escapeHtml, setInnerHtml } from './dom';
 import { Logger } from './logger';
-import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence } from './study-tools';
+import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence, type GrammarHint } from './study-tools';
 
 const log = Logger.scope('StudyRender');
 
-export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string): Promise<void> {
+export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[]): Promise<void> {
     const panel = button.closest('.jpdb-reader-study-tools')?.querySelector<HTMLElement>('[data-study-panel]');
     if (!panel || !sentence) return;
     panel.hidden = false;
@@ -19,7 +19,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
             done();
         }
     }
-    const hints = detectGrammarHints(sentence);
+    const hints = grammarHints ?? detectGrammarHints(sentence);
     if (!hints.length) {
         panel.hidden = true;
         panel.textContent = '';

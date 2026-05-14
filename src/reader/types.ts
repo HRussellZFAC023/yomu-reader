@@ -390,6 +390,11 @@ declare global {
     const GM_getValue: undefined | (<T>(key: string, defaultValue: T) => T | Promise<T>);
     const GM_deleteValue: undefined | ((key: string) => void | Promise<void>);
     const GM_listValues: undefined | (() => string[] | Promise<string[]>);
+    const GM_addValueChangeListener: undefined | ((
+        key: string,
+        listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
+    ) => number);
+    const GM_removeValueChangeListener: undefined | ((listenerId: number) => void);
     const GM_addStyle: undefined | ((css: string) => void);
     const GM_registerMenuCommand: undefined | ((name: string, fn: () => void) => void);
 }

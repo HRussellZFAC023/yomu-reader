@@ -904,13 +904,14 @@ function renderImmersionPanel(
         setInnerHtml(container, `
             <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-immersion-group" ${sourceStateAttributes}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">Immersion Kit</span>
                 <span class="jpdb-reader-local-dict">${escapeHtml(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
-                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="Previous example" aria-label="Previous example">‹</button>
-                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="Play example audio" aria-label="Play example audio">${speakerIcon()}</button>` : ''}
-                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="Next example" aria-label="Next example">›</button>
-                </div>
             </summary>
+            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="Previous example" aria-label="Previous example">‹</button>
+                ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="Play example audio" aria-label="Play example audio">${speakerIcon()}</button>` : ''}
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="Next example" aria-label="Next example">›</button>
+            </div>
             <div class="jpdb-reader-local-glossary">
                 <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}">
                     <div class="jpdb-reader-example-body">

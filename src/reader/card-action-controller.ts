@@ -7,6 +7,7 @@ import { uiText } from './i18n';
 import type { MiningContext } from './mining-context';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
+import type { GrammarHint } from './study-tools';
 
 interface CardActionControllerOptions {
     getSettings: () => ReaderSettings;
@@ -21,6 +22,8 @@ interface CardActionControllerOptions {
     showSettings: (panel?: string) => void;
     playAudio: (card: JPDBCard) => Promise<void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
+    detectGrammarHints: (sentence: string) => Promise<GrammarHint[]>;
+    parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
 }
 
@@ -32,10 +35,15 @@ export class CardActionController {
             case 'study-grammar-toggle-known':
             case 'study-grammar-toggle-known-visibility':
                 handleStudyGrammarAction(button, sentence);
+                void this.reparsePopoverJapanese(button);
                 return false;
             case 'study-translate':
-            case 'study-grammar':
                 await renderStudyToolResult(button, action, sentence);
+                void this.reparsePopoverJapanese(button);
+                return false;
+            case 'study-grammar':
+                await renderStudyToolResult(button, action, sentence, sentence ? await this.options.detectGrammarHints(sentence) : undefined);
+                void this.reparsePopoverJapanese(button);
                 return false;
             case 'study-read-sentence':
                 await this.options.playSentenceAudio(sentence);
@@ -76,8 +84,17 @@ export class CardActionController {
         }
     }
 
+    private async reparsePopoverJapanese(button: HTMLButtonElement): Promise<void> {
+        const popover = button.closest<HTMLElement>('.jpdb-reader-popover');
+        if (!popover) return;
+        delete popover.dataset.jpdbReaderParseKey;
+        delete popover.dataset.jpdbReaderParseLoadingKey;
+        await this.options.parsePopoverJapanese(popover);
+    }
+
     private assertJpdbActionAllowed(card: JPDBCard, message: string): void {
         if (!this.options.getSettings().jpdbMiningEnabled) throw new Error('JPDB mining actions are disabled in settings.');
+        if (!this.options.getSettings().apiKey.trim()) throw new Error(message);
         if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
 

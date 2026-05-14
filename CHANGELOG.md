@@ -6,6 +6,15 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [0.4.9] - 2026-05-14
+
+### Fixed
+
+- Restored the hosted new-tab demo so local dictionary cards, nested popup dictionary links, kanji drilldowns, and similar-word lookups work even before the userscript is installed.
+- Preserved Immersion Kit context when mining from nested example lookups, including the active example image in Anki notes.
+- Restored explicit transcript and track-picker subtitle controls, kept the transcript drawer closed by default, and tightened transcript accessibility contrast/target sizing.
+- Reworked release QA coverage for the hosted docs/new-tab page, JPDB add-ons, OCR, Immersion Kit, subtitles, and userscript bundle verification.
+
 ## [0.4.8] - 2026-05-14
 
 ### Added
@@ -18,11 +27,14 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 - Improved subtitle sentence recovery, transcript hydration, OCR/site parser handling, and audio preview matching so mining and playback stay more reliable around transcript-heavy pages.
 - Updated popup and kanji navigation so nested kanji drilldowns can return through prior kanji cards or back to the source word without losing position.
+- Made the support/donation copy more transparent about the AI/API token costs behind よむ development.
 
 ### Fixed
 
 - Prevented side transcript layouts from shrinking videos too aggressively by falling back below the player when space gets too tight.
 - Tightened JPDB page parsing and popup rendering so compounds, examples, and kana-backed audio behave more consistently on compound-heavy entries.
+- Restored no-key JPDB public lookup data so popup JPDB definitions/examples, public pitch accent, and JPDB kanji details load from public pages while mining stays API-key gated.
+- Made the reset-all command refresh back into first-run onboarding and tell other open よむ tabs to drop stale stores before reloading.
 
 ## [0.4.7] - 2026-05-13
 

@@ -1,4 +1,5 @@
 import { ReaderApp } from './main';
+import { addWindowEventListener } from './window-events';
 
 export function initDemo() {
     const bootWindow = window as any;
@@ -16,7 +17,7 @@ export function initDemo() {
     const app = new ReaderApp();
     bootWindow.__yomuDemoApp = app;
 
-    window.addEventListener('yomu-extension-loaded', () => {
+    addWindowEventListener('yomu-extension-loaded', () => {
         if (bootWindow.__yomuDemoApp === app) {
             app.destroy();
             delete bootWindow.__yomuDemoApp;

@@ -22,8 +22,13 @@ const versionPath = '/__yomu-dev-version.json';
 const autoReload = process.env.YOMU_DEV_AUTO_RELOAD === '1';
 const loggingEnabled = isEnabledEnv(process.env.YOMU_ENABLE_LOGS);
 const pageInjectionEnabled = isEnabledEnv(process.env.YOMU_DEV_PAGE_INJECTION);
+const devServerStartedAt = Date.now();
+const firstBuildTimeoutMs = 30_000;
+const firstBuildPollMs = 100;
+const buildFreshnessSkewMs = 2_000;
 
 let closing = false;
+let firstBuildReadyPromise;
 const builder = spawn(process.execPath, [viteBin, 'build', '--watch', '--mode', 'development'], {
     cwd: root,
     env: {
@@ -103,6 +108,7 @@ async function serveMetadata(res) {
 }
 
 async function readDevUserscript() {
+    await waitForFreshInitialBuild();
     const [info, raw] = await Promise.all([stat(userscriptPath), readFile(userscriptPath, 'utf8')]);
     const versionSuffix = Math.floor(info.mtimeMs / 1000);
     const version = `${packageVersion(raw)}.${versionSuffix}`;
@@ -119,6 +125,21 @@ async function readDevUserscript() {
     const metadata = code.match(/^\/\/ ==UserScript==[\s\S]*?^\/\/ ==\/UserScript==/m)?.[0];
     if (!metadata) throw new Error('Userscript metadata block not found');
     return { code, metadata, version, mtimeMs: info.mtimeMs };
+}
+
+function waitForFreshInitialBuild() {
+    firstBuildReadyPromise ??= waitForFreshUserscriptBuild();
+    return firstBuildReadyPromise;
+}
+
+async function waitForFreshUserscriptBuild() {
+    const deadline = Date.now() + firstBuildTimeoutMs;
+    while (Date.now() < deadline) {
+        const info = await stat(userscriptPath).catch(() => null);
+        if (info?.isFile() && info.mtimeMs >= devServerStartedAt - buildFreshnessSkewMs) return;
+        await delay(firstBuildPollMs);
+    }
+    throw new Error(`Timed out waiting for a fresh Vite userscript build at ${userscriptPath}`);
 }
 
 async function serveRuntime(res) {
@@ -197,7 +218,7 @@ function devBootstrap() {
   }
 
   function runRuntime(source) {
-    if (pageInjectionEnabled && typeof GM_addElement === 'function') {
+    if (pageInjectionEnabled) {
       try {
         runRuntimeWithInjectedScript(source);
         return;
@@ -205,11 +226,21 @@ function devBootstrap() {
         console.warn('[yomu dev] Page injection failed; falling back to userscript sandbox eval.', error);
       }
     }
-    runRuntimeInUserscriptSandbox(source);
+    try {
+      runRuntimeInUserscriptSandbox(source);
+    } catch (error) {
+      if (!isEvalCspError(error)) throw error;
+      if (typeof GM_addElement !== 'function') {
+        console.warn('[yomu dev] Userscript sandbox eval was blocked by CSP, but GM_addElement is unavailable. Restart the dev server and reinstall or update the dev userscript so the fallback grant is present.', error);
+        throw error;
+      }
+      console.warn('[yomu dev] Userscript sandbox eval was blocked by CSP; falling back to page injection bridge.', error);
+      runRuntimeWithInjectedScript(source);
+    }
   }
 
   function runRuntimeInUserscriptSandbox(source) {
-    (0, eval)(source + '\\n//# sourceURL=' + runtimeUrl);
+    eval(source + '\\n//# sourceURL=' + runtimeUrl);
   }
 
   function runRuntimeWithInjectedScript(source) {
@@ -238,23 +269,31 @@ function devBootstrap() {
 
   function wrappedRuntimeSource(source, bridgeKey, mountedKey) {
     return [
-      '(function () {',
+      '(function (realGlobalThis) {',
       '  \\'use strict\\';',
       '  const bridgeKey = ' + JSON.stringify(bridgeKey) + ';',
       '  const mountedKey = ' + JSON.stringify(mountedKey) + ';',
-      '  const bridge = window[bridgeKey] || {};',
-      '  try { delete window[bridgeKey]; } catch { window[bridgeKey] = undefined; }',
+      '  const bridge = realGlobalThis[bridgeKey] || {};',
+      '  try { delete realGlobalThis[bridgeKey]; } catch { realGlobalThis[bridgeKey] = undefined; }',
       '  try { Object.defineProperty(document, mountedKey, { value: bridge, configurable: true }); } catch {}',
-      '  window.addEventListener(\\'pagehide\\', () => { try { delete document[mountedKey]; } catch {} }, { once: true });',
+      '  realGlobalThis.addEventListener(\\'pagehide\\', () => { try { delete document[mountedKey]; } catch {} }, { once: true });',
+      '  const globalThis = typeof Proxy === \\'function\\' ? new Proxy(realGlobalThis, {',
+      '    get(target, key, receiver) { return key in bridge ? bridge[key] : Reflect.get(target, key, receiver); },',
+      '    has(target, key) { return key in bridge || key in target; },',
+      '  }) : realGlobalThis;',
       '  const GM = bridge.GM;',
+      '  const GM_info = bridge.GM_info;',
       '  const GM_xmlhttpRequest = bridge.GM_xmlhttpRequest;',
       '  const GM_getValue = bridge.GM_getValue;',
       '  const GM_setValue = bridge.GM_setValue;',
       '  const GM_deleteValue = bridge.GM_deleteValue;',
+      '  const GM_listValues = bridge.GM_listValues;',
+      '  const GM_addValueChangeListener = bridge.GM_addValueChangeListener;',
+      '  const GM_removeValueChangeListener = bridge.GM_removeValueChangeListener;',
       '  const GM_addStyle = bridge.GM_addStyle;',
       '  const GM_registerMenuCommand = bridge.GM_registerMenuCommand;',
       source,
-      '})();',
+      '})(globalThis);',
       '//# sourceURL=' + runtimeUrl,
     ].join('\\n');
   }
@@ -262,10 +301,15 @@ function devBootstrap() {
   function userscriptApiBridge() {
     const gm = typeof GM === 'object' && GM ? GM : undefined;
     return {
+      __YOMU_READER_RUNTIME__: 'userscript',
+      GM_info: typeof GM_info === 'object' && GM_info ? GM_info : undefined,
       GM_xmlhttpRequest: typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : undefined,
       GM_getValue: typeof GM_getValue === 'function' ? GM_getValue : undefined,
       GM_setValue: typeof GM_setValue === 'function' ? GM_setValue : undefined,
       GM_deleteValue: typeof GM_deleteValue === 'function' ? GM_deleteValue : undefined,
+      GM_listValues: typeof GM_listValues === 'function' ? GM_listValues : undefined,
+      GM_addValueChangeListener: typeof GM_addValueChangeListener === 'function' ? GM_addValueChangeListener : undefined,
+      GM_removeValueChangeListener: typeof GM_removeValueChangeListener === 'function' ? GM_removeValueChangeListener : undefined,
       GM_addStyle: typeof GM_addStyle === 'function' ? GM_addStyle : undefined,
       GM_registerMenuCommand: typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : undefined,
       GM: gm ? {
@@ -280,6 +324,12 @@ function devBootstrap() {
       if (typeof unsafeWindow === 'object' && unsafeWindow) return unsafeWindow;
     } catch {}
     return window;
+  }
+
+  function isEvalCspError(error) {
+    const name = error && error.name;
+    const message = String(error && error.message || error || '');
+    return name === 'EvalError' || /unsafe-eval|Content Security Policy|Refused to evaluate/i.test(message);
   }
 
   function randomId() {
@@ -425,6 +475,10 @@ function canListen(candidate) {
             probe.close(() => resolve(true));
         });
     });
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function isEnabledEnv(value) {

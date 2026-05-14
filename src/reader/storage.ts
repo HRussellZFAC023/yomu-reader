@@ -1,4 +1,41 @@
 const MISSING = { missing: true };
+const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
+const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
+const MANAGED_STORAGE_KEY_PREFIXES = [
+    'yomu-',
+    'yomu:',
+    'yomu.',
+    'jpdb-reader-',
+    'jpdb-popup-reader-',
+];
+const KNOWN_MANAGED_STORAGE_KEYS = [
+    'jpdb-popup-reader-settings',
+    'jpdb-reader-newtab-card-cache',
+    'jpdb-reader-newtab-current-word',
+    'jpdb-reader-newtab-install-dictionary',
+    'jpdb-reader-newtab-ui',
+    'jpdb-reader-transcript-panel-size',
+    'yomu-jpdb-doodle-current-drawing',
+    'yomu-jpdb-review-examples-open',
+    'yomu.grammarPreferences.v1',
+    'yomu.hanabiraGrammarIndex.v1',
+    'yomu:enable-logs',
+    FACTORY_RESET_SIGNAL_KEY,
+];
+
+export type FactoryResetSignalPhase = 'prepare' | 'complete';
+
+export interface FactoryResetSignal {
+    id: string;
+    phase: FactoryResetSignalPhase;
+    at: number;
+    href: string;
+}
+
+export interface FactoryResetSignalSource {
+    remote: boolean;
+    transport: 'gm-storage' | 'broadcast-channel' | 'web-storage';
+}
 
 export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
     if (typeof GM_getValue === 'function') {
@@ -60,30 +97,27 @@ export function gmStorageSetSync(key: string, value: unknown): void {
 
 export async function gmStorageDelete(key: string): Promise<void> {
     if (typeof GM_deleteValue === 'function') {
-        await GM_deleteValue(key);
-        return;
+        try {
+            await GM_deleteValue(key);
+        } catch (error) {
+            debugStorageError('GM storage delete failed', key, error);
+        }
     }
-    try {
-        localStorage.removeItem(key);
-    } catch {
-        // Ignore storage failures.
-    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
 }
 
 export function gmStorageDeleteSync(key: string): void {
     if (typeof GM_deleteValue === 'function') {
         try {
             const result = GM_deleteValue(key);
-            if (!isPromiseLike(result)) return;
+            if (isPromiseLike(result)) result.catch(error => debugStorageError('GM storage async delete failed', key, error));
         } catch (error) {
             debugStorageError('GM storage sync delete failed', key, error);
         }
     }
-    try {
-        localStorage.removeItem(key);
-    } catch {
-        // Ignore storage failures.
-    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
 }
 
 export async function exportStoredValues(prefixes: string[]): Promise<Record<string, unknown>> {
@@ -115,6 +149,79 @@ export async function clearManagedStoredValues(): Promise<number> {
     return count;
 }
 
+export function createFactoryResetSignal(phase: FactoryResetSignalPhase, id = createFactoryResetId()): FactoryResetSignal {
+    return {
+        id,
+        phase,
+        at: Date.now(),
+        href: location.href,
+    };
+}
+
+export async function publishFactoryResetSignal(signal: FactoryResetSignal): Promise<void> {
+    const normalized = normalizeFactoryResetSignal(signal);
+    await gmStorageSet(FACTORY_RESET_SIGNAL_KEY, normalized);
+    publishBroadcastFactoryResetSignal(normalized);
+}
+
+export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSignal, source: FactoryResetSignalSource) => void): () => void {
+    const cleanups: Array<() => void> = [];
+    const addValueChangeListener = (globalThis as {
+        GM_addValueChangeListener?: (
+            key: string,
+            listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
+        ) => number;
+    }).GM_addValueChangeListener;
+    const removeValueChangeListener = (globalThis as {
+        GM_removeValueChangeListener?: (listenerId: number) => void;
+    }).GM_removeValueChangeListener;
+
+    if (typeof addValueChangeListener === 'function') {
+        try {
+            const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+                const signal = parseFactoryResetSignal(newValue);
+                if (signal) onSignal(signal, { remote, transport: 'gm-storage' });
+            });
+            cleanups.push(() => {
+                if (typeof removeValueChangeListener === 'function') removeValueChangeListener(listenerId);
+            });
+        } catch (error) {
+            debugStorageError('GM factory reset listener failed', FACTORY_RESET_SIGNAL_KEY, error);
+        }
+    }
+
+    if (typeof BroadcastChannel === 'function') {
+        try {
+            const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+            channel.onmessage = event => {
+                const signal = parseFactoryResetSignal(event.data);
+                if (signal) onSignal(signal, { remote: true, transport: 'broadcast-channel' });
+            };
+            cleanups.push(() => channel.close());
+        } catch (error) {
+            debugStorageError('Broadcast factory reset listener failed', FACTORY_RESET_CHANNEL_NAME, error);
+        }
+    }
+
+    const onStorage = (event: StorageEvent): void => {
+        if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
+        const signal = parseFactoryResetSignal(event.newValue);
+        if (signal) onSignal(signal, { remote: true, transport: 'web-storage' });
+    };
+    window.addEventListener('storage', onStorage);
+    cleanups.push(() => window.removeEventListener('storage', onStorage));
+
+    return () => {
+        while (cleanups.length) {
+            try {
+                cleanups.pop()?.();
+            } catch {
+                // Best-effort listener cleanup.
+            }
+        }
+    };
+}
+
 async function storageKeys(prefixes: string[]): Promise<string[]> {
     const keys = new Set<string>();
     const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
@@ -135,6 +242,9 @@ async function storageKeys(prefixes: string[]): Promise<string[]> {
     } catch {
         // Ignore localStorage enumeration failures.
     }
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+        if (prefixes.some(prefix => key.startsWith(prefix)) && await storedValueExists(key)) keys.add(key);
+    }
     return [...keys].sort();
 }
 
@@ -150,6 +260,9 @@ async function allStorageKeys(): Promise<string[]> {
     }
     collectWebStorageKeys(localStorage, keys);
     collectWebStorageKeys(sessionStorage, keys);
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+        if (await storedValueExists(key)) keys.add(key);
+    }
     return [...keys].sort();
 }
 
@@ -197,16 +310,79 @@ function removeSessionStorageKey(key: string): void {
     }
 }
 
+async function storedValueExists(key: string): Promise<boolean> {
+    if (typeof GM_getValue === 'function') {
+        try {
+            if (await GM_getValue<unknown | typeof MISSING>(key, MISSING) !== MISSING) return true;
+        } catch (error) {
+            debugStorageError('GM storage existence check failed', key, error);
+        }
+    }
+    return webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key);
+}
+
+function webStorageHasKey(storage: Storage, key: string): boolean {
+    try {
+        return storage.getItem(key) !== null;
+    } catch {
+        return false;
+    }
+}
+
 function isPromiseLike(value: unknown): value is Promise<unknown> {
     return Boolean(value) && typeof (value as Promise<unknown>).then === 'function';
 }
 
+function normalizeFactoryResetSignal(signal: FactoryResetSignal): FactoryResetSignal {
+    return {
+        id: String(signal.id || createFactoryResetId()),
+        phase: signal.phase === 'complete' ? 'complete' : 'prepare',
+        at: typeof signal.at === 'number' && Number.isFinite(signal.at) ? signal.at : Date.now(),
+        href: typeof signal.href === 'string' ? signal.href : location.href,
+    };
+}
+
+function parseFactoryResetSignal(value: unknown): FactoryResetSignal | null {
+    const parsed = typeof value === 'string' ? parseJsonRecord(value) : value;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const record = parsed as Partial<FactoryResetSignal>;
+    if (typeof record.id !== 'string' || !record.id.trim()) return null;
+    if (record.phase !== 'prepare' && record.phase !== 'complete') return null;
+    return {
+        id: record.id,
+        phase: record.phase,
+        at: typeof record.at === 'number' && Number.isFinite(record.at) ? record.at : Date.now(),
+        href: typeof record.href === 'string' ? record.href : '',
+    };
+}
+
+function parseJsonRecord(value: string): unknown {
+    try {
+        return JSON.parse(value);
+    } catch {
+        return null;
+    }
+}
+
+function publishBroadcastFactoryResetSignal(signal: FactoryResetSignal): void {
+    if (typeof BroadcastChannel !== 'function') return;
+    try {
+        const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+        channel.postMessage(signal);
+        channel.close();
+    } catch (error) {
+        debugStorageError('Broadcast factory reset publish failed', FACTORY_RESET_CHANNEL_NAME, error);
+    }
+}
+
+function createFactoryResetId(): string {
+    return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 function isManagedStorageKey(key: string): boolean {
-    return key.startsWith('yomu-')
-        || key.startsWith('yomu:')
-        || key.startsWith('yomu.')
-        || key.startsWith('jpdb-reader-')
-        || key.startsWith('jpdb-popup-reader-');
+    return MANAGED_STORAGE_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 
 function debugStorageError(message: string, key: string, error: unknown): void {

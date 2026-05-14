@@ -14,30 +14,17 @@ export interface SiteParserProfile {
     exclude?: string;
     allowUiText?: boolean;
     minLength?: number;
+    includeUiChrome?: boolean;
     includeGenericPageText?: boolean;
+    scanLimit?: number;
     matches(url: URL): boolean;
 }
 
 const COMMON_EXCLUDE = [
-    'nav',
-    'header',
-    'footer',
-    'aside',
-    'button',
-    'a[role="button"]',
     '[role="dialog"]',
     '[aria-modal="true"]',
     '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="listen" i]',
-    '[class*="button" i]',
-    '[class*="btn" i]',
-    '[class*="voice" i]',
-    '[aria-label*="聞"]',
-    '[aria-label*="音声"]',
 ].join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const DEFAULT_SCAN_TARGET_LIMIT = 2000;
@@ -60,11 +47,19 @@ const GENERIC_PROSE_ROOTS = [
 ].join(',');
 const GENERIC_PROSE_EXCLUDE = [
     COMMON_EXCLUDE,
+    'nav',
+    'header',
+    'footer',
     'aside',
+    'button',
+    'a[role="button"]',
     '[role="complementary"]',
+    '[class*="audio" i]',
     '[class*="aside" i]',
     '[class*="banner" i]',
     '[class*="breadcrumb" i]',
+    '[class*="btn" i]',
+    '[class*="button" i]',
     '[class*="card" i]',
     '[class*="comment" i]',
     '[class*="footer" i]',
@@ -81,7 +76,12 @@ const GENERIC_PROSE_EXCLUDE = [
     '[class*="related" i]',
     '[class*="share" i]',
     '[class*="sidebar" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
     '[class*="teaser" i]',
+    '[class*="voice" i]',
+    '[aria-label*="聞"]',
+    '[aria-label*="音声"]',
     'time',
 ].join(',');
 const log = Logger.scope('SiteParsers');
@@ -202,6 +202,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         allowUiText: true,
         includeGenericPageText: true,
+        scanLimit: 80,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
@@ -265,33 +266,18 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: 'nhk-parser',
         name: 'NHK Easy',
-        description: 'NHK Easy article text with native ruby.',
+        description: 'NHK Easy visible page text with native ruby.',
         roots: [
-            'main',
-            '#easy-wrapper',
-            '#js-article-body',
-            '#js-article-date',
-            '.article-title',
+            'body',
         ],
         exclude: [
-            COMMON_EXCLUDE,
             '#loading',
-            '#nhk-one-header',
-            '#nhk-one-footer',
-            '.audio-player',
-            '.article-info',
+            '.article-top-tool',
             '.article-share',
-            '.article-link',
-            '.article-buttons',
-            '.soundButton',
-            '.js-sound',
-            '.js-play',
-            '.player',
-            '[onclick]',
-            '[data-audio]',
         ].join(','),
         allowUiText: true,
         minLength: 1,
+        includeUiChrome: true,
         matches: url => (
             (url.hostname === 'news.web.nhk' && /\/news\/easy\//.test(url.pathname))
             || (url.protocol === 'file:' && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)))
@@ -351,6 +337,7 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
         return null;
     }
 
+    const effectiveLimit = effectiveScanTargetLimit(profiles, limit);
     const targets: FragmentTextTarget[] = [];
     const seen = new Set<Text>();
 
@@ -359,15 +346,19 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
         if (!roots.length) continue;
 
         for (const root of roots) {
-            const remaining = limit - targets.length;
+            const remaining = effectiveLimit - targets.length;
             if (remaining <= 0) break;
-            const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE, { allowUiText: profile.allowUiText, minLength: profile.minLength });
+            const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE, {
+                allowUiText: profile.allowUiText,
+                minLength: profile.minLength,
+                includeUiChrome: profile.includeUiChrome,
+            });
             for (const target of collected) {
                 const firstNode = target.fragments[0]?.node;
                 if (!firstNode || seen.has(firstNode)) continue;
                 seen.add(firstNode);
                 targets.push({ ...target, parserId: profile.id });
-                if (targets.length >= limit) break;
+                if (targets.length >= effectiveLimit) break;
             }
         }
     }
@@ -380,20 +371,26 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
 
 export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href): ScanTextTarget[] {
     const matchingProfiles = getMatchingSiteParsers(href);
+    const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     if (matchingProfiles.length) {
-        const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+        const siteTargets = collectSiteScanTargets(effectiveLimit, href) ?? [];
         if (siteTargets.length || !matchingProfiles.some(profile => profile.includeGenericPageText)) {
             return siteTargets;
         }
     }
 
-    const genericTargets = collectGenericProseTargets(limit);
+    const genericTargets = collectGenericProseTargets(effectiveLimit);
     if (genericTargets.length) {
         return genericTargets;
     }
 
-    const broadTargets = collectWholePageScanTargets(limit);
-    return broadTargets.length ? broadTargets : collectVisibleTextTargets(limit);
+    const broadTargets = collectWholePageScanTargets(effectiveLimit);
+    return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
+}
+
+function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit: number): number {
+    const profileLimit = profiles.reduce((limit, profile) => Math.min(limit, profile.scanLimit ?? limit), requestedLimit);
+    return Math.max(1, profileLimit);
 }
 
 function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {

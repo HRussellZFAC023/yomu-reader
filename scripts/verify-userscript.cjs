@@ -18,7 +18,7 @@ if (!code.includes('// @match        *://*/*')) fail('userscript match metadata 
 if (!code.includes('// @exclude      https://hrussellzfac023.github.io/yomu-reader/*')) fail('docs site exclude metadata is missing.');
 if (!code.includes('// @grant        GM_xmlhttpRequest')) fail('GM_xmlhttpRequest grant is missing.');
 if (!code.includes('// @grant        GM.xmlHttpRequest')) fail('GM.xmlHttpRequest grant is missing.');
-if (!code.includes('// @grant        GM.xmlhttpRequest')) fail('GM.xmlhttpRequest grant is missing.');
+if (!code.includes('// @inject-into  content')) fail('Violentmonkey content-world injection metadata is missing.');
 if (code.includes('// @require')) fail('userscript must be self-contained and cannot use @require.');
 if (!code.includes('(function ()')) fail('userscript should be bundled as a plain IIFE for Tampermonkey copy/paste.');
 if (size > GREASY_FORK_SIZE_LIMIT_BYTES) {

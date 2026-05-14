@@ -1,8 +1,7 @@
 import {
     formatGraphCoordinate,
-    graphEdgeCurveControl,
-    graphEllipseOffset,
-    graphQuadraticPoint,
+    graphEdgePath,
+    type GraphAnchorZone,
 } from './kanji-graph-geometry';
 
 export function installKanjiGraphDrag(root: HTMLElement): void {
@@ -32,30 +31,12 @@ export function installKanjiGraphDrag(root: HTMLElement): void {
                 ry: (nodeRect.height / graphRect.height) * 50,
             };
         };
-        const edgePath = (from: ReturnType<typeof readNodeGeometry>, to: ReturnType<typeof readNodeGeometry>) => {
-            const dx = to.x - from.x;
-            const dy = to.y - from.y;
-            const sourceOffset = graphEllipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
-            const targetOffset = graphEllipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
-            const x1 = from.x + dx * sourceOffset;
-            const y1 = from.y + dy * sourceOffset;
-            const x2 = to.x - dx * targetOffset;
-            const y2 = to.y - dy * targetOffset;
-            const curve = graphEdgeCurveControl(x1, y1, x2, y2);
-            return {
-                d: `M${formatGraphCoordinate(x1)} ${formatGraphCoordinate(y1)} Q${formatGraphCoordinate(curve.x)} ${formatGraphCoordinate(curve.y)} ${formatGraphCoordinate(x2)} ${formatGraphCoordinate(y2)}`,
-                points: [
-                    graphQuadraticPoint(x1, y1, curve.x, curve.y, x2, y2, 0.38),
-                    graphQuadraticPoint(x1, y1, curve.x, curve.y, x2, y2, 0.66),
-                ],
-            };
-        };
         const updateLines = () => {
             for (const group of edgeGroups) {
                 const from = group.dataset.from ? nodeById.get(group.dataset.from) : undefined;
                 const to = group.dataset.to ? nodeById.get(group.dataset.to) : undefined;
                 if (!from || !to) continue;
-                const path = edgePath(readNodeGeometry(from), readNodeGeometry(to));
+                const path = graphEdgePath(readNodeGeometry(from), readNodeGeometry(to), graphAnchorZone(group.dataset.targetZone));
                 group.querySelector<SVGPathElement>('.jpdb-reader-origin-edge')?.setAttribute('d', path.d);
                 group.querySelectorAll<SVGCircleElement>('.jpdb-reader-origin-edge-particle').forEach((particle, index) => {
                     const point = path.points[index];
@@ -140,3 +121,14 @@ export function installKanjiGraphDrag(root: HTMLElement): void {
         requestAnimationFrame(updateLines);
     }
 
+function graphAnchorZone(value: string | undefined): GraphAnchorZone {
+    return value === 'top'
+        || value === 'upper'
+        || value === 'left'
+        || value === 'right'
+        || value === 'lower'
+        || value === 'bottom'
+        || value === 'center'
+        ? value
+        : 'auto';
+}

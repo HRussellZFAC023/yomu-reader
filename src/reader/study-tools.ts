@@ -42,7 +42,7 @@ export interface GrammarPreferences {
     showKnown: boolean;
 }
 
-const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやの、。！？\s]{1,16}`;
+const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？\s]{1,16}`;
 const FORM_CHUNK = String.raw`[ぁ-んァ-ン一-龯]{1,16}`;
 const GRAMMAR_PREFERENCES_KEY = 'yomu.grammarPreferences.v1';
 
@@ -58,10 +58,10 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     { pattern: new RegExp(`${FORM_CHUNK}て(?:くれる|くださる|あげる|やる|もらう|いただく)`, 'u'), name: 'てくれる / てもらう', kind: 'Giving and receiving', short: 'favor done for someone', detail: 'Combines て-form with giving or receiving verbs to show who benefits from an action.', url: 'https://www.tofugu.com/japanese-grammar/te-kureru/', confidence: 'medium', priority: 8 },
     { pattern: new RegExp(`${FORM_CHUNK}ようにな(?:る|ります|った|りました)`, 'u'), name: 'ようになる', kind: 'Change over time', short: 'come to do or become so that', detail: 'Shows a new ability, habit, or state developing over time.', url: 'https://www.tofugu.com/japanese-grammar/you-ni-naru/', confidence: 'high', priority: 8 },
     { pattern: new RegExp(`${FORM_CHUNK}ようにす(?:る|ます|た|ました)`, 'u'), name: 'ようにする', kind: 'Effort / habit', short: 'make sure to do', detail: 'Shows an intentional effort to make an action happen regularly or reliably.', url: 'https://www.tofugu.com/japanese-grammar/you-ni-suru/', confidence: 'high', priority: 8 },
-    { pattern: new RegExp(`${FORM_CHUNK}(?:させられる|[かがさざただなばまわ]せられる|[かがさざただなばまわ]される)`, 'u'), name: 'させられる', kind: 'Causative-passive', short: 'be made to do', detail: 'Combines causative and passive meaning: someone is made to do an action, often unwillingly.', url: 'https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/', confidence: 'medium', priority: 8 },
-    { pattern: new RegExp(`${FORM_CHUNK}(?:させる|[かがさざただなばまわ](?:せる|す))`, 'u'), name: 'させる', kind: 'Causative', short: 'make or let someone do', detail: 'Adds a causer: someone makes, lets, or has someone else do the action.', url: 'https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/', confidence: 'medium', priority: 9 },
+    { pattern: new RegExp(`${FORM_CHUNK}(?:させられる|[かがさざただなばまらわ]せられる|[かがさざただなばまらわ]される)`, 'u'), name: 'させられる', kind: 'Causative-passive', short: 'be made to do', detail: 'Combines causative and passive meaning: someone is made to do an action, often unwillingly.', url: 'https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/', confidence: 'medium', priority: 8 },
+    { pattern: new RegExp(`${FORM_CHUNK}(?:させる|[かがさざただなばまらわ]せる)`, 'u'), name: 'させる', kind: 'Causative', short: 'make or let someone do', detail: 'Adds a causer: someone makes, lets, or has someone else do the action.', url: 'https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/', confidence: 'medium', priority: 9 },
     { pattern: new RegExp(`${FORM_CHUNK}(?:られる|[かがさざただなばまわ]れる)`, 'u'), name: 'れる / られる', kind: 'Passive / potential', short: 'passive, potential, or honorific form', detail: 'This ending can mark passive voice, ability, or respectful speech; context decides which reading fits.', url: 'https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/', confidence: 'medium', priority: 9 },
-    { pattern: new RegExp(`${FORM_CHUNK}(?:らしい|みたい|っぽい)`, 'u'), name: 'らしい / みたい', kind: 'Hearsay / likeness', short: 'seems like or apparently', detail: 'Expresses appearance, hearsay, or resemblance depending on the form and context.', url: 'https://www.tofugu.com/japanese-grammar/rashii/', confidence: 'medium', priority: 9 },
+    { pattern: new RegExp(`(?:${FORM_CHUNK}(?:らしい|っぽい)|${FORM_CHUNK}みたい(?:だ|です|に|な))`, 'u'), name: 'らしい / みたい', kind: 'Hearsay / likeness', short: 'seems like or apparently', detail: 'Expresses appearance, hearsay, or resemblance depending on the form and context.', url: 'https://www.tofugu.com/japanese-grammar/rashii/', confidence: 'medium', priority: 9 },
     { pattern: /(?:かもしれない|かもしれません)/u, name: 'かもしれない', kind: 'Possibility', short: 'might or maybe', detail: 'Softens a statement into a possibility rather than a firm claim.', url: 'https://www.tofugu.com/japanese-grammar/kamoshirenai/', confidence: 'high', priority: 9 },
     { pattern: /(?:でしょう|だろう)/u, name: 'でしょう / だろう', kind: 'Probability', short: 'probably or right?', detail: 'Adds probability, expectation, or a confirmation-seeking tone.', url: 'https://www.tofugu.com/japanese-grammar/deshou/', confidence: 'high', priority: 10 },
     { pattern: new RegExp(`${FORM_CHUNK}と思(?:う|います|った|いました)`, 'u'), name: 'と思う', kind: 'Quotation / thought', short: 'think that...', detail: 'Marks the content of a thought or statement before 思う.', url: 'https://www.tofugu.com/japanese-grammar/to-omou/', confidence: 'high', priority: 10 },
@@ -84,17 +84,20 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     { pattern: new RegExp(`${FORM_CHUNK}に対して`, 'u'), name: 'に対して', kind: 'Target / contrast', short: 'toward, against, or in contrast to', detail: 'Marks the target of an attitude/action, or sets up a contrast.', url: 'https://bunpro.jp/grammar_points/%E3%81%AB%E5%AF%BE%E3%81%97%E3%81%A6', confidence: 'medium', priority: 18 },
     { pattern: new RegExp(`${FORM_CHUNK}にもかかわらず`, 'u'), name: 'にもかかわらず', kind: 'Concession', short: 'despite or even though', detail: 'Connects two facts when the second happens despite the first.', url: 'https://bunpro.jp/grammar_points/%E3%81%AB%E3%82%82%E9%96%A2%E3%82%8F%E3%82%89%E3%81%9A', confidence: 'high', priority: 18 },
     { pattern: new RegExp(`${FORM_CHUNK}くせに`, 'u'), name: 'くせに', kind: 'Blame / contradiction', short: 'even though, with criticism', detail: 'Marks a contradiction with a blaming or critical tone.', url: 'https://bunpro.jp/grammar_points/%E3%81%8F%E3%81%9B%E3%81%AB', confidence: 'medium', priority: 18 },
-    { pattern: new RegExp(`${PARTICLE_CHUNK}は`, 'u'), name: 'は', kind: 'Topic particle', short: 'sets the topic or contrast', detail: 'Read it as "as for..." and look to the rest of the sentence for the new information.', url: 'https://www.tofugu.com/japanese-grammar/particle-wa/', confidence: 'high' },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}(?:たち|達)`, 'u'), name: 'たち / 達', kind: 'Plural / group suffix', short: 'marks a group or plural set', detail: 'Attaches to a person, pronoun, or animate noun to point to that person and their group, or to a plural group.', url: 'https://bunpro.jp/grammar_points/%E9%81%94', confidence: 'medium', priority: 20 },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}は(?!ず)`, 'u'), name: 'は', kind: 'Topic particle', short: 'sets the topic or contrast', detail: 'Read it as "as for..." and look to the rest of the sentence for the new information.', url: 'https://www.tofugu.com/japanese-grammar/particle-wa/', confidence: 'high' },
     { pattern: new RegExp(`${PARTICLE_CHUNK}が`, 'u'), name: 'が', kind: 'Subject particle', short: 'marks the doer or focus', detail: 'Highlights the subject of the clause, often when that subject is new or important.', url: 'https://www.tofugu.com/japanese-grammar/particle-ga/', confidence: 'high' },
     { pattern: new RegExp(`${PARTICLE_CHUNK}を`, 'u'), name: 'を', kind: 'Object particle', short: 'marks what receives the action', detail: 'The phrase before を is usually what the following verb acts on.', url: 'https://www.tofugu.com/japanese-grammar/particle-wo/', confidence: 'high' },
-    { pattern: new RegExp(`${PARTICLE_CHUNK}で(?!き)`, 'u'), name: 'で', kind: 'Context particle', short: 'marks where or how an action happens', detail: 'Often points to the setting, tool, method, or conditions for the action.', url: 'https://www.tofugu.com/japanese-grammar/particle-de/', confidence: 'medium' },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}(?<![まん])で(?!き|す|し)`, 'u'), name: 'で', kind: 'Context particle', short: 'marks where or how an action happens', detail: 'Often points to the setting, tool, method, or conditions for the action.', url: 'https://www.tofugu.com/japanese-grammar/particle-de/', confidence: 'medium' },
     { pattern: new RegExp(`${PARTICLE_CHUNK}に`, 'u'), name: 'に', kind: 'Target particle', short: 'marks a target, point, time, or adverbial role', detail: 'Think of に as pinning the action to a destination, time, target, or manner.', url: 'https://www.tofugu.com/japanese-grammar/particle-ni/', confidence: 'medium' },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}(?<![っッこコ])と(?!して)`, 'u'), name: 'と', kind: 'Quote / partner particle', short: 'marks with, and, or quoted content', detail: 'Can mark who someone does something with, exact quoted content, comparison, or a complete list.', url: 'https://www.tofugu.com/japanese-grammar/particle-to/', confidence: 'medium' },
     { pattern: new RegExp(`${PARTICLE_CHUNK}の`, 'u'), name: 'の', kind: 'Noun linker', short: 'connects or labels nouns', detail: 'The phrase before の modifies or belongs with the noun that follows.', url: 'https://www.tofugu.com/japanese-grammar/particle-no-noun-modifier/', confidence: 'medium' },
     { pattern: new RegExp(`${FORM_CHUNK}[てで](?:い(?:る|ます|た|ない)?|る|た)`, 'u'), name: 'ている', kind: 'Verb form', short: 'ongoing action or resulting state', detail: 'Shows an action in progress, or a state that remains after something changed.', url: 'https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/', confidence: 'high' },
     { pattern: new RegExp(`${FORM_CHUNK}(?:たい|たくない|たかった)`, 'u'), name: 'たい', kind: 'Verb ending', short: 'want to do something', detail: 'Attaches to a verb stem to say the speaker wants to do that action.', url: 'https://www.tofugu.com/japanese-grammar/tai-form/', confidence: 'high' },
     { pattern: new RegExp(`${FORM_CHUNK}(?:ない|ません|なかった|ませんでした)`, 'u'), name: 'ない', kind: 'Verb ending', short: 'negative form', detail: 'Turns the verb or expression into "do not," "is not," or "did not."', url: 'https://www.tofugu.com/japanese-grammar/verb-negative-nai-form/', confidence: 'medium' },
     { pattern: new RegExp(`${FORM_CHUNK}ました`, 'u'), name: 'ました', kind: 'Polite past', short: 'polite completed action', detail: 'A polite ます-form verb in the past tense: "did" or "was/were."', url: 'https://www.tofugu.com/japanese-grammar/masu/', confidence: 'high' },
     { pattern: new RegExp(`${FORM_CHUNK}ます`, 'u'), name: 'ます', kind: 'Polite form', short: 'polite non-past verb', detail: 'Softens the verb into polite speech; tense depends on the surrounding sentence.', url: 'https://www.tofugu.com/japanese-grammar/masu/', confidence: 'medium' },
+    { pattern: new RegExp(`${FORM_CHUNK}(?:かった|だった|った|いた|いだ|(?<!で)した|んだ|[きぎしじちにびみりえけげせてねべめれ]た|[来見寝出]た)(?![いらり])`, 'u'), name: 'た', kind: 'Plain past', short: 'plain completed action or past state', detail: 'Marks a plain past-tense action or state. Common verb endings include した, った, いた, いだ, and んだ.', url: '', confidence: 'medium', priority: 24 },
     { pattern: new RegExp(`${FORM_CHUNK}たら`, 'u'), name: 'たら', kind: 'Clause linker', short: 'conditional or time sequence', detail: 'Turns the first clause into the condition or timing for what follows: "if," "when," or "after."', url: 'https://www.tofugu.com/japanese-grammar/conditional-form-tara/', confidence: 'high' },
     { pattern: new RegExp(`${FORM_CHUNK}(?:えば|ければ)`, 'u'), name: 'ば', kind: 'Conditional', short: 'conditional if', detail: 'Marks the condition that needs to be true for the next clause to happen.', url: 'https://www.tofugu.com/japanese-grammar/verb-conditional-form-ba/', confidence: 'high' },
     { pattern: /(?:なので|ので)/u, name: 'ので', kind: 'Clause linker', short: 'reason or cause', detail: 'Gives the reason or cause for the following statement, usually with a softer tone than から.', url: 'https://www.tofugu.com/japanese-grammar/conjunctive-particle-node/', confidence: 'high' },
@@ -143,17 +146,20 @@ const GRAMMAR_RULE_META = new Map<string, GrammarRuleMeta>([
     ['に対して', { ruleId: 'target-ni-taishite', level: 'N3' }],
     ['にもかかわらず', { ruleId: 'concession-ni-mo-kakawarazu', level: 'N2' }],
     ['くせに', { ruleId: 'concession-kuse-ni', level: 'N3' }],
+    ['たち / 達', { ruleId: 'suffix-tachi', level: 'N5' }],
     ['は', { ruleId: 'particle-wa', level: 'N5' }],
     ['が', { ruleId: 'particle-ga', level: 'N5' }],
     ['を', { ruleId: 'particle-wo', level: 'N5' }],
     ['で', { ruleId: 'particle-de', level: 'N5' }],
     ['に', { ruleId: 'particle-ni', level: 'N5' }],
+    ['と', { ruleId: 'particle-to', level: 'N5' }],
     ['の', { ruleId: 'particle-no', level: 'N5' }],
     ['ている', { ruleId: 'aspect-te-iru', level: 'N5' }],
     ['たい', { ruleId: 'desire-tai', level: 'N5' }],
     ['ない', { ruleId: 'negative-nai', level: 'N5' }],
     ['ました', { ruleId: 'polite-past-mashita', level: 'N5' }],
     ['ます', { ruleId: 'polite-masu', level: 'N5' }],
+    ['た', { ruleId: 'plain-past-ta', level: 'N5' }],
     ['たら', { ruleId: 'conditional-tara', level: 'N4' }],
     ['ば', { ruleId: 'conditional-ba', level: 'N4' }],
     ['ので', { ruleId: 'reason-node', level: 'N4' }],
@@ -188,6 +194,48 @@ export function detectGrammarHints(sentence: string): GrammarHint[] {
         .map(({ priority: _priority, ...hint }) => hint);
     log.debug('Grammar hints detected', { sentenceLength: sentence.length, hints: hints.map(hint => hint.name) });
     return hints;
+}
+
+export function mergeGrammarHints(primary: GrammarHint[], fallback: GrammarHint[], limit = 10): GrammarHint[] {
+    const seen = new Set<string>();
+    const merged: GrammarHint[] = [];
+    for (const hint of [...primary].sort(compareGrammarHints).concat([...fallback].sort(compareGrammarHints))) {
+        const key = `${hint.ruleId}:${hint.match}`;
+        if (seen.has(key) || merged.some(existing => isDuplicateGrammarHint(existing, hint))) continue;
+        seen.add(key);
+        merged.push(hint);
+    }
+    return merged.sort(compareGrammarHints).slice(0, limit);
+}
+
+function compareGrammarHints(a: GrammarHint, b: GrammarHint): number {
+    return a.index - b.index || a.name.localeCompare(b.name);
+}
+
+function isDuplicateGrammarHint(existing: GrammarHint, next: GrammarHint): boolean {
+    if (existing.match === next.match && existing.index === next.index) return true;
+    const existingHanabira = existing.ruleId.startsWith('hanabira-');
+    const nextHanabira = next.ruleId.startsWith('hanabira-');
+    if (existingHanabira === nextHanabira || !grammarHintRangesOverlap(existing, next)) return false;
+    const hanabira = existingHanabira ? existing : next;
+    const local = existingHanabira ? next : existing;
+    const hanabiraName = normalizeGrammarTextForDedupe(hanabira.name);
+    const localName = normalizeGrammarTextForDedupe(local.name);
+    const localMatch = normalizeGrammarTextForDedupe(local.match);
+    return Boolean(localName && hanabiraName.includes(localName))
+        || Boolean(localMatch && localMatch.length >= 3 && hanabiraName.includes(localMatch));
+}
+
+function grammarHintRangesOverlap(a: GrammarHint, b: GrammarHint): boolean {
+    const aEnd = a.index + a.match.length;
+    const bEnd = b.index + b.match.length;
+    return a.index < bEnd && b.index < aEnd;
+}
+
+function normalizeGrammarTextForDedupe(value: string): string {
+    return value.normalize('NFKC')
+        .replace(/[^\p{Letter}\p{Number}ぁ-んァ-ン一-龯々〆ヵヶ]/gu, '')
+        .toLowerCase();
 }
 
 export function readGrammarPreferences(): GrammarPreferences {
@@ -310,7 +358,7 @@ export function renderGrammarHints(hints: GrammarHint[], sentence: string, prefe
                         <summary>Details</summary>
                         <div class="jpdb-reader-study-detail">${escapeHtml(hint.detail)}</div>
                         <div class="jpdb-reader-study-match"><span>Found in</span>${escapeHtml(hint.match)}</div>
-                        <a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">Guide</a>
+                        ${hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">Guide</a>` : ''}
                     </details>
                 </div>
             </li>`;
@@ -357,7 +405,7 @@ function grammarSummary(visibleCount: number, hiddenKnownCount: number): string 
 
 function learnerMatch(name: string, rawMatch: string): string {
     let match = rawMatch.replace(/^(?:そして|それで|でも|また)/u, '');
-    if (!['たい', 'ない', 'ました', 'ます'].includes(name)) return match;
+    if (!['たい', 'ない', 'ました', 'ます', 'た'].includes(name)) return match;
     const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, '');
     return afterLastParticle || match;
 }

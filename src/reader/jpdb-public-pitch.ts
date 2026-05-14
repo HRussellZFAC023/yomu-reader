@@ -163,8 +163,28 @@ function requestText(url: string): Promise<string> {
         });
     }
 
-    return fetch(url).then(response => {
+    const fetchUrl = publicFetchUrl(url);
+    if (!fetchUrl) {
+        return Promise.reject(new Error('Cross-origin JPDB public request needs a userscript HTTP bridge.'));
+    }
+
+    return fetch(fetchUrl).then(response => {
         if (!response.ok) throw new Error(`Public JPDB pitch request failed (${response.status}).`);
         return response.text();
     });
+}
+
+function publicFetchUrl(url: string): string | null {
+    try {
+        const target = new URL(url, location.href);
+        if (target.origin === location.origin) return target.href;
+        if (isLoopbackPage()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
+        return null;
+    } catch {
+        return url;
+    }
+}
+
+function isLoopbackPage(): boolean {
+    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }
