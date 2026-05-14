@@ -10,21 +10,35 @@
   --jpdb-reader-source-anki-decoration: transparent;
   --jpdb-reader-source-anki-soft: transparent;
   --jpdb-reader-source-pitch-color: currentColor;
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, #94a3b8);
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-unknown,
+    #94a3b8
+  );
+  --jpdb-reader-source-pitch-soft: var(
+    --jpdb-reader-pitch-unknown-soft,
+    transparent
+  );
   position: static;
   display: inline;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal !important;
   border-radius: 3px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: var(
+    --jpdb-reader-word-underline,
+    transparent
+  ) !important;
   text-decoration-thickness: 2px !important;
-  text-underline-offset: .16em !important;
+  text-underline-offset: 0.16em !important;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  transition: background .12s ease, text-decoration-color .12s ease;
+  transition:
+    background 0.12s ease,
+    text-decoration-color 0.12s ease;
 }
 
 .jpdb-reader-word::after {
@@ -42,12 +56,21 @@
 .jpdb-reader-word.jpdb-not-in-deck {
   --jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
   --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16));
+  --jpdb-reader-source-jpdb-soft: var(
+    --jpdb-reader-state-new-soft,
+    rgba(88, 166, 255, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-learning {
   --jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16));
+  --jpdb-reader-source-jpdb-decoration: var(
+    --jpdb-reader-state-learning,
+    #ffd166
+  );
+  --jpdb-reader-source-jpdb-soft: var(
+    --jpdb-reader-state-learning-soft,
+    rgba(255, 209, 102, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-known,
 .jpdb-reader-word.jpdb-never-forget,
@@ -59,30 +82,54 @@
 .jpdb-reader-word.jpdb-due {
   --jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
   --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95,179,179,.16));
+  --jpdb-reader-source-jpdb-soft: var(
+    --jpdb-reader-state-due-soft,
+    rgba(95, 179, 179, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-failed {
   --jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16));
+  --jpdb-reader-source-jpdb-decoration: var(
+    --jpdb-reader-state-failed,
+    #ff6b6b
+  );
+  --jpdb-reader-source-jpdb-soft: var(
+    --jpdb-reader-state-failed-soft,
+    rgba(255, 107, 107, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-blacklisted,
 .jpdb-reader-word.jpdb-locked {
   --jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16));
-  opacity: .82 !important;
+  --jpdb-reader-source-jpdb-decoration: var(
+    --jpdb-reader-state-ignored,
+    #b8a7ff
+  );
+  --jpdb-reader-source-jpdb-soft: var(
+    --jpdb-reader-state-ignored-soft,
+    rgba(184, 167, 255, 0.16)
+  );
+  opacity: 0.82 !important;
 }
 .jpdb-reader-word.anki-new,
 .jpdb-reader-word.anki-suspended {
   --jpdb-reader-source-anki-color: var(--jpdb-reader-state-new, #58a6ff);
   --jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-source-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16));
+  --jpdb-reader-source-anki-soft: var(
+    --jpdb-reader-state-new-soft,
+    rgba(88, 166, 255, 0.16)
+  );
 }
 .jpdb-reader-word.anki-learning {
   --jpdb-reader-source-anki-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-source-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16));
+  --jpdb-reader-source-anki-decoration: var(
+    --jpdb-reader-state-learning,
+    #ffd166
+  );
+  --jpdb-reader-source-anki-soft: var(
+    --jpdb-reader-state-learning-soft,
+    rgba(255, 209, 102, 0.16)
+  );
 }
 .jpdb-reader-word.anki-known {
   --jpdb-reader-source-anki-color: var(--jpdb-reader-state-known, #7bd88f);
@@ -92,12 +139,21 @@
 .jpdb-reader-word.anki-due {
   --jpdb-reader-source-anki-color: var(--jpdb-reader-state-due, #5fb3b3);
   --jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-source-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95,179,179,.16));
+  --jpdb-reader-source-anki-soft: var(
+    --jpdb-reader-state-due-soft,
+    rgba(95, 179, 179, 0.16)
+  );
 }
 .jpdb-reader-word.anki-failed {
   --jpdb-reader-source-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-source-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16));
+  --jpdb-reader-source-anki-decoration: var(
+    --jpdb-reader-state-failed,
+    #ff6b6b
+  );
+  --jpdb-reader-source-anki-soft: var(
+    --jpdb-reader-state-failed-soft,
+    rgba(255, 107, 107, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-new,
 .jpdb-reader-word.jpdb-suspended,
@@ -106,77 +162,173 @@
 .jpdb-reader-word.anki-suspended {
   --jpdb-reader-source-status-color: var(--jpdb-reader-state-new, #58a6ff);
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-source-status-soft: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16));
+  --jpdb-reader-source-status-soft: var(
+    --jpdb-reader-state-new-soft,
+    rgba(88, 166, 255, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-learning,
 .jpdb-reader-word.anki-learning {
   --jpdb-reader-source-status-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-source-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16));
+  --jpdb-reader-source-status-decoration: var(
+    --jpdb-reader-state-learning,
+    #ffd166
+  );
+  --jpdb-reader-source-status-soft: var(
+    --jpdb-reader-state-learning-soft,
+    rgba(255, 209, 102, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-known,
 .jpdb-reader-word.jpdb-never-forget,
 .jpdb-reader-word.jpdb-redundant,
 .jpdb-reader-word.anki-known {
   --jpdb-reader-source-status-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-state-known, #7bd88f);
+  --jpdb-reader-source-status-decoration: var(
+    --jpdb-reader-state-known,
+    #7bd88f
+  );
   --jpdb-reader-source-status-soft: transparent;
 }
 .jpdb-reader-word.jpdb-due,
 .jpdb-reader-word.anki-due {
   --jpdb-reader-source-status-color: var(--jpdb-reader-state-due, #5fb3b3);
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-source-status-soft: var(--jpdb-reader-state-due-soft, rgba(95,179,179,.16));
+  --jpdb-reader-source-status-soft: var(
+    --jpdb-reader-state-due-soft,
+    rgba(95, 179, 179, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-failed,
 .jpdb-reader-word.anki-failed {
   --jpdb-reader-source-status-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-source-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16));
+  --jpdb-reader-source-status-decoration: var(
+    --jpdb-reader-state-failed,
+    #ff6b6b
+  );
+  --jpdb-reader-source-status-soft: var(
+    --jpdb-reader-state-failed-soft,
+    rgba(255, 107, 107, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-blacklisted,
 .jpdb-reader-word.jpdb-locked {
   --jpdb-reader-source-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-source-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16));
+  --jpdb-reader-source-status-decoration: var(
+    --jpdb-reader-state-ignored,
+    #b8a7ff
+  );
+  --jpdb-reader-source-status-soft: var(
+    --jpdb-reader-state-ignored-soft,
+    rgba(184, 167, 255, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-heiban, #359eff);
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53,158,255,.14));
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-heiban,
+    #359eff
+  );
+  --jpdb-reader-source-pitch-soft: var(
+    --jpdb-reader-pitch-heiban-soft,
+    rgba(53, 158, 255, 0.14)
+  );
 }
 .jpdb-reader-word.jpdb-pitch-atamadaka {
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254,75,116,.14));
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-atamadaka,
+    #fe4b74
+  );
+  --jpdb-reader-source-pitch-soft: var(
+    --jpdb-reader-pitch-atamadaka-soft,
+    rgba(254, 75, 116, 0.14)
+  );
 }
 .jpdb-reader-word.jpdb-pitch-nakadaka {
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-nakadaka, #fba840);
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251,168,64,.16));
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-nakadaka,
+    #fba840
+  );
+  --jpdb-reader-source-pitch-soft: var(
+    --jpdb-reader-pitch-nakadaka-soft,
+    rgba(251, 168, 64, 0.16)
+  );
 }
 .jpdb-reader-word.jpdb-pitch-odaka {
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-odaka, #57ccb7);
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87,204,183,.14));
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-odaka,
+    #57ccb7
+  );
+  --jpdb-reader-source-pitch-soft: var(
+    --jpdb-reader-pitch-odaka-soft,
+    rgba(87, 204, 183, 0.14)
+  );
 }
 .jpdb-reader-word.jpdb-pitch-kifuku {
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-kifuku, #9050f6);
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144,80,246,.14));
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-kifuku,
+    #9050f6
+  );
+  --jpdb-reader-source-pitch-soft: var(
+    --jpdb-reader-pitch-kifuku-soft,
+    rgba(144, 80, 246, 0.14)
+  );
 }
-.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
-.jpdb-reader-word-highlight-jpdb .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
-.jpdb-reader-word-highlight-anki .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
-.jpdb-reader-word-highlight-pitch .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; opacity: 1 !important; }
-.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }
-.jpdb-reader-word-underline-jpdb .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-.jpdb-reader-word-underline-anki .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); }
-.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); opacity: 1 !important; }
-.jpdb-reader-word-text-status .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, currentColor) !important; }
-.jpdb-reader-word-text-jpdb .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; }
-.jpdb-reader-word-text-anki .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, currentColor) !important; }
-.jpdb-reader-word-text-pitch .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, currentColor) !important; opacity: 1 !important; }
+.jpdb-reader-word-highlight-status .jpdb-reader-word {
+  background: var(--jpdb-reader-source-status-soft, transparent) !important;
+}
+.jpdb-reader-word-highlight-jpdb .jpdb-reader-word {
+  background: var(--jpdb-reader-source-jpdb-soft, transparent) !important;
+}
+.jpdb-reader-word-highlight-anki .jpdb-reader-word {
+  background: var(--jpdb-reader-source-anki-soft, transparent) !important;
+}
+.jpdb-reader-word-highlight-pitch .jpdb-reader-word {
+  background: var(--jpdb-reader-source-pitch-soft, transparent) !important;
+  opacity: 1 !important;
+}
+.jpdb-reader-word-underline-status .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-status-decoration,
+    transparent
+  );
+}
+.jpdb-reader-word-underline-jpdb .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-jpdb-decoration,
+    transparent
+  );
+}
+.jpdb-reader-word-underline-anki .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-anki-decoration,
+    transparent
+  );
+}
+.jpdb-reader-word-underline-pitch .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-pitch-decoration,
+    transparent
+  );
+  opacity: 1 !important;
+}
+.jpdb-reader-word-text-status .jpdb-reader-word {
+  color: var(--jpdb-reader-source-status-color, currentColor) !important;
+}
+.jpdb-reader-word-text-jpdb .jpdb-reader-word {
+  color: var(--jpdb-reader-source-jpdb-color, currentColor) !important;
+}
+.jpdb-reader-word-text-anki .jpdb-reader-word {
+  color: var(--jpdb-reader-source-anki-color, currentColor) !important;
+}
+.jpdb-reader-word-text-pitch .jpdb-reader-word {
+  color: var(--jpdb-reader-source-pitch-color, currentColor) !important;
+  opacity: 1 !important;
+}
 .jpdb-reader-newtab-word .jpdb-reader-word {
   background: transparent !important;
   color: inherit !important;
@@ -186,7 +338,12 @@
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1.85;
 }
-.jpdb-reader-furi { font-size: .52em; color: var(--jpdb-reader-muted); line-height: 1; user-select: none; }
+.jpdb-reader-furi {
+  font-size: 0.52em;
+  color: var(--jpdb-reader-muted);
+  line-height: 1;
+  user-select: none;
+}
 .jpdb-reader-word ruby {
   position: static;
   display: ruby;
@@ -200,7 +357,9 @@
   text-decoration-thickness: inherit !important;
   text-underline-offset: inherit !important;
 }
-.jpdb-reader-word rp { display: none; }
+.jpdb-reader-word rp {
+  display: none;
+}
 .jpdb-reader-word rt.jpdb-reader-furi {
   position: static;
   left: auto;
@@ -214,7 +373,11 @@
   line-height: 1;
   text-align: center;
 }
-.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi { display: none; }
+.jpdb-reader-hide-known
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget)
+  .jpdb-reader-furi {
+  display: none;
+}
 
 .jpdb-ocr-layer {
   position: fixed;
@@ -227,7 +390,12 @@
 .jpdb-ocr-line {
   pointer-events: auto;
   box-sizing: border-box;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-ocr-status {
@@ -237,45 +405,67 @@
   bottom: 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(24,27,32,.82);
-  color: rgba(255,255,255,.88);
-  box-shadow: 0 8px 22px rgba(0,0,0,.24);
-  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(24, 27, 32, 0.82);
+  color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+  font-size: 11px;
   font-weight: 700;
 }
 .jpdb-ocr-line {
   position: absolute;
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-end;
   justify-content: center;
   overflow: visible;
-  min-width: 32px;
-  min-height: 32px;
-  padding: .44em .3em .18em;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px)
+    var(--jpdb-ocr-pad-bottom, 3px);
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: transparent;
   text-shadow: none;
   font-weight: 800;
-  line-height: 1.08;
+  line-height: 1;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: none;
   opacity: 1;
   user-select: text;
   cursor: text;
-  transition: opacity .12s ease, background .12s ease, border-color .12s ease;
+  transition:
+    opacity 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
-.jpdb-ocr-line-visible {
-  border-color: rgba(255,255,255,.16);
-  background: rgba(24,27,32,.08);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+.jpdb-ocr-line-text {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  align-items: flex-end;
+  align-content: flex-end;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  max-width: none;
+  overflow-wrap: normal;
 }
 .jpdb-ocr-line[data-vertical="true"] {
   align-items: center;
+  justify-content: center;
   letter-spacing: 0;
+}
+.jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-line-text {
+  white-space: normal;
+  flex-wrap: wrap;
+}
+.jpdb-ocr-line-visible {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(24, 27, 32, 0.14);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 .jpdb-ocr-line:hover,
 .jpdb-ocr-line:focus,
@@ -285,8 +475,11 @@
     0 2px 2px var(--jpdb-ocr-outline-color, #000),
     0 0 3px var(--jpdb-ocr-outline-color, #000),
     0 0 10px var(--jpdb-ocr-outline-color, #000);
-  background: var(--jpdb-ocr-background-active-rgba, rgba(24,27,32,.48));
-  border-color: rgba(94,167,128,.9);
+  background: var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, 0.48));
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   outline: none;
   z-index: 2;
 }
@@ -297,68 +490,216 @@
   color: inherit !important;
   pointer-events: none;
   cursor: pointer;
-  line-height: inherit;
+  line-height: 1 !important;
+}
+.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1 !important;
+}
+.jpdb-ocr-line[data-has-furi="true"] .jpdb-reader-word {
+  display: inline-flex;
+  align-items: flex-end;
+}
+.jpdb-ocr-line .jpdb-ocr-plain {
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 1;
+  white-space: pre;
 }
 .jpdb-ocr-line:hover .jpdb-reader-word,
 .jpdb-ocr-line:focus .jpdb-reader-word,
 .jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word {
   pointer-events: auto;
 }
-.jpdb-ocr-line .jpdb-reader-word ruby {
+.jpdb-ocr-ruby {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: 0.5em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+.jpdb-ocr-ruby-base {
+  display: inline-flex;
+  align-items: flex-end;
   line-height: 1;
 }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck { color: var(--jpdb-reader-state-new, #58a6ff) !important; }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning { color: var(--jpdb-reader-state-learning, #ffd166) !important; }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant { color: var(--jpdb-reader-state-known, #7bd88f) !important; }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due { color: var(--jpdb-reader-state-due, #5fb3b3) !important; }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed { color: var(--jpdb-reader-state-failed, #ff6b6b) !important; }
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,
-.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked { color: var(--jpdb-reader-state-ignored, #b8a7ff) !important; }
-.jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi {
+.jpdb-ocr-furi {
+  position: absolute;
+  top: 0;
+  left: 50%;
   color: currentColor;
-  font-size: .46em;
-  opacity: .9;
+  font-size: 0.42em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  text-align: center;
+  text-shadow: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-new,
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-suspended,
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-not-in-deck {
+  color: var(--jpdb-reader-state-new, #58a6ff) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-learning {
+  color: var(--jpdb-reader-state-learning, #ffd166) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-known,
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-never-forget,
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-redundant {
+  color: var(--jpdb-reader-state-known, #7bd88f) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-due {
+  color: var(--jpdb-reader-state-due, #5fb3b3) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-failed {
+  color: var(--jpdb-reader-state-failed, #ff6b6b) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-blacklisted,
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-locked {
+  color: var(--jpdb-reader-state-ignored, #b8a7ff) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
+  opacity: 0.9;
   text-shadow:
     0 1px 1px var(--jpdb-ocr-outline-color, #000),
     0 0 5px var(--jpdb-ocr-outline-color, #000);
 }
 
-.asbplayer-subtitles-container-bottom { z-index: 2147483644 !important; }
+.asbplayer-subtitles-container-bottom {
+  z-index: 2147483644 !important;
+}
 .asbplayer-subtitles-container-bottom .jpdb-reader-word {
   background: transparent !important;
   --jpdb-reader-word-underline: transparent;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-  text-decoration-thickness: .08em !important;
-  text-underline-offset: .15em !important;
+  text-decoration-color: var(
+    --jpdb-reader-word-underline,
+    transparent
+  ) !important;
+  text-decoration-thickness: 0.08em !important;
+  text-underline-offset: 0.15em !important;
   color: inherit !important;
 }
-.jpdb-reader-subtitle-highlight-status .asbplayer-subtitles-container-bottom .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
-.jpdb-reader-subtitle-underline-status .asbplayer-subtitles-container-bottom .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }
-.jpdb-reader-subtitle-underline-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-.jpdb-reader-subtitle-underline-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); }
-.jpdb-reader-subtitle-underline-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }
-.jpdb-reader-subtitle-text-status .asbplayer-subtitles-container-bottom .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, currentColor) !important; }
-.jpdb-reader-subtitle-text-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; }
-.jpdb-reader-subtitle-text-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, currentColor) !important; }
-.jpdb-reader-subtitle-text-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, currentColor) !important; }
-.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word {
+.jpdb-reader-subtitle-highlight-status
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  background: var(--jpdb-reader-source-status-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-jpdb
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  background: var(--jpdb-reader-source-jpdb-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-anki
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  background: var(--jpdb-reader-source-anki-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-pitch
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  background: var(--jpdb-reader-source-pitch-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-underline-status
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-status-decoration,
+    transparent
+  );
+}
+.jpdb-reader-subtitle-underline-jpdb
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-jpdb-decoration,
+    transparent
+  );
+}
+.jpdb-reader-subtitle-underline-anki
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-anki-decoration,
+    transparent
+  );
+}
+.jpdb-reader-subtitle-underline-pitch
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-pitch-decoration,
+    transparent
+  );
+}
+.jpdb-reader-subtitle-text-status
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  color: var(--jpdb-reader-source-status-color, currentColor) !important;
+}
+.jpdb-reader-subtitle-text-jpdb
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  color: var(--jpdb-reader-source-jpdb-color, currentColor) !important;
+}
+.jpdb-reader-subtitle-text-anki
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  color: var(--jpdb-reader-source-anki-color, currentColor) !important;
+}
+.jpdb-reader-subtitle-text-pitch
+  .asbplayer-subtitles-container-bottom
+  .jpdb-reader-word {
+  color: var(--jpdb-reader-source-pitch-color, currentColor) !important;
+}
+.jpdb-reader-highlight-pitch
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word {
   color: inherit !important;
 }
-.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban { color: var(--jpdb-reader-pitch-heiban, #359eff) !important; }
-.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka { color: var(--jpdb-reader-pitch-atamadaka, #fe4b74) !important; }
-.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka { color: var(--jpdb-reader-pitch-nakadaka, #fba840) !important; }
-.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka { color: var(--jpdb-reader-pitch-odaka, #57ccb7) !important; }
-.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku { color: var(--jpdb-reader-pitch-kifuku, #9050f6) !important; }
-.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word {
+.jpdb-reader-highlight-pitch
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-pitch-heiban {
+  color: var(--jpdb-reader-pitch-heiban, #359eff) !important;
+}
+.jpdb-reader-highlight-pitch
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-pitch-atamadaka {
+  color: var(--jpdb-reader-pitch-atamadaka, #fe4b74) !important;
+}
+.jpdb-reader-highlight-pitch
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-pitch-nakadaka {
+  color: var(--jpdb-reader-pitch-nakadaka, #fba840) !important;
+}
+.jpdb-reader-highlight-pitch
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-pitch-odaka {
+  color: var(--jpdb-reader-pitch-odaka, #57ccb7) !important;
+}
+.jpdb-reader-highlight-pitch
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word.jpdb-pitch-kifuku {
+  color: var(--jpdb-reader-pitch-kifuku, #9050f6) !important;
+}
+.jpdb-reader-highlight-off
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word {
   background: transparent !important;
   color: inherit !important;
   --jpdb-reader-word-underline: transparent;
@@ -378,13 +719,22 @@
   border-radius: 50%;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
-  box-shadow: 0 10px 28px rgba(0,0,0,.25);
-  opacity: .78;
-  font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  opacity: 0.78;
+  font:
+    700 14px/1 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   cursor: pointer;
   touch-action: none;
   transform: translate3d(0, 0, 0);
-  transition: opacity .15s ease, transform .15s ease, border-color .15s ease, color .15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 .jpdb-reader-fab:hover,
 .jpdb-reader-fab:focus-visible {
@@ -394,6 +744,6 @@
   outline: none;
 }
 .jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) {
-  opacity: .28;
-  transform: translate3d(0, 6px, 0) scale(.92);
+  opacity: 0.28;
+  transform: translate3d(0, 6px, 0) scale(0.92);
 }

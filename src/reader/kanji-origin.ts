@@ -23,6 +23,7 @@ export interface KanjiOriginNode {
     kind: 'current' | 'component' | 'related';
     detail: string;
     source: string;
+    position?: string;
 }
 
 export interface KanjiOriginEdge {
@@ -255,13 +256,14 @@ export function buildKanjiOriginGraph(
         source: 'current lookup',
     });
 
-    const addComponent = (id: string, detail: string, label: string, source: string) => {
+    const addComponent = (id: string, detail: string, label: string, source: string, position?: string) => {
         if (!id || id === kanji) return;
         const existing = nodes.get(id);
         if (!existing) {
-            nodes.set(id, { id, label: id, kind: 'component', detail, source });
-        } else if (!existing.detail && detail) {
-            existing.detail = detail;
+            nodes.set(id, { id, label: id, kind: 'component', detail, source, position });
+        } else {
+            if (!existing.detail && detail) existing.detail = detail;
+            if (!existing.position && position) existing.position = position;
         }
         if (!edges.some(edge => edge.from === id && edge.to === kanji && edge.label === label)) {
             edges.push({ from: id, to: kanji, label });
@@ -285,6 +287,7 @@ export function buildKanjiOriginGraph(
         first([sourceInfo.kanjiMap.radical.meaning, sourceInfo.kanjiMap.radical.name]) ?? 'radical',
         'radical',
         'Kanji Alive / Jisho',
+        sourceInfo.kanjiMap.radical.position,
     );
     sourceInfo?.kanjiMap?.parts.forEach(part => addComponent(part, 'structural part', 'structural part', 'Kanji structure'));
     jpdbInfo?.components.forEach(component => addComponent(component.kanji, component.keyword, 'JPDB component', 'JPDB'));

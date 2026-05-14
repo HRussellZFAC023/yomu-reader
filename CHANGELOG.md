@@ -6,6 +6,24 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [0.4.8] - 2026-05-14
+
+### Added
+
+- Added karaoke-style subtitle word timing, smarter transcript layout fallback, and a resizable transcript panel that stays usable across ordinary video pages, YouTube, and Comprehensible Japanese layouts.
+- Added JPDB vocabulary compounds/examples inside popup JPDB sections and JPDB page side panels, with better Immersion Kit fallback queries for compound terms.
+- Added userscript menu actions to open the hosted new-tab page and reset all local よむ data, plus subtitle smoke/e2e scripts for release QA.
+
+### Changed
+
+- Improved subtitle sentence recovery, transcript hydration, OCR/site parser handling, and audio preview matching so mining and playback stay more reliable around transcript-heavy pages.
+- Updated popup and kanji navigation so nested kanji drilldowns can return through prior kanji cards or back to the source word without losing position.
+
+### Fixed
+
+- Prevented side transcript layouts from shrinking videos too aggressively by falling back below the player when space gets too tight.
+- Tightened JPDB page parsing and popup rendering so compounds, examples, and kana-backed audio behave more consistently on compound-heavy entries.
+
 ## [0.4.7] - 2026-05-13
 
 ### Changed

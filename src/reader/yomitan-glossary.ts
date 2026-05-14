@@ -84,8 +84,17 @@ export function glossaryToText(value: unknown): string {
         const record = value as Record<string, unknown>;
         if (typeof record.text === 'string') return record.text;
         if ('content' in record) return glossaryToText(record.content);
-        if ('path' in record) return String(record.description || record.alt || '[media]');
-        return Object.values(record).map(glossaryToText).filter(Boolean).join(' ');
+        const keys = new Set(['text', 'content', 'description', 'alt', 'title']);
+        const values: string[] = [];
+        for (const [key, childValue] of Object.entries(record)) {
+            if (keys.has(key) || key.startsWith('data-')) {
+                const childText = glossaryToText(childValue);
+                if (childText) values.push(childText);
+            }
+        }
+        if (values.length) return values.join(' ');
+        if ('path' in record) return String(record.description || record.alt || '');
+        return '';
     }
     return '';
 }
@@ -295,22 +304,115 @@ function dictionaryScopeSelector(dictionary: string): string {
 }
 
 function scopeDictionaryStyles(styles: string, scope: string): string {
-    return styles
-        .split('}')
-        .map(block => {
-            const [selectorText, ...declarationParts] = block.split('{');
-            const declarations = declarationParts.join('{').trim();
-            if (!selectorText?.trim() || !declarations) return '';
-            const selector = selectorText.trim();
-            if (selector.startsWith('@')) return `${selector} { ${declarations} }`;
-            const scopedSelectors = selector
-                .split(',')
-                .map(part => `${scope} ${part.trim()}`)
-                .join(', ');
-            return `${scopedSelectors} { ${declarations} }`;
-        })
+    return splitTopLevelCssBlocks(styles)
+        .map(block => scopeDictionaryStyleBlock(block, scope))
         .filter(Boolean)
         .join('\n');
+}
+
+function scopeDictionaryStyleBlock(block: string, scope: string): string {
+    const openIndex = block.indexOf('{');
+    const closeIndex = block.lastIndexOf('}');
+    if (openIndex < 0 || closeIndex <= openIndex) return '';
+    const selector = block.slice(0, openIndex).trim();
+    const declarations = block.slice(openIndex + 1, closeIndex).trim();
+    if (!selector || !declarations) return '';
+    if (selector.startsWith('@')) {
+        const scopedInner = splitTopLevelCssBlocks(declarations)
+            .map(innerBlock => scopeDictionaryStyleBlock(innerBlock, scope))
+            .filter(Boolean)
+            .join('\n');
+        return scopedInner ? `${selector} {\n${scopedInner}\n}` : `${selector} { ${declarations} }`;
+    }
+    const scopedSelectors = splitSelectorList(selector)
+        .map(part => `${scope} ${part.trim()}`)
+        .join(', ');
+    return `${scopedSelectors} { ${declarations} }`;
+}
+
+function splitTopLevelCssBlocks(styles: string): string[] {
+    const blocks: string[] = [];
+    let depth = 0;
+    let start = 0;
+    let inString: string | null = null;
+    let escaped = false;
+    for (let index = 0; index < styles.length; index++) {
+        const character = styles[index];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (character === '\\') {
+                escaped = true;
+            } else if (character === inString) {
+                inString = null;
+            }
+            continue;
+        }
+        if (character === '"' || character === "'") {
+            inString = character;
+            continue;
+        }
+        if (character === '{') {
+            if (depth === 0) {
+                start = findSelectorStart(styles, index);
+            }
+            depth++;
+            continue;
+        }
+        if (character !== '}' || depth === 0) continue;
+        depth--;
+        if (depth === 0) {
+            blocks.push(styles.slice(start, index + 1).trim());
+            start = index + 1;
+        }
+    }
+    return blocks;
+}
+
+function splitSelectorList(selector: string): string[] {
+    const selectors: string[] = [];
+    let start = 0;
+    let bracketDepth = 0;
+    let parenDepth = 0;
+    let inString: string | null = null;
+    let escaped = false;
+    for (let index = 0; index < selector.length; index++) {
+        const character = selector[index];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (character === '\\') {
+                escaped = true;
+            } else if (character === inString) {
+                inString = null;
+            }
+            continue;
+        }
+        if (character === '"' || character === "'") {
+            inString = character;
+            continue;
+        }
+        if (character === '[') bracketDepth++;
+        if (character === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+        if (character === '(') parenDepth++;
+        if (character === ')') parenDepth = Math.max(0, parenDepth - 1);
+        if (character !== ',' || bracketDepth > 0 || parenDepth > 0) continue;
+        selectors.push(selector.slice(start, index).trim());
+        start = index + 1;
+    }
+    selectors.push(selector.slice(start).trim());
+    return selectors.filter(Boolean);
+}
+
+function findSelectorStart(styles: string, openIndex: number): number {
+    const separators = ['}', ';'];
+    let start = 0;
+    for (let index = openIndex - 1; index >= 0; index--) {
+        if (!separators.includes(styles[index])) continue;
+        start = index + 1;
+        break;
+    }
+    return start;
 }
 
 function escapeHtml(value: string): string {

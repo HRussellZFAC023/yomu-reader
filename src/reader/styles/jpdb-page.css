@@ -7,7 +7,12 @@
   border-radius: 0;
   background: transparent;
   color: var(--jpdb-reader-text, inherit);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   font-size: 14px;
   line-height: 1.42;
   box-shadow: none;
@@ -74,18 +79,22 @@
   font-weight: 800;
   text-decoration: none !important;
 }
-.yomu-jpdb-counter {
+.yomu-jpdb-counter,
+.yomu-jpdb-source-meta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 24px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface-2);
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
+}
+.yomu-jpdb-source-meta {
+  justify-content: flex-start;
+  margin-bottom: 2px;
 }
 .yomu-jpdb-image-shell {
   display: grid;
@@ -106,10 +115,52 @@
   color: var(--jpdb-reader-text);
   white-space: pre-wrap;
 }
+.yomu-jpdb-addon-card > .jpdb-reader-local,
+.yomu-jpdb-addon-card > .jpdb-reader-source-card,
+.yomu-jpdb-addon-card .jpdb-reader-local-entry,
+.yomu-jpdb-addon-card .jpdb-reader-dictionary-group,
+.yomu-jpdb-uchisen-source,
+.yomu-jpdb-rtk-source {
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.yomu-jpdb-addon-card > .jpdb-reader-local,
+.yomu-jpdb-addon-card > .jpdb-reader-source-card,
+.yomu-jpdb-uchisen-source,
+.yomu-jpdb-rtk-source {
+  margin-top: 0;
+}
+.yomu-jpdb-addon-card > .jpdb-reader-source-card[open] > :last-child,
+.yomu-jpdb-uchisen-source[open] > :last-child,
+.yomu-jpdb-rtk-source[open] > :last-child {
+  margin-bottom: 0;
+}
+.yomu-jpdb-addon-card .jpdb-reader-local-title,
+.yomu-jpdb-addon-card .jpdb-reader-local-head {
+  padding-inline: 0;
+}
+
+.yomu-jpdb-addon-card > .jpdb-reader-source-card > summary.jpdb-reader-local-title {
+  min-height: 38px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.yomu-jpdb-addon-card .jpdb-reader-local-glossary {
+  padding-inline: 0 !important;
+}
 .yomu-jpdb-uchisen-body,
 .yomu-jpdb-doodle-body {
   display: grid;
   gap: 9px;
+}
+.yomu-jpdb-doodle-body {
+  justify-items: center;
+  justify-self: center;
+  width: min(100%, 420px);
+  margin-inline: auto;
 }
 .yomu-jpdb-facts {
   display: grid;
@@ -119,10 +170,10 @@
 .yomu-jpdb-facts span {
   display: grid;
   gap: 2px;
-  padding: 8px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface-2);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .yomu-jpdb-facts strong,
 .yomu-jpdb-addon-card h6 {
@@ -159,7 +210,11 @@
   font-weight: 750;
 }
 .yomu-jpdb-chip-row span.common {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 45%, var(--jpdb-reader-border));
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 45%,
+    var(--jpdb-reader-border)
+  );
   background: var(--jpdb-reader-accent-soft);
 }
 .yomu-jpdb-chip-row small {
@@ -218,8 +273,106 @@
 .yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary {
   line-height: 1.45;
 }
+.yomu-jpdb-page-dictionary .jpdb-reader-local-glossary {
+  display: grid;
+  gap: 12px;
+}
+.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+.yomu-jpdb-page-dictionary
+  .yomu-jpdb-page-examples-group
+  > .jpdb-reader-local-glossary {
+  padding: 0 8px 8px;
+}
+.yomu-jpdb-dictionary-section {
+  display: grid;
+  gap: 7px;
+}
+.yomu-jpdb-compounds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 7px;
+}
+.yomu-jpdb-compound {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-height: 56px;
+  padding: 8px 9px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, transparent);
+  color: var(--jpdb-reader-text) !important;
+  text-decoration: none !important;
+}
+.yomu-jpdb-compound:hover,
+.yomu-jpdb-compound:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  outline: none;
+}
+.yomu-jpdb-compound-head {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.yomu-jpdb-compound .yomu-jpdb-compound-term {
+  display: inline-block;
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  white-space: nowrap;
+}
+.yomu-jpdb-compound-term {
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+.yomu-jpdb-compound-reading {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.yomu-jpdb-compound-meaning {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.yomu-jpdb-compound:has(.jpdb-reader-word) .yomu-jpdb-compound-reading {
+  display: none;
+}
+.yomu-jpdb-page-examples {
+  display: grid;
+  gap: 6px;
+}
+.yomu-jpdb-page-example {
+  display: grid;
+  gap: 3px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 55%, transparent);
+}
+.yomu-jpdb-page-example .jpdb-reader-example-sentence,
+.yomu-jpdb-page-example .jpdb-reader-example-translation {
+  justify-self: stretch;
+  width: 100%;
+  text-align: left;
+  text-wrap: pretty;
+}
+.yomu-jpdb-page-example .jpdb-reader-example-sentence {
+  line-height: 1.35;
+}
+.yomu-jpdb-page-example .jpdb-reader-example-translation {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
 .yomu-jpdb-immersion-group > .jpdb-reader-local-glossary {
-  padding-inline: 0;
+  padding: 0 8px 8px;
 }
 #yomu-jpdb-immersion .jpdb-reader-example-media {
   border: 0;
@@ -234,7 +387,7 @@
   height: 1.55em;
   min-width: 1.55em;
   min-height: 1.55em;
-  margin: 0 0 0 .35em;
+  margin: 0 0 0 0.35em;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -242,11 +395,14 @@
   box-shadow: none;
   color: currentColor;
   cursor: pointer;
-  opacity: .72;
+  opacity: 0.72;
   vertical-align: middle;
   -webkit-tap-highlight-color: transparent;
-  transform: translateY(.08em);
-  transition: background-color .15s ease, color .15s ease, opacity .15s ease;
+  transform: translateY(0.08em);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
 }
 .yomu-jpdb-audio-button:hover,
 .yomu-jpdb-audio-button:focus-visible {
@@ -256,7 +412,7 @@
   outline: none;
 }
 .yomu-jpdb-audio-button:active {
-  opacity: .85;
+  opacity: 0.85;
 }
 .yomu-jpdb-audio-button svg {
   width: 1em;
@@ -278,27 +434,27 @@
 .yomu-jpdb-items-left-count {
   color: #e5484d;
 }
-#yomu-jpdb-doodle-root {
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] {
   display: grid;
   align-items: center;
   justify-items: stretch;
   gap: 10px;
-  width: min(100%, 320px);
-  margin: 14px auto 8px;
-  padding: 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 88%, transparent);
+  width: 100%;
+  margin: 14px 0 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--jpdb-reader-text);
 }
-#yomu-jpdb-doodle-root .yomu-doodle-stage,
-#yomu-jpdb-doodle-root .yomu-jpdb-toolbar,
-#yomu-jpdb-doodle-root .yomu-doodle-result {
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .yomu-doodle-stage,
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .yomu-jpdb-toolbar,
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .yomu-doodle-result {
   justify-self: center;
 }
 .yomu-doodle-stage {
   position: relative;
-  width: min(76vw, 230px);
+  width: min(92vw, 420px);
   aspect-ratio: 1;
   touch-action: none;
 }
@@ -311,13 +467,14 @@
 }
 .yomu-doodle-canvas {
   z-index: 1;
-  border: 2px solid color-mix(in srgb, var(--jpdb-reader-text) 82%, var(--jpdb-reader-border));
+  border: 2px solid
+    color-mix(in srgb, var(--jpdb-reader-text) 82%, var(--jpdb-reader-border));
   border-radius: 8px;
   cursor: crosshair;
   touch-action: none;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255,255,255,.06) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
   background-size: 25% 25%;
 }
 .yomu-doodle-ghost {
@@ -325,11 +482,15 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-text);
   font-size: min(72vw, 320px);
   line-height: 1;
-  opacity: .26;
+  opacity: 0.26;
   pointer-events: none;
+}
+.yomu-doodle-stage.trace-hidden .yomu-doodle-ghost,
+.yomu-doodle-ghost[hidden] {
+  display: none !important;
 }
 .yomu-doodle-ghost svg {
   width: 100%;
@@ -345,15 +506,15 @@
   stroke-linejoin: round !important;
 }
 #yomu-jpdb-doodle-preview {
-  display: inline-grid;
+  display: inline-flex;
   place-items: center;
-  gap: 5px;
-  min-width: 132px;
-  margin-left: 14px;
-  padding: 8px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, Canvas) 90%, transparent);
+  gap: 0;
+  min-width: 0;
+  margin-left: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   vertical-align: top;
 }
 .yomu-doodle-preview-label {
@@ -367,12 +528,30 @@
   width: min(180px, 30vw);
   height: auto;
   border-radius: 8px;
-  border: 1px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-bg);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
-#yomu-jpdb-doodle-root .jpdb-reader-btn {
-  min-height: 44px;
-  padding-inline: 14px;
+[data-yomu-jpdb-addon] .jpdb-reader-icon-mini,
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .jpdb-reader-btn {
+  border-color: var(--jpdb-reader-border);
+  background: transparent;
+  box-shadow: none;
+  color: var(--jpdb-reader-text);
+}
+[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:hover,
+[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:focus-visible,
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .jpdb-reader-btn:hover:not(:disabled),
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .jpdb-reader-btn:focus-visible:not(:disabled) {
+  border-color: var(--jpdb-reader-muted);
+  background: transparent;
+  box-shadow: none;
+  color: var(--jpdb-reader-text);
+}
+[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .jpdb-reader-btn {
+  min-height: 34px;
+  padding-inline: 10px;
+  border-radius: 7px;
 }
 .yomu-doodle-result {
   min-height: 28px;
@@ -380,7 +559,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--jpdb-reader-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1.2;
 }
@@ -388,20 +567,27 @@
   display: none;
 }
 .yomu-doodle-pass .yomu-doodle-result {
-  border-color: color-mix(in srgb, var(--jpdb-reader-state-known, #7bd88f) 48%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-state-known, #7bd88f) 18%, var(--jpdb-reader-surface));
-  color: var(--jpdb-reader-text);
-}
-.yomu-doodle-fail .yomu-doodle-result {
-  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed, #ff6b6b) 48%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-state-failed, #ff6b6b) 18%, var(--jpdb-reader-surface));
-  color: var(--jpdb-reader-text);
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-state-known, #7bd88f) 54%,
+    var(--jpdb-reader-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-state-known, #7bd88f) 16%,
+    var(--jpdb-reader-surface)
+  );
+  color: color-mix(
+    in srgb,
+    var(--jpdb-reader-state-known, #7bd88f) 88%,
+    var(--jpdb-reader-text)
+  );
 }
 @media (min-height: 960px) and (min-width: 700px) {
-  #yomu-jpdb-doodle-root {
-    width: min(100%, 410px);
+  [data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] {
+    width: 100%;
   }
-  #yomu-jpdb-doodle-root .yomu-doodle-stage {
-    width: min(78vw, 320px);
+  [data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode] .yomu-doodle-stage {
+    width: min(92vw, 420px);
   }
 }

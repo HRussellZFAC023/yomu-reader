@@ -29,8 +29,10 @@
     0 0 8px rgba(0,0,0,.92),
     0 3px 12px rgba(0,0,0,.72);
   white-space: pre-wrap;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: keep-all;
+  max-height: min(45%, calc(100% - 24px));
+  overflow: hidden;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
@@ -58,12 +60,60 @@
 }
 .jpdb-subtitle-secondary {
   display: block;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 8px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
   color: rgba(255,255,255,.82);
   font-size: .62em;
+  font-family: inherit;
   font-weight: 650;
   line-height: 1.25;
   text-shadow: 0 2px 2px #000, 0 0 7px rgba(0,0,0,.86);
+  cursor: pointer;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: filter .12s ease, opacity .12s ease;
+}
+.jpdb-subtitle-secondary-blurred {
+  filter: blur(5px);
+  opacity: .8;
+}
+.jpdb-subtitle-secondary-blurred:hover,
+.jpdb-subtitle-secondary-blurred:focus-visible {
+  filter: none;
+  opacity: 1;
+}
+.jpdb-subtitle-karaoke-word {
+  display: inline;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.jpdb-subtitle-word-pending {
+  opacity: .42;
+}
+.jpdb-subtitle-word-spoken,
+.jpdb-subtitle-word-current {
+  opacity: 1;
+  color: var(--subtitle-color);
+}
+.jpdb-subtitle-word-spoken {
+  color: color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 58%, var(--subtitle-color));
+  text-decoration-line: underline;
+  text-decoration-color: var(--jpdb-reader-accent, #5ea780);
+  text-decoration-thickness: .09em;
+  text-underline-offset: .16em;
+}
+.jpdb-subtitle-word-current {
+  text-decoration-line: underline;
+  text-decoration-color: var(--subtitle-color);
+  text-decoration-thickness: .1em;
+  text-underline-offset: .16em;
 }
 .jpdb-subtitle-primary .jpdb-reader-word {
   background: transparent !important;
@@ -102,6 +152,21 @@
 .jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, var(--subtitle-color)) !important; }
 .jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, var(--subtitle-color)) !important; }
 .jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, var(--subtitle-color)) !important; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
+  opacity: 1;
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780)) !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current {
+  opacity: 1;
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--subtitle-color) !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
+  filter: saturate(.72);
+}
 .jpdb-subtitle-primary .jpdb-reader-furi {
   color: currentColor;
   opacity: .82;
@@ -111,7 +176,8 @@
     0 0 7px rgba(0,0,0,.86);
 }
 .jpdb-subtitle-primary-loading {
-  opacity: .01;
+  opacity: .78;
+  color: currentColor;
 }
 .jpdb-reader-subtitle-preview {
   min-height: 94px;
@@ -158,7 +224,8 @@
   display: none !important;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
-  opacity: .12;
+  opacity: 0;
+  pointer-events: none;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within {
@@ -287,20 +354,23 @@
 }
 .jpdb-subtitle-list {
   position: fixed;
-  right: max(10px, env(safe-area-inset-right));
-  top: 50px;
-  width: min(430px, calc(100vw - 24px));
-  max-height: min(62vh, 520px);
+  right: max(12px, env(safe-area-inset-right));
+  top: 72px;
+  width: min(460px, calc(100vw - 24px));
+  height: min(78vh, 860px);
+  max-height: calc(100vh - 24px);
   overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%, rgba(255,255,255,.10));
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 94%, rgba(255,255,255,.06));
   color: var(--jpdb-reader-text, #fff);
-  box-shadow: 0 14px 34px rgba(0,0,0,.28);
+  box-shadow: 0 24px 56px rgba(0,0,0,.32);
   pointer-events: auto;
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+  transform: translateZ(0);
 }
 html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,
 html.jpdb-subtitle-yomu-captions-active .caption-window,
@@ -328,22 +398,23 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   position: absolute;
   border-radius: 999px;
   background: rgba(255,255,255,.22);
-  opacity: .42;
+  opacity: 0;
+  transition: opacity .12s ease, background .12s ease;
 }
 .jpdb-subtitle-resize:hover::after,
 .jpdb-subtitle-resize:focus-visible::after {
   background: var(--jpdb-reader-accent);
-  opacity: 1;
+  opacity: .88;
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize {
-  left: 0;
+  left: -12px;
   top: 0;
   bottom: 0;
   width: 24px;
   cursor: ew-resize;
 }
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
-  right: 0;
+  right: -12px;
   top: 0;
   bottom: 0;
   width: 24px;
@@ -359,7 +430,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize {
   left: 0;
   right: 0;
-  top: 0;
+  top: -12px;
   height: 24px;
   cursor: ns-resize;
 }
@@ -369,34 +440,82 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   top: 11px;
   height: 2px;
 }
-.jpdb-subtitle-list-head {
+.jpdb-subtitle-drawer-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, auto);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));
+  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 76%, transparent);
+}
+.jpdb-subtitle-drawer-brand {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.jpdb-subtitle-drawer-title {
+  min-width: 0;
+  color: var(--jpdb-reader-text, #fff);
+  font: 800 15px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: .01em;
+}
+.jpdb-subtitle-drawer-meta {
+  min-width: 0;
+  color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
+  font: 700 11px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jpdb-subtitle-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  padding: 9px;
-  border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
-  font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.jpdb-subtitle-drawer-close {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 !important;
+  border-radius: 12px !important;
+}
+.jpdb-subtitle-drawer-close svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .jpdb-subtitle-panel-mode {
+  justify-self: start;
+  width: max-content;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 8px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
 }
 .jpdb-subtitle-panel-mode button {
-  min-height: 28px;
-  padding: 0 9px;
+  min-height: 30px;
+  padding: 0 11px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 10px;
   background: transparent;
   text-align: center;
   box-shadow: none;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 700;
 }
 .jpdb-subtitle-panel-mode button[aria-pressed="true"] {
   color: var(--jpdb-reader-text, #fff);
@@ -406,24 +525,27 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   opacity: .42;
 }
 .jpdb-subtitle-panel-nav {
+  justify-self: start;
+  width: max-content;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 8px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
 }
 .jpdb-subtitle-panel-nav button {
   display: inline-grid;
   place-items: center;
-  min-width: 30px;
-  width: 30px;
-  min-height: 30px;
-  height: 30px;
+  min-width: 32px;
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
   padding: 0 0 2px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 10px;
   background: transparent;
   text-align: center;
   box-shadow: none;
@@ -433,46 +555,20 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-panel-nav button:disabled {
   opacity: .38;
 }
-.jpdb-subtitle-placement {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
-}
-.jpdb-subtitle-placement button {
-  display: inline-grid;
-  place-items: center;
-  min-width: 28px;
-  width: 28px;
-  min-height: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  text-align: center;
-  box-shadow: none;
-}
-.jpdb-subtitle-placement button[aria-pressed="true"] {
-  color: var(--jpdb-reader-text, #fff);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b));
-}
 .jpdb-subtitle-list-scroll {
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
   align-content: start;
   grid-auto-rows: max-content;
-  gap: 2px;
-  padding: 6px;
+  gap: 4px;
+  padding: 8px 10px 12px;
   overscroll-behavior: contain;
 }
 .jpdb-subtitle-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: start;
   gap: 10px;
   min-height: 76px;
@@ -484,6 +580,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   cursor: pointer;
 }
 .jpdb-subtitle-row-body {
+  min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
@@ -531,21 +628,36 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-row-text {
   min-width: 0;
+  max-width: 100%;
   grid-column: 1;
+  color: var(--jpdb-reader-text, #fff);
   overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
   font-weight: 600;
   line-height: 1.45;
   font-size: 22px;
   letter-spacing: 0;
+  text-shadow: 0 1px 1px rgba(0,0,0,.38);
 }
 .jpdb-subtitle-row-text .jpdb-reader-word {
   color: inherit;
   background: transparent;
-  text-decoration-line: none;
+  text-decoration-color: var(--jpdb-reader-word-underline, currentColor);
+  text-decoration-thickness: .08em;
+  text-underline-offset: .16em;
   border-radius: 4px;
   padding: 0 1px;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+}
+.jpdb-subtitle-row-text ruby,
+.jpdb-subtitle-row-text rt,
+.jpdb-subtitle-row-text .jpdb-reader-furi {
+  white-space: normal !important;
 }
 .jpdb-subtitle-row-text .jpdb-reader-word:hover,
 .jpdb-subtitle-row-text .jpdb-reader-word:focus-visible {
@@ -746,8 +858,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
   }
   .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
-    max-height: min(92vh, 840px);
-    max-height: min(92svh, 840px);
+    max-height: 100vh;
+    max-height: 100svh;
+    border-radius: 0;
+    padding-top: max(8px, env(safe-area-inset-top));
   }
   .jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
@@ -818,7 +932,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     grid-column: 1 / -1;
     justify-content: flex-start;
   }
-  .jpdb-ocr-line { min-width: 38px; min-height: 38px; border-radius: 8px; }
+  .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
   .jpdb-subtitle-rail {
     top: max(8px, env(safe-area-inset-top));
@@ -842,18 +956,18 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     bottom: auto;
   }
   .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list {
-    left: 8px !important;
+    left: 10px !important;
     right: auto !important;
-    width: calc(100vw - 16px) !important;
-    border-radius: 12px 12px 0 0;
+    width: calc(100vw - 20px) !important;
+    border-radius: 20px 20px 16px 16px;
   }
 }
 
 @media (max-width: 519px) {
   .jpdb-subtitle-list {
-    left: 8px !important;
+    left: 10px !important;
     right: auto !important;
-    width: calc(100vw - 16px) !important;
-    border-radius: 12px 12px 0 0;
+    width: calc(100vw - 20px) !important;
+    border-radius: 20px 20px 16px 16px;
   }
 }

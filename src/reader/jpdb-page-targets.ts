@@ -8,6 +8,7 @@ export interface JpdbTermTarget {
     term: string;
     reading: string;
     queries: string[];
+    examples: JpdbPageExample[];
     anchor: HTMLElement;
 }
 
@@ -15,7 +16,21 @@ export interface LocalDictionaryTarget {
     term: string;
     reading: string;
     alternates: string[];
+    compounds: JpdbPageCompound[];
+    examples: JpdbPageExample[];
     anchor: HTMLElement;
+}
+
+export interface JpdbPageCompound {
+    term: string;
+    reading: string;
+    meaning: string;
+    url: string;
+}
+
+export interface JpdbPageExample {
+    sentence: string;
+    translation: string;
 }
 
 export interface JpdbReviewCardState {
@@ -43,12 +58,16 @@ export function isReviewAnswer(): boolean {
 
 export function isKanjiReviewFront(): boolean {
     const state = currentReviewCardState();
-    return state.isKanji && state.phase === 'before';
+    return state.isKanji && state.phase === 'before' && !hasReviewAnswerContent();
 }
 
 export function isKanjiReviewBack(): boolean {
     const state = currentReviewCardState();
-    return state.isKanji && state.phase === 'after';
+    return state.isKanji && (state.phase === 'after' || hasReviewAnswerContent());
+}
+
+function hasReviewAnswerContent(): boolean {
+    return Boolean(document.querySelector('.review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings'));
 }
 
 export function currentReviewCardState(): JpdbReviewCardState {
@@ -79,6 +98,12 @@ export function extractCurrentKanji(): string {
 }
 
 export function currentJpdbTermTarget(): JpdbTermTarget | null {
+    const kanji = extractCurrentKanji();
+    if ((isKanjiPage() || isKanjiReviewBack()) && kanji) {
+        const anchor = currentKanjiAddonAnchor();
+        const queries = uniqueLookupValues([kanji, ...kanjiComponentTerms(document)]);
+        return { term: kanji, reading: kanji, queries: queries.length ? queries : [kanji], examples: extractPageExamples(document), anchor: anchor ?? document.body };
+    }
     const pageTerm = extractCurrentTermTarget();
     const searchQuery = extractSearchQuery();
     const term = isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? '';
@@ -94,7 +119,7 @@ export function currentJpdbTermTarget(): JpdbTermTarget | null {
     const queries = isSearchPage()
         ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])])
         : uniqueLookupValues([pageTerm?.term, pageTerm?.reading, term, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])]);
-    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], anchor };
+    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor };
 }
 
 export function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
@@ -104,7 +129,9 @@ export function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
                 const term = extractTermFromElement(section);
                 return term ? {
                     ...term,
-                    alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section)]),
+                    alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section), ...extractPageCompounds(section).flatMap(compound => [compound.term, compound.reading])]),
+                    compounds: extractPageCompounds(section),
+                    examples: extractPageExamples(section),
                     anchor: section.querySelector<HTMLElement>('.subsection-meanings') ?? section,
                 } : null;
             })
@@ -113,7 +140,75 @@ export function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
     }
     const target = currentJpdbTermTarget();
     if (!target) return [];
-    return [{ term: target.term, reading: target.reading, alternates: target.queries, anchor: target.anchor }];
+    const compounds = extractPageCompounds(document);
+    return [{
+        term: target.term,
+        reading: target.reading,
+        alternates: uniqueLookupValues([...target.queries, ...compounds.flatMap(compound => [compound.term, compound.reading])]),
+        compounds,
+        examples: extractPageExamples(document),
+        anchor: target.anchor,
+    }];
+}
+
+function currentKanjiAddonAnchor(): HTMLElement | null {
+    const labels = Array.from(document.querySelectorAll<HTMLElement>('h6.subsection-label'));
+    const mnemonic = labels.find(label => label.textContent?.trim().toLowerCase().startsWith('mnemonic'));
+    if (mnemonic?.nextElementSibling instanceof HTMLElement) return mnemonic.nextElementSibling;
+    return document.querySelector<HTMLElement>('.result.kanji .vbox')
+        ?? document.querySelector<HTMLElement>('.result.kanji')
+        ?? document.querySelector<HTMLElement>('.answer-box')
+        ?? document.querySelector<HTMLElement>('.bugfix')
+        ?? document.querySelector<HTMLElement>('main');
+}
+
+function kanjiComponentTerms(root: ParentNode): string[] {
+    return Array.from(root.querySelectorAll<HTMLElement>('.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]'))
+        .map(element => cleanText(extractBaseText(element)) || cleanText(element.textContent ?? ''))
+        .filter(value => value && JAPANESE_RE.test(value));
+}
+
+function extractPageCompounds(root: ParentNode): JpdbPageCompound[] {
+    const entries: JpdbPageCompound[] = [];
+    const sections = Array.from(root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji'));
+    for (const section of sections) {
+        const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
+        if (label && !label.startsWith('composed of')) continue;
+        const rows = Array.from(section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in'));
+        for (const row of rows) {
+            const link = row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
+            const spelling = row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+            const term = cleanText(spelling ? extractBaseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
+            const reading = cleanText(spelling ? extractReadingText(spelling) : '') || term;
+            if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term)) continue;
+            const description = row.querySelector<HTMLElement>('.description, .en, .meaning');
+            entries.push({
+                term,
+                reading,
+                meaning: cleanText(description?.textContent ?? ''),
+                url: link?.getAttribute('href') ?? '',
+            });
+        }
+    }
+    return entries.slice(0, 8);
+}
+
+function extractPageExamples(root: ParentNode): JpdbPageExample[] {
+    const seen = new Set<string>();
+    const examples: JpdbPageExample[] = [];
+    const sections = Array.from(root.querySelectorAll<HTMLElement>('.subsection-examples, .subsection-monolingual-examples'));
+    for (const section of sections) {
+        const rows = Array.from(section.querySelectorAll<HTMLElement>('.subsection > div, .example, li, p'));
+        for (const row of rows) {
+            const sentenceNode = row.querySelector<HTMLElement>('.sentence, .jp, .japanese, .plain') ?? row;
+            const sentence = cleanText(extractBaseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? '');
+            if (!sentence || !JAPANESE_RE.test(sentence) || seen.has(sentence)) continue;
+            seen.add(sentence);
+            const translation = cleanText(row.querySelector<HTMLElement>('.translation, .en, .english')?.textContent ?? '');
+            examples.push({ sentence, translation });
+        }
+    }
+    return examples.slice(0, 5);
 }
 
 export function currentAudioTargets(): Array<{ term: string; reading: string; link: HTMLElement }> {
@@ -160,7 +255,10 @@ export function uniqueLocalDictionaryEntries(entries: YomitanTermEntry[]): Yomit
 }
 
 export function localDictionaryEntryKey(entry: YomitanTermEntry): string {
-    return `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${JSON.stringify(entry.glossary).slice(0, 120)}`;
+    const glossaryKey = JSON.stringify(entry.glossary);
+    return entry.sequence !== undefined
+        ? `${entry.dictionary}\nsequence:${entry.sequence}\n${glossaryKey}`
+        : `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${glossaryKey}`;
 }
 
 export function dictionaryPreferencePriority(dictionary: string, settings: ReaderSettings): number {

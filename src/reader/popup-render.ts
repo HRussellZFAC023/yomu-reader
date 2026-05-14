@@ -277,8 +277,8 @@ export function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, lan
             </div>
             <div class="jpdb-reader-doodle-tools">
                 <span class="jpdb-reader-help">${info ? `${info.strokeCount} ${uiText(language, 'strokes')}` : uiText(language, 'textTrace')}</span>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, 'hideTrace')}</button>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, 'clear')}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${uiText(language, 'hideTrace')}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${uiText(language, 'clear')}</button>
             </div>
         </details>
     `;
@@ -373,6 +373,7 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
     const coords = new Map(positioned.map(item => [item.node.id, item]));
     const markerId = `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map(item => item.node.id).join('|'))}`;
     const hasOutboundEdges = edgeGroups.some(edge => isOriginOutboundEdge(edge, current.id));
+    const graphClass = `jpdb-reader-origin-graph-wrap${hasOutboundEdges ? ' show-outbound' : ''}`;
     const lines = edgeGroups
         .map(edge => {
             const from = coords.get(edge.from);
@@ -400,7 +401,7 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
     }).join('');
     log.debug('Kanji origin graph rendered', { nodes: positioned.length, edges: edgeGroups.length });
     return `
-        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, 'originMapLabel')}">
+        <div class="${graphClass}" aria-label="${uiText(language, 'originMapLabel')}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -410,7 +411,7 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
                 ${lines}
             </svg>
             ${hasOutboundEdges ? `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml(uiText(language, 'originShowOutbound'))}">
-                <input type="checkbox" data-origin-outbound-toggle>
+                <input type="checkbox" data-origin-outbound-toggle checked>
                 <span>${escapeHtml(uiText(language, 'originShowOutbound'))}</span>
             </label>` : ''}
             ${nodeButtons}
@@ -422,6 +423,20 @@ type OriginGraphNode = KanjiOriginGraph['nodes'][number];
 type OriginGraphEdge = KanjiOriginGraph['edges'][number];
 
 const SIMPLIFIED_ONLY_COMPONENTS = new Set(['讠', '钅', '饣', '纟', '门', '车', '贝', '见', '长', '马', '鸟', '鱼']);
+const TOP_COMPONENTS = new Set(['亠', '宀', '冖', '艹', '⺾', '竹', '⺮', '雨', '穴', '覀', '西', '爫', '𠂉']);
+const BOTTOM_COMPONENTS = new Set(['心', '忄', '灬', '儿', '皿', '貝', '贝', '日', '寸', '廾']);
+const LEFT_COMPONENTS = new Set(['亻', '人', '彳', '氵', '忄', '扌', '木', '言', '訁', '口', '女', '糸', '纟', '土', '王', '犭', '礻', '衤', '月', '火', '禾', '虫', '足', '車', '车']);
+const RIGHT_COMPONENTS = new Set(['阝', '刂', '卩', '頁', '页', '隹', '攵', '殳', '欠', '鳥', '鸟']);
+const WHOLE_COMPONENTS = new Set(['大', '夫', '天', '失', '央', '本', '末', '未']);
+
+type OriginComponentZone = 'top' | 'upper' | 'left' | 'center' | 'right' | 'lower' | 'bottom';
+
+const OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES = new Map<string, OriginComponentZone>([
+    ['夫\u0000失', 'upper'],
+    ['夫\u0000替', 'top'],
+    ['夫\u0000難', 'left'],
+    ['夫\u0000僕', 'lower'],
+]);
 
 interface OriginEdgeGroup {
     from: string;
@@ -630,16 +645,108 @@ function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], 
     const others = nodes.filter(node => node.id !== currentId && !attached.has(node.id));
 
     if (outgoing.length) {
-        spreadOnArc(incoming, 30, 50, 8, 24, -86, 86).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
-        spreadOnArc(outgoing, 70, 50, 8, 24, -86, 86).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+        spreadInboundComponents(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+        spreadOutboundComponents(outgoing, currentId).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
     } else {
-        spreadConstellation(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+        spreadInboundComponents(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
     }
     others.forEach((node, index) => {
         const t = (index + 1) / (others.length + 1);
         anchors.set(node.id, { x: 26 + t * 48, y: 78 + (index % 2) * 3 });
     });
     return anchors;
+}
+
+function spreadInboundComponents(nodes: OriginGraphNode[]): Array<{ node: OriginGraphNode; x: number; y: number }> {
+    if (!nodes.length) return [];
+    const ordered = [...nodes].sort((a, b) => componentZoneSort(inferInboundComponentZone(a)) - componentZoneSort(inferInboundComponentZone(b)) || a.label.localeCompare(b.label, 'ja'));
+    const usedByZone = new Map<OriginComponentZone, number>();
+    return ordered.map((node, index) => {
+        const zone = inferInboundComponentZone(node);
+        const used = usedByZone.get(zone) ?? 0;
+        usedByZone.set(zone, used + 1);
+        const anchor = inboundZoneAnchor(zone, used, ordered.filter(item => inferInboundComponentZone(item) === zone).length);
+        const fallback = spreadConstellation(ordered)[index] ?? { x: 30, y: 50 };
+        return { node, x: anchor?.x ?? fallback.x, y: anchor?.y ?? fallback.y };
+    });
+}
+
+function spreadOutboundComponents(nodes: OriginGraphNode[], currentId: string): Array<{ node: OriginGraphNode; x: number; y: number }> {
+    if (!nodes.length) return [];
+    const ordered = [...nodes].sort((a, b) => componentZoneSort(inferOutboundComponentZone(currentId, a)) - componentZoneSort(inferOutboundComponentZone(currentId, b)) || a.label.localeCompare(b.label, 'ja'));
+    const usedByZone = new Map<OriginComponentZone, number>();
+    return ordered.map(node => {
+        const zone = inferOutboundComponentZone(currentId, node);
+        const used = usedByZone.get(zone) ?? 0;
+        usedByZone.set(zone, used + 1);
+        const anchor = outboundZoneAnchor(zone, used, ordered.filter(item => inferOutboundComponentZone(currentId, item) === zone).length);
+        return { node, x: anchor.x, y: anchor.y };
+    });
+}
+
+function inferInboundComponentZone(node: OriginGraphNode): OriginComponentZone {
+    const position = (node.position ?? '').toLowerCase();
+    if (/へん|left/.test(position)) return 'left';
+    if (/つくり|right/.test(position)) return 'right';
+    if (/かんむり|top|upper/.test(position)) return 'top';
+    if (/あし|した|bottom|lower/.test(position)) return 'bottom';
+    if (/かまえ|enclosure|surround/.test(position)) return 'center';
+    if (TOP_COMPONENTS.has(node.id) || TOP_COMPONENTS.has(node.label)) return 'top';
+    if (BOTTOM_COMPONENTS.has(node.id) || BOTTOM_COMPONENTS.has(node.label)) return 'bottom';
+    if (WHOLE_COMPONENTS.has(node.id) || WHOLE_COMPONENTS.has(node.label)) return 'center';
+    if (LEFT_COMPONENTS.has(node.id) || LEFT_COMPONENTS.has(node.label)) return 'left';
+    if (RIGHT_COMPONENTS.has(node.id) || RIGHT_COMPONENTS.has(node.label)) return 'right';
+    return 'center';
+}
+
+function inferOutboundComponentZone(currentId: string, node: OriginGraphNode): OriginComponentZone {
+    return OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES.get(`${currentId}\u0000${node.id}`) ?? 'center';
+}
+
+function componentZoneSort(zone: OriginComponentZone): number {
+    return { top: 0, upper: 1, left: 2, center: 3, right: 4, lower: 5, bottom: 6 }[zone];
+}
+
+function inboundZoneAnchor(zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
+    const offset = (index - (total - 1) / 2) * 10;
+    switch (zone) {
+        case 'top':
+            return { x: 38 + offset, y: 23 };
+        case 'upper':
+            return { x: 32 + offset, y: 36 };
+        case 'left':
+            return { x: 24, y: 50 + offset };
+        case 'right':
+            return { x: 38, y: 50 + offset };
+        case 'lower':
+            return { x: 32 + offset, y: 64 };
+        case 'bottom':
+            return { x: 38 + offset, y: 77 };
+        case 'center':
+        default:
+            return { x: 32, y: 50 + offset };
+    }
+}
+
+function outboundZoneAnchor(zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
+    const offset = (index - (total - 1) / 2) * 9;
+    switch (zone) {
+        case 'top':
+            return { x: 72 + offset, y: 23 };
+        case 'upper':
+            return { x: 79 + offset, y: 34 };
+        case 'left':
+            return { x: 84, y: 47 + offset };
+        case 'right':
+            return { x: 72, y: 47 + offset };
+        case 'lower':
+            return { x: 79 + offset, y: 66 };
+        case 'bottom':
+            return { x: 72 + offset, y: 77 };
+        case 'center':
+        default:
+            return { x: 84, y: 50 + offset };
+    }
 }
 
 function spreadConstellation(nodes: OriginGraphNode[]): Array<{ node: OriginGraphNode; x: number; y: number }> {
@@ -660,14 +767,6 @@ function spreadConstellation(nodes: OriginGraphNode[]): Array<{ node: OriginGrap
             x: 50 + Math.cos(angle) * 30,
             y: 50 + Math.sin(angle) * 28,
         };
-    });
-}
-
-function spreadOnArc(nodes: OriginGraphNode[], centerX: number, centerY: number, radiusX: number, radiusY: number, startDegrees: number, endDegrees: number): Array<{ node: OriginGraphNode; x: number; y: number }> {
-    return nodes.map((node, index) => {
-        const t = (index + 1) / (nodes.length + 1);
-        const angle = (startDegrees + (endDegrees - startDegrees) * t) * Math.PI / 180;
-        return { node, x: centerX + Math.cos(angle) * radiusX, y: centerY + Math.sin(angle) * radiusY };
     });
 }
 
@@ -746,14 +845,21 @@ function hashOriginGraphId(value: string): string {
 
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
     if (!info) return '';
-    const infoChips = [
-        info.type,
-    ].filter(Boolean).map(item => `<span class="jpdb-reader-chip">${escapeHtml(item)}</span>`).join('');
+    const facts = [
+        ['Name', info.keyword],
+        ['Type', info.type],
+        ['Frequency', info.frequency],
+        ['Kanken', info.kanken],
+        ['Heisig', info.heisig],
+        ['Old forms', info.oldForms.join(', ')],
+    ].filter(([, value]) => Boolean(value?.trim()));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'readingsComponents')}</summary>
             <div class="jpdb-reader-local-entry">
-                ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ''}
+                ${facts.length ? `<div class="jpdb-reader-kanji-facts">
+                    ${facts.map(([label, value]) => `<span><small>${escapeHtml(label)}</small>${escapeHtml(value)}</span>`).join('')}
+                </div>` : ''}
                 ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
                     ${info.readings.slice(0, 8).map(reading => `<span>${escapeHtml(reading.reading)}${reading.share ? ` ${escapeHtml(reading.share)}` : ''}</span>`).join('')}
                 </div>` : ''}
@@ -810,15 +916,6 @@ export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSumm
                         return componentKanji
                             ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(componentKanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${componentKanji}`)}"><strong>${escapeHtml(componentKanji)}</strong><span>${escapeHtml(keyword)}</span></button>`
                             : `<span>${escapeHtml(keyword)}</span>`;
-                    }).join('')}
-                </div>` : ''}
-                ${components.length ? `<div class="jpdb-reader-component-grid">
-                    ${components.map(component => {
-                        return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
-                            <strong>${escapeHtml(component.kanji)}</strong>
-                            ${component.keyword ? `<span>${escapeHtml(component.keyword)}</span>` : ''}
-                            ${component.meaning && component.meaning !== component.keyword ? `<small>${escapeHtml(component.meaning)}</small>` : ''}
-                        </button>`;
                     }).join('')}
                 </div>` : ''}
                 ${info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : ''}

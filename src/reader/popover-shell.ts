@@ -42,38 +42,71 @@ export function placePopoverAtViewportPosition(popover: HTMLElement, rect: DOMRe
 }
 
 export function installSheetHandle(popover: HTMLElement, onDismiss: () => void): void {
-    const handle = popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle');
-    if (!handle) return;
-    handle.setAttribute('role', 'button');
-    handle.setAttribute('tabindex', '0');
-    handle.setAttribute('aria-label', 'Drag to close, or tap to expand');
-    handle.setAttribute('aria-expanded', String(popover.classList.contains('jpdb-reader-sheet-expanded')));
+    const getHandle = (): HTMLElement | null => popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle');
+    const syncHandleState = (): void => {
+        const handle = getHandle();
+        if (!handle) return;
+        handle.setAttribute('role', 'button');
+        handle.setAttribute('tabindex', '0');
+        handle.setAttribute('aria-label', 'Drag up to expand, drag down to collapse, or tap to expand');
+        handle.setAttribute('aria-expanded', String(popover.classList.contains('jpdb-reader-sheet-expanded')));
+    };
+    syncHandleState();
+
+    const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => {
+        if (!(event instanceof Element)) return null;
+        const handle = event.closest('.jpdb-reader-sheet-handle');
+        if (!handle) return null;
+        return popover.contains(handle) ? handle as HTMLElement : null;
+    };
     let startY = 0;
     let lastY = 0;
     let pointerId = 0;
     let dragging = false;
     let moved = false;
+    let activeHandle: HTMLElement | null = null;
 
     const reset = () => {
         popover.style.transition = 'transform .16s ease';
         popover.style.transform = '';
         window.setTimeout(() => { popover.style.transition = ''; }, 180);
     };
-    const toggleExpanded = () => {
-        const expanded = !popover.classList.contains('jpdb-reader-sheet-expanded');
+    const setExpanded = (expanded: boolean) => {
         popover.classList.toggle('jpdb-reader-sheet-expanded', expanded);
-        handle.setAttribute('aria-expanded', String(expanded));
+        syncHandleState();
+    };
+    const toggleExpanded = () => {
+        setExpanded(!popover.classList.contains('jpdb-reader-sheet-expanded'));
     };
     const finish = () => {
-        handle.releasePointerCapture?.(pointerId);
         if (!dragging) return;
-        const delta = Math.max(0, lastY - startY);
+        const delta = lastY - startY;
+        const wasExpanded = popover.classList.contains('jpdb-reader-sheet-expanded');
+        const handle = activeHandle;
         dragging = false;
-        if (delta > 90) onDismiss();
-        else reset();
+        activeHandle = null;
+        handle?.releasePointerCapture?.(pointerId);
+
+        if (delta >= 110) {
+            onDismiss();
+            return;
+        }
+        if (delta <= -56) {
+            setExpanded(true);
+            reset();
+            return;
+        }
+        if (wasExpanded && delta >= 56) {
+            setExpanded(false);
+            reset();
+            return;
+        }
+        reset();
     };
 
-    handle.addEventListener('click', event => {
+    popover.addEventListener('click', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
         event.preventDefault();
         if (moved) {
             moved = false;
@@ -81,36 +114,44 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         }
         toggleExpanded();
     });
-    handle.addEventListener('pointerdown', event => {
+    popover.addEventListener('pointerdown', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
+        if (event.button !== undefined && event.button !== 0) return;
         startY = event.clientY;
         lastY = event.clientY;
         pointerId = event.pointerId;
         dragging = true;
         moved = false;
+        activeHandle = handle;
         popover.style.transition = '';
         handle.setPointerCapture?.(event.pointerId);
     });
-    handle.addEventListener('pointermove', event => {
+    popover.addEventListener('pointermove', event => {
         if (!dragging) return;
         lastY = event.clientY;
-        const delta = Math.max(0, lastY - startY);
-        if (delta > 8) moved = true;
+        const delta = lastY - startY;
+        if (Math.abs(delta) > 8) moved = true;
         popover.style.transform = `translateY(${delta}px)`;
     });
-    handle.addEventListener('pointerup', finish);
-    handle.addEventListener('pointercancel', () => {
+    popover.addEventListener('pointerup', finish);
+    popover.addEventListener('pointercancel', () => {
         dragging = false;
         moved = false;
-        handle.releasePointerCapture?.(pointerId);
+        activeHandle?.releasePointerCapture?.(pointerId);
+        activeHandle = null;
         reset();
     });
-    handle.addEventListener('keydown', event => {
+    popover.addEventListener('keydown', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             toggleExpanded();
         }
         if (event.key === 'Escape') onDismiss();
     });
+
 }
 
 function shouldUseSheet(settings: ReaderSettings): boolean {

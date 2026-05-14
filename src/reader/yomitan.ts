@@ -86,11 +86,12 @@ export class YomitanDictionaryStore {
                 .filter(entry => dictionaryEnabled(entry.dictionary, rank))
                 .sort((a, b) =>
                     dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+                    || Number(b.expression === expression) - Number(a.expression === expression)
                     || Number(b.reading === reading) - Number(a.reading === reading)
                     || (b.score ?? 0) - (a.score ?? 0),
                 )
                 .filter(entry => {
-                    const key = `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${JSON.stringify(entry.glossary).slice(0, 120)}`;
+                    const key = termLookupDedupKey(entry);
                     if (seen.has(key)) return false;
                     seen.add(key);
                     return true;
@@ -799,6 +800,28 @@ export class YomitanDictionaryStore {
         }
     }
 
+    async deleteDatabase(): Promise<void> {
+        const done = log.time('Dictionary database delete');
+        try {
+            const db = this.dbPromise ? await this.dbPromise.catch(() => undefined) : undefined;
+            db?.close();
+            this.dbPromise = undefined;
+            this.invalidateCaches();
+            await new Promise<void>((resolve, reject) => {
+                const request = indexedDB.deleteDatabase(DB_NAME);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+                request.onblocked = () => reject(new Error('Dictionary database delete was blocked by an open tab.'));
+            });
+            log.info('Dictionary database deleted', { name: DB_NAME });
+        } catch (error) {
+            log.warn('Dictionary database delete failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
+    }
+
     async deleteDictionary(dictionary: string): Promise<void> {
         const done = log.time('Dictionary delete', { dictionary });
         try {
@@ -1123,6 +1146,13 @@ function normalizeDexieTermRow(row: unknown): YomitanTermEntry | null {
     };
 }
 
+function termLookupDedupKey(entry: YomitanTermEntry): string {
+    const glossaryKey = JSON.stringify(entry.glossary);
+    return entry.sequence !== undefined
+        ? `${entry.dictionary}\nsequence:${entry.sequence}\n${glossaryKey}`
+        : `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${glossaryKey}`;
+}
+
 function normalizeDexieKanjiRow(row: unknown): YomitanKanjiEntry | null {
     const candidate = unwrapDexieRow(row);
     if (!candidate || typeof candidate !== 'object') return null;
@@ -1286,29 +1316,32 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
     }
 
     const downloadUrl = dictionaryDownloadUrl(url);
-    if (!isFetchableDictionaryUrl(downloadUrl)) {
-        done();
-        throw new Error('Dictionary download needs the Yomu userscript. Install Yomu, or import a local Yomitan ZIP from Settings.');
-    }
-
-    let response: Response;
     try {
         log.debug('Dictionary download using fetch', { host: safeHost(url), proxied: downloadUrl !== url });
-        response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+        const response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+        if (!response.ok) {
+            log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status: response.status });
+            throw new Error(`Dictionary download failed (${response.status}).`);
+        }
+        const blob = await response.blob();
+        log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
+        done();
+        return blob;
     } catch (error) {
-        log.warn('Dictionary download fetch failed', { host: safeHost(url), error });
+        const host = safeHost(url);
+        if (error instanceof Error) {
+            if (error.name === 'TypeError') {
+                log.warn('Dictionary download failed due cross-origin restriction', { host, downloadUrl });
+                done();
+                throw new Error('Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
+            }
+            log.warn('Dictionary download fetch failed', { host, error });
+        } else {
+            log.warn('Dictionary download fetch failed', { host, error });
+        }
         done();
-        throw new Error('Dictionary download failed. Reinstall or update the userscript so its userscript request grant is active, then try again.');
+        throw error;
     }
-    if (!response.ok) {
-        log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status: response.status });
-        done();
-        throw new Error(`Dictionary download failed (${response.status}).`);
-    }
-    const blob = await response.blob();
-    log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
-    done();
-    return blob;
 }
 
 function dictionaryDownloadUrl(url: string): string {
@@ -1325,15 +1358,6 @@ function dictionaryDownloadUrl(url: string): string {
 
 function isLoopbackPage(): boolean {
     return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-}
-
-function isFetchableDictionaryUrl(url: string): boolean {
-    if (isLoopbackPage()) return true;
-    try {
-        return new URL(url, location.href).origin === location.origin;
-    } catch {
-        return false;
-    }
 }
 
 function splitTags(value: unknown): string[] {

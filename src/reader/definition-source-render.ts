@@ -7,21 +7,71 @@ import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 import type { JpdbKanjiVocabulary } from './jpdb-kanji';
+import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
 
-export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes): string {
+export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null): string {
     const meanings = card.meanings.slice(0, 6)
         .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning.glosses.join('; '))}</div>`)
         .join('');
-    if (!meanings) return '';
+    const extras = renderJpdbVocabularyExtras(info, sourceAttributes);
+    if (!meanings && !extras) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title">JPDB</summary>
-            <div class="jpdb-reader-meanings">${meanings}</div>
+            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
+            ${extras}
         </details>
     `;
+}
+
+function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes): string {
+    if (!info || (!info.compounds.length && !info.examples.length)) return '';
+    const compounds = info.compounds.length ? `
+        <section class="jpdb-reader-jpdb-extra">
+            <ul class="jpdb-reader-jpdb-compounds">
+                ${info.compounds.map(compound => `
+                    <li>
+                        <a
+                            class="gloss-link jpdb-reader-jpdb-compound"
+                            href="#jpdb-reader-dictionary-lookup"
+                            data-dictionary-lookup="${escapeHtml(compound.term)}"
+                            data-dictionary-reading="${escapeHtml(compound.reading)}"
+                            data-dictionary="JPDB"
+                            data-external="false"
+                        >
+                            <span class="jpdb-reader-jpdb-compound-head">
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(compound.term)}</span>
+                                ${compound.reading && compound.reading !== compound.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml(compound.reading)}</span>` : ''}
+                            </span>
+                        </a>
+                        ${compound.meaning ? `<small>${escapeHtml(compound.meaning)}</small>` : ''}
+                    </li>
+                `).join('')}
+            </ul>
+        </section>
+    ` : '';
+    const examples = info.examples.length ? `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">JPDB examples</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-examples">
+                ${info.examples.map(example => `
+                    <li class="jpdb-reader-jpdb-example">
+                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
+                        ${example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>` : ''}
+                    </li>
+                `).join('')}
+                </ul>
+            </div>
+        </details>
+    ` : '';
+    return `<div class="jpdb-reader-jpdb-extras">${compounds}${examples}</div>`;
 }
 
 export function renderLocalDefinitionSourcesSection(

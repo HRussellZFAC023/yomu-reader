@@ -103,6 +103,18 @@ export async function importStoredValues(values: unknown): Promise<number> {
     return count;
 }
 
+export async function clearManagedStoredValues(): Promise<number> {
+    const keys = await allStorageKeys();
+    let count = 0;
+    for (const key of keys) {
+        await gmStorageDelete(key);
+        removeLocalStorageKey(key);
+        removeSessionStorageKey(key);
+        count++;
+    }
+    return count;
+}
+
 async function storageKeys(prefixes: string[]): Promise<string[]> {
     const keys = new Set<string>();
     const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
@@ -126,6 +138,32 @@ async function storageKeys(prefixes: string[]): Promise<string[]> {
     return [...keys].sort();
 }
 
+async function allStorageKeys(): Promise<string[]> {
+    const keys = new Set<string>();
+    const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
+    if (typeof listValues === 'function') {
+        try {
+            for (const key of await listValues()) keys.add(key);
+        } catch (error) {
+            debugStorageError('GM storage list failed', 'GM_listValues', error);
+        }
+    }
+    collectWebStorageKeys(localStorage, keys);
+    collectWebStorageKeys(sessionStorage, keys);
+    return [...keys].sort();
+}
+
+function collectWebStorageKeys(storage: Storage, keys: Set<string>): void {
+    try {
+        for (let index = 0; index < storage.length; index++) {
+            const key = storage.key(index);
+            if (key && isManagedStorageKey(key)) keys.add(key);
+        }
+    } catch {
+        // Ignore storage enumeration failures.
+    }
+}
+
 function localStorageGet<T>(key: string, fallback: T): T {
     try {
         const value = localStorage.getItem(key);
@@ -143,12 +181,30 @@ function localStorageSet(key: string, value: unknown): void {
     }
 }
 
+function removeLocalStorageKey(key: string): void {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        // Ignore storage failures.
+    }
+}
+
+function removeSessionStorageKey(key: string): void {
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Ignore storage failures.
+    }
+}
+
 function isPromiseLike(value: unknown): value is Promise<unknown> {
     return Boolean(value) && typeof (value as Promise<unknown>).then === 'function';
 }
 
 function isManagedStorageKey(key: string): boolean {
     return key.startsWith('yomu-')
+        || key.startsWith('yomu:')
+        || key.startsWith('yomu.')
         || key.startsWith('jpdb-reader-')
         || key.startsWith('jpdb-popup-reader-');
 }

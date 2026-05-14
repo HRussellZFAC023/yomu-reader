@@ -37,7 +37,7 @@ import {
 } from './settings-form';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { resolveUiLanguage, uiText } from './i18n';
-import { YomitanDictionaryStore, parseYomitanSettingsExport } from './yomitan';
+import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from './yomitan';
 
 interface Refreshable {
     refresh: () => void;
@@ -559,6 +559,7 @@ export class SettingsDialogController {
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
         await this.refreshDictionaryStatus(form);
+        this.dependencies.refreshNewTabIfCurrent();
         setStatus(`Removed ${dictionary}.`);
         log.info('Dictionary removed', { dictionary });
     }
@@ -574,6 +575,7 @@ export class SettingsDialogController {
         setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? '' : 's'}.`);
         log.info('Dictionary file imported', summary);
         await this.refreshDictionaryStatus(form);
+        this.dependencies.refreshNewTabIfCurrent();
     }
 
     private async downloadRecommendedDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
@@ -583,14 +585,48 @@ export class SettingsDialogController {
         control?.setAttribute('disabled', 'true');
         setStatus(`${control?.dataset.installed === 'true' ? 'Updating' : 'Downloading'} ${dictionary.name}...`);
         log.info('Downloading selected dictionary', { dictionary: dictionary.name });
-        const summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
+        let summary: ImportSummary;
+        try {
+            summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Dictionary download failed.';
+            if (this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) {
+                window.open(dictionary.downloadUrl, '_blank');
+                setStatus(`${message} Opened the dictionary link in a new tab. Download the ZIP and use Import dictionary above.`);
+                log.warn('Dictionary auto-download unavailable, opened manual fallback', { dictionary: dictionary.name, message });
+                control?.removeAttribute('disabled');
+                return;
+            }
+            control?.removeAttribute('disabled');
+            throw error;
+        }
         this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
         await saveSettings(this.settings);
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
         setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
         await this.refreshDictionaryStatus(form);
+        this.dependencies.refreshNewTabIfCurrent();
         log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
+    }
+
+    private shouldPromptManualDictionaryDownload(error: unknown, downloadUrl: string): boolean {
+        const message = String((error as Error | undefined)?.message ?? '').toLowerCase();
+        const manualDownloadHints = [
+            'blocked in this browser',
+            'cross-site',
+            'request bridge',
+            'request bridge is unavailable',
+            'userscript bridge',
+            'needs the yomu userscript',
+            'needs yomu userscript',
+            'need the yomu userscript',
+            'needs the userscript',
+            'user script request',
+            'userscript request',
+        ];
+        return Boolean(downloadUrl.startsWith('http://') || downloadUrl.startsWith('https://'))
+            && manualDownloadHints.some(hint => message.includes(hint));
     }
 
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {

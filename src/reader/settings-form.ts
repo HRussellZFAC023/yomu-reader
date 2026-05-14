@@ -270,9 +270,11 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
                     ${checkbox('subtitleAutoDetect', 'Auto-detect page subtitles', settings.subtitleAutoDetect)}
                     ${checkbox('subtitleOverlayVisible', 'Show subtitle overlay', settings.subtitleOverlayVisible)}
                     ${checkbox('subtitleSecondaryVisible', 'Show native subtitles when available', settings.subtitleSecondaryVisible)}
+                    ${checkbox('subtitleNativeBlurred', 'Blur native subtitles until hover', settings.subtitleNativeBlurred)}
+                    ${checkbox('subtitleKaraokeMode', 'Karaoke word timing', settings.subtitleKaraokeMode)}
                     ${checkbox('subtitleTranscriptVisible', 'Open transcript panel by default', settings.subtitleTranscriptVisible)}
-                    ${select('subtitleTranscriptPlacement', 'Transcript panel position', settings.subtitleTranscriptPlacement, [['right', 'Right of video'], ['left', 'Left of video'], ['bottom', 'Below video']])}
                     ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
+                    ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
                     ${checkbox('subtitleMiningPause', 'Pause video when mining subtitle', settings.subtitleMiningPause)}
                     ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
                     ${input('subtitleFontSize', 'Subtitle font size', String(settings.subtitleFontSize), 'number')}
@@ -572,9 +574,11 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['subtitleAutoDetect', 'subtitleAutoDetect'],
         ['subtitleOverlayVisible', 'subtitleOverlayVisible'],
         ['subtitleSecondaryVisible', 'subtitleSecondaryVisible'],
+        ['subtitleNativeBlurred', 'subtitleNativeBlurred'],
+        ['subtitleKaraokeMode', 'subtitleKaraokeMode'],
         ['subtitleTranscriptVisible', 'subtitleTranscriptVisible'],
-        ['subtitleTranscriptPlacement', 'subtitleTranscriptPlacement'],
         ['subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScroll'],
+        ['subtitleAutoCopyLine', 'subtitleAutoCopyLine'],
         ['subtitleMiningPause', 'subtitleMiningPause'],
         ['subtitleControlsMode', 'subtitleControlsMode'],
         ['subtitleFontSize', 'subtitleFontSize'],
@@ -739,11 +743,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         ['auto', text('showWhenNeeded')],
         ['hidden', text('hideControls')],
         ['always', text('alwaysVisible')],
-    ]);
-    setSelectOptionLabels(form, 'subtitleTranscriptPlacement', [
-        ['right', text('right')],
-        ['left', text('left')],
-        ['bottom', text('bottom')],
     ]);
     setSelectOptionLabels(form, 'ankiTemplateMode', [
         ['recognition', text('wordFirst')],
@@ -1615,7 +1614,9 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...current,
         apiKey: get('apiKey').trim(),
         interfaceLanguage: readOption(get('interfaceLanguage'), ['auto', 'en', 'ja'] as const, current.interfaceLanguage),
-        jpdbDefinitionsEnabled: has('jpdbDefinitionsEnabled') && (!jpdbDefinitionsRowPresent || has('jpdbDefinitions.enabled')),
+        jpdbDefinitionsEnabled: jpdbDefinitionsRowPresent
+            ? has('jpdbDefinitions.enabled')
+            : has('jpdbDefinitionsEnabled'),
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
         jpdbExtensionsEnabled: has('jpdbExtensionsEnabled'),
         jpdbUchisenEnabled: has('jpdbUchisenEnabled'),
@@ -1743,9 +1744,12 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         subtitleAutoDetect: has('subtitleAutoDetect'),
         subtitleOverlayVisible: has('subtitleOverlayVisible'),
         subtitleSecondaryVisible: has('subtitleSecondaryVisible'),
+        subtitleNativeBlurred: has('subtitleNativeBlurred'),
+        subtitleKaraokeMode: has('subtitleKaraokeMode'),
         subtitleTranscriptVisible: has('subtitleTranscriptVisible'),
         subtitleTranscriptPlacement: readOption(get('subtitleTranscriptPlacement'), ['right', 'left', 'bottom'] as const, current.subtitleTranscriptPlacement),
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
+        subtitleAutoCopyLine: has('subtitleAutoCopyLine'),
         subtitleControlsMode: readOption(get('subtitleControlsMode'), ['auto', 'always', 'hidden'] as const, current.subtitleControlsMode),
         subtitleFontSize: Math.max(16, Math.min(64, number('subtitleFontSize', current.subtitleFontSize))),
         subtitleBottomOffset: Math.max(2, Math.min(40, number('subtitleBottomOffset', current.subtitleBottomOffset))),

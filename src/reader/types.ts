@@ -288,9 +288,12 @@ export interface ReaderSettings {
     subtitleAutoDetect: boolean;
     subtitleOverlayVisible: boolean;
     subtitleSecondaryVisible: boolean;
+    subtitleNativeBlurred: boolean;
+    subtitleKaraokeMode: boolean;
     subtitleTranscriptVisible: boolean;
     subtitleTranscriptPlacement: SubtitleTranscriptPlacement;
     subtitleTranscriptAutoScroll: boolean;
+    subtitleAutoCopyLine: boolean;
     subtitleControlsMode: SubtitleControlsMode;
     subtitleFontSize: number;
     subtitleBottomOffset: number;
