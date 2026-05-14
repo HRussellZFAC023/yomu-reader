@@ -40,6 +40,50 @@ const COMMON_EXCLUDE = [
     '[aria-label*="音声"]',
 ].join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
+const DEFAULT_SCAN_TARGET_LIMIT = 2000;
+const GENERIC_PROSE_ROOTS = [
+    'article',
+    'main article',
+    '[role="main"] article',
+    '.article',
+    '.post',
+    '.entry',
+    '.story',
+    '.prose',
+    '.content',
+    '.article-body',
+    '.article-content',
+    '.entry-content',
+    '.post-content',
+    '.story-body',
+    '[itemprop="articleBody"]',
+].join(',');
+const GENERIC_PROSE_EXCLUDE = [
+    COMMON_EXCLUDE,
+    'aside',
+    '[role="complementary"]',
+    '[class*="aside" i]',
+    '[class*="banner" i]',
+    '[class*="breadcrumb" i]',
+    '[class*="card" i]',
+    '[class*="comment" i]',
+    '[class*="footer" i]',
+    '[class*="header" i]',
+    '[class*="menu" i]',
+    '[class*="meta" i]',
+    '[class*="nav" i]',
+    '[class*="new-article" i]',
+    '[class*="pager" i]',
+    '[class*="popular" i]',
+    '[class*="promo" i]',
+    '[class*="rank" i]',
+    '[class*="recommend" i]',
+    '[class*="related" i]',
+    '[class*="share" i]',
+    '[class*="sidebar" i]',
+    '[class*="teaser" i]',
+    'time',
+].join(',');
 const log = Logger.scope('SiteParsers');
 
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
@@ -156,10 +200,29 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-comment-view-model',
             '#content-text',
         ],
+        allowUiText: true,
         includeGenericPageText: true,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
+    },
+    {
+        id: 'cijapanese-transcript-parser',
+        name: 'Comprehensible Japanese',
+        description: 'Comprehensible Japanese video transcripts with native furigana.',
+        roots: [
+            '.transcript',
+            '[data-tab-type="transcript"]',
+        ],
+        exclude: [
+            COMMON_EXCLUDE,
+            '.cue-button',
+            '.btn',
+            'svg',
+        ].join(','),
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'cijapanese.com' || url.hostname.endsWith('.cijapanese.com'),
     },
     {
         id: 'mokuro-parser',
@@ -201,19 +264,54 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     },
     {
         id: 'nhk-parser',
-        name: 'NHK',
-        description: 'NHK and NHK Easy article text with native ruby.',
+        name: 'NHK Easy',
+        description: 'NHK Easy article text with native ruby.',
         roots: [
             'main',
-            'article',
-            '#main',
+            '#easy-wrapper',
             '#js-article-body',
             '#js-article-date',
             '.article-title',
+        ],
+        exclude: [
+            COMMON_EXCLUDE,
+            '#loading',
+            '#nhk-one-header',
+            '#nhk-one-footer',
+            '.audio-player',
+            '.article-info',
+            '.article-share',
+            '.article-link',
+            '.article-buttons',
+            '.soundButton',
+            '.js-sound',
+            '.js-play',
+            '.player',
+            '[onclick]',
+            '[data-audio]',
+        ].join(','),
+        allowUiText: true,
+        minLength: 1,
+        matches: url => (
+            (url.hostname === 'news.web.nhk' && /\/news\/easy\//.test(url.pathname))
+            || (url.protocol === 'file:' && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)))
+            || /NHKやさしいことばニュース|NEWS WEB EASY/i.test(document.title)
+        ),
+    },
+    {
+        id: 'nhk-news-parser',
+        name: 'NHK',
+        description: 'NHK article text with native ruby.',
+        roots: [
+            '#main article',
+            '#main',
             '[data-testid*="article"]',
         ],
         exclude: [
             COMMON_EXCLUDE,
+            '[class*="related" i]',
+            '[class*="recommend" i]',
+            '[class*="ranking" i]',
             '.soundButton',
             '.js-sound',
             '.js-play',
@@ -223,7 +321,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ].join(','),
         matches: url => (
             (url.hostname === 'news.web.nhk' || url.hostname.endsWith('.nhk.or.jp'))
-            && (/\/news\/(?:html|easy)\//.test(url.pathname) || /\/news\/easy\//.test(url.pathname))
+            && /\/news\/html\//.test(url.pathname)
         ),
     },
     {
@@ -280,26 +378,62 @@ export function collectSiteScanTargets(limit = 40, href = window.location.href):
     return profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
 }
 
-export function collectScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] {
-    const siteTargets = collectSiteScanTargets(limit, href);
-    if (siteTargets !== null) {
-        const profiles = getMatchingSiteParsers(href);
-        if (!profiles.some(profile => profile.includeGenericPageText) || siteTargets.length >= limit) {
+export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href): ScanTextTarget[] {
+    const matchingProfiles = getMatchingSiteParsers(href);
+    if (matchingProfiles.length) {
+        const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+        if (siteTargets.length || !matchingProfiles.some(profile => profile.includeGenericPageText)) {
             return siteTargets;
         }
-
-        const genericTargets = collectVisibleTextTargets(limit - siteTargets.length);
-        const seenNodes = new Set<Text>();
-        for (const target of siteTargets) {
-            if ('node' in target) seenNodes.add(target.node);
-            else target.fragments.forEach(fragment => seenNodes.add(fragment.node));
-        }
-        return [
-            ...siteTargets,
-            ...genericTargets.filter(target => !seenNodes.has(target.node)),
-        ].slice(0, limit);
     }
-    return collectVisibleTextTargets(limit);
+
+    const genericTargets = collectGenericProseTargets(limit);
+    if (genericTargets.length) {
+        return genericTargets;
+    }
+
+    const broadTargets = collectWholePageScanTargets(limit);
+    return broadTargets.length ? broadTargets : collectVisibleTextTargets(limit);
+}
+
+function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
+    const targets = collectFragmentTextTargetsIn(document.body, limit, true, '', {
+        allowUiText: true,
+        includeUiChrome: true,
+        minLength: 1,
+    });
+    log.debugThrottled('whole-page-targets', 2500, 'Collected whole-page scan targets', { targets: targets.length });
+    return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
+}
+
+function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
+    const roots = Array.from(document.querySelectorAll<HTMLElement>(GENERIC_PROSE_ROOTS))
+        .filter(root => isUsefulGenericProseRoot(root));
+    const targets: FragmentTextTarget[] = [];
+    const seen = new Set<Text>();
+
+    for (const root of roots) {
+        const remaining = limit - targets.length;
+        if (remaining <= 0) break;
+        const collected = collectFragmentTextTargetsIn(root, remaining, true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
+        for (const target of collected) {
+            const firstNode = target.fragments[0]?.node;
+            if (!firstNode || seen.has(firstNode)) continue;
+            seen.add(firstNode);
+            targets.push({ ...target, parserId: 'generic-prose-parser' });
+            if (targets.length >= limit) break;
+        }
+    }
+
+    log.debugThrottled('generic-prose-targets', 2500, 'Collected generic prose targets', { roots: roots.length, targets: targets.length });
+    return targets;
+}
+
+function isUsefulGenericProseRoot(root: HTMLElement): boolean {
+    if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
+    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (text.length < 12) return false;
+    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
 }
 
 function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
@@ -307,7 +441,6 @@ function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
     for (const selector of profile.roots) {
         roots.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
     }
-    if (!roots.length && profile.id === 'nhk-parser') roots.push(document.body);
     const result = uniqueVisibleRoots(roots);
     log.debugThrottled(`parser-roots:${profile.id}`, 2000, 'Queried parser roots', { parserId: profile.id, roots: result.length });
     return result;

@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 2147483646;
-  background: rgba(12,16,22,.74);
+  background: rgba(12, 16, 22, 0.74);
 }
 
 .jpdb-reader-popover,
@@ -13,10 +13,15 @@
   background: var(--jpdb-reader-bg);
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0,0,0,.34);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
   color: var(--jpdb-reader-text);
   color-scheme: light dark;
-  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    14px/1.45 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 .jpdb-reader-popover {
@@ -113,19 +118,24 @@
   cursor: pointer;
   overflow: hidden;
   transform: translateY(-0.01rem);
-  transition: border-color .2s ease-in-out, box-shadow .2s ease-in-out, color .2s ease-in-out, transform .2s ease-in-out;
+  transition:
+    border-color 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out,
+    color 0.2s ease-in-out,
+    transform 0.2s ease-in-out;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-icon-btn:hover,
 .jpdb-reader-icon-btn:focus-visible {
   border-color: var(--jpdb-reader-accent);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--jpdb-reader-accent) 26%, transparent);
+  box-shadow: 0 8px 18px
+    color-mix(in srgb, var(--jpdb-reader-accent) 26%, transparent);
   color: var(--jpdb-reader-accent);
   transform: translateY(-0.25rem);
   outline: none;
 }
 .jpdb-reader-icon-btn:active {
-  transform: scale(.98);
+  transform: scale(0.98);
 }
 
 .jpdb-reader-onboarding {
@@ -142,12 +152,21 @@
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 16px;
   background:
-    radial-gradient(circle at 18% 0%, var(--jpdb-reader-accent-soft), transparent 34%),
+    radial-gradient(
+      circle at 18% 0%,
+      var(--jpdb-reader-accent-soft),
+      transparent 34%
+    ),
     var(--jpdb-reader-bg);
   color: var(--jpdb-reader-text);
-  box-shadow: 0 26px 70px rgba(0,0,0,.4);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
   color-scheme: light dark;
-  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    15px/1.5 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 .jpdb-reader-onboarding-close {
   position: absolute;
@@ -158,7 +177,7 @@
   margin: 4px 0 10px;
   color: var(--jpdb-reader-text);
   font-size: clamp(38px, 8vw, 72px);
-  line-height: .95;
+  line-height: 0.95;
   letter-spacing: 0;
 }
 .jpdb-reader-onboarding p {
@@ -168,9 +187,9 @@
 }
 .jpdb-reader-onboarding-eyebrow {
   color: var(--jpdb-reader-accent);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .jpdb-reader-onboarding-grid {
@@ -215,7 +234,12 @@
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   padding: 8px 10px;
-  font: 750 14px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    750 14px/1.2 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 .jpdb-reader-onboarding-actions {
   display: flex;
@@ -240,23 +264,43 @@
 }
 
 @keyframes jpdb-reader-audio-loading-a {
-  0% { left: 0; }
-  25% { left: 0; }
-  75% { left: 100%; }
-  100% { left: 100%; }
+  0% {
+    left: 0;
+  }
+  25% {
+    left: 0;
+  }
+  75% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
 }
 @keyframes jpdb-reader-audio-loading-b {
-  0% { right: 100%; }
-  50% { right: 0; }
-  100% { right: 0; }
+  0% {
+    right: 100%;
+  }
+  50% {
+    right: 0;
+  }
+  100% {
+    right: 0;
+  }
 }
 .jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 62%, var(--jpdb-reader-border));
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 62%,
+    var(--jpdb-reader-border)
+  );
   color: var(--jpdb-reader-accent);
   cursor: progress;
 }
-.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control::before,
-.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control::after {
+.jpdb-reader-popover[data-audio-loading="true"]
+  .jpdb-reader-audio-control::before,
+.jpdb-reader-popover[data-audio-loading="true"]
+  .jpdb-reader-audio-control::after {
   content: "";
   position: absolute;
   left: 0;
@@ -266,15 +310,17 @@
   background: var(--jpdb-reader-accent);
   pointer-events: none;
 }
-.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control::before {
+.jpdb-reader-popover[data-audio-loading="true"]
+  .jpdb-reader-audio-control::before {
   animation:
     jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,
     jpdb-reader-audio-loading-b 1.65s infinite ease-in-out;
 }
-.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control::after {
+.jpdb-reader-popover[data-audio-loading="true"]
+  .jpdb-reader-audio-control::after {
   animation:
-    jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,
-    jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s;
+    jpdb-reader-audio-loading-a 1.65s infinite ease-in-out 0.62s,
+    jpdb-reader-audio-loading-b 1.65s infinite ease-in-out 0.62s;
 }
 
 .jpdb-reader-spelling {
@@ -338,7 +384,7 @@
   border-radius: 999px !important;
   color: var(--chip-text, var(--jpdb-reader-text)) !important;
   background: var(--chip-bg, var(--jpdb-reader-surface-2)) !important;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, .18) !important;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18) !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
@@ -350,13 +396,24 @@
 }
 a.jpdb-reader-action-pill,
 button.jpdb-reader-action-pill {
-  --chip-bg: color-mix(in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8%) !important;
-  --chip-border: color-mix(in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border)) !important;
-  --chip-text: var(--jpdb-reader-text) !important;
+  --chip-bg: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 92%,
+    var(--jpdb-reader-accent) 8%
+  );
+  --chip-border: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 38%,
+    var(--jpdb-reader-border)
+  );
+  --chip-text: var(--jpdb-reader-text);
   cursor: pointer;
   font-family: inherit;
   transform: translateY(-0.01rem) !important;
-  transition: transform .2s ease-in-out, box-shadow .2s ease-in-out, outline-color .2s ease-in-out !important;
+  transition:
+    transform 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out,
+    outline-color 0.2s ease-in-out !important;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-action-pill:hover,
@@ -364,17 +421,35 @@ button.jpdb-reader-action-pill {
   color: var(--chip-text, var(--jpdb-reader-text)) !important;
   background: var(--chip-bg, var(--jpdb-reader-surface-2)) !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--chip-border, var(--jpdb-reader-accent)) 34%, transparent) !important;
-  outline: 2px solid color-mix(in srgb, var(--chip-border, var(--jpdb-reader-accent)) 55%, transparent) !important;
+  box-shadow: 0 3px 8px
+    color-mix(
+      in srgb,
+      var(--chip-border, var(--jpdb-reader-accent)) 34%,
+      transparent
+    ) !important;
+  outline: 2px solid
+    color-mix(
+      in srgb,
+      var(--chip-border, var(--jpdb-reader-accent)) 55%,
+      transparent
+    ) !important;
   outline-offset: 1px;
 }
 .jpdb-reader-jpdb-pill {
-  --chip-bg: color-mix(in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface)) !important;
-  --chip-border: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border)) !important;
-  --chip-text: var(--jpdb-reader-accent-readable) !important;
+  --chip-bg: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 15%,
+    var(--jpdb-reader-surface)
+  );
+  --chip-border: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 58%,
+    var(--jpdb-reader-border)
+  );
+  --chip-text: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-action-pill:active {
-  transform: scale(.98) !important;
+  transform: scale(0.98) !important;
 }
 .jpdb-reader-pill svg {
   width: 12px !important;
@@ -441,13 +516,22 @@ button.jpdb-reader-action-pill {
   color: var(--jpdb-reader-muted);
 }
 
-.jpdb-reader-reading { margin-top: 2px; font-size: 15px; }
+.jpdb-reader-reading {
+  margin-top: 2px;
+  font-size: 15px;
+}
 .jpdb-reader-title-row .jpdb-reader-reading {
   margin-top: 0;
   line-height: 1.2;
 }
-.jpdb-reader-pos { margin-top: 7px; font-size: 12px; line-height: 1.35; }
-.jpdb-reader-status-line { min-height: 22px; }
+.jpdb-reader-pos {
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.jpdb-reader-status-line {
+  min-height: 22px;
+}
 .jpdb-reader-status-line[data-status-tone] {
   margin-top: 8px;
   padding: 8px 10px;
@@ -460,8 +544,16 @@ button.jpdb-reader-action-pill {
   color: var(--jpdb-reader-muted);
 }
 .jpdb-reader-status-line[data-status-tone="success"] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 52%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 11%, var(--jpdb-reader-surface-2));
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 52%,
+    var(--jpdb-reader-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 11%,
+    var(--jpdb-reader-surface-2)
+  );
   color: var(--jpdb-reader-accent);
 }
 .jpdb-reader-status-line[data-status-tone="error"] {
@@ -469,20 +561,170 @@ button.jpdb-reader-action-pill {
   background: color-mix(in srgb, #e55353 11%, var(--jpdb-reader-surface-2));
   color: #ff8c8c;
 }
-.jpdb-reader-meanings { margin: 9px 0; display: grid; gap: 5px; }
-.jpdb-reader-meaning { color: var(--jpdb-reader-text); line-height: 1.35; }
-.jpdb-reader-meaning-pos { color: var(--jpdb-reader-faint); font-size: 11px; margin-right: 5px; font-style: italic; text-transform: none; }
-.jpdb-reader-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; }
-.jpdb-reader-inline-link { color: var(--jpdb-reader-accent); font-weight: 800; text-decoration: none; }
-.jpdb-reader-state-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--jpdb-reader-faint); margin-right: 4px; }
+.jpdb-reader-meanings {
+  margin: 9px 0;
+  display: grid;
+  gap: 5px;
+}
+.jpdb-reader-meaning {
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  line-height: 1.32;
+}
+.jpdb-reader-jpdb-extras {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+.jpdb-reader-jpdb-extras
+  .jpdb-reader-jpdb-examples-group
+  > .jpdb-reader-local-glossary {
+  padding: 0 8px 8px;
+}
+.jpdb-reader-jpdb-extra {
+  display: grid;
+  gap: 6px;
+}
+.jpdb-reader-jpdb-extra h6 {
+  margin: 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.jpdb-reader-jpdb-compounds,
+.jpdb-reader-jpdb-examples {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jpdb-reader-jpdb-example {
+  padding-left: 10px;
+  border-left: 2px solid var(--jpdb-reader-border);
+  color: var(--jpdb-reader-text);
+  line-height: 1.3;
+}
+.jpdb-reader-jpdb-compounds li {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.jpdb-reader-jpdb-compound {
+  display: inline-flex;
+  align-items: flex-start;
+  min-width: 0;
+  color: inherit !important;
+  text-decoration: none;
+}
+.jpdb-reader-jpdb-compound:hover,
+.jpdb-reader-jpdb-compound:focus-visible {
+  color: inherit !important;
+  outline: none;
+}
+.jpdb-reader-jpdb-compound-head {
+  display: grid;
+  gap: 2px;
+  max-width: 100%;
+}
+.jpdb-reader-jpdb-compound-term {
+  display: inline-block;
+  width: max-content;
+  max-width: 100%;
+  font-size: 17px;
+  line-height: 1.1;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.jpdb-reader-jpdb-compound-reading,
+.jpdb-reader-jpdb-compounds small,
+.jpdb-reader-jpdb-example .jpdb-reader-example-translation {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.jpdb-reader-jpdb-compound-reading {
+  white-space: nowrap;
+}
+.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading {
+  display: none;
+}
+.jpdb-reader-example-summary .jpdb-reader-example-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,
+.jpdb-reader-jpdb-example .jpdb-reader-example-translation {
+  justify-self: stretch;
+  width: 100%;
+  text-align: left;
+  text-wrap: pretty;
+}
+.jpdb-reader-jpdb-example .jpdb-reader-example-sentence {
+  line-height: 1.35;
+}
+.jpdb-reader-jpdb-example .jpdb-reader-example-translation {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+.jpdb-reader-meaning-pos {
+  color: var(--jpdb-reader-faint);
+  font-size: 11px;
+  margin-right: 5px;
+  font-style: italic;
+  text-transform: none;
+}
+.jpdb-reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+.jpdb-reader-inline-link {
+  color: var(--jpdb-reader-accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+.jpdb-reader-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: var(--jpdb-reader-faint);
+  margin-right: 4px;
+}
 .jpdb-reader-state-dot.jpdb-new,
 .jpdb-reader-state-dot.jpdb-suspended,
-.jpdb-reader-state-dot.jpdb-not-in-deck { background: var(--jpdb-reader-state-new, #58a6ff); }
-.jpdb-reader-state-dot.jpdb-learning { background: var(--jpdb-reader-state-learning, #ffd166); }
+.jpdb-reader-state-dot.jpdb-not-in-deck {
+  background: var(--jpdb-reader-state-new, #58a6ff);
+}
+.jpdb-reader-state-dot.jpdb-learning {
+  background: var(--jpdb-reader-state-learning, #ffd166);
+}
 .jpdb-reader-state-dot.jpdb-known,
 .jpdb-reader-state-dot.jpdb-never-forget,
-.jpdb-reader-state-dot.jpdb-redundant { background: var(--jpdb-reader-state-known, #7bd88f); }
-.jpdb-reader-state-dot.jpdb-due { background: var(--jpdb-reader-state-due, #5fb3b3); }
-.jpdb-reader-state-dot.jpdb-failed { background: var(--jpdb-reader-state-failed, #ff6b6b); }
+.jpdb-reader-state-dot.jpdb-redundant {
+  background: var(--jpdb-reader-state-known, #7bd88f);
+}
+.jpdb-reader-state-dot.jpdb-due {
+  background: var(--jpdb-reader-state-due, #5fb3b3);
+}
+.jpdb-reader-state-dot.jpdb-failed {
+  background: var(--jpdb-reader-state-failed, #ff6b6b);
+}
 .jpdb-reader-state-dot.jpdb-blacklisted,
-.jpdb-reader-state-dot.jpdb-locked { background: var(--jpdb-reader-state-ignored, #b8a7ff); }
+.jpdb-reader-state-dot.jpdb-locked {
+  background: var(--jpdb-reader-state-ignored, #b8a7ff);
+}

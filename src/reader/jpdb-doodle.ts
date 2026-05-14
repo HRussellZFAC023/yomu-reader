@@ -1,5 +1,6 @@
 import { setInnerHtml } from './dom';
 import { assessKanjiStrokes, type KanjiStrokeAssessment } from './kanji-stroke-grader';
+import { parseKanjiVGSvg } from './kanjivg';
 import { gmStorageSetSync } from './storage';
 
 export interface DoodleState {
@@ -24,23 +25,25 @@ export interface DoodlePoint {
 export type DoodleStroke = DoodlePoint[];
 
 export function findDoodleCanvasMount(): HTMLElement | null {
-    return document.querySelector<HTMLElement>('.result.kanji > .vbox')
-        ?? document.querySelector<HTMLElement>('.answer-box')
-        ?? document.querySelector<HTMLElement>('.bugfix');
+    return document.querySelector<HTMLElement>('.bugfix')
+        ?? document.querySelector<HTMLElement>('.result.kanji > .vbox')
+        ?? document.querySelector<HTMLElement>('.answer-box');
 }
 
 export function findDoodlePreviewMount(): HTMLElement | null {
-    return document.querySelector<HTMLElement>('.result.kanji a.kanji.plain')
-        ?? document.querySelector<HTMLElement>('.answer-box .kanji, .answer-box .plain')
-        ?? document.querySelector<HTMLElement>('.result.kanji .hbox')
+    return document.querySelector<HTMLElement>('.review-reveal .hbox')
+        ?? document.querySelector<HTMLElement>('.review-reveal')
         ?? document.querySelector<HTMLElement>('.hbox')
+        ?? document.querySelector<HTMLElement>('.result.kanji .hbox')
+        ?? document.querySelector<HTMLElement>('.result.kanji a.kanji.plain')
+        ?? document.querySelector<HTMLElement>('.answer-box .kanji, .answer-box .plain')
         ?? document.querySelector<HTMLElement>('.answer-box');
 }
 
 export function installDoodle(root: HTMLElement, glyph: string, options: DoodleInstallOptions): void {
-    const stage = root.querySelector<HTMLElement>('.yomu-doodle-stage');
-    const canvas = root.querySelector<HTMLCanvasElement>('.yomu-doodle-canvas');
-    const ghost = root.querySelector<HTMLElement>('.yomu-doodle-ghost');
+    const stage = root.querySelector<HTMLElement>('.yomu-doodle-stage, .jpdb-reader-doodle-stage');
+    const canvas = root.querySelector<HTMLCanvasElement>('.yomu-doodle-canvas, .jpdb-reader-doodle-canvas');
+    const ghost = root.querySelector<HTMLElement>('.yomu-doodle-ghost, .jpdb-reader-doodle-ghost');
     const result = root.querySelector<HTMLElement>('[data-doodle-result]');
     if (!stage || !canvas || !ghost) return;
     const context = canvas.getContext('2d');
@@ -52,8 +55,11 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
     let strokes: DoodleStroke[] = [];
     let current: DoodleStroke = [];
     let expectedStrokes = 0;
+    let ghostAvailable = Boolean(glyph);
+    let traceVisible = false;
     let canvasRect = canvas.getBoundingClientRect();
     let strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text') || '#111';
+    let guideStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || 'rgba(128,128,128,0.35)';
     const cleanup: Array<() => void> = [];
     const add = <K extends keyof HTMLElementEventMap>(target: HTMLElement | Window, type: K, listener: (event: HTMLElementEventMap[K]) => void, addOptions?: AddEventListenerOptions) => {
         target.addEventListener(type, listener as EventListener, addOptions);
@@ -67,6 +73,7 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
         canvas.height = Math.max(1, Math.round(rect.height * dpr));
         canvasRect = canvas.getBoundingClientRect();
         redraw();
+        save();
     };
 
     const point = (event: PointerEvent): DoodlePoint => {
@@ -83,6 +90,7 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
 
     const setupStroke = (point?: DoodlePoint) => {
         context.strokeStyle = strokeStyle;
+        context.fillStyle = strokeStyle;
         context.lineCap = 'round';
         context.lineJoin = 'round';
         context.lineWidth = lineWidth(point);
@@ -90,9 +98,36 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
 
     const drawStroke = (stroke: DoodlePoint[]) => {
         if (!stroke.length) return;
-        for (let index = 1; index < stroke.length; index += 1) {
-            drawSegment(stroke[index - 1], stroke[index]);
+        context.save();
+        setupStroke(stroke.at(-1));
+        if (stroke.length === 1) {
+            const point = stroke[0];
+            context.beginPath();
+            context.arc(point.x * canvas.width, point.y * canvas.height, context.lineWidth / 2, 0, Math.PI * 2);
+            context.fill();
+            context.restore();
+            return;
         }
+        if (stroke.length === 2) {
+            context.beginPath();
+            context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+            context.lineTo(stroke[1].x * canvas.width, stroke[1].y * canvas.height);
+            context.stroke();
+            context.restore();
+            return;
+        }
+        context.beginPath();
+        context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+        for (let index = 1; index < stroke.length - 1; index += 1) {
+            const midX = (stroke[index].x + stroke[index + 1].x) * canvas.width / 2;
+            const midY = (stroke[index].y + stroke[index + 1].y) * canvas.height / 2;
+            context.quadraticCurveTo(stroke[index].x * canvas.width, stroke[index].y * canvas.height, midX, midY);
+        }
+        const last = stroke.at(-1);
+        const previous = stroke.at(-2);
+        if (last && previous) context.quadraticCurveTo(previous.x * canvas.width, previous.y * canvas.height, last.x * canvas.width, last.y * canvas.height);
+        context.stroke();
+        context.restore();
     };
 
     const drawSegment = (from: DoodlePoint, to: DoodlePoint) => {
@@ -107,8 +142,22 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
 
     const redraw = () => {
         context.clearRect(0, 0, canvas.width, canvas.height);
+        drawCrosshair();
         for (const stroke of strokes) drawStroke(stroke);
         drawStroke(current);
+    };
+
+    const drawCrosshair = () => {
+        context.save();
+        context.strokeStyle = guideStyle;
+        context.lineWidth = Math.max(1, dpr);
+        context.beginPath();
+        context.moveTo(0, canvas.height / 2);
+        context.lineTo(canvas.width, canvas.height / 2);
+        context.moveTo(canvas.width / 2, 0);
+        context.lineTo(canvas.width / 2, canvas.height);
+        context.stroke();
+        context.restore();
     };
 
     const renderAssessment = () => {
@@ -120,13 +169,22 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
         }
         const assessment = assessKanjiStrokes(strokes, expectedStrokes);
         root.classList.toggle('yomu-doodle-pass', assessment.passed);
-        root.classList.toggle('yomu-doodle-fail', !assessment.passed);
-        result.textContent = formatAssessment(assessment);
+        root.classList.remove('yomu-doodle-fail');
+        result.textContent = assessment.passed ? formatAssessment(assessment) : '';
     };
 
     const clearAssessment = () => {
         root.classList.remove('yomu-doodle-pass', 'yomu-doodle-fail');
         if (result) result.textContent = '';
+    };
+
+    const setTraceVisible = (visible: boolean) => {
+        traceVisible = visible && ghostAvailable;
+        ghost.hidden = !traceVisible;
+        stage.classList.toggle('trace-hidden', !traceVisible);
+        root.querySelector<HTMLButtonElement>('[data-doodle-ghost]')?.replaceChildren(traceVisible ? 'Ghost: On' : ghostAvailable ? 'Ghost: Off' : 'Ghost: Unavailable');
+        root.querySelector<HTMLButtonElement>('[data-doodle-trace]')?.replaceChildren(traceVisible ? 'Hide trace' : ghostAvailable ? 'Show trace' : 'Trace unavailable');
+        redraw();
     };
 
     const save = () => {
@@ -143,6 +201,7 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
         pointerId = event.pointerId;
         canvasRect = canvas.getBoundingClientRect();
         strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text') || '#111';
+        guideStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || guideStyle;
         current = [point(event)];
         try {
             canvas.setPointerCapture?.(event.pointerId);
@@ -190,24 +249,41 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
     });
     root.querySelector<HTMLButtonElement>('[data-doodle-ghost]')?.addEventListener('click', event => {
         event.preventDefault();
-        ghost.hidden = !ghost.hidden;
-        (event.currentTarget as HTMLButtonElement).textContent = ghost.hidden ? 'Ghost: Off' : 'Ghost: On';
+        if (!ghostAvailable) return;
+        setTraceVisible(ghost.hidden);
+    });
+    root.querySelector<HTMLButtonElement>('[data-doodle-trace]')?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!ghostAvailable) return;
+        setTraceVisible(!traceVisible);
     });
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
     add(window, 'resize', resize);
     resize();
+    setTraceVisible(false);
 
     if (glyph) {
         void options.loadGhostSvg(glyph)
             .then(svg => {
                 if (!root.isConnected || !svg.includes('<svg')) return;
-                setInnerHtml(ghost, svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
+                const info = parseKanjiVGSvg(svg, glyph);
+                setInnerHtml(ghost, info?.svg ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
                 expectedStrokes = ghost.querySelectorAll('path').length || expectedStrokes;
+                root.querySelector<HTMLElement>('[data-doodle-stroke-count]')?.replaceChildren(`${expectedStrokes} strokes`);
+                ghostAvailable = true;
+                setTraceVisible(false);
                 renderAssessment();
             })
-            .catch(() => undefined);
+            .catch(() => {
+                ghostAvailable = false;
+                setTraceVisible(false);
+            });
+    }
+    else {
+        ghostAvailable = false;
+        setTraceVisible(false);
     }
 
     (root as DoodleRoot).__yomuDoodle = { resizeObserver, cleanup };

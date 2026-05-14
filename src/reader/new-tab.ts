@@ -83,6 +83,21 @@ export function isYomuNewTabUrl(value: string): boolean {
     }
 }
 
+export function resolveNewTabBrandAssets(value: string): { homeHref: string; iconSrc: string } {
+    try {
+        const url = new URL(value);
+        const path = url.pathname.replace(/\/index\.html$/, '/');
+        const newTabIndex = path.lastIndexOf('/newtab/');
+        const basePath = newTabIndex >= 0 ? path.slice(0, newTabIndex + 1) : '/';
+        return {
+            homeHref: `${basePath}`,
+            iconSrc: `${basePath}yomu-icon.svg`,
+        };
+    } catch {
+        return { homeHref: '/', iconSrc: '/yomu-icon.svg' };
+    }
+}
+
 export function buildNewTabPalette(accentColor: string): NewTabPalette {
     const accent = sanitizeAccentColor(accentColor);
     const background = mixHex('#f6f8f5', accent, 0.08);
@@ -123,7 +138,17 @@ export function uniqueStrings(values: string[]): string[] {
 export function firstCardMeaning(card: JPDBCard): string {
     const meanings = card.meanings ?? [];
     const first = meanings.find(meaning => meaning.glosses.some(gloss => gloss.trim()));
-    return first?.glosses.filter(Boolean).join('; ') ?? '';
+    if (!first?.glosses.length) return '';
+
+    const plain = first.glosses.filter(Boolean);
+    if (card.source !== 'local' && card.source !== 'fallback') {
+        return plain.join('; ');
+    }
+
+    const cleaned = plain
+        .map(meaning => cleanupNewTabMeaning(meaning))
+        .filter(Boolean);
+    return cleaned.length ? cleaned.join('; ') : plain.join('; ');
 }
 
 export function cardKey(card: JPDBCard): string {
@@ -171,15 +196,29 @@ export function saveNewTabUiState(state: NewTabUiState): void {
 export function createNewTabStateChannel(onState: (state: NewTabUiState) => void): { publish: (state: NewTabUiState) => void; close: () => void } {
     if (typeof BroadcastChannel !== 'function') return { publish: () => {}, close: () => {} };
     const channel = new BroadcastChannel(STATE_CHANNEL_NAME);
+    let isClosed = false;
     channel.onmessage = event => {
         if (!isPlainRecord(event.data) || event.data.type !== 'state') return;
         onState(normalizeNewTabUiState(event.data.state as Partial<NewTabUiState>));
     };
     return {
         publish(state) {
-            channel.postMessage({ type: 'state', state: normalizeNewTabUiState(state) });
+            if (isClosed) return;
+            try {
+                channel.postMessage({ type: 'state', state: normalizeNewTabUiState(state) });
+            } catch (error) {
+                isClosed = true;
+                log.warn('Failed to publish new tab state update', error);
+                try {
+                    channel.close();
+                } catch {
+                    // Ignore secondary cleanup failure to avoid cascading runtime errors.
+                }
+            }
         },
         close() {
+            if (isClosed) return;
+            isClosed = true;
             channel.close();
         },
     };
@@ -253,6 +292,74 @@ function isNewTabSort(value: unknown): value is NewTabSort {
 
 function isNewTabFilter(value: unknown): value is NewTabFilter {
     return NEW_TAB_FILTERS.some(filter => filter.value === value);
+}
+
+const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
+const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
+const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
+
+function cleanupNewTabMeaning(text: string): string {
+    const normalized = stripMeaningMarkup(text);
+    const withoutExamples = cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, '').trim();
+    const cleaned = withoutExamples
+        .split(LEARNER_GLOSSARY_SEPARATOR_RE)
+        .map(cleanLearnerGlossaryText)
+        .filter(Boolean);
+    if (cleaned.length) return Array.from(new Set(cleaned)).slice(0, 3).join(', ');
+    return withoutExamples ? trimSpaces(withoutExamples) : '';
+}
+
+function stripMeaningMarkup(value: string): string {
+    if (!value) return '';
+    const withoutTags = value
+        .replace(/<[^>]*>/gu, ' ')
+        .replace(/&[a-zA-Z0-9#]+;/gu, ' ')
+        .trim();
+    return withoutTags.replace(/\s+/gu, ' ').trim();
+}
+
+function cleanLearnerGlossaryText(value: string): string {
+    let clean = value
+        .replace(/^\[[^\]]+\]\s*/u, '')
+        .replace(LEARNER_GLOSSARY_TAG_RE, '')
+        .replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
+    if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return '';
+    return clean;
+}
+
+function humanizeTerseGlosses(text: string): string {
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length < 2 || words.length > 4) return text;
+    if (words.some(word => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text;
+    if (words.every(word => /^[a-z][a-z'-]*$/i.test(word))) return words.join(', ');
+    return text;
+}
+
+function trimLearnerMeaning(text: string, maxLength = 56): string {
+    if (text.length <= maxLength) return text;
+    const truncated = text.slice(0, maxLength).replace(/\s+\S*$/u, '').trim();
+    return truncated || text.slice(0, maxLength).trim();
+}
+
+function looksLikeGrammarTag(text: string): boolean {
+    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text);
+}
+
+function cutBeforeExampleText(value: string): string {
+    const japaneseIndex = HAS_JAPANESE.test(value) ? value.search(HAS_JAPANESE) : -1;
+    const sentenceIndex = /\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u.exec(value)?.index ?? -1;
+    const indexes = [japaneseIndex, sentenceIndex].filter(index => index >= 0);
+    const cutoff = indexes.length ? Math.min(...indexes) : -1;
+    return cutoff >= 0 ? value.slice(0, cutoff) : value;
+}
+
+function trimSpaces(value: string): string {
+    return value.replace(/\s+/gu, ' ').trim();
 }
 
 function readableOn(color: string, background: string, targetContrast: number): string {

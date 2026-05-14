@@ -1,278 +1,326 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Yomu New Tab</title>
-  <meta name="color-scheme" content="light dark">
-  <style>
-    :root {
-      color-scheme: light dark;
-      --bg: #5ea780;
-      --ink: #142019;
-      --surface: #fbfcf8;
-      --shadow: rgba(18, 28, 23, .2);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    * { box-sizing: border-box; }
-    body {
-      min-height: 100dvh;
-      margin: 0;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--ink);
-    }
-    .jpdb-reader-newtab {
-      min-height: 100dvh;
-      background: var(--jpdb-newtab-bg, var(--bg));
-      color: var(--jpdb-newtab-bg-text, var(--ink));
-    }
-    .jpdb-reader-newtab-shell {
-      width: min(880px, calc(100vw - 28px));
-      min-height: 100dvh;
-      margin: 0 auto;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto;
-      gap: clamp(16px, 3vh, 28px);
-      padding: max(14px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
-    }
-    .jpdb-reader-newtab-topbar {
-      min-height: 44px;
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: 12px;
-    }
-    .jpdb-reader-newtab-overflow {
-      width: 40px;
-      height: 40px;
-      border: 1px solid rgba(20,32,25,.18);
-      border-radius: 999px;
-      display: grid;
-      place-items: center;
-      background: rgba(251,252,248,.72);
-      color: inherit;
-      box-shadow: 0 10px 28px var(--shadow);
-      text-decoration: none;
-      font-size: 14px;
-      line-height: 1;
-      font-weight: 900;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-    }
-    .jpdb-reader-newtab-brand {
-      width: 40px;
-      height: 40px;
-      display: grid;
-      place-items: center;
-      background: transparent;
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-      text-decoration: none;
-    }
-    .jpdb-reader-newtab-overflow {
-      padding-bottom: 6px;
-      font-size: 20px;
-    }
-    .jpdb-reader-newtab-brand img {
-      display: block;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-    }
-    .jpdb-reader-newtab-mode {
-      justify-self: center;
-      display: inline-grid;
-      grid-template-columns: repeat(2, minmax(72px, 1fr));
-      gap: 4px;
-      padding: 4px;
-      border: 1px solid rgba(20,32,25,.14);
-      border-radius: 999px;
-      background: rgba(251,252,248,.58);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-    }
-    .jpdb-reader-newtab-mode button,
-    .jpdb-reader-newtab-controls button {
-      border: 0;
-      border-radius: 999px;
-      color: inherit;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 820;
-    }
-    .jpdb-reader-newtab-mode button {
-      min-height: 32px;
-      padding: 0 14px;
-      background: transparent;
-    }
-    .jpdb-reader-newtab-mode button[data-active="true"] {
-      background: var(--surface);
-      color: #2e6648;
-      box-shadow: 0 4px 14px rgba(18, 28, 23, .12);
-    }
-    .jpdb-reader-newtab-study {
-      min-height: 0;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto auto;
-      align-items: center;
-      justify-items: center;
-      gap: clamp(10px, 2.2vh, 20px);
-      cursor: pointer;
-      user-select: none;
-    }
-    .jpdb-reader-newtab-count,
-    .jpdb-reader-newtab-status {
-      color: rgba(20,32,25,.72);
-      font-size: 12px;
-      line-height: 1.2;
-      font-weight: 760;
-      text-align: center;
-    }
-    .jpdb-reader-newtab-prompt {
-      max-width: 100%;
-      font-size: clamp(62px, 15vw, 164px);
-      font-weight: 900;
-      line-height: .96;
-      text-align: center;
-      overflow-wrap: anywhere;
-    }
-    .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-      font-size: clamp(92px, 24vw, 260px);
-      font-weight: 800;
-    }
-    .jpdb-reader-newtab-answer {
-      min-height: clamp(72px, 12vh, 128px);
-      display: grid;
-      justify-items: center;
-      gap: 8px;
-      transition: opacity .16s ease, transform .16s ease, filter .16s ease;
-    }
-    .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
-      opacity: 0;
-      filter: blur(8px);
-      transform: translateY(4px);
-    }
-    .jpdb-reader-newtab-reading {
-      font-size: clamp(24px, 5vw, 54px);
-      font-weight: 780;
-      line-height: 1.1;
-      text-align: center;
-    }
-    .jpdb-reader-newtab-meaning {
-      max-width: min(520px, 100%);
-      color: rgba(20,32,25,.78);
-      font-size: clamp(15px, 2.4vw, 22px);
-      font-weight: 650;
-      line-height: 1.42;
-      text-align: center;
-    }
-    .jpdb-reader-newtab-controls {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(88px, 1fr));
-      gap: 8px;
-    }
-    .jpdb-reader-newtab-controls button {
-      min-height: 44px;
-      border: 1px solid rgba(20,32,25,.16);
-      background: rgba(251,252,248,.72);
-      box-shadow: 0 8px 22px rgba(18, 28, 23, .12);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-    }
-    .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
-      background: var(--ink);
-      border-color: transparent;
-      color: var(--bg);
-    }
-    @media (max-width: 640px) {
-      .jpdb-reader-newtab-shell { width: min(100vw - 18px, 560px); }
-      .jpdb-reader-newtab-prompt { font-size: clamp(50px, 17vw, 102px); }
-      .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt { font-size: clamp(88px, 34vw, 180px); }
-      .jpdb-reader-newtab-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .jpdb-reader-newtab-controls button { padding: 0 8px; font-size: 12px; }
-    }
-  </style>
-</head>
-<body>
-  <main class="jpdb-reader-newtab" data-jpdb-reader-root="true" data-standalone-newtab="true">
-    <div class="jpdb-reader-newtab-shell">
-      <header class="jpdb-reader-newtab-topbar">
-        <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">
-          <img src="../yomu-icon.svg" alt="" width="32" height="32">
-        </a>
-        <div class="jpdb-reader-newtab-mode" role="group" aria-label="Study mode">
-          <button type="button" data-newtab-action="mode" data-mode="word" data-active="true">Word</button>
-          <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
-        </div>
-        <a class="jpdb-reader-newtab-overflow" href="https://hrussellzfac023.github.io/yomu-reader/" aria-label="Open Yomu">...</a>
-      </header>
-      <section class="jpdb-reader-newtab-study" data-newtab-study>
-        <div class="jpdb-reader-newtab-count" data-newtab-count>1 / 16</div>
-        <div class="jpdb-reader-newtab-prompt" data-newtab-prompt lang="ja">読む</div>
-        <div class="jpdb-reader-newtab-answer" data-newtab-answer>
-          <div class="jpdb-reader-newtab-reading" data-newtab-reading lang="ja">よむ</div>
-          <div class="jpdb-reader-newtab-meaning" data-newtab-meaning>to read</div>
-        </div>
-        <div class="jpdb-reader-newtab-status" data-newtab-status></div>
-      </section>
-      <nav class="jpdb-reader-newtab-controls" aria-label="Study navigation">
-        <button type="button" data-newtab-action="previous">Previous</button>
-        <button type="button" data-newtab-action="reveal">Reveal</button>
-        <button type="button" data-newtab-action="next">Next</button>
-      </nav>
-    </div>
-  </main>
-  <script>
-    (() => {
-      const words = [
-        ['読む', 'よむ', 'to read'], ['見る', 'みる', 'to see'], ['聞く', 'きく', 'to listen'],
-        ['話す', 'はなす', 'to speak'], ['書く', 'かく', 'to write'], ['使う', 'つかう', 'to use'],
-        ['思う', 'おもう', 'to think'], ['知る', 'しる', 'to know'], ['食べる', 'たべる', 'to eat'],
-        ['飲む', 'のむ', 'to drink'], ['行く', 'いく', 'to go'], ['来る', 'くる', 'to come'],
-        ['今日', 'きょう', 'today'], ['明日', 'あした', 'tomorrow'], ['時間', 'じかん', 'time'], ['日本語', 'にほんご', 'Japanese']
-      ];
-      const root = document.querySelector('[data-jpdb-reader-root]');
-      const prompt = root.querySelector('[data-newtab-prompt]');
-      const reading = root.querySelector('[data-newtab-reading]');
-      const meaning = root.querySelector('[data-newtab-meaning]');
-      const count = root.querySelector('[data-newtab-count]');
-      const reveal = root.querySelector('[data-newtab-action="reveal"]');
-      let index = Number(sessionStorage.getItem('yomu-demo-word') || Math.floor(Math.random() * words.length));
-      let mode = 'word';
-      let shown = false;
-      const kanji = value => Array.from(new Set(Array.from(value).filter(char => /[\u3400-\u9fff々〆]/u.test(char))));
-      const draw = () => {
-        const item = words[index % words.length];
-        const k = kanji(item[0])[0] || item[0][0];
-        root.classList.toggle('jpdb-reader-newtab-revealed', shown);
-        root.classList.toggle('jpdb-reader-newtab-kanji-mode', mode === 'kanji');
-        prompt.textContent = mode === 'kanji' ? k : item[0];
-        reading.textContent = mode === 'kanji' ? item[0] : item[1];
-        meaning.textContent = mode === 'kanji' ? `${item[1]} · ${item[2]}` : item[2];
-        count.textContent = `${(index % words.length) + 1} / ${words.length}`;
-        reveal.textContent = shown ? 'Hide' : 'Reveal';
-        sessionStorage.setItem('yomu-demo-word', String(index));
-      };
-      root.addEventListener('click', event => {
-        if (event.target.closest('[data-newtab-action="next"]')) { index = (index + 1) % words.length; shown = false; draw(); return; }
-        if (event.target.closest('[data-newtab-action="previous"]')) { index = (index - 1 + words.length) % words.length; shown = false; draw(); return; }
-        if (event.target.closest('[data-newtab-action="reveal"]')) { shown = !shown; draw(); return; }
-        const modeButton = event.target.closest('[data-mode]');
-        if (modeButton) {
-          mode = modeButton.dataset.mode === 'kanji' ? 'kanji' : 'word';
-          root.querySelectorAll('[data-mode]').forEach(button => button.dataset.active = String(button === modeButton));
-          shown = false;
-          draw();
-          return;
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Yomu New Tab</title>
+    <meta name="color-scheme" content="light dark">
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #5ea780;
+        --ink: #142019;
+        --surface: #fbfcf8;
+        --shadow: rgba(18, 28, 23, .2);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      .jpdb-reader-newtab {
+        min-height: 100dvh;
+        background: var(--jpdb-newtab-bg, var(--bg));
+        color: var(--jpdb-newtab-bg-text, var(--ink));
+      }
+
+      .jpdb-reader-newtab-shell {
+        width: min(880px, calc(100vw - 28px));
+        min-height: 100dvh;
+        margin: 0 auto;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        gap: clamp(16px, 3vh, 28px);
+        padding: max(14px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
+      }
+
+      .jpdb-reader-newtab-topbar {
+        min-height: 44px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .jpdb-reader-newtab-overflow {
+        width: 40px;
+        height: 40px;
+        border: 1px solid rgba(20, 32, 25, .18);
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(251, 252, 248, .72);
+        color: inherit;
+        box-shadow: 0 10px 28px var(--shadow);
+        text-decoration: none;
+        font-size: 14px;
+        line-height: 1;
+        font-weight: 900;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+
+      .jpdb-reader-newtab-brand {
+        width: 40px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        text-decoration: none;
+      }
+
+      .jpdb-reader-newtab-overflow {
+        padding-bottom: 6px;
+        font-size: 20px;
+      }
+
+      .jpdb-reader-newtab-brand img {
+        display: block;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+
+      .jpdb-reader-newtab-mode {
+        justify-self: center;
+        display: inline-grid;
+        grid-template-columns: repeat(2, minmax(72px, 1fr));
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid rgba(20, 32, 25, .14);
+        border-radius: 999px;
+        background: rgba(251, 252, 248, .58);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+
+      .jpdb-reader-newtab-mode button,
+      .jpdb-reader-newtab-controls button {
+        border: 0;
+        border-radius: 999px;
+        color: inherit;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 820;
+      }
+
+      .jpdb-reader-newtab-mode button {
+        min-height: 32px;
+        padding: 0 14px;
+        background: transparent;
+      }
+
+      .jpdb-reader-newtab-mode button[data-active="true"] {
+        background: var(--surface);
+        color: #2e6648;
+        box-shadow: 0 4px 14px rgba(18, 28, 23, .12);
+      }
+
+      .jpdb-reader-newtab-study {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        align-items: center;
+        justify-items: center;
+        gap: clamp(10px, 2.2vh, 20px);
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .jpdb-reader-newtab-count,
+      .jpdb-reader-newtab-status {
+        color: rgba(20, 32, 25, .72);
+        font-size: 11px;
+        line-height: 1.2;
+        font-weight: 760;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-prompt {
+        max-width: 100%;
+        font-size: clamp(62px, 15vw, 164px);
+        font-weight: 900;
+        line-height: .96;
+        text-align: center;
+        overflow-wrap: anywhere;
+      }
+
+      .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        font-size: clamp(92px, 24vw, 260px);
+        font-weight: 800;
+      }
+
+      .jpdb-reader-newtab-answer {
+        min-height: clamp(72px, 12vh, 128px);
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        transition: opacity .16s ease, transform .16s ease, filter .16s ease;
+      }
+
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
+        min-height: 0;
+        opacity: 0;
+        filter: blur(8px);
+        transform: translateY(4px);
+      }
+
+      .jpdb-reader-newtab-reading {
+        font-size: clamp(24px, 5vw, 54px);
+        font-weight: 780;
+        line-height: 1.1;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-meaning {
+        max-width: min(520px, 100%);
+        color: rgba(20, 32, 25, .78);
+        font-size: clamp(15px, 2.4vw, 22px);
+        font-weight: 650;
+        line-height: 1.42;
+        text-align: center;
+      }
+
+      .jpdb-reader-newtab-controls {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(88px, 1fr));
+        gap: 8px;
+      }
+
+      .jpdb-reader-newtab-controls button {
+        min-height: 44px;
+        border: 1px solid rgba(20, 32, 25, .16);
+        background: rgba(251, 252, 248, .72);
+        box-shadow: 0 8px 22px rgba(18, 28, 23, .12);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+
+      .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
+        background: var(--ink);
+        border-color: transparent;
+        color: var(--bg);
+      }
+
+      @media (max-width: 640px) {
+        .jpdb-reader-newtab-shell {
+          width: min(100vw - 18px, 560px);
         }
-        if (event.target.closest('[data-newtab-study]')) { shown = true; draw(); }
-      });
-      draw();
-    })();
-  </script>
-  <script src="../yomu.user.js"></script>
-</body>
+
+        .jpdb-reader-newtab-prompt {
+          font-size: clamp(50px, 17vw, 102px);
+        }
+
+        .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
+          font-size: clamp(88px, 34vw, 180px);
+        }
+
+        .jpdb-reader-newtab-controls {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .jpdb-reader-newtab-controls button {
+          padding: 0 8px;
+          font-size: 11px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="jpdb-reader-newtab" data-jpdb-reader-root="true" data-standalone-newtab="true">
+      <div class="jpdb-reader-newtab-shell">
+        <header class="jpdb-reader-newtab-topbar">
+          <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/yomu-reader/"
+            aria-label="Open Yomu">
+            <img src="../yomu-icon.svg" alt="" width="32" height="32">
+          </a>
+          <div class="jpdb-reader-newtab-mode" role="group" aria-label="Study mode">
+            <button type="button" data-newtab-action="mode" data-mode="word" data-active="true">Word</button>
+            <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
+          </div>
+          <a class="jpdb-reader-newtab-overflow" href="https://hrussellzfac023.github.io/yomu-reader/"
+            aria-label="Open Yomu">...</a>
+        </header>
+        <section class="jpdb-reader-newtab-study" data-newtab-study>
+          <div class="jpdb-reader-newtab-count" data-newtab-count>1 / 16</div>
+          <div class="jpdb-reader-newtab-prompt" data-newtab-prompt lang="ja">読む</div>
+          <div class="jpdb-reader-newtab-answer" data-newtab-answer>
+            <div class="jpdb-reader-newtab-reading" data-newtab-reading lang="ja"></div>
+            <div class="jpdb-reader-newtab-meaning" data-newtab-meaning></div>
+          </div>
+          <div class="jpdb-reader-newtab-status" data-newtab-status></div>
+        </section>
+        <nav class="jpdb-reader-newtab-controls" aria-label="Study navigation">
+          <button type="button" data-newtab-action="previous">Previous</button>
+          <button type="button" data-newtab-action="reveal">Reveal</button>
+          <button type="button" data-newtab-action="next">Next</button>
+        </nav>
+      </div>
+    </main>
+    <script>
+      (() => {
+        const words = [
+          ['読む', 'よむ', 'to read'], ['見る', 'みる', 'to see'], ['聞く', 'きく', 'to listen'],
+          ['話す', 'はなす', 'to speak'], ['書く', 'かく', 'to write'], ['使う', 'つかう', 'to use'],
+          ['思う', 'おもう', 'to think'], ['知る', 'しる', 'to know'], ['食べる', 'たべる', 'to eat'],
+          ['飲む', 'のむ', 'to drink'], ['行く', 'いく', 'to go'], ['来る', 'くる', 'to come'],
+          ['今日', 'きょう', 'today'], ['明日', 'あした', 'tomorrow'], ['時間', 'じかん', 'time'], ['日本語', 'にほんご', 'Japanese']
+        ];
+        const root = document.querySelector('[data-jpdb-reader-root]');
+        const prompt = root.querySelector('[data-newtab-prompt]');
+        const reading = root.querySelector('[data-newtab-reading]');
+        const meaning = root.querySelector('[data-newtab-meaning]');
+        const count = root.querySelector('[data-newtab-count]');
+        const reveal = root.querySelector('[data-newtab-action="reveal"]');
+        let index = Number(sessionStorage.getItem('yomu-demo-word') || Math.floor(Math.random() * words.length));
+        let mode = 'word';
+        let shown = false;
+        const kanji = value => Array.from(new Set(Array.from(value).filter(char => /[\u3400-\u9fff々〆]/u.test(char))));
+        const draw = () => {
+          const item = words[index % words.length];
+          const k = kanji(item[0])[0] || item[0][0];
+          root.classList.toggle('jpdb-reader-newtab-revealed', shown);
+          root.classList.toggle('jpdb-reader-newtab-kanji-mode', mode === 'kanji');
+          prompt.textContent = mode === 'kanji' ? k : item[0];
+          reading.textContent = shown ? (mode === 'kanji' ? item[0] : item[1]) : '';
+          meaning.textContent = shown ? (mode === 'kanji' ? `${item[1]} · ${item[2]}` : item[2]) : '';
+          count.textContent = `${(index % words.length) + 1} / ${words.length}`;
+          reveal.textContent = shown ? 'Hide' : 'Reveal';
+          sessionStorage.setItem('yomu-demo-word', String(index));
+        };
+        root.addEventListener('click', event => {
+          if (event.target.closest('[data-newtab-action="next"]')) { index = (index + 1) % words.length; shown = false; draw(); return; }
+          if (event.target.closest('[data-newtab-action="previous"]')) { index = (index - 1 + words.length) % words.length; shown = false; draw(); return; }
+          if (event.target.closest('[data-newtab-action="reveal"]')) { shown = !shown; draw(); return; }
+          const modeButton = event.target.closest('[data-mode]');
+          if (modeButton) {
+            mode = modeButton.dataset.mode === 'kanji' ? 'kanji' : 'word';
+            root.querySelectorAll('[data-mode]').forEach(button => button.dataset.active = String(button === modeButton));
+            shown = false;
+            draw();
+            return;
+          }
+          if (event.target.closest('[data-newtab-study]')) { shown = true; draw(); }
+        });
+        draw();
+      })();
+    </script>
+    <script src="../yomu.user.js"></script>
+  </body>
+
 </html>

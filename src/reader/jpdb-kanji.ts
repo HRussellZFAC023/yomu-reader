@@ -255,8 +255,9 @@ function absoluteJpdbUrl(value: string): string {
 function sectionText(doc: Document, label: string): string {
     const heading = Array.from(doc.querySelectorAll('.subsection-label'))
         .find(element => cleanText(element.textContent ?? '') === label);
-    const section = heading?.parentElement?.querySelector('.subsection');
-    return cleanText(section?.textContent ?? '');
+    const section = heading?.parentElement?.querySelector('.subsection') ?? null;
+    const value = cleanText(section?.textContent ?? '');
+    return isMissingSectionValue(value, section) ? '' : value;
 }
 
 function infoTableRows(doc: Document): Map<string, string> {
@@ -265,7 +266,7 @@ function infoTableRows(doc: Document): Map<string, string> {
         const cells = Array.from(row.querySelectorAll('td'));
         if (cells.length < 2) return;
         const key = cleanText(cells[0].textContent ?? '');
-        const value = cleanText(cells[1].textContent ?? '');
+        const value = cleanInfoTableValue(cells[1]);
         if (value) rows.set(key, value);
     });
     return rows;
@@ -366,6 +367,15 @@ function metaKeyword(doc: Document, kanji: string): string {
 
 function cleanText(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
+}
+
+function cleanInfoTableValue(cell: Element): string {
+    return cleanText(cell.textContent ?? '').replace(/\s+\?$/, '');
+}
+
+function isMissingSectionValue(value: string, section: Element | null): boolean {
+    const normalized = value.trim().toLowerCase();
+    return normalized === '' || normalized === 'missing' || (section?.querySelector('.keyword-missing') !== null);
 }
 
 function escapeRegExp(value: string): string {

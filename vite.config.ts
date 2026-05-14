@@ -38,6 +38,7 @@ export default defineConfig({
                 };
                 server.middlewares.use('/__jpdb-reader-audio-proxy', (req, res) => void proxy(req, res, 'Audio'));
                 server.middlewares.use('/__jpdb-reader-dictionary-proxy', (req, res) => void proxy(req, res, 'Dictionary'));
+                server.middlewares.use('/__jpdb-reader-immersion-proxy', (req, res) => void proxy(req, res, 'Immersion Kit'));
             },
         },
         monkey({
@@ -52,6 +53,7 @@ export default defineConfig({
                 exclude: [`${docsUrl}*`],
                 connect: [
                     'jpdb.io',
+                    'apiv2express.immersionkit.com',
                     'apiv2.immersionkit.com',
                     'us-southeast-1.linodeobjects.com',
                     'lensfrontend-pa.googleapis.com',
@@ -73,6 +75,8 @@ export default defineConfig({
                     'GM_xmlhttpRequest',
                     'GM_setValue',
                     'GM_getValue',
+                    'GM_deleteValue',
+                    'GM_listValues',
                     'GM_addStyle',
                     'GM_registerMenuCommand',
                 ],

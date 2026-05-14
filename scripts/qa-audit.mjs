@@ -21,6 +21,7 @@ const SCRIPT_FALLBACK_PATHS = [
 const API_KEY = process.env.YOMU_TEST_API_KEY?.trim() ?? '';
 const MOCK_API_KEY = 'yomu-qa-mock-key';
 const QA_API_KEY = API_KEY || MOCK_API_KEY;
+const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
 
 const baseSettings = {
     onboardingSeen: true,
@@ -492,13 +493,17 @@ const qaRequestMocks = [
     url => url.hostname === 'en.wiktionary.org' && url.pathname === '/w/api.php'
         ? jsonQaResponse(mockWiktionaryParse(url.searchParams.get('page') ?? '字'))
         : null,
-    url => url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/search'
+    url => isImmersionApiUrl(url, '/search')
         ? jsonQaResponse(mockImmersionKitSearch(url))
         : null,
-    url => url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/download_media'
+    url => isImmersionApiUrl(url, '/download_media')
         ? mockImmersionMedia(url)
         : null,
 ];
+
+function isImmersionApiUrl(url, pathname) {
+    return IMMERSION_API_HOSTS.has(url.hostname) && url.pathname === pathname;
+}
 
 function pathKanji(url) {
     return decodeURIComponent(url.pathname.split('/').filter(Boolean)[1] ?? '');
@@ -512,11 +517,11 @@ function mockImmersionMedia(url) {
 }
 
 function immersionAudioRequestCount(requests) {
-    return requests.filter(request => request.url.includes('apiv2.immersionkit.com/download_media') && /mp3/i.test(request.url)).length;
+    return requests.filter(request => /apiv2(?:express)?\.immersionkit\.com\/download_media/.test(request.url) && /mp3/i.test(request.url)).length;
 }
 
 function immersionSearchRequestCount(requests) {
-    return requests.filter(request => request.url.includes('apiv2.immersionkit.com/search')).length;
+    return requests.filter(request => /apiv2(?:express)?\.immersionkit\.com\/search/.test(request.url)).length;
 }
 
 function jpdbParseRequestCount(requests) {
@@ -548,7 +553,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
         if (context.pages().length === 0) void context.close().catch(() => undefined);
     });
     const requests = [];
-    await page.route('https://apiv2.immersionkit.com/download_media**', route => {
+    await page.route(/https:\/\/apiv2(?:express)?\.immersionkit\.com\/download_media.*/, route => {
         const url = new URL(route.request().url());
         const mediaPath = url.searchParams.get('path') ?? '';
         const isAudio = mediaPath.endsWith('.mp3');
@@ -1993,15 +1998,15 @@ async function auditJpdbPageAddons(browser) {
 
     await page.goto('https://jpdb.io/review?c=kb,%E8%AA%AD', { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await page.waitForSelector('#yomu-jpdb-doodle-root canvas', { timeout: 8000 });
+    await page.waitForSelector('[data-yomu-jpdb-addon="doodle"] canvas', { timeout: 8000 });
     snapshot = await page.evaluate(() => ({
         nav: document.querySelector('.menu .nav-item:first-child')?.textContent ?? '',
         hiddenItems: [...document.querySelectorAll('.menu .nav-item:not(:first-child), .menu-icon')].every(el => getComputedStyle(el).display === 'none'),
-        canvas: Boolean(document.querySelector('#yomu-jpdb-doodle-root canvas')),
+        canvas: Boolean(document.querySelector('[data-yomu-jpdb-addon="doodle"] canvas')),
     }));
     assertAudit(snapshot.nav.includes('Items left') && snapshot.hiddenItems, 'review navigation tweak did not apply');
     assertAudit(snapshot.canvas, 'kanji doodle canvas did not render on review front');
-    const box = await page.locator('#yomu-jpdb-doodle-root canvas').boundingBox();
+    const box = await page.locator('[data-yomu-jpdb-addon="doodle"] canvas').boundingBox();
     assertAudit(box, 'doodle canvas has no bounding box');
     await page.mouse.move(box.x + 40, box.y + 40);
     await page.mouse.down();
@@ -2119,7 +2124,7 @@ async function auditImmersionKitPopover(browser, server) {
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-spelling')?.textContent?.includes('本'), 6000, 'word inside Immersion Kit example did not open a nested popup lookup');
     await page.locator('[data-action="anki"]').click();
     await waitForAudit(page, () => document.querySelector('.jpdb-reader-toast')?.textContent?.includes('context image'), 6000, 'Add to Anki did not use the active Immersion Kit context');
-    assertAudit(requests.some(request => request.url.includes('apiv2.immersionkit.com/search')), 'Immersion Kit API was not requested');
+    assertAudit(requests.some(request => /apiv2(?:express)?\.immersionkit\.com\/search/.test(request.url)), 'Immersion Kit API was not requested');
     assertAudit(requests.some(request => request.url.includes('127.0.0.1:8765')), 'AnkiConnect was not queried for existing card state');
     assertAudit(requests.some(request => request.action === 'answerCards'), 'Anki grading request was not sent');
     const addNoteRequests = requests.filter(request => request.action === 'addNote');

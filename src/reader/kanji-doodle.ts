@@ -12,7 +12,13 @@ export interface KanjiDoodleOptions {
 
 const log = Logger.scope('KanjiDoodle');
 
+type KanjiDoodleRoot = HTMLElement & { __yomuKanjiDoodleCleanup?: () => void };
+
 export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage, options: KanjiDoodleOptions = {}): void {
+    const root = popover as KanjiDoodleRoot;
+    root.__yomuKanjiDoodleCleanup?.();
+    delete root.__yomuKanjiDoodleCleanup;
+
     const stage = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-stage');
     const canvas = popover.querySelector<HTMLCanvasElement>('.jpdb-reader-doodle-canvas');
     const ghost = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
@@ -33,10 +39,12 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     let dpr = 1;
     let drawing = false;
     let pointerId = -1;
-    let traceVisible = true;
+    let traceVisible = !ghost.hidden && !stage.classList.contains('trace-hidden');
     let points: DoodlePoint[] = [];
     let strokes: DoodleStroke[] = [];
     let canvasRect = canvas.getBoundingClientRect();
+    const controller = new AbortController();
+    const signal = controller.signal;
 
     const resize = () => {
         const rect = stage.getBoundingClientRect();
@@ -61,7 +69,10 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     );
 
     const setupStroke = (point?: DoodlePoint) => {
-        context.strokeStyle = '#141820';
+        const style = getComputedStyle(stage);
+        context.strokeStyle = style.getPropertyValue('--jpdb-reader-doodle-ink').trim()
+            || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
+            || '#141820';
         context.lineCap = 'round';
         context.lineJoin = 'round';
         context.lineWidth = strokeWidth(point);
@@ -91,6 +102,8 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
 
     const start = (event: PointerEvent) => {
+        const computedCanvas = getComputedStyle(canvas);
+        if (computedCanvas.pointerEvents === 'none' || computedCanvas.visibility === 'hidden') return;
         event.preventDefault();
         event.stopPropagation();
         drawing = true;
@@ -127,10 +140,10 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         log.debug('Kanji doodle stroke ended', { strokes: strokes.length });
     };
 
-    canvas.addEventListener('pointerdown', start, { passive: false });
-    canvas.addEventListener('pointermove', move, { passive: false });
-    canvas.addEventListener('pointerup', end, { passive: false });
-    canvas.addEventListener('pointercancel', end, { passive: false });
+    canvas.addEventListener('pointerdown', start, { passive: false, signal });
+    canvas.addEventListener('pointermove', move, { passive: false, signal });
+    canvas.addEventListener('pointerup', end, { passive: false, signal });
+    canvas.addEventListener('pointercancel', end, { passive: false, signal });
     clear?.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -140,7 +153,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         options.onClear?.();
         options.onChange?.([]);
         log.debug('Kanji doodle cleared');
-    });
+    }, { signal });
     trace?.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -149,13 +162,18 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         stage.classList.toggle('trace-hidden', !traceVisible);
         trace.textContent = uiText(getLanguage(), traceVisible ? 'hideTrace' : 'showTrace');
         log.debug('Kanji doodle trace toggled', { traceVisible });
-    });
+    }, { signal });
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
+    root.__yomuKanjiDoodleCleanup = () => {
+        controller.abort();
+        resizeObserver.disconnect();
+        if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;
+    };
     const disconnectWhenDetached = () => {
         if (!popover.isConnected) {
-            resizeObserver.disconnect();
+            root.__yomuKanjiDoodleCleanup?.();
             log.debug('Kanji doodle detached');
             return;
         }

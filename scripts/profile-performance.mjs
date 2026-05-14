@@ -8,6 +8,7 @@ const SLOW_MS = Number(process.env.YOMU_PROFILE_SLOW_MS || 4500);
 const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
 const USERSCRIPT_PATH = new URL('../dist/yomu.user.js', import.meta.url);
+const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
 
 if (LIVE && !API_KEY) {
     console.error('Live profiling needs YOMU_PROFILE_API_KEY or YOMU_TEST_API_KEY so JPDB parse can run against the real API.');
@@ -226,11 +227,11 @@ if (!LIVE) await page.route('**/*', async route => {
     if (url.hostname === 'hrussellzfac023.github.io') {
         return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<html><body><div class="entry"><h2>read</h2><p>Elements: 言, 売</p></div></body></html>' });
     }
-    if (url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/search') {
+    if (isImmersionApiUrl(url, '/search')) {
         await delay(SLOW_MS);
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ examples: [{ id: 'anime_profile_1', title: 'profile', sentence: '今日は本を読みました。', image: 'profile.jpg', sound: 'profile.mp3' }] }) });
     }
-    if (url.hostname === 'apiv2.immersionkit.com' && url.pathname === '/download_media') {
+    if (isImmersionApiUrl(url, '/download_media')) {
         return route.fulfill({ status: 200, contentType: url.search.includes('.mp3') ? 'audio/mpeg' : 'image/png', body: 'media' });
     }
     if (url.hostname === 'audio.profile.test') {
@@ -476,4 +477,8 @@ function mockKanjiMap() {
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isImmersionApiUrl(url, pathname) {
+    return IMMERSION_API_HOSTS.has(url.hostname) && url.pathname === pathname;
 }

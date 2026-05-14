@@ -25,7 +25,7 @@ export interface SettingsSourceRow {
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     const builtInRows: SettingsSourceRow[] = [
-        ...(settings.jpdbDefinitionsEnabled ? [{
+        {
             id: JPDB_DEFINITION_SOURCE_ID,
             name: 'JPDB',
             alias: 'JPDB',
@@ -33,8 +33,8 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             priority: settings.jpdbDefinitionsPriority,
             prefix: 'jpdbDefinitions',
             readonly: true,
-            help: 'Built-in JPDB meanings from the parsed card.',
-        }] : []),
+            help: 'JPDB meanings shown directly from the current card.',
+        },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
             name: 'Translation',

@@ -21,6 +21,7 @@ const runtimePath = '/__yomu-dev-runtime.js';
 const versionPath = '/__yomu-dev-version.json';
 const autoReload = process.env.YOMU_DEV_AUTO_RELOAD === '1';
 const loggingEnabled = isEnabledEnv(process.env.YOMU_ENABLE_LOGS);
+const pageInjectionEnabled = isEnabledEnv(process.env.YOMU_DEV_PAGE_INJECTION);
 
 let closing = false;
 const builder = spawn(process.execPath, [viteBin, 'build', '--watch', '--mode', 'development'], {
@@ -39,7 +40,9 @@ builder.on('exit', code => {
 const server = createServer(async (req, res) => {
     try {
         const url = new URL(req.url ?? '/', origin);
-        if (url.pathname === '/__jpdb-reader-audio-proxy' || url.pathname === '/__jpdb-reader-dictionary-proxy') {
+        if (url.pathname === '/__jpdb-reader-audio-proxy'
+            || url.pathname === '/__jpdb-reader-dictionary-proxy'
+            || url.pathname === '/__jpdb-reader-immersion-proxy') {
             await proxy(url, res);
             return;
         }
@@ -82,6 +85,7 @@ server.listen(port, host, () => {
     console.log(`[dev] Runtime bundle:     ${origin}${runtimePath}`);
     console.log(`[dev] Auto reload:        ${autoReload ? 'on' : 'off'}`);
     console.log(`[dev] Console logging:    ${loggingEnabled ? 'on' : 'off'}${loggingEnabled ? '' : ' (set YOMU_ENABLE_LOGS=1 to enable)'}`);
+    console.log(`[dev] Page injection:     ${pageInjectionEnabled ? 'on' : 'off'}${pageInjectionEnabled ? '' : ' (set YOMU_DEV_PAGE_INJECTION=1 to enable)'}`);
     console.log(`[dev] Local app:          ${origin}/newtab/`);
 });
 
@@ -156,6 +160,7 @@ function devBootstrap() {
   const versionUrl = ${JSON.stringify(`${origin}${versionPath}`)};
   const autoReload = ${JSON.stringify(autoReload)};
   const loggingEnabled = ${JSON.stringify(loggingEnabled)};
+  const pageInjectionEnabled = ${JSON.stringify(pageInjectionEnabled)};
   const pollMs = 1500;
   const reloadKey = '__yomu_dev_reload_version__';
   let currentVersion = '';
@@ -192,11 +197,18 @@ function devBootstrap() {
   }
 
   function runRuntime(source) {
-    if (typeof GM_addElement === 'function') {
-      runRuntimeWithInjectedScript(source);
-      return;
+    if (pageInjectionEnabled && typeof GM_addElement === 'function') {
+      try {
+        runRuntimeWithInjectedScript(source);
+        return;
+      } catch (error) {
+        console.warn('[yomu dev] Page injection failed; falling back to userscript sandbox eval.', error);
+      }
     }
-    console.warn('[yomu dev] GM_addElement is unavailable; falling back to eval for this userscript manager.');
+    runRuntimeInUserscriptSandbox(source);
+  }
+
+  function runRuntimeInUserscriptSandbox(source) {
     (0, eval)(source + '\\n//# sourceURL=' + runtimeUrl);
   }
 

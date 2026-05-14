@@ -4,11 +4,14 @@ import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
+    immersionSentenceContainsQuery,
     isUsefulImmersionFallbackQuery,
+    isUsefulImmersionPreloadQuery,
     normalizeImmersionSearchQuery,
     queryHasKanji,
     queryKey,
     queryLength,
+    shouldRequireOriginalSurfaceMatch,
     uniqueImmersionQueries,
 } from './immersion-query';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
@@ -36,6 +39,10 @@ export interface ImmersionKitSearchResult {
     query: string;
     usedFallback: boolean;
     triedQueries: string[];
+}
+
+export interface ImmersionSearchOptions {
+    relatedQueries?: string[];
 }
 
 interface ImmersionPopoverControllerOptions {
@@ -131,6 +138,7 @@ export class ImmersionPopoverController {
                 const requestId = ++renderRequest;
                 index = (nextIndex + examples.length) % examples.length;
                 this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
+                bindHoverMedia();
             };
             container.addEventListener('click', event => {
                 const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-immersion-action]');
@@ -164,16 +172,26 @@ export class ImmersionPopoverController {
             });
             const handleImmersionHover = (event: MouseEvent | PointerEvent) => {
                 const media = (event.target as HTMLElement).closest?.('.jpdb-reader-example-media');
-                if (!media || !hoverAudioCanPlay || !this.options.getSettings().immersionKitPlayOnHover) return;
-                const cannotHover = window.matchMedia?.('(hover: none)').matches ?? false;
+                if (!media || !this.options.getSettings().immersionKitPlayOnHover) return;
                 const pointerType = 'pointerType' in event ? event.pointerType : 'mouse';
+                const cannotHover = pointerType !== 'mouse' && (window.matchMedia?.('(hover: none)').matches ?? false);
                 if (pointerType === 'touch' || cannotHover) return;
                 if (media.contains(event.relatedTarget as Node | null)) return;
+                if (!hoverAudioCanPlay) {
+                    hoverAudioCanPlay = !container.contains(event.relatedTarget as Node | null);
+                    if (!hoverAudioCanPlay) return;
+                }
                 hoverAudioActive = true;
                 void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(':hover'));
             };
-            container.addEventListener('pointerover', handleImmersionHover);
-            container.addEventListener('mouseover', handleImmersionHover);
+            const bindHoverMedia = () => {
+                container.querySelectorAll<HTMLElement>('.jpdb-reader-example-media').forEach(media => {
+                    if (media.dataset.immersionHoverBound === 'true') return;
+                    media.dataset.immersionHoverBound = 'true';
+                    media.addEventListener('pointerover', handleImmersionHover);
+                    media.addEventListener('mouseover', handleImmersionHover);
+                });
+            };
             container.addEventListener('pointerleave', () => {
                 hoverAudioCanPlay = true;
                 hoverAudioActive = false;
@@ -190,8 +208,8 @@ export class ImmersionPopoverController {
         }
     }
 
-    async searchExamples(card: JPDBCard): Promise<ImmersionKitSearchResult> {
-        const key = this.searchCacheKey(card);
+    async searchExamples(card: JPDBCard, options: ImmersionSearchOptions = {}): Promise<ImmersionKitSearchResult> {
+        const key = this.searchCacheKey(card, options);
         const now = Date.now();
         const cached = this.searchResultCache.get(key);
         if (cached && cached.expiresAt > now) {
@@ -199,7 +217,7 @@ export class ImmersionPopoverController {
             return cached.promise;
         }
 
-        const promise = this.fetchExamples(card).catch(error => {
+        const promise = this.fetchExamples(card, options).catch(error => {
             if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
             throw error;
         });
@@ -213,7 +231,7 @@ export class ImmersionPopoverController {
         let queued = 0;
         for (const token of tokens) {
             const term = token.card.spelling.trim();
-            if (!term || this.preloadedTerms.has(term)) continue;
+            if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) continue;
             this.preloadedTerms.add(term);
             this.options.client.preload(term, settings);
             queued++;
@@ -227,30 +245,45 @@ export class ImmersionPopoverController {
         this.clearAudio();
     }
 
-    private async fetchExamples(card: JPDBCard): Promise<ImmersionKitSearchResult> {
+    private async fetchExamples(card: JPDBCard, options: ImmersionSearchOptions): Promise<ImmersionKitSearchResult> {
         const exactQuery = normalizeImmersionSearchQuery(card.spelling);
+        const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? [])
+            .map(normalizeImmersionSearchQuery)
+            .filter(query => isUsefulImmersionFallbackQuery(query, exactQuery));
         const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-        const queries = uniqueImmersionQueries([exactQuery, ...fallbackQueries]).slice(0, 1 + IMMERSION_FALLBACK_QUERY_LIMIT);
+        const queries = uniqueImmersionQueries([exactQuery, ...relatedQueries, ...fallbackQueries]).slice(0, 1 + IMMERSION_FALLBACK_QUERY_LIMIT);
         const triedQueries: string[] = [];
 
         for (const query of queries) {
             if (!query) continue;
             triedQueries.push(query);
-            const examples = await this.options.client.search(query, this.options.getSettings());
-            if (examples.length) {
-                return {
-                    examples,
+            const settings = this.options.getSettings();
+            try {
+                const examples = await this.options.client.search(query, settings);
+                const accurateExamples = (queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query))
+                    ? examples.filter(example => immersionSentenceContainsQuery(example.sentence, query))
+                    : examples;
+                if (accurateExamples.length) {
+                    return {
+                        examples: accurateExamples,
+                        query,
+                        usedFallback: queryKey(query) !== queryKey(exactQuery),
+                        triedQueries,
+                    };
+                }
+            } catch (error) {
+                log.debug('Immersion query failed, trying next query', {
                     query,
-                    usedFallback: queryKey(query) !== queryKey(exactQuery),
-                    triedQueries,
-                };
+                    exactQuery,
+                    error: error instanceof Error ? error.message : String(error),
+                });
             }
         }
 
         return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
     }
 
-    private searchCacheKey(card: JPDBCard): string {
+    private searchCacheKey(card: JPDBCard, options: ImmersionSearchOptions): string {
         const settings = this.options.getSettings();
         return JSON.stringify({
             spelling: card.spelling,
@@ -263,6 +296,7 @@ export class ImmersionPopoverController {
             sort: settings.immersionKitSort,
             exact: settings.immersionKitExactMatch,
             parse: this.options.canParseJapanese(),
+            relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery),
         });
     }
 
@@ -331,7 +365,7 @@ export class ImmersionPopoverController {
         examples: ImmersionKitExample[],
         index: number,
         playAudio: boolean,
-        searchQuery = card.spelling,
+        searchQuery: string,
         isCurrent: () => boolean = () => true,
         promoteMiningContext = false,
     ): void {
@@ -339,6 +373,7 @@ export class ImmersionPopoverController {
         const settings = this.options.getSettings();
         const language = settings.interfaceLanguage;
         const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
+        const hasAudio = this.mediaUrls(example, 'sound').length > 0;
         const imageUrl = imageUrls[0] ?? '';
         const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, examples.length, imageUrl));
         if (storedContext) {
@@ -354,8 +389,11 @@ export class ImmersionPopoverController {
                 active: this.activeMiningContext === storedContext,
             });
         }
-        const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading], 'jpdb-reader-example-target');
+        const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading, searchQuery], 'jpdb-reader-example-target');
         const translation = renderExampleTranslation(example.translation, settings);
+        const sourceLabel = queryKey(searchQuery) !== queryKey(card.spelling)
+            ? `${searchQuery} · ${example.sourceTitle}`
+            : example.sourceTitle;
         const currentImage = container.querySelector<HTMLImageElement>('[data-immersion-image]');
         const currentMedia = currentImage?.closest<HTMLElement>('.jpdb-reader-example-media') ?? null;
         const currentImageSrc = currentImage?.currentSrc || currentImage?.src || '';
@@ -368,28 +406,17 @@ export class ImmersionPopoverController {
         const image = imageUrl
             ? `<div class="jpdb-reader-example-media"${mediaStyle}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${holdImageAttribute}${imageSrcAttribute} alt="" loading="eager" decoding="async"></div>`
             : '';
-        const hasFallbackQuery = queryKey(searchQuery) !== queryKey(card.spelling);
-        const fallbackQuery = hasFallbackQuery
-            ? `<span class="jpdb-reader-example-query">${escapeHtml(searchQuery)}</span>`
-            : '';
-
         delete container.dataset.immersionEmpty;
         setInnerHtml(container, `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">Immersion Kit</span>
-                <span class="jpdb-reader-local-dict">${escapeHtml(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
-            </div>
-            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
-                <div class="jpdb-reader-example-topline">
-                    <div class="jpdb-reader-example-meta ${hasFallbackQuery ? 'has-query' : ''}">
-                        ${fallbackQuery}
-                    </div>
+                <span class="jpdb-reader-local-dict">${escapeHtml(sourceLabel)} · ${index + 1}/${examples.length}</span>
+                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
+                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>` : ''}
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
                 </div>
+            </summary>
+            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
                 <div class="jpdb-reader-example-body">
                     ${image}
                     <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
@@ -468,7 +495,7 @@ export class ImmersionPopoverController {
                 const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
                 if (!sentence) return;
                 setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens ?? [], this.options.getSettings()));
-                this.highlightTarget(sentence, card);
+                this.highlightTarget(sentence, card, searchQuery);
                 void this.options.parsePopoverJapanese(container);
                 void this.options.enrichAnkiWords(tokens ?? []);
                 this.options.repositionPopover();
@@ -476,10 +503,10 @@ export class ImmersionPopoverController {
             .catch(error => log.debug('Immersion example sentence parse failed quietly', { term: card.spelling }, error));
     }
 
-    private highlightTarget(sentence: HTMLElement, card: JPDBCard): void {
+    private highlightTarget(sentence: HTMLElement, card: JPDBCard, searchQuery = ''): void {
         const cardVid = String(card.vid);
         const cardSid = String(card.sid);
-        const targets = [card.spelling, card.reading].map(value => value.trim()).filter(Boolean);
+        const targets = [card.spelling, card.reading, searchQuery].map(value => value.trim()).filter(Boolean);
         sentence.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
             const surface = word.textContent?.replace(/\s+/g, '') ?? '';
             if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)

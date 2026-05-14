@@ -33,8 +33,10 @@
   cursor: pointer;
   list-style: none;
 }
-.jpdb-reader-source-card > summary.jpdb-reader-local-title::-webkit-details-marker,
-.jpdb-reader-study-source > summary.jpdb-reader-local-title::-webkit-details-marker {
+.jpdb-reader-source-card
+  > summary.jpdb-reader-local-title::-webkit-details-marker,
+.jpdb-reader-study-source
+  > summary.jpdb-reader-local-title::-webkit-details-marker {
   display: none;
 }
 .jpdb-reader-source-card > summary.jpdb-reader-local-title::after,
@@ -50,10 +52,12 @@
 .jpdb-reader-study-source[open] > summary.jpdb-reader-local-title::after {
   content: "-";
 }
-.jpdb-reader-source-card[data-immersion-empty="true"] > summary.jpdb-reader-local-title {
+.jpdb-reader-source-card[data-immersion-empty="true"]
+  > summary.jpdb-reader-local-title {
   cursor: default;
 }
-.jpdb-reader-source-card[data-immersion-empty="true"] > summary.jpdb-reader-local-title::after {
+.jpdb-reader-source-card[data-immersion-empty="true"]
+  > summary.jpdb-reader-local-title::after {
   content: "";
 }
 .jpdb-reader-source-card > :not(summary) {
@@ -78,7 +82,9 @@
   margin: 0;
   font-size: 13px;
 }
-.jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary + .jpdb-reader-local-terms {
+.jpdb-reader-source-card
+  > summary.jpdb-reader-inline-source-summary
+  + .jpdb-reader-local-terms {
   padding-top: 0;
 }
 .jpdb-reader-dictionary-source-list,
@@ -109,7 +115,8 @@
   cursor: pointer;
   list-style: none;
 }
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker {
+.jpdb-reader-dictionaries-section
+  .jpdb-reader-dictionary-source-title::-webkit-details-marker {
   display: none;
 }
 .jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::after {
@@ -119,7 +126,9 @@
   font-size: 14px;
   line-height: 1;
 }
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open] > .jpdb-reader-dictionary-source-title::after {
+.jpdb-reader-dictionaries-section
+  .jpdb-reader-dictionary-group[open]
+  > .jpdb-reader-dictionary-source-title::after {
   content: "-";
 }
 .jpdb-reader-dictionaries-section .jpdb-reader-local-term {
@@ -128,8 +137,12 @@
   background: transparent;
   padding: 7px 0 8px;
 }
-.jpdb-reader-dictionaries-section .jpdb-reader-local-term + .jpdb-reader-local-term,
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title + .jpdb-reader-local-terms {
+.jpdb-reader-dictionaries-section
+  .jpdb-reader-local-term
+  + .jpdb-reader-local-term,
+.jpdb-reader-dictionaries-section
+  .jpdb-reader-dictionary-source-title
+  + .jpdb-reader-local-terms {
   border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-study-source > .jpdb-reader-study-panel {
@@ -165,7 +178,11 @@
 .jpdb-reader-local-term {
   padding: 7px 8px;
   padding-right: 32px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-reader-surface-2));
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 88%,
+    var(--jpdb-reader-surface-2)
+  );
 }
 .jpdb-reader-local-head {
   display: flex;
@@ -218,9 +235,14 @@
   align-items: center;
   min-height: 1.35em;
   padding: 0 0.38em;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
+  border: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
   border-radius: 4px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 24%,
+    var(--jpdb-reader-surface-2)
+  );
   color: var(--jpdb-reader-accent-readable);
   font-size: 10px;
   font-weight: 800;
@@ -279,10 +301,16 @@
 .jpdb-reader-local-glossary-entry.no-index > div {
   min-width: 0;
 }
-.jpdb-reader-local-glossary-entry.no-index > div > div:first-child > :first-child {
+.jpdb-reader-local-glossary-entry.no-index
+  > div
+  > div:first-child
+  > :first-child {
   margin-top: 0 !important;
 }
-.jpdb-reader-local-glossary-entry.no-index > div > div:last-child > :last-child {
+.jpdb-reader-local-glossary-entry.no-index
+  > div
+  > div:last-child
+  > :last-child {
   margin-bottom: 0 !important;
 }
 .jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,
@@ -293,7 +321,6 @@
 }
 .jpdb-reader-local-glossary ul,
 .jpdb-reader-local-glossary ol {
-  margin: 2px 0 2px 18px;
   padding: 0;
 }
 .jpdb-reader-local-glossary li {
@@ -315,26 +342,38 @@
   padding: 0;
   overflow: hidden;
 }
-.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px;
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head,
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-title.jpdb-reader-example-summary {
+  align-items: center;
   cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
   list-style: none;
+  min-height: 38px;
+  padding: 8px 0;
 }
-.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head::-webkit-details-marker {
+
+.jpdb-reader-dictionary-group
+  > summary.jpdb-reader-local-head::-webkit-details-marker,
+.jpdb-reader-dictionary-group
+  > summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker {
   display: none;
 }
-.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head::after {
+
+.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head::after,
+.jpdb-reader-dictionary-group
+  > summary.jpdb-reader-local-title.jpdb-reader-example-summary::after {
   content: "+";
   margin-left: 4px;
   color: var(--jpdb-reader-muted);
   font-size: 16px;
   line-height: 1;
 }
-.jpdb-reader-dictionary-group[open] > summary.jpdb-reader-local-head::after {
+
+.jpdb-reader-dictionary-group[open] > summary.jpdb-reader-local-head::after,
+.jpdb-reader-dictionary-group[open]
+  > summary.jpdb-reader-local-title.jpdb-reader-example-summary::after {
   content: "-";
 }
 .jpdb-reader-dictionary-group > .jpdb-reader-local-glossary {
@@ -369,7 +408,14 @@
 .jpdb-reader-local-glossary rp {
   display: none;
 }
-.jpdb-reader-local-glossary :is(.gloss-sc-div, .gloss-sc-ul, .gloss-sc-ol, .gloss-sc-li, .gloss-sc-details) {
+.jpdb-reader-local-glossary
+  :is(
+    .gloss-sc-div,
+    .gloss-sc-ul,
+    .gloss-sc-ol,
+    .gloss-sc-li,
+    .gloss-sc-details
+  ) {
   white-space: normal;
 }
 .jpdb-reader-local-glossary .gloss-sc-ul,
@@ -427,6 +473,14 @@
   background: var(--jpdb-reader-surface-2);
   font-weight: 800;
 }
+.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class="form-valid"] {
+  text-align: center;
+  vertical-align: middle;
+}
+.jpdb-reader-local-glossary [data-sc-class="form-valid"] {
+  color: var(--jpdb-reader-accent-readable);
+  font-weight: 800;
+}
 .jpdb-reader-local-glossary .gloss-link {
   color: var(--jpdb-reader-accent);
   text-decoration: underline;
@@ -482,9 +536,21 @@
 }
 .jpdb-reader-local-glossary .gloss-image-background {
   background:
-    linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25% 75%, rgba(255,255,255,.06) 75%),
-    linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25% 75%, rgba(255,255,255,.06) 75%);
-  background-position: 0 0, 6px 6px;
+    linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 25%,
+      transparent 25% 75%,
+      rgba(255, 255, 255, 0.06) 75%
+    ),
+    linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 25%,
+      transparent 25% 75%,
+      rgba(255, 255, 255, 0.06) 75%
+    );
+  background-position:
+    0 0,
+    6px 6px;
   background-size: 12px 12px;
 }
 .jpdb-reader-local-glossary .gloss-image-link-text,
@@ -507,11 +573,13 @@
   padding: 9px 10px;
   cursor: pointer;
   color: var(--jpdb-reader-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   list-style: none;
 }
-.jpdb-reader-anki-existing summary::-webkit-details-marker { display: none; }
+.jpdb-reader-anki-existing summary::-webkit-details-marker {
+  display: none;
+}
 .jpdb-reader-anki-existing summary small {
   color: var(--jpdb-reader-muted);
   font-weight: 600;
@@ -523,7 +591,7 @@
   display: grid;
   gap: 8px;
   color: var(--jpdb-reader-muted);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 .jpdb-reader-anki-card-preview div {

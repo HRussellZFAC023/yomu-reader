@@ -1,6 +1,7 @@
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { AudioPlayer } from './audio';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
+import { immersionSentenceContainsQuery, shouldRequireOriginalSurfaceMatch } from './immersion-query';
 import { JpdbKanjiClient } from './jpdb-kanji';
 import { Logger } from './logger';
 import { immersionContextFromExample, loadMiningContext, saveMiningContext } from './mining-context';
@@ -12,7 +13,8 @@ import type { JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 import { YomitanDictionaryStore, type YomitanTermEntry } from './yomitan';
 import { findDoodleCanvasMount, findDoodlePreviewMount, installDoodle, type DoodleRoot } from './jpdb-doodle';
-import { renderJpdbKanjiPanel, renderLocalDictionaryPanel, renderRtkPanel } from './jpdb-panel-render';
+import { renderJpdbDictionarySupplement, renderLocalDictionaryPanel, renderRtkPanel } from './jpdb-panel-render';
+import { KANJI_STROKE_SOURCE_ID } from './source-sections';
 import {
     currentAudioTargets,
     currentJpdbTermTarget,
@@ -42,6 +44,9 @@ const JPDB_KANJI_ID = 'yomu-jpdb-kanji-info';
 const UCHISEN_ID = 'yomu-jpdb-uchisen';
 const RTK_ID = 'yomu-jpdb-rtk';
 const IMMERSION_ID = 'yomu-jpdb-immersion';
+const TERM_ADDONS_ID = 'yomu-jpdb-term-addons';
+const LOCAL_DICTIONARIES_SLOT = 'local-dictionaries';
+const IMMERSION_SLOT = 'immersion';
 const DOODLE_ROOT_ID = 'yomu-jpdb-doodle-root';
 const DOODLE_PREVIEW_ID = 'yomu-jpdb-doodle-preview';
 const DOODLE_STORAGE_KEY = 'yomu-jpdb-doodle-current-drawing';
@@ -66,6 +71,7 @@ interface UchisenCarouselOptions {
     detailsClass?: string;
     summaryClass?: string;
     bodyClass?: string;
+    summaryHtml?: (index: number, total: number) => string;
 }
 
 interface JpdbExtensionsOptions {
@@ -85,11 +91,12 @@ export class JpdbExtensionsController {
     private lastUrl = '';
     private rtkKanji = '';
     private uchisenKanji = '';
-    private jpdbKanji = '';
     private immersionKey = '';
     private reviewImmersionAutoPlayKey = '';
     private reviewWordAutoPlayKey = '';
+    private rtkEmptyKanji = new Set<string>();
     private uchisenCleanup?: () => void;
+    private uchisenEmptyKanji = new Set<string>();
     private localDictionaryKeys = new Set<string>();
     private sourceOpenOverrides = new Map<string, boolean>();
 
@@ -150,8 +157,7 @@ export class JpdbExtensionsController {
 
         const kanji = extractCurrentKanji();
         const hasKanjiSurface = Boolean(kanji && (isKanjiPage() || isReviewPage()));
-        if (settings.jpdbKanjiEnabled && hasKanjiSurface) this.renderJpdbKanjiInfo(kanji);
-        else removeElement(JPDB_KANJI_ID);
+        removeElement(JPDB_KANJI_ID);
 
         if (settings.jpdbUchisenEnabled && hasKanjiSurface) this.renderUchisen(kanji);
         else this.removeUchisen();
@@ -188,7 +194,6 @@ export class JpdbExtensionsController {
     private resetSeenKeys(): void {
         this.rtkKanji = '';
         this.uchisenKanji = '';
-        this.jpdbKanji = '';
         this.immersionKey = '';
         this.reviewWordAutoPlayKey = '';
         this.localDictionaryKeys.clear();
@@ -212,9 +217,11 @@ export class JpdbExtensionsController {
         }
         const original = item.getAttribute('data-yomu-original-html') || item.innerHTML || item.textContent || '';
         const count = reviewItemsLeftCount(original);
-        setInnerHtml(item, count
+        const desiredHtml = count
             ? `Items left (<span class="yomu-jpdb-items-left-count">${escapeHtml(count)}</span>)`
-            : 'Items left');
+            : 'Items left';
+        if (item.innerHTML === desiredHtml) return;
+        setInnerHtml(item, desiredHtml);
     }
 
     private applyReviewExamplesPreference(): void {
@@ -288,35 +295,12 @@ export class JpdbExtensionsController {
         document.querySelector<HTMLElement>('.sentence.blur')?.classList.remove('blur');
     }
 
-    private async renderJpdbKanjiInfo(kanji: string): Promise<void> {
-        if (this.jpdbKanji === kanji && document.getElementById(JPDB_KANJI_ID)) return;
-        this.jpdbKanji = kanji;
-        removeElement(JPDB_KANJI_ID);
-
-        const anchor = findKanjiSectionAnchor();
-        if (!anchor) return;
-
-        const container = createAddonCard(JPDB_KANJI_ID, 'JPDB kanji info');
-        setInnerHtml(container, `
-            <div class="yomu-jpdb-card-title">JPDB kanji info</div>
-            <div class="jpdb-reader-help">Loading readings and components...</div>
-        `);
-        insertAfter(anchor, container);
-
-        const info = await this.options.jpdbKanji.lookup(kanji).catch(error => {
-            log.warn('JPDB add-on kanji info lookup failed', { kanji }, error);
-            return null;
-        });
-        if (!container.isConnected || this.jpdbKanji !== kanji) return;
-        if (!info) {
-            container.remove();
+    private async renderRtk(kanji: string): Promise<void> {
+        if (this.rtkEmptyKanji.has(kanji)) {
+            this.rtkKanji = kanji;
+            removeElement(RTK_ID);
             return;
         }
-        log.debug('JPDB add-on kanji info rendered', { kanji });
-        setInnerHtml(container, renderJpdbKanjiPanel(info));
-    }
-
-    private async renderRtk(kanji: string): Promise<void> {
         if (this.rtkKanji === kanji && document.getElementById(RTK_ID)) return;
         this.rtkKanji = kanji;
         removeElement(RTK_ID);
@@ -337,6 +321,7 @@ export class JpdbExtensionsController {
         });
         if (!container.isConnected || this.rtkKanji !== kanji) return;
         if (!info) {
+            this.rtkEmptyKanji.add(kanji);
             container.remove();
             return;
         }
@@ -346,6 +331,11 @@ export class JpdbExtensionsController {
     }
 
     private async renderUchisen(kanji: string): Promise<void> {
+        if (this.uchisenEmptyKanji.has(kanji)) {
+            this.uchisenKanji = kanji;
+            this.removeUchisen();
+            return;
+        }
         if (this.uchisenKanji === kanji && document.getElementById(UCHISEN_ID)) return;
         this.uchisenKanji = kanji;
         this.removeUchisen();
@@ -362,10 +352,15 @@ export class JpdbExtensionsController {
 
         const images = await loadUchisenImages(kanji).catch(error => {
             log.warn('Uchisen request failed', { kanji }, error);
-            return [];
+            return null;
         });
         if (!container.isConnected || this.uchisenKanji !== kanji) return;
+        if (images === null) {
+            container.remove();
+            return;
+        }
         if (!images.length) {
+            this.uchisenEmptyKanji.add(kanji);
             log.debug('No Uchisen images found', { kanji });
             container.remove();
             return;
@@ -376,6 +371,7 @@ export class JpdbExtensionsController {
             detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
             summaryClass: 'jpdb-reader-local-title',
             bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
+            summaryHtml: () => 'Uchisen',
         });
         this.installSourceStateTracking(container);
     }
@@ -394,11 +390,11 @@ export class JpdbExtensionsController {
         this.immersionKey = key;
         removeElement(IMMERSION_ID);
 
-        const container = createAddonCard(IMMERSION_ID, 'Immersion Kit');
+        const container = createTermAddonContainer(IMMERSION_ID, 'Immersion Kit');
         setInnerHtml(container, `
             <div class="jpdb-reader-help">Loading examples for ${escapeHtml(target.term)}...</div>
         `);
-        insertAfter(target.anchor, container);
+        this.insertTermAddon(target.anchor, container, IMMERSION_SLOT);
 
         const result = await this.searchImmersionExamples(target);
         if (!container.isConnected || this.immersionKey !== key) return;
@@ -451,7 +447,8 @@ export class JpdbExtensionsController {
                 toggleJpdbPageTranslationBlur(container, this.options);
                 return;
             }
-            const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-yomu-immersion-action]')?.dataset.yomuImmersionAction;
+            const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-immersion-action],[data-yomu-immersion-action]');
+            const action = actionButton?.dataset.immersionAction ?? actionButton?.dataset.yomuImmersionAction;
             const media = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-example-media');
             if (!action && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
             event.preventDefault();
@@ -537,12 +534,17 @@ export class JpdbExtensionsController {
             this.localDictionaryKeys.add(key);
             target.anchor.parentElement?.querySelectorAll<HTMLElement>(`[data-yomu-local-key="${cssEscape(key)}"]`).forEach(node => node.remove());
             const entries = await this.lookupLocalDictionaryEntries(target, settings);
-            if (!entries.length || !target.anchor.isConnected) continue;
-            const container = createAddonCard('', 'Imported dictionaries');
+            if ((!entries.length && !target.compounds.length && !target.examples.length) || !target.anchor.isConnected) continue;
+            const container = createTermAddonContainer('', 'Imported dictionaries');
             container.classList.add('yomu-jpdb-local-dictionaries');
             container.dataset.yomuLocalKey = key;
             setInnerHtml(container, `
-                <div class="yomu-jpdb-card-title">Imported dictionaries</div>
+                ${renderJpdbDictionarySupplement(
+                target.compounds,
+                target.examples,
+                this.sourceStateAttributes(`dictionary:jpdb:${target.term}`),
+                this.sourceStateAttributes(`dictionary:jpdb:${target.term}:examples`),
+            )}
                 ${renderLocalDictionaryPanel(
                 entries,
                 settings,
@@ -550,20 +552,26 @@ export class JpdbExtensionsController {
             )}
             `);
             this.installSourceStateTracking(container);
-            insertAfter(target.anchor, container);
+            this.insertTermAddon(target.anchor, container, LOCAL_DICTIONARIES_SLOT);
             log.debug('JPDB add-on local dictionaries rendered', { term: target.term, entries: entries.length });
         }
     }
 
     private async searchImmersionExamples(target: JpdbTermTarget): Promise<{ examples: ImmersionKitExample[]; query: string }> {
+        const requireOriginalSurface = shouldRequireOriginalSurfaceMatch(target.term);
+        const pageExamples = jpdbPageExamplesToImmersionKit(target);
         for (const query of target.queries) {
             const examples = await this.options.immersionKit.search(query, this.options.getSettings()).catch(error => {
                 log.warn('JPDB add-on Immersion Kit search failed', { term: target.term, query }, error);
                 return [];
             });
-            if (examples.length) return { examples, query };
+            const accurateExamples = requireOriginalSurface
+                ? examples.filter(example => immersionSentenceContainsQuery(example.sentence, target.term))
+                : examples;
+            if (accurateExamples.length) return { examples: accurateExamples, query };
+            if (query === target.term && pageExamples.length) return { examples: pageExamples, query: target.term };
         }
-        return { examples: [], query: target.term };
+        return { examples: pageExamples, query: target.term };
     }
 
     private async lookupLocalDictionaryEntries(target: LocalDictionaryTarget, settings: ReaderSettings): Promise<YomitanTermEntry[]> {
@@ -599,6 +607,20 @@ export class JpdbExtensionsController {
     private removeLocalDictionaries(): void {
         this.localDictionaryKeys.clear();
         document.querySelectorAll<HTMLElement>('.yomu-jpdb-local-dictionaries').forEach(node => node.remove());
+        pruneEmptyTermAddonMount();
+    }
+
+    private insertTermAddon(anchor: HTMLElement, container: HTMLElement, slotName: string): void {
+        if (!isKanjiPage()) {
+            insertAfter(anchor, container);
+            return;
+        }
+        const slot = ensureTermAddonSlot(slotName);
+        if (!slot) {
+            insertAfter(anchor, container);
+            return;
+        }
+        slot.replaceChildren(container);
     }
 
     private renderAudioOffers(): void {
@@ -648,7 +670,7 @@ export class JpdbExtensionsController {
         root.dataset.yomuSourceTracking = 'true';
         root.addEventListener('toggle', event => {
             const details = event.target instanceof HTMLDetailsElement ? event.target : null;
-            const key = details?.dataset.yomuSourceStateKey;
+            const key = details?.dataset.yomuSourceStateKey ?? details?.dataset.sourceStateKey;
             if (!details || !key) return;
             this.sourceOpenOverrides.set(key, details.open);
             storageSetSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, details.open);
@@ -657,14 +679,9 @@ export class JpdbExtensionsController {
     }
 
     private renderDoodle(): void {
-        if (isKanjiPage()) {
-            removeElement(DOODLE_PREVIEW_ID);
-            this.installDoodleCanvas('kanji-page');
-            return;
-        }
         if (isKanjiReviewFront()) {
             removeElement(DOODLE_PREVIEW_ID);
-            this.installDoodleCanvas('review');
+            this.installDoodleCanvas();
             return;
         }
         if (isKanjiReviewBack()) {
@@ -675,19 +692,19 @@ export class JpdbExtensionsController {
         this.removeDoodle();
     }
 
-    private installDoodleCanvas(mode: 'review' | 'kanji-page'): void {
+    private installDoodleCanvas(): void {
         const glyph = extractCurrentKanji() || firstReviewGlyph(document.body.textContent || '') || '';
         const existing = document.getElementById(DOODLE_ROOT_ID);
-        if (existing?.dataset.yomuDoodleMode === mode && existing.dataset.kanji === glyph) return;
+        if (existing?.dataset.yomuDoodleMode === 'review' && existing.dataset.kanji === glyph) return;
         if (existing) this.removeDoodleCanvas();
-        const mount = mode === 'kanji-page' ? findKanjiSectionAnchor() : findDoodleCanvasMount();
+        const mount = findDoodleCanvasMount();
         if (!mount) return;
 
         const root = createAddonCard(DOODLE_ROOT_ID, 'doodle');
         root.setAttribute(ROOT_ATTR, 'doodle');
-        root.dataset.yomuDoodleMode = mode;
+        root.dataset.yomuDoodleMode = 'review';
         root.dataset.kanji = glyph;
-        const sourceAttributes = this.sourceStateAttributes(`doodle:${glyph}`, mode === 'review');
+        const sourceAttributes = this.sourceStateAttributes(`kanji:${KANJI_STROKE_SOURCE_ID}`, true);
         root.innerHTML = `
             <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-doodle-source" ${sourceAttributes}>
                 <summary class="jpdb-reader-local-title">Stroke practice</summary>
@@ -704,13 +721,9 @@ export class JpdbExtensionsController {
                 </div>
             </details>
         `;
-        if (mode === 'kanji-page') {
-            insertAfter(mount, root);
-        } else {
-            mount.querySelector<HTMLElement>(':scope > .hbox')?.insertAdjacentElement('afterend', root);
-            if (!root.isConnected) mount.querySelector<HTMLElement>('.yomu-jpdb-addon-card')?.before(root);
-            if (!root.isConnected) mount.appendChild(root);
-        }
+        mount.querySelector<HTMLElement>(':scope > .hbox')?.insertAdjacentElement('afterend', root);
+        if (!root.isConnected) mount.querySelector<HTMLElement>('.yomu-jpdb-addon-card')?.before(root);
+        if (!root.isConnected) mount.appendChild(root);
         this.installSourceStateTracking(root);
         installDoodle(root, glyph, {
             storageKey: DOODLE_STORAGE_KEY,
@@ -736,7 +749,6 @@ export class JpdbExtensionsController {
         preview.id = DOODLE_PREVIEW_ID;
         preview.setAttribute(ROOT_ATTR, 'doodle-preview');
         preview.innerHTML = `
-            <div class="yomu-doodle-preview-label">Your drawing</div>
             <img src="${escapeHtml(drawing)}" alt="Your kanji drawing">
         `;
         if (mount.matches('a.kanji.plain, .kanji.plain')) mount.insertAdjacentElement('afterend', preview);
@@ -801,17 +813,20 @@ export async function installUchisenCarousel(
     const render = () => {
         const item = images[index];
         const isStarred = currentStarred === item.url;
-        const detailsClass = options.detailsClass ?? 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source';
-        const summaryClass = options.summaryClass ?? 'jpdb-reader-local-title';
-        const bodyClass = options.bodyClass ?? 'jpdb-reader-local-entry yomu-jpdb-uchisen-body';
+        const detailsClass = options.detailsClass ?? 'jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source';
+        const summaryClass = options.summaryClass ?? 'jpdb-reader-local-head';
+        const bodyClass = options.bodyClass ?? 'jpdb-reader-local-glossary yomu-jpdb-uchisen-body';
         const sourceAttributes = options.sourceAttributes ?? 'open';
-        setInnerHtml(container, `
-            <details class="${detailsClass}" ${sourceAttributes}>
-                <summary class="${summaryClass}">
+        const summaryHtml = options.summaryHtml?.(index + 1, images.length) ?? `
                     <span>Uchisen</span>
                     <span class="yomu-jpdb-counter">${index + 1}/${images.length}</span>
-                </summary>
+                `;
+        const bodyMeta = options.summaryHtml ? `<div class="yomu-jpdb-source-meta">${index + 1}/${images.length}</div>` : '';
+        setInnerHtml(container, `
+            <details class="${detailsClass}" ${sourceAttributes}>
+                <summary class="${summaryClass}">${summaryHtml}</summary>
                 <div class="${bodyClass}">
+                    ${bodyMeta}
                     <div class="yomu-jpdb-toolbar" role="toolbar" aria-label="Uchisen mnemonic images">
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">‹</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">›</button>
@@ -879,23 +894,23 @@ function renderImmersionPanel(
 ): void {
     const example = examples[index];
     const imageUrls = settings.immersionKitShowImages ? immersionMediaUrls(client, example, 'image') : [];
+    const hasAudio = immersionMediaUrls(client, example, 'sound').length > 0;
     const imageUrl = imageUrls[0] ?? '';
     saveMiningContext(term, immersionContextFromExample(term, example, index, examples.length, imageUrl));
     const sentenceHtml = renderHighlightedTextHtml(example.sentence, [term], 'jpdb-reader-example-target');
     const image = imageUrl && prefetchedImageSrc !== null
         ? `<div class="jpdb-reader-example-media"><img class="jpdb-reader-example-image" alt="" loading="lazy" data-yomu-immersion-image data-yomu-immersion-image-src="${escapeHtml(imageUrl)}"${prefetchedImageSrc ? ` src="${escapeHtml(prefetchedImageSrc)}"` : ''}></div>`
         : '';
-    setInnerHtml(container, `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-immersion-group" ${sourceStateAttributes}>
-            <summary class="jpdb-reader-local-head">
-                <span class="jpdb-reader-example-source">Immersion Kit</span>
+        setInnerHtml(container, `
+            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-immersion-group" ${sourceStateAttributes}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-local-dict">${escapeHtml(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
+                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="Previous example" aria-label="Previous example">‹</button>
+                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="Play example audio" aria-label="Play example audio">${speakerIcon()}</button>` : ''}
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="Next example" aria-label="Next example">›</button>
+                </div>
             </summary>
-            <div class="jpdb-reader-example-actions" role="group" aria-label="Example controls">
-                <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="previous" title="Previous">‹</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="audio" title="Play audio">${speakerIcon()}</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="next" title="Next">›</button>
-            </div>
             <div class="jpdb-reader-local-glossary">
                 <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}">
                     <div class="jpdb-reader-example-body">
@@ -929,6 +944,24 @@ function renderJpdbPageExampleTranslation(translation: string, settings: ReaderS
         return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
     }
     return `<div class="jpdb-reader-example-translation" data-yomu-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">${escaped}</div>`;
+}
+
+function jpdbPageExamplesToImmersionKit(target: JpdbTermTarget): ImmersionKitExample[] {
+    return target.examples
+        .filter(example => immersionSentenceContainsQuery(example.sentence, target.term))
+        .map((example, index) => ({
+            id: `jpdb-page-${encodeURIComponent(target.term)}-${index}`,
+            sentence: example.sentence,
+            sentenceWithFurigana: '',
+            translation: example.translation,
+            sourceTitle: 'JPDB examples',
+            titleSlug: 'jpdb',
+            category: 'jpdb',
+            soundFile: '',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        }));
 }
 
 function toggleJpdbPageTranslationBlur(container: HTMLElement, options: JpdbExtensionsOptions): void {
@@ -1033,7 +1066,9 @@ function savedImmersionIndex(term: string, total: number): number {
 }
 
 function findKanjiSectionAnchor(): HTMLElement | null {
-    const existingAddon = lastConnectedElement([DOODLE_ROOT_ID, RTK_ID, UCHISEN_ID, JPDB_KANJI_ID]);
+    const existingDoodle = document.querySelector<HTMLElement>('[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode]');
+    if (existingDoodle?.isConnected) return existingDoodle;
+    const existingAddon = lastConnectedElement([RTK_ID, UCHISEN_ID, TERM_ADDONS_ID, JPDB_KANJI_ID]);
     if (existingAddon) return existingAddon;
     const labels = Array.from(document.querySelectorAll<HTMLElement>('h6.subsection-label'));
     const mnemonic = labels.find(label => label.textContent?.trim().toLowerCase().startsWith('mnemonic'));
@@ -1042,6 +1077,48 @@ function findKanjiSectionAnchor(): HTMLElement | null {
         ?? document.querySelector<HTMLElement>('.result.kanji')
         ?? document.querySelector<HTMLElement>('.answer-box')
         ?? document.querySelector<HTMLElement>('main');
+}
+
+function ensureTermAddonSlot(name: string): HTMLElement | null {
+    let mount = document.getElementById(TERM_ADDONS_ID);
+    if (!mount) {
+        const anchor = findEarlyTermAddonAnchor();
+        if (!anchor) return null;
+        mount = document.createElement('section');
+        mount.id = TERM_ADDONS_ID;
+        mount.className = 'yomu-jpdb-term-addons';
+        mount.setAttribute(ROOT_ATTR, 'term-addons');
+        insertAfter(anchor, mount);
+    }
+    let slot = mount.querySelector<HTMLElement>(`:scope > [data-yomu-term-addon-slot="${cssEscape(name)}"]`);
+    if (!slot) {
+        slot = document.createElement('div');
+        slot.dataset.yomuTermAddonSlot = name;
+        mount.appendChild(slot);
+    }
+    return slot;
+}
+
+function findEarlyTermAddonAnchor(): HTMLElement | null {
+    const existing = lastConnectedElement([RTK_ID, UCHISEN_ID]);
+    if (existing) return existing;
+    const existingDoodle = document.querySelector<HTMLElement>('[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode]');
+    if (existingDoodle?.isConnected) return existingDoodle;
+    const labels = Array.from(document.querySelectorAll<HTMLElement>('h6.subsection-label'));
+    const mnemonic = labels.find(label => label.textContent?.trim().toLowerCase().startsWith('mnemonic'));
+    if (mnemonic?.nextElementSibling instanceof HTMLElement) return mnemonic.nextElementSibling;
+    return document.querySelector<HTMLElement>('.mnemonic')?.closest<HTMLElement>('.subsection')
+        ?? document.querySelector<HTMLElement>('.result.kanji')
+        ?? document.querySelector<HTMLElement>('main');
+}
+
+function pruneEmptyTermAddonMount(): void {
+    const mount = document.getElementById(TERM_ADDONS_ID);
+    if (!mount) return;
+    mount.querySelectorAll<HTMLElement>(':scope > [data-yomu-term-addon-slot]').forEach(slot => {
+        if (!slot.children.length) slot.remove();
+    });
+    if (!mount.children.length) mount.remove();
 }
 
 function lastConnectedElement(ids: string[]): HTMLElement | null {
@@ -1061,6 +1138,10 @@ function createAddonCard(id: string, label: string): HTMLElement {
     container.className = 'yomu-jpdb-addon-card';
     container.setAttribute(ROOT_ATTR, label);
     return container;
+}
+
+function createTermAddonContainer(id: string, label: string): HTMLElement {
+    return createAddonCard(id, label);
 }
 
 function insertAfter(anchor: HTMLElement, element: HTMLElement): void {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.7
+// @version      0.4.8
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -17,6 +17,7 @@
 // @match        file:///*
 // @exclude      https://hrussellzfac023.github.io/yomu-reader/*
 // @connect      jpdb.io
+// @connect      apiv2express.immersionkit.com
 // @connect      apiv2.immersionkit.com
 // @connect      us-southeast-1.linodeobjects.com
 // @connect      lensfrontend-pa.googleapis.com
@@ -34,6 +35,7 @@
 // @grant        GM_addStyle
 // @grant        GM_deleteValue
 // @grant        GM_getValue
+// @grant        GM_listValues
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -140,6 +142,17 @@
     }
     return count;
   }
+  async function clearManagedStoredValues() {
+    const keys = await allStorageKeys();
+    let count = 0;
+    for (const key of keys) {
+      await gmStorageDelete(key);
+      removeLocalStorageKey(key);
+      removeSessionStorageKey(key);
+      count++;
+    }
+    return count;
+  }
   async function storageKeys(prefixes) {
     const keys = /* @__PURE__ */ new Set();
     const listValues = globalThis.GM_listValues;
@@ -161,6 +174,29 @@
     }
     return [...keys].sort();
   }
+  async function allStorageKeys() {
+    const keys = /* @__PURE__ */ new Set();
+    const listValues = globalThis.GM_listValues;
+    if (typeof listValues === "function") {
+      try {
+        for (const key of await listValues()) keys.add(key);
+      } catch (error) {
+        debugStorageError("GM storage list failed", "GM_listValues", error);
+      }
+    }
+    collectWebStorageKeys(localStorage, keys);
+    collectWebStorageKeys(sessionStorage, keys);
+    return [...keys].sort();
+  }
+  function collectWebStorageKeys(storage, keys) {
+    try {
+      for (let index = 0; index < storage.length; index++) {
+        const key = storage.key(index);
+        if (key && isManagedStorageKey(key)) keys.add(key);
+      }
+    } catch {
+    }
+  }
   function localStorageGet(key, fallback) {
     try {
       const value = localStorage.getItem(key);
@@ -175,11 +211,23 @@
     } catch {
     }
   }
+  function removeLocalStorageKey(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+    }
+  }
+  function removeSessionStorageKey(key) {
+    try {
+      sessionStorage.removeItem(key);
+    } catch {
+    }
+  }
   function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function isManagedStorageKey(key) {
-    return key.startsWith("yomu-") || key.startsWith("jpdb-reader-") || key.startsWith("jpdb-popup-reader-");
+    return key.startsWith("yomu-") || key.startsWith("yomu:") || key.startsWith("yomu.") || key.startsWith("jpdb-reader-") || key.startsWith("jpdb-popup-reader-");
   }
   function debugStorageError(message, key, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -562,7 +610,7 @@
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
   const STORAGE_KEY = "jpdb-popup-reader-settings";
-  const log$E = Logger.scope("Settings");
+  const log$F = Logger.scope("Settings");
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = "#5ea780";
   const DEFAULT_WORD_COLORS = {
@@ -648,7 +696,7 @@
     wordUnderlineColorSource: "auto",
     wordTextColorSource: "off",
     subtitleHighlightColorSource: "off",
-    subtitleUnderlineColorSource: "off",
+    subtitleUnderlineColorSource: "pitch",
     subtitleTextColorSource: "auto",
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
@@ -761,9 +809,12 @@
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
     subtitleSecondaryVisible: false,
+    subtitleNativeBlurred: true,
+    subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
+    subtitleAutoCopyLine: false,
     subtitleControlsMode: "auto",
     subtitleFontSize: 28,
     subtitleBottomOffset: 12,
@@ -873,12 +924,12 @@
   function normalizeLookupSettings(value) {
     return {
       interfaceLanguage: normalizeInterfaceLanguage(value == null ? void 0 : value.interfaceLanguage),
-      jpdbDefinitionsPriority: clampNumber$1(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+      jpdbDefinitionsPriority: clampNumber$2(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
       lookupOnClick: typeof (value == null ? void 0 : value.lookupOnClick) === "boolean" ? value.lookupOnClick : true,
       lookupOnHover: typeof (value == null ? void 0 : value.lookupOnHover) === "boolean" ? value.lookupOnHover : (value == null ? void 0 : value.popupActivationMode) !== "click",
       lookupOnMiddleMouse: typeof (value == null ? void 0 : value.lookupOnMiddleMouse) === "boolean" ? value.lookupOnMiddleMouse : true,
-      hoverOpenDelayMs: clampNumber$1(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-      hoverCloseDelayMs: clampNumber$1(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+      hoverOpenDelayMs: clampNumber$2(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+      hoverCloseDelayMs: clampNumber$2(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
   }
   function normalizeNewTabSettings(value) {
@@ -890,7 +941,7 @@
       newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value == null ? void 0 : value.newTabKanjiKeywordSource),
       newTabParsingEnabled: typeof (value == null ? void 0 : value.newTabParsingEnabled) === "boolean" ? value.newTabParsingEnabled : DEFAULT_SETTINGS.newTabParsingEnabled,
       newTabOfflineEnabled: typeof (value == null ? void 0 : value.newTabOfflineEnabled) === "boolean" ? value.newTabOfflineEnabled : DEFAULT_SETTINGS.newTabOfflineEnabled,
-      newTabOfflineLimit: clampNumber$1(value == null ? void 0 : value.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+      newTabOfflineLimit: clampNumber$2(value == null ? void 0 : value.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
       newTabKanjiAutogradeEnabled: typeof (value == null ? void 0 : value.newTabKanjiAutogradeEnabled) === "boolean" ? value.newTabKanjiAutogradeEnabled : DEFAULT_SETTINGS.newTabKanjiAutogradeEnabled,
       newTabKanjiAutoSubmit: typeof (value == null ? void 0 : value.newTabKanjiAutoSubmit) === "boolean" ? value.newTabKanjiAutoSubmit : DEFAULT_SETTINGS.newTabKanjiAutoSubmit
     };
@@ -929,15 +980,15 @@
       jpdbKanjiDoodleEnabled: typeof (value == null ? void 0 : value.jpdbKanjiDoodleEnabled) === "boolean" ? value.jpdbKanjiDoodleEnabled : DEFAULT_SETTINGS.jpdbKanjiDoodleEnabled,
       jpdbKanjiAutogradeEnabled: typeof (value == null ? void 0 : value.jpdbKanjiAutogradeEnabled) === "boolean" ? value.jpdbKanjiAutogradeEnabled : DEFAULT_SETTINGS.jpdbKanjiAutogradeEnabled,
       jpdbKanjiEnabled: typeof (value == null ? void 0 : value.jpdbKanjiEnabled) === "boolean" ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
-      jpdbKanjiPriority: clampNumber$1(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
+      jpdbKanjiPriority: clampNumber$2(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
       uchisenEnabled: typeof (value == null ? void 0 : value.uchisenEnabled) === "boolean" ? value.uchisenEnabled : DEFAULT_SETTINGS.uchisenEnabled,
-      uchisenPriority: clampNumber$1(value == null ? void 0 : value.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
-      rtkPriority: clampNumber$1(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
-      kanjivgPriority: clampNumber$1(value == null ? void 0 : value.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
-      kanjiOriginsPriority: clampNumber$1(value == null ? void 0 : value.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
-      kanjiDictionariesPriority: clampNumber$1(value == null ? void 0 : value.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
-      similarKanjiWordsPriority: clampNumber$1(value == null ? void 0 : value.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
-      similarKanjiWordLimit: clampNumber$1(value == null ? void 0 : value.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
+      uchisenPriority: clampNumber$2(value == null ? void 0 : value.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
+      rtkPriority: clampNumber$2(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
+      kanjivgPriority: clampNumber$2(value == null ? void 0 : value.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
+      kanjiOriginsPriority: clampNumber$2(value == null ? void 0 : value.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
+      kanjiDictionariesPriority: clampNumber$2(value == null ? void 0 : value.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
+      similarKanjiWordsPriority: clampNumber$2(value == null ? void 0 : value.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
+      similarKanjiWordLimit: clampNumber$2(value == null ? void 0 : value.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
     };
   }
   function normalizeAnkiAndStudySettings(value) {
@@ -948,9 +999,9 @@
       ankiTemplateMode: normalizeAnkiTemplateMode(value == null ? void 0 : value.ankiTemplateMode),
       ankiMobileHandoff: typeof (value == null ? void 0 : value.ankiMobileHandoff) === "boolean" ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
       studyTranslationEnabled: typeof (value == null ? void 0 : value.studyTranslationEnabled) === "boolean" ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
-      studyTranslationPriority: clampNumber$1(value == null ? void 0 : value.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
+      studyTranslationPriority: clampNumber$2(value == null ? void 0 : value.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
       studyGrammarEnabled: typeof (value == null ? void 0 : value.studyGrammarEnabled) === "boolean" ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
-      studyGrammarPriority: clampNumber$1(value == null ? void 0 : value.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
+      studyGrammarPriority: clampNumber$2(value == null ? void 0 : value.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
       enableLogging: typeof (value == null ? void 0 : value.enableLogging) === "boolean" ? value.enableLogging : DEFAULT_SETTINGS.enableLogging
     };
   }
@@ -958,8 +1009,8 @@
     return {
       theme: normalizeTheme(value == null ? void 0 : value.theme),
       popupMode: normalizePopupMode(value == null ? void 0 : value.popupMode),
-      popoverWidth: clampNumber$1(value == null ? void 0 : value.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-      popoverHeight: clampNumber$1(value == null ? void 0 : value.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+      popoverWidth: clampNumber$2(value == null ? void 0 : value.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+      popoverHeight: clampNumber$2(value == null ? void 0 : value.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
       popoverHeightMode: normalizePopoverHeightMode(value == null ? void 0 : value.popoverHeightMode)
     };
   }
@@ -979,13 +1030,13 @@
     return {
       audioViaBlob: typeof (value == null ? void 0 : value.audioViaBlob) === "boolean" ? value.audioViaBlob : DEFAULT_SETTINGS.audioViaBlob,
       audioFallbackChimeEnabled: typeof (value == null ? void 0 : value.audioFallbackChimeEnabled) === "boolean" ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
-      immersionKitPriority: clampNumber$1(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-      immersionKitLimit: clampNumber$1(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-      immersionKitMinLength: clampNumber$1(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-      immersionKitMaxLength: clampNumber$1(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+      immersionKitPriority: clampNumber$2(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+      immersionKitLimit: clampNumber$2(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+      immersionKitMinLength: clampNumber$2(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+      immersionKitMaxLength: clampNumber$2(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
       immersionKitCategory: normalizeImmersionKitCategory(value == null ? void 0 : value.immersionKitCategory),
       immersionKitSort: normalizeImmersionKitSort(value == null ? void 0 : value.immersionKitSort),
-      immersionKitPlaybackRate: clampNumber$1(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+      immersionKitPlaybackRate: clampNumber$2(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
       immersionKitRevealTranslationOnClick: typeof (value == null ? void 0 : value.immersionKitRevealTranslationOnClick) === "boolean" ? value.immersionKitRevealTranslationOnClick : DEFAULT_SETTINGS.immersionKitRevealTranslationOnClick,
       jpdbImmersionKitAutoPlayReviewAudio: jpdbImmersionKitAvailable && !jpdbWordAudioAutoPlayReviewAudio && (typeof (value == null ? void 0 : value.jpdbImmersionKitAutoPlayReviewAudio) === "boolean" ? value.jpdbImmersionKitAutoPlayReviewAudio : DEFAULT_SETTINGS.jpdbImmersionKitAutoPlayReviewAudio),
       jpdbWordAudioAutoPlayReviewAudio,
@@ -996,20 +1047,23 @@
       ocrTextColor: sanitizeAccentColor(value == null ? void 0 : value.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
       ocrBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-      ocrBackgroundOpacity: clampNumber$1(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-      ocrFontScale: clampNumber$1(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+      ocrBackgroundOpacity: clampNumber$2(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+      ocrFontScale: clampNumber$2(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
     };
   }
   function normalizeSubtitleSettings(value) {
     return {
+      subtitleNativeBlurred: typeof (value == null ? void 0 : value.subtitleNativeBlurred) === "boolean" ? value.subtitleNativeBlurred : DEFAULT_SETTINGS.subtitleNativeBlurred,
+      subtitleKaraokeMode: typeof (value == null ? void 0 : value.subtitleKaraokeMode) === "boolean" ? value.subtitleKaraokeMode : DEFAULT_SETTINGS.subtitleKaraokeMode,
+      subtitleAutoCopyLine: typeof (value == null ? void 0 : value.subtitleAutoCopyLine) === "boolean" ? value.subtitleAutoCopyLine : DEFAULT_SETTINGS.subtitleAutoCopyLine,
       subtitleControlsMode: normalizeSubtitleControlsMode(value == null ? void 0 : value.subtitleControlsMode),
       subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value == null ? void 0 : value.subtitleTranscriptPlacement),
       subtitleTextColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-      subtitleBackgroundOpacity: clampNumber$1(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+      subtitleBackgroundOpacity: clampNumber$2(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
       subtitleFontFamily: typeof (value == null ? void 0 : value.subtitleFontFamily) === "string" && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
-      subtitleFontWeight: clampNumber$1(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
+      subtitleFontWeight: clampNumber$2(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
     };
   }
   function normalizeOptionalCoordinate(value) {
@@ -1060,7 +1114,7 @@
     if (value === "meta") return "Meta";
     return value === "shift" ? "Shift" : "";
   }
-  function clampNumber$1(value, min, max, fallback) {
+  function clampNumber$2(value, min, max, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
   }
@@ -1140,7 +1194,7 @@
     const audio = (_b = params.get("audio")) == null ? void 0 : _b.trim();
     const ocr = (_c = params.get("ocr")) == null ? void 0 : _c.trim();
     if (!apiKey && !audio && !ocr) return settings;
-    log$E.info("Applying URL bootstrap settings", {
+    log$F.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(apiKey),
       hasAudio: Boolean(audio),
       hasOcr: Boolean(ocr)
@@ -1174,19 +1228,19 @@
   async function loadSettings() {
     try {
       const settings = mergeSettings(await gmStorageGet(STORAGE_KEY, null));
-      log$E.debug("Loaded settings from storage", settingsSummary(settings));
+      log$F.debug("Loaded settings from storage", settingsSummary(settings));
       return settings;
     } catch (error) {
-      log$E.warn("Settings load failed, using defaults", { error });
+      log$F.warn("Settings load failed, using defaults", { error });
       return mergeSettings(null);
     }
   }
   async function saveSettings(settings) {
     try {
       await gmStorageSet(STORAGE_KEY, settings);
-      log$E.debug("Saved settings to storage", settingsSummary(settings));
+      log$F.debug("Saved settings to storage", settingsSummary(settings));
     } catch (error) {
-      log$E.warn("Settings save failed", { error });
+      log$F.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -1395,12 +1449,12 @@
       theme: settings.theme
     };
   }
-  const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
+  const HAS_JAPANESE$2 = /[\u3040-\u30ff\u3400-\u9fff]/;
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const log$D = Logger.scope("Dom");
+  const log$E = Logger.scope("Dom");
   let trustedHtmlPolicy;
   const SKIP_SELECTOR = [
     "script",
@@ -1478,8 +1532,46 @@
     "[data-jpdb-reader-root]",
     ".jpdb-reader-word"
   ].join(",");
+  const HARD_FRAGMENT_SKIP_SELECTOR = [
+    "script",
+    "style",
+    "noscript",
+    "form",
+    "label",
+    "fieldset",
+    "legend",
+    "textarea",
+    "input",
+    "select",
+    "button",
+    "option",
+    "svg",
+    "use",
+    'a[href="#"]',
+    'a[href=""]',
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    "[onclick]",
+    "[data-audio]",
+    "[data-jpdb-reader-root]",
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="listen" i]',
+    '[class*="button" i]',
+    '[class*="btn" i]',
+    '[class*="control" i]',
+    '[class*="toggle" i]',
+    '[class*="player" i]',
+    '[class*="voice" i]',
+    ".jpdb-reader-word"
+  ].join(",");
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|btn|button|chip|control|icon|label|menu|nav|pill|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
+  const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const BLOCK_TAGS = /* @__PURE__ */ new Set([
     "ADDRESS",
@@ -1538,19 +1630,7 @@
     const fullText = (_b = host == null ? void 0 : host.textContent) == null ? void 0 : _b.replace(/\s+/g, " ").trim();
     const selected = getSelectionText();
     if (!fullText || !selected) return selected;
-    const index = fullText.indexOf(selected);
-    if (index === -1) return selected;
-    const before = fullText.slice(0, index);
-    const after = fullText.slice(index + selected.length);
-    const start = Math.max(
-      before.lastIndexOf("。"),
-      before.lastIndexOf("！"),
-      before.lastIndexOf("？"),
-      before.lastIndexOf("\n")
-    ) + 1;
-    const endCandidates = ["。", "！", "？", "\n"].map((mark) => after.indexOf(mark)).filter((pos) => pos >= 0);
-    const end = endCandidates.length ? index + selected.length + Math.min(...endCandidates) + 1 : fullText.length;
-    return fullText.slice(start, end).trim() || selected;
+    return sentenceAroundSurface(fullText, selected) || selected;
   }
   function collectVisibleTextTargets(limit = 40) {
     return collectTextTargetsIn(document.body, limit, true);
@@ -1568,7 +1648,7 @@
     let node;
     while (node = walker.nextNode()) {
       const text2 = node.textContent ?? "";
-      if (HAS_JAPANESE$1.test(text2)) return true;
+      if (HAS_JAPANESE$2.test(text2)) return true;
       inspected += text2.length;
       if (inspected >= limit) return false;
     }
@@ -1580,7 +1660,7 @@
       acceptNode(node2) {
         var _a2;
         const text2 = ((_a2 = node2.textContent) == null ? void 0 : _a2.trim()) ?? "";
-        if (text2.length < 2 || !HAS_JAPANESE$1.test(text2)) return NodeFilter.FILTER_REJECT;
+        if (text2.length < 2 || !HAS_JAPANESE$2.test(text2)) return NodeFilter.FILTER_REJECT;
         const parent = node2.parentElement;
         if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
         if (!options.includeReaderRoot && parent.closest(READER_ROOT_SELECTOR)) return NodeFilter.FILTER_REJECT;
@@ -1622,7 +1702,7 @@
       const compactText = text2.replace(/\s+/g, "");
       const hasNativeRuby = trimmedFragments.some((fragment2) => fragment2.hasNativeRuby);
       const suppressRuby = trimmedFragments.some((fragment2) => fragment2.suppressRuby);
-      if (HAS_JAPANESE$1.test(text2) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
+      if (HAS_JAPANESE$2.test(text2) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
         const parent = (_a = trimmedFragments[0]) == null ? void 0 : _a.node.parentElement;
         if (parent) {
           targets.push({ text: text2, parent, fragments: trimmedFragments, suppressRuby });
@@ -1650,7 +1730,8 @@
       const tagName = element2.tagName;
       if (tagName === "RT" || tagName === "RP") return;
       if (!options.includeReaderRoot && element2.closest("[data-jpdb-reader-root]")) return;
-      if (element2.matches(FRAGMENT_SKIP_SELECTOR) || excludeSelector && element2.matches(excludeSelector)) {
+      const skipSelector = options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR;
+      if (element2.matches(skipSelector) || excludeSelector && element2.matches(excludeSelector)) {
         flush();
         return;
       }
@@ -1712,7 +1793,7 @@
       word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
     }
     parents.forEach((parent) => parent.normalize());
-    log$D.debug("Unwrapped reader words", { count: words.length });
+    log$E.debug("Unwrapped reader words", { count: words.length });
     return words.length;
   }
   function readerWordSurfaceText(element2) {
@@ -1728,6 +1809,114 @@
       text2 += readerWordSurfaceText(child);
     });
     return text2;
+  }
+  function nearestReadableSentenceForElement(element2, fallback = "") {
+    var _a;
+    const surface = readerWordSurfaceText(element2).trim() || ((_a = element2.textContent) == null ? void 0 : _a.trim()) || "";
+    const cleanFallback = cleanReadableSentence(fallback);
+    let current = element2.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (!current.closest(READER_ROOT_SELECTOR) || current.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-ocr-layer")) {
+        const sentence = sentenceAroundSurface(readableSurfaceText(current), surface, cleanFallback);
+        if (isUsefulContextSentence(sentence, cleanFallback, surface)) return sentence;
+      }
+      current = current.parentElement;
+    }
+    return sentenceAroundSurface(cleanFallback, surface) || cleanFallback;
+  }
+  function sentenceAroundSurface(value, surface = "", fallback = "") {
+    const text2 = cleanReadableSentence(value);
+    if (!text2 || !HAS_JAPANESE$2.test(text2)) return "";
+    const cleanSurface = cleanReadableSentence(surface);
+    const cleanFallback = cleanReadableSentence(fallback);
+    const search = cleanSurface && text2.includes(cleanSurface) ? cleanSurface : cleanFallback && text2.includes(cleanFallback) ? cleanFallback : "";
+    const index = search ? text2.indexOf(search) : 0;
+    if (index < 0) return text2.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text2 : text2.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+    const hardBounded = hardBoundedSentence(text2, index, search.length);
+    const hardClean = trimSoftSentenceBoundary(hardBounded, search);
+    if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
+    return clampLongSentence(hardClean, search);
+  }
+  function isUsefulContextSentence(sentence, fallback, surface) {
+    if (!sentence || !HAS_JAPANESE$2.test(sentence)) return false;
+    if (surface && !sentence.includes(surface)) return false;
+    if (!fallback) return true;
+    if (sentence === fallback) return false;
+    if (sentence.length <= fallback.length + 2) return false;
+    return sentence.length >= 8 || /[。！？]/u.test(sentence);
+  }
+  function readableSurfaceText(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const element2 = node;
+    if (element2.tagName === "RT" || element2.tagName === "RP" || element2.tagName === "SCRIPT" || element2.tagName === "STYLE") return "";
+    if (element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]')) return "";
+    let text2 = "";
+    element2.childNodes.forEach((child) => {
+      text2 += readableSurfaceText(child);
+    });
+    return text2;
+  }
+  function cleanReadableSentence(value) {
+    return value.replace(/\s+/g, " ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, "$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, "$1$2").trim();
+  }
+  function hardBoundedSentence(text2, index, length) {
+    const start = sentenceStartIndex(text2, index);
+    const end = sentenceEndIndex(text2, index + length);
+    return text2.slice(start, end).trim();
+  }
+  function sentenceStartIndex(text2, index) {
+    for (let i = index - 1; i >= 0; i--) {
+      if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
+    }
+    return 0;
+  }
+  function sentenceEndIndex(text2, index) {
+    for (let i = index; i < text2.length; i++) {
+      if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
+    }
+    return text2.length;
+  }
+  function trimSoftSentenceBoundary(sentence, surface) {
+    const clean = sentence.trim();
+    if (!surface) return clean;
+    const index = clean.indexOf(surface);
+    if (index < 0) return clean;
+    const start = softBoundaryStart(clean, index);
+    const end = softBoundaryEnd(clean, index + surface.length);
+    const trimmed = clean.slice(start, end).trim();
+    const omitted = `${clean.slice(0, start)}${clean.slice(end)}`;
+    if (!trimmed || trimmed === clean) return clean;
+    if (clean.length > 48 || /[。！？!?]/u.test(omitted)) return trimmed;
+    return clean;
+  }
+  function softBoundaryStart(text2, index) {
+    for (let i = index - 1; i >= 0; i--) {
+      if (isStrongWhitespaceBoundary(text2, i)) return i + 1;
+    }
+    return 0;
+  }
+  function softBoundaryEnd(text2, index) {
+    for (let i = index; i < text2.length; i++) {
+      if (isStrongWhitespaceBoundary(text2, i)) return i;
+    }
+    return text2.length;
+  }
+  function isStrongWhitespaceBoundary(text2, index) {
+    const char = text2[index] ?? "";
+    if (!/\s/u.test(char)) return false;
+    const before = text2.slice(Math.max(0, index - 24), index);
+    const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
+    return HAS_JAPANESE$2.test(before) && HAS_JAPANESE$2.test(after);
+  }
+  function clampLongSentence(sentence, surface) {
+    if (sentence.length <= MAX_CONTEXT_SENTENCE_LENGTH) return sentence;
+    const index = surface ? sentence.indexOf(surface) : -1;
+    if (index < 0) return sentence.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+    const halfWindow = Math.floor((MAX_CONTEXT_SENTENCE_LENGTH - surface.length) / 2);
+    const start = Math.max(0, index - Math.max(0, halfWindow));
+    const end = Math.min(sentence.length, start + MAX_CONTEXT_SENTENCE_LENGTH);
+    return sentence.slice(start, end).trim();
   }
   function applyTokensToTextNode(target, tokens, settings) {
     if (!tokens.length || !target.node.parentElement) return;
@@ -1749,13 +1938,47 @@
       fragment2.append(document.createTextNode(text2.slice(offset)));
     }
     target.node.replaceWith(fragment2);
-    log$D.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
+    log$E.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
   }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!tokens.length || !target.fragments.length) return;
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
+    if (target.fragments.some((fragment2) => fragment2.hasNativeRuby)) {
+      applyTokensToFragmentPieces(target, safeTokens, settings, sentence);
+      return;
+    }
+    const indexedFragments = indexTextFragments(target.fragments);
+    for (let index = safeTokens.length - 1; index >= 0; index--) {
+      const token = safeTokens[index];
+      const start = findFragmentBoundary(indexedFragments, token.start, "start");
+      const end = findFragmentBoundary(indexedFragments, token.end, "end");
+      if (!start || !end || !start.fragment.node.parentElement || !end.fragment.node.parentElement) continue;
+      const tokenWithSentence = { ...token, sentence: token.sentence ?? sentence };
+      const isSingleFragment = start.fragment === end.fragment;
+      const allowRuby = isSingleFragment && !start.fragment.hasNativeRuby && !start.fragment.suppressRuby && !target.suppressRuby;
+      const range = document.createRange();
+      range.setStart(start.fragment.node, start.localOffset);
+      range.setEnd(end.fragment.node, end.localOffset);
+      if (isSingleFragment) {
+        range.deleteContents();
+        range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, { allowRuby }));
+      } else {
+        const shell = renderTokenShell(tokenWithSentence);
+        shell.append(range.extractContents());
+        range.insertNode(shell);
+      }
+      range.detach();
+    }
+    log$E.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
+      tokens: safeTokens.length,
+      fragments: target.fragments.length,
+      textLength: target.text.length,
+      parserId: target.parserId
+    });
+  }
+  function applyTokensToFragmentPieces(target, safeTokens, settings, sentence) {
     let globalOffset = 0;
     for (const fragmentInfo of target.fragments) {
       if (!fragmentInfo.node.parentElement) {
@@ -1787,12 +2010,45 @@
       if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
       fragmentInfo.node.replaceWith(replacement);
     }
-    log$D.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
+    log$E.debugThrottled("apply-fragment-pieces", 1e3, "Applied tokens to native ruby fragment target", {
       tokens: safeTokens.length,
       fragments: target.fragments.length,
       textLength: target.text.length,
       parserId: target.parserId
     });
+  }
+  function indexTextFragments(fragments) {
+    let globalOffset = 0;
+    return fragments.map((fragment2) => {
+      const length = fragment2.end - fragment2.start;
+      const indexed = {
+        ...fragment2,
+        globalStart: globalOffset,
+        globalEnd: globalOffset + length
+      };
+      globalOffset += length;
+      return indexed;
+    });
+  }
+  function findFragmentBoundary(fragments, offset, side) {
+    var _a, _b;
+    for (const fragment2 of fragments) {
+      const isInside = side === "start" ? offset >= fragment2.globalStart && offset < fragment2.globalEnd : offset > fragment2.globalStart && offset <= fragment2.globalEnd;
+      if (!isInside) continue;
+      return {
+        fragment: fragment2,
+        localOffset: fragment2.start + offset - fragment2.globalStart
+      };
+    }
+    if (side === "start" && offset === ((_a = fragments[fragments.length - 1]) == null ? void 0 : _a.globalEnd)) {
+      const fragment2 = fragments[fragments.length - 1];
+      return fragment2 ? { fragment: fragment2, localOffset: fragment2.end } : null;
+    }
+    if (side === "end" && offset === ((_b = fragments[0]) == null ? void 0 : _b.globalStart)) {
+      const fragment2 = fragments[0];
+      return fragment2 ? { fragment: fragment2, localOffset: fragment2.start } : null;
+    }
+    return null;
   }
   function renderTokensToHtml(text2, tokens, settings) {
     if (!tokens.length) return escapeHtml$1(text2);
@@ -1805,7 +2061,7 @@
       offset = token.end;
     }
     if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
-    log$D.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
+    log$E.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
     return html;
   }
   function renderHighlightedTextHtml(text2, targets, className) {
@@ -1861,6 +2117,17 @@
     } else {
       span.textContent = surface;
     }
+    return span;
+  }
+  function renderTokenShell(token, settings) {
+    const span = document.createElement("span");
+    const state = primaryCardState(token.card.cardState);
+    span.className = readerWordClassName(state, token);
+    span.dataset.vid = String(token.card.vid);
+    span.dataset.sid = String(token.card.sid);
+    span.dataset.pitchClass = safePitchClass(token.pitchClass);
+    span.dataset.sentence = token.sentence ?? "";
+    span.tabIndex = 0;
     return span;
   }
   function renderTokenHtml(surface, token, settings) {
@@ -2022,7 +2289,7 @@
     const controlShape = style.display.includes("flex") || style.display.includes("grid") || style.display === "inline-block" || Number.parseFloat(style.borderRadius) > 0 || style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
     return controlShape && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
   }
-  const log$C = Logger.scope("ObjectUrlCache");
+  const log$D = Logger.scope("ObjectUrlCache");
   class ObjectUrlCache {
     constructor(ttlMs, label) {
       __publicField(this, "entries", /* @__PURE__ */ new Map());
@@ -2033,7 +2300,7 @@
       const now = Date.now();
       const cached = this.entries.get(key);
       if (cached && cached.expiresAt > now) {
-        log$C.debug("Object URL cache hit", { label: this.label });
+        log$D.debug("Object URL cache hit", { label: this.label });
         return cached.promise;
       }
       if (cached) this.delete(key);
@@ -2090,22 +2357,22 @@
     });
   }
   var _monkeyWindow = /* @__PURE__ */ (() => window)();
-  const log$B = Logger.scope("Userscript");
+  const log$C = Logger.scope("Userscript");
   function getUserscriptHttpRequest() {
     for (const source of userscriptRequestSources()) {
       const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
       if (directRequest) {
-        log$B.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: sourceLabel(source), path: "GM_xmlhttpRequest" });
+        log$C.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: sourceLabel(source), path: "GM_xmlhttpRequest" });
         return directRequest.bind(source);
       }
       const gm = source.GM;
       const gmRequest = asUserscriptRequest(gm == null ? void 0 : gm.xmlHttpRequest) ?? asUserscriptRequest(gm == null ? void 0 : gm.xmlhttpRequest);
       if (gmRequest) {
-        log$B.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: sourceLabel(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
+        log$C.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: sourceLabel(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
         return gmRequest.bind(gm);
       }
     }
-    log$B.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
+    log$C.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
     return void 0;
   }
   function userscriptRequestSources() {
@@ -2126,7 +2393,7 @@
     if (typeof document === "undefined") return [];
     const record = document;
     const windows = Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => record[key]);
-    log$B.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
+    log$C.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
     return windows;
   }
   function isRequestSource(value) {
@@ -2148,7 +2415,7 @@
   const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
   const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
-  const log$A = Logger.scope("Audio");
+  const log$B = Logger.scope("Audio");
   class AudioPlayer {
     constructor(getSettings) {
       __publicField(this, "current");
@@ -2170,15 +2437,15 @@
       const sources = getOrderedAudioSources(settings);
       this.stopCurrent();
       if (!sources.length) {
-        log$A.warn("No audio sources configured", { term: card.spelling });
+        log$B.warn("No audio sources configured", { term: card.spelling });
         return await this.playMissingAudioFallback(settings, requestId, isCurrent);
       }
-      const done = log$A.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
+      const done = log$B.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
       const errors = [];
       const triedUrls = /* @__PURE__ */ new Set();
       for (const source of sources) {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-          log$A.debug("Audio request superseded", { term: card.spelling, requestId });
+          log$B.debug("Audio request superseded", { term: card.spelling, requestId });
           done();
           return false;
         }
@@ -2189,18 +2456,18 @@
             return false;
           }
           if (played) {
-            log$A.debug("Audio source succeeded", { term: card.spelling, source: source.type });
+            log$B.debug("Audio source succeeded", { term: card.spelling, source: source.type });
             done();
             return true;
           }
         } catch (error) {
-          log$A.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
+          log$B.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
           errors.push(error instanceof Error ? error.message : String(error));
         }
       }
       done();
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$A.warn("No playable audio found", { term: card.spelling, errors });
+      log$B.warn("No playable audio found", { term: card.spelling, errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     preload(card, options = {}) {
@@ -2218,15 +2485,15 @@
             if (triedUrls.has(candidateKey2)) continue;
             triedUrls.add(candidateKey2);
             preconnectAudioUrl(candidate.url);
-            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$A.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
+            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$B.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
           }
-        }).catch((error) => log$A.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
+        }).catch((error) => log$B.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
       }
     }
     stop() {
       this.playRequestId++;
       this.stopCurrent();
-      log$A.debug("Audio stopped");
+      log$B.debug("Audio stopped");
     }
     async playJapaneseText(text2, voiceName = "") {
       const requestId = ++this.playRequestId;
@@ -2235,7 +2502,7 @@
       this.stopCurrent();
       await this.playTextToSpeech(trimmed, voiceName);
       if (requestId !== this.playRequestId) this.stopCurrent();
-      log$A.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
+      log$B.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
     }
     stopCurrent() {
       var _a;
@@ -2254,17 +2521,17 @@
       if (source.type === "text-to-speech" || source.type === "text-to-speech-reading") {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
-        log$A.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
+        log$B.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
         return this.isPlaybackCurrent(requestId, isCurrent);
       }
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$A.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
+      log$B.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
       const bagKey = getAudioBagKey(source, card);
       for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
         const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
         if (triedUrls.has(candidateKey2)) {
-          log$A.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
+          log$B.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
           continue;
         }
         triedUrls.add(candidateKey2);
@@ -2274,10 +2541,10 @@
           const played = await this.playPreparedAudio(audio, requestId, isCurrent);
           if (!played) return false;
           this.shuffledAudio.markPlayed(bagKey, id);
-          log$A.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
+          log$B.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
           return true;
         } catch (error) {
-          log$A.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
+          log$B.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
         }
       }
       return false;
@@ -2339,7 +2606,7 @@
       const now = Date.now();
       const cached = this.candidateCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log$A.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
+        log$B.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
         return cached.promise.then(cloneAudioCandidates);
       }
       let promise;
@@ -2364,7 +2631,7 @@
         throw new Error("JapanesePod101 has no audio for this term.");
       }
       const blobUrl = await createPageMediaUrl(response);
-      log$A.debug("Audio media URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith("data:") });
+      log$B.debug("Audio media URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith("data:") });
       return blobUrl;
     }
     playTextToSpeech(text2, voiceName) {
@@ -2382,17 +2649,17 @@
     }
     async playMissingAudioFallback(settings, requestId, isCurrent) {
       if (!settings.audioFallbackChimeEnabled) {
-        log$A.debug("Missing-audio fallback is silent");
+        log$B.debug("Missing-audio fallback is silent");
         return false;
       }
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       try {
         const played = await this.playSoftChime(requestId, isCurrent);
         if (!played) return false;
-        log$A.debug("Missing-audio fallback chime played");
+        log$B.debug("Missing-audio fallback chime played");
         return true;
       } catch (error) {
-        log$A.debug("Missing-audio fallback chime unavailable", {}, error);
+        log$B.debug("Missing-audio fallback chime unavailable", {}, error);
         return false;
       }
     }
@@ -2665,36 +2932,52 @@
     return urls;
   }
   function requestUrl(responseUrl, responseType, timeoutMs, options = {}) {
-    const url = getProxyUrl(responseUrl);
     const userscriptRequest = getUserscriptHttpRequest();
+    const requestUrl2 = getProxyUrl(responseUrl);
     if (userscriptRequest) {
-      log$A.debug("Audio request via userscript API", { responseType, host: safeHost$6(url) });
-      return new Promise((resolve, reject) => {
-        const handleLoad = (response) => {
-          if (response.status >= 200 && response.status < 300) {
-            resolve(response.response ?? response.responseText ?? "");
-          } else {
-            reject(new Error(`Audio request failed (${response.status}).`));
-          }
-        };
-        const result = userscriptRequest({
-          method: options.method ?? "GET",
-          url,
-          headers: options.headers,
-          data: options.data,
-          responseType,
-          timeout: timeoutMs,
-          onload: handleLoad,
-          onerror: reject,
-          ontimeout: () => reject(new Error("Audio request timed out."))
-        });
-        if (result && typeof result.then === "function") {
-          result.then(handleLoad, reject);
-        }
+      log$B.debug("Audio request via userscript API", { responseType, host: safeHost$6(responseUrl) });
+      return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest).catch((error) => {
+        log$B.debug("Audio request via userscript API failed; retrying with fetch", { responseType, host: safeHost$6(responseUrl), error: String(error instanceof Error ? error.message : error) });
+        return requestViaAudioFetch(requestUrl2, responseType, timeoutMs, options);
       });
     }
-    log$A.debug("Audio request via fetch", { responseType, host: safeHost$6(url) });
-    return fetch(url, {
+    log$B.debug("Audio request via fetch", { responseType, host: safeHost$6(requestUrl2) });
+    return requestViaAudioFetch(requestUrl2, responseType, timeoutMs, options);
+  }
+  function requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest) {
+    return new Promise((resolve, reject) => {
+      const handleLoad = (response) => {
+        if (response.status >= 200 && response.status < 300) {
+          const value = response.response ?? response.responseText;
+          if (responseType === "blob" && value instanceof Blob) {
+            resolve(value);
+            return;
+          }
+          if (responseType === "text" && typeof value === "string") {
+            resolve(value);
+            return;
+          }
+        }
+        reject(new Error(`Audio request failed (${response.status}).`));
+      };
+      const result = userscriptRequest({
+        method: options.method ?? "GET",
+        url: responseUrl,
+        headers: options.headers,
+        data: options.data,
+        responseType,
+        timeout: timeoutMs,
+        onload: handleLoad,
+        onerror: () => reject(new Error("Audio request failed.")),
+        ontimeout: () => reject(new Error("Audio request timed out."))
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, () => reject(new Error("Audio request failed.")));
+      }
+    });
+  }
+  function requestViaAudioFetch(responseUrl, responseType, timeoutMs, options) {
+    return fetch(responseUrl, {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.data,
@@ -2850,7 +3133,6 @@
     }
   }
   function getProxyUrl(url) {
-    if (getUserscriptHttpRequest()) return url;
     if (!["localhost", "127.0.0.1"].includes(location.hostname)) return url;
     if (!/^https?:\/\//.test(url)) return url;
     return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
@@ -2889,7 +3171,7 @@
     paypal: "https://paypal.me/HenryRussell163",
     migakuPricing: "https://migaku.com/pricing"
   };
-  const log$z = Logger.scope("NewTab");
+  const log$A = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
@@ -2926,19 +3208,39 @@
       return false;
     }
   }
+  function resolveNewTabBrandAssets(value) {
+    try {
+      const url = new URL(value);
+      const path = url.pathname.replace(/\/index\.html$/, "/");
+      const newTabIndex = path.lastIndexOf("/newtab/");
+      const basePath = newTabIndex >= 0 ? path.slice(0, newTabIndex + 1) : "/";
+      return {
+        homeHref: `${basePath}`,
+        iconSrc: `${basePath}yomu-icon.svg`
+      };
+    } catch {
+      return { homeHref: "/", iconSrc: "/yomu-icon.svg" };
+    }
+  }
   function shuffleCards(cards) {
     const shuffled = [...cards];
     for (let index = shuffled.length - 1; index > 0; index--) {
       const swapIndex = Math.floor(Math.random() * (index + 1));
       [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
     }
-    log$z.debug("Shuffled new tab cards", { count: cards.length });
+    log$A.debug("Shuffled new tab cards", { count: cards.length });
     return shuffled;
   }
   function firstCardMeaning(card) {
     const meanings = card.meanings ?? [];
     const first2 = meanings.find((meaning) => meaning.glosses.some((gloss) => gloss.trim()));
-    return (first2 == null ? void 0 : first2.glosses.filter(Boolean).join("; ")) ?? "";
+    if (!(first2 == null ? void 0 : first2.glosses.length)) return "";
+    const plain = first2.glosses.filter(Boolean);
+    if (card.source !== "local" && card.source !== "fallback") {
+      return plain.join("; ");
+    }
+    const cleaned = plain.map((meaning) => cleanupNewTabMeaning(meaning)).filter(Boolean);
+    return cleaned.length ? cleaned.join("; ") : plain.join("; ");
   }
   function cardKey$2(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
@@ -2980,15 +3282,28 @@
     }, close: () => {
     } };
     const channel = new BroadcastChannel(STATE_CHANNEL_NAME);
+    let isClosed = false;
     channel.onmessage = (event) => {
       if (!isPlainRecord(event.data) || event.data.type !== "state") return;
       onState(normalizeNewTabUiState(event.data.state));
     };
     return {
       publish(state) {
-        channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
+        if (isClosed) return;
+        try {
+          channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
+        } catch (error) {
+          isClosed = true;
+          log$A.warn("Failed to publish new tab state update", error);
+          try {
+            channel.close();
+          } catch {
+          }
+        }
       },
       close() {
+        if (isClosed) return;
+        isClosed = true;
         channel.close();
       }
     };
@@ -3004,6 +3319,54 @@
   }
   function isNewTabFilter(value) {
     return NEW_TAB_FILTERS.some((filter) => filter.value === value);
+  }
+  const LEARNER_GLOSSARY_SOURCE_RE$1 = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
+  const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const LEARNER_GLOSSARY_TAG_RE$1 = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
+  const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
+  function cleanupNewTabMeaning(text2) {
+    const normalized = stripMeaningMarkup(text2);
+    const withoutExamples = cutBeforeExampleText$1(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE$1, "").trim();
+    const cleaned = withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map(cleanLearnerGlossaryText$1).filter(Boolean);
+    if (cleaned.length) return Array.from(new Set(cleaned)).slice(0, 3).join(", ");
+    return withoutExamples ? trimSpaces(withoutExamples) : "";
+  }
+  function stripMeaningMarkup(value) {
+    if (!value) return "";
+    const withoutTags = value.replace(/<[^>]*>/gu, " ").replace(/&[a-zA-Z0-9#]+;/gu, " ").trim();
+    return withoutTags.replace(/\s+/gu, " ").trim();
+  }
+  function cleanLearnerGlossaryText$1(value) {
+    let clean = value.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE$1, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
+    clean = humanizeTerseGlosses$1(trimLearnerMeaning$1(clean));
+    if (!clean || HAS_JAPANESE$1.test(clean) || looksLikeGrammarTag$1(clean)) return "";
+    return clean;
+  }
+  function humanizeTerseGlosses$1(text2) {
+    const words = text2.split(/\s+/).filter(Boolean);
+    if (words.length < 2 || words.length > 4) return text2;
+    if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
+    if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
+    return text2;
+  }
+  function trimLearnerMeaning$1(text2, maxLength = 56) {
+    if (text2.length <= maxLength) return text2;
+    const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
+    return truncated || text2.slice(0, maxLength).trim();
+  }
+  function looksLikeGrammarTag$1(text2) {
+    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
+  }
+  function cutBeforeExampleText$1(value) {
+    var _a;
+    const japaneseIndex = HAS_JAPANESE$1.test(value) ? value.search(HAS_JAPANESE$1) : -1;
+    const sentenceIndex = ((_a = /\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u.exec(value)) == null ? void 0 : _a.index) ?? -1;
+    const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
+    const cutoff = indexes.length ? Math.min(...indexes) : -1;
+    return cutoff >= 0 ? value.slice(0, cutoff) : value;
+  }
+  function trimSpaces(value) {
+    return value.replace(/\s+/gu, " ").trim();
   }
   const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
   function isYomuHostedAppUrl(value) {
@@ -3045,7 +3408,7 @@
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$y = Logger.scope("MiningContext");
+  const log$z = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -3095,7 +3458,7 @@
     videoImageDataUrl,
     fetchImageDataUrl
   }) {
-    const done = log$y.time("Resolve mining context", {
+    const done = log$z.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
       activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
@@ -3107,20 +3470,20 @@
     const cleanSentence = normalizeMiningSentence(sentence);
     try {
       if (imageDataUrl && cleanSentence) {
-        log$y.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
+        log$z.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
         return miningContextWithImage(term, cleanSentence, "image", imageDataUrl);
       }
       if (videoImageDataUrl && cleanSentence) {
-        log$y.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
+        log$z.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
         return miningContextWithImage(term, cleanSentence, "video", videoImageDataUrl);
       }
       const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
       if (chosen && shouldUseImmersionContext(settings, chosen)) {
         const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch((error) => {
-          log$y.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
+          log$z.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
           return void 0;
         }) : void 0;
-        log$y.debug("Using immersion mining context", {
+        log$z.debug("Using immersion mining context", {
           term,
           sourceTitle: chosen.sourceTitle,
           hasImageUrl: Boolean(chosen.imageUrl),
@@ -3130,7 +3493,7 @@
       }
       const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
       const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-      log$y.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
+      log$z.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
       return result;
     } finally {
       done();
@@ -3138,7 +3501,7 @@
   }
   function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
     const context = pageMiningContext(sentence, sourceKind);
-    log$y.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
+    log$z.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
     return {
       ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
       imageDataUrl
@@ -3147,14 +3510,14 @@
   function saveMiningContext(term, context) {
     const stored = createStoredMiningContext(term, context);
     if (!stored) {
-      log$y.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
+      log$z.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
       return null;
     }
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
-      log$y.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
+      log$z.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
     } catch (error) {
-      log$y.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$z.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -3164,14 +3527,14 @@
     try {
       const stored = gmStorageGetSync(contextStorageKey(normalized), null);
       if (!stored) {
-        log$y.debug("Mining context cache miss", { term: normalized });
+        log$z.debug("Mining context cache miss", { term: normalized });
         return null;
       }
       const context = parseStoredMiningContext(stored, normalized);
-      log$y.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
+      log$z.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
       return context;
     } catch (error) {
-      log$y.warn("Mining context load failed", { term: normalized, error });
+      log$z.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -3226,7 +3589,7 @@
     if (!isMiningSourceKind(value.sourceKind)) return null;
     const updatedAt = Number(value.updatedAt);
     if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
-      log$y.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
+      log$z.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
       return null;
     }
     const context = createStoredMiningContext(expectedTerm, {
@@ -3332,7 +3695,7 @@
       newTab: "New tab",
       newTabEnabled: "Use Yomu new tab study page",
       newTabSource: "New tab word source",
-      newTabAuto: "Auto: Anki + JPDB + Dictionary",
+      newTabAuto: "Auto: Anki + JPDB",
       newTabUrl: "New tab address",
       newTabJpdbDeck: "New tab JPDB deck",
       openNewTabPage: "Open new tab page",
@@ -3472,9 +3835,12 @@
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
       subtitleSecondaryVisible: "Show native subtitles when available",
+      subtitleNativeBlurred: "Blur native subtitles until hover",
+      subtitleKaraokeMode: "Karaoke word timing",
       subtitleTranscriptVisible: "Open transcript panel by default",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+      subtitleAutoCopyLine: "Auto-copy each subtitle line as it plays",
       subtitleMiningPause: "Pause video when mining subtitle",
       subtitleControlsMode: "Subtitle controls",
       right: "Right",
@@ -3584,6 +3950,7 @@
       copyWordTitle: "Copy word",
       copiedWord: "Copied word.",
       backToWord: "Back to word",
+      backToKanji: "Back to kanji",
       previousKanji: "Previous kanji",
       nextKanji: "Next kanji",
       openKanjiOnJpdb: "Open kanji on JPDB",
@@ -3704,7 +4071,7 @@
       newTab: "新規タブ",
       newTabEnabled: "Yomu新規タブ学習ページを使う",
       newTabSource: "新規タブの単語ソース",
-      newTabAuto: "自動: Anki、JPDB、辞書",
+      newTabAuto: "自動: Anki、JPDB",
       newTabUrl: "新規タブのアドレス",
       newTabJpdbDeck: "新規タブのJPDBデッキ",
       openNewTabPage: "新規タブページを開く",
@@ -3844,9 +4211,12 @@
       subtitleAutoDetect: "ページ字幕を自動検出",
       subtitleOverlayVisible: "字幕オーバーレイを表示",
       subtitleSecondaryVisible: "利用可能なら母語字幕も表示",
+      subtitleNativeBlurred: "母語字幕をホバーまでぼかす",
+      subtitleKaraokeMode: "カラオケ風の単語タイミング",
       subtitleTranscriptVisible: "文字起こしパネルを最初から開く",
       subtitleTranscriptPlacement: "文字起こしパネル位置",
       subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
+      subtitleAutoCopyLine: "再生中の字幕行を自動コピー",
       subtitleMiningPause: "字幕から採掘する時に一時停止",
       subtitleControlsMode: "字幕コントロール",
       right: "右",
@@ -3956,6 +4326,7 @@
       copyWordTitle: "単語をコピー",
       copiedWord: "単語をコピーしました。",
       backToWord: "単語に戻る",
+      backToKanji: "漢字に戻る",
       previousKanji: "前の漢字",
       nextKanji: "次の漢字",
       openKanjiOnJpdb: "JPDBで漢字を開く",
@@ -6440,7 +6811,7 @@
   })(jszip_min);
   var jszip_minExports = jszip_min.exports;
   const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(jszip_minExports);
-  const log$x = Logger.scope("Deinflect");
+  const log$y = Logger.scope("Deinflect");
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -6590,7 +6961,7 @@
       }
     }
     const sorted = results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-    log$x.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
+    log$y.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
       source,
       candidates: sorted.length,
       derived: sorted.filter((candidate) => candidate.depth > 0).length
@@ -6881,10 +7252,10 @@ ${candidate.depth}`;
     }
     return -1;
   }
-  const log$w = Logger.scope("YomitanRanking");
+  const log$x = Logger.scope("YomitanRanking");
   function dictionaryRank(preferences) {
     const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
-    log$w.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
+    log$x.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
     return rank;
   }
   function dictionaryEnabled(dictionary, rank) {
@@ -6925,7 +7296,7 @@ ${candidate.depth}`;
       if (selected.length >= limit) break;
     }
     const result = selected.sort((a, b) => a.start - b.start);
-    log$w.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
+    log$x.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
     return result;
   }
   function isJpdbFrequencyDictionary(dictionary) {
@@ -6991,7 +7362,7 @@ ${candidate.depth}`;
     listStyleType: "list-style-type"
   };
   const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
-  const log$v = Logger.scope("YomitanGlossary");
+  const log$w = Logger.scope("YomitanGlossary");
   function glossaryToText(value) {
     if (value == null) return "";
     if (typeof value === "string") return value;
@@ -7001,14 +7372,23 @@ ${candidate.depth}`;
       const record = value;
       if (typeof record.text === "string") return record.text;
       if ("content" in record) return glossaryToText(record.content);
-      if ("path" in record) return String(record.description || record.alt || "[media]");
-      return Object.values(record).map(glossaryToText).filter(Boolean).join(" ");
+      const keys = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
+      const values = [];
+      for (const [key, childValue] of Object.entries(record)) {
+        if (keys.has(key) || key.startsWith("data-")) {
+          const childText = glossaryToText(childValue);
+          if (childText) values.push(childText);
+        }
+      }
+      if (values.length) return values.join(" ");
+      if ("path" in record) return String(record.description || record.alt || "");
+      return "";
     }
     return "";
   }
   function glossaryToHtml(value, dictionary = "", options = {}) {
     const html = renderGlossaryValue(value, { dictionary, internalSearchLinks: options.internalSearchLinks ?? false, root: true });
-    log$v.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
+    log$w.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
     return html;
   }
   function renderDictionaryScopedStyles(dictionaries, preferences = []) {
@@ -7019,7 +7399,7 @@ ${candidate.depth}`;
       if (!styles) return "";
       return scopeDictionaryStyles(styles, dictionaryScopeSelector(dictionary.title));
     }).filter(Boolean).join("\n");
-    log$v.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
+    log$w.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
     return css;
   }
   function renderGlossaryValue(value, context) {
@@ -7188,27 +7568,117 @@ ${candidate.depth}`;
     return `[data-dictionary="${dictionary.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`;
   }
   function scopeDictionaryStyles(styles, scope) {
-    return styles.split("}").map((block) => {
-      const [selectorText, ...declarationParts] = block.split("{");
-      const declarations = declarationParts.join("{").trim();
-      if (!(selectorText == null ? void 0 : selectorText.trim()) || !declarations) return "";
-      const selector = selectorText.trim();
-      if (selector.startsWith("@")) return `${selector} { ${declarations} }`;
-      const scopedSelectors = selector.split(",").map((part) => `${scope} ${part.trim()}`).join(", ");
-      return `${scopedSelectors} { ${declarations} }`;
-    }).filter(Boolean).join("\n");
+    return splitTopLevelCssBlocks(styles).map((block) => scopeDictionaryStyleBlock(block, scope)).filter(Boolean).join("\n");
+  }
+  function scopeDictionaryStyleBlock(block, scope) {
+    const openIndex = block.indexOf("{");
+    const closeIndex = block.lastIndexOf("}");
+    if (openIndex < 0 || closeIndex <= openIndex) return "";
+    const selector = block.slice(0, openIndex).trim();
+    const declarations = block.slice(openIndex + 1, closeIndex).trim();
+    if (!selector || !declarations) return "";
+    if (selector.startsWith("@")) {
+      const scopedInner = splitTopLevelCssBlocks(declarations).map((innerBlock) => scopeDictionaryStyleBlock(innerBlock, scope)).filter(Boolean).join("\n");
+      return scopedInner ? `${selector} {
+${scopedInner}
+}` : `${selector} { ${declarations} }`;
+    }
+    const scopedSelectors = splitSelectorList(selector).map((part) => `${scope} ${part.trim()}`).join(", ");
+    return `${scopedSelectors} { ${declarations} }`;
+  }
+  function splitTopLevelCssBlocks(styles) {
+    const blocks = [];
+    let depth = 0;
+    let start = 0;
+    let inString = null;
+    let escaped = false;
+    for (let index = 0; index < styles.length; index++) {
+      const character = styles[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === inString) {
+          inString = null;
+        }
+        continue;
+      }
+      if (character === '"' || character === "'") {
+        inString = character;
+        continue;
+      }
+      if (character === "{") {
+        if (depth === 0) {
+          start = findSelectorStart(styles, index);
+        }
+        depth++;
+        continue;
+      }
+      if (character !== "}" || depth === 0) continue;
+      depth--;
+      if (depth === 0) {
+        blocks.push(styles.slice(start, index + 1).trim());
+        start = index + 1;
+      }
+    }
+    return blocks;
+  }
+  function splitSelectorList(selector) {
+    const selectors = [];
+    let start = 0;
+    let bracketDepth = 0;
+    let parenDepth = 0;
+    let inString = null;
+    let escaped = false;
+    for (let index = 0; index < selector.length; index++) {
+      const character = selector[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === inString) {
+          inString = null;
+        }
+        continue;
+      }
+      if (character === '"' || character === "'") {
+        inString = character;
+        continue;
+      }
+      if (character === "[") bracketDepth++;
+      if (character === "]") bracketDepth = Math.max(0, bracketDepth - 1);
+      if (character === "(") parenDepth++;
+      if (character === ")") parenDepth = Math.max(0, parenDepth - 1);
+      if (character !== "," || bracketDepth > 0 || parenDepth > 0) continue;
+      selectors.push(selector.slice(start, index).trim());
+      start = index + 1;
+    }
+    selectors.push(selector.slice(start).trim());
+    return selectors.filter(Boolean);
+  }
+  function findSelectorStart(styles, openIndex) {
+    const separators = ["}", ";"];
+    let start = 0;
+    for (let index = openIndex - 1; index >= 0; index--) {
+      if (!separators.includes(styles[index])) continue;
+      start = index + 1;
+      break;
+    }
+    return start;
   }
   function escapeHtml(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-  const log$u = Logger.scope("YomitanSettingsImport");
+  const log$v = Logger.scope("YomitanSettingsImport");
   function parseYomitanSettingsExport(value) {
     var _a, _b, _c;
-    const done = log$u.time("Yomitan settings export parse");
+    const done = log$v.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$u.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$v.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error("This does not look like a Yomitan settings export.");
     }
     const settings = {};
@@ -7248,7 +7718,7 @@ ${candidate.depth}`;
       settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join("+") };
     }
     done();
-    log$u.info("Yomitan settings import parsed", {
+    log$v.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean((_c = settings.audioSources) == null ? void 0 : _c.length),
       parseSelection: settings.parseSelection,
       autoScanJapanese: settings.autoScanJapanese,
@@ -7300,9 +7770,9 @@ ${candidate.depth}`;
   const DB_VERSION = 2;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
-  const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const JAPANESE_RE$4 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$t = Logger.scope("Yomitan");
+  const log$u = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor() {
       __publicField(this, "dbPromise");
@@ -7311,20 +7781,20 @@ ${candidate.depth}`;
       __publicField(this, "dictionaryStyleCssCache", /* @__PURE__ */ new Map());
     }
     async warm(preferences = []) {
-      const done = log$t.time("Dictionary store warmup", { dictionaries: preferences.length });
+      const done = log$u.time("Dictionary store warmup", { dictionaries: preferences.length });
       try {
         await this.summary();
         if (preferences.length) await this.dictionaryStyleCss(preferences);
-        log$t.debug("Dictionary store warmed");
+        log$u.debug("Dictionary store warmed");
       } catch (error) {
-        log$t.warn("Dictionary store warmup failed", { error });
+        log$u.warn("Dictionary store warmup failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async lookup(expression, reading, limit, preferences = []) {
-      const done = log$t.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+      const done = log$u.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const entries = await this.getTermLookupEntries(
@@ -7337,27 +7807,24 @@ ${candidate.depth}`;
         const rank = dictionaryRank(preferences);
         const seen = /* @__PURE__ */ new Set();
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(
-          (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
+          (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
         ).filter((entry) => {
-          const key = `${entry.dictionary}
-${entry.expression}
-${entry.reading}
-${JSON.stringify(entry.glossary).slice(0, 120)}`;
+          const key = termLookupDedupKey(entry);
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
         }).slice(0, limit);
-        log$t.debug("Term lookup completed", { expression, reading, candidates: entries.length, results: results.length });
+        log$u.debug("Term lookup completed", { expression, reading, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$t.warn("Term lookup failed", { expression, reading, error });
+        log$u.warn("Term lookup failed", { expression, reading, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupKanji(text2, limit, preferences = []) {
-      const done = log$t.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$u.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -7367,33 +7834,33 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
           entries.push(...await this.getByIndex(db, "kanji", "character", character, limit));
         }
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)).slice(0, limit);
-        log$t.debug("Kanji lookup completed", { characters, candidates: entries.length, results: results.length });
+        log$u.debug("Kanji lookup completed", { characters, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$t.warn("Kanji lookup failed", { length: text2.length, error });
+        log$u.warn("Kanji lookup failed", { length: text2.length, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupTermMeta(expression, limit, preferences = []) {
-      const done = log$t.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+      const done = log$u.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
-        log$t.debug("Term metadata lookup completed", { expression, candidates: entries.length, results: results.length });
+        log$u.debug("Term metadata lookup completed", { expression, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$t.warn("Term metadata lookup failed", { expression, error });
+        log$u.warn("Term metadata lookup failed", { expression, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-      const done = log$t.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+      const done = log$u.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -7425,17 +7892,17 @@ ${entry.reading}`;
         const results = entries.sort(
           (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
         ).slice(0, limit);
-        log$t.debug("Similar terms by kanji lookup completed", { character, candidates: entries.length, results: results.length });
+        log$u.debug("Similar terms by kanji lookup completed", { character, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$t.warn("Similar terms by kanji lookup failed", { character, error });
+        log$u.warn("Similar terms by kanji lookup failed", { character, error });
         throw error;
       } finally {
         done();
       }
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$t.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$u.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -7447,9 +7914,9 @@ ${entry.reading}`;
         if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
         for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
           const surface = source.slice(start, start + length);
-          if (!JAPANESE_RE$3.test(surface) || /\s/.test(surface)) continue;
+          if (!JAPANESE_RE$4.test(surface) || /\s/.test(surface)) continue;
           for (const deinflected of deinflectJapaneseTerm(surface)) {
-            if (!JAPANESE_RE$3.test(deinflected.term)) continue;
+            if (!JAPANESE_RE$4.test(deinflected.term)) continue;
             const positions = candidates.get(deinflected.term) ?? [];
             positions.push({ start, end: start + length, surface, deinflected });
             candidates.set(deinflected.term, positions);
@@ -7457,7 +7924,7 @@ ${entry.reading}`;
         }
       }
       if (!candidates.size) {
-        log$t.debug("Inline term match search skipped", { reason: "no-candidates", length: source.length });
+        log$u.debug("Inline term match search skipped", { reason: "no-candidates", length: source.length });
         done();
         return [];
       }
@@ -7514,7 +7981,7 @@ ${item.sequence ?? ""}`;
           tx.onerror = () => reject(tx.error);
         });
         const results = nonOverlappingMatches(matches, limit);
-        log$t.debug("Inline term match search completed", {
+        log$u.debug("Inline term match search completed", {
           length: source.length,
           candidates: candidates.size,
           overlappingMatches: matches.length,
@@ -7522,18 +7989,18 @@ ${item.sequence ?? ""}`;
         });
         return results;
       } catch (error) {
-        log$t.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$u.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
       }
     }
     async summary() {
-      const done = log$t.time("Dictionary summary");
+      const done = log$u.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
-          log$t.debug("Dictionary summary cache hit", {
+          log$u.debug("Dictionary summary cache hit", {
             dictionaries: summary2.dictionaries.length,
             terms: summary2.terms,
             kanji: summary2.kanji,
@@ -7554,7 +8021,7 @@ ${item.sequence ?? ""}`;
           throw error;
         });
         const summary = await this.summaryPromise;
-        log$t.debug("Dictionary summary loaded", {
+        log$u.debug("Dictionary summary loaded", {
           dictionaries: summary.dictionaries.length,
           terms: summary.terms,
           kanji: summary.kanji,
@@ -7563,7 +8030,7 @@ ${item.sequence ?? ""}`;
         });
         return summary;
       } catch (error) {
-        log$t.warn("Dictionary summary failed", { error });
+        log$u.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -7574,7 +8041,7 @@ ${item.sequence ?? ""}`;
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
     async listRandomTerms(limit, preferences = []) {
-      const done = log$t.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$u.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -7592,7 +8059,7 @@ ${item.sequence ?? ""}`;
               return;
             }
             const entry = cursor.value;
-            if (entry.expression && JAPANESE_RE$3.test(entry.expression) && entry.expression.length <= 6 && dictionaryEnabled(entry.dictionary, rank)) {
+            if (entry.expression && JAPANESE_RE$4.test(entry.expression) && entry.expression.length <= 6 && dictionaryEnabled(entry.dictionary, rank)) {
               const key = `${entry.expression}
 ${entry.reading}`;
               if (!seen.has(key)) {
@@ -7609,27 +8076,27 @@ ${entry.reading}`;
             cursor.continue();
           };
         });
-        log$t.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
+        log$u.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
         return reservoir;
       } catch (error) {
-        log$t.warn("Random term listing failed", { limit, error });
+        log$u.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = []) {
-      const done = log$t.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$u.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
         const results = topTerms.size ? await this.entriesForRandomExpressions(topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank);
         if (!topTerms.size && !results.length) {
-          log$t.debug("No common dictionary terms found, falling back to fully random terms");
+          log$u.debug("No common dictionary terms found, falling back to fully random terms");
           return await this.listRandomTerms(limit, preferences);
         }
-        log$t.debug("Random top term listing completed", {
+        log$u.debug("Random top term listing completed", {
           limit,
           frequencyCandidates: topTerms.size,
           results: results.length,
@@ -7637,7 +8104,7 @@ ${entry.reading}`;
         });
         return results;
       } catch (error) {
-        log$t.warn("Random top term listing failed", { limit, error });
+        log$u.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -7708,35 +8175,35 @@ ${entry.reading}`;
           cursor.continue();
         };
       });
-      log$t.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
+      log$u.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$t.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$u.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$t.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$u.info("Dictionary file import started", fileSummary(file, sourceUrl));
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$t.info("Dictionary file import completed", summary);
+        log$u.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$t.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$u.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$t.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
+      log$u.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
       onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
       const blob = await requestBlob$3(url, onProgress);
       const file = new File([blob], filename, { type: blob.type || "application/zip" });
       const summary = await this.importFile(file, onProgress, url);
-      log$t.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
+      log$u.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
       var _a;
-      log$t.debug("ZIP dictionary import started", fileSummary(file, sourceUrl));
+      log$u.debug("ZIP dictionary import started", fileSummary(file, sourceUrl));
       onProgress == null ? void 0 : onProgress("Reading dictionary ZIP...");
       const zip = await JSZip.loadAsync(file);
       const indexFile = zip.file("index.json");
@@ -7776,20 +8243,20 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$t.info("ZIP dictionary import parsed", summary);
+      log$u.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
       var _a, _b;
-      log$t.debug("JSON dictionary import started", fileSummary(file));
+      log$u.debug("JSON dictionary import started", fileSummary(file));
       const head = await readBlobText(file.slice(0, 4096));
       if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
-        log$t.debug("Detected Yomitan Dexie dictionary export", { name: file.name, size: file.size });
+        log$u.debug("Detected Yomitan Dexie dictionary export", { name: file.name, size: file.size });
         return this.importDexieJson(file, onProgress);
       }
       const json = JSON.parse(await readBlobText(file));
       if (isReaderDictionaryExport(json)) {
-        log$t.debug("Detected Yomu dictionary export", { name: file.name, size: file.size });
+        log$u.debug("Detected Yomu dictionary export", { name: file.name, size: file.size });
         await this.clear();
         const dictionaryTypes = dictionaryTypesFromReaderExport(json);
         const dictionaryNames = ((_a = json.dictionaries) == null ? void 0 : _a.map((item) => item.title)) ?? [...new Set((json.terms ?? json.entries ?? []).map((entry) => entry.dictionary))];
@@ -7810,18 +8277,18 @@ ${entry.reading}`;
           termMeta: (json.termMeta ?? []).length,
           kanjiMeta: (json.kanjiMeta ?? []).length
         };
-        log$t.info("JSON dictionary import parsed", summary);
+        log$u.info("JSON dictionary import parsed", summary);
         return summary;
       }
       throw new Error("Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.");
     }
     async importDexieJson(file, onProgress) {
-      log$t.debug("Dexie dictionary import started", fileSummary(file));
+      log$u.debug("Dexie dictionary import started", fileSummary(file));
       onProgress == null ? void 0 : onProgress("Streaming Yomitan dictionary export...");
       await this.clear();
       const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
       const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
-      log$t.debug("Dexie dictionary row counts read", { totalRows, rowCounts });
+      log$u.debug("Dexie dictionary row counts read", { totalRows, rowCounts });
       if (totalRows > 0) onProgress == null ? void 0 : onProgress(`Preparing to import ${totalRows.toLocaleString()} dictionary records...`);
       const dictionaries = /* @__PURE__ */ new Set();
       const dictionaryInfo = /* @__PURE__ */ new Map();
@@ -7915,11 +8382,11 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$t.info("Dexie dictionary import parsed", summary);
+      log$u.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     async exportJson() {
-      const done = log$t.time("Dictionary export");
+      const done = log$u.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -7929,7 +8396,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$t.info("Dictionary export prepared", {
+        log$u.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -7947,7 +8414,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$t.warn("Dictionary export failed", { error });
+        log$u.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -7958,22 +8425,22 @@ ${entry.reading}`;
         const cacheKey = JSON.stringify(normalizeDictionaryPreferences(preferences));
         const cached = this.dictionaryStyleCssCache.get(cacheKey);
         if (cached !== void 0) {
-          log$t.debug("Dictionary stylesheet cache hit", { bytes: cached.length, preferences: preferences.length });
+          log$u.debug("Dictionary stylesheet cache hit", { bytes: cached.length, preferences: preferences.length });
           return cached;
         }
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         const css = renderDictionaryScopedStyles(dictionaries, preferences);
         this.dictionaryStyleCssCache.set(cacheKey, css);
-        log$t.debug("Dictionary stylesheet rendered", { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
+        log$u.debug("Dictionary stylesheet rendered", { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
         return css;
       } catch (error) {
-        log$t.warn("Dictionary stylesheet render failed", { error });
+        log$u.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$t.time("Dictionary store clear");
+      const done = log$u.time("Dictionary store clear");
       try {
         const db = await this.db();
         await new Promise((resolve, reject) => {
@@ -7984,16 +8451,37 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$t.info("Dictionary store cleared");
+        log$u.info("Dictionary store cleared");
       } catch (error) {
-        log$t.warn("Dictionary store clear failed", { error });
+        log$u.warn("Dictionary store clear failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async deleteDatabase() {
+      const done = log$u.time("Dictionary database delete");
+      try {
+        const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
+        db == null ? void 0 : db.close();
+        this.dbPromise = void 0;
+        this.invalidateCaches();
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(DB_NAME);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+          request.onblocked = () => reject(new Error("Dictionary database delete was blocked by an open tab."));
+        });
+        log$u.info("Dictionary database deleted", { name: DB_NAME });
+      } catch (error) {
+        log$u.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$t.time("Dictionary delete", { dictionary });
+      const done = log$u.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -8005,9 +8493,9 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$t.info("Dictionary deleted", { dictionary });
+        log$u.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$t.warn("Dictionary delete failed", { dictionary, error });
+        log$u.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -8138,12 +8626,12 @@ ${entry.reading}`;
     }
     db() {
       this.dbPromise ?? (this.dbPromise = new Promise((resolve, reject) => {
-        log$t.debug("Opening dictionary database", { name: DB_NAME, version: DB_VERSION });
+        log$u.debug("Opening dictionary database", { name: DB_NAME, version: DB_VERSION });
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$t.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$u.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -8162,11 +8650,11 @@ ${entry.reading}`;
           }
         };
         request.onsuccess = () => {
-          log$t.debug("Dictionary database opened", { name: DB_NAME, version: request.result.version });
+          log$u.debug("Dictionary database opened", { name: DB_NAME, version: request.result.version });
           resolve(request.result);
         };
         request.onerror = () => {
-          log$t.warn("Dictionary database open failed", { error: request.error });
+          log$u.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       }));
@@ -8279,6 +8767,15 @@ ${entry.reading}`;
       dictionary: record.dictionary
     };
   }
+  function termLookupDedupKey(entry) {
+    const glossaryKey = JSON.stringify(entry.glossary);
+    return entry.sequence !== void 0 ? `${entry.dictionary}
+sequence:${entry.sequence}
+${glossaryKey}` : `${entry.dictionary}
+${entry.expression}
+${entry.reading}
+${glossaryKey}`;
+  }
   function normalizeDexieKanjiRow(row) {
     const candidate = unwrapDexieRow(row);
     if (!candidate || typeof candidate !== "object") return null;
@@ -8359,25 +8856,25 @@ ${entry.reading}`;
     }
   }
   async function requestBlob$3(url, onProgress) {
-    const done = log$t.time("Dictionary download", { host: safeHost$5(url) });
+    const done = log$u.time("Dictionary download", { host: safeHost$5(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$t.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
+      log$u.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
       return new Promise((resolve, reject) => {
-        const handleLoad = (response2) => {
-          if (response2.response instanceof Blob && (response2.status === 0 || response2.status >= 200 && response2.status < 300)) {
-            log$t.info("Dictionary download completed", { host: safeHost$5(url), status: response2.status, size: response2.response.size });
+        const handleLoad = (response) => {
+          if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
+            log$u.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: response.response.size });
             done();
-            resolve(response2.response);
+            resolve(response.response);
             return;
           }
-          if (response2.status < 200 || response2.status >= 300) {
-            log$t.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response2.status });
+          if (response.status < 200 || response.status >= 300) {
+            log$u.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
             done();
-            reject(new Error(`Dictionary download failed (${response2.status}).`));
+            reject(new Error(`Dictionary download failed (${response.status}).`));
             return;
           }
-          log$t.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response2.status });
+          log$u.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response.status });
           done();
           reject(new Error("Dictionary download did not return a ZIP file."));
         };
@@ -8394,19 +8891,19 @@ ${entry.reading}`;
           },
           onload: handleLoad,
           onerror: () => {
-            log$t.warn("Dictionary download failed", { host: safeHost$5(url) });
+            log$u.warn("Dictionary download failed", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download failed."));
           },
           ontimeout: () => {
-            log$t.warn("Dictionary download timed out", { host: safeHost$5(url) });
+            log$u.warn("Dictionary download timed out", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download timed out."));
           }
         });
         if (result && typeof result.then === "function") {
           result.then(handleLoad, () => {
-            log$t.warn("Dictionary download failed", { host: safeHost$5(url) });
+            log$u.warn("Dictionary download failed", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download failed."));
           });
@@ -8414,31 +8911,35 @@ ${entry.reading}`;
       });
     }
     const downloadUrl = dictionaryDownloadUrl(url);
-    if (!isFetchableDictionaryUrl(downloadUrl)) {
-      done();
-      throw new Error("Dictionary download needs the Yomu userscript. Install Yomu, or import a local Yomitan ZIP from Settings.");
-    }
-    let response;
     try {
-      log$t.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
-      response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
+      log$u.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
+      const response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
+      if (!response.ok) {
+        log$u.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
+        throw new Error(`Dictionary download failed (${response.status}).`);
+      }
+      const blob = await response.blob();
+      log$u.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
+      done();
+      return blob;
     } catch (error) {
-      log$t.warn("Dictionary download fetch failed", { host: safeHost$5(url), error });
+      const host = safeHost$5(url);
+      if (error instanceof Error) {
+        if (error.name === "TypeError") {
+          log$u.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
+          done();
+          throw new Error("Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
+        }
+        log$u.warn("Dictionary download fetch failed", { host, error });
+      } else {
+        log$u.warn("Dictionary download fetch failed", { host, error });
+      }
       done();
-      throw new Error("Dictionary download failed. Reinstall or update the userscript so its userscript request grant is active, then try again.");
+      throw error;
     }
-    if (!response.ok) {
-      log$t.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
-      done();
-      throw new Error(`Dictionary download failed (${response.status}).`);
-    }
-    const blob = await response.blob();
-    log$t.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
-    done();
-    return blob;
   }
   function dictionaryDownloadUrl(url) {
-    if (!isLoopbackPage()) return url;
+    if (!isLoopbackPage$1()) return url;
     try {
       const target = new URL(url, location.href);
       const current = new URL(location.href);
@@ -8448,16 +8949,8 @@ ${entry.reading}`;
       return url;
     }
   }
-  function isLoopbackPage() {
+  function isLoopbackPage$1() {
     return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
-  }
-  function isFetchableDictionaryUrl(url) {
-    if (isLoopbackPage()) return true;
-    try {
-      return new URL(url, location.href).origin === location.origin;
-    } catch {
-      return false;
-    }
   }
   function splitTags(value) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
@@ -8478,7 +8971,7 @@ ${entry.reading}`;
     return reservoir;
   }
   function isCommonDictionaryTerm(entry, rank) {
-    if (!entry.expression || !JAPANESE_RE$3.test(entry.expression) || entry.expression.length > 8 || !dictionaryEnabled(entry.dictionary, rank)) return false;
+    if (!entry.expression || !JAPANESE_RE$4.test(entry.expression) || entry.expression.length > 8 || !dictionaryEnabled(entry.dictionary, rank)) return false;
     const tags = `${entry.definitionTags ?? ""} ${entry.termTags ?? ""} ${entry.rules ?? ""}`.toLowerCase();
     if (/\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(tags)) return true;
     return typeof entry.score === "number" && entry.score >= 5;
@@ -8512,7 +9005,7 @@ ${entry.reading}`;
     });
   }
   const ANKI_VERSION = 6;
-  const log$s = Logger.scope("Anki");
+  const log$t = Logger.scope("Anki");
   const YOMU_MODEL_FIELDS = [
     "Expression",
     "Reading",
@@ -8538,28 +9031,28 @@ ${entry.reading}`;
     async isConnected() {
       try {
         await this.invoke("version");
-        log$s.debug("AnkiConnect reachable");
+        log$t.debug("AnkiConnect reachable");
         return true;
       } catch (error) {
-        log$s.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$t.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
     async deckNames() {
       const decks = await this.invoke("deckNames");
-      log$s.debug("Deck names loaded", { decks: decks.length });
+      log$t.debug("Deck names loaded", { decks: decks.length });
       return decks;
     }
     async modelNames() {
       const models = await this.invoke("modelNames");
-      log$s.debug("Model names loaded", { models: models.length });
+      log$t.debug("Model names loaded", { models: models.length });
       return models;
     }
     async listNewTabCards(limit = 80) {
       const settings = this.getSettings();
       if (!settings.ankiEnabled || Date.now() < this.unavailableUntil) return [];
       try {
-        const done = log$s.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+        const done = log$t.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
         const query = [
           settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : "",
           settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : "",
@@ -8570,7 +9063,7 @@ ${entry.reading}`;
         const sampledCardIds = sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
         if (!sampledCardIds.length) {
           done();
-          log$s.debug("No due Anki cards available for new tab", { query });
+          log$t.debug("No due Anki cards available for new tab", { query });
           return [];
         }
         const dueFlags = await this.invoke("areDue", { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
@@ -8584,7 +9077,7 @@ ${entry.reading}`;
         });
         if (!dueCards.length) {
           done();
-          log$s.debug("Anki cards found but none are reviewable for new tab", { query, cards: cards.length });
+          log$t.debug("Anki cards found but none are reviewable for new tab", { query, cards: cards.length });
           return [];
         }
         const noteIds = unique$1(dueCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
@@ -8599,10 +9092,10 @@ ${entry.reading}`;
         }
         const result = notes.map((note) => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? [])).filter((card) => card !== null).slice(0, Math.max(1, limit));
         done();
-        log$s.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length, dueCards: dueCards.length });
+        log$t.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length, dueCards: dueCards.length });
         return result;
       } catch (error) {
-        log$s.warn("Anki new tab lookup failed; entering cooldown", error);
+        log$t.warn("Anki new tab lookup failed; entering cooldown", error);
         this.unavailableUntil = Date.now() + 3e4;
         return [];
       }
@@ -8610,17 +9103,17 @@ ${entry.reading}`;
     async findExistingCards(card) {
       const empty = { state: "not-in-deck", notes: [], primary: null };
       if (Date.now() < this.unavailableUntil) {
-        log$s.debug("Anki lookup skipped during cooldown", { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
+        log$t.debug("Anki lookup skipped during cooldown", { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
         return empty;
       }
       const cacheKey = `${card.spelling}|${card.reading}`;
       const cached = this.lookupCache.get(cacheKey);
       if (cached && Date.now() - cached.at < 45e3) {
-        log$s.debug("Anki lookup cache hit", { term: card.spelling, state: cached.result.state });
+        log$t.debug("Anki lookup cache hit", { term: card.spelling, state: cached.result.state });
         return cached.result;
       }
       try {
-        const done = log$s.time("findExistingCards", { term: card.spelling });
+        const done = log$t.time("findExistingCards", { term: card.spelling });
         const queryTerms = unique$1([card.spelling, card.reading].filter(Boolean));
         const noteIds = /* @__PURE__ */ new Set();
         for (const term of queryTerms) {
@@ -8629,7 +9122,7 @@ ${entry.reading}`;
         }
         if (!noteIds.size) {
           this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-          log$s.debug("No Anki notes found", { term: card.spelling });
+          log$t.debug("No Anki notes found", { term: card.spelling });
           done();
           return empty;
         }
@@ -8637,7 +9130,7 @@ ${entry.reading}`;
         const matchingNotes = notes.filter((note) => noteLooksLikeCard(note, card));
         if (!matchingNotes.length) {
           this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-          log$s.debug("Anki notes found but none matched Yomu card", { term: card.spelling, candidateNotes: notes.length });
+          log$t.debug("Anki notes found but none matched Yomu card", { term: card.spelling, candidateNotes: notes.length });
           done();
           return empty;
         }
@@ -8675,29 +9168,29 @@ ${entry.reading}`;
           primary: pickPrimaryExistingNote(existing)
         };
         this.lookupCache.set(cacheKey, { at: Date.now(), result });
-        log$s.debug("Anki lookup completed", { term: card.spelling, notes: existing.length, state: result.state });
+        log$t.debug("Anki lookup completed", { term: card.spelling, notes: existing.length, state: result.state });
         done();
         return result;
       } catch (error) {
-        log$s.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
+        log$t.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
         this.unavailableUntil = Date.now() + 3e4;
         return empty;
       }
     }
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$s.info("Answering Anki card", { cardId, grade, ease });
+      log$t.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
     }
     async browseNote(noteId) {
-      log$s.info("Opening Anki note browser", { noteId });
+      log$t.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async addCard(card, sentence = "", options = {}) {
       var _a;
       const settings = this.getSettings();
       if (!settings.ankiEnabled) {
-        log$s.debug("Anki add skipped because Anki is disabled", { term: card.spelling });
+        log$t.debug("Anki add skipped because Anki is disabled", { term: card.spelling });
         return null;
       }
       const deckName = ((_a = options.deckName) == null ? void 0 : _a.trim()) || settings.ankiDeck || "よむ";
@@ -8718,7 +9211,7 @@ ${entry.reading}`;
       };
       const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
       if (image) note.picture = [image];
-      log$s.info("Adding Anki note", {
+      log$t.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -8726,18 +9219,18 @@ ${entry.reading}`;
         tags: note.tags
       });
       if (settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment()) {
-        log$s.info("Opening mobile Anki handoff", { term: card.spelling });
+        log$t.info("Opening mobile Anki handoff", { term: card.spelling });
         if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
         return null;
       }
       try {
         await this.ensureDeckAndModel(deckName);
         const noteId = await this.invoke("addNote", { note });
-        log$s.info("Anki note added", { term: card.spelling, noteId });
+        log$t.info("Anki note added", { term: card.spelling, noteId });
         return noteId;
       } catch (error) {
         if (settings.ankiMobileHandoff && isMobileUserAgent()) {
-          log$s.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
+          log$t.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
           if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
           return null;
         }
@@ -8748,9 +9241,9 @@ ${entry.reading}`;
       const settings = this.getSettings();
       const deckName = (deckOverride == null ? void 0 : deckOverride.trim()) || settings.ankiDeck || "よむ";
       const modelName = settings.ankiModel || "よむ Japanese";
-      log$s.debug("Ensuring Anki deck/model", { deckName, modelName });
+      log$t.debug("Ensuring Anki deck/model", { deckName, modelName });
       await this.invoke("createDeck", { deck: deckName }).catch((error) => {
-        log$s.debug("createDeck ignored", { deckName }, error);
+        log$t.debug("createDeck ignored", { deckName }, error);
         return null;
       });
       const modelNames = await this.modelNames().catch(() => []);
@@ -8758,7 +9251,7 @@ ${entry.reading}`;
         await this.ensureModelFields(modelName);
         await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
         await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
-        log$s.debug("Anki model updated", { modelName });
+        log$t.debug("Anki model updated", { modelName });
         return;
       }
       await this.invoke("createModel", {
@@ -8767,14 +9260,14 @@ ${entry.reading}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings.ankiTemplateMode)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$s.info("Anki model created", { modelName });
+      log$t.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invoke("modelFieldNames", { modelName }).catch(() => []);
       const existing = new Set(fieldNames);
       for (const fieldName of YOMU_MODEL_FIELDS) {
         if (!existing.has(fieldName)) {
-          log$s.debug("Adding missing Anki model field", { modelName, fieldName });
+          log$t.debug("Adding missing Anki model field", { modelName, fieldName });
           await this.invoke("modelFieldAdd", { modelName, fieldName });
         }
       }
@@ -8783,10 +9276,10 @@ ${entry.reading}`;
       const settings = this.getSettings();
       const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
       const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-      log$s.debug("Invoking AnkiConnect action", { action });
+      log$t.debug("Invoking AnkiConnect action", { action });
       const response = await postJson$1(url, body);
       if (response.error) {
-        log$s.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$t.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(response.error);
       }
       return response.result;
@@ -8795,7 +9288,7 @@ ${entry.reading}`;
   function captureActiveVideoFrame() {
     const video = Array.from(document.querySelectorAll("video")).filter((item) => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0).sort((a, b) => visibleArea(b) - visibleArea(a))[0];
     if (!video) {
-      log$s.debug("No active video available for Anki screenshot");
+      log$t.debug("No active video available for Anki screenshot");
       return void 0;
     }
     try {
@@ -8808,10 +9301,10 @@ ${entry.reading}`;
       if (!context) return void 0;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
-      log$s.debug("Captured active video frame", { width: canvas.width, height: canvas.height });
+      log$t.debug("Captured active video frame", { width: canvas.width, height: canvas.height });
       return dataUrl;
     } catch (error) {
-      log$s.warn("Active video frame capture failed", error);
+      log$t.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -9328,7 +9821,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
-  const log$r = Logger.scope("BrowserUi");
+  const log$s = Logger.scope("BrowserUi");
   function pauseActiveVideo() {
     const videos = Array.from(document.querySelectorAll("video"));
     const playable = videos.filter((video) => video.readyState > 0).sort((a, b) => {
@@ -9338,7 +9831,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
     const target = playable[0];
     target == null ? void 0 : target.pause();
-    log$r.debug("Pause active video requested", { videos: videos.length, playable: playable.length, paused: Boolean(target) });
+    log$s.debug("Pause active video requested", { videos: videos.length, playable: playable.length, paused: Boolean(target) });
   }
   function isEditableTarget(target) {
     const element2 = target instanceof Element ? target : null;
@@ -9349,10 +9842,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
       try {
         await navigator.clipboard.writeText(text2);
-        log$r.debug("Copied text with Clipboard API", { length: text2.length });
+        log$s.debug("Copied text with Clipboard API", { length: text2.length });
         return;
       } catch (error) {
-        log$r.debug("Clipboard API copy failed, falling back", { length: text2.length, error });
+        log$s.debug("Clipboard API copy failed, falling back", { length: text2.length, error });
       }
     }
     const textarea = document.createElement("textarea");
@@ -9363,7 +9856,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
-    log$r.debug("Copied text with execCommand fallback", { length: text2.length });
+    log$s.debug("Copied text with execCommand fallback", { length: text2.length });
   }
   function normalizePressedKey(key) {
     if (key === " ") return "space";
@@ -9387,7 +9880,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - width - margin))}px`;
       popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - height - margin))}px`;
       if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-      log$r.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
+      log$s.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
       return;
     }
     const writingMode = getPopoverWritingMode(anchor);
@@ -9398,7 +9891,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     popover.style.left = `${position.left}px`;
     popover.style.top = `${position.top}px`;
     if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-    log$r.debugThrottled("position-popover", 1e3, "Popover positioned", {
+    log$s.debugThrottled("position-popover", 1e3, "Popover positioned", {
       left: Math.round(position.left),
       top: Math.round(position.top),
       side: popover.dataset.jpdbReaderPlacementSide,
@@ -9583,7 +10076,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
   }
-  const log$q = Logger.scope("StudyTools");
+  const log$r = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやの、。！？\s]{1,16}`;
   const FORM_CHUNK = String.raw`[ぁ-んァ-ン一-龯]{1,16}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
@@ -9718,7 +10211,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       seenNames.set(item.name, count + 1);
       return true;
     }).slice(0, 10).sort((a, b) => a.index - b.index || a.priority - b.priority || a.name.localeCompare(b.name)).map(({ priority: _priority, ...hint }) => hint);
-    log$q.debug("Grammar hints detected", { sentenceLength: sentence.length, hints: hints.map((hint) => hint.name) });
+    log$r.debug("Grammar hints detected", { sentenceLength: sentence.length, hints: hints.map((hint) => hint.name) });
     return hints;
   }
   function readGrammarPreferences() {
@@ -9733,7 +10226,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         showKnown: parsed.showKnown === true
       };
     } catch (error) {
-      log$q.warn("Grammar preference read failed", { error });
+      log$r.warn("Grammar preference read failed", { error });
       return fallback;
     }
   }
@@ -9746,7 +10239,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         showKnown: preferences.showKnown
       }));
     } catch (error) {
-      log$q.warn("Grammar preference write failed", { error });
+      log$r.warn("Grammar preference write failed", { error });
     }
   }
   function setGrammarRuleKnown(ruleId, known) {
@@ -9768,26 +10261,26 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (!trimmed) return "";
     const cached = translationCache.get(trimmed);
     if (cached) {
-      log$q.debug("Translation cache hit", { sentenceLength: trimmed.length });
+      log$r.debug("Translation cache hit", { sentenceLength: trimmed.length });
       return cached;
     }
     const inFlight = translationInFlight.get(trimmed);
     if (inFlight) {
-      log$q.debug("Translation in-flight cache hit", { sentenceLength: trimmed.length });
+      log$r.debug("Translation in-flight cache hit", { sentenceLength: trimmed.length });
       return inFlight;
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
     const promise = (async () => {
-      const done = log$q.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$r.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
         const json = await requestJson$2(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(trimmed, translated);
-        log$q.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$r.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$q.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$r.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -9878,7 +10371,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function requestJson$2(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$q.debug("Translation request using userscript request");
+      log$r.debug("Translation request using userscript request");
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -9887,42 +10380,42 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
           timeout: 8e3,
           onload: (response) => {
             if (response.status >= 200 && response.status < 300) {
-              log$q.debug("Translation request completed", { status: response.status });
+              log$r.debug("Translation request completed", { status: response.status });
               resolve(response.response ?? JSON.parse(String(response.responseText ?? "{}")));
             } else {
-              log$q.warn("Translation request returned HTTP error", { status: response.status });
+              log$r.warn("Translation request returned HTTP error", { status: response.status });
               reject(new Error(`Translation request failed (${response.status}).`));
             }
           },
           onerror: (error) => {
-            log$q.warn("Translation request failed", { error });
+            log$r.warn("Translation request failed", { error });
             reject(error);
           },
           ontimeout: () => {
-            log$q.warn("Translation request timed out");
+            log$r.warn("Translation request timed out");
             reject(new Error("Translation timed out."));
           }
         });
       });
     }
-    log$q.debug("Translation request using fetch");
+    log$r.debug("Translation request using fetch");
     return fetch(url).then(async (response) => {
       if (!response.ok) {
-        log$q.warn("Translation request returned HTTP error", { status: response.status });
+        log$r.warn("Translation request returned HTTP error", { status: response.status });
         throw new Error(`Translation request failed (${response.status}).`);
       }
-      log$q.debug("Translation request completed", { status: response.status });
+      log$r.debug("Translation request completed", { status: response.status });
       return response.json();
     });
   }
-  const log$p = Logger.scope("StudyRender");
+  const log$q = Logger.scope("StudyRender");
   async function renderStudyToolResult(button2, action, sentence) {
     var _a;
     const panel = (_a = button2.closest(".jpdb-reader-study-tools")) == null ? void 0 : _a.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = action === "study-translate" ? "Translating..." : "Finding grammar...";
-    const done = log$p.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$q.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence(sentence);
@@ -10159,7 +10652,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const KANJI_DICTIONARY_SOURCE_PREFIX = "__kanji_dictionary__:";
   function definitionSourceRows(settings) {
     const builtInRows = [
-      ...settings.jpdbDefinitionsEnabled ? [{
+      {
         id: JPDB_DEFINITION_SOURCE_ID,
         name: "JPDB",
         alias: "JPDB",
@@ -10167,8 +10660,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         priority: settings.jpdbDefinitionsPriority,
         prefix: "jpdbDefinitions",
         readonly: true,
-        help: "Built-in JPDB meanings from the parsed card."
-      }] : [],
+        help: "JPDB meanings shown directly from the current card."
+      },
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
         name: "Translation",
@@ -10455,8 +10948,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$o = Logger.scope("JpdbKanji");
+  const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const log$p = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -10467,11 +10960,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!key) return Promise.resolve(null);
       let promise = this.cache.get(key);
       if (!promise) {
-        log$o.debug("Lookup cache miss", { kanji: key });
+        log$p.debug("Lookup cache miss", { kanji: key });
         promise = this.fetchInfo(key);
         this.cache.set(key, promise);
       } else {
-        log$o.debug("Lookup cache hit", { kanji: key });
+        log$p.debug("Lookup cache hit", { kanji: key });
       }
       return promise;
     }
@@ -10479,8 +10972,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$o.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
-      await requestText$6(action.url, {
+      log$p.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      await requestText$7(action.url, {
         method: action.method,
         payload: action.payload
       });
@@ -10488,15 +10981,15 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return this.lookup(action.kanji);
     }
     async fetchInfo(kanji) {
-      const html = await requestText$6(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch((error) => {
-        log$o.warn("Kanji page request failed", { kanji }, error);
+      const html = await requestText$7(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch((error) => {
+        log$p.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
       if (info) {
         visibleJpdbKanjiActions(info).forEach((action) => this.actions.set(action.id, action));
       }
-      log$o.debug("Kanji info parsed", { kanji, found: Boolean(info) });
+      log$p.debug("Kanji info parsed", { kanji, found: Boolean(info) });
       return info;
     }
   }
@@ -10555,11 +11048,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const url = absoluteJpdbUrl(form.getAttribute("action") || `/kanji/${encodeURIComponent(kanji)}`);
       const submitters = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"]')).filter((submitter) => {
         var _a;
-        return cleanText$5(labelForControl(submitter)) && ((_a = submitter.getAttribute("type")) == null ? void 0 : _a.toLowerCase()) !== "button";
+        return cleanText$6(labelForControl(submitter)) && ((_a = submitter.getAttribute("type")) == null ? void 0 : _a.toLowerCase()) !== "button";
       });
       const controls = submitters.length ? submitters : [form];
       controls.forEach((control) => {
-        const label = cleanText$5(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
+        const label = cleanText$6(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
         if (!label) return;
         push({
           kanji,
@@ -10575,7 +11068,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
     menu.querySelectorAll("a[href]").forEach((link) => {
       if (link.closest("form")) return;
-      const label = cleanText$5(labelForControl(link));
+      const label = cleanText$6(labelForControl(link));
       if (!label) return;
       const url = absoluteJpdbUrl(link.getAttribute("href") ?? "");
       push({
@@ -10638,17 +11131,18 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function sectionText$1(doc, label) {
     var _a;
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$5(element2.textContent ?? "") === label);
-    const section = (_a = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a.querySelector(".subsection");
-    return cleanText$5((section == null ? void 0 : section.textContent) ?? "");
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$6(element2.textContent ?? "") === label);
+    const section = ((_a = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a.querySelector(".subsection")) ?? null;
+    const value = cleanText$6((section == null ? void 0 : section.textContent) ?? "");
+    return isMissingSectionValue(value, section) ? "" : value;
   }
   function infoTableRows(doc) {
     const rows = /* @__PURE__ */ new Map();
     doc.querySelectorAll(".cross-table tr").forEach((row) => {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length < 2) return;
-      const key = cleanText$5(cells[0].textContent ?? "");
-      const value = cleanText$5(cells[1].textContent ?? "");
+      const key = cleanText$6(cells[0].textContent ?? "");
+      const value = cleanInfoTableValue(cells[1]);
       if (value) rows.set(key, value);
     });
     return rows;
@@ -10656,21 +11150,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function oldForms(doc) {
     const row = Array.from(doc.querySelectorAll(".cross-table tr")).find((item) => {
       var _a;
-      return cleanText$5(((_a = item.querySelector("td")) == null ? void 0 : _a.textContent) ?? "") === "Old form";
+      return cleanText$6(((_a = item.querySelector("td")) == null ? void 0 : _a.textContent) ?? "") === "Old form";
     });
-    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$5(link.textContent ?? "")).filter(Boolean);
+    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$6(link.textContent ?? "")).filter(Boolean);
   }
   function readings(doc) {
     const seen = /* @__PURE__ */ new Set();
     const entries = [];
     doc.querySelectorAll(".kanji-reading-list-common > div, .kanji-reading-list > div").forEach((row) => {
       const link = row.querySelector("a");
-      const reading = cleanText$5((link == null ? void 0 : link.textContent) ?? "");
+      const reading = cleanText$6((link == null ? void 0 : link.textContent) ?? "");
       if (!reading || seen.has(reading)) return;
       seen.add(reading);
       entries.push({
         reading,
-        share: cleanText$5(row.textContent ?? "").replace(reading, "").trim(),
+        share: cleanText$6(row.textContent ?? "").replace(reading, "").trim(),
         common: row.closest(".kanji-reading-list-common") !== null
       });
     });
@@ -10685,12 +11179,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function kanjiSectionEntries(doc, matchesLabel) {
     return Array.from(doc.querySelectorAll(".subsection-composed-of-kanji")).filter((section) => {
       var _a;
-      return matchesLabel(cleanText$5(((_a = section.querySelector(".subsection-label")) == null ? void 0 : _a.textContent) ?? ""));
+      return matchesLabel(cleanText$6(((_a = section.querySelector(".subsection-label")) == null ? void 0 : _a.textContent) ?? ""));
     }).flatMap((section) => Array.from(section.querySelectorAll(".subsection > div"))).map((element2) => {
       var _a, _b;
       return {
-        kanji: cleanText$5(((_a = element2.querySelector(".spelling")) == null ? void 0 : _a.textContent) ?? ""),
-        keyword: cleanText$5(((_b = element2.querySelector(".description")) == null ? void 0 : _b.textContent) ?? "")
+        kanji: cleanText$6(((_a = element2.querySelector(".spelling")) == null ? void 0 : _a.textContent) ?? ""),
+        keyword: cleanText$6(((_b = element2.querySelector(".description")) == null ? void 0 : _b.textContent) ?? "")
       };
     }).filter((component) => component.kanji && component.keyword);
   }
@@ -10702,8 +11196,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!link) return;
       const { expression, reading } = vocabularyFromHref(link.getAttribute("href") ?? "");
       const fallbackExpression = expression || textWithoutRuby(link);
-      const meaning = cleanText$5(((_a = element2.querySelector(".en")) == null ? void 0 : _a.textContent) ?? "");
-      if (!JAPANESE_RE$2.test(fallbackExpression) || !meaning) return;
+      const meaning = cleanText$6(((_a = element2.querySelector(".en")) == null ? void 0 : _a.textContent) ?? "");
+      if (!JAPANESE_RE$3.test(fallbackExpression) || !meaning) return;
       entries.push({
         expression: fallbackExpression,
         reading,
@@ -10732,28 +11226,35 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function textWithoutRuby(element2) {
     const clone = element2.cloneNode(true);
     clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
-    return cleanText$5(clone.textContent ?? "");
+    return cleanText$6(clone.textContent ?? "");
   }
   function metaKeyword(doc, kanji) {
     var _a;
     const description = ((_a = doc.querySelector('meta[name="description"]')) == null ? void 0 : _a.content) ?? "";
     const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
-    return cleanText$5((match == null ? void 0 : match[1]) ?? "");
+    return cleanText$6((match == null ? void 0 : match[1]) ?? "");
   }
-  function cleanText$5(value) {
+  function cleanText$6(value) {
     return value.replace(/\s+/g, " ").trim();
+  }
+  function cleanInfoTableValue(cell) {
+    return cleanText$6(cell.textContent ?? "").replace(/\s+\?$/, "");
+  }
+  function isMissingSectionValue(value, section) {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "" || normalized === "missing" || (section == null ? void 0 : section.querySelector(".keyword-missing")) !== null;
   }
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function requestText$6(url, options = {}) {
+  function requestText$7(url, options = {}) {
     const method = options.method ?? "GET";
     const body = options.payload && Object.keys(options.payload).length ? new URLSearchParams(options.payload).toString() : "";
     const requestUrl2 = method === "GET" && body ? `${url}${url.includes("?") ? "&" : "?"}${body}` : url;
     const headers = method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : void 0;
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$o.debug("Kanji page request via userscript API");
+      log$p.debug("Kanji page request via userscript API");
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method,
@@ -10770,7 +11271,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         });
       });
     }
-    log$o.debug("Kanji page request via fetch");
+    log$p.debug("Kanji page request via fetch");
     return fetch(requestUrl2, {
       method,
       headers,
@@ -10782,15 +11283,15 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return response.text();
     });
   }
-  const log$n = Logger.scope("PopupRender");
+  const log$o = Logger.scope("PopupRender");
   function pickTokenForSelection(tokens = [], selected) {
     const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
     if (exact) {
-      log$n.debug("Picked exact token for selection", { selected, vid: exact.card.vid, sid: exact.card.sid });
+      log$o.debug("Picked exact token for selection", { selected, vid: exact.card.vid, sid: exact.card.sid });
       return exact;
     }
     const fuzzy = tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
-    log$n.debug("Picked fuzzy token for selection", { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
+    log$o.debug("Picked fuzzy token for selection", { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
     return fuzzy;
   }
   function formatMetaFrequency(value) {
@@ -10819,7 +11320,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       group.push(entry);
       grouped.set(entry.dictionary, group);
     }
-    log$n.debug("Grouped term entries by dictionary", { entries: entries.length, dictionaries: grouped.size });
+    log$o.debug("Grouped term entries by dictionary", { entries: entries.length, dictionaries: grouped.size });
     return grouped;
   }
   function groupTermEntriesByHeadword(entries) {
@@ -10847,7 +11348,7 @@ ${reading}`;
       }
       grouped.set(key, group);
     }
-    log$n.debug("Grouped term entries by headword", { entries: entries.length, headwords: grouped.size });
+    log$o.debug("Grouped term entries by headword", { entries: entries.length, headwords: grouped.size });
     return [...grouped.values()];
   }
   function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
@@ -10859,7 +11360,7 @@ ${reading}`;
       keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
       meaning: localByKanji.get(kanji) || ""
     }));
-    log$n.debug("Built RTK component summaries", { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
+    log$o.debug("Built RTK component summaries", { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
     return summaries;
   }
   function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
@@ -10896,7 +11397,7 @@ ${entry.reading}`;
     const result = Array.from(words.values()).sort(
       (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
     );
-    log$n.debug("Merged similar kanji words", { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
+    log$o.debug("Merged similar kanji words", { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
     return result;
   }
   function summarizeLearnerGlossary(entry) {
@@ -10914,11 +11415,11 @@ ${entry.reading}`;
   function cleanLearnerGlossaryText(text2) {
     let clean = text2.replace(/^\[[^\]]+\]\s*/, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/i, "").replace(/\s+/g, " ").trim();
     clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
-    if (!clean || HAS_JAPANESE$1.test(clean) || looksLikeGrammarTag(clean)) return "";
+    if (!clean || HAS_JAPANESE$2.test(clean) || looksLikeGrammarTag(clean)) return "";
     return clean;
   }
   function cutBeforeExampleText(text2) {
-    const japaneseIndex = text2.search(HAS_JAPANESE$1);
+    const japaneseIndex = text2.search(HAS_JAPANESE$2);
     const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/);
     const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
     const cutoff = indexes.length ? Math.min(...indexes) : -1;
@@ -10978,15 +11479,15 @@ ${entry.reading}`;
             </div>
             <div class="jpdb-reader-doodle-tools">
                 <span class="jpdb-reader-help">${uiText(language, "textTrace")}</span>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
-                <button class="jpdb-reader-mini-btn" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
             </div>
         </details>
     `;
   }
   function renderKanjiOrigins(facts, graph, sourceInfo, settings, language, initiallyExpanded = settings.dictionarySourcesInitiallyExpanded, sourceStateKey) {
     if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) {
-      log$n.debug("Kanji origins render skipped", { reason: "no-origin-data" });
+      log$o.debug("Kanji origins render skipped", { reason: "no-origin-data" });
       return "";
     }
     const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
@@ -11020,7 +11521,7 @@ ${entry.reading}`;
     const nodeIds = new Set(nodeById.keys());
     const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))) ?? [];
     if (nodes.length <= 1 || !edges.length) {
-      log$n.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
+      log$o.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
       return "";
     }
     const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
@@ -11032,7 +11533,7 @@ ${entry.reading}`;
     const outboundEdges = selectOriginOutboundEdgeGroups(groupedEdges, nodeById, current.id);
     const selectedEdges = [...primaryEdges, ...outboundEdges];
     if (!selectedEdges.length) {
-      log$n.debug("Kanji origin graph render skipped", { reason: "no-selected-edges", nodes: nodes.length, edges: edges.length });
+      log$o.debug("Kanji origin graph render skipped", { reason: "no-selected-edges", nodes: nodes.length, edges: edges.length });
       return "";
     }
     const connectedIds = /* @__PURE__ */ new Set([current.id]);
@@ -11045,7 +11546,7 @@ ${entry.reading}`;
     const visibleIds = new Set(visibleNodes.map((node) => node.id));
     const edgeGroups = selectedEdges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
     if (visibleNodes.length <= 1 || !edgeGroups.length) {
-      log$n.debug("Kanji origin graph render skipped", { reason: "no-visible-graph", visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
+      log$o.debug("Kanji origin graph render skipped", { reason: "no-visible-graph", visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
       return "";
     }
     const primaryIds = /* @__PURE__ */ new Set([current.id]);
@@ -11062,6 +11563,7 @@ ${entry.reading}`;
     const coords = new Map(positioned.map((item) => [item.node.id, item]));
     const markerId = `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map((item) => item.node.id).join("|"))}`;
     const hasOutboundEdges = edgeGroups.some((edge) => isOriginOutboundEdge(edge, current.id));
+    const graphClass = `jpdb-reader-origin-graph-wrap${hasOutboundEdges ? " show-outbound" : ""}`;
     const lines = edgeGroups.map((edge) => {
       const from = coords.get(edge.from);
       const to = coords.get(edge.to);
@@ -11085,9 +11587,9 @@ ${entry.reading}`;
       }
       return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" ${attrs} title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
     }).join("");
-    log$n.debug("Kanji origin graph rendered", { nodes: positioned.length, edges: edgeGroups.length });
+    log$o.debug("Kanji origin graph rendered", { nodes: positioned.length, edges: edgeGroups.length });
     return `
-        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, "originMapLabel")}">
+        <div class="${graphClass}" aria-label="${uiText(language, "originMapLabel")}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -11097,7 +11599,7 @@ ${entry.reading}`;
                 ${lines}
             </svg>
             ${hasOutboundEdges ? `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml$1(uiText(language, "originShowOutbound"))}">
-                <input type="checkbox" data-origin-outbound-toggle>
+                <input type="checkbox" data-origin-outbound-toggle checked>
                 <span>${escapeHtml$1(uiText(language, "originShowOutbound"))}</span>
             </label>` : ""}
             ${nodeButtons}
@@ -11105,6 +11607,17 @@ ${entry.reading}`;
     `;
   }
   const SIMPLIFIED_ONLY_COMPONENTS = /* @__PURE__ */ new Set(["讠", "钅", "饣", "纟", "门", "车", "贝", "见", "长", "马", "鸟", "鱼"]);
+  const TOP_COMPONENTS = /* @__PURE__ */ new Set(["亠", "宀", "冖", "艹", "⺾", "竹", "⺮", "雨", "穴", "覀", "西", "爫", "𠂉"]);
+  const BOTTOM_COMPONENTS = /* @__PURE__ */ new Set(["心", "忄", "灬", "儿", "皿", "貝", "贝", "日", "寸", "廾"]);
+  const LEFT_COMPONENTS = /* @__PURE__ */ new Set(["亻", "人", "彳", "氵", "忄", "扌", "木", "言", "訁", "口", "女", "糸", "纟", "土", "王", "犭", "礻", "衤", "月", "火", "禾", "虫", "足", "車", "车"]);
+  const RIGHT_COMPONENTS = /* @__PURE__ */ new Set(["阝", "刂", "卩", "頁", "页", "隹", "攵", "殳", "欠", "鳥", "鸟"]);
+  const WHOLE_COMPONENTS = /* @__PURE__ */ new Set(["大", "夫", "天", "失", "央", "本", "末", "未"]);
+  const OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES = /* @__PURE__ */ new Map([
+    ["夫\0失", "upper"],
+    ["夫\0替", "top"],
+    ["夫\0難", "left"],
+    ["夫\0僕", "lower"]
+  ]);
   function chooseOriginGraphNodes(nodes, edges, currentId) {
     const current = nodes.find((node) => node.id === currentId) ?? nodes[0];
     const degree = /* @__PURE__ */ new Map();
@@ -11263,16 +11776,101 @@ ${entry.reading}`;
     const attached = new Set([...incoming, ...outgoing].map((node) => node.id));
     const others = nodes.filter((node) => node.id !== currentId && !attached.has(node.id));
     if (outgoing.length) {
-      spreadOnArc(incoming, 30, 50, 8, 24, -86, 86).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
-      spreadOnArc(outgoing, 70, 50, 8, 24, -86, 86).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+      spreadInboundComponents(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+      spreadOutboundComponents(outgoing, currentId).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
     } else {
-      spreadConstellation(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+      spreadInboundComponents(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
     }
     others.forEach((node, index) => {
       const t = (index + 1) / (others.length + 1);
       anchors.set(node.id, { x: 26 + t * 48, y: 78 + index % 2 * 3 });
     });
     return anchors;
+  }
+  function spreadInboundComponents(nodes) {
+    if (!nodes.length) return [];
+    const ordered = [...nodes].sort((a, b) => componentZoneSort(inferInboundComponentZone(a)) - componentZoneSort(inferInboundComponentZone(b)) || a.label.localeCompare(b.label, "ja"));
+    const usedByZone = /* @__PURE__ */ new Map();
+    return ordered.map((node, index) => {
+      const zone = inferInboundComponentZone(node);
+      const used = usedByZone.get(zone) ?? 0;
+      usedByZone.set(zone, used + 1);
+      const anchor = inboundZoneAnchor(zone, used, ordered.filter((item) => inferInboundComponentZone(item) === zone).length);
+      const fallback = spreadConstellation(ordered)[index] ?? { x: 30, y: 50 };
+      return { node, x: (anchor == null ? void 0 : anchor.x) ?? fallback.x, y: (anchor == null ? void 0 : anchor.y) ?? fallback.y };
+    });
+  }
+  function spreadOutboundComponents(nodes, currentId) {
+    if (!nodes.length) return [];
+    const ordered = [...nodes].sort((a, b) => componentZoneSort(inferOutboundComponentZone(currentId, a)) - componentZoneSort(inferOutboundComponentZone(currentId, b)) || a.label.localeCompare(b.label, "ja"));
+    const usedByZone = /* @__PURE__ */ new Map();
+    return ordered.map((node) => {
+      const zone = inferOutboundComponentZone(currentId, node);
+      const used = usedByZone.get(zone) ?? 0;
+      usedByZone.set(zone, used + 1);
+      const anchor = outboundZoneAnchor(zone, used, ordered.filter((item) => inferOutboundComponentZone(currentId, item) === zone).length);
+      return { node, x: anchor.x, y: anchor.y };
+    });
+  }
+  function inferInboundComponentZone(node) {
+    const position = (node.position ?? "").toLowerCase();
+    if (/へん|left/.test(position)) return "left";
+    if (/つくり|right/.test(position)) return "right";
+    if (/かんむり|top|upper/.test(position)) return "top";
+    if (/あし|した|bottom|lower/.test(position)) return "bottom";
+    if (/かまえ|enclosure|surround/.test(position)) return "center";
+    if (TOP_COMPONENTS.has(node.id) || TOP_COMPONENTS.has(node.label)) return "top";
+    if (BOTTOM_COMPONENTS.has(node.id) || BOTTOM_COMPONENTS.has(node.label)) return "bottom";
+    if (WHOLE_COMPONENTS.has(node.id) || WHOLE_COMPONENTS.has(node.label)) return "center";
+    if (LEFT_COMPONENTS.has(node.id) || LEFT_COMPONENTS.has(node.label)) return "left";
+    if (RIGHT_COMPONENTS.has(node.id) || RIGHT_COMPONENTS.has(node.label)) return "right";
+    return "center";
+  }
+  function inferOutboundComponentZone(currentId, node) {
+    return OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES.get(`${currentId}\0${node.id}`) ?? "center";
+  }
+  function componentZoneSort(zone) {
+    return { top: 0, upper: 1, left: 2, center: 3, right: 4, lower: 5, bottom: 6 }[zone];
+  }
+  function inboundZoneAnchor(zone, index, total) {
+    const offset = (index - (total - 1) / 2) * 10;
+    switch (zone) {
+      case "top":
+        return { x: 38 + offset, y: 23 };
+      case "upper":
+        return { x: 32 + offset, y: 36 };
+      case "left":
+        return { x: 24, y: 50 + offset };
+      case "right":
+        return { x: 38, y: 50 + offset };
+      case "lower":
+        return { x: 32 + offset, y: 64 };
+      case "bottom":
+        return { x: 38 + offset, y: 77 };
+      case "center":
+      default:
+        return { x: 32, y: 50 + offset };
+    }
+  }
+  function outboundZoneAnchor(zone, index, total) {
+    const offset = (index - (total - 1) / 2) * 9;
+    switch (zone) {
+      case "top":
+        return { x: 72 + offset, y: 23 };
+      case "upper":
+        return { x: 79 + offset, y: 34 };
+      case "left":
+        return { x: 84, y: 47 + offset };
+      case "right":
+        return { x: 72, y: 47 + offset };
+      case "lower":
+        return { x: 79 + offset, y: 66 };
+      case "bottom":
+        return { x: 72 + offset, y: 77 };
+      case "center":
+      default:
+        return { x: 84, y: 50 + offset };
+    }
   }
   function spreadConstellation(nodes) {
     const presets = [
@@ -11292,13 +11890,6 @@ ${entry.reading}`;
         x: 50 + Math.cos(angle) * 30,
         y: 50 + Math.sin(angle) * 28
       };
-    });
-  }
-  function spreadOnArc(nodes, centerX, centerY, radiusX, radiusY, startDegrees, endDegrees) {
-    return nodes.map((node, index) => {
-      const t = (index + 1) / (nodes.length + 1);
-      const angle = (startDegrees + (endDegrees - startDegrees) * t) * Math.PI / 180;
-      return { node, x: centerX + Math.cos(angle) * radiusX, y: centerY + Math.sin(angle) * radiusY };
     });
   }
   function originNodeRadii(node) {
@@ -11367,14 +11958,21 @@ ${entry.reading}`;
   }
   function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey) {
     if (!info) return "";
-    const infoChips = [
-      info.type
-    ].filter(Boolean).map((item) => `<span class="jpdb-reader-chip">${escapeHtml$1(item)}</span>`).join("");
+    const facts = [
+      ["Name", info.keyword],
+      ["Type", info.type],
+      ["Frequency", info.frequency],
+      ["Kanken", info.kanken],
+      ["Heisig", info.heisig],
+      ["Old forms", info.oldForms.join(", ")]
+    ].filter(([, value]) => Boolean(value == null ? void 0 : value.trim()));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
             <summary class="jpdb-reader-local-title">${uiText(language, "readingsComponents")}</summary>
             <div class="jpdb-reader-local-entry">
-                ${infoChips ? `<div class="jpdb-reader-kanji-keywords">${infoChips}</div>` : ""}
+                ${facts.length ? `<div class="jpdb-reader-kanji-facts">
+                    ${facts.map(([label, value]) => `<span><small>${escapeHtml$1(label)}</small>${escapeHtml$1(value)}</span>`).join("")}
+                </div>` : ""}
                 ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
                     ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml$1(reading.reading)}${reading.share ? ` ${escapeHtml$1(reading.share)}` : ""}</span>`).join("")}
                 </div>` : ""}
@@ -11426,15 +12024,6 @@ ${entry.reading}`;
     var _a;
     const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || ((_a = components2[index]) == null ? void 0 : _a.kanji);
     return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}"><strong>${escapeHtml$1(componentKanji)}</strong><span>${escapeHtml$1(keyword)}</span></button>` : `<span>${escapeHtml$1(keyword)}</span>`;
-  }).join("")}
-                </div>` : ""}
-                ${components2.length ? `<div class="jpdb-reader-component-grid">
-                    ${components2.map((component) => {
-    return `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
-                            <strong>${escapeHtml$1(component.kanji)}</strong>
-                            ${component.keyword ? `<span>${escapeHtml$1(component.keyword)}</span>` : ""}
-                            ${component.meaning && component.meaning !== component.keyword ? `<small>${escapeHtml$1(component.meaning)}</small>` : ""}
-                        </button>`;
   }).join("")}
                 </div>` : ""}
                 ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
@@ -11550,15 +12139,63 @@ ${entry.reading}`;
     if (rises > 1 || drops > 1) return "kifuku";
     return "odaka";
   }
-  function renderJpdbDefinitionSource(card, sourceAttributes) {
+  function renderJpdbDefinitionSource(card, sourceAttributes, info = null) {
     const meanings = card.meanings.slice(0, 6).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning.glosses.join("; "))}</div>`).join("");
-    if (!meanings) return "";
+    const extras = renderJpdbVocabularyExtras(info, sourceAttributes);
+    if (!meanings && !extras) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title">JPDB</summary>
-            <div class="jpdb-reader-meanings">${meanings}</div>
+            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
+            ${extras}
         </details>
     `;
+  }
+  function renderJpdbVocabularyExtras(info, sourceAttributes) {
+    if (!info || !info.compounds.length && !info.examples.length) return "";
+    const compounds = info.compounds.length ? `
+        <section class="jpdb-reader-jpdb-extra">
+            <ul class="jpdb-reader-jpdb-compounds">
+                ${info.compounds.map((compound) => `
+                    <li>
+                        <a
+                            class="gloss-link jpdb-reader-jpdb-compound"
+                            href="#jpdb-reader-dictionary-lookup"
+                            data-dictionary-lookup="${escapeHtml$1(compound.term)}"
+                            data-dictionary-reading="${escapeHtml$1(compound.reading)}"
+                            data-dictionary="JPDB"
+                            data-external="false"
+                        >
+                            <span class="jpdb-reader-jpdb-compound-head">
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml$1(compound.term)}</span>
+                                ${compound.reading && compound.reading !== compound.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml$1(compound.reading)}</span>` : ""}
+                            </span>
+                        </a>
+                        ${compound.meaning ? `<small>${escapeHtml$1(compound.meaning)}</small>` : ""}
+                    </li>
+                `).join("")}
+            </ul>
+        </section>
+    ` : "";
+    const examples = info.examples.length ? `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">JPDB examples</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-examples">
+                ${info.examples.map((example) => `
+                    <li class="jpdb-reader-jpdb-example">
+                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml$1(example.sentence)}</div>
+                        ${example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml$1(example.translation)}</div>` : ""}
+                    </li>
+                `).join("")}
+                </ul>
+            </div>
+        </details>
+    ` : "";
+    return `<div class="jpdb-reader-jpdb-extras">${compounds}${examples}</div>`;
   }
   function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
     const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
@@ -11717,7 +12354,7 @@ ${entry.reading}`;
       if (hasRichStructuredGlossary(item)) return true;
       const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
       if (!text2 || text2 === summary) return false;
-      return HAS_JAPANESE$1.test(text2);
+      return HAS_JAPANESE$2.test(text2);
     });
   }
   function renderFrequencyPill(entry, dictionaryLabel2) {
@@ -11725,13 +12362,17 @@ ${entry.reading}`;
     const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
     return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(label)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
   }
-  const API_BASE$1 = "https://apiv2.immersionkit.com";
+  const API_BASE$1 = "https://apiv2express.immersionkit.com";
+  const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
+  const API_BASES = [API_BASE$1, LEGACY_API_BASE];
   const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
   const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
+  const MEDIA_CANDIDATE_LIMIT = 4;
   const SEARCH_EXAMPLE_LIMIT = 250;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$m = Logger.scope("ImmersionKit");
+  const log$n = Logger.scope("ImmersionKit");
+  const IMMERSION_KIT_PROXY_PATH = "/__jpdb-reader-immersion-proxy";
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -11850,12 +12491,12 @@ ${entry.reading}`;
       });
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        log$m.debug("Search cache hit", { query, examples: cached.length });
+        log$n.debug("Search cache hit", { query, examples: cached.length });
         return cached;
       }
       const inflight = this.inflight.get(cacheKey);
       if (inflight) {
-        log$m.debug("Search joined in-flight request", { query });
+        log$n.debug("Search joined in-flight request", { query });
         return inflight;
       }
       const params = new URLSearchParams({
@@ -11865,12 +12506,12 @@ ${entry.reading}`;
       });
       if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
       if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
-      const done = log$m.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-      const promise = requestJson$1(`${API_BASE$1}/search?${params}`, settings.audioTimeoutMs).then((data) => {
+      const done = log$n.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const promise = requestJson$1(apiUrls(`/search?${params}`), settings.audioTimeoutMs).then((data) => {
         const examples = collectExamples(data).map(normalizeExample).filter((example) => Boolean(example)).filter((example) => sentenceLength(example.sentence) >= this.minimumSentenceLength(settings)).filter((example) => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength).filter((example) => !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query));
         const result = examples;
         this.cache.set(cacheKey, result);
-        log$m.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
+        log$n.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
         return result;
       }).finally(() => {
         this.inflight.delete(cacheKey);
@@ -11902,19 +12543,19 @@ ${entry.reading}`;
       return uniqueStrings$1(titles.flatMap((title) => {
         const path = `media/${category}/${title}/media/${file}`;
         return [
-          `${API_BASE$1}/download_media?${new URLSearchParams({ path })}`,
+          ...apiUrls(`/download_media?${new URLSearchParams({ path })}`),
           `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`
         ];
-      }));
+      })).slice(0, MEDIA_CANDIDATE_LIMIT);
     }
     preload(term, settings) {
       const query = term.trim();
       if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
       this.preloadKeys.add(query);
-      log$m.debug("Preload queued", { query });
+      log$n.debug("Preload queued", { query });
       void this.search(query, settings).then((examples) => {
-        log$m.debug("Preload search completed", { query, examples: examples.length });
-        for (const example of examples.slice(0, 2)) {
+        log$n.debug("Preload search completed", { query, examples: examples.length });
+        for (const example of examples.slice(0, 1)) {
           const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
           if (imageUrls.length) {
             void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs).then((url) => {
@@ -11922,14 +12563,14 @@ ${entry.reading}`;
               image.decoding = "async";
               image.loading = "eager";
               image.src = url;
-            }).catch((error) => log$m.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+            }).catch((error) => log$n.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
           }
           const soundUrls = this.mediaUrls(example, "sound");
           if (soundUrls.length) {
-            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$m.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$n.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
           }
         }
-      }).catch((error) => log$m.debug("Preload search failed quietly", { query }, error));
+      }).catch((error) => log$n.debug("Preload search failed quietly", { query }, error));
     }
     async fetchBlobUrl(url, timeoutMs) {
       const urls = Array.isArray(url) ? url : [url];
@@ -11937,13 +12578,13 @@ ${entry.reading}`;
       return this.mediaBlobUrlCache.getOrCreate(key, async () => {
         const blob = await requestFirstBlob(url, timeoutMs);
         const blobUrl = await createPageMediaUrl(blob);
-        log$m.debug("Media URL created", { host: safeHost$4(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith("data:") });
+        log$n.debug("Media URL created", { host: safeHost$4(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith("data:") });
         return blobUrl;
       });
     }
     async fetchDataUrl(url, timeoutMs) {
       const blob = await requestFirstBlob(url, timeoutMs);
-      log$m.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
+      log$n.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
       return blobToDataUrl$1(blob);
     }
   }
@@ -12045,111 +12686,174 @@ ${entry.reading}`;
   function normalizeForSurfaceMatch(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
-  function requestJson$1(url, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const userscriptRequest = getUserscriptHttpRequest();
-      if (userscriptRequest) {
-        log$m.debug("JSON request via userscript API", { host: safeHost$4(url) });
-        const handleLoad = (response) => {
-          if (response.status < 200 || response.status >= 300) {
-            reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
-            return;
-          }
-          try {
-            resolve(JSON.parse(String(response.responseText ?? response.response ?? "null")));
-          } catch {
-            reject(new Error("Immersion Kit returned invalid JSON."));
-          }
-        };
-        const result = userscriptRequest({
-          method: "GET",
-          url,
-          responseType: "text",
-          timeout: timeoutMs,
-          onload: handleLoad,
-          onerror: () => reject(new Error("Immersion Kit request failed.")),
-          ontimeout: () => reject(new Error("Immersion Kit request timed out."))
-        });
-        if (result && typeof result.then === "function") {
-          result.then(handleLoad, () => reject(new Error("Immersion Kit request failed.")));
-        }
-        return;
+  async function requestJson$1(url, timeoutMs) {
+    const urls = Array.isArray(url) ? url : [url];
+    let lastError;
+    for (const candidate of urls) {
+      try {
+        return await requestJsonCandidate(candidate, timeoutMs);
+      } catch (error) {
+        lastError = error;
+        log$n.debug("JSON candidate failed; trying next", { host: safeHost$4(candidate) }, error);
       }
-      if (!canUsePageFetch(url)) {
-        reject(new Error("Immersion Kit search needs the Yomu userscript request bridge."));
-        return;
-      }
-      log$m.debug("JSON request via fetch", { host: safeHost$4(url) });
-      fetch(url, { credentials: "omit" }).then((response) => {
-        if (!response.ok) throw new Error(`Immersion Kit returned HTTP ${response.status}.`);
-        return response.json();
-      }).then(resolve, reject);
-    });
+    }
+    throw lastError instanceof Error ? lastError : new Error("Immersion Kit request failed.");
+  }
+  function requestJsonCandidate(url, timeoutMs) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    const requestUrl2 = proxiedImmersionKitUrl(url);
+    if (userscriptRequest) {
+      return requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest).catch((error) => {
+        if (!canUsePageFetch(requestUrl2) || !isUserscriptTransportError(error)) throw error;
+        log$n.debug("JSON request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
+        return requestImmersionJsonViaFetch(requestUrl2, timeoutMs);
+      });
+    }
+    if (!canUsePageFetch(requestUrl2)) {
+      return Promise.reject(new Error("Immersion Kit search needs the Yomu userscript request bridge."));
+    }
+    return requestImmersionJsonViaFetch(requestUrl2, timeoutMs);
   }
   function requestBlob$2(url, timeoutMs) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    const requestUrl2 = proxiedImmersionKitUrl(url);
+    if (userscriptRequest) {
+      return requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest).catch((error) => {
+        if (!canUsePageFetch(requestUrl2) || !isUserscriptTransportError(error)) throw error;
+        log$n.debug("Media request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
+        return requestImmersionBlobViaFetch(requestUrl2, timeoutMs);
+      });
+    }
+    if (!canUsePageFetch(requestUrl2)) {
+      return Promise.reject(new Error("Immersion Kit media needs the Yomu userscript request bridge."));
+    }
+    return requestImmersionBlobViaFetch(requestUrl2, timeoutMs);
+  }
+  function requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest) {
     return new Promise((resolve, reject) => {
-      const userscriptRequest = getUserscriptHttpRequest();
-      if (userscriptRequest) {
-        log$m.debug("Media request via userscript API", { host: safeHost$4(url) });
-        const handleLoad = (response) => {
-          if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
-            reject(new Error(`Media returned HTTP ${response.status}.`));
-            return;
-          }
-          if (isErrorDocumentBlob(response.response)) {
-            reject(new Error("Media request returned an error document instead of audio or image."));
-            return;
-          }
-          resolve(response.response);
-        };
-        const result = userscriptRequest({
-          method: "GET",
-          url,
-          responseType: "blob",
-          timeout: timeoutMs,
-          onload: handleLoad,
-          onerror: () => reject(new Error("Media request failed.")),
-          ontimeout: () => reject(new Error("Media request timed out."))
-        });
-        if (result && typeof result.then === "function") {
-          result.then(handleLoad, () => reject(new Error("Media request failed.")));
+      const handleLoad = (response) => {
+        if (response.status < 200 || response.status >= 300) {
+          reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
+          return;
         }
-        return;
+        try {
+          resolve(JSON.parse(String(response.responseText ?? response.response ?? "null")));
+        } catch {
+          reject(new Error("Immersion Kit returned invalid JSON."));
+        }
+      };
+      const result = userscriptRequest({
+        method: "GET",
+        url,
+        responseType: "text",
+        timeout: timeoutMs,
+        onload: handleLoad,
+        onerror: () => reject(new Error("Immersion Kit request failed.")),
+        ontimeout: () => reject(new Error("Immersion Kit request timed out."))
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, () => reject(new Error("Immersion Kit request failed.")));
       }
-      if (!canUsePageFetch(url)) {
-        reject(new Error("Immersion Kit media needs the Yomu userscript request bridge."));
-        return;
+    });
+  }
+  function requestImmersionJsonViaFetch(requestUrl2, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      fetch(requestUrl2, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", signal: controller.signal }).then((response) => {
+        if (!response.ok) throw new Error(`Immersion Kit returned HTTP ${response.status}.`);
+        return response.json();
+      }).then(resolve).catch((error) => {
+        if (error instanceof Error) {
+          if (error.name === "AbortError") {
+            reject(new Error("Immersion Kit request timed out."));
+            return;
+          }
+          if (error.name === "TypeError") {
+            reject(new Error("Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings."));
+            return;
+          }
+        }
+        reject(error instanceof Error ? error : new Error("Immersion Kit request failed."));
+      }).finally(() => {
+        clearTimeout(timeout);
+      });
+    });
+  }
+  function requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest) {
+    return new Promise((resolve, reject) => {
+      const handleLoad = (response) => {
+        if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
+          reject(new Error(`Media returned HTTP ${response.status}.`));
+          return;
+        }
+        if (isErrorDocumentBlob(response.response)) {
+          reject(new Error("Media request returned an error document instead of audio or image."));
+          return;
+        }
+        resolve(response.response);
+      };
+      const result = userscriptRequest({
+        method: "GET",
+        url,
+        responseType: "blob",
+        timeout: timeoutMs,
+        onload: handleLoad,
+        onerror: () => reject(new Error("Media request failed.")),
+        ontimeout: () => reject(new Error("Media request timed out."))
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, () => reject(new Error("Media request failed.")));
       }
-      log$m.debug("Media request via fetch", { host: safeHost$4(url) });
-      fetch(url, { credentials: "omit" }).then((response) => {
+    });
+  }
+  function requestImmersionBlobViaFetch(requestUrl2, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      fetch(requestUrl2, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", signal: controller.signal }).then((response) => {
         if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
         return response.blob();
       }).then((blob) => {
         if (isErrorDocumentBlob(blob)) throw new Error("Media request returned an error document instead of audio or image.");
         return blob;
-      }).then(resolve, reject);
+      }).then(resolve).catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          reject(new Error("Media request timed out."));
+          return;
+        }
+        if (error instanceof Error && error.name === "TypeError") {
+          reject(new Error("Immersion Kit media is blocked in this browser. Configure browser/CORS or use a different source."));
+          return;
+        }
+        reject(error instanceof Error ? error : new Error("Media request failed."));
+      }).finally(() => {
+        clearTimeout(timeout);
+      });
     });
   }
-  function canUsePageFetch(url) {
-    try {
-      const target = new URL(url, location.href);
-      return target.origin === location.origin || ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
-    } catch {
-      return false;
-    }
-  }
   async function requestFirstBlob(urls, timeoutMs) {
-    const candidates = Array.isArray(urls) ? urls : [urls];
+    const candidates = prioritizeMediaCandidates(Array.isArray(urls) ? urls : [urls]).slice(0, MEDIA_CANDIDATE_LIMIT);
     let lastError;
     for (const url of candidates) {
       try {
         return await requestBlob$2(url, timeoutMs);
       } catch (error) {
         lastError = error;
-        log$m.debug("Media candidate failed; trying next", { host: safeHost$4(url) }, error);
+        log$n.debugThrottled("media-candidate-failed", 5e3, "Media candidate failed; trying next", { host: safeHost$4(url), candidates: candidates.length }, error);
       }
     }
     throw lastError instanceof Error ? lastError : new Error("No Immersion Kit media candidate could be loaded.");
+  }
+  function prioritizeMediaCandidates(urls) {
+    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
+  }
+  function isObjectStoreMediaUrl(url) {
+    try {
+      return new URL(url, location.href).origin === new URL(OBJECT_STORE_BASE).origin;
+    } catch {
+      return false;
+    }
   }
   function isErrorDocumentBlob(blob) {
     const type = blob.type.toLowerCase();
@@ -12172,6 +12876,36 @@ ${entry.reading}`;
       return "invalid-url";
     }
   }
+  function proxiedImmersionKitUrl(url) {
+    if (!isLoopbackPage()) return url;
+    try {
+      const target = new URL(url, location.href);
+      const current = new URL(location.href);
+      if (target.origin === current.origin) return target.href;
+      return `${IMMERSION_KIT_PROXY_PATH}?url=${encodeURIComponent(target.href)}`;
+    } catch {
+      return url;
+    }
+  }
+  function isLoopbackPage() {
+    return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+  }
+  function canUsePageFetch(url) {
+    try {
+      const target = new URL(url, location.href);
+      return target.origin === location.origin || isLoopbackPage();
+    } catch {
+      return false;
+    }
+  }
+  function isUserscriptTransportError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return /request (failed|timed out)/i.test(message);
+  }
+  function apiUrls(path) {
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return API_BASES.map((base) => `${base}${cleanPath}`);
+  }
   const JAPANESE_QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
   const JAPANESE_SCRIPT_GROUP_RE$1 = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
@@ -12188,8 +12922,21 @@ ${entry.reading}`;
   function queryHasKanji(value) {
     return /[\u3400-\u9fff々〆]/u.test(value);
   }
+  function shouldRequireOriginalSurfaceMatch(value) {
+    return queryHasKanji(value) && queryLength(value) >= 3;
+  }
+  function immersionSentenceContainsQuery(sentence, query) {
+    const normalizedSentence = normalizeImmersionSurface(sentence);
+    const normalizedQuery = normalizeImmersionSurface(query);
+    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
+  }
   function isUsefulImmersionFallbackQuery(query, exactQuery) {
-    if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE$1.test(query)) return false;
+    if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE$2.test(query)) return false;
+    if (COMMON_PARTICLES.has(queryKey(query))) return false;
+    return queryLength(query) >= 2;
+  }
+  function isUsefulImmersionPreloadQuery(query) {
+    if (!query || !HAS_JAPANESE$2.test(query)) return false;
     if (COMMON_PARTICLES.has(queryKey(query))) return false;
     return queryLength(query) >= 2;
   }
@@ -12217,8 +12964,11 @@ ${entry.reading}`;
     }
     return uniqueImmersionQueries(fragments).sort((a, b) => Number(queryHasKanji(b)) - Number(queryHasKanji(a)) || queryLength(b) - queryLength(a));
   }
+  function normalizeImmersionSurface(value) {
+    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
-  const log$l = Logger.scope("ImmersionPopover");
+  const log$m = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       __publicField(this, "audioElement");
@@ -12251,7 +13001,7 @@ ${entry.reading}`;
         const stored2 = saveMiningContext(card.spelling, immersionContextFromElement(cleanSentence, immersionCard));
         if (stored2) {
           this.activeMiningContext = stored2;
-          log$l.debug("Mining context captured from Immersion Kit", { term: card.spelling, sourceTitle: stored2.sourceTitle });
+          log$m.debug("Mining context captured from Immersion Kit", { term: card.spelling, sourceTitle: stored2.sourceTitle });
         }
         return;
       }
@@ -12263,7 +13013,7 @@ ${entry.reading}`;
       const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
       if (stored) {
         this.activeMiningContext = stored;
-        log$l.debug("Mining context captured from page", { term: card.spelling, sourceKind });
+        log$m.debug("Mining context captured from page", { term: card.spelling, sourceKind });
       }
     }
     async loadExamples(popover, card, searchPromise = this.searchExamples(card)) {
@@ -12274,11 +13024,11 @@ ${entry.reading}`;
         const { examples } = result;
         if (!popover.isConnected || !container.isConnected) return;
         if (!examples.length) {
-          log$l.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
+          log$m.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
           this.renderEmpty(container);
           return;
         }
-        log$l.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
+        log$m.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
         let index = this.startIndex(card, examples);
         let renderRequest = 0;
         let hoverAudioCanPlay = false;
@@ -12290,6 +13040,7 @@ ${entry.reading}`;
           const requestId = ++renderRequest;
           index = (nextIndex + examples.length) % examples.length;
           this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
+          bindHoverMedia();
         };
         container.addEventListener("click", (event) => {
           const button2 = event.target.closest("[data-immersion-action]");
@@ -12324,16 +13075,26 @@ ${entry.reading}`;
         const handleImmersionHover = (event) => {
           var _a, _b, _c;
           const media = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-example-media");
-          if (!media || !hoverAudioCanPlay || !this.options.getSettings().immersionKitPlayOnHover) return;
-          const cannotHover = ((_c = window.matchMedia) == null ? void 0 : _c.call(window, "(hover: none)").matches) ?? false;
+          if (!media || !this.options.getSettings().immersionKitPlayOnHover) return;
           const pointerType = "pointerType" in event ? event.pointerType : "mouse";
+          const cannotHover = pointerType !== "mouse" && (((_c = window.matchMedia) == null ? void 0 : _c.call(window, "(hover: none)").matches) ?? false);
           if (pointerType === "touch" || cannotHover) return;
           if (media.contains(event.relatedTarget)) return;
+          if (!hoverAudioCanPlay) {
+            hoverAudioCanPlay = !container.contains(event.relatedTarget);
+            if (!hoverAudioCanPlay) return;
+          }
           hoverAudioActive = true;
           void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(":hover"));
         };
-        container.addEventListener("pointerover", handleImmersionHover);
-        container.addEventListener("mouseover", handleImmersionHover);
+        const bindHoverMedia = () => {
+          container.querySelectorAll(".jpdb-reader-example-media").forEach((media) => {
+            if (media.dataset.immersionHoverBound === "true") return;
+            media.dataset.immersionHoverBound = "true";
+            media.addEventListener("pointerover", handleImmersionHover);
+            media.addEventListener("mouseover", handleImmersionHover);
+          });
+        };
         container.addEventListener("pointerleave", () => {
           hoverAudioCanPlay = true;
           hoverAudioActive = false;
@@ -12344,20 +13105,20 @@ ${entry.reading}`;
         });
         render(index, false);
       } catch (error) {
-        log$l.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$m.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         if (!popover.isConnected || !container.isConnected) return;
         this.renderEmpty(container);
       }
     }
-    async searchExamples(card) {
-      const key = this.searchCacheKey(card);
+    async searchExamples(card, options = {}) {
+      const key = this.searchCacheKey(card, options);
       const now = Date.now();
       const cached = this.searchResultCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log$l.debug("Immersion Kit result cache hit", { term: card.spelling });
+        log$m.debug("Immersion Kit result cache hit", { term: card.spelling });
         return cached.promise;
       }
-      const promise = this.fetchExamples(card).catch((error) => {
+      const promise = this.fetchExamples(card, options).catch((error) => {
         var _a;
         if (((_a = this.searchResultCache.get(key)) == null ? void 0 : _a.promise) === promise) this.searchResultCache.delete(key);
         throw error;
@@ -12371,39 +13132,50 @@ ${entry.reading}`;
       let queued = 0;
       for (const token of tokens) {
         const term = token.card.spelling.trim();
-        if (!term || this.preloadedTerms.has(term)) continue;
+        if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) continue;
         this.preloadedTerms.add(term);
         this.options.client.preload(term, settings);
         queued++;
         if (queued >= 2) break;
       }
-      if (queued) log$l.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
+      if (queued) log$m.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
     }
     stopAudio() {
       this.audioRequestId++;
       this.clearAudio();
     }
-    async fetchExamples(card) {
+    async fetchExamples(card, options) {
       const exactQuery = normalizeImmersionSearchQuery(card.spelling);
+      const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery).filter((query) => isUsefulImmersionFallbackQuery(query, exactQuery));
       const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-      const queries = uniqueImmersionQueries([exactQuery, ...fallbackQueries]).slice(0, 1 + IMMERSION_FALLBACK_QUERY_LIMIT);
+      const queries = uniqueImmersionQueries([exactQuery, ...relatedQueries, ...fallbackQueries]).slice(0, 1 + IMMERSION_FALLBACK_QUERY_LIMIT);
       const triedQueries = [];
       for (const query of queries) {
         if (!query) continue;
         triedQueries.push(query);
-        const examples = await this.options.client.search(query, this.options.getSettings());
-        if (examples.length) {
-          return {
-            examples,
+        const settings = this.options.getSettings();
+        try {
+          const examples = await this.options.client.search(query, settings);
+          const accurateExamples = queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
+          if (accurateExamples.length) {
+            return {
+              examples: accurateExamples,
+              query,
+              usedFallback: queryKey(query) !== queryKey(exactQuery),
+              triedQueries
+            };
+          }
+        } catch (error) {
+          log$m.debug("Immersion query failed, trying next query", {
             query,
-            usedFallback: queryKey(query) !== queryKey(exactQuery),
-            triedQueries
-          };
+            exactQuery,
+            error: error instanceof Error ? error.message : String(error)
+          });
         }
       }
       return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
     }
-    searchCacheKey(card) {
+    searchCacheKey(card, options) {
       const settings = this.options.getSettings();
       return JSON.stringify({
         spelling: card.spelling,
@@ -12415,7 +13187,8 @@ ${entry.reading}`;
         category: settings.immersionKitCategory,
         sort: settings.immersionKitSort,
         exact: settings.immersionKitExactMatch,
-        parse: this.options.canParseJapanese()
+        parse: this.options.canParseJapanese(),
+        relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
       });
     }
     async fallbackQueries(card, exactQuery) {
@@ -12428,7 +13201,7 @@ ${entry.reading}`;
       if (card.reading !== card.spelling) add(card.reading);
       if (this.options.canParseJapanese()) {
         const [tokens] = await this.options.parseJapanese([card.spelling]).catch((error) => {
-          log$l.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
+          log$m.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
           return [[]];
         });
         const tokenQueries = (tokens ?? []).map((token) => ({
@@ -12466,11 +13239,12 @@ ${entry.reading}`;
       const storedIndex = Number(context.immersionIndex);
       return Number.isFinite(storedIndex) && storedIndex >= 0 && storedIndex < examples.length ? storedIndex : 0;
     }
-    renderExample(container, card, examples, index, playAudio, searchQuery = card.spelling, isCurrent = () => true, promoteMiningContext = false) {
+    renderExample(container, card, examples, index, playAudio, searchQuery, isCurrent = () => true, promoteMiningContext = false) {
       const example = examples[index];
       const settings = this.options.getSettings();
       const language = settings.interfaceLanguage;
       const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
+      const hasAudio = this.mediaUrls(example, "sound").length > 0;
       const imageUrl = imageUrls[0] ?? "";
       const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, examples.length, imageUrl));
       if (storedContext) {
@@ -12478,7 +13252,7 @@ ${entry.reading}`;
         if (promoteMiningContext || !this.activeMiningContext || this.activeMiningContext.term !== card.spelling) {
           this.activeMiningContext = storedContext;
         }
-        log$l.debug("Immersion mining context stored", {
+        log$m.debug("Immersion mining context stored", {
           term: card.spelling,
           sourceTitle: storedContext.sourceTitle,
           index,
@@ -12486,8 +13260,9 @@ ${entry.reading}`;
           active: this.activeMiningContext === storedContext
         });
       }
-      const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading], "jpdb-reader-example-target");
+      const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading, searchQuery], "jpdb-reader-example-target");
       const translation = renderExampleTranslation(example.translation, settings);
+      const sourceLabel2 = queryKey(searchQuery) !== queryKey(card.spelling) ? `${searchQuery} · ${example.sourceTitle}` : example.sourceTitle;
       const currentImage = container.querySelector("[data-immersion-image]");
       const currentMedia = (currentImage == null ? void 0 : currentImage.closest(".jpdb-reader-example-media")) ?? null;
       const currentImageSrc = (currentImage == null ? void 0 : currentImage.currentSrc) || (currentImage == null ? void 0 : currentImage.src) || "";
@@ -12498,25 +13273,17 @@ ${entry.reading}`;
       const imageSrcAttribute = imageSrc ? ` src="${escapeHtml$1(imageSrc)}"` : "";
       const holdImageAttribute = holdCurrentImage ? ' data-immersion-hold-until-ready="true"' : "";
       const image = imageUrl ? `<div class="jpdb-reader-example-media"${mediaStyle}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${holdImageAttribute}${imageSrcAttribute} alt="" loading="eager" decoding="async"></div>` : "";
-      const hasFallbackQuery = queryKey(searchQuery) !== queryKey(card.spelling);
-      const fallbackQuery = hasFallbackQuery ? `<span class="jpdb-reader-example-query">${escapeHtml$1(searchQuery)}</span>` : "";
       delete container.dataset.immersionEmpty;
       setInnerHtml(container, `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">Immersion Kit</span>
-                <span class="jpdb-reader-local-dict">${escapeHtml$1(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}" aria-label="${uiText(language, "previousExample")}">‹</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, "playExampleAudio")}" aria-label="${uiText(language, "playExampleAudio")}">${speakerIcon()}</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, "nextExample")}" aria-label="${uiText(language, "nextExample")}">›</button>
-            </div>
-            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(imageUrl)}">
-                <div class="jpdb-reader-example-topline">
-                    <div class="jpdb-reader-example-meta ${hasFallbackQuery ? "has-query" : ""}">
-                        ${fallbackQuery}
-                    </div>
+                <span class="jpdb-reader-local-dict">${escapeHtml$1(sourceLabel2)} · ${index + 1}/${examples.length}</span>
+                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}" aria-label="${uiText(language, "previousExample")}">‹</button>
+                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, "playExampleAudio")}" aria-label="${uiText(language, "playExampleAudio")}">${speakerIcon()}</button>` : ""}
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, "nextExample")}" aria-label="${uiText(language, "nextExample")}">›</button>
                 </div>
+            </summary>
+            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(imageUrl)}">
                 <div class="jpdb-reader-example-body">
                     ${image}
                     <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
@@ -12592,16 +13359,16 @@ ${entry.reading}`;
         const sentence = container.querySelector("[data-immersion-sentence-render]");
         if (!sentence) return;
         setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens ?? [], this.options.getSettings()));
-        this.highlightTarget(sentence, card);
+        this.highlightTarget(sentence, card, searchQuery);
         void this.options.parsePopoverJapanese(container);
         void this.options.enrichAnkiWords(tokens ?? []);
         this.options.repositionPopover();
-      }).catch((error) => log$l.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
+      }).catch((error) => log$m.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
     }
-    highlightTarget(sentence, card) {
+    highlightTarget(sentence, card, searchQuery = "") {
       const cardVid = String(card.vid);
       const cardSid = String(card.sid);
-      const targets = [card.spelling, card.reading].map((value) => value.trim()).filter(Boolean);
+      const targets = [card.spelling, card.reading, searchQuery].map((value) => value.trim()).filter(Boolean);
       sentence.querySelectorAll(".jpdb-reader-word").forEach((word) => {
         var _a;
         const surface = ((_a = word.textContent) == null ? void 0 : _a.replace(/\s+/g, "")) ?? "";
@@ -12622,14 +13389,14 @@ ${entry.reading}`;
       const urls = this.mediaUrls(example, "sound");
       const url = urls[0] ?? "";
       if (!url) {
-        log$l.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
+        log$m.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
         if (!quiet) this.options.toast("No Immersion Kit audio for this example.");
         return;
       }
       let requestId = 0;
       try {
         if (this.isAudioBusy(url)) {
-          log$l.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
+          log$m.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
           return;
         }
         requestId = ++this.audioRequestId;
@@ -12663,10 +13430,10 @@ ${entry.reading}`;
           this.clearAudio();
           return;
         }
-        log$l.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
+        log$m.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
       } catch (error) {
         if (!requestId || requestId === this.audioRequestId) this.clearAudio();
-        log$l.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
+        log$m.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
         if (!quiet) this.options.toast(error instanceof Error ? error.message : "Immersion Kit audio failed.");
       }
     }
@@ -12883,7 +13650,7 @@ ${entry.reading}`;
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const REQUEST_TIMEOUT_MS$1 = 3e4;
-  const log$k = Logger.scope("JpdbApi");
+  const log$l = Logger.scope("JpdbApi");
   class JpdbApiClient {
     constructor(getApiKey) {
       __publicField(this, "retryAfter", 0);
@@ -12896,34 +13663,34 @@ ${entry.reading}`;
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       if (!token) {
-        log$k.warn("Request blocked; JPDB API key is missing", { endpoint });
+        log$l.warn("Request blocked; JPDB API key is missing", { endpoint });
         throw new Error("JPDB API key is not set.");
       }
       if (Date.now() < this.retryAfter) {
-        log$k.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$l.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new Error("JPDB is rate limited. Try again in a moment.");
       }
-      const done = log$k.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$l.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await postJson(url, token, body);
       done();
-      log$k.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
+      log$l.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$k.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$l.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) {
-        log$k.warn("JPDB rejected API key", { endpoint });
+        log$l.warn("JPDB rejected API key", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$k.warn("JPDB request failed", { endpoint, status: response.status });
+        log$l.warn("JPDB request failed", { endpoint, status: response.status });
         throw new Error(`JPDB request failed (${response.status}).`);
       }
       if (options.response === "none" || !response.text) return void 0;
       const json = JSON.parse(response.text);
       if (json && typeof json === "object" && "error_message" in json && json.error_message) {
-        log$k.warn("JPDB returned application error", { endpoint, message: json.error_message });
+        log$l.warn("JPDB returned application error", { endpoint, message: json.error_message });
         throw new Error(json.error_message);
       }
       return json;
@@ -12980,7 +13747,7 @@ ${entry.reading}`;
     }
   }
   const COMBINING_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
-  const log$j = Logger.scope("JpdbParser");
+  const log$k = Logger.scope("JpdbParser");
   function jpdbVocabularyToCards(vocabulary2) {
     const cards = vocabulary2.map(([
       vid,
@@ -13011,13 +13778,13 @@ ${entry.reading}`;
       wordWithReading: null,
       source: "jpdb"
     }));
-    log$j.debug("Converted JPDB vocabulary to cards", { vocabulary: vocabulary2.length, cards: cards.length });
+    log$k.debug("Converted JPDB vocabulary to cards", { vocabulary: vocabulary2.length, cards: cards.length });
     return cards;
   }
   function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
     const tokens = rawTokens.map((innerTokens) => parseParagraphTokens(innerTokens, cards));
     assignSentenceInfo(paragraphs, tokens);
-    log$j.debug("Converted JPDB parse result to tokens", {
+    log$k.debug("Converted JPDB parse result to tokens", {
       paragraphs: paragraphs.length,
       tokenGroups: rawTokens.length,
       tokens: tokens.reduce((total, group) => total + group.length, 0),
@@ -13122,7 +13889,7 @@ ${entry.reading}`;
     if (tail) sentences.push(tail);
     const nonEmptySentences = sentences.filter(Boolean);
     const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-    log$j.debugThrottled("split-sentences", 1e3, "Split Japanese sentences", { textLength: text2.length, sentences: result.length });
+    log$k.debugThrottled("split-sentences", 1e3, "Split Japanese sentences", { textLength: text2.length, sentences: result.length });
     return result;
   }
   function getPitchClass(pitchAccent, reading) {
@@ -13169,7 +13936,7 @@ ${entry.reading}`;
     }
     card.wordWithReading = word.join("");
   }
-  const log$i = Logger.scope("LruCache");
+  const log$j = Logger.scope("LruCache");
   class LruCache {
     constructor(maxSize) {
       __publicField(this, "map", /* @__PURE__ */ new Map());
@@ -13180,9 +13947,9 @@ ${entry.reading}`;
       if (value !== void 0) {
         this.map.delete(key);
         this.map.set(key, value);
-        log$i.debugThrottled("cache-hit", 1e3, "LRU cache hit", { size: this.map.size, maxSize: this.maxSize });
+        log$j.debugThrottled("cache-hit", 1e3, "LRU cache hit", { size: this.map.size, maxSize: this.maxSize });
       } else {
-        log$i.debugThrottled("cache-miss", 1e3, "LRU cache miss", { size: this.map.size, maxSize: this.maxSize });
+        log$j.debugThrottled("cache-miss", 1e3, "LRU cache miss", { size: this.map.size, maxSize: this.maxSize });
       }
       return value;
     }
@@ -13193,13 +13960,13 @@ ${entry.reading}`;
         const oldest = this.map.keys().next().value;
         if (oldest !== void 0) {
           this.map.delete(oldest);
-          log$i.debug("LRU cache evicted oldest entry", { size: this.map.size, maxSize: this.maxSize });
+          log$j.debug("LRU cache evicted oldest entry", { size: this.map.size, maxSize: this.maxSize });
         }
       }
     }
     clear() {
       this.map.clear();
-      log$i.debug("LRU cache cleared", { maxSize: this.maxSize });
+      log$j.debug("LRU cache cleared", { maxSize: this.maxSize });
     }
   }
   const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
@@ -13218,7 +13985,7 @@ ${entry.reading}`;
   ];
   const DECK_FIELDS = ["id", "name"];
   const PARSE_CACHE_SIZE = 250;
-  const log$h = Logger.scope("JpdbClient");
+  const log$i = Logger.scope("JpdbClient");
   class JpdbClient {
     constructor(getApiKey) {
       __publicField(this, "api");
@@ -13233,12 +14000,12 @@ ${entry.reading}`;
       const cacheKey = text2.join("\n");
       const cached = this.parseCache.get(cacheKey);
       if (cached) {
-        log$h.debug("Parse cache hit", { paragraphs: text2.length, tokens: cached.reduce((sum, tokens) => sum + tokens.length, 0) });
+        log$i.debug("Parse cache hit", { paragraphs: text2.length, tokens: cached.reduce((sum, tokens) => sum + tokens.length, 0) });
         return cached;
       }
       const inFlight = this.parseInFlight.get(cacheKey);
       if (inFlight) {
-        log$h.debug("Parse in-flight cache hit", { paragraphs: text2.length, chars: cacheKey.length });
+        log$i.debug("Parse in-flight cache hit", { paragraphs: text2.length, chars: cacheKey.length });
         return inFlight;
       }
       const promise = this.fetchParse(text2, cacheKey);
@@ -13251,12 +14018,12 @@ ${entry.reading}`;
       return promise;
     }
     async reviewCard(card, grade) {
-      log$h.info("Reviewing card", { term: card.spelling, grade });
+      log$i.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
       await this.refreshCard(card);
     }
     async addToDeck(deckId, card, sentence) {
-      log$h.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$i.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       if (sentence) await this.setCardSentence(card, sentence);
       await this.refreshCard(card);
@@ -13264,12 +14031,12 @@ ${entry.reading}`;
     async listDecks() {
       const response = await this.api.request("list-user-decks", { fields: DECK_FIELDS });
       const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
-      log$h.debug("Decks listed", { decks: decks.length });
+      log$i.debug("Decks listed", { decks: decks.length });
       return decks;
     }
     async listDeckCards(deckId, limit = 80) {
       const id = normalizeDeckRequestId(deckId);
-      const done = log$h.time("listDeckCards", { deckId, limit });
+      const done = log$i.time("listDeckCards", { deckId, limit });
       const response = await this.api.request("deck/list-vocabulary", {
         id,
         fetch_occurences: false
@@ -13277,7 +14044,7 @@ ${entry.reading}`;
       const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
       if (!pairs.length) {
         done();
-        log$h.debug("Deck vocabulary list was empty", { deckId });
+        log$i.debug("Deck vocabulary list was empty", { deckId });
         return [];
       }
       const lookup = await this.api.request("lookup-vocabulary", {
@@ -13287,11 +14054,11 @@ ${entry.reading}`;
       const cards = jpdbVocabularyToCards(lookup.vocabulary_info ?? []);
       this.cacheCards(cards);
       done();
-      log$h.debug("Deck cards loaded", { deckId, requested: pairs.length, cards: cards.length });
+      log$i.debug("Deck cards loaded", { deckId, requested: pairs.length, cards: cards.length });
       return cards;
     }
     async removeFromDeck(deckId, card) {
-      log$h.info("Removing card from deck", { term: card.spelling, deckId });
+      log$i.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: deckId,
         vocabulary: [[card.vid, card.sid]]
@@ -13304,11 +14071,11 @@ ${entry.reading}`;
     clear() {
       this.cardCache.clear();
       this.parseCache.clear();
-      log$h.debug("Caches cleared");
+      log$i.debug("Caches cleared");
     }
     async addVocabularyToDeck(deckId, card) {
       if (deckId === "forq") {
-        log$h.debug("Adding card via JPDB prioritize endpoint", { term: card.spelling });
+        log$i.debug("Adding card via JPDB prioritize endpoint", { term: card.spelling });
         await this.api.requestByUrl("https://jpdb.io/prioritize", {
           v: card.vid,
           s: card.sid,
@@ -13327,7 +14094,7 @@ ${entry.reading}`;
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$h.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$i.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     async refreshCard(card) {
@@ -13337,12 +14104,12 @@ ${entry.reading}`;
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$h.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$i.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       this.cardCache.set(cardKey(card.vid, card.sid), fresh);
       Object.assign(card, fresh);
-      log$h.debug("Card refreshed", { term: card.spelling, state: fresh.cardState });
+      log$i.debug("Card refreshed", { term: card.spelling, state: fresh.cardState });
     }
     cacheCards(cards) {
       for (const card of cards) {
@@ -13350,7 +14117,7 @@ ${entry.reading}`;
       }
     }
     async fetchParse(text2, cacheKey) {
-      const done = log$h.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$i.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -13362,7 +14129,7 @@ ${entry.reading}`;
         const tokens = jpdbParseResultToTokens(text2, raw.tokens, cards);
         this.cacheCards(cards);
         this.parseCache.set(cacheKey, tokens);
-        log$h.debug("Parse completed", {
+        log$i.debug("Parse completed", {
           paragraphs: tokens.length,
           tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
           cards: cards.length
@@ -13451,17 +14218,97 @@ ${entry.reading}`;
     });
     return scored.length ? scored.reduce((sum, value) => sum + value, 0) / scored.length : 0;
   }
+  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
+  const log$h = Logger.scope("KanjiVG");
+  class KanjiVGClient {
+    constructor() {
+      __publicField(this, "cache", /* @__PURE__ */ new Map());
+    }
+    lookup(kanji) {
+      const character = Array.from(kanji)[0] ?? "";
+      if (!character) return Promise.resolve(null);
+      let promise = this.cache.get(character);
+      if (!promise) {
+        log$h.debug("Lookup cache miss", { kanji: character });
+        promise = this.fetchSvg(character);
+        this.cache.set(character, promise);
+      } else {
+        log$h.debug("Lookup cache hit", { kanji: character });
+      }
+      return promise;
+    }
+    async fetchSvg(kanji) {
+      const url = kanjiVGUrl(kanji);
+      const svgText = await requestText$6(url).catch((error) => {
+        log$h.warn("Stroke-order request failed", { kanji }, error);
+        return "";
+      });
+      if (!svgText) return null;
+      const info = parseKanjiVGSvg(svgText, kanji);
+      log$h.debug("Stroke-order SVG parsed", { kanji, found: Boolean(info), strokes: (info == null ? void 0 : info.strokeCount) ?? 0 });
+      return info;
+    }
+  }
+  function kanjiVGUrl(kanji) {
+    const codePoint = kanji.codePointAt(0) ?? 0;
+    return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
+  }
+  function parseKanjiVGSvg(svgText, kanji) {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const sourceSvg = doc.querySelector("svg");
+    if (!sourceSvg) return null;
+    const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
+    const paths = Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => {
+      const d = path.getAttribute("d");
+      if (!d || !/^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/.test(d)) return "";
+      return `<path d="${escapeHtml$1(d)}" style="--stroke-index:${index}" />`;
+    }).filter(Boolean);
+    if (!paths.length) return null;
+    const numbers = Array.from(sourceSvg.querySelectorAll("text")).map((text2) => {
+      const transform = text2.getAttribute("transform") ?? "";
+      const label = (text2.textContent ?? "").trim();
+      if (!/^[\d]+$/.test(label) || !/^matrix\([0-9,.\-\s]+\)$/.test(transform)) return "";
+      return `<text transform="${escapeHtml$1(transform)}">${escapeHtml$1(label)}</text>`;
+    }).filter(Boolean);
+    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml$1(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml$1(kanji)}">
+        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
+        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
+    </svg>`;
+    return { kanji, svg, strokeCount: paths.length };
+  }
+  function requestText$6(url) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+      return new Promise((resolve, reject) => {
+        userscriptRequest({
+          method: "GET",
+          url,
+          timeout: 8e3,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ""));
+            else reject(new Error(`Stroke-order request failed (${response.status}).`));
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("Stroke-order request timed out."))
+        });
+      });
+    }
+    return fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
+      return response.text();
+    });
+  }
   function findDoodleCanvasMount() {
-    return document.querySelector(".result.kanji > .vbox") ?? document.querySelector(".answer-box") ?? document.querySelector(".bugfix");
+    return document.querySelector(".bugfix") ?? document.querySelector(".result.kanji > .vbox") ?? document.querySelector(".answer-box");
   }
   function findDoodlePreviewMount() {
-    return document.querySelector(".result.kanji a.kanji.plain") ?? document.querySelector(".answer-box .kanji, .answer-box .plain") ?? document.querySelector(".result.kanji .hbox") ?? document.querySelector(".hbox") ?? document.querySelector(".answer-box");
+    return document.querySelector(".review-reveal .hbox") ?? document.querySelector(".review-reveal") ?? document.querySelector(".hbox") ?? document.querySelector(".result.kanji .hbox") ?? document.querySelector(".result.kanji a.kanji.plain") ?? document.querySelector(".answer-box .kanji, .answer-box .plain") ?? document.querySelector(".answer-box");
   }
   function installDoodle(root, glyph, options) {
-    var _a, _b;
-    const stage = root.querySelector(".yomu-doodle-stage");
-    const canvas = root.querySelector(".yomu-doodle-canvas");
-    const ghost = root.querySelector(".yomu-doodle-ghost");
+    var _a, _b, _c;
+    const stage = root.querySelector(".yomu-doodle-stage, .jpdb-reader-doodle-stage");
+    const canvas = root.querySelector(".yomu-doodle-canvas, .jpdb-reader-doodle-canvas");
+    const ghost = root.querySelector(".yomu-doodle-ghost, .jpdb-reader-doodle-ghost");
     const result = root.querySelector("[data-doodle-result]");
     if (!stage || !canvas || !ghost) return;
     const context = canvas.getContext("2d");
@@ -13472,8 +14319,11 @@ ${entry.reading}`;
     let strokes = [];
     let current = [];
     let expectedStrokes = 0;
+    let ghostAvailable = Boolean(glyph);
+    let traceVisible = false;
     let canvasRect = canvas.getBoundingClientRect();
     let strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text") || "#111";
+    let guideStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-border") || "rgba(128,128,128,0.35)";
     const cleanup = [];
     const add = (target, type, listener, addOptions) => {
       target.addEventListener(type, listener, addOptions);
@@ -13486,6 +14336,7 @@ ${entry.reading}`;
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
       canvasRect = canvas.getBoundingClientRect();
       redraw();
+      save();
     };
     const point = (event) => {
       return {
@@ -13497,15 +14348,43 @@ ${entry.reading}`;
     const lineWidth = (point2) => Math.max(4, Math.min(12, canvas.width * 0.018)) * (0.75 + ((point2 == null ? void 0 : point2.pressure) ?? 0.55) * 0.35);
     const setupStroke = (point2) => {
       context.strokeStyle = strokeStyle;
+      context.fillStyle = strokeStyle;
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = lineWidth(point2);
     };
     const drawStroke = (stroke) => {
       if (!stroke.length) return;
-      for (let index = 1; index < stroke.length; index += 1) {
-        drawSegment(stroke[index - 1], stroke[index]);
+      context.save();
+      setupStroke(stroke.at(-1));
+      if (stroke.length === 1) {
+        const point2 = stroke[0];
+        context.beginPath();
+        context.arc(point2.x * canvas.width, point2.y * canvas.height, context.lineWidth / 2, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+        return;
       }
+      if (stroke.length === 2) {
+        context.beginPath();
+        context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+        context.lineTo(stroke[1].x * canvas.width, stroke[1].y * canvas.height);
+        context.stroke();
+        context.restore();
+        return;
+      }
+      context.beginPath();
+      context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+      for (let index = 1; index < stroke.length - 1; index += 1) {
+        const midX = (stroke[index].x + stroke[index + 1].x) * canvas.width / 2;
+        const midY = (stroke[index].y + stroke[index + 1].y) * canvas.height / 2;
+        context.quadraticCurveTo(stroke[index].x * canvas.width, stroke[index].y * canvas.height, midX, midY);
+      }
+      const last = stroke.at(-1);
+      const previous = stroke.at(-2);
+      if (last && previous) context.quadraticCurveTo(previous.x * canvas.width, previous.y * canvas.height, last.x * canvas.width, last.y * canvas.height);
+      context.stroke();
+      context.restore();
     };
     const drawSegment = (from, to) => {
       context.save();
@@ -13518,8 +14397,21 @@ ${entry.reading}`;
     };
     const redraw = () => {
       context.clearRect(0, 0, canvas.width, canvas.height);
+      drawCrosshair();
       for (const stroke of strokes) drawStroke(stroke);
       drawStroke(current);
+    };
+    const drawCrosshair = () => {
+      context.save();
+      context.strokeStyle = guideStyle;
+      context.lineWidth = Math.max(1, dpr);
+      context.beginPath();
+      context.moveTo(0, canvas.height / 2);
+      context.lineTo(canvas.width, canvas.height / 2);
+      context.moveTo(canvas.width / 2, 0);
+      context.lineTo(canvas.width / 2, canvas.height);
+      context.stroke();
+      context.restore();
     };
     const renderAssessment = () => {
       if (!options.autograde || !result) return;
@@ -13530,12 +14422,21 @@ ${entry.reading}`;
       }
       const assessment = assessKanjiStrokes(strokes, expectedStrokes);
       root.classList.toggle("yomu-doodle-pass", assessment.passed);
-      root.classList.toggle("yomu-doodle-fail", !assessment.passed);
-      result.textContent = formatAssessment(assessment);
+      root.classList.remove("yomu-doodle-fail");
+      result.textContent = assessment.passed ? formatAssessment(assessment) : "";
     };
     const clearAssessment = () => {
       root.classList.remove("yomu-doodle-pass", "yomu-doodle-fail");
       if (result) result.textContent = "";
+    };
+    const setTraceVisible = (visible) => {
+      var _a2, _b2;
+      traceVisible = visible && ghostAvailable;
+      ghost.hidden = !traceVisible;
+      stage.classList.toggle("trace-hidden", !traceVisible);
+      (_a2 = root.querySelector("[data-doodle-ghost]")) == null ? void 0 : _a2.replaceChildren(traceVisible ? "Ghost: On" : ghostAvailable ? "Ghost: Off" : "Ghost: Unavailable");
+      (_b2 = root.querySelector("[data-doodle-trace]")) == null ? void 0 : _b2.replaceChildren(traceVisible ? "Hide trace" : ghostAvailable ? "Show trace" : "Trace unavailable");
+      redraw();
     };
     const save = () => {
       try {
@@ -13550,6 +14451,7 @@ ${entry.reading}`;
       pointerId = event.pointerId;
       canvasRect = canvas.getBoundingClientRect();
       strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text") || "#111";
+      guideStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-border") || guideStyle;
       current = [point(event)];
       try {
         (_a2 = canvas.setPointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
@@ -13596,20 +14498,37 @@ ${entry.reading}`;
     });
     (_b = root.querySelector("[data-doodle-ghost]")) == null ? void 0 : _b.addEventListener("click", (event) => {
       event.preventDefault();
-      ghost.hidden = !ghost.hidden;
-      event.currentTarget.textContent = ghost.hidden ? "Ghost: Off" : "Ghost: On";
+      if (!ghostAvailable) return;
+      setTraceVisible(ghost.hidden);
+    });
+    (_c = root.querySelector("[data-doodle-trace]")) == null ? void 0 : _c.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (!ghostAvailable) return;
+      setTraceVisible(!traceVisible);
     });
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
     add(window, "resize", resize);
     resize();
+    setTraceVisible(false);
     if (glyph) {
       void options.loadGhostSvg(glyph).then((svg) => {
+        var _a2;
         if (!root.isConnected || !svg.includes("<svg")) return;
-        setInnerHtml(ghost, svg.replace(/<script[\s\S]*?<\/script>/gi, ""));
+        const info = parseKanjiVGSvg(svg, glyph);
+        setInnerHtml(ghost, (info == null ? void 0 : info.svg) ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ""));
         expectedStrokes = ghost.querySelectorAll("path").length || expectedStrokes;
+        (_a2 = root.querySelector("[data-doodle-stroke-count]")) == null ? void 0 : _a2.replaceChildren(`${expectedStrokes} strokes`);
+        ghostAvailable = true;
+        setTraceVisible(false);
         renderAssessment();
-      }).catch(() => void 0);
+      }).catch(() => {
+        ghostAvailable = false;
+        setTraceVisible(false);
+      });
+    } else {
+      ghostAvailable = false;
+      setTraceVisible(false);
     }
     root.__yomuDoodle = { resizeObserver, cleanup };
   }
@@ -13618,11 +14537,8 @@ ${entry.reading}`;
   }
   function renderRtkPanel(info, initiallyExpanded = true, sourceAttributes = "") {
     const readings2 = [info.onYomi ? `On: ${info.onYomi}` : "", info.kunYomi ? `Kun: ${info.kunYomi}` : ""].filter(Boolean).join(" · ");
-    const title = `
-        <span>RTK</span>
-        ${info.frameNumber ? `<span class="yomu-jpdb-counter">#${escapeHtml$1(info.frameNumber)}</span>` : ""}
-    `;
     const body = `
+        ${info.frameNumber ? `<div class="yomu-jpdb-source-meta">#${escapeHtml$1(info.frameNumber)}</div>` : ""}
         <div class="yomu-jpdb-facts">
             <span><strong>Keyword</strong>${escapeHtml$1(info.keyword)}</span>
             ${readings2 ? `<span><strong>Readings</strong>${escapeHtml$1(readings2)}</span>` : ""}
@@ -13635,32 +14551,9 @@ ${entry.reading}`;
     const attributes = sourceAttributes || (initiallyExpanded ? "open" : "");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-rtk-source" ${attributes}>
-            <summary class="jpdb-reader-local-title">${title}</summary>
+            <summary class="jpdb-reader-local-title">RTK</summary>
             <div class="jpdb-reader-local-entry yomu-jpdb-collapsible-body">${body}</div>
         </details>
-    `;
-  }
-  function renderJpdbKanjiPanel(info) {
-    const facts = [
-      info.keyword ? ["Keyword", info.keyword] : null,
-      info.frequency ? ["Frequency", info.frequency] : null,
-      info.type ? ["Type", info.type] : null,
-      info.kanken ? ["Kanken", info.kanken] : null,
-      info.heisig ? ["Heisig", info.heisig] : null
-    ].filter((item) => item !== null);
-    return `
-        <div class="yomu-jpdb-card-title">
-            <span>JPDB kanji info</span>
-            <a href="https://jpdb.io/kanji/${encodeURIComponent(info.kanji)}" target="_blank" rel="noopener">Open</a>
-        </div>
-        ${facts.length ? `<div class="yomu-jpdb-facts">${facts.map(([label, value]) => `<span><strong>${escapeHtml$1(label)}</strong>${escapeHtml$1(value)}</span>`).join("")}</div>` : ""}
-        ${info.readings.length ? `<div class="yomu-jpdb-chip-row" aria-label="Readings">${info.readings.slice(0, 10).map((reading) => `<span class="${reading.common ? "common" : ""}">${escapeHtml$1(reading.reading)}${reading.share ? ` <small>${escapeHtml$1(reading.share)}</small>` : ""}</span>`).join("")}</div>` : ""}
-        ${info.components.length ? `<div class="yomu-jpdb-component-row" aria-label="Components">
-            ${info.components.map((component) => `<a href="https://jpdb.io/kanji/${encodeURIComponent(component.kanji)}" class="yomu-jpdb-component" target="_blank" rel="noopener"><strong>${escapeHtml$1(component.kanji)}</strong><span>${escapeHtml$1(component.keyword)}</span></a>`).join("")}
-        </div>` : ""}
-        ${info.vocabulary.length ? `<div class="yomu-jpdb-used-words" aria-label="Common words using ${escapeHtml$1(info.kanji)}">
-            ${info.vocabulary.slice(0, 5).map((word) => `<a href="${escapeHtml$1(word.url)}" target="_blank" rel="noopener"><span>${escapeHtml$1(word.expression)}</span><small>${escapeHtml$1(word.reading || word.meaning)}</small></a>`).join("")}
-        </div>` : ""}
     `;
   }
   function renderLocalDictionaryPanel(entries, settings, sourceStateAttributes) {
@@ -13689,13 +14582,57 @@ ${entry.reading}`;
         `).join("")}
     `;
   }
+  function renderJpdbDictionarySupplement(compounds, examples, sourceAttributes = "", examplesSourceAttributes = "") {
+    if (!compounds.length && !examples.length) return "";
+    const compoundHtml = compounds.length ? `<section class="yomu-jpdb-dictionary-section">
+            <div class="yomu-jpdb-compounds">
+                ${compounds.map((compound) => `
+                    <a class="yomu-jpdb-compound" href="${escapeHtml$1(compound.url || "#")}" ${compound.url ? "" : 'aria-disabled="true"'}>
+                        <span class="yomu-jpdb-compound-head">
+                            <span class="yomu-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml$1(compound.term)}</span>
+                            ${compound.reading && compound.reading !== compound.term ? `<span class="yomu-jpdb-compound-reading">${escapeHtml$1(compound.reading)}</span>` : ""}
+                        </span>
+                        ${compound.meaning ? `<span class="yomu-jpdb-compound-meaning">${escapeHtml$1(compound.meaning)}</span>` : ""}
+                    </a>
+                `).join("")}
+            </div>
+        </section>` : "";
+    const examplesHtml = examples.length ? `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-page-examples-group" ${examplesSourceAttributes || "open"}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">JPDB examples</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+            <div class="yomu-jpdb-page-examples">
+                ${examples.map((example) => `
+                    <div class="yomu-jpdb-page-example">
+                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml$1(example.sentence)}</div>
+                        ${example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml$1(example.translation)}</div>` : ""}
+                    </div>
+                `).join("")}
+            </div>
+            </div>
+        </details>` : "";
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-page-dictionary" ${sourceAttributes}>
+            <summary class="jpdb-reader-local-head">
+                <span class="jpdb-reader-example-source">JPDB</span>
+                <span class="jpdb-reader-local-dict">${compounds.length + examples.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                ${compoundHtml}
+                ${examplesHtml}
+            </div>
+        </details>
+    `;
+  }
   function dictionaryLabel(name, settings) {
     var _a;
     return ((_a = settings.dictionaryPreferences.find((item) => item.name === name)) == null ? void 0 : _a.alias) || name;
   }
   const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
-  const JAPANESE_RE$1 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
-  function cleanText$4(value) {
+  const JAPANESE_RE$2 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
+  function cleanText$5(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function decodeEntities(value) {
@@ -13727,7 +14664,7 @@ ${entry.reading}`;
   }
   function firstJapaneseRun$1(value) {
     var _a;
-    return ((_a = value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)) == null ? void 0 : _a[0]) ?? cleanText$4(value);
+    return ((_a = value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)) == null ? void 0 : _a[0]) ?? cleanText$5(value);
   }
   function firstReviewGlyph(text2) {
     var _a;
@@ -13759,11 +14696,14 @@ ${entry.reading}`;
   }
   function isKanjiReviewFront() {
     const state = currentReviewCardState();
-    return state.isKanji && state.phase === "before";
+    return state.isKanji && state.phase === "before" && !hasReviewAnswerContent();
   }
   function isKanjiReviewBack() {
     const state = currentReviewCardState();
-    return state.isKanji && state.phase === "after";
+    return state.isKanji && (state.phase === "after" || hasReviewAnswerContent());
+  }
+  function hasReviewAnswerContent() {
+    return Boolean(document.querySelector(".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings"));
   }
   function currentReviewCardState() {
     var _a;
@@ -13790,13 +14730,19 @@ ${entry.reading}`;
     return firstReviewGlyph(((_b = document.querySelector(".kanji, a.kanji.plain")) == null ? void 0 : _b.textContent) ?? "") ?? "";
   }
   function currentJpdbTermTarget() {
+    const kanji = extractCurrentKanji();
+    if ((isKanjiPage() || isKanjiReviewBack()) && kanji) {
+      const anchor2 = currentKanjiAddonAnchor();
+      const queries2 = uniqueLookupValues([kanji, ...kanjiComponentTerms(document)]);
+      return { term: kanji, reading: kanji, queries: queries2.length ? queries2 : [kanji], examples: extractPageExamples(document), anchor: anchor2 ?? document.body };
+    }
     const pageTerm = extractCurrentTermTarget();
     const searchQuery = extractSearchQuery();
     const term = isSearchPage() && searchQuery ? searchQuery : (pageTerm == null ? void 0 : pageTerm.term) ?? "";
     if (!term) return null;
     const anchor = document.querySelector(".subsection-meanings") ?? document.querySelector(".result.vocabulary") ?? document.querySelector(".subsection-used-in") ?? document.querySelector(".cross-table") ?? document.querySelector(".answer-box") ?? document.querySelector("main") ?? document.body.firstElementChild ?? document.body;
     const queries = isSearchPage() ? uniqueLookupValues([searchQuery, pageTerm == null ? void 0 : pageTerm.term, pageTerm == null ? void 0 : pageTerm.reading, ...searchResultTerms(8).flatMap((item) => [item.term, item.reading])]) : uniqueLookupValues([pageTerm == null ? void 0 : pageTerm.term, pageTerm == null ? void 0 : pageTerm.reading, term, ...searchResultTerms(8).flatMap((item) => [item.term, item.reading])]);
-    return { term, reading: (pageTerm == null ? void 0 : pageTerm.reading) || term, queries: queries.length ? queries : [term], anchor };
+    return { term, reading: (pageTerm == null ? void 0 : pageTerm.reading) || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor };
   }
   function currentLocalDictionaryTargets() {
     if (isDeckPage() || isSearchPage()) {
@@ -13804,14 +14750,79 @@ ${entry.reading}`;
         const term = extractTermFromElement(section);
         return term ? {
           ...term,
-          alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section)]),
+          alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section), ...extractPageCompounds(section).flatMap((compound) => [compound.term, compound.reading])]),
+          compounds: extractPageCompounds(section),
+          examples: extractPageExamples(section),
           anchor: section.querySelector(".subsection-meanings") ?? section
         } : null;
       }).filter((item) => item !== null).slice(0, 16);
     }
     const target = currentJpdbTermTarget();
     if (!target) return [];
-    return [{ term: target.term, reading: target.reading, alternates: target.queries, anchor: target.anchor }];
+    const compounds = extractPageCompounds(document);
+    return [{
+      term: target.term,
+      reading: target.reading,
+      alternates: uniqueLookupValues([...target.queries, ...compounds.flatMap((compound) => [compound.term, compound.reading])]),
+      compounds,
+      examples: extractPageExamples(document),
+      anchor: target.anchor
+    }];
+  }
+  function currentKanjiAddonAnchor() {
+    const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
+    const mnemonic = labels.find((label) => {
+      var _a;
+      return (_a = label.textContent) == null ? void 0 : _a.trim().toLowerCase().startsWith("mnemonic");
+    });
+    if ((mnemonic == null ? void 0 : mnemonic.nextElementSibling) instanceof HTMLElement) return mnemonic.nextElementSibling;
+    return document.querySelector(".result.kanji .vbox") ?? document.querySelector(".result.kanji") ?? document.querySelector(".answer-box") ?? document.querySelector(".bugfix") ?? document.querySelector("main");
+  }
+  function kanjiComponentTerms(root) {
+    return Array.from(root.querySelectorAll('.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]')).map((element2) => cleanText$5(extractBaseText(element2)) || cleanText$5(element2.textContent ?? "")).filter((value) => value && JAPANESE_RE$2.test(value));
+  }
+  function extractPageCompounds(root) {
+    var _a;
+    const entries = [];
+    const sections = Array.from(root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji"));
+    for (const section of sections) {
+      const label = cleanText$5(((_a = section.querySelector(".subsection-label")) == null ? void 0 : _a.textContent) ?? "").toLowerCase();
+      if (label && !label.startsWith("composed of")) continue;
+      const rows = Array.from(section.querySelectorAll(".subsection > div, .subsection .used-in"));
+      for (const row of rows) {
+        const link = row.querySelector('a[href^="/vocabulary/"], a[href^="/kanji/"]');
+        const spelling = row.querySelector('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+        const term = cleanText$5(spelling ? extractBaseText(spelling) : "") || cleanText$5((spelling == null ? void 0 : spelling.textContent) ?? "");
+        const reading = cleanText$5(spelling ? extractReadingText(spelling) : "") || term;
+        if (!term || !JAPANESE_RE$2.test(term) || entries.some((entry) => entry.term === term)) continue;
+        const description = row.querySelector(".description, .en, .meaning");
+        entries.push({
+          term,
+          reading,
+          meaning: cleanText$5((description == null ? void 0 : description.textContent) ?? ""),
+          url: (link == null ? void 0 : link.getAttribute("href")) ?? ""
+        });
+      }
+    }
+    return entries.slice(0, 8);
+  }
+  function extractPageExamples(root) {
+    var _a;
+    const seen = /* @__PURE__ */ new Set();
+    const examples = [];
+    const sections = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
+    for (const section of sections) {
+      const rows = Array.from(section.querySelectorAll(".subsection > div, .example, li, p"));
+      for (const row of rows) {
+        const sentenceNode = row.querySelector(".sentence, .jp, .japanese, .plain") ?? row;
+        const sentence = cleanText$5(extractBaseText(sentenceNode)) || cleanText$5(sentenceNode.textContent ?? "");
+        if (!sentence || !JAPANESE_RE$2.test(sentence) || seen.has(sentence)) continue;
+        seen.add(sentence);
+        const translation = cleanText$5(((_a = row.querySelector(".translation, .en, .english")) == null ? void 0 : _a.textContent) ?? "");
+        examples.push({ sentence, translation });
+      }
+    }
+    return examples.slice(0, 5);
   }
   function currentAudioTargets() {
     const targets = [];
@@ -13830,8 +14841,8 @@ ${entry.reading}`;
   function localDictionaryLookupVariants(target) {
     const variants = [];
     const add = (term, reading = "") => {
-      const cleanTerm = cleanText$4(term);
-      const cleanReading = cleanText$4(reading);
+      const cleanTerm = cleanText$5(term);
+      const cleanReading = cleanText$5(reading);
       if (!cleanTerm) return;
       if (variants.some((item) => item.term === cleanTerm && item.reading === cleanReading)) return;
       variants.push({ term: cleanTerm, reading: cleanReading });
@@ -13854,10 +14865,13 @@ ${entry.reading}`;
     });
   }
   function localDictionaryEntryKey(entry) {
-    return `${entry.dictionary}
+    const glossaryKey = JSON.stringify(entry.glossary);
+    return entry.sequence !== void 0 ? `${entry.dictionary}
+sequence:${entry.sequence}
+${glossaryKey}` : `${entry.dictionary}
 ${entry.expression}
 ${entry.reading}
-${JSON.stringify(entry.glossary).slice(0, 120)}`;
+${glossaryKey}`;
   }
   function dictionaryPreferencePriority(dictionary, settings) {
     const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
@@ -13896,8 +14910,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         return { term, reading: decodePathPart$1(parts[3] ?? "") || term };
       }
     }
-    const text2 = cleanText$4(extractBaseText(root));
-    return text2 && JAPANESE_RE$1.test(text2) ? { term: firstJapaneseRun$1(text2), reading: firstJapaneseRun$1(text2) } : null;
+    const text2 = cleanText$5(extractBaseText(root));
+    return text2 && JAPANESE_RE$2.test(text2) ? { term: firstJapaneseRun$1(text2), reading: firstJapaneseRun$1(text2) } : null;
   }
   function extractCurrentTermTarget() {
     const fromPage = extractTermFromElement(document.body);
@@ -13910,7 +14924,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   }
   function extractSearchQuery() {
     if (!isSearchPage()) return "";
-    return cleanText$4(new URLSearchParams(location.search).get("q") ?? "");
+    return cleanText$5(new URLSearchParams(location.search).get("q") ?? "");
   }
   function extractTermFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
@@ -13941,9 +14955,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     for (const selector of candidates) {
       const element2 = root.querySelector(selector);
       if (!element2) continue;
-      const term = cleanText$4(extractBaseText(element2)) || cleanText$4(element2.textContent ?? "");
-      const reading = cleanText$4(extractReadingText(element2)) || term;
-      if (term && JAPANESE_RE$1.test(term)) return { term, reading };
+      const term = cleanText$5(extractBaseText(element2)) || cleanText$5(element2.textContent ?? "");
+      const reading = cleanText$5(extractReadingText(element2)) || term;
+      if (term && JAPANESE_RE$2.test(term)) return { term, reading };
     }
     return null;
   }
@@ -13968,11 +14982,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   }
   function extractAlternateTerms(root) {
     return Array.from(root.querySelectorAll('.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]')).flatMap((element2) => {
-      const fromText = cleanText$4(extractBaseText(element2)) || cleanText$4(element2.textContent ?? "");
+      const fromText = cleanText$5(extractBaseText(element2)) || cleanText$5(element2.textContent ?? "");
       const href = element2 instanceof HTMLAnchorElement ? element2 : element2.querySelector('a[href^="/vocabulary/"]');
       const fromHref = href ? vocabularyPathTerm(href.pathname) : "";
       return [fromText, fromHref];
-    }).filter((value) => value && JAPANESE_RE$1.test(value));
+    }).filter((value) => value && JAPANESE_RE$2.test(value));
   }
   function searchResultTerms(limit) {
     if (!isSearchPage()) return [];
@@ -13986,7 +15000,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     const seen = /* @__PURE__ */ new Set();
     const result = [];
     for (const value of values) {
-      const text2 = cleanText$4(value ?? "");
+      const text2 = cleanText$5(value ?? "");
       const key = text2.replace(/\s+/g, "").toLowerCase();
       if (!text2 || seen.has(key)) continue;
       seen.add(key);
@@ -13999,6 +15013,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   const UCHISEN_ID = "yomu-jpdb-uchisen";
   const RTK_ID = "yomu-jpdb-rtk";
   const IMMERSION_ID = "yomu-jpdb-immersion";
+  const TERM_ADDONS_ID = "yomu-jpdb-term-addons";
+  const LOCAL_DICTIONARIES_SLOT = "local-dictionaries";
+  const IMMERSION_SLOT = "immersion";
   const DOODLE_ROOT_ID = "yomu-jpdb-doodle-root";
   const DOODLE_PREVIEW_ID = "yomu-jpdb-doodle-preview";
   const DOODLE_STORAGE_KEY = "yomu-jpdb-doodle-current-drawing";
@@ -14019,11 +15036,12 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       __publicField(this, "lastUrl", "");
       __publicField(this, "rtkKanji", "");
       __publicField(this, "uchisenKanji", "");
-      __publicField(this, "jpdbKanji", "");
       __publicField(this, "immersionKey", "");
       __publicField(this, "reviewImmersionAutoPlayKey", "");
       __publicField(this, "reviewWordAutoPlayKey", "");
+      __publicField(this, "rtkEmptyKanji", /* @__PURE__ */ new Set());
       __publicField(this, "uchisenCleanup");
+      __publicField(this, "uchisenEmptyKanji", /* @__PURE__ */ new Set());
       __publicField(this, "localDictionaryKeys", /* @__PURE__ */ new Set());
       __publicField(this, "sourceOpenOverrides", /* @__PURE__ */ new Map());
       this.options = options;
@@ -14076,8 +15094,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       if (settings.jpdbAutoRevealSentenceEnabled) this.revealAnswerSentence();
       const kanji = extractCurrentKanji();
       const hasKanjiSurface = Boolean(kanji && (isKanjiPage() || isReviewPage()));
-      if (settings.jpdbKanjiEnabled && hasKanjiSurface) this.renderJpdbKanjiInfo(kanji);
-      else removeElement(JPDB_KANJI_ID);
+      removeElement(JPDB_KANJI_ID);
       if (settings.jpdbUchisenEnabled && hasKanjiSurface) this.renderUchisen(kanji);
       else this.removeUchisen();
       if (settings.jpdbRtkEnabled && settings.rtkEnabled && hasKanjiSurface) this.renderRtk(kanji);
@@ -14105,7 +15122,6 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     resetSeenKeys() {
       this.rtkKanji = "";
       this.uchisenKanji = "";
-      this.jpdbKanji = "";
       this.immersionKey = "";
       this.reviewWordAutoPlayKey = "";
       this.localDictionaryKeys.clear();
@@ -14128,7 +15144,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
       const original = item.getAttribute("data-yomu-original-html") || item.innerHTML || item.textContent || "";
       const count = reviewItemsLeftCount(original);
-      setInnerHtml(item, count ? `Items left (<span class="yomu-jpdb-items-left-count">${escapeHtml$1(count)}</span>)` : "Items left");
+      const desiredHtml = count ? `Items left (<span class="yomu-jpdb-items-left-count">${escapeHtml$1(count)}</span>)` : "Items left";
+      if (item.innerHTML === desiredHtml) return;
+      setInnerHtml(item, desiredHtml);
     }
     applyReviewExamplesPreference() {
       if (!isReviewPage()) return;
@@ -14195,31 +15213,12 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       if (!isReviewAnswer()) return;
       (_a = document.querySelector(".sentence.blur")) == null ? void 0 : _a.classList.remove("blur");
     }
-    async renderJpdbKanjiInfo(kanji) {
-      if (this.jpdbKanji === kanji && document.getElementById(JPDB_KANJI_ID)) return;
-      this.jpdbKanji = kanji;
-      removeElement(JPDB_KANJI_ID);
-      const anchor = findKanjiSectionAnchor();
-      if (!anchor) return;
-      const container = createAddonCard(JPDB_KANJI_ID, "JPDB kanji info");
-      setInnerHtml(container, `
-            <div class="yomu-jpdb-card-title">JPDB kanji info</div>
-            <div class="jpdb-reader-help">Loading readings and components...</div>
-        `);
-      insertAfter(anchor, container);
-      const info = await this.options.jpdbKanji.lookup(kanji).catch((error) => {
-        log$g.warn("JPDB add-on kanji info lookup failed", { kanji }, error);
-        return null;
-      });
-      if (!container.isConnected || this.jpdbKanji !== kanji) return;
-      if (!info) {
-        container.remove();
+    async renderRtk(kanji) {
+      if (this.rtkEmptyKanji.has(kanji)) {
+        this.rtkKanji = kanji;
+        removeElement(RTK_ID);
         return;
       }
-      log$g.debug("JPDB add-on kanji info rendered", { kanji });
-      setInnerHtml(container, renderJpdbKanjiPanel(info));
-    }
-    async renderRtk(kanji) {
       if (this.rtkKanji === kanji && document.getElementById(RTK_ID)) return;
       this.rtkKanji = kanji;
       removeElement(RTK_ID);
@@ -14237,6 +15236,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       });
       if (!container.isConnected || this.rtkKanji !== kanji) return;
       if (!info) {
+        this.rtkEmptyKanji.add(kanji);
         container.remove();
         return;
       }
@@ -14245,6 +15245,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       this.installSourceStateTracking(container);
     }
     async renderUchisen(kanji) {
+      if (this.uchisenEmptyKanji.has(kanji)) {
+        this.uchisenKanji = kanji;
+        this.removeUchisen();
+        return;
+      }
       if (this.uchisenKanji === kanji && document.getElementById(UCHISEN_ID)) return;
       this.uchisenKanji = kanji;
       this.removeUchisen();
@@ -14258,10 +15263,15 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       insertAfter(anchor, container);
       const images = await loadUchisenImages(kanji).catch((error) => {
         log$g.warn("Uchisen request failed", { kanji }, error);
-        return [];
+        return null;
       });
       if (!container.isConnected || this.uchisenKanji !== kanji) return;
+      if (images === null) {
+        container.remove();
+        return;
+      }
       if (!images.length) {
+        this.uchisenEmptyKanji.add(kanji);
         log$g.debug("No Uchisen images found", { kanji });
         container.remove();
         return;
@@ -14271,7 +15281,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         sourceAttributes: this.sourceStateAttributes(`uchisen:${kanji}`, !isReviewPage()),
         detailsClass: "jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source",
         summaryClass: "jpdb-reader-local-title",
-        bodyClass: "jpdb-reader-local-entry yomu-jpdb-uchisen-body"
+        bodyClass: "jpdb-reader-local-entry yomu-jpdb-uchisen-body",
+        summaryHtml: () => "Uchisen"
       });
       this.installSourceStateTracking(container);
     }
@@ -14288,11 +15299,11 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       if (this.immersionKey === key && document.getElementById(IMMERSION_ID)) return;
       this.immersionKey = key;
       removeElement(IMMERSION_ID);
-      const container = createAddonCard(IMMERSION_ID, "Immersion Kit");
+      const container = createTermAddonContainer(IMMERSION_ID, "Immersion Kit");
       setInnerHtml(container, `
             <div class="jpdb-reader-help">Loading examples for ${escapeHtml$1(target.term)}...</div>
         `);
-      insertAfter(target.anchor, container);
+      this.insertTermAddon(target.anchor, container, IMMERSION_SLOT);
       const result = await this.searchImmersionExamples(target);
       if (!container.isConnected || this.immersionKey !== key) return;
       const { examples, query } = result;
@@ -14336,14 +15347,14 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         }).catch((error) => log$g.debug("JPDB add-on Immersion example parse failed quietly", { term: query }, error));
       };
       container.addEventListener("click", (event) => {
-        var _a;
         const translation = event.target.closest(".jpdb-reader-example-translation");
         if (translation) {
           event.preventDefault();
           toggleJpdbPageTranslationBlur(container, this.options);
           return;
         }
-        const action = (_a = event.target.closest("[data-yomu-immersion-action]")) == null ? void 0 : _a.dataset.yomuImmersionAction;
+        const actionButton = event.target.closest("[data-immersion-action],[data-yomu-immersion-action]");
+        const action = (actionButton == null ? void 0 : actionButton.dataset.immersionAction) ?? (actionButton == null ? void 0 : actionButton.dataset.yomuImmersionAction);
         const media = event.target.closest(".jpdb-reader-example-media");
         if (!action && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
         event.preventDefault();
@@ -14426,12 +15437,17 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
         this.localDictionaryKeys.add(key);
         (_b = target.anchor.parentElement) == null ? void 0 : _b.querySelectorAll(`[data-yomu-local-key="${cssEscape(key)}"]`).forEach((node) => node.remove());
         const entries = await this.lookupLocalDictionaryEntries(target, settings);
-        if (!entries.length || !target.anchor.isConnected) continue;
-        const container = createAddonCard("", "Imported dictionaries");
+        if (!entries.length && !target.compounds.length && !target.examples.length || !target.anchor.isConnected) continue;
+        const container = createTermAddonContainer("", "Imported dictionaries");
         container.classList.add("yomu-jpdb-local-dictionaries");
         container.dataset.yomuLocalKey = key;
         setInnerHtml(container, `
-                <div class="yomu-jpdb-card-title">Imported dictionaries</div>
+                ${renderJpdbDictionarySupplement(
+        target.compounds,
+        target.examples,
+        this.sourceStateAttributes(`dictionary:jpdb:${target.term}`),
+        this.sourceStateAttributes(`dictionary:jpdb:${target.term}:examples`)
+      )}
                 ${renderLocalDictionaryPanel(
         entries,
         settings,
@@ -14439,19 +15455,23 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       )}
             `);
         this.installSourceStateTracking(container);
-        insertAfter(target.anchor, container);
+        this.insertTermAddon(target.anchor, container, LOCAL_DICTIONARIES_SLOT);
         log$g.debug("JPDB add-on local dictionaries rendered", { term: target.term, entries: entries.length });
       }
     }
     async searchImmersionExamples(target) {
+      const requireOriginalSurface = shouldRequireOriginalSurfaceMatch(target.term);
+      const pageExamples = jpdbPageExamplesToImmersionKit(target);
       for (const query of target.queries) {
         const examples = await this.options.immersionKit.search(query, this.options.getSettings()).catch((error) => {
           log$g.warn("JPDB add-on Immersion Kit search failed", { term: target.term, query }, error);
           return [];
         });
-        if (examples.length) return { examples, query };
+        const accurateExamples = requireOriginalSurface ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, target.term)) : examples;
+        if (accurateExamples.length) return { examples: accurateExamples, query };
+        if (query === target.term && pageExamples.length) return { examples: pageExamples, query: target.term };
       }
-      return { examples: [], query: target.term };
+      return { examples: pageExamples, query: target.term };
     }
     async lookupLocalDictionaryEntries(target, settings) {
       const limit = Math.min(settings.localDictionaryMaxResults, 8);
@@ -14477,6 +15497,19 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     removeLocalDictionaries() {
       this.localDictionaryKeys.clear();
       document.querySelectorAll(".yomu-jpdb-local-dictionaries").forEach((node) => node.remove());
+      pruneEmptyTermAddonMount();
+    }
+    insertTermAddon(anchor, container, slotName) {
+      if (!isKanjiPage()) {
+        insertAfter(anchor, container);
+        return;
+      }
+      const slot = ensureTermAddonSlot(slotName);
+      if (!slot) {
+        insertAfter(anchor, container);
+        return;
+      }
+      slot.replaceChildren(container);
     }
     renderAudioOffers() {
       var _a;
@@ -14521,7 +15554,7 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       root.dataset.yomuSourceTracking = "true";
       root.addEventListener("toggle", (event) => {
         const details = event.target instanceof HTMLDetailsElement ? event.target : null;
-        const key = details == null ? void 0 : details.dataset.yomuSourceStateKey;
+        const key = (details == null ? void 0 : details.dataset.yomuSourceStateKey) ?? (details == null ? void 0 : details.dataset.sourceStateKey);
         if (!details || !key) return;
         this.sourceOpenOverrides.set(key, details.open);
         storageSetSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, details.open);
@@ -14529,14 +15562,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }, true);
     }
     renderDoodle() {
-      if (isKanjiPage()) {
-        removeElement(DOODLE_PREVIEW_ID);
-        this.installDoodleCanvas("kanji-page");
-        return;
-      }
       if (isKanjiReviewFront()) {
         removeElement(DOODLE_PREVIEW_ID);
-        this.installDoodleCanvas("review");
+        this.installDoodleCanvas();
         return;
       }
       if (isKanjiReviewBack()) {
@@ -14546,19 +15574,19 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       }
       this.removeDoodle();
     }
-    installDoodleCanvas(mode) {
+    installDoodleCanvas() {
       var _a, _b;
       const glyph = extractCurrentKanji() || firstReviewGlyph(document.body.textContent || "") || "";
       const existing = document.getElementById(DOODLE_ROOT_ID);
-      if ((existing == null ? void 0 : existing.dataset.yomuDoodleMode) === mode && existing.dataset.kanji === glyph) return;
+      if ((existing == null ? void 0 : existing.dataset.yomuDoodleMode) === "review" && existing.dataset.kanji === glyph) return;
       if (existing) this.removeDoodleCanvas();
-      const mount = mode === "kanji-page" ? findKanjiSectionAnchor() : findDoodleCanvasMount();
+      const mount = findDoodleCanvasMount();
       if (!mount) return;
       const root = createAddonCard(DOODLE_ROOT_ID, "doodle");
       root.setAttribute(ROOT_ATTR, "doodle");
-      root.dataset.yomuDoodleMode = mode;
+      root.dataset.yomuDoodleMode = "review";
       root.dataset.kanji = glyph;
-      const sourceAttributes = this.sourceStateAttributes(`doodle:${glyph}`, mode === "review");
+      const sourceAttributes = this.sourceStateAttributes(`kanji:${KANJI_STROKE_SOURCE_ID}`, true);
       root.innerHTML = `
             <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-doodle-source" ${sourceAttributes}>
                 <summary class="jpdb-reader-local-title">Stroke practice</summary>
@@ -14575,13 +15603,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
                 </div>
             </details>
         `;
-      if (mode === "kanji-page") {
-        insertAfter(mount, root);
-      } else {
-        (_a = mount.querySelector(":scope > .hbox")) == null ? void 0 : _a.insertAdjacentElement("afterend", root);
-        if (!root.isConnected) (_b = mount.querySelector(".yomu-jpdb-addon-card")) == null ? void 0 : _b.before(root);
-        if (!root.isConnected) mount.appendChild(root);
-      }
+      (_a = mount.querySelector(":scope > .hbox")) == null ? void 0 : _a.insertAdjacentElement("afterend", root);
+      if (!root.isConnected) (_b = mount.querySelector(".yomu-jpdb-addon-card")) == null ? void 0 : _b.before(root);
+      if (!root.isConnected) mount.appendChild(root);
       this.installSourceStateTracking(root);
       installDoodle(root, glyph, {
         storageKey: DOODLE_STORAGE_KEY,
@@ -14606,7 +15630,6 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       preview.id = DOODLE_PREVIEW_ID;
       preview.setAttribute(ROOT_ATTR, "doodle-preview");
       preview.innerHTML = `
-            <div class="yomu-doodle-preview-label">Your drawing</div>
             <img src="${escapeHtml$1(drawing)}" alt="Your kanji drawing">
         `;
       if (mount.matches("a.kanji.plain, .kanji.plain")) mount.insertAdjacentElement("afterend", preview);
@@ -14625,13 +15648,13 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     const images = [];
     const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
     const mainImage = (mainLoader == null ? void 0 : mainLoader.getAttribute("data-large")) || ((_a = doc.querySelector("#full_kanji_image")) == null ? void 0 : _a.getAttribute("src")) || "";
-    const mainStory = cleanText$4(((_b = doc.querySelector("#mnemonic_story")) == null ? void 0 : _b.textContent) ?? "");
+    const mainStory = cleanText$5(((_b = doc.querySelector("#mnemonic_story")) == null ? void 0 : _b.textContent) ?? "");
     if (mainImage) images.push({ url: canonicalUchisenUrl(mainImage), story: mainStory || "No story available" });
     doc.querySelectorAll(".mnemonic_card").forEach((card) => {
       var _a2, _b2;
       const rawUrl = ((_a2 = card.querySelector("input.image_url")) == null ? void 0 : _a2.value.trim()) ?? "";
       const rawStory = ((_b2 = card.querySelector("input.story")) == null ? void 0 : _b2.value) ?? "";
-      const story = cleanText$4(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
+      const story = cleanText$5(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
       if (rawUrl) images.push({ url: canonicalUchisenUrl(rawUrl), story: story || mainStory || "No story available" });
     });
     const seen = /* @__PURE__ */ new Set();
@@ -14659,19 +15682,23 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       currentImageUrl = "";
     };
     const render = () => {
+      var _a;
       const item = images[index];
       const isStarred = currentStarred === item.url;
-      const detailsClass = options.detailsClass ?? "jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source";
-      const summaryClass = options.summaryClass ?? "jpdb-reader-local-title";
-      const bodyClass = options.bodyClass ?? "jpdb-reader-local-entry yomu-jpdb-uchisen-body";
+      const detailsClass = options.detailsClass ?? "jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source";
+      const summaryClass = options.summaryClass ?? "jpdb-reader-local-head";
+      const bodyClass = options.bodyClass ?? "jpdb-reader-local-glossary yomu-jpdb-uchisen-body";
       const sourceAttributes = options.sourceAttributes ?? "open";
-      setInnerHtml(container, `
-            <details class="${detailsClass}" ${sourceAttributes}>
-                <summary class="${summaryClass}">
+      const summaryHtml = ((_a = options.summaryHtml) == null ? void 0 : _a.call(options, index + 1, images.length)) ?? `
                     <span>Uchisen</span>
                     <span class="yomu-jpdb-counter">${index + 1}/${images.length}</span>
-                </summary>
+                `;
+      const bodyMeta = options.summaryHtml ? `<div class="yomu-jpdb-source-meta">${index + 1}/${images.length}</div>` : "";
+      setInnerHtml(container, `
+            <details class="${detailsClass}" ${sourceAttributes}>
+                <summary class="${summaryClass}">${summaryHtml}</summary>
                 <div class="${bodyClass}">
+                    ${bodyMeta}
                     <div class="yomu-jpdb-toolbar" role="toolbar" aria-label="Uchisen mnemonic images">
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">‹</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">›</button>
@@ -14687,8 +15714,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       if (!image) return;
       const srcUrl = item.url;
       requestBlobUrl(srcUrl, 9e3).then((url) => {
-        var _a;
-        if (!image.isConnected || ((_a = images[index]) == null ? void 0 : _a.url) !== srcUrl) {
+        var _a2;
+        if (!image.isConnected || ((_a2 = images[index]) == null ? void 0 : _a2.url) !== srcUrl) {
           revokePageMediaUrl(url);
           return;
         }
@@ -14728,21 +15755,21 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   function renderImmersionPanel(container, examples, index, term, client, settings, sourceStateAttributes, prefetchedImageSrc = void 0) {
     const example = examples[index];
     const imageUrls = settings.immersionKitShowImages ? immersionMediaUrls(client, example, "image") : [];
+    const hasAudio = immersionMediaUrls(client, example, "sound").length > 0;
     const imageUrl = imageUrls[0] ?? "";
     saveMiningContext(term, immersionContextFromExample(term, example, index, examples.length, imageUrl));
     const sentenceHtml = renderHighlightedTextHtml(example.sentence, [term], "jpdb-reader-example-target");
     const image = imageUrl && prefetchedImageSrc !== null ? `<div class="jpdb-reader-example-media"><img class="jpdb-reader-example-image" alt="" loading="lazy" data-yomu-immersion-image data-yomu-immersion-image-src="${escapeHtml$1(imageUrl)}"${prefetchedImageSrc ? ` src="${escapeHtml$1(prefetchedImageSrc)}"` : ""}></div>` : "";
     setInnerHtml(container, `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-immersion-group" ${sourceStateAttributes}>
-            <summary class="jpdb-reader-local-head">
-                <span class="jpdb-reader-example-source">Immersion Kit</span>
+            <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-immersion-group" ${sourceStateAttributes}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-local-dict">${escapeHtml$1(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
+                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="Previous example" aria-label="Previous example">‹</button>
+                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="Play example audio" aria-label="Play example audio">${speakerIcon()}</button>` : ""}
+                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="Next example" aria-label="Next example">›</button>
+                </div>
             </summary>
-            <div class="jpdb-reader-example-actions" role="group" aria-label="Example controls">
-                <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="previous" title="Previous">‹</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="audio" title="Play audio">${speakerIcon()}</button>
-                <button class="jpdb-reader-icon-mini" type="button" data-yomu-immersion-action="next" title="Next">›</button>
-            </div>
             <div class="jpdb-reader-local-glossary">
                 <div class="jpdb-reader-example-card ${image ? "has-image" : ""}">
                     <div class="jpdb-reader-example-body">
@@ -14774,6 +15801,21 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
     }
     return `<div class="jpdb-reader-example-translation" data-yomu-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">${escaped}</div>`;
+  }
+  function jpdbPageExamplesToImmersionKit(target) {
+    return target.examples.filter((example) => immersionSentenceContainsQuery(example.sentence, target.term)).map((example, index) => ({
+      id: `jpdb-page-${encodeURIComponent(target.term)}-${index}`,
+      sentence: example.sentence,
+      sentenceWithFurigana: "",
+      translation: example.translation,
+      sourceTitle: "JPDB examples",
+      titleSlug: "jpdb",
+      category: "jpdb",
+      soundFile: "",
+      imageFile: "",
+      soundUrl: "",
+      imageUrl: ""
+    }));
   }
   function toggleJpdbPageTranslationBlur(container, options) {
     var _a;
@@ -14869,7 +15911,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
   }
   function findKanjiSectionAnchor() {
     var _a;
-    const existingAddon = lastConnectedElement([DOODLE_ROOT_ID, RTK_ID, UCHISEN_ID, JPDB_KANJI_ID]);
+    const existingDoodle = document.querySelector('[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode]');
+    if (existingDoodle == null ? void 0 : existingDoodle.isConnected) return existingDoodle;
+    const existingAddon = lastConnectedElement([RTK_ID, UCHISEN_ID, TERM_ADDONS_ID, JPDB_KANJI_ID]);
     if (existingAddon) return existingAddon;
     const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
     const mnemonic = labels.find((label) => {
@@ -14878,6 +15922,47 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     });
     if ((mnemonic == null ? void 0 : mnemonic.nextElementSibling) instanceof HTMLElement) return mnemonic.nextElementSibling;
     return ((_a = document.querySelector(".mnemonic")) == null ? void 0 : _a.closest(".subsection")) ?? document.querySelector(".result.kanji") ?? document.querySelector(".answer-box") ?? document.querySelector("main");
+  }
+  function ensureTermAddonSlot(name) {
+    let mount = document.getElementById(TERM_ADDONS_ID);
+    if (!mount) {
+      const anchor = findEarlyTermAddonAnchor();
+      if (!anchor) return null;
+      mount = document.createElement("section");
+      mount.id = TERM_ADDONS_ID;
+      mount.className = "yomu-jpdb-term-addons";
+      mount.setAttribute(ROOT_ATTR, "term-addons");
+      insertAfter(anchor, mount);
+    }
+    let slot = mount.querySelector(`:scope > [data-yomu-term-addon-slot="${cssEscape(name)}"]`);
+    if (!slot) {
+      slot = document.createElement("div");
+      slot.dataset.yomuTermAddonSlot = name;
+      mount.appendChild(slot);
+    }
+    return slot;
+  }
+  function findEarlyTermAddonAnchor() {
+    var _a;
+    const existing = lastConnectedElement([RTK_ID, UCHISEN_ID]);
+    if (existing) return existing;
+    const existingDoodle = document.querySelector('[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode]');
+    if (existingDoodle == null ? void 0 : existingDoodle.isConnected) return existingDoodle;
+    const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
+    const mnemonic = labels.find((label) => {
+      var _a2;
+      return (_a2 = label.textContent) == null ? void 0 : _a2.trim().toLowerCase().startsWith("mnemonic");
+    });
+    if ((mnemonic == null ? void 0 : mnemonic.nextElementSibling) instanceof HTMLElement) return mnemonic.nextElementSibling;
+    return ((_a = document.querySelector(".mnemonic")) == null ? void 0 : _a.closest(".subsection")) ?? document.querySelector(".result.kanji") ?? document.querySelector("main");
+  }
+  function pruneEmptyTermAddonMount() {
+    const mount = document.getElementById(TERM_ADDONS_ID);
+    if (!mount) return;
+    mount.querySelectorAll(":scope > [data-yomu-term-addon-slot]").forEach((slot) => {
+      if (!slot.children.length) slot.remove();
+    });
+    if (!mount.children.length) mount.remove();
   }
   function lastConnectedElement(ids) {
     return ids.map((id) => document.getElementById(id)).filter((element2) => Boolean(element2 == null ? void 0 : element2.isConnected)).sort((a, b) => {
@@ -14891,6 +15976,9 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
     container.className = "yomu-jpdb-addon-card";
     container.setAttribute(ROOT_ATTR, label);
     return container;
+  }
+  function createTermAddonContainer(id, label) {
+    return createAddonCard(id, label);
   }
   function insertAfter(anchor, element2) {
     var _a;
@@ -14990,8 +16078,8 @@ ${JSON.stringify(entry.glossary).slice(0, 120)}`;
       __publicField(this, "cache", /* @__PURE__ */ new Map());
     }
     lookup(spelling, reading) {
-      const normalizedSpelling = cleanText$3(spelling);
-      const normalizedReading = cleanText$3(reading);
+      const normalizedSpelling = cleanText$4(spelling);
+      const normalizedReading = cleanText$4(reading);
       if (!normalizedSpelling && !normalizedReading) return Promise.resolve([]);
       const key = `${normalizedSpelling}
 ${normalizedReading}`;
@@ -15023,7 +16111,7 @@ ${normalizedReading}`;
     const doc = new DOMParser().parseFromString(html, "text/html");
     const roots = Array.from(doc.querySelectorAll(".result.vocabulary"));
     const matchingRoots = roots.filter((root) => vocabularyRootMatches(root, spelling, reading));
-    const hasRequestedIdentity = Boolean(cleanText$3(spelling) || cleanText$3(reading));
+    const hasRequestedIdentity = Boolean(cleanText$4(spelling) || cleanText$4(reading));
     const candidates = matchingRoots.length ? matchingRoots : !hasRequestedIdentity && roots.length === 1 || documentMatchesVocabulary(doc, spelling, reading) ? [roots[0] ?? doc] : [];
     const patterns = candidates.flatMap(readPitchPatterns).filter(Boolean);
     return unique(patterns);
@@ -15043,7 +16131,7 @@ ${normalizedReading}`;
     const style = segment.getAttribute("style") ?? "";
     const level = style.includes("--pitch-high") ? "H" : style.includes("--pitch-low") ? "L" : "";
     if (!level) return "";
-    return level.repeat(splitMorae(cleanText$3(segment.textContent ?? "")).length);
+    return level.repeat(splitMorae(cleanText$4(segment.textContent ?? "")).length);
   }
   function vocabularyRootMatches(root, spelling, reading) {
     return vocabularyIdentities(root).some((identity) => vocabularyIdentityMatches(identity, spelling, reading));
@@ -15072,10 +16160,10 @@ ${normalizedReading}`;
     }
   }
   function vocabularyIdentityMatches(identity, spelling, reading) {
-    const requestedSpelling = cleanText$3(spelling);
-    const requestedReading = cleanText$3(reading);
-    const expression = cleanText$3(identity.expression);
-    const canonicalReading = cleanText$3(identity.reading);
+    const requestedSpelling = cleanText$4(spelling);
+    const requestedReading = cleanText$4(reading);
+    const expression = cleanText$4(identity.expression);
+    const canonicalReading = cleanText$4(identity.reading);
     const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
     if (!requested.size) return true;
     if (!requested.has(expression) && !requested.has(canonicalReading)) return false;
@@ -15097,7 +16185,7 @@ ${normalizedReading}`;
       return value;
     }
   }
-  function cleanText$3(value) {
+  function cleanText$4(value) {
     return value.replace(/\s+/g, "").trim();
   }
   function unique(values) {
@@ -15201,15 +16289,15 @@ ${normalizedReading}`;
     if (reviewLoginRequired(doc)) {
       return { connected: true, loginRequired: true, card: null, message: "Log in to JPDB, then open /review again." };
     }
-    const kindLabel = cleanText$2(((_a = doc.querySelector(".kind")) == null ? void 0 : _a.textContent) ?? "");
+    const kindLabel = cleanText$3(((_a = doc.querySelector(".kind")) == null ? void 0 : _a.textContent) ?? "");
     const sentenceElement = doc.querySelector(".card-sentence .sentence, .sentence, .plain");
-    const sentence = cleanText$2((sentenceElement == null ? void 0 : sentenceElement.textContent) ?? "");
-    const highlighted = cleanText$2(((_b = doc.querySelector(".highlight")) == null ? void 0 : _b.textContent) ?? "");
+    const sentence = cleanText$3((sentenceElement == null ? void 0 : sentenceElement.textContent) ?? "");
+    const highlighted = cleanText$3(((_b = doc.querySelector(".highlight")) == null ? void 0 : _b.textContent) ?? "");
     const { kanji, isKanji: isKanji2 } = reviewKindInfo(doc, cardState, kindLabel, highlighted);
     const phase = reviewPhase(doc, url, cardState.phase);
-    const keyword = sectionText(doc, "Keyword") || cleanText$2(((_c = doc.querySelector(".keyword")) == null ? void 0 : _c.textContent) ?? "");
-    const spelling = isKanji2 ? kanji : highlighted || firstJapaneseRun(sentence) || cleanText$2(((_d = doc.querySelector(".plain")) == null ? void 0 : _d.textContent) ?? "");
-    const prompt = isKanji2 ? keyword || cleanText$2(((_e = doc.querySelector(".plain")) == null ? void 0 : _e.textContent) ?? "") || kanji : sentence || spelling;
+    const keyword = sectionText(doc, "Keyword") || cleanText$3(((_c = doc.querySelector(".keyword")) == null ? void 0 : _c.textContent) ?? "");
+    const spelling = isKanji2 ? kanji : highlighted || firstJapaneseRun(sentence) || cleanText$3(((_d = doc.querySelector(".plain")) == null ? void 0 : _d.textContent) ?? "");
+    const prompt = isKanji2 ? keyword || cleanText$3(((_e = doc.querySelector(".plain")) == null ? void 0 : _e.textContent) ?? "") || kanji : sentence || spelling;
     const answer = isKanji2 ? kanji : spelling;
     if (!hasDetectedReviewCard(spelling, kanji, cardValue)) {
       return { connected: true, loginRequired: false, card: null, message: "JPDB review is open but no review card was detected." };
@@ -15314,7 +16402,7 @@ ${normalizedReading}`;
   }
   function formText(element2) {
     const input2 = element2;
-    return cleanText$2([
+    return cleanText$3([
       element2.textContent,
       input2.value,
       input2.name,
@@ -15336,15 +16424,15 @@ ${normalizedReading}`;
   }
   function sectionText(doc, label) {
     var _a, _b;
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$2(element2.textContent ?? "").toLocaleLowerCase() === label.toLocaleLowerCase());
-    return cleanText$2(((_b = (_a = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a.querySelector(".subsection")) == null ? void 0 : _b.textContent) ?? "");
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$3(element2.textContent ?? "").toLocaleLowerCase() === label.toLocaleLowerCase());
+    return cleanText$3(((_b = (_a = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a.querySelector(".subsection")) == null ? void 0 : _b.textContent) ?? "");
   }
   function readingFromDocument(doc) {
     var _a;
-    return cleanText$2(((_a = doc.querySelector(".plain ruby rt, rt, .reading")) == null ? void 0 : _a.textContent) ?? "");
+    return cleanText$3(((_a = doc.querySelector(".plain ruby rt, rt, .reading")) == null ? void 0 : _a.textContent) ?? "");
   }
   function itemsLeft(doc) {
-    const text2 = cleanText$2(doc.body.textContent ?? "");
+    const text2 = cleanText$3(doc.body.textContent ?? "");
     const match = /items?\s+left\s*\((\d+)\)|items?\s+left\s+(\d+)/i.exec(text2);
     if (!match) return null;
     const value = Number(match[1] ?? match[2]);
@@ -15352,12 +16440,12 @@ ${normalizedReading}`;
   }
   function firstJapaneseRun(value) {
     var _a;
-    return cleanText$2(((_a = value.match(/[\u3040-\u30ff\u3400-\u9fff々〆ー]+/u)) == null ? void 0 : _a[0]) ?? "");
+    return cleanText$3(((_a = value.match(/[\u3040-\u30ff\u3400-\u9fff々〆ー]+/u)) == null ? void 0 : _a[0]) ?? "");
   }
   function firstKanji(value) {
     return Array.from(value).find((character) => /[\u3400-\u9fff々〆]/u.test(character)) ?? "";
   }
-  function cleanText$2(value) {
+  function cleanText$3(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function safeUrl(value) {
@@ -15374,10 +16462,127 @@ ${normalizedReading}`;
       timer = window.setTimeout(callback, delay);
     };
   }
+  const log$e = Logger.scope("JpdbVocabulary");
+  const JPDB_VOCABULARY_BASE_URL = "https://jpdb.io/vocabulary";
+  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  class JpdbVocabularyClient {
+    constructor() {
+      __publicField(this, "cache", /* @__PURE__ */ new Map());
+    }
+    lookup(vid, spelling, reading) {
+      if (!vid || !spelling) return Promise.resolve(null);
+      const key = `${vid}:${spelling}:${reading}`;
+      let promise = this.cache.get(key);
+      if (!promise) {
+        promise = this.fetchInfo(vid, spelling, reading);
+        this.cache.set(key, promise);
+      }
+      return promise;
+    }
+    async fetchInfo(vid, spelling, reading) {
+      const url = `${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
+      const html = await requestText$3(url).catch((error) => {
+        log$e.warn("Vocabulary page request failed", { vid, spelling }, error);
+        return "";
+      });
+      return html ? parseJpdbVocabularyHtml(html) : null;
+    }
+  }
+  function parseJpdbVocabularyHtml(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const compounds = extractCompounds(doc);
+    const examples = extractExamples(doc);
+    return compounds.length || examples.length ? { compounds, examples } : null;
+  }
+  function extractCompounds(root) {
+    const entries = [];
+    root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").forEach((section) => {
+      var _a;
+      const label = cleanText$2(((_a = section.querySelector(".subsection-label")) == null ? void 0 : _a.textContent) ?? "").toLowerCase();
+      if (label && !label.startsWith("composed of")) return;
+      section.querySelectorAll(".subsection > div, .subsection .used-in").forEach((row) => {
+        var _a2;
+        const link = row.querySelector('a[href^="/vocabulary/"], a[href^="/kanji/"]');
+        const spelling = row.querySelector('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+        const term = cleanText$2(spelling ? baseText(spelling) : "") || cleanText$2((spelling == null ? void 0 : spelling.textContent) ?? "");
+        const reading = cleanText$2(spelling ? readingText(spelling) : "") || term;
+        if (!term || !JAPANESE_RE$1.test(term) || entries.some((entry) => entry.term === term)) return;
+        entries.push({
+          term,
+          reading,
+          meaning: cleanText$2(((_a2 = row.querySelector(".description, .en, .meaning")) == null ? void 0 : _a2.textContent) ?? ""),
+          url: (link == null ? void 0 : link.getAttribute("href")) ?? ""
+        });
+      });
+    });
+    return entries.slice(0, 8);
+  }
+  function extractExamples(root) {
+    const seen = /* @__PURE__ */ new Set();
+    const examples = [];
+    root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples").forEach((section) => {
+      section.querySelectorAll(".subsection > div, .example, li, p").forEach((row) => {
+        var _a;
+        const sentenceNode = row.querySelector(".sentence, .jp, .japanese, .plain") ?? row;
+        const sentence = cleanText$2(baseText(sentenceNode)) || cleanText$2(sentenceNode.textContent ?? "");
+        if (!sentence || !JAPANESE_RE$1.test(sentence) || seen.has(sentence)) return;
+        seen.add(sentence);
+        examples.push({
+          sentence,
+          translation: cleanText$2(((_a = row.querySelector(".translation, .en, .english")) == null ? void 0 : _a.textContent) ?? "")
+        });
+      });
+    });
+    return examples.slice(0, 5);
+  }
+  function baseText(root) {
+    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
+    if (root.nodeType !== Node.ELEMENT_NODE) return "";
+    const element2 = root;
+    if (element2.tagName === "RT" || element2.tagName === "RP") return "";
+    return Array.from(element2.childNodes).map(baseText).join("");
+  }
+  function readingText(root) {
+    var _a;
+    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
+    if (root.nodeType !== Node.ELEMENT_NODE) return "";
+    const element2 = root;
+    if (element2.tagName === "RT" || element2.tagName === "RP") return "";
+    if (element2.tagName === "RUBY") {
+      const rt = ((_a = Array.from(element2.children).find((child) => child.tagName === "RT")) == null ? void 0 : _a.textContent) ?? "";
+      return rt || baseText(element2);
+    }
+    return Array.from(element2.childNodes).map(readingText).join("");
+  }
+  function cleanText$2(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function requestText$3(url) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+      return new Promise((resolve, reject) => {
+        userscriptRequest({
+          method: "GET",
+          url,
+          timeout: 8e3,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ""));
+            else reject(new Error(`JPDB vocabulary request failed (${response.status}).`));
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("JPDB vocabulary request timed out."))
+        });
+      });
+    }
+    return fetch(url, { credentials: "include", redirect: "follow" }).then((response) => {
+      if (!response.ok) throw new Error(`JPDB vocabulary request failed (${response.status}).`);
+      return response.text();
+    });
+  }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const WIKTIONARY_PARSE_URL = "https://en.wiktionary.org/w/api.php?action=parse&prop=text&format=json&origin=*&page=";
   const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$e = Logger.scope("KanjiOrigin");
+  const log$d = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -15385,7 +16590,7 @@ ${normalizedReading}`;
     lookup(kanji, settings) {
       const key = Array.from(kanji)[0] ?? kanji;
       if (!key || !settings.kanjiOriginsEnabled) {
-        log$e.debug("Kanji origin lookup skipped", { kanji, enabled: settings.kanjiOriginsEnabled });
+        log$d.debug("Kanji origin lookup skipped", { kanji, enabled: settings.kanjiOriginsEnabled });
         return Promise.resolve(null);
       }
       const cacheKey = [
@@ -15395,46 +16600,46 @@ ${normalizedReading}`;
       ].join(":");
       let promise = this.cache.get(cacheKey);
       if (!promise) {
-        log$e.debug("Kanji origin cache miss", { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
+        log$d.debug("Kanji origin cache miss", { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
         promise = this.fetchInfo(key, settings);
         this.cache.set(cacheKey, promise);
       } else {
-        log$e.debug("Kanji origin cache hit", { kanji: key });
+        log$d.debug("Kanji origin cache hit", { kanji: key });
       }
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$e.time("Kanji origin lookup", { kanji });
+      const done = log$d.time("Kanji origin lookup", { kanji });
       const [kanjiMap, wiktionary] = await Promise.all([
         settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch((error) => {
-          log$e.warn("Kanji Map origin lookup failed", { kanji, error });
+          log$d.warn("Kanji Map origin lookup failed", { kanji, error });
           return void 0;
         }) : Promise.resolve(void 0),
         settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch((error) => {
-          log$e.warn("Wiktionary origin lookup failed", { kanji, error });
+          log$d.warn("Wiktionary origin lookup failed", { kanji, error });
           return void 0;
         }) : Promise.resolve(void 0)
       ]);
       const result = kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
-      log$e.debug("Kanji origin lookup completed", { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
+      log$d.debug("Kanji origin lookup completed", { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
       done();
       return result;
     }
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$e.time("Fetch Kanji Map info", { kanji });
+    const done = log$d.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
-    const raw = parseJson(await requestText$3(sourceUrl));
+    const raw = parseJson(await requestText$2(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
-    log$e.debug("Kanji Map info parsed", { kanji, found: Boolean(info), examples: (info == null ? void 0 : info.examples.length) ?? 0, references: (info == null ? void 0 : info.references.length) ?? 0 });
+    log$d.debug("Kanji Map info parsed", { kanji, found: Boolean(info), examples: (info == null ? void 0 : info.examples.length) ?? 0, references: (info == null ? void 0 : info.references.length) ?? 0 });
     done();
     return info;
   }
   async function fetchWiktionaryInfo(kanji) {
-    const done = log$e.time("Fetch Wiktionary info", { kanji });
-    const raw = parseJson(await requestText$3(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
+    const done = log$d.time("Fetch Wiktionary info", { kanji });
+    const raw = parseJson(await requestText$2(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
     const info = raw ? parseWiktionaryInfo(raw, kanji) : void 0;
-    log$e.debug("Wiktionary info parsed", { kanji, found: Boolean(info), glyphOrigin: (info == null ? void 0 : info.glyphOrigin.length) ?? 0, images: (info == null ? void 0 : info.images.length) ?? 0 });
+    log$d.debug("Wiktionary info parsed", { kanji, found: Boolean(info), glyphOrigin: (info == null ? void 0 : info.glyphOrigin.length) ?? 0, images: (info == null ? void 0 : info.images.length) ?? 0 });
     done();
     return info;
   }
@@ -15507,7 +16712,7 @@ ${normalizedReading}`;
     add("Radical", (map == null ? void 0 : map.radical) ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(" ") : void 0, "Kanji Alive / Jisho");
     if (!facts.has("Character")) add("Character", kanji, "current lookup");
     const result = Array.from(facts.values()).filter((fact) => fact.label !== "Character").slice(0, 6);
-    log$e.debug("Kanji facts built", { kanji, facts: result.map((fact) => fact.label) });
+    log$d.debug("Kanji facts built", { kanji, facts: result.map((fact) => fact.label) });
     return result;
   }
   function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null) {
@@ -15522,13 +16727,14 @@ ${normalizedReading}`;
       detail: first([jpdbInfo == null ? void 0 : jpdbInfo.keyword, rtkInfo == null ? void 0 : rtkInfo.keyword, (_a = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _a.meaning, meanings[0]]) ?? "current kanji",
       source: "current lookup"
     });
-    const addComponent = (id, detail, label, source) => {
+    const addComponent = (id, detail, label, source, position) => {
       if (!id || id === kanji) return;
       const existing = nodes.get(id);
       if (!existing) {
-        nodes.set(id, { id, label: id, kind: "component", detail, source });
-      } else if (!existing.detail && detail) {
-        existing.detail = detail;
+        nodes.set(id, { id, label: id, kind: "component", detail, source, position });
+      } else {
+        if (!existing.detail && detail) existing.detail = detail;
+        if (!existing.position && position) existing.position = position;
       }
       if (!edges.some((edge) => edge.from === id && edge.to === kanji && edge.label === label)) {
         edges.push({ from: id, to: kanji, label });
@@ -15550,7 +16756,8 @@ ${normalizedReading}`;
       sourceInfo.kanjiMap.radical.symbol,
       first([sourceInfo.kanjiMap.radical.meaning, sourceInfo.kanjiMap.radical.name]) ?? "radical",
       "radical",
-      "Kanji Alive / Jisho"
+      "Kanji Alive / Jisho",
+      sourceInfo.kanjiMap.radical.position
     );
     (_d = sourceInfo == null ? void 0 : sourceInfo.kanjiMap) == null ? void 0 : _d.parts.forEach((part) => addComponent(part, "structural part", "structural part", "Kanji structure"));
     jpdbInfo == null ? void 0 : jpdbInfo.components.forEach((component) => addComponent(component.kanji, component.keyword, "JPDB component", "JPDB"));
@@ -15562,7 +16769,7 @@ ${normalizedReading}`;
       edges.push({ from: id, to: kanji, label: "memory cue" });
     });
     const graph = { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
-    log$e.debug("Kanji origin graph built", { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
+    log$d.debug("Kanji origin graph built", { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
     return graph;
   }
   function readKanjiMapRadical(kanjiAlive, jisho) {
@@ -15813,10 +17020,10 @@ ${normalizedReading}`;
       return null;
     }
   }
-  function requestText$3(url) {
+  function requestText$2(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$e.debug("Kanji origin request using userscript request", { host: safeHost$2(url) });
+      log$d.debug("Kanji origin request using userscript request", { host: safeHost$2(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -15824,31 +17031,31 @@ ${normalizedReading}`;
           timeout: 1e4,
           onload: (response) => {
             if (response.status >= 200 && response.status < 300) {
-              log$e.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
+              log$d.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
               resolve(String(response.responseText ?? ""));
             } else {
-              log$e.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
+              log$d.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
               reject(new Error(`Kanji origin request failed (${response.status}).`));
             }
           },
           onerror: (error) => {
-            log$e.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+            log$d.warn("Kanji origin request failed", { host: safeHost$2(url), error });
             reject(error);
           },
           ontimeout: () => {
-            log$e.warn("Kanji origin request timed out", { host: safeHost$2(url) });
+            log$d.warn("Kanji origin request timed out", { host: safeHost$2(url) });
             reject(new Error("Kanji origin request timed out."));
           }
         });
       });
     }
-    log$e.debug("Kanji origin request using fetch", { host: safeHost$2(url) });
+    log$d.debug("Kanji origin request using fetch", { host: safeHost$2(url) });
     return fetch(url).then((response) => {
       if (!response.ok) {
-        log$e.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
+        log$d.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
         throw new Error(`Kanji origin request failed (${response.status}).`);
       }
-      log$e.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
+      log$d.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
       return response.text();
     });
   }
@@ -15863,30 +17070,36 @@ ${normalizedReading}`;
       return "";
     }
   }
-  const log$d = Logger.scope("KanjiDoodle");
+  const log$c = Logger.scope("KanjiDoodle");
   function installKanjiDoodle(popover, getLanguage, options = {}) {
+    var _a;
+    const root = popover;
+    (_a = root.__yomuKanjiDoodleCleanup) == null ? void 0 : _a.call(root);
+    delete root.__yomuKanjiDoodleCleanup;
     const stage = popover.querySelector(".jpdb-reader-doodle-stage");
     const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
     const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
     const clear = popover.querySelector("[data-doodle-clear]");
     const trace = popover.querySelector("[data-doodle-trace]");
     if (!stage || !canvas || !ghost) {
-      log$d.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
+      log$c.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
       return;
     }
     const context = canvas.getContext("2d");
     if (!context) {
-      log$d.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$c.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
-    log$d.debug("Kanji doodle installed", { kanji: stage.dataset.kanji ?? "" });
+    log$c.debug("Kanji doodle installed", { kanji: stage.dataset.kanji ?? "" });
     let dpr = 1;
     let drawing = false;
     let pointerId = -1;
-    let traceVisible = true;
+    let traceVisible = !ghost.hidden && !stage.classList.contains("trace-hidden");
     let points = [];
     let strokes = [];
     let canvasRect = canvas.getBoundingClientRect();
+    const controller = new AbortController();
+    const signal = controller.signal;
     const resize = () => {
       const rect = stage.getBoundingClientRect();
       dpr = Math.max(window.devicePixelRatio || 1, 1);
@@ -15894,7 +17107,7 @@ ${normalizedReading}`;
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
       canvasRect = canvas.getBoundingClientRect();
       redraw();
-      log$d.debugThrottled("resize", 1e3, "Kanji doodle resized", { width: canvas.width, height: canvas.height, dpr });
+      log$c.debugThrottled("resize", 1e3, "Kanji doodle resized", { width: canvas.width, height: canvas.height, dpr });
     };
     const toPoint = (event) => {
       return {
@@ -15905,7 +17118,8 @@ ${normalizedReading}`;
     };
     const strokeWidth = (point) => Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + ((point == null ? void 0 : point.pressure) ?? 0.55) * 0.42);
     const setupStroke = (point) => {
-      context.strokeStyle = "#141820";
+      const style = getComputedStyle(stage);
+      context.strokeStyle = style.getPropertyValue("--jpdb-reader-doodle-ink").trim() || getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text").trim() || "#141820";
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = strokeWidth(point);
@@ -15931,15 +17145,17 @@ ${normalizedReading}`;
       drawStroke(points);
     };
     const start = (event) => {
-      var _a;
+      var _a2;
+      const computedCanvas = getComputedStyle(canvas);
+      if (computedCanvas.pointerEvents === "none" || computedCanvas.visibility === "hidden") return;
       event.preventDefault();
       event.stopPropagation();
       drawing = true;
       pointerId = event.pointerId;
       canvasRect = canvas.getBoundingClientRect();
       points = [toPoint(event)];
-      (_a = canvas.setPointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
-      log$d.debug("Kanji doodle stroke started", { pointerType: event.pointerType, strokes: strokes.length });
+      (_a2 = canvas.setPointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
+      log$c.debug("Kanji doodle stroke started", { pointerType: event.pointerType, strokes: strokes.length });
     };
     const move = (event) => {
       if (!drawing || event.pointerId !== pointerId) return;
@@ -15954,7 +17170,7 @@ ${normalizedReading}`;
       }
     };
     const end = (event) => {
-      var _a, _b;
+      var _a2, _b;
       if (!drawing || event.pointerId !== pointerId) return;
       event.preventDefault();
       event.stopPropagation();
@@ -15962,25 +17178,25 @@ ${normalizedReading}`;
       points = [];
       drawing = false;
       pointerId = -1;
-      (_a = canvas.releasePointerCapture) == null ? void 0 : _a.call(canvas, event.pointerId);
+      (_a2 = canvas.releasePointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
       (_b = options.onChange) == null ? void 0 : _b.call(options, strokes.map((stroke) => [...stroke]));
-      log$d.debug("Kanji doodle stroke ended", { strokes: strokes.length });
+      log$c.debug("Kanji doodle stroke ended", { strokes: strokes.length });
     };
-    canvas.addEventListener("pointerdown", start, { passive: false });
-    canvas.addEventListener("pointermove", move, { passive: false });
-    canvas.addEventListener("pointerup", end, { passive: false });
-    canvas.addEventListener("pointercancel", end, { passive: false });
+    canvas.addEventListener("pointerdown", start, { passive: false, signal });
+    canvas.addEventListener("pointermove", move, { passive: false, signal });
+    canvas.addEventListener("pointerup", end, { passive: false, signal });
+    canvas.addEventListener("pointercancel", end, { passive: false, signal });
     clear == null ? void 0 : clear.addEventListener("click", (event) => {
-      var _a, _b;
+      var _a2, _b;
       event.preventDefault();
       event.stopPropagation();
       strokes = [];
       points = [];
       redraw();
-      (_a = options.onClear) == null ? void 0 : _a.call(options);
+      (_a2 = options.onClear) == null ? void 0 : _a2.call(options);
       (_b = options.onChange) == null ? void 0 : _b.call(options, []);
-      log$d.debug("Kanji doodle cleared");
-    });
+      log$c.debug("Kanji doodle cleared");
+    }, { signal });
     trace == null ? void 0 : trace.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -15988,14 +17204,20 @@ ${normalizedReading}`;
       ghost.hidden = !traceVisible;
       stage.classList.toggle("trace-hidden", !traceVisible);
       trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
-      log$d.debug("Kanji doodle trace toggled", { traceVisible });
-    });
+      log$c.debug("Kanji doodle trace toggled", { traceVisible });
+    }, { signal });
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
+    root.__yomuKanjiDoodleCleanup = () => {
+      controller.abort();
+      resizeObserver.disconnect();
+      if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;
+    };
     const disconnectWhenDetached = () => {
+      var _a2;
       if (!popover.isConnected) {
-        resizeObserver.disconnect();
-        log$d.debug("Kanji doodle detached");
+        (_a2 = root.__yomuKanjiDoodleCleanup) == null ? void 0 : _a2.call(root);
+        log$c.debug("Kanji doodle detached");
         return;
       }
       requestAnimationFrame(disconnectWhenDetached);
@@ -16163,86 +17385,6 @@ ${normalizedReading}`;
     }
     requestAnimationFrame(updateLines);
   }
-  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
-  const log$c = Logger.scope("KanjiVG");
-  class KanjiVGClient {
-    constructor() {
-      __publicField(this, "cache", /* @__PURE__ */ new Map());
-    }
-    lookup(kanji) {
-      const character = Array.from(kanji)[0] ?? "";
-      if (!character) return Promise.resolve(null);
-      let promise = this.cache.get(character);
-      if (!promise) {
-        log$c.debug("Lookup cache miss", { kanji: character });
-        promise = this.fetchSvg(character);
-        this.cache.set(character, promise);
-      } else {
-        log$c.debug("Lookup cache hit", { kanji: character });
-      }
-      return promise;
-    }
-    async fetchSvg(kanji) {
-      const url = kanjiVGUrl(kanji);
-      const svgText = await requestText$2(url).catch((error) => {
-        log$c.warn("Stroke-order request failed", { kanji }, error);
-        return "";
-      });
-      if (!svgText) return null;
-      const info = parseKanjiVGSvg(svgText, kanji);
-      log$c.debug("Stroke-order SVG parsed", { kanji, found: Boolean(info), strokes: (info == null ? void 0 : info.strokeCount) ?? 0 });
-      return info;
-    }
-  }
-  function kanjiVGUrl(kanji) {
-    const codePoint = kanji.codePointAt(0) ?? 0;
-    return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
-  }
-  function parseKanjiVGSvg(svgText, kanji) {
-    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
-    const sourceSvg = doc.querySelector("svg");
-    if (!sourceSvg) return null;
-    const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
-    const paths = Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => {
-      const d = path.getAttribute("d");
-      if (!d || !/^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/.test(d)) return "";
-      return `<path d="${escapeHtml$1(d)}" style="--stroke-index:${index}" />`;
-    }).filter(Boolean);
-    if (!paths.length) return null;
-    const numbers = Array.from(sourceSvg.querySelectorAll("text")).map((text2) => {
-      const transform = text2.getAttribute("transform") ?? "";
-      const label = (text2.textContent ?? "").trim();
-      if (!/^[\d]+$/.test(label) || !/^matrix\([0-9,.\-\s]+\)$/.test(transform)) return "";
-      return `<text transform="${escapeHtml$1(transform)}">${escapeHtml$1(label)}</text>`;
-    }).filter(Boolean);
-    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml$1(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml$1(kanji)}">
-        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
-        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
-    </svg>`;
-    return { kanji, svg, strokeCount: paths.length };
-  }
-  function requestText$2(url) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-      return new Promise((resolve, reject) => {
-        userscriptRequest({
-          method: "GET",
-          url,
-          timeout: 8e3,
-          onload: (response) => {
-            if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ""));
-            else reject(new Error(`Stroke-order request failed (${response.status}).`));
-          },
-          onerror: reject,
-          ontimeout: () => reject(new Error("Stroke-order request timed out."))
-        });
-      });
-    }
-    return fetch(url).then((response) => {
-      if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
-      return response.text();
-    });
-  }
   const AUTO_SCAN_OBSERVER_OPTIONS = { childList: true, subtree: true, characterData: true };
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   function mutationTouchesAsbPlayer(mutation) {
@@ -16348,6 +17490,7 @@ ${normalizedReading}`;
       __publicField(this, "visibleWords", []);
       __publicField(this, "index", 0);
       __publicField(this, "sourceLabel", "");
+      __publicField(this, "visiblePoolSignature", "");
       __publicField(this, "state");
       __publicField(this, "stateChannel");
       __publicField(this, "unsubscribeJpdbBridge");
@@ -16356,10 +17499,14 @@ ${normalizedReading}`;
       __publicField(this, "keywordCache", /* @__PURE__ */ new Map());
       __publicField(this, "kanjiInfoCache", /* @__PURE__ */ new Map());
       __publicField(this, "immersionCache", /* @__PURE__ */ new Map());
+      __publicField(this, "immersionExampleIndex", /* @__PURE__ */ new Map());
+      __publicField(this, "doodlePreviewCache", /* @__PURE__ */ new Map());
       __publicField(this, "immersionAudio");
       __publicField(this, "immersionAudioKey", "");
       __publicField(this, "immersionAudioRequestId", 0);
       __publicField(this, "dictionarySetupRequired", false);
+      __publicField(this, "loadGeneration", 0);
+      __publicField(this, "rootEventController");
       this.dependencies = dependencies;
       const saved = loadNewTabUiState();
       this.state = {
@@ -16405,10 +17552,16 @@ ${normalizedReading}`;
       else this.applyWords(root, true);
     }
     destroy() {
+      var _a;
       this.stateChannel.close();
       this.unsubscribeJpdbBridge();
+      (_a = this.rootEventController) == null ? void 0 : _a.abort();
+      this.rootEventController = void 0;
+      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      if (root) delete root.dataset.newtabBound;
     }
     renderEnabledContent() {
+      const brand = resolveNewTabBrandAssets(location.href);
       return fragment(
         el(
           "div",
@@ -16418,12 +17571,12 @@ ${normalizedReading}`;
             { class: "jpdb-reader-newtab-topbar" },
             el(
               "div",
-              { class: "VPNavBarTitle jpdb-reader-newtab-brand" },
+              { class: "VPNavBarTitle jpdb-reader-newtab-brand", "data-v-6aa21345": "", "data-v-1168a8e4": "" },
               el(
                 "a",
-                { class: "title", href: SUPPORT_LINKS.docs, "aria-label": `Open ${APP_NAME}` },
-                el("img", { class: "VPImage logo", src: `${SUPPORT_LINKS.docs}yomu-icon.svg`, alt: "", width: 32, height: 32 }),
-                el("span", {}, APP_NAME)
+                { class: "title", href: brand.homeHref, "data-v-1168a8e4": "" },
+                el("img", { class: "VPImage logo", src: brand.iconSrc, alt: "", width: 24, height: 24, "data-v-8426fc1a": "" }),
+                el("span", { "data-v-1168a8e4": "" }, APP_NAME)
               )
             ),
             el(
@@ -16497,10 +17650,19 @@ ${normalizedReading}`;
       );
     }
     bindRootEvents(root) {
+      var _a;
+      (_a = this.rootEventController) == null ? void 0 : _a.abort();
+      const controller = new AbortController();
       root.addEventListener("click", (event) => {
-        var _a, _b, _c, _d;
+        var _a2, _b, _c, _d, _e;
         const target = event.target;
-        const action = (_a = target.closest("[data-newtab-action]")) == null ? void 0 : _a.dataset.newtabAction;
+        const action = (_a2 = target.closest("[data-newtab-action]")) == null ? void 0 : _a2.dataset.newtabAction;
+        const immersionAction = (_b = target.closest("[data-immersion-action]")) == null ? void 0 : _b.dataset.immersionAction;
+        if (immersionAction) {
+          event.preventDefault();
+          this.performNewTabImmersionAction(root, immersionAction);
+          return;
+        }
         if (action === "settings") {
           event.preventDefault();
           this.dependencies.showSettings("basics");
@@ -16534,41 +17696,33 @@ ${normalizedReading}`;
         }
         if (action === "reveal") {
           event.preventDefault();
-          const current = this.visibleWords[this.index];
-          if ((current == null ? void 0 : current.reviewSource) === "jpdb-live" && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
-          this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
+          this.toggleReveal(root);
           return;
         }
         if (action === "grade") {
           event.preventDefault();
-          const grade = (_b = target.closest("[data-grade]")) == null ? void 0 : _b.dataset.grade;
+          const grade = (_c = target.closest("[data-grade]")) == null ? void 0 : _c.dataset.grade;
           if (grade) void this.gradeCurrentCard(grade);
-          return;
-        }
-        if (action === "newtab-immersion-audio") {
-          event.preventDefault();
-          const current = this.visibleWords[this.index];
-          if (current) void this.playCurrentImmersionAudio(current);
           return;
         }
         if (action === "jpdb-kanji-action") {
           event.preventDefault();
-          const actionId = ((_c = target.closest("[data-kanji-action-id]")) == null ? void 0 : _c.dataset.kanjiActionId) ?? "";
+          const actionId = ((_d = target.closest("[data-kanji-action-id]")) == null ? void 0 : _d.dataset.kanjiActionId) ?? "";
           void this.performJpdbKanjiAction(root, actionId);
           return;
         }
         if (action === "mode") {
           event.preventDefault();
-          const mode = ((_d = target.closest("[data-mode]")) == null ? void 0 : _d.dataset.mode) === "kanji" ? "kanji" : "word";
+          const mode = ((_e = target.closest("[data-mode]")) == null ? void 0 : _e.dataset.mode) === "kanji" ? "kanji" : "word";
           this.setState({ mode, revealAnswer: false }, root, { preserveWord: false });
           return;
         }
         const study = target.closest("[data-newtab-study]");
         if (study && !target.closest(".jpdb-reader-word, .jpdb-reader-doodle-stage, audio, button, a")) {
           event.preventDefault();
-          this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
+          this.toggleReveal(root);
         }
-      });
+      }, { signal: controller.signal });
       root.addEventListener("keydown", (event) => {
         if (root.dataset.standaloneNewtab === "true" && !this.allWords.length) return;
         const target = event.target;
@@ -16585,9 +17739,15 @@ ${normalizedReading}`;
         }
         if (event.key === " " || event.key === "Enter") {
           event.preventDefault();
-          this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
+          this.toggleReveal(root);
         }
-      });
+      }, { signal: controller.signal });
+      this.rootEventController = controller;
+    }
+    toggleReveal(root) {
+      const current = this.visibleWords[this.index];
+      if ((current == null ? void 0 : current.reviewSource) === "jpdb-live" && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
+      this.setState({ revealAnswer: !this.state.revealAnswer }, root, { preserveWord: true });
     }
     applyPalette() {
       const settings = this.dependencies.getSettings();
@@ -16599,26 +17759,31 @@ ${normalizedReading}`;
       document.documentElement.style.setProperty("--jpdb-reader-state-ignored", settings.wordColorIgnored);
     }
     async loadWordsInto(root, preferStoredWord) {
+      const loadGeneration = ++this.loadGeneration;
       try {
-        this.setStatus(root, "Loading...");
-        const result = await this.loadWords((message) => this.setStatus(root, message));
+        const onProgress = (message) => {
+          if (!this.isCurrentLoad(loadGeneration)) return;
+          this.setStatus(root, message);
+        };
+        onProgress("Loading...");
+        const result = await this.loadWords(onProgress);
+        if (!this.isCurrentLoad(loadGeneration)) return;
+        this.dictionarySetupRequired = result.needsDictionarySetup;
         this.allWords = dedupeWords(result.cards).slice(0, NEW_TAB_WORD_LIMIT);
         this.sourceLabel = result.sourceLabel;
         if (this.allWords.length) void this.writeOfflineCache(this.allWords, this.sourceLabel);
         if (!this.allWords.length) {
           const cached = await this.readOfflineCache();
+          if (!this.isCurrentLoad(loadGeneration)) return;
           if (cached.cards.length) {
             this.allWords = cached.cards;
             this.sourceLabel = `${cached.sourceLabel} (offline)`;
-            this.setStatus(root, "Offline cache");
+            if (this.isCurrentLoad(loadGeneration)) this.setStatus(root, "Offline cache");
           }
         }
+        if (!this.isCurrentLoad(loadGeneration)) return;
         this.dependencies.parser.cacheCards(this.allWords);
         if (!this.allWords.length) {
-          if (root.dataset.standaloneNewtab === "true") {
-            this.setStatus(root, "");
-            return;
-          }
           if (this.dictionarySetupRequired) {
             if (this.consumeDictionarySetupRequest()) {
               this.renderDictionarySetup(root);
@@ -16636,6 +17801,7 @@ ${normalizedReading}`;
       } catch (error) {
         log$b.warn("Failed to load words", error);
         const cached = await this.readOfflineCache();
+        if (!this.isCurrentLoad(loadGeneration)) return;
         if (cached.cards.length) {
           this.allWords = cached.cards;
           this.sourceLabel = `${cached.sourceLabel} (offline)`;
@@ -16648,11 +17814,11 @@ ${normalizedReading}`;
       }
     }
     async loadWords(onProgress) {
-      this.dictionarySetupRequired = false;
       const source = this.state.source;
-      const sourceOrder = source === "auto" ? ["anki", "jpdb", "dictionary"] : source === "dictionary" ? ["dictionary"] : [source, "dictionary"];
+      const sourceOrder = source === "auto" ? ["anki", "jpdb"] : [source];
       const labels = [];
       const cards = [];
+      let dictionarySetupRequired = false;
       for (const item of sourceOrder) {
         if (item === "anki") {
           const result = await this.loadAnkiWords();
@@ -16669,57 +17835,73 @@ ${normalizedReading}`;
           }
         }
         if (item === "dictionary") {
-          if (source === "auto" && cards.length > 0) continue;
           const result = await this.loadDictionaryWords(onProgress);
+          if (result.needsDictionarySetup) {
+            dictionarySetupRequired = true;
+          }
           if (result.cards.length) {
             cards.push(...result.cards);
             labels.push(result.sourceLabel);
           }
         }
       }
+      if (source === "auto" && cards.length === 0) {
+        const result = await this.loadDictionaryWords(onProgress);
+        if (result.needsDictionarySetup) {
+          dictionarySetupRequired = true;
+        }
+        if (result.cards.length) {
+          cards.push(...result.cards);
+          labels.push(result.sourceLabel);
+        }
+      }
       return {
         cards,
-        sourceLabel: labels.length ? labels.join(" + ") : "No source"
+        sourceLabel: labels.length ? labels.join(" + ") : "No source",
+        needsDictionarySetup: cards.length === 0 && dictionarySetupRequired
       };
     }
     async loadAnkiWords() {
       const settings = this.dependencies.getSettings();
-      if (!settings.ankiEnabled) return { cards: [], sourceLabel: "Anki" };
+      if (!settings.ankiEnabled) return { cards: [], sourceLabel: "Anki", needsDictionarySetup: false };
       const cards = await this.dependencies.anki.listNewTabCards(80).catch((error) => {
         log$b.debug("Anki new tab source unavailable", error);
         return [];
       });
-      return { cards, sourceLabel: cards.length ? "Anki" : "Anki" };
+      return { cards, sourceLabel: cards.length ? "Anki" : "Anki", needsDictionarySetup: false };
     }
     async loadDictionaryWords(_onProgress) {
       const settings = this.dependencies.getSettings();
       try {
         const summary = await this.dependencies.dictionaries.summary().catch(() => null);
-        const entries = (summary == null ? void 0 : summary.terms) ? await this.dependencies.dictionaries.listRandomTopTerms(90, 4e3, settings.dictionaryPreferences) : [];
-        if (!entries.length) this.dictionarySetupRequired = true;
+        if (!(summary == null ? void 0 : summary.dictionaries.length)) {
+          return { cards: [], sourceLabel: "Dictionaries", needsDictionarySetup: true };
+        }
+        const entries = await this.dependencies.dictionaries.listRandomTopTerms(90, 4e3, settings.dictionaryPreferences);
         return {
           cards: entries.map((entry) => this.dependencies.parser.localCardFromEntry(entry)),
-          sourceLabel: "Dictionaries"
+          sourceLabel: "Dictionaries",
+          needsDictionarySetup: false
         };
       } catch (error) {
         log$b.debug("Dictionary word load failed", error);
-        return { cards: [], sourceLabel: "Dictionaries" };
+        return { cards: [], sourceLabel: "Dictionaries", needsDictionarySetup: false };
       }
     }
     async loadJpdbWords() {
       const settings = this.dependencies.getSettings();
       if (settings.newTabJpdbReviewMode !== "api-vocabulary") {
         const live = this.liveCardFromBridge();
-        if (live) return { cards: [live], sourceLabel: "JPDB live review" };
+        if (live) return { cards: [live], sourceLabel: "JPDB live review", needsDictionarySetup: false };
         this.dependencies.jpdbReviewBridge.requestCurrent();
-        if (settings.newTabJpdbReviewMode === "live-review") return { cards: [], sourceLabel: "JPDB live review" };
+        if (settings.newTabJpdbReviewMode === "live-review") return { cards: [], sourceLabel: "JPDB live review", needsDictionarySetup: false };
       }
-      if (!settings.apiKey.trim()) return { cards: [], sourceLabel: "JPDB" };
+      if (!settings.apiKey.trim()) return { cards: [], sourceLabel: "JPDB", needsDictionarySetup: false };
       const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
       if (selectedDeck !== JPDB_ALL_DECKS) {
         try {
           const cards2 = await this.dependencies.jpdb.listDeckCards(selectedDeck, 90);
-          return { cards: cards2, sourceLabel: "JPDB" };
+          return { cards: cards2, sourceLabel: "JPDB", needsDictionarySetup: false };
         } catch (error) {
           log$b.debug("JPDB selected deck load failed", { deckId: selectedDeck }, error);
         }
@@ -16734,7 +17916,10 @@ ${normalizedReading}`;
           log$b.debug("JPDB all-decks sample failed", { deck: deck.id }, error);
         }
       }
-      return { cards, sourceLabel: "JPDB" };
+      return { cards, sourceLabel: "JPDB", needsDictionarySetup: false };
+    }
+    isCurrentLoad(loadGeneration) {
+      return this.loadGeneration === loadGeneration;
     }
     setState(patch, root, options) {
       this.state = { ...this.state, ...patch };
@@ -16762,14 +17947,28 @@ ${normalizedReading}`;
       }
       const cardsForMode = (cards) => this.state.mode === "kanji" ? cards.filter((card) => kanjiCharacters(card.spelling).length > 0 || Boolean(card.kanjiKeyword)) : cards;
       const baseWords = selectNewTabStudyPool(cardsForMode(this.allWords));
-      this.visibleWords = shuffleCards(baseWords);
+      const poolSignature = this.newTabPoolSignature(baseWords);
+      const poolChanged = poolSignature !== this.visiblePoolSignature;
+      if (poolChanged) {
+        this.visibleWords = shuffleCards(baseWords);
+        this.visiblePoolSignature = poolSignature;
+      }
       if (!this.visibleWords.length) {
         this.index = 0;
         this.renderEmpty(root, "よむ", this.state.mode === "kanji" ? "No kanji cards yet." : "No words yet.");
         return;
       }
-      this.index = this.resolveInitialIndex(preferStoredWord);
+      if (poolChanged || preferStoredWord) this.index = this.resolveInitialIndex(preferStoredWord);
+      this.index = Math.max(0, Math.min(this.index, this.visibleWords.length - 1));
       this.renderWord(root, this.visibleWords[this.index]);
+    }
+    newTabPoolSignature(cards) {
+      return [
+        this.state.source,
+        this.state.mode,
+        this.sourceLabel,
+        ...cards.map((card) => cardKey$2(card))
+      ].join("|");
     }
     resolveInitialIndex(preferStoredWord) {
       if (preferStoredWord) {
@@ -16833,39 +18032,57 @@ ${normalizedReading}`;
       const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? "字";
       const keyword = this.kanjiKeyword(card, kanji);
       if (slots.prompt) {
-        slots.prompt.lang = "en";
+        slots.prompt.lang = this.state.revealAnswer ? "ja" : "en";
         slots.prompt.dataset.newtabExpression = "true";
-        slots.prompt.textContent = keyword || "keyword";
+        slots.prompt.textContent = this.state.revealAnswer ? kanji : keyword || "keyword";
       }
       if (slots.answer) {
-        replaceChildrenWith(
-          slots.answer,
-          el(
-            "div",
-            { class: "jpdb-reader-newtab-kanji-answer" },
-            el("div", { class: "jpdb-reader-newtab-kanji-glyph", lang: "ja" }, kanji),
-            el("div", { class: "jpdb-reader-newtab-kanji-svg", dataset: { newtabKanjiSvg: kanji } }, kanji),
+        if (this.state.revealAnswer) {
+          const preview = this.doodlePreviewCache.get(cardKey$2(card));
+          replaceChildrenWith(
+            slots.answer,
             el(
               "div",
-              { class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle", dataset: { kanji } },
-              el("div", { class: "jpdb-reader-doodle-ghost", dataset: { newtabDoodleGhost: true } }),
-              el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": `Draw ${kanji}` }),
+              { class: "jpdb-reader-newtab-kanji-answer" },
+              el("div", { class: "jpdb-reader-newtab-kanji-svg", dataset: { newtabKanjiSvg: kanji } }, kanji),
               el(
                 "div",
-                { class: "jpdb-reader-newtab-doodle-actions" },
-                el("button", { type: "button", dataset: { doodleClear: true } }, "Clear"),
-                el("button", { type: "button", dataset: { doodleTrace: true } }, "Ghost")
+                { class: "jpdb-reader-newtab-doodle-preview" },
+                preview ? el("img", { src: preview, alt: `Your ${kanji} drawing` }) : null
               )
-            ),
-            el("div", { class: "jpdb-reader-newtab-doodle-result", dataset: { newtabDoodleResult: true } })
-          )
-        );
-        installKanjiDoodle(slots.answer, () => this.dependencies.getSettings().interfaceLanguage, {
-          onChange: (strokes) => this.assessDoodle(slots, card, kanji, strokes),
-          onClear: () => this.clearDoodleAssessment(slots)
-        });
+            )
+          );
+        } else {
+          replaceChildrenWith(
+            slots.answer,
+            el(
+              "div",
+              { class: "jpdb-reader-newtab-kanji-front" },
+              el(
+                "div",
+                { class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden", dataset: { kanji } },
+                el("div", { class: "jpdb-reader-doodle-ghost", dataset: { newtabDoodleGhost: true }, hidden: true }),
+                el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": `Draw ${kanji}` })
+              ),
+              el(
+                "div",
+                { class: "jpdb-reader-doodle-tools jpdb-reader-newtab-doodle-actions" },
+                el("button", { class: "jpdb-reader-btn jpdb-reader-doodle-control", type: "button", dataset: { doodleTrace: true } }, "Show trace"),
+                el("button", { class: "jpdb-reader-btn jpdb-reader-doodle-control", type: "button", dataset: { doodleClear: true } }, "Clear")
+              ),
+              el("div", { class: "jpdb-reader-newtab-doodle-result", dataset: { newtabDoodleResult: true } })
+            )
+          );
+          installKanjiDoodle(slots.answer, () => this.dependencies.getSettings().interfaceLanguage, {
+            onChange: (strokes) => this.assessDoodle(slots, card, kanji, strokes),
+            onClear: () => {
+              this.doodlePreviewCache.delete(cardKey$2(card));
+              this.clearDoodleAssessment(slots);
+            }
+          });
+        }
       }
-      if (slots.meaning) slots.meaning.textContent = `${card.reading}${firstCardMeaning(card) ? ` · ${firstCardMeaning(card)}` : ""}`;
+      if (slots.meaning && !this.state.revealAnswer) slots.meaning.replaceChildren();
       void this.enrichKanjiCard(slots, card, kanji, state);
     }
     renderWordPrompt(slots, card, state) {
@@ -16874,8 +18091,11 @@ ${normalizedReading}`;
         slots.prompt.dataset.newtabExpression = "true";
         replaceChildrenWith(slots.prompt, this.renderSentencePrompt(card, state));
       }
-      if (slots.answer) slots.answer.textContent = card.reading && card.reading !== card.spelling ? card.reading : "";
-      if (slots.meaning) replaceChildrenWith(slots.meaning, el("div", {}, firstCardMeaning(card)));
+      if (slots.answer) slots.answer.textContent = this.state.revealAnswer && card.reading && card.reading !== card.spelling ? card.reading : "";
+      if (slots.meaning) {
+        if (this.state.revealAnswer) replaceChildrenWith(slots.meaning, el("div", {}, firstCardMeaning(card)));
+        else slots.meaning.replaceChildren();
+      }
       void this.renderImmersionExample(slots, card);
     }
     renderSentencePrompt(card, state) {
@@ -16899,13 +18119,15 @@ ${normalizedReading}`;
     async renderImmersionExample(slots, card) {
       if (!this.state.revealAnswer || !slots.meaning || !this.dependencies.getSettings().immersionKitEnabled) return;
       const key = cardKey$2(card);
-      const example = await this.loadImmersionExample(card);
-      if (!example || cardKey$2(this.visibleWords[this.index]) !== key || !slots.meaning.isConnected) return;
-      slots.meaning.append(this.renderNewTabImmersionCard(card, example));
-      this.loadNewTabImmersionImage(slots.meaning, example);
+      const examples = await this.loadImmersionExamples(card);
+      if (!examples.length || cardKey$2(this.visibleWords[this.index]) !== key || !slots.meaning.isConnected) return;
+      const index = this.normalizedImmersionExampleIndex(key, examples);
+      slots.meaning.append(this.renderNewTabImmersionCard(card, examples, index));
+      this.loadNewTabImmersionImage(slots.meaning, examples[index]);
     }
-    renderNewTabImmersionCard(card, example) {
+    renderNewTabImmersionCard(card, examples, index) {
       const settings = this.dependencies.getSettings();
+      const example = examples[index];
       const sentence = document.createElement("div");
       sentence.className = "jpdb-reader-example-sentence jpdb-reader-parseable";
       sentence.lang = "ja";
@@ -16922,21 +18144,37 @@ ${normalizedReading}`;
       const audioButton = el("button", {
         class: "jpdb-reader-icon-mini",
         type: "button",
-        dataset: { newtabAction: "newtab-immersion-audio" },
-        title: "Play audio",
-        "aria-label": "Play audio"
+        dataset: { immersionAction: "audio" },
+        title: "Play example audio",
+        "aria-label": "Play example audio"
       });
       setInnerHtml(audioButton, speakerIcon());
       return el(
         "div",
         { class: "jpdb-reader-newtab-immersion" },
         el(
-          "div",
-          { class: "jpdb-reader-example-summary" },
-          el("span", { class: "jpdb-reader-example-source" }, "Immersion Kit"),
-          el("span", { class: "jpdb-reader-local-dict" }, example.sourceTitle),
-          el("span"),
-          audioButton
+          "summary",
+          { class: "jpdb-reader-local-title jpdb-reader-example-summary" },
+          el("span", { class: "jpdb-reader-local-dict" }, `${example.sourceTitle} · ${index + 1}/${examples.length}`),
+          el(
+            "div",
+            { class: "jpdb-reader-example-actions", role: "group", "aria-label": "Immersion Kit example controls" },
+            el("button", {
+              class: "jpdb-reader-icon-mini",
+              type: "button",
+              dataset: { immersionAction: "previous" },
+              title: "Previous example",
+              "aria-label": "Previous example"
+            }, "‹"),
+            audioButton,
+            el("button", {
+              class: "jpdb-reader-icon-mini",
+              type: "button",
+              dataset: { immersionAction: "next" },
+              title: "Next example",
+              "aria-label": "Next example"
+            }, "›")
+          )
         ),
         el(
           "div",
@@ -16955,6 +18193,30 @@ ${normalizedReading}`;
         )
       );
     }
+    performNewTabImmersionAction(root, action) {
+      const current = this.visibleWords[this.index];
+      if (!current) return;
+      if (action === "audio") {
+        void this.playCurrentImmersionAudio(current);
+        return;
+      }
+      if (action !== "previous" && action !== "next") return;
+      const key = cardKey$2(current);
+      const cached = this.immersionCache.get(current.spelling.trim());
+      void (cached == null ? void 0 : cached.then((examples) => {
+        if (!examples.length || cardKey$2(this.visibleWords[this.index]) !== key) return;
+        const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
+        const delta = action === "next" ? 1 : -1;
+        this.immersionExampleIndex.set(key, (currentIndex + delta + examples.length) % examples.length);
+        this.renderWord(root, current);
+      }));
+    }
+    normalizedImmersionExampleIndex(key, examples) {
+      const index = this.immersionExampleIndex.get(key) ?? 0;
+      if (index >= 0 && index < examples.length) return index;
+      this.immersionExampleIndex.set(key, 0);
+      return 0;
+    }
     loadNewTabImmersionImage(root, example) {
       const image = root.querySelector(".jpdb-reader-newtab-immersion [data-yomu-immersion-image-src]");
       if (!image) return;
@@ -16971,7 +18233,8 @@ ${normalizedReading}`;
     }
     async playCurrentImmersionAudio(card) {
       var _a;
-      const example = await this.loadImmersionExample(card);
+      const examples = await this.loadImmersionExamples(card);
+      const example = examples[this.normalizedImmersionExampleIndex(cardKey$2(card), examples)];
       if (!example) return;
       const urls = this.dependencies.immersionKit.mediaUrls(example, "sound");
       const key = urls[0] ?? "";
@@ -16995,11 +18258,11 @@ ${normalizedReading}`;
       audio.addEventListener("error", cleanup, { once: true });
       await audio.play().catch(cleanup);
     }
-    loadImmersionExample(card) {
+    loadImmersionExamples(card) {
       const query = card.spelling.trim();
       const existing = this.immersionCache.get(query);
       if (existing) return existing;
-      const promise = this.dependencies.immersionKit.search(query, this.dependencies.getSettings()).then((examples) => examples[0] ?? null).catch(() => null);
+      const promise = this.dependencies.immersionKit.search(query, this.dependencies.getSettings()).catch(() => []);
       this.immersionCache.set(query, promise);
       return promise;
     }
@@ -17008,32 +18271,71 @@ ${normalizedReading}`;
       return this.keywordCache.get(kanji) || card.kanjiKeyword || ((_a = firstCardMeaning(card).split(/[;；,，]/)[0]) == null ? void 0 : _a.trim()) || card.reading || kanji;
     }
     async enrichKanjiCard(slots, card, kanji, state) {
-      var _a, _b;
+      var _a;
       const key = cardKey$2(card);
       const details = await this.loadKanjiDetails(kanji);
       if (cardKey$2(this.visibleWords[this.index]) !== key) return;
       const keyword = this.keywordFromDetails(card, details.jpdb, details.rtk);
       if (keyword) {
         this.keywordCache.set(kanji, keyword);
-        if (slots.prompt) slots.prompt.textContent = keyword;
+        if (slots.prompt && !this.state.revealAnswer) slots.prompt.textContent = keyword;
       }
       if (slots.answer && ((_a = details.vg) == null ? void 0 : _a.svg)) {
         const svg = slots.answer.querySelector("[data-newtab-kanji-svg]");
         const ghost = slots.answer.querySelector("[data-newtab-doodle-ghost]");
-        if (svg) setInnerHtml(svg, details.vg.svg);
+        if (this.state.revealAnswer && svg) setInnerHtml(svg, details.vg.svg);
         if (ghost) setInnerHtml(ghost, details.vg.svg);
       }
-      if (slots.meaning) {
-        const readings2 = ((_b = details.jpdb) == null ? void 0 : _b.readings.slice(0, 4).map((item) => item.reading).join(" / ")) || card.reading;
-        const meaning = firstCardMeaning(card);
-        const miningActions = this.state.revealAnswer ? this.renderKanjiMiningControls(details.jpdb) : null;
-        replaceChildrenWith(
-          slots.meaning,
-          el("div", {}, [readings2, meaning].filter(Boolean).join(" · ")),
-          el("div", { class: "jpdb-reader-newtab-kanji-popover-word" }, this.renderReaderWord(card, state, kanji, sentenceForCard(card))),
-          miningActions
-        );
+      if (this.state.revealAnswer && slots.meaning) {
+        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, state));
       }
+    }
+    renderKanjiDetails(card, kanji, info, rtk, state) {
+      const readings2 = (info == null ? void 0 : info.readings.slice(0, 8)) ?? [];
+      const facts = [
+        (info == null ? void 0 : info.keyword) ? ["Keyword", info.keyword] : null,
+        (info == null ? void 0 : info.type) ? ["Type", info.type] : null,
+        (info == null ? void 0 : info.frequency) ? ["Frequency", info.frequency] : null,
+        (info == null ? void 0 : info.kanken) ? ["Kanken", info.kanken] : null,
+        (info == null ? void 0 : info.heisig) || (rtk == null ? void 0 : rtk.frameNumber) ? ["Heisig", [info == null ? void 0 : info.heisig, (rtk == null ? void 0 : rtk.frameNumber) ? `#${rtk.frameNumber}` : ""].filter(Boolean).join(" ")] : null
+      ].filter((item) => Boolean(item));
+      const miningActions = this.renderKanjiMiningControls(info);
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-kanji-details" },
+        facts.length ? el(
+          "div",
+          { class: "jpdb-reader-kanji-facts" },
+          facts.map(([label, value]) => el("span", {}, el("strong", {}, label), value))
+        ) : el("div", { class: "jpdb-reader-help" }, firstCardMeaning(card)),
+        readings2.length ? el(
+          "div",
+          { class: "jpdb-reader-kanji-readings" },
+          readings2.map((reading) => el("span", {}, `${reading.reading}${reading.share ? ` ${reading.share}` : ""}`))
+        ) : null,
+        (info == null ? void 0 : info.components.length) ? el(
+          "div",
+          { class: "jpdb-reader-component-grid" },
+          info.components.slice(0, 8).map((component) => el("button", {
+            class: "jpdb-reader-component-card",
+            type: "button",
+            dataset: { action: "kanji", kanji: component.kanji },
+            title: `Show kanji: ${component.kanji}`
+          }, el("strong", {}, component.kanji), el("span", {}, component.keyword)))
+        ) : null,
+        (info == null ? void 0 : info.vocabulary.length) ? el(
+          "div",
+          { class: "jpdb-reader-newtab-kanji-vocab" },
+          info.vocabulary.slice(0, 5).map((item) => el(
+            "span",
+            {},
+            el("strong", {}, item.expression),
+            [item.reading, item.meaning].filter(Boolean).join(" · ")
+          ))
+        ) : null,
+        (info == null ? void 0 : info.mnemonic) ? el("p", { class: "jpdb-reader-newtab-kanji-mnemonic" }, info.mnemonic) : null,
+        miningActions
+      );
     }
     renderKanjiMiningControls(info) {
       const actions = visibleJpdbKanjiActions(info);
@@ -17070,12 +18372,27 @@ ${normalizedReading}`;
     async assessDoodle(slots, card, kanji, strokes) {
       var _a;
       const settings = this.dependencies.getSettings();
+      this.captureDoodlePreview(slots, card);
       if (!settings.newTabKanjiAutogradeEnabled) return;
       const details = await this.loadKanjiDetails(kanji);
-      const assessment = assessKanjiStrokes(strokes, ((_a = details.vg) == null ? void 0 : _a.strokeCount) ?? strokes.length);
+      const expectedStrokes = ((_a = details.vg) == null ? void 0 : _a.strokeCount) ?? 0;
+      if (expectedStrokes > 0 && strokes.length < expectedStrokes) {
+        this.clearDoodleAssessment(slots);
+        return;
+      }
+      const assessment = assessKanjiStrokes(strokes, expectedStrokes || strokes.length);
       this.renderDoodleAssessment(slots, assessment);
       if (settings.newTabKanjiAutoSubmit && this.state.revealAnswer) {
         void this.gradeCurrentCard(assessment.passed ? "pass" : "fail");
+      }
+    }
+    captureDoodlePreview(slots, card) {
+      var _a;
+      const canvas = (_a = slots.answer) == null ? void 0 : _a.querySelector(".jpdb-reader-doodle-canvas");
+      if (!canvas) return;
+      try {
+        this.doodlePreviewCache.set(cardKey$2(card), canvas.toDataURL("image/png"));
+      } catch {
       }
     }
     renderDoodleAssessment(slots, assessment) {
@@ -17141,7 +18458,8 @@ ${normalizedReading}`;
       }
     }
     async installStarterDictionary(root) {
-      if (!getUserscriptHttpRequest()) {
+      if (!hasYomuRuntime()) {
+        this.setStatus(root, "");
         this.dependencies.showSettings("dictionaries");
         return;
       }
@@ -17156,7 +18474,7 @@ ${normalizedReading}`;
         await this.loadWordsInto(root, false);
       } catch (error) {
         log$b.warn("Starter dictionary setup failed", error);
-        this.setStatus(root, "Could not add the dictionary. Check your connection and try again.");
+        this.setStatus(root, error instanceof Error ? error.message : "Could not add the dictionary. Check your connection and try again.");
       }
     }
     consumeDictionarySetupRequest() {
@@ -17196,9 +18514,7 @@ ${normalizedReading}`;
     renderInstallCta(root) {
       const install = root.querySelector("[data-newtab-install]");
       if (!install) return;
-      const runtime = globalThis;
-      const hasRuntime = Boolean(runtime.GM_info || runtime.__YOMU_READER_RUNTIME__);
-      install.hidden = hasRuntime || root.dataset.standaloneNewtab !== "true";
+      install.hidden = hasYomuRuntime() || root.dataset.standaloneNewtab !== "true";
     }
     isReviewCard(card) {
       return card.reviewSource === "anki" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.source === "anki" || card.source === "jpdb" && card.vid > 0 && card.sid > 0;
@@ -17405,6 +18721,10 @@ ${card.reading}`;
     if (card.source === "anki") return 1;
     return 2;
   }
+  function hasYomuRuntime() {
+    const runtime = globalThis;
+    return Boolean(runtime.GM_info || runtime.__YOMU_READER_RUNTIME__);
+  }
   function shouldShowInStudyQueue(card) {
     if (card.source === "local" || card.source === "fallback") return true;
     if (card.reviewSource === "jpdb-live") return true;
@@ -17412,15 +18732,8 @@ ${card.reading}`;
     return states.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "not-in-deck");
   }
   function selectNewTabStudyPool(cards) {
-    const dueReviewCards = cards.filter(shouldPrioritizeReviewCard);
-    if (dueReviewCards.length) return dueReviewCards;
     const studyCards = cards.filter(shouldShowInStudyQueue);
     return studyCards.length ? studyCards : cards;
-  }
-  function shouldPrioritizeReviewCard(card) {
-    if (card.source === "local" || card.source === "fallback") return false;
-    if (card.reviewSource === "jpdb-live") return true;
-    return (card.cardState ?? []).some((state) => state === "failed" || state === "due" || state === "learning");
   }
   function sentenceForCard(card) {
     var _a, _b;
@@ -17659,14 +18972,22 @@ ${card.reading}`;
       this.mutationObserver = new MutationObserver((mutations) => {
         var _a, _b;
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled || !settings.ocrAutoScanImages || ((_b = (_a = this.options).shouldAutoScan) == null ? void 0 : _b.call(_a)) === false) return;
-        if (mutations.some((mutation) => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
+        if (!settings.ocrEnabled) return;
+        if (mutations.some((mutation) => mutationTouchesRenderableMedia(mutation))) {
+          this.schedulePosition();
+          if (settings.ocrAutoScanImages && ((_b = (_a = this.options).shouldAutoScan) == null ? void 0 : _b.call(_a)) !== false) this.scheduleRefresh(80);
+        }
       });
-      this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+      this.mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class", "style", "hidden", "src", "srcset", "sizes", "loading", "poster"]
+      });
       log$9.info("OCR controller initialized");
     }
     refresh(options = {}) {
-      var _a, _b, _c;
+      var _a, _b, _c, _d, _e;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) {
         this.clear();
@@ -17681,10 +19002,16 @@ ${card.reading}`;
       }
       this.pruneDisconnectedStates();
       this.ensureObserver(settings);
-      const images = Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => imageViewportDistance(a) - imageViewportDistance(b)).slice(0, settings.ocrMaxImagesPerPage);
+      const images = Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => {
+        const priorityDelta = this.observePriority(a) - this.observePriority(b);
+        return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
+      }).slice(0, settings.ocrMaxImagesPerPage);
       for (const image of images) {
-        this.ensureState(image);
+        const state = this.ensureState(image);
         (_c = this.observer) == null ? void 0 : _c.observe(image);
+        if (settings.ocrAutoScanImages && ((_e = (_d = this.options).shouldAutoScan) == null ? void 0 : _e.call(_d)) !== false && !state.result && !state.loading && !state.autoSkipped && isNearViewport(image, settings.ocrPrefetchMargin)) {
+          this.enqueue(image);
+        }
       }
       this.schedulePosition();
       log$9.debugThrottled("refresh", 2500, "OCR refreshed image candidates", { images: images.length });
@@ -17862,19 +19189,28 @@ ${card.reading}`;
         element2.className = "jpdb-ocr-line";
         if (showText) element2.classList.add("jpdb-ocr-line-visible");
         element2.dataset.ocrText = line.text;
+        element2.dataset.boxLeft = String(line.box.left / result.width);
+        element2.dataset.boxTop = String(line.box.top / result.height);
         element2.dataset.vertical = String(line.vertical);
         element2.dataset.boxWidth = String(line.box.width / result.width);
         element2.dataset.boxHeight = String(line.box.height / result.height);
         element2.dataset.sentence = sentence;
         element2.title = line.text;
         element2.tabIndex = 0;
+        element2.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
+        element2.setAttribute("aria-label", line.text);
+        const textElement = document.createElement("span");
+        textElement.className = "jpdb-ocr-line-text";
+        setInnerHtml(textElement, ((_a = parsed[index]) == null ? void 0 : _a.length) ? renderTokensToHtml(line.text, parsed[index], settings) : escapeHtml$1(line.text));
+        normalizeOcrRuby(textElement);
+        normalizeOcrPlainText(textElement);
+        element2.append(textElement);
+        const hasFurigana = Boolean(textElement.querySelector(".jpdb-reader-has-furi"));
+        element2.dataset.hasFuri = String(hasFurigana);
         element2.style.left = `${100 * line.box.left / result.width}%`;
         element2.style.top = `${100 * line.box.top / result.height}%`;
         element2.style.width = `${100 * line.box.width / result.width}%`;
         element2.style.height = `${100 * line.box.height / result.height}%`;
-        element2.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
-        element2.setAttribute("aria-label", line.text);
-        setInnerHtml(element2, ((_a = parsed[index]) == null ? void 0 : _a.length) ? renderTokensToHtml(line.text, parsed[index], settings) : escapeHtml$1(line.text));
         element2.addEventListener("pointerenter", (event) => {
           if (event.pointerType === "touch") return;
           this.activateLine(state, element2, false);
@@ -17922,6 +19258,12 @@ ${card.reading}`;
       element2.classList.remove("jpdb-ocr-line-active");
       element2.dataset.pinned = "false";
     }
+    observePriority(image) {
+      const state = this.states.get(image);
+      if (!state) return 0;
+      if (!state.result) return state.autoSkipped ? 2 : 0;
+      return 1;
+    }
     resetStateIfImageChanged(state) {
       const key = imageCacheKey(state.image);
       if (key === state.key) return;
@@ -17958,7 +19300,7 @@ ${card.reading}`;
       const state = this.states.get(image);
       if (!state) return;
       const rect = image.getBoundingClientRect();
-      const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+      const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && !isImageOccludedByVideo(image, rect);
       state.overlay.hidden = !visible;
       if (!visible) return;
       state.overlay.style.left = `${rect.left}px`;
@@ -17970,13 +19312,48 @@ ${card.reading}`;
     fitLineFonts(state, imageWidth, imageHeight) {
       const scale = this.options.getSettings().ocrFontScale;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element2) => {
+        const boxLeft = Number(element2.dataset.boxLeft) * imageWidth;
+        const boxTop = Number(element2.dataset.boxTop) * imageHeight;
         const boxWidth = Number(element2.dataset.boxWidth) * imageWidth;
         const boxHeight = Number(element2.dataset.boxHeight) * imageHeight;
         if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
         const text2 = element2.dataset.ocrText ?? "";
         const vertical = element2.dataset.vertical === "true";
         element2.style.fontSize = `${ocrFontPx(text2, boxWidth, boxHeight, vertical, scale)}px`;
+        this.fitLineFrame(element2, boxLeft, boxTop, boxWidth, boxHeight, imageWidth, imageHeight, vertical);
       });
+    }
+    fitLineFrame(element2, boxLeft, boxTop, boxWidth, boxHeight, imageWidth, imageHeight, vertical) {
+      const textElement = element2.querySelector(".jpdb-ocr-line-text");
+      if (!textElement) return;
+      const hasFurigana = element2.dataset.hasFuri === "true";
+      const fontSize = Number.parseFloat(element2.style.fontSize) || 16;
+      const padX = Math.max(4, Math.round(fontSize * 0.16));
+      const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
+      const padBottom = Math.max(3, Math.round(fontSize * 0.1));
+      element2.style.setProperty("--jpdb-ocr-pad-x", `${padX}px`);
+      element2.style.setProperty("--jpdb-ocr-pad-top", `${padTop}px`);
+      element2.style.setProperty("--jpdb-ocr-pad-bottom", `${padBottom}px`);
+      const contentRect = textElement.getBoundingClientRect();
+      const contentWidth = Math.max(1, contentRect.width);
+      const contentHeight = Math.max(1, contentRect.height);
+      const frameWidth = Math.min(imageWidth, Math.max(1, contentWidth + padX * 2));
+      const frameHeight = Math.min(imageHeight, Math.max(1, contentHeight + padTop + padBottom));
+      const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, 0, Math.max(0, imageWidth - frameWidth));
+      const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
+      const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
+      const top = clampNumber$1(!vertical ? baselineAlignedTop : centeredTop, 0, Math.max(0, imageHeight - frameHeight));
+      if (vertical) {
+        element2.style.left = `${left}px`;
+        element2.style.top = `${top}px`;
+        element2.style.width = `${frameWidth}px`;
+        element2.style.height = `${frameHeight}px`;
+        return;
+      }
+      element2.style.left = `${left}px`;
+      element2.style.top = `${top}px`;
+      element2.style.width = `${frameWidth}px`;
+      element2.style.height = `${frameHeight}px`;
     }
     clear() {
       var _a;
@@ -18050,7 +19427,7 @@ ${card.reading}`;
         }
       }
     }
-    const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE$1.test(line.text));
+    const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE$2.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
   }
   function readFallbackOcrResult(image, _includeAccessibleText = false) {
@@ -18081,10 +19458,53 @@ ${card.reading}`;
       return total + 1;
     }, 0);
   }
+  function normalizeOcrRuby(root) {
+    root.querySelectorAll("ruby").forEach((ruby) => {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-ruby";
+      const furi = document.createElement("span");
+      furi.className = "jpdb-ocr-furi";
+      const base = document.createElement("span");
+      base.className = "jpdb-ocr-ruby-base";
+      for (const child of Array.from(ruby.childNodes)) {
+        if (child instanceof HTMLElement && child.tagName === "RT") {
+          furi.textContent += child.textContent ?? "";
+        } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
+          base.append(child.cloneNode(true));
+        }
+      }
+      replacement.append(furi, base);
+      ruby.replaceWith(replacement);
+    });
+  }
+  function normalizeOcrPlainText(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        var _a;
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (!((_a = node.textContent) == null ? void 0 : _a.trim())) return NodeFilter.FILTER_REJECT;
+        if (parent.classList.contains("jpdb-ocr-furi") || parent.classList.contains("jpdb-ocr-ruby-base")) return NodeFilter.FILTER_REJECT;
+        return parent === root || parent.classList.contains("jpdb-reader-word") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const textNodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text) textNodes.push(node);
+    }
+    for (const textNode of textNodes) {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-plain";
+      replacement.textContent = textNode.textContent ?? "";
+      textNode.replaceWith(replacement);
+    }
+  }
+  function clampNumber$1(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
   async function recognizeViaLocalService(image, settings) {
     log$9.debug("Recognizing image via local OCR service", { endpointHost: safeHost$1(settings.ocrEndpointUrl), engine: settings.ocrEngine });
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const payload = await canvasToBase64Payload(canvas);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
     const body = JSON.stringify({
       id: imageCacheKey(image),
@@ -18105,8 +19525,7 @@ ${card.reading}`;
   }
   async function recognizeViaCloudVision(image, settings) {
     log$9.debug("Recognizing image via Cloud Vision");
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const payload = await canvasToBase64Payload(canvas);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const body = JSON.stringify({
       requests: [{
         image: { content: payload.base64 },
@@ -18120,8 +19539,7 @@ ${card.reading}`;
   }
   async function recognizeViaGoogleLens(image, settings) {
     log$9.debug("Recognizing image via Google Lens");
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const blob = await canvasToBlob(canvas, "image/jpeg", 0.88);
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
     try {
@@ -18130,6 +19548,20 @@ ${card.reading}`;
     } catch (error) {
       log$9.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
       return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
+    }
+  }
+  async function imageToBase64Payload(image, maxPixels) {
+    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86);
+    return { base64: (await blobToDataUrl(blob)).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  }
+  async function imageToBlobPayload(image, maxPixels, type, quality) {
+    const canvas = await imageToCanvas(image, maxPixels);
+    try {
+      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
+    } catch (error) {
+      log$9.debug("Canvas export failed; retrying OCR image through blob fallback", { image: imageSummary(image) }, error);
+      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
+      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
     }
   }
   async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
@@ -18141,19 +19573,26 @@ ${card.reading}`;
   }
   async function imageToCanvas(image, maxPixels) {
     try {
-      return drawImageToCanvas(image, maxPixels);
+      const canvas = drawImageToCanvas(image, maxPixels);
+      assertCanvasReadable(canvas);
+      return canvas;
     } catch (error) {
-      log$9.debug("Direct canvas draw failed; fetching image blob fallback", { image: imageSummary(image) }, error);
-      const url = image.currentSrc || image.src;
-      if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-      const blob = await requestBlob(url);
-      const objectUrl = URL.createObjectURL(blob);
-      try {
-        const loaded = await loadImage(objectUrl);
-        return drawImageToCanvas(loaded, maxPixels);
-      } finally {
-        URL.revokeObjectURL(objectUrl);
-      }
+      log$9.debug("Direct image canvas unavailable; fetching image blob fallback", { image: imageSummary(image) }, error);
+      return imageBlobToCanvas(image, maxPixels);
+    }
+  }
+  async function imageBlobToCanvas(image, maxPixels) {
+    const url = image.currentSrc || image.src;
+    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
+    const blob = await requestBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const loaded = await loadImage(objectUrl);
+      const canvas = drawImageToCanvas(loaded, maxPixels);
+      assertCanvasReadable(canvas);
+      return canvas;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
     }
   }
   function drawImageToCanvas(image, maxPixels) {
@@ -18169,9 +19608,9 @@ ${card.reading}`;
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     return canvas;
   }
-  async function canvasToBase64Payload(canvas) {
-    const blob = await canvasToBlob(canvas, "image/jpeg", 0.86);
-    return { base64: (await blobToDataUrl(blob)).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  function assertCanvasReadable(canvas) {
+    var _a;
+    (_a = canvas.getContext("2d")) == null ? void 0 : _a.getImageData(0, 0, 1, 1);
   }
   function createGoogleLensRequest(imageBytes, width, height, locale) {
     const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
@@ -18230,7 +19669,7 @@ ${card.reading}`;
         });
         const rawText = orderedWords.map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? " " : ""))).join("");
         const textValue = cleanOcrText(rawText);
-        if (!textValue || !HAS_JAPANESE$1.test(textValue)) continue;
+        if (!textValue || !HAS_JAPANESE$2.test(textValue)) continue;
         const box = lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
         if (!box) continue;
         lines.push({
@@ -18269,7 +19708,7 @@ ${card.reading}`;
             width: Number(boxData[2]) * width,
             height: Number(boxData[3]) * height
           }, width, height) : null;
-          if (text2 && box && HAS_JAPANESE$1.test(text2)) {
+          if (text2 && box && HAS_JAPANESE$2.test(text2)) {
             lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
           }
         }
@@ -18314,7 +19753,7 @@ ${card.reading}`;
           const item = annotationItem;
           const text2 = cleanOcrText(item.description);
           const box = normalizeCloudVisionVertices((_a = item.boundingPoly) == null ? void 0 : _a.vertices, width, height);
-          if (text2 && box && HAS_JAPANESE$1.test(text2)) lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
+          if (text2 && box && HAS_JAPANESE$2.test(text2)) lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
         }
       }
     }
@@ -18328,7 +19767,7 @@ ${card.reading}`;
     const pushLine = () => {
       const value = cleanOcrText(text2);
       const box = unionBoxes(boxes);
-      if (value && box && HAS_JAPANESE$1.test(value)) {
+      if (value && box && HAS_JAPANESE$2.test(value)) {
         lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
       }
       text2 = "";
@@ -18472,17 +19911,61 @@ ${card.reading}`;
   }
   function cleanOcrText(value) {
     const text2 = typeof value === "string" ? value : String(value ?? "");
-    const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$1.test(text2) ? "" : " ").trim();
+    const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$2.test(text2) ? "" : " ").trim();
     return normalized.replaceAll("．．．", "…");
   }
   function isCandidateImage(image, settings) {
     if (image.closest("[data-jpdb-reader-root]")) return false;
+    if (image.closest('[aria-hidden="true"], [hidden], .slick-cloned')) return false;
     const rect = image.getBoundingClientRect();
     const area = rect.width * rect.height;
     if (area < settings.ocrMinImageArea) return false;
     if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
+    if (isImageOccludedByVideo(image, rect)) return false;
     const style = getComputedStyle(image);
-    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
+    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0 && !isInsideHiddenAncestor(image);
+  }
+  function isInsideHiddenAncestor(element2) {
+    for (let current = element2.parentElement; current && current !== document.body; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0) return true;
+      if (current.getAttribute("aria-hidden") === "true" || current.hasAttribute("hidden")) return true;
+    }
+    return false;
+  }
+  function mutationTouchesRenderableMedia(mutation) {
+    if (mutation.type === "childList") {
+      return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
+    }
+    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
+  }
+  function nodeContainsRenderableMedia(node) {
+    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLSourceElement || node instanceof Element && Boolean(node.querySelector("img, video, source"));
+  }
+  function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
+    const imageArea = rect.width * rect.height;
+    if (imageArea < 4) return false;
+    const imageRoot = image.getRootNode();
+    for (const video of document.querySelectorAll("video")) {
+      if (!video.isConnected || video.getRootNode() !== imageRoot || isSameMediaNode(video, image)) continue;
+      const videoRect = video.getBoundingClientRect();
+      if (videoRect.width < 2 || videoRect.height < 2) continue;
+      const style = getComputedStyle(video);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0) continue;
+      const overlap = intersectionArea(rect, videoRect);
+      if (overlap / imageArea >= 0.6) return true;
+    }
+    return false;
+  }
+  function isSameMediaNode(video, image) {
+    return video === image.parentElement || image === video.parentElement;
+  }
+  function intersectionArea(a, b) {
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
   }
   function shouldObserveImage(image, settings) {
     if (settings.ocrProvider === "off") return false;
@@ -18505,9 +19988,6 @@ ${card.reading}`;
     if (rect.right < 0) return -rect.right;
     if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
     return 0;
-  }
-  function nodeContainsImage(node) {
-    return node instanceof HTMLImageElement || node instanceof Element && Boolean(node.querySelector("img"));
   }
   function imageCacheKey(image) {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
@@ -18939,17 +20419,28 @@ ${card.reading}`;
     popover.style.maxHeight = `${configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight}px`;
   }
   function installSheetHandle(popover, onDismiss) {
-    const handle = popover.querySelector(".jpdb-reader-sheet-handle");
-    if (!handle) return;
-    handle.setAttribute("role", "button");
-    handle.setAttribute("tabindex", "0");
-    handle.setAttribute("aria-label", "Drag to close, or tap to expand");
-    handle.setAttribute("aria-expanded", String(popover.classList.contains("jpdb-reader-sheet-expanded")));
+    const getHandle = () => popover.querySelector(".jpdb-reader-sheet-handle");
+    const syncHandleState = () => {
+      const handle = getHandle();
+      if (!handle) return;
+      handle.setAttribute("role", "button");
+      handle.setAttribute("tabindex", "0");
+      handle.setAttribute("aria-label", "Drag up to expand, drag down to collapse, or tap to expand");
+      handle.setAttribute("aria-expanded", String(popover.classList.contains("jpdb-reader-sheet-expanded")));
+    };
+    syncHandleState();
+    const getHandleFromEvent = (event) => {
+      if (!(event instanceof Element)) return null;
+      const handle = event.closest(".jpdb-reader-sheet-handle");
+      if (!handle) return null;
+      return popover.contains(handle) ? handle : null;
+    };
     let startY = 0;
     let lastY = 0;
     let pointerId = 0;
     let dragging = false;
     let moved = false;
+    let activeHandle = null;
     const reset = () => {
       popover.style.transition = "transform .16s ease";
       popover.style.transform = "";
@@ -18957,21 +20448,41 @@ ${card.reading}`;
         popover.style.transition = "";
       }, 180);
     };
-    const toggleExpanded = () => {
-      const expanded = !popover.classList.contains("jpdb-reader-sheet-expanded");
+    const setExpanded = (expanded) => {
       popover.classList.toggle("jpdb-reader-sheet-expanded", expanded);
-      handle.setAttribute("aria-expanded", String(expanded));
+      syncHandleState();
+    };
+    const toggleExpanded = () => {
+      setExpanded(!popover.classList.contains("jpdb-reader-sheet-expanded"));
     };
     const finish = () => {
       var _a;
-      (_a = handle.releasePointerCapture) == null ? void 0 : _a.call(handle, pointerId);
       if (!dragging) return;
-      const delta = Math.max(0, lastY - startY);
+      const delta = lastY - startY;
+      const wasExpanded = popover.classList.contains("jpdb-reader-sheet-expanded");
+      const handle = activeHandle;
       dragging = false;
-      if (delta > 90) onDismiss();
-      else reset();
+      activeHandle = null;
+      (_a = handle == null ? void 0 : handle.releasePointerCapture) == null ? void 0 : _a.call(handle, pointerId);
+      if (delta >= 110) {
+        onDismiss();
+        return;
+      }
+      if (delta <= -56) {
+        setExpanded(true);
+        reset();
+        return;
+      }
+      if (wasExpanded && delta >= 56) {
+        setExpanded(false);
+        reset();
+        return;
+      }
+      reset();
     };
-    handle.addEventListener("click", (event) => {
+    popover.addEventListener("click", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
       event.preventDefault();
       if (moved) {
         moved = false;
@@ -18979,32 +20490,39 @@ ${card.reading}`;
       }
       toggleExpanded();
     });
-    handle.addEventListener("pointerdown", (event) => {
+    popover.addEventListener("pointerdown", (event) => {
       var _a;
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      if (event.button !== void 0 && event.button !== 0) return;
       startY = event.clientY;
       lastY = event.clientY;
       pointerId = event.pointerId;
       dragging = true;
       moved = false;
+      activeHandle = handle;
       popover.style.transition = "";
       (_a = handle.setPointerCapture) == null ? void 0 : _a.call(handle, event.pointerId);
     });
-    handle.addEventListener("pointermove", (event) => {
+    popover.addEventListener("pointermove", (event) => {
       if (!dragging) return;
       lastY = event.clientY;
-      const delta = Math.max(0, lastY - startY);
-      if (delta > 8) moved = true;
+      const delta = lastY - startY;
+      if (Math.abs(delta) > 8) moved = true;
       popover.style.transform = `translateY(${delta}px)`;
     });
-    handle.addEventListener("pointerup", finish);
-    handle.addEventListener("pointercancel", () => {
+    popover.addEventListener("pointerup", finish);
+    popover.addEventListener("pointercancel", () => {
       var _a;
       dragging = false;
       moved = false;
-      (_a = handle.releasePointerCapture) == null ? void 0 : _a.call(handle, pointerId);
+      (_a = activeHandle == null ? void 0 : activeHandle.releasePointerCapture) == null ? void 0 : _a.call(activeHandle, pointerId);
+      activeHandle = null;
       reset();
     });
-    handle.addEventListener("keydown", (event) => {
+    popover.addEventListener("keydown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         toggleExpanded();
@@ -19606,9 +21124,11 @@ ${spelling}`);
                     ${checkbox("subtitleAutoDetect", "Auto-detect page subtitles", settings.subtitleAutoDetect)}
                     ${checkbox("subtitleOverlayVisible", "Show subtitle overlay", settings.subtitleOverlayVisible)}
                     ${checkbox("subtitleSecondaryVisible", "Show native subtitles when available", settings.subtitleSecondaryVisible)}
+                    ${checkbox("subtitleNativeBlurred", "Blur native subtitles until hover", settings.subtitleNativeBlurred)}
+                    ${checkbox("subtitleKaraokeMode", "Karaoke word timing", settings.subtitleKaraokeMode)}
                     ${checkbox("subtitleTranscriptVisible", "Open transcript panel by default", settings.subtitleTranscriptVisible)}
-                    ${select("subtitleTranscriptPlacement", "Transcript panel position", settings.subtitleTranscriptPlacement, [["right", "Right of video"], ["left", "Left of video"], ["bottom", "Below video"]])}
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
+                    ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
                     ${select("subtitleControlsMode", "Subtitle controls", settings.subtitleControlsMode, [["auto", "Compact controls"], ["hidden", "Hide controls"], ["always", "Always visible"]])}
                     ${input("subtitleFontSize", "Subtitle font size", String(settings.subtitleFontSize), "number")}
@@ -19896,9 +21416,11 @@ ${spelling}`);
       ["subtitleAutoDetect", "subtitleAutoDetect"],
       ["subtitleOverlayVisible", "subtitleOverlayVisible"],
       ["subtitleSecondaryVisible", "subtitleSecondaryVisible"],
+      ["subtitleNativeBlurred", "subtitleNativeBlurred"],
+      ["subtitleKaraokeMode", "subtitleKaraokeMode"],
       ["subtitleTranscriptVisible", "subtitleTranscriptVisible"],
-      ["subtitleTranscriptPlacement", "subtitleTranscriptPlacement"],
       ["subtitleTranscriptAutoScroll", "subtitleTranscriptAutoScroll"],
+      ["subtitleAutoCopyLine", "subtitleAutoCopyLine"],
       ["subtitleMiningPause", "subtitleMiningPause"],
       ["subtitleControlsMode", "subtitleControlsMode"],
       ["subtitleFontSize", "subtitleFontSize"],
@@ -20058,11 +21580,6 @@ ${spelling}`);
       ["auto", text2("showWhenNeeded")],
       ["hidden", text2("hideControls")],
       ["always", text2("alwaysVisible")]
-    ]);
-    setSelectOptionLabels(form, "subtitleTranscriptPlacement", [
-      ["right", text2("right")],
-      ["left", text2("left")],
-      ["bottom", text2("bottom")]
     ]);
     setSelectOptionLabels(form, "ankiTemplateMode", [
       ["recognition", text2("wordFirst")],
@@ -20853,7 +22370,7 @@ ${spelling}`);
       ...current,
       apiKey: get("apiKey").trim(),
       interfaceLanguage: readOption(get("interfaceLanguage"), ["auto", "en", "ja"], current.interfaceLanguage),
-      jpdbDefinitionsEnabled: has("jpdbDefinitionsEnabled") && (!jpdbDefinitionsRowPresent || has("jpdbDefinitions.enabled")),
+      jpdbDefinitionsEnabled: jpdbDefinitionsRowPresent ? has("jpdbDefinitions.enabled") : has("jpdbDefinitionsEnabled"),
       jpdbDefinitionsPriority: Math.max(0, Math.min(999, number("jpdbDefinitions.priority", current.jpdbDefinitionsPriority))),
       jpdbExtensionsEnabled: has("jpdbExtensionsEnabled"),
       jpdbUchisenEnabled: has("jpdbUchisenEnabled"),
@@ -20981,9 +22498,12 @@ ${spelling}`);
       subtitleAutoDetect: has("subtitleAutoDetect"),
       subtitleOverlayVisible: has("subtitleOverlayVisible"),
       subtitleSecondaryVisible: has("subtitleSecondaryVisible"),
+      subtitleNativeBlurred: has("subtitleNativeBlurred"),
+      subtitleKaraokeMode: has("subtitleKaraokeMode"),
       subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
       subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
       subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
+      subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
       subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
       subtitleFontSize: Math.max(16, Math.min(64, number("subtitleFontSize", current.subtitleFontSize))),
       subtitleBottomOffset: Math.max(2, Math.min(40, number("subtitleBottomOffset", current.subtitleBottomOffset))),
@@ -21596,6 +23116,7 @@ ${spelling}`);
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form);
+      this.dependencies.refreshNewTabIfCurrent();
       setStatus(`Removed ${dictionary}.`);
       log$5.info("Dictionary removed", { dictionary });
     }
@@ -21610,6 +23131,7 @@ ${spelling}`);
       setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
       log$5.info("Dictionary file imported", summary);
       await this.refreshDictionaryStatus(form);
+      this.dependencies.refreshNewTabIfCurrent();
     }
     async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
       const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
@@ -21618,14 +23140,46 @@ ${spelling}`);
       control == null ? void 0 : control.setAttribute("disabled", "true");
       setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
       log$5.info("Downloading selected dictionary", { dictionary: dictionary.name });
-      const summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
+      let summary;
+      try {
+        summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Dictionary download failed.";
+        if (this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) {
+          window.open(dictionary.downloadUrl, "_blank");
+          setStatus(`${message} Opened the dictionary link in a new tab. Download the ZIP and use Import dictionary above.`);
+          log$5.warn("Dictionary auto-download unavailable, opened manual fallback", { dictionary: dictionary.name, message });
+          control == null ? void 0 : control.removeAttribute("disabled");
+          return;
+        }
+        control == null ? void 0 : control.removeAttribute("disabled");
+        throw error;
+      }
       this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
       await saveSettings(this.settings);
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
       await this.refreshDictionaryStatus(form);
+      this.dependencies.refreshNewTabIfCurrent();
       log$5.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+    }
+    shouldPromptManualDictionaryDownload(error, downloadUrl) {
+      const message = String((error == null ? void 0 : error.message) ?? "").toLowerCase();
+      const manualDownloadHints = [
+        "blocked in this browser",
+        "cross-site",
+        "request bridge",
+        "request bridge is unavailable",
+        "userscript bridge",
+        "needs the yomu userscript",
+        "needs yomu userscript",
+        "need the yomu userscript",
+        "needs the userscript",
+        "user script request",
+        "userscript request"
+      ];
+      return Boolean(downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) && manualDownloadHints.some((hint) => message.includes(hint));
     }
     async importReaderSettingsFromFile(form, setStatus) {
       const file = await pickFile(form, "settings");
@@ -21693,6 +23247,50 @@ ${spelling}`);
     '[aria-label*="音声"]'
   ].join(",");
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
+  const DEFAULT_SCAN_TARGET_LIMIT = 2e3;
+  const GENERIC_PROSE_ROOTS = [
+    "article",
+    "main article",
+    '[role="main"] article',
+    ".article",
+    ".post",
+    ".entry",
+    ".story",
+    ".prose",
+    ".content",
+    ".article-body",
+    ".article-content",
+    ".entry-content",
+    ".post-content",
+    ".story-body",
+    '[itemprop="articleBody"]'
+  ].join(",");
+  const GENERIC_PROSE_EXCLUDE = [
+    COMMON_EXCLUDE,
+    "aside",
+    '[role="complementary"]',
+    '[class*="aside" i]',
+    '[class*="banner" i]',
+    '[class*="breadcrumb" i]',
+    '[class*="card" i]',
+    '[class*="comment" i]',
+    '[class*="footer" i]',
+    '[class*="header" i]',
+    '[class*="menu" i]',
+    '[class*="meta" i]',
+    '[class*="nav" i]',
+    '[class*="new-article" i]',
+    '[class*="pager" i]',
+    '[class*="popular" i]',
+    '[class*="promo" i]',
+    '[class*="rank" i]',
+    '[class*="recommend" i]',
+    '[class*="related" i]',
+    '[class*="share" i]',
+    '[class*="sidebar" i]',
+    '[class*="teaser" i]',
+    "time"
+  ].join(",");
   const log$4 = Logger.scope("SiteParsers");
   const SITE_PARSER_PROFILES = [
     {
@@ -21806,8 +23404,27 @@ ${spelling}`);
         "ytd-comment-view-model",
         "#content-text"
       ],
+      allowUiText: true,
       includeGenericPageText: true,
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+    },
+    {
+      id: "cijapanese-transcript-parser",
+      name: "Comprehensible Japanese",
+      description: "Comprehensible Japanese video transcripts with native furigana.",
+      roots: [
+        ".transcript",
+        '[data-tab-type="transcript"]'
+      ],
+      exclude: [
+        COMMON_EXCLUDE,
+        ".cue-button",
+        ".btn",
+        "svg"
+      ].join(","),
+      allowUiText: true,
+      minLength: 1,
+      matches: (url) => url.hostname === "cijapanese.com" || url.hostname.endsWith(".cijapanese.com")
     },
     {
       id: "mokuro-parser",
@@ -21849,19 +23466,25 @@ ${spelling}`);
     },
     {
       id: "nhk-parser",
-      name: "NHK",
-      description: "NHK and NHK Easy article text with native ruby.",
+      name: "NHK Easy",
+      description: "NHK Easy article text with native ruby.",
       roots: [
         "main",
-        "article",
-        "#main",
+        "#easy-wrapper",
         "#js-article-body",
         "#js-article-date",
-        ".article-title",
-        '[data-testid*="article"]'
+        ".article-title"
       ],
       exclude: [
         COMMON_EXCLUDE,
+        "#loading",
+        "#nhk-one-header",
+        "#nhk-one-footer",
+        ".audio-player",
+        ".article-info",
+        ".article-share",
+        ".article-link",
+        ".article-buttons",
         ".soundButton",
         ".js-sound",
         ".js-play",
@@ -21869,7 +23492,32 @@ ${spelling}`);
         "[onclick]",
         "[data-audio]"
       ].join(","),
-      matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && (/\/news\/(?:html|easy)\//.test(url.pathname) || /\/news\/easy\//.test(url.pathname))
+      allowUiText: true,
+      minLength: 1,
+      matches: (url) => url.hostname === "news.web.nhk" && /\/news\/easy\//.test(url.pathname) || url.protocol === "file:" && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)) || /NHKやさしいことばニュース|NEWS WEB EASY/i.test(document.title)
+    },
+    {
+      id: "nhk-news-parser",
+      name: "NHK",
+      description: "NHK article text with native ruby.",
+      roots: [
+        "#main article",
+        "#main",
+        '[data-testid*="article"]'
+      ],
+      exclude: [
+        COMMON_EXCLUDE,
+        '[class*="related" i]',
+        '[class*="recommend" i]',
+        '[class*="ranking" i]',
+        ".soundButton",
+        ".js-sound",
+        ".js-play",
+        ".player",
+        "[onclick]",
+        "[data-audio]"
+      ].join(","),
+      matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && /\/news\/html\//.test(url.pathname)
     },
     {
       id: "bunpro-parser",
@@ -21919,32 +23567,62 @@ ${spelling}`);
     }
     return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
   }
-  function collectScanTargets(limit = 40, href = window.location.href) {
-    const siteTargets = collectSiteScanTargets(limit, href);
-    if (siteTargets !== null) {
-      const profiles = getMatchingSiteParsers(href);
-      if (!profiles.some((profile) => profile.includeGenericPageText) || siteTargets.length >= limit) {
+  function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href) {
+    const matchingProfiles = getMatchingSiteParsers(href);
+    if (matchingProfiles.length) {
+      const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+      if (siteTargets.length || !matchingProfiles.some((profile) => profile.includeGenericPageText)) {
         return siteTargets;
       }
-      const genericTargets = collectVisibleTextTargets(limit - siteTargets.length);
-      const seenNodes = /* @__PURE__ */ new Set();
-      for (const target of siteTargets) {
-        if ("node" in target) seenNodes.add(target.node);
-        else target.fragments.forEach((fragment2) => seenNodes.add(fragment2.node));
-      }
-      return [
-        ...siteTargets,
-        ...genericTargets.filter((target) => !seenNodes.has(target.node))
-      ].slice(0, limit);
     }
-    return collectVisibleTextTargets(limit);
+    const genericTargets = collectGenericProseTargets(limit);
+    if (genericTargets.length) {
+      return genericTargets;
+    }
+    const broadTargets = collectWholePageScanTargets(limit);
+    return broadTargets.length ? broadTargets : collectVisibleTextTargets(limit);
+  }
+  function collectWholePageScanTargets(limit) {
+    const targets = collectFragmentTextTargetsIn(document.body, limit, true, "", {
+      allowUiText: true,
+      includeUiChrome: true,
+      minLength: 1
+    });
+    log$4.debugThrottled("whole-page-targets", 2500, "Collected whole-page scan targets", { targets: targets.length });
+    return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
+  }
+  function collectGenericProseTargets(limit) {
+    var _a;
+    const roots = Array.from(document.querySelectorAll(GENERIC_PROSE_ROOTS)).filter((root) => isUsefulGenericProseRoot(root));
+    const targets = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const root of roots) {
+      const remaining = limit - targets.length;
+      if (remaining <= 0) break;
+      const collected = collectFragmentTextTargetsIn(root, remaining, true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
+      for (const target of collected) {
+        const firstNode = (_a = target.fragments[0]) == null ? void 0 : _a.node;
+        if (!firstNode || seen.has(firstNode)) continue;
+        seen.add(firstNode);
+        targets.push({ ...target, parserId: "generic-prose-parser" });
+        if (targets.length >= limit) break;
+      }
+    }
+    log$4.debugThrottled("generic-prose-targets", 2500, "Collected generic prose targets", { roots: roots.length, targets: targets.length });
+    return targets;
+  }
+  function isUsefulGenericProseRoot(root) {
+    var _a;
+    if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
+    const text2 = ((_a = root.textContent) == null ? void 0 : _a.replace(/\s+/g, "").trim()) ?? "";
+    if (text2.length < 12) return false;
+    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text2);
   }
   function queryParserRoots(profile) {
     const roots = [];
     for (const selector of profile.roots) {
       roots.push(...Array.from(document.querySelectorAll(selector)));
     }
-    if (!roots.length && profile.id === "nhk-parser") roots.push(document.body);
     const result = uniqueVisibleRoots(roots);
     log$4.debugThrottled(`parser-roots:${profile.id}`, 2e3, "Queried parser roots", { parserId: profile.id, roots: result.length });
     return result;
@@ -21957,7 +23635,7 @@ ${spelling}`);
     }
     return unique2;
   }
-  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08)}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}[data-jpdb-reader-root] :where(button){-moz-appearance:none;appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}[data-jpdb-reader-root] :where(input,select,textarea){-moz-appearance:auto;appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:0;text-transform:none}.jpdb-reader-newtab-document,.jpdb-reader-newtab-document body{min-height:100%;margin:0;background:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab{min-height:100dvh;width:100%;overflow:hidden;background:var(--jpdb-reader-bg, #181b20);color:var(--jpdb-reader-text, #f2f4f8);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-newtab:before{content:"";position:fixed;inset:0 0 auto;height:2px;background:var(--jpdb-reader-accent, #5ea780);opacity:.8;pointer-events:none}.jpdb-reader-newtab *{box-sizing:border-box}.jpdb-reader-newtab button{font:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-newtab-shell{width:min(760px,calc(100vw - 28px));min-height:100dvh;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(12px,2.2vh,22px);padding:max(18px,env(safe-area-inset-top)) 0 max(18px,env(safe-area-inset-bottom))}.jpdb-reader-newtab-topbar{min-height:42px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}.jpdb-reader-newtab-overflow{width:36px;height:36px;display:grid;place-items:center;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);text-decoration:none}.jpdb-reader-newtab-brand{min-width:112px;display:flex;align-items:center}.jpdb-reader-newtab-brand .title{display:inline-flex;align-items:center;gap:8px;min-width:0;height:42px;color:var(--jpdb-reader-text, #f2f4f8);font-size:16px;font-weight:760;line-height:1;text-decoration:none}.jpdb-reader-newtab-brand .logo{display:block;width:24px;height:24px;flex:0 0 auto;border-radius:5px}.jpdb-reader-newtab-brand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-overflow{padding-bottom:4px;font-size:18px;font-weight:900;line-height:1;cursor:pointer}.jpdb-reader-newtab-mode{justify-self:center;display:inline-grid;grid-template-columns:repeat(2,minmax(70px,1fr));gap:2px;padding:3px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,transparent)}.jpdb-reader-newtab-mode button{display:grid;place-items:center;min-height:32px;border:0;border-radius:6px;padding:0 12px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:12px;font-weight:820;line-height:1;text-align:center;cursor:pointer}.jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:center;width:48px;min-width:48px;height:36px}.jpdb-reader-theme-switch{position:relative;display:block;width:44px;min-width:44px;height:24px;min-height:24px;padding:0;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);cursor:pointer;transition:border-color .18s ease,background .18s ease}.jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:20px;height:20px;border-radius:999px;background:var(--jpdb-reader-bg, #181b20);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(20px)}.jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted, #aab2c0)}.jpdb-reader-theme-switch .sun,.jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-newtab-mode button[data-active=true]{background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 18%,var(--jpdb-reader-surface-2, #282e37));color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-study{min-height:0;display:grid;grid-template-rows:auto minmax(0,.85fr) auto auto;align-items:center;justify-items:center;gap:clamp(8px,1.8vh,16px);cursor:pointer;-webkit-user-select:none;user-select:none}.jpdb-reader-newtab-count,.jpdb-reader-newtab-status{color:var(--jpdb-reader-text, #f2f4f8);font-size:12px;line-height:1.2;font-weight:760;text-align:center}.jpdb-reader-newtab-prompt{max-width:min(100%,720px);margin:0;padding:0 clamp(8px,3vw,22px);border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(2.25rem,7vw,5.2rem);font-weight:900;line-height:1.06;text-align:center;overflow-wrap:anywhere;text-wrap:balance;text-shadow:0 1px 2px rgba(0,0,0,.18)}.jpdb-reader-newtab-prompt .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-family:inherit;font-size:clamp(2.6rem,8vw,5.8rem);line-height:1.02}.jpdb-reader-newtab-sentence{display:inline}.jpdb-reader-newtab-sentence .jpdb-reader-word{padding:0 .08em;border-radius:.1em;background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 16%,transparent)!important;color:inherit;text-decoration-color:var(--jpdb-reader-accent, #5ea780)!important;text-underline-offset:.08em}.jpdb-reader-newtab-answer{min-height:clamp(68px,11vh,124px);max-width:min(640px,100%);display:grid;align-content:start;justify-items:center;gap:8px;transition:opacity .16s ease,transform .16s ease,filter .16s ease}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer{opacity:0;filter:blur(8px);transform:translateY(4px);pointer-events:none}.jpdb-reader-newtab-reading{max-width:100%;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(1.2rem,3.2vw,2rem);font-weight:780;line-height:1.12;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-reading .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-meaning{max-width:min(540px,100%);color:var(--jpdb-reader-muted, #aab2c0);font-size:clamp(14px,2.1vw,18px);font-weight:650;line-height:1.42;text-align:center;overflow-wrap:anywhere;text-wrap:balance}.jpdb-reader-newtab-controls{justify-self:center;display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;width:min(100%,680px)}.jpdb-reader-newtab-controls button{display:grid;place-items:center;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:13px;font-weight:820;line-height:1.1;text-align:center;cursor:pointer}.jpdb-reader-newtab-controls button[data-newtab-action=reveal]{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls{width:min(240px,100%);grid-template-columns:minmax(0,1fr)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls button{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-controls button[data-grade=fail],.jpdb-reader-newtab-controls button[data-grade=nothing]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=pass],.jpdb-reader-newtab-controls button[data-grade=okay]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-controls button[data-grade=easy]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-newtab-controls button[data-grade=something]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=hard]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-newtab-controls button[data-grade]{border-color:color-mix(in srgb,var(--jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255,255,255,.12))) 72%,var(--jpdb-reader-border, rgba(255,255,255,.12)));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,var(--jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255,255,255,.12))) 14%)}.jpdb-reader-newtab-kanji-answer{width:min(540px,calc(100vw - 32px));display:grid;grid-template-columns:minmax(104px,160px) minmax(170px,1fr);align-items:center;gap:12px}.jpdb-reader-newtab-kanji-glyph,.jpdb-reader-newtab-kanji-svg,.jpdb-reader-newtab-doodle{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));border-radius:8px;background:transparent}.jpdb-reader-newtab-kanji-glyph{align-self:stretch;display:grid;place-items:center;min-height:148px;font-family:Hiragino Mincho ProN,Yu Mincho,serif;font-size:5.6rem;line-height:1}.jpdb-reader-newtab-kanji-svg{min-height:148px;display:grid;place-items:center}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-svg,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-svg{width:min(148px,100%);height:auto}.jpdb-reader-newtab-doodle{grid-column:1 / -1;position:relative;width:min(360px,100%);aspect-ratio:1;justify-self:center;overflow:hidden;touch-action:none}.jpdb-reader-newtab-doodle:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(90deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent) 1px,transparent 1px),linear-gradient(0deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent) 1px,transparent 1px);background-size:25% 25%;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost,.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost{opacity:.18;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{z-index:1}.jpdb-reader-newtab-doodle.trace-hidden .jpdb-reader-doodle-ghost{opacity:0}.jpdb-reader-newtab-doodle-actions{position:absolute;right:8px;bottom:8px;z-index:2;display:flex;gap:6px}.jpdb-reader-newtab-doodle-actions button{min-height:30px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:800}.jpdb-reader-newtab-doodle-result{grid-column:1 / -1;justify-self:center;min-height:28px;padding:7px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-text, #f2f4f8);font-size:12px;font-weight:820}.jpdb-reader-newtab-doodle-result:empty{display:none}.jpdb-reader-newtab-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255,255,255,.12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255,255,255,.12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-kanji-popover-word{display:inline-flex;justify-content:center}.jpdb-reader-newtab-kanji-mining{margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.jpdb-reader-newtab-mini-action{min-height:32px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:12px;font-weight:820}.jpdb-reader-newtab-mini-action.add,.jpdb-reader-newtab-mini-action.review{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,var(--jpdb-reader-border, rgba(255,255,255,.12)));color:var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, #f2f4f8))}.jpdb-reader-newtab-mini-action.nf{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255,255,255,.12)));color:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-mini-action.blacklist,.jpdb-reader-newtab-mini-action.danger{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255,255,255,.12)));color:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-immersion{margin-top:8px;width:min(540px,100%);display:grid;gap:8px;color:var(--jpdb-reader-muted, #aab2c0);font-size:12px;line-height:1.35}.jpdb-reader-newtab-immersion .jpdb-reader-example-summary{grid-template-columns:minmax(0,1fr) auto auto auto;min-height:34px}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini{width:34px;min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);cursor:pointer}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-immersion .jpdb-reader-example-media,.jpdb-reader-newtab-immersion .jpdb-reader-example-image{max-height:min(210px,30vh)}.jpdb-reader-newtab-install{justify-self:end;color:var(--jpdb-reader-faint, #6f7a89);font-size:12px;font-weight:760;text-decoration:none}.jpdb-reader-newtab-brand .title:hover,.jpdb-reader-newtab-brand .title:focus-visible,.jpdb-reader-theme-switch:hover,.jpdb-reader-theme-switch:focus-visible,.jpdb-reader-newtab-overflow:hover,.jpdb-reader-newtab-overflow:focus-visible,.jpdb-reader-newtab-mode button:hover,.jpdb-reader-newtab-mode button:focus-visible,.jpdb-reader-newtab-controls button:hover,.jpdb-reader-newtab-controls button:focus-visible,.jpdb-reader-newtab-doodle-actions button:hover,.jpdb-reader-newtab-doodle-actions button:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 60%,var(--jpdb-reader-border, rgba(255,255,255,.12)));outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,transparent);outline-offset:3px}@media (max-width: 640px){.jpdb-reader-newtab-shell{width:min(100vw - 18px,560px);gap:14px}.jpdb-reader-newtab-mode{grid-template-columns:repeat(2,minmax(62px,1fr))}.jpdb-reader-newtab-mode button{padding:0 10px}.jpdb-reader-newtab-prompt{font-size:2.45rem}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-size:3rem}.jpdb-reader-newtab-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-newtab-controls button{min-height:42px;padding:0 8px;font-size:12px}.jpdb-reader-newtab-kanji-answer{grid-template-columns:1fr}.jpdb-reader-newtab-kanji-glyph{min-height:104px;font-size:4.2rem}.jpdb-reader-newtab-kanji-svg{min-height:116px}.jpdb-reader-newtab-doodle{width:min(280px,100%)}}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: currentColor;--jpdb-reader-source-status-decoration: transparent;--jpdb-reader-source-status-soft: transparent;--jpdb-reader-source-jpdb-color: currentColor;--jpdb-reader-source-jpdb-decoration: transparent;--jpdb-reader-source-jpdb-soft: transparent;--jpdb-reader-source-anki-color: currentColor;--jpdb-reader-source-anki-decoration: transparent;--jpdb-reader-source-anki-soft: transparent;--jpdb-reader-source-pitch-color: currentColor;--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, #94a3b8);--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);position:static;display:inline;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .12s ease,text-decoration-color .12s ease}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16))}.jpdb-reader-word.jpdb-learning{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16))}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-soft: transparent}.jpdb-reader-word.jpdb-due{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95,179,179,.16))}.jpdb-reader-word.jpdb-failed{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16))}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16));opacity:.82!important}.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16))}.jpdb-reader-word.anki-learning{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16))}.jpdb-reader-word.anki-known{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-soft: transparent}.jpdb-reader-word.anki-due{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95,179,179,.16))}.jpdb-reader-word.anki-failed{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16))}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck,.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-soft: var(--jpdb-reader-state-new-soft, rgba(88,166,255,.16))}.jpdb-reader-word.jpdb-learning,.jpdb-reader-word.anki-learning{--jpdb-reader-source-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255,209,102,.16))}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant,.jpdb-reader-word.anki-known{--jpdb-reader-source-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-status-soft: transparent}.jpdb-reader-word.jpdb-due,.jpdb-reader-word.anki-due{--jpdb-reader-source-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-soft: var(--jpdb-reader-state-due-soft, rgba(95,179,179,.16))}.jpdb-reader-word.jpdb-failed,.jpdb-reader-word.anki-failed{--jpdb-reader-source-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255,107,107,.16))}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184,167,255,.16))}.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53,158,255,.14))}.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254,75,116,.14))}.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251,168,64,.16))}.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87,204,183,.14))}.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144,80,246,.14))}.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important;opacity:1!important}.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);opacity:1!important}.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important;opacity:1!important}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:12px;font-weight:700}.jpdb-ocr-line{position:absolute;display:inline-flex;align-items:center;justify-content:center;overflow:visible;min-width:32px;min-height:32px;padding:.44em .3em .18em;border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1.08;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text;transition:opacity .12s ease,background .12s ease,border-color .12s ease}.jpdb-ocr-line-visible{border-color:#ffffff29;background:#181b2014;box-shadow:inset 0 0 0 1px #00000014}.jpdb-ocr-line[data-vertical=true]{align-items:center;letter-spacing:0}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24,27,32,.48));border-color:#5ea780e6;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:inherit}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-line .jpdb-reader-word ruby{line-height:1}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line .jpdb-reader-word rt.jpdb-reader-furi{color:currentColor;font-size:.46em;opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}.jpdb-reader-subtitle-highlight-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-subtitle-underline-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-subtitle-underline-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-subtitle-underline-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-subtitle-text-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-subtitle-text-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-subtitle-text-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-subtitle-text-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban{color:var(--jpdb-reader-pitch-heiban, #359eff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka{color:var(--jpdb-reader-pitch-atamadaka, #fe4b74)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka{color:var(--jpdb-reader-pitch-nakadaka, #fba840)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka{color:var(--jpdb-reader-pitch-odaka, #57ccb7)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku{color:var(--jpdb-reader-pitch-kifuku, #9050f6)!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;touch-action:none;transform:translateZ(0);transition:opacity .15s ease,transform .15s ease,border-color .15s ease,color .15s ease}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;padding:14px;container-type:inline-size}:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}}@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}}.jpdb-reader-sheet-handle{display:none;width:72px;height:28px;border-radius:999px;background:transparent;margin:-4px auto 6px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";display:block;width:42px;height:5px;border-radius:999px;margin:11px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out;-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-btn:active{transform:scale(.98)}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span,.jpdb-reader-onboarding-note{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}@keyframes jpdb-reader-audio-loading-a{0%{left:0}25%{left:0}75%{left:100%}to{left:100%}}@keyframes jpdb-reader-audio-loading-b{0%{right:100%}50%{right:0}to{right:0}}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}.jpdb-reader-pill{-moz-appearance:none;appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix(in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8%) !important;--chip-border: color-mix(in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border)) !important;--chip-text: var(--jpdb-reader-text) !important;cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,outline-color .2s ease-in-out!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}.jpdb-reader-jpdb-pill{--chip-bg: color-mix(in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface)) !important;--chip-border: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border)) !important;--chip-text: var(--jpdb-reader-accent-readable) !important}.jpdb-reader-action-pill:active{transform:scale(.98)!important}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}.jpdb-reader-heading{display:contents}.jpdb-reader-title-row{grid-column:1;grid-row:1}.jpdb-reader-card-tools{display:contents}.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:12px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);line-height:1.35}.jpdb-reader-meaning-pos{color:var(--jpdb-reader-faint);font-size:11px;margin-right:5px;font-style:italic;text-transform:none}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px}.jpdb-reader-inline-link{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary{position:absolute;top:8px;right:8px;z-index:1;display:inline-flex;width:20px;min-height:20px;padding:0;justify-content:center}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary:after{margin:0;font-size:13px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary+.jpdb-reader-local-terms{padding-top:0}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;white-space:normal;display:grid;gap:2px;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-more{margin-top:6px;border-top:1px solid var(--jpdb-reader-border);padding-top:5px}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{margin:2px 0 2px 18px;padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:8px;cursor:pointer;list-style:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){white-space:normal}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:12px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-anki-card-preview div{display:grid;gap:2px}.jpdb-reader-anki-card-preview strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-card-preview span,.jpdb-reader-anki-card-preview small{white-space:pre-wrap}.yomu-jpdb-addon-card{display:grid;gap:7px;margin:10px 0;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, inherit);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;line-height:1.42;box-shadow:none}.yomu-jpdb-addon-card,.yomu-jpdb-addon-card *{box-sizing:border-box}.yomu-jpdb-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.yomu-jpdb-card-title a{color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-decoration:none;text-transform:none}.yomu-jpdb-collapsible-card{display:grid;gap:9px}.yomu-jpdb-collapsible-card>summary{cursor:pointer;list-style:none}.yomu-jpdb-collapsible-card>summary::-webkit-details-marker{display:none}.yomu-jpdb-collapsible-card>summary:after{content:"Show";color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-transform:none}.yomu-jpdb-collapsible-card[open]>summary:after{content:"Hide"}.yomu-jpdb-collapsible-body{display:grid;gap:9px}.yomu-jpdb-toolbar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}.yomu-jpdb-toolbar a{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent)!important;font-size:11px;font-weight:800;text-decoration:none!important}.yomu-jpdb-counter{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:24px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px;font-weight:800}.yomu-jpdb-image-shell{display:grid;place-items:center}.yomu-jpdb-image-shell img{display:block;width:min(320px,100%);max-height:340px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-bg)}.yomu-jpdb-story{max-width:58ch;margin:0 auto;color:var(--jpdb-reader-text);white-space:pre-wrap}.yomu-jpdb-uchisen-body,.yomu-jpdb-doodle-body{display:grid;gap:9px}.yomu-jpdb-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px}.yomu-jpdb-facts span{display:grid;gap:2px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.yomu-jpdb-facts strong,.yomu-jpdb-addon-card h6{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.yomu-jpdb-addon-card h6,.yomu-jpdb-addon-card p{margin:0}.yomu-jpdb-addon-card section{display:grid;gap:5px}.yomu-jpdb-chip-row,.yomu-jpdb-component-row,.yomu-jpdb-used-words{display:flex;flex-wrap:wrap;gap:7px}.yomu-jpdb-chip-row span{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:3px 8px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-weight:750}.yomu-jpdb-chip-row span.common{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}.yomu-jpdb-chip-row small{color:var(--jpdb-reader-muted);font-size:11px}.yomu-jpdb-component,.yomu-jpdb-used-words a{display:inline-grid;gap:1px;min-width:70px;padding:7px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-component:hover,.yomu-jpdb-component:focus-visible,.yomu-jpdb-used-words a:hover,.yomu-jpdb-used-words a:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component strong{color:var(--jpdb-reader-text);font-size:22px;line-height:1}.yomu-jpdb-component span,.yomu-jpdb-used-words small{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-used-words a span{font-weight:800}.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry,.yomu-jpdb-immersion-group{padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-local-dictionaries{gap:7px}.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group{border-radius:0}.yomu-jpdb-local-dictionaries .jpdb-reader-local-head{min-height:38px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary{line-height:1.45}.yomu-jpdb-immersion-group>.jpdb-reader-local-glossary{padding-inline:0}#yomu-jpdb-immersion .jpdb-reader-example-media{border:0;border-radius:0;background:transparent}.yomu-jpdb-audio-button{display:inline-grid;align-items:center;justify-content:center;width:1.55em;height:1.55em;min-width:1.55em;min-height:1.55em;margin:0 0 0 .35em;padding:0;border:0;border-radius:999px;background:transparent;box-shadow:none;color:currentColor;cursor:pointer;opacity:.72;vertical-align:middle;-webkit-tap-highlight-color:transparent;transform:translateY(.08em);transition:background-color .15s ease,color .15s ease,opacity .15s ease}.yomu-jpdb-audio-button:hover,.yomu-jpdb-audio-button:focus-visible{background:color-mix(in srgb,currentColor 10%,transparent);color:var(--jpdb-reader-accent, currentColor);opacity:1;outline:none}.yomu-jpdb-audio-button:active{opacity:.85}.yomu-jpdb-audio-button svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),.yomu-jpdb-review-compact-nav .menu-icon{display:none!important}.yomu-jpdb-review-compact-nav .menu{max-height:32px!important;transition:none!important}.yomu-jpdb-items-left-count{color:#e5484d}#yomu-jpdb-doodle-root{display:grid;align-items:center;justify-items:stretch;gap:10px;width:min(100%,320px);margin:14px auto 8px;padding:10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 88%,transparent);color:var(--jpdb-reader-text)}#yomu-jpdb-doodle-root .yomu-doodle-stage,#yomu-jpdb-doodle-root .yomu-jpdb-toolbar,#yomu-jpdb-doodle-root .yomu-doodle-result{justify-self:center}.yomu-doodle-stage{position:relative;width:min(76vw,230px);aspect-ratio:1;touch-action:none}.yomu-doodle-canvas,.yomu-doodle-ghost{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.yomu-doodle-canvas{z-index:1;border:2px solid color-mix(in srgb,var(--jpdb-reader-text) 82%,var(--jpdb-reader-border));border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 25%}.yomu-doodle-ghost{z-index:0;display:grid;place-items:center;overflow:hidden;color:var(--jpdb-reader-accent);font-size:min(72vw,320px);line-height:1;opacity:.26;pointer-events:none}.yomu-doodle-ghost svg{width:100%;height:100%}.yomu-doodle-ghost path,.yomu-doodle-ghost line,.yomu-doodle-ghost polyline{fill:none!important;stroke:currentColor!important;stroke-width:2.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}#yomu-jpdb-doodle-preview{display:inline-grid;place-items:center;gap:5px;min-width:132px;margin-left:14px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, Canvas) 90%,transparent);vertical-align:top}.yomu-doodle-preview-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1;text-transform:uppercase}#yomu-jpdb-doodle-preview img{width:min(180px,30vw);height:auto;border-radius:8px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-bg)}#yomu-jpdb-doodle-root .jpdb-reader-btn{min-height:44px;padding-inline:14px}.yomu-doodle-result{min-height:28px;padding:6px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-muted);font-size:12px;font-weight:850;line-height:1.2}.yomu-doodle-result:empty{display:none}.yomu-doodle-pass .yomu-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 48%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 18%,var(--jpdb-reader-surface));color:var(--jpdb-reader-text)}.yomu-doodle-fail .yomu-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 48%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 18%,var(--jpdb-reader-surface));color:var(--jpdb-reader-text)}@media (min-height: 960px) and (min-width: 700px){#yomu-jpdb-doodle-root{width:min(100%,410px)}#yomu-jpdb-doodle-root .yomu-doodle-stage{width:min(78vw,320px)}}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion,#yomu-jpdb-immersion{container-type:inline-size}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{display:flex;align-items:center;justify-content:space-between;gap:8px}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:min(260px,calc(100vh - 300px));object-fit:contain}.jpdb-reader-example-media{display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}.jpdb-reader-example-body{display:grid;align-content:start;gap:7px;min-width:0}.jpdb-reader-example-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-summary,.yomu-jpdb-immersion-group>summary.jpdb-reader-local-head{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center!important;gap:8px!important;min-height:38px;width:100%}.jpdb-reader-example-summary .jpdb-reader-example-source,.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group>summary .jpdb-reader-example-source,.yomu-jpdb-immersion-group>summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}.jpdb-reader-example-summary .jpdb-reader-local-dict,.yomu-jpdb-immersion-group>summary .jpdb-reader-local-dict{margin-left:0;white-space:nowrap}.jpdb-reader-example-query{flex:0 1 150px;max-width:min(180px,100%);overflow:hidden;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));border-radius:999px;padding:2px 7px;color:var(--jpdb-reader-accent);text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.5;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35;text-align:center;text-wrap:balance}.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);-webkit-user-select:none;user-select:none;cursor:pointer;transition:filter .16s ease,opacity .16s ease}.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}.jpdb-reader-immersion>.jpdb-reader-example-actions,.yomu-jpdb-immersion-group>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{align-items:flex-start}.jpdb-reader-example-media,.jpdb-reader-example-image{max-height:min(230px,calc(100vh - 300px))}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-meta{gap:5px 6px}.jpdb-reader-example-query{max-width:100%}.jpdb-reader-example-source,.jpdb-reader-example-query{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-media-note{color:var(--jpdb-reader-muted);font-style:italic}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-actions{display:flex;flex-wrap:wrap;gap:7px}.jpdb-reader-study-actions .jpdb-reader-icon-mini{width:auto;min-width:76px;padding:0 10px}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:12px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-title,.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-title{font-size:13px;line-height:1.2}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item.known{opacity:.72}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent-readable);font-size:11px;width:max-content}.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-more{display:grid;gap:4px}.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}.jpdb-reader-grammar-more[open]>summary:after{content:"-"}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-weight:700}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:12px;margin-top:6px}.jpdb-reader-modal-nav,.jpdb-reader-kanji-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:12px;font-weight:750}.jpdb-reader-modal-nav span,.jpdb-reader-kanji-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface) !important;--chip-border: var(--jpdb-reader-border) !important;--chip-text: var(--jpdb-reader-muted) !important}.jpdb-reader-kanji-mining{margin-top:8px;max-width:420px}.jpdb-reader-kanji-mining-row{gap:8px}.jpdb-reader-kanji-mining-row .jpdb-reader-btn{min-height:34px;border-radius:8px;padding-inline:10px;font-size:12px}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:28px;padding:3px 11px 3px 7px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 16%,transparent),color-mix(in srgb,var(--jpdb-reader-accent) 9%,transparent));color:var(--jpdb-reader-text);box-shadow:inset 0 1px #ffffff14;font-size:13px;font-weight:850;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline-flex;align-items:center;flex:0 0 auto;height:18px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent);color:color-mix(in srgb,var(--jpdb-reader-accent) 76%,var(--jpdb-reader-text));font-size:9px;font-weight:900;line-height:18px;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:6px}.jpdb-reader-kanji-facts span{display:grid;gap:2px;min-width:0;padding:7px 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:12px;font-weight:750}.jpdb-reader-kanji-facts strong{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.jpdb-reader-origin-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:8px;margin-top:8px}.jpdb-reader-origin-node{display:grid;place-items:center;gap:2px;min-height:58px;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent),var(--jpdb-reader-surface-2));color:var(--jpdb-reader-text);text-align:center;font:inherit;cursor:pointer}.jpdb-reader-origin-node.current{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 64%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2))}.jpdb-reader-origin-node.related{border-style:dashed;cursor:default}.jpdb-reader-origin-node:hover,.jpdb-reader-origin-node:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-node strong{font-size:20px;line-height:1}.jpdb-reader-origin-node small,.jpdb-reader-origin-edges small{color:var(--jpdb-reader-muted);font-size:10px;line-height:1.2}.jpdb-reader-origin-edges{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:5px}.jpdb-reader-origin-edges span{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:12px;line-height:1.3}.jpdb-reader-origin-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.jpdb-reader-origin-examples button{min-width:0;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);text-align:left;cursor:pointer;font:inherit}.jpdb-reader-origin-examples button:hover,.jpdb-reader-origin-examples button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-examples strong,.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-wiktionary{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-origin-wiktionary summary{color:var(--jpdb-reader-text);cursor:pointer;font-weight:800}.jpdb-reader-origin-wiktionary p{margin:7px 0 0;line-height:1.4}.jpdb-reader-origin-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.jpdb-reader-origin-images img{width:64px;height:64px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:#fff}.jpdb-reader-origin-sources{display:flex;flex-wrap:wrap;gap:7px;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-sources a{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-origin-graph-wrap{position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,#000);border-radius:8px;background:#11171d;box-shadow:inset 0 1px #ffffff09,inset 0 -18px 44px #0000002e;overflow:hidden}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:#f2f4f8c7;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:#f2f4f8d1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle{fill:#f2f4f8f0;stroke:#11171d;stroke-width:.12}.jpdb-reader-origin-graph-wrap:not(.show-outbound) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-toggle{position:absolute;top:7px;right:7px;z-index:4;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 14px);padding:4px 7px;border:1px solid rgba(242,244,248,.18);border-radius:999px;background:#03070bbd;color:#f2f4f8e6;font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px #0000003d}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:#7dc3e5}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;min-width:62px;height:62px;padding:0;border:4px solid #03070b;border-radius:999px;background:#7dc3e5;color:#03070b;font:850 32px/1 Hiragino Sans,Yu Gothic,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 9px 26px #00000057;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:1;transition:border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{width:68px;min-width:68px;height:68px;border-color:#03070b;background:#2fa6dc;font-size:34px;box-shadow:0 12px 32px #0006}.jpdb-reader-origin-graph-node.component{border-color:#03070b}.jpdb-reader-origin-graph-node.related{background:#f4f7fb;color:#03070b;font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:#03070b;box-shadow:0 14px 34px #00000070,0 0 0 3px #7dc3e529;outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px #00000080,0 0 0 4px #7dc3e533}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements span,.jpdb-reader-rtk-elements button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:12px;font-weight:750}.jpdb-reader-rtk-elements button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements button{cursor:pointer}.jpdb-reader-rtk-elements button:hover,.jpdb-reader-rtk-elements button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-rtk-elements span+span:before,.jpdb-reader-rtk-elements span+button:before,.jpdb-reader-rtk-elements button+span:before,.jpdb-reader-rtk-elements button+button:before{content:"+";margin-right:6px;color:color-mix(in srgb,var(--jpdb-reader-accent) 72%,var(--jpdb-reader-muted))}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-similar-word{min-width:0;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;margin:8px auto 0;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-mini-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:max-content!important;height:28px!important;min-height:28px!important;max-height:30px!important;padding:4px 9px!important;border:1px solid var(--jpdb-reader-border)!important;border-radius:7px!important;background:transparent!important;color:var(--jpdb-reader-text)!important;cursor:pointer;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif!important;white-space:nowrap!important}.jpdb-reader-mini-btn:hover,.jpdb-reader-mini-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-popover:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover-body{min-height:0;overflow:auto;padding:14px;overscroll-behavior:contain}.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;background:var(--jpdb-reader-bg);box-shadow:0 -1px 0 var(--jpdb-reader-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:flex-end;align-items:center;pointer-events:none}.jpdb-reader-mining-collapse{display:grid;place-items:center;width:30px;height:30px;min-width:30px;min-height:30px;border:0;border-radius:5px;background:transparent;color:var(--jpdb-reader-muted);cursor:pointer;font:900 17px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto;transform:translateY(-.01rem);transition:color .18s ease-in-out,background .18s ease-in-out,transform .18s ease-in-out}.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{background:var(--jpdb-reader-hover);color:var(--jpdb-reader-accent-readable);outline:none;transform:translateY(-.08rem)}.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(0,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:10px;font-size:13px;letter-spacing:0;line-height:1;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:6px;font-size:12px;letter-spacing:0;line-height:1;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-btn:hover:not(:disabled),.jpdb-reader-btn:focus-visible:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,currentColor 15%);box-shadow:inset 0 1px #ffffff0d,0 8px 18px #0003;transform:translateY(-.25rem);outline:none}.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}.jpdb-reader-grades .jpdb-reader-btn:before,.jpdb-reader-btn.fail:before,.jpdb-reader-btn.pass:before{margin-right:4px;color:var(--button-accent, currentColor);font-weight:950}.jpdb-reader-grades .jpdb-reader-btn.nothing:before,.jpdb-reader-grades .jpdb-reader-btn.something:before,.jpdb-reader-btn.fail:before{content:"✖"}.jpdb-reader-grades .jpdb-reader-btn.hard:before,.jpdb-reader-grades .jpdb-reader-btn.okay:before,.jpdb-reader-grades .jpdb-reader-btn.easy:before,.jpdb-reader-btn.pass:before{content:"✔"}.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 72%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--button-accent, var(--jpdb-reader-border)) 14%)}@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px;font-size:11px}}@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}.jpdb-reader-actions-has-mining{padding-top:29px}.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}.jpdb-reader-mining-collapse{width:28px;height:28px;min-width:28px;min-height:28px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}.jpdb-reader-grades{grid-template-columns:1.12fr 1.3fr .86fr .86fr .86fr}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:12px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 20px));max-height:min(760px,calc(100vh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none;transition-property:background-color,border-color,box-shadow,color,opacity}.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-tab:hover,.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.25rem);outline:none}.jpdb-reader-settings-tab:active{transform:scale(.98)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:12px}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;height:38px;padding:8px;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,color .14s ease}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;text-align:center;text-decoration:none!important;transition:all .2s ease-in-out}.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-hover);outline:none}.jpdb-reader-btn:active{transform:scale(.98)}.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:12px}.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px);transition:border-color .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}.jpdb-reader-segment-field{display:grid;align-content:start;gap:6px;margin:10px 0;color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-segment-title{font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;min-height:38px;padding:3px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-segmented label{position:relative;display:grid;place-items:center;min-width:0;min-height:30px;margin:0;color:var(--jpdb-reader-muted)!important;cursor:pointer}.jpdb-reader-segmented input{position:absolute;top:0;right:0;bottom:0;left:0;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0;opacity:0;cursor:pointer}.jpdb-reader-segmented span{display:grid;place-items:center;width:100%;min-height:30px;padding:0 8px;border-radius:6px;color:inherit;font:850 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented input:checked+span{background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-segmented input:focus-visible+span{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex}.jpdb-reader-support-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-support-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-support-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-support-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.jpdb-reader-support-card+.jpdb-reader-support-card{margin-top:12px}.jpdb-reader-help-links-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-support-actions .jpdb-reader-btn{min-height:42px;padding-inline:10px}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:12px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:7px;margin:10px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:12px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:48px minmax(130px,1fr) minmax(120px,.8fr) 74px 58px}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:48px minmax(160px,1fr) 74px 58px}.jpdb-reader-order-head{color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%;cursor:grab}.jpdb-reader-order-row.jpdb-reader-dragging{opacity:.58;border-color:var(--jpdb-reader-accent);cursor:grabbing}.jpdb-reader-order-row.jpdb-reader-touch-dragging{box-shadow:0 8px 24px #0003}.jpdb-reader-order-row.jpdb-reader-drop-before,.jpdb-reader-order-row.jpdb-reader-drop-after{border-color:var(--jpdb-reader-accent)}.jpdb-reader-order-row.jpdb-reader-drop-before:before,.jpdb-reader-order-row.jpdb-reader-drop-after:after{content:"";position:absolute;left:8px;right:8px;height:4px;border-radius:999px;background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft);pointer-events:none}.jpdb-reader-order-row.jpdb-reader-drop-before:before{top:-7px}.jpdb-reader-order-row.jpdb-reader-drop-after:after{bottom:-7px}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:12px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}.jpdb-reader-lookup-link-fixed{width:34px;height:34px}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-mini:active{transform:scale(.98)}.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:normal;word-break:keep-all;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;margin-top:8px;color:#ffffffd1;font-size:.62em;font-weight:650;line-height:1.25;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary-loading{opacity:.01}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78;transition:opacity .14s ease,background .14s ease,border-color .14s ease}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:.12}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap;transition:opacity .14s ease,visibility .14s ease,border-color .14s ease,color .14s ease,background .14s ease}.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}.jpdb-subtitle-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list{position:fixed;right:max(10px,env(safe-area-inset-right));top:50px;width:min(430px,calc(100vw - 24px));max-height:min(62vh,520px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:0 14px 34px #00000047;pointer-events:auto;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:.42}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:1}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:0;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:0;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:0;height:24px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}.jpdb-subtitle-list-head{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,auto);align-items:center;gap:8px;padding:9px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-panel-mode{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-mode button{min-height:28px;padding:0 9px;border:0;border-radius:6px;background:transparent;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-panel-mode button:disabled{opacity:.42}.jpdb-subtitle-panel-nav{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0 0 2px;border:0;border-radius:6px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}.jpdb-subtitle-panel-nav button:disabled{opacity:.38}.jpdb-subtitle-placement{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-placement button{display:inline-grid;place-items:center;min-width:28px;width:28px;min-height:28px;height:28px;padding:0;border:0;border-radius:6px;background:transparent;text-align:center;box-shadow:none}.jpdb-subtitle-placement button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list-scroll{min-height:0;overflow:auto;display:grid;align-content:start;grid-auto-rows:max-content;gap:2px;padding:6px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}.jpdb-subtitle-row-body{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}.jpdb-subtitle-row-text{min-width:0;grid-column:1;overflow-wrap:anywhere;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0}.jpdb-subtitle-row-text .jpdb-reader-word{color:inherit;background:transparent;text-decoration-line:none;border-radius:4px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}.jpdb-youtube-filtered,.jpdb-youtube-filter-pending{display:none!important}.jpdb-youtube-filter-active :is(ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-grid-video-renderer,ytd-reel-item-renderer,ytd-reel-video-renderer,yt-lockup-view-model,.ytGridShelfViewModelGridShelfItem,ytm-rich-item-renderer,ytm-compact-video-renderer,ytm-video-card-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2):not([data-yomu-youtube-checked=true]):not([data-jpdb-reader-root]){visibility:hidden!important}.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-youtube-filter-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;max-height:min(70vh,620px);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{padding:14px 16px}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{max-height:min(92vh,840px);max-height:min(92svh,840px)}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-settings{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0}.jpdb-reader-settings-head{padding:18px 20px 0}.jpdb-reader-settings-scroll{padding:0 20px 106px}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 20px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions{grid-template-columns:1fr}.jpdb-reader-support-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-recommended-item,.jpdb-reader-template-preview-grid{grid-template-columns:1fr}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}.jpdb-reader-dictionary-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact{grid-template-columns:52px 1fr}.jpdb-reader-dictionary-row input[name$=".alias"],.jpdb-reader-dictionary-row .jpdb-reader-row-tools,.jpdb-reader-dictionary-row-help{grid-column:2}.jpdb-reader-dictionary-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-audio-source-head{display:none}.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:52px 1fr}.jpdb-reader-audio-source-choice{grid-column:2}.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row input[name$=".urlTemplate"]{grid-column:1 / -1}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start;flex-wrap:wrap;min-width:0}.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start}.jpdb-ocr-line{min-width:38px;min-height:38px;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:8px!important;right:auto!important;width:calc(100vw - 16px)!important;border-radius:12px 12px 0 0}}@media (max-width: 519px){.jpdb-subtitle-list{left:8px!important;right:auto!important;width:calc(100vw - 16px)!important;border-radius:12px 12px 0 0}}';
+  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08)}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}[data-jpdb-reader-root] :where(button){-moz-appearance:none;appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}[data-jpdb-reader-root] :where(input,select,textarea){-moz-appearance:auto;appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:0;text-transform:none}.jpdb-reader-newtab-document,.jpdb-reader-newtab-document body{min-height:100%;margin:0;background:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab{min-height:100dvh;width:100%;overflow:hidden;background:var(--jpdb-reader-bg, #181b20);color:var(--jpdb-reader-text, #f2f4f8);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-newtab:before{content:"";position:fixed;inset:0 0 auto;height:2px;background:var(--jpdb-reader-accent, #5ea780);opacity:.8;pointer-events:none}.jpdb-reader-newtab *{box-sizing:border-box}.jpdb-reader-newtab button{font:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-newtab-shell{width:min(760px,calc(100vw - 28px));min-height:100dvh;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(12px,2.2vh,22px);padding:max(18px,env(safe-area-inset-top)) 0 max(18px,env(safe-area-inset-bottom))}.jpdb-reader-newtab-topbar{min-height:42px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}.jpdb-reader-newtab-overflow{width:36px;height:36px;display:grid;place-items:center;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);text-decoration:none}.jpdb-reader-newtab-brand{min-width:112px;display:flex;align-items:center}.jpdb-reader-newtab-brand .title{display:inline-flex;align-items:center;gap:8px;min-width:0;height:42px;color:var(--jpdb-reader-text, #f2f4f8);font-size:16px;font-weight:760;line-height:1;text-decoration:none}.jpdb-reader-newtab-brand .logo{display:block;width:24px;height:24px;flex:0 0 auto;border-radius:5px}.jpdb-reader-newtab-brand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-overflow{padding-bottom:4px;font-size:18px;font-weight:900;line-height:1;cursor:pointer}.jpdb-reader-newtab-mode{justify-self:center;display:inline-grid;grid-template-columns:repeat(2,minmax(70px,1fr));gap:2px;padding:3px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,transparent)}.jpdb-reader-newtab-mode button{display:grid;place-items:center;min-height:32px;border:0;border-radius:6px;padding:0 12px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:820;line-height:1;text-align:center;cursor:pointer}.jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:center;width:48px;min-width:48px;height:36px}.jpdb-reader-theme-switch{position:relative;display:block;width:44px;min-width:44px;height:24px;min-height:24px;padding:0;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .16));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);cursor:pointer;transition:border-color .18s ease,background .18s ease}.jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:20px;height:20px;border-radius:999px;background:var(--jpdb-reader-bg, #181b20);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(20px)}.jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted, #aab2c0)}.jpdb-reader-theme-switch .sun,.jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-newtab-mode button[data-active=true]{background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 18%,var(--jpdb-reader-surface-2, #282e37));color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-study{min-height:0;display:grid;grid-template-rows:auto minmax(0,.85fr) auto auto;align-items:center;justify-items:center;gap:clamp(8px,1.8vh,16px);cursor:pointer;-webkit-user-select:none;user-select:none}.jpdb-reader-newtab-count,.jpdb-reader-newtab-status{color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;line-height:1.2;font-weight:760;text-align:center}.jpdb-reader-newtab-prompt{max-width:min(100%,720px);margin:0;padding:0 clamp(8px,3vw,22px);border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(2.25rem,7vw,5.2rem);font-weight:900;line-height:1.06;text-align:center;overflow-wrap:anywhere;text-wrap:balance;text-shadow:0 1px 2px rgba(0,0,0,.18)}.jpdb-reader-newtab-prompt .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-family:inherit;font-size:clamp(2.6rem,8vw,5.8rem);line-height:1.02}.jpdb-reader-newtab-sentence{display:inline}.jpdb-reader-newtab-sentence .jpdb-reader-word{padding:0 .08em;border-radius:.1em;background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 16%,transparent)!important;color:inherit;text-decoration-color:var(--jpdb-reader-accent, #5ea780)!important;text-underline-offset:.08em}.jpdb-reader-newtab-answer{min-height:clamp(68px,11vh,124px);max-width:min(640px,100%);display:grid;align-content:start;justify-items:center;gap:8px;transition:opacity .16s ease,transform .16s ease,filter .16s ease}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-answer{min-height:0;opacity:0;filter:blur(8px);transform:translateY(4px);pointer-events:none;visibility:hidden}.jpdb-reader-newtab-reading{max-width:100%;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(1.2rem,3.2vw,2rem);font-weight:780;line-height:1.12;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-reading .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-meaning{max-width:min(540px,100%);color:var(--jpdb-reader-muted, #aab2c0);font-size:clamp(14px,2.1vw,18px);font-weight:650;line-height:1.42;text-align:center;overflow-wrap:anywhere;text-wrap:balance}.jpdb-reader-newtab-controls{justify-self:center;display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;width:min(100%,680px)}.jpdb-reader-newtab-controls button{display:grid;place-items:center;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:13px;font-weight:820;line-height:1.1;text-align:center;cursor:pointer;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-newtab-controls button[data-newtab-action=reveal]{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls{width:min(240px,100%);grid-template-columns:minmax(0,1fr)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls button{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-controls button[data-grade=fail],.jpdb-reader-newtab-controls button[data-grade=nothing]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=pass],.jpdb-reader-newtab-controls button[data-grade=okay]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-controls button[data-grade=easy]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-newtab-controls button[data-grade=something]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=hard]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-newtab-controls button[data-grade]{border-color:color-mix(in srgb,var( --jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255, 255, 255, .12)) ) 72%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,var( --jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255, 255, 255, .12)) ) 14%)}.jpdb-reader-newtab-controls button[data-grade]:hover,.jpdb-reader-newtab-controls button[data-grade]:focus-visible{border-color:var(--jpdb-newtab-grade-accent);background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,var(--jpdb-newtab-grade-accent) 22%);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-newtab-grade-accent) 24%,transparent);color:var(--jpdb-reader-text, #f2f4f8);outline:2px solid color-mix(in srgb,var(--jpdb-newtab-grade-accent) 54%,transparent);outline-offset:3px;transform:translateY(-.25rem)}.jpdb-reader-newtab-controls button[data-grade]:active{transform:scale(.98)}.jpdb-reader-newtab-kanji-answer{width:min(540px,calc(100vw - 32px));display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));justify-content:center;align-items:center;gap:12px}.jpdb-reader-newtab-kanji-front{display:grid;justify-items:center;gap:8px;width:min(360px,calc(100vw - 32px));margin-block:clamp(28px,6vh,72px);margin-inline:auto}.jpdb-reader-newtab-kanji-svg,.jpdb-reader-newtab-doodle,.jpdb-reader-newtab-doodle-preview{border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-kanji-svg{width:100%;aspect-ratio:1;display:grid;place-items:center}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-svg,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-svg{width:min(78%,190px);height:auto}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-strokes path,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-strokes path{fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-numbers,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-numbers{fill:color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 56%,transparent);font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-doodle-stage.jpdb-reader-newtab-doodle{grid-column:1 / -1;position:relative;width:min(360px,100%);aspect-ratio:1;justify-self:center;margin-inline:auto;overflow:hidden;touch-action:none;--jpdb-reader-doodle-ink: var(--jpdb-reader-text, #f2f4f8);background:transparent}.jpdb-reader-newtab-doodle:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(90deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 12%,transparent) 1px,transparent 1px),linear-gradient(0deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 12%,transparent) 1px,transparent 1px);background-size:25% 25%;z-index:0;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost,.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost{z-index:1;opacity:.18;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{z-index:2}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{pointer-events:none}.jpdb-reader-newtab-doodle.trace-hidden .jpdb-reader-doodle-ghost{opacity:0}.jpdb-reader-newtab-doodle-actions{display:flex;position:static;z-index:auto;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:2px}.jpdb-reader-newtab-doodle-actions button{min-height:30px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:800}.jpdb-reader-newtab-doodle-result{grid-column:1 / -1;justify-self:center;min-height:28px;padding:7px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:820}.jpdb-reader-newtab-doodle-result:empty{display:none}.jpdb-reader-newtab-doodle-preview{display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden}.jpdb-reader-newtab-doodle-preview img{width:100%;height:100%;object-fit:contain}.jpdb-reader-newtab-kanji-details{display:grid;gap:9px;width:min(620px,calc(100vw - 32px));margin-top:4px;text-align:left}.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings span,.jpdb-reader-newtab-kanji-vocab span{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 8px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:760}.jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:6px}.jpdb-reader-newtab-kanji-details .jpdb-reader-component-card{display:grid;justify-items:center;gap:2px;min-height:48px;padding:6px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);text-align:center}.jpdb-reader-newtab-kanji-vocab{display:grid;gap:5px}.jpdb-reader-newtab-kanji-vocab span{justify-content:flex-start}.jpdb-reader-newtab-kanji-vocab strong{color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-kanji-mnemonic{margin:0;color:var(--jpdb-reader-muted, #aab2c0);font-size:12px;font-weight:650;line-height:1.45;text-align:center}.jpdb-reader-newtab-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-kanji-popover-word{display:inline-flex;justify-content:center}.jpdb-reader-newtab-kanji-mining{margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.jpdb-reader-newtab-mini-action{min-height:32px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:820}.jpdb-reader-newtab-mini-action.add,.jpdb-reader-newtab-mini-action.review{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, #f2f4f8))}.jpdb-reader-newtab-mini-action.nf{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-mini-action.blacklist,.jpdb-reader-newtab-mini-action.danger{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-immersion{margin-top:8px;width:min(540px,100%);display:grid;gap:8px;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;line-height:1.35}.jpdb-reader-newtab-immersion .jpdb-reader-example-summary{grid-template-columns:minmax(0,1fr) auto auto auto;min-height:34px}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini{width:34px;min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);cursor:pointer}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-immersion .jpdb-reader-example-media,.jpdb-reader-newtab-immersion .jpdb-reader-example-image{max-height:min(210px,30vh)}.jpdb-reader-newtab-install{justify-self:end;color:var(--jpdb-reader-faint, #6f7a89);font-size:11px;font-weight:760;text-decoration:none}.jpdb-reader-theme-switch:hover,.jpdb-reader-theme-switch:focus-visible,.jpdb-reader-newtab-overflow:hover,.jpdb-reader-newtab-overflow:focus-visible,.jpdb-reader-newtab-mode button:hover,.jpdb-reader-newtab-mode button:focus-visible,.jpdb-reader-newtab-controls button:hover,.jpdb-reader-newtab-controls button:focus-visible,.jpdb-reader-newtab-doodle-actions button:hover,.jpdb-reader-newtab-doodle-actions button:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 60%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,transparent);outline-offset:3px}.jpdb-reader-newtab-brand .title:hover,.jpdb-reader-newtab-brand .title:focus-visible{outline:none;box-shadow:none;color:var(--jpdb-reader-text, #f2f4f8)}@media (max-width: 640px){.jpdb-reader-newtab-shell{width:min(100vw - 18px,560px);gap:14px}.jpdb-reader-newtab-mode{grid-template-columns:repeat(2,minmax(62px,1fr))}.jpdb-reader-newtab-mode button{padding:0 10px}.jpdb-reader-newtab-prompt{font-size:2.45rem}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-size:3rem}.jpdb-reader-newtab-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-newtab-controls button{min-height:42px;padding:0 8px;font-size:11px}.jpdb-reader-newtab-kanji-answer{grid-template-columns:1fr}.jpdb-reader-newtab-kanji-glyph{min-height:104px;font-size:4.2rem}.jpdb-reader-newtab-kanji-svg{min-height:116px}.jpdb-reader-newtab-doodle{width:min(280px,100%)}}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: currentColor;--jpdb-reader-source-status-decoration: transparent;--jpdb-reader-source-status-soft: transparent;--jpdb-reader-source-jpdb-color: currentColor;--jpdb-reader-source-jpdb-decoration: transparent;--jpdb-reader-source-jpdb-soft: transparent;--jpdb-reader-source-anki-color: currentColor;--jpdb-reader-source-anki-decoration: transparent;--jpdb-reader-source-anki-soft: transparent;--jpdb-reader-source-pitch-color: currentColor;--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-unknown, #94a3b8 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-unknown-soft, transparent );position:static;display:inline;white-space:nowrap;word-break:keep-all;overflow-wrap:normal!important;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .12s ease,text-decoration-color .12s ease}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.jpdb-learning{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-soft: transparent}.jpdb-reader-word.jpdb-due{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.jpdb-failed{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-ignored, #b8a7ff );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16) );opacity:.82!important}.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.anki-learning{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-anki-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.anki-known{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-soft: transparent}.jpdb-reader-word.anki-due{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.anki-failed{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-anki-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck,.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.jpdb-learning,.jpdb-reader-word.anki-learning{--jpdb-reader-source-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant,.jpdb-reader-word.anki-known{--jpdb-reader-source-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-known, #7bd88f );--jpdb-reader-source-status-soft: transparent}.jpdb-reader-word.jpdb-due,.jpdb-reader-word.anki-due{--jpdb-reader-source-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.jpdb-failed,.jpdb-reader-word.anki-failed{--jpdb-reader-source-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-ignored, #b8a7ff );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16) )}.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-heiban, #359eff );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, .14) )}.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-atamadaka, #fe4b74 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, .14) )}.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-nakadaka, #fba840 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, .16) )}.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-odaka, #57ccb7 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, .14) )}.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-kifuku, #9050f6 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, .14) )}.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important;opacity:1!important}.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent )}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-jpdb-decoration, transparent )}.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-anki-decoration, transparent )}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent );opacity:1!important}.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important;opacity:1!important}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:11px;font-weight:700}.jpdb-ocr-line{position:absolute;display:flex;align-items:flex-end;justify-content:center;overflow:visible;min-width:0;min-height:0;padding:var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px) var(--jpdb-ocr-pad-bottom, 3px);border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text;transition:opacity .12s ease,background .12s ease,border-color .12s ease}.jpdb-ocr-line-text{display:inline-flex;flex:none;justify-content:center;align-items:flex-end;align-content:flex-end;flex-wrap:nowrap;white-space:nowrap;max-width:none;overflow-wrap:normal}.jpdb-ocr-line[data-vertical=true]{align-items:center;justify-content:center;letter-spacing:0}.jpdb-ocr-line[data-vertical=true] .jpdb-ocr-line-text{white-space:normal;flex-wrap:wrap}.jpdb-ocr-line-visible{border-color:#ffffff1a;background:#181b2024;box-shadow:0 6px 16px #0003,inset 0 0 0 1px #ffffff0a}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, .48));border-color:#ffffff2e;box-shadow:0 10px 24px #0000003d,inset 0 0 0 1px #ffffff0d;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:1!important}.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi{line-height:1!important}.jpdb-ocr-line[data-has-furi=true] .jpdb-reader-word{display:inline-flex;align-items:flex-end}.jpdb-ocr-line .jpdb-ocr-plain{display:inline-flex;align-items:flex-end;line-height:1;white-space:pre}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-ruby{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;padding-top:.5em;line-height:1;vertical-align:baseline}.jpdb-ocr-ruby-base{display:inline-flex;align-items:flex-end;line-height:1}.jpdb-ocr-furi{position:absolute;top:0;left:50%;color:currentColor;font-size:.42em;line-height:1;opacity:0;pointer-events:none;text-align:center;text-shadow:none;transform:translate(-50%);white-space:nowrap}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-ocr-furi{opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}.jpdb-reader-subtitle-highlight-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent )}.jpdb-reader-subtitle-underline-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-jpdb-decoration, transparent )}.jpdb-reader-subtitle-underline-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-anki-decoration, transparent )}.jpdb-reader-subtitle-underline-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent )}.jpdb-reader-subtitle-text-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-subtitle-text-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-subtitle-text-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-subtitle-text-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban{color:var(--jpdb-reader-pitch-heiban, #359eff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka{color:var(--jpdb-reader-pitch-atamadaka, #fe4b74)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka{color:var(--jpdb-reader-pitch-nakadaka, #fba840)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka{color:var(--jpdb-reader-pitch-odaka, #57ccb7)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku{color:var(--jpdb-reader-pitch-kifuku, #9050f6)!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;touch-action:none;transform:translateZ(0);transition:opacity .15s ease,transform .15s ease,border-color .15s ease,color .15s ease}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;padding:14px;container-type:inline-size}:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}}@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}}.jpdb-reader-sheet-handle{display:none;width:72px;height:28px;border-radius:999px;background:transparent;margin:-4px auto 6px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";display:block;width:42px;height:5px;border-radius:999px;margin:11px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out;-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-btn:active{transform:scale(.98)}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span,.jpdb-reader-onboarding-note{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}@keyframes jpdb-reader-audio-loading-a{0%{left:0}25%{left:0}75%{left:100%}to{left:100%}}@keyframes jpdb-reader-audio-loading-b{0%{right:100%}50%{right:0}to{right:0}}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}.jpdb-reader-pill{-moz-appearance:none;appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8% );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-text);cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,outline-color .2s ease-in-out!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}.jpdb-reader-jpdb-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface) );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-accent-readable)}.jpdb-reader-action-pill:active{transform:scale(.98)!important}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}.jpdb-reader-heading{display:contents}.jpdb-reader-title-row{grid-column:1;grid-row:1}.jpdb-reader-card-tools{display:contents}.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:11px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);font-size:13px;line-height:1.32}.jpdb-reader-jpdb-extras{display:grid;gap:10px;margin:10px 0 0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group{border:0;border-radius:0;background:transparent;padding:0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-jpdb-extra{display:grid;gap:6px}.jpdb-reader-jpdb-extra h6{margin:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.jpdb-reader-jpdb-compounds,.jpdb-reader-jpdb-examples{display:grid;gap:6px;margin:0;padding:0;list-style:none}.jpdb-reader-jpdb-example{padding-left:10px;border-left:2px solid var(--jpdb-reader-border);color:var(--jpdb-reader-text);line-height:1.3}.jpdb-reader-jpdb-compounds li{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:baseline;gap:8px;min-width:0}.jpdb-reader-jpdb-compound{display:inline-flex;align-items:flex-start;min-width:0;color:inherit!important;text-decoration:none}.jpdb-reader-jpdb-compound:hover,.jpdb-reader-jpdb-compound:focus-visible{color:inherit!important;outline:none}.jpdb-reader-jpdb-compound-head{display:grid;gap:2px;max-width:100%}.jpdb-reader-jpdb-compound-term{display:inline-block;width:max-content;max-width:100%;font-size:17px;line-height:1.1;font-weight:850;white-space:nowrap}.jpdb-reader-jpdb-compound-reading,.jpdb-reader-jpdb-compounds small,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.jpdb-reader-jpdb-compound-reading{white-space:nowrap}.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading{display:none}.jpdb-reader-example-summary .jpdb-reader-example-count{flex:0 0 auto;margin-left:auto;text-align:right;white-space:nowrap}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence{line-height:1.35}.jpdb-reader-jpdb-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.jpdb-reader-meaning-pos{color:var(--jpdb-reader-faint);font-size:11px;margin-right:5px;font-style:italic;text-transform:none}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px}.jpdb-reader-inline-link{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary{position:absolute;top:8px;right:8px;z-index:1;display:inline-flex;width:20px;min-height:20px;padding:0;justify-content:center}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary:after{margin:0;font-size:13px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary+.jpdb-reader-local-terms{padding-top:0}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;white-space:normal;display:grid;gap:2px;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-more{margin-top:6px;border-top:1px solid var(--jpdb-reader-border);padding-top:5px}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary{align-items:center;cursor:pointer;display:flex;gap:8px;justify-content:space-between;list-style:none;min-height:38px;padding:8px 0}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){white-space:normal}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class=form-valid]{text-align:center;vertical-align:middle}.jpdb-reader-local-glossary [data-sc-class=form-valid]{color:var(--jpdb-reader-accent-readable);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:11px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-anki-card-preview div{display:grid;gap:2px}.jpdb-reader-anki-card-preview strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-card-preview span,.jpdb-reader-anki-card-preview small{white-space:pre-wrap}.yomu-jpdb-addon-card{display:grid;gap:7px;margin:10px 0;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, inherit);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;line-height:1.42;box-shadow:none}.yomu-jpdb-addon-card,.yomu-jpdb-addon-card *{box-sizing:border-box}.yomu-jpdb-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.yomu-jpdb-card-title a{color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-decoration:none;text-transform:none}.yomu-jpdb-collapsible-card{display:grid;gap:9px}.yomu-jpdb-collapsible-card>summary{cursor:pointer;list-style:none}.yomu-jpdb-collapsible-card>summary::-webkit-details-marker{display:none}.yomu-jpdb-collapsible-card>summary:after{content:"Show";color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-transform:none}.yomu-jpdb-collapsible-card[open]>summary:after{content:"Hide"}.yomu-jpdb-collapsible-body{display:grid;gap:9px}.yomu-jpdb-toolbar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}.yomu-jpdb-toolbar a{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent)!important;font-size:11px;font-weight:800;text-decoration:none!important}.yomu-jpdb-counter,.yomu-jpdb-source-meta{display:inline-flex;align-items:center;justify-content:center;min-height:0;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.yomu-jpdb-source-meta{justify-content:flex-start;margin-bottom:2px}.yomu-jpdb-image-shell{display:grid;place-items:center}.yomu-jpdb-image-shell img{display:block;width:min(320px,100%);max-height:340px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-bg)}.yomu-jpdb-story{max-width:58ch;margin:0 auto;color:var(--jpdb-reader-text);white-space:pre-wrap}.yomu-jpdb-addon-card>.jpdb-reader-local,.yomu-jpdb-addon-card>.jpdb-reader-source-card,.yomu-jpdb-addon-card .jpdb-reader-local-entry,.yomu-jpdb-addon-card .jpdb-reader-dictionary-group,.yomu-jpdb-uchisen-source,.yomu-jpdb-rtk-source{padding:0;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important}.yomu-jpdb-addon-card>.jpdb-reader-local,.yomu-jpdb-addon-card>.jpdb-reader-source-card,.yomu-jpdb-uchisen-source,.yomu-jpdb-rtk-source{margin-top:0}.yomu-jpdb-addon-card>.jpdb-reader-source-card[open]>:last-child,.yomu-jpdb-uchisen-source[open]>:last-child,.yomu-jpdb-rtk-source[open]>:last-child{margin-bottom:0}.yomu-jpdb-addon-card .jpdb-reader-local-title,.yomu-jpdb-addon-card .jpdb-reader-local-head{padding-inline:0}.yomu-jpdb-addon-card>.jpdb-reader-source-card>summary.jpdb-reader-local-title{min-height:38px;padding-top:8px;padding-bottom:8px}.yomu-jpdb-addon-card .jpdb-reader-local-glossary{padding-inline:0!important}.yomu-jpdb-uchisen-body,.yomu-jpdb-doodle-body{display:grid;gap:9px}.yomu-jpdb-doodle-body{justify-items:center;justify-self:center;width:min(100%,420px);margin-inline:auto}.yomu-jpdb-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px}.yomu-jpdb-facts span{display:grid;gap:2px;padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-facts strong,.yomu-jpdb-addon-card h6{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.yomu-jpdb-addon-card h6,.yomu-jpdb-addon-card p{margin:0}.yomu-jpdb-addon-card section{display:grid;gap:5px}.yomu-jpdb-chip-row,.yomu-jpdb-component-row,.yomu-jpdb-used-words{display:flex;flex-wrap:wrap;gap:7px}.yomu-jpdb-chip-row span{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:3px 8px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-weight:750}.yomu-jpdb-chip-row span.common{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}.yomu-jpdb-chip-row small{color:var(--jpdb-reader-muted);font-size:11px}.yomu-jpdb-component,.yomu-jpdb-used-words a{display:inline-grid;gap:1px;min-width:70px;padding:7px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-component:hover,.yomu-jpdb-component:focus-visible,.yomu-jpdb-used-words a:hover,.yomu-jpdb-used-words a:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component strong{color:var(--jpdb-reader-text);font-size:22px;line-height:1}.yomu-jpdb-component span,.yomu-jpdb-used-words small{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-used-words a span{font-weight:800}.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry,.yomu-jpdb-immersion-group{padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-local-dictionaries{gap:7px}.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group{border-radius:0}.yomu-jpdb-local-dictionaries .jpdb-reader-local-head{min-height:38px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary{line-height:1.45}.yomu-jpdb-page-dictionary .jpdb-reader-local-glossary{display:grid;gap:12px}.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group{border:0;border-radius:0;background:transparent;padding:0}.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.yomu-jpdb-dictionary-section{display:grid;gap:7px}.yomu-jpdb-compounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px}.yomu-jpdb-compound{display:grid;align-content:start;gap:3px;min-height:56px;padding:8px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 82%,transparent);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-compound:hover,.yomu-jpdb-compound:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-compound-head{display:grid;gap:2px;min-width:0}.yomu-jpdb-compound .yomu-jpdb-compound-term{display:inline-block;min-width:0;width:max-content;max-width:100%;white-space:nowrap}.yomu-jpdb-compound-term{font-size:18px;font-weight:850;line-height:1.1}.yomu-jpdb-compound-reading{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650;line-height:1.1;white-space:nowrap}.yomu-jpdb-compound-meaning{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-compound:has(.jpdb-reader-word) .yomu-jpdb-compound-reading{display:none}.yomu-jpdb-page-examples{display:grid;gap:6px}.yomu-jpdb-page-example{display:grid;gap:3px;padding:6px 8px;border-left:2px solid var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent-soft) 55%,transparent)}.yomu-jpdb-page-example .jpdb-reader-example-sentence,.yomu-jpdb-page-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.yomu-jpdb-page-example .jpdb-reader-example-sentence{line-height:1.35}.yomu-jpdb-page-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.yomu-jpdb-immersion-group>.jpdb-reader-local-glossary{padding:0 8px 8px}#yomu-jpdb-immersion .jpdb-reader-example-media{border:0;border-radius:0;background:transparent}.yomu-jpdb-audio-button{display:inline-grid;align-items:center;justify-content:center;width:1.55em;height:1.55em;min-width:1.55em;min-height:1.55em;margin:0 0 0 .35em;padding:0;border:0;border-radius:999px;background:transparent;box-shadow:none;color:currentColor;cursor:pointer;opacity:.72;vertical-align:middle;-webkit-tap-highlight-color:transparent;transform:translateY(.08em);transition:background-color .15s ease,color .15s ease,opacity .15s ease}.yomu-jpdb-audio-button:hover,.yomu-jpdb-audio-button:focus-visible{background:color-mix(in srgb,currentColor 10%,transparent);color:var(--jpdb-reader-accent, currentColor);opacity:1;outline:none}.yomu-jpdb-audio-button:active{opacity:.85}.yomu-jpdb-audio-button svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),.yomu-jpdb-review-compact-nav .menu-icon{display:none!important}.yomu-jpdb-review-compact-nav .menu{max-height:32px!important;transition:none!important}.yomu-jpdb-items-left-count{color:#e5484d}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode]{display:grid;align-items:center;justify-items:stretch;gap:10px;width:100%;margin:14px 0 8px;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-stage,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-jpdb-toolbar,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-result{justify-self:center}.yomu-doodle-stage{position:relative;width:min(92vw,420px);aspect-ratio:1;touch-action:none}.yomu-doodle-canvas,.yomu-doodle-ghost{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.yomu-doodle-canvas{z-index:1;border:2px solid color-mix(in srgb,var(--jpdb-reader-text) 82%,var(--jpdb-reader-border));border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 25%}.yomu-doodle-ghost{z-index:0;display:grid;place-items:center;overflow:hidden;color:var(--jpdb-reader-text);font-size:min(72vw,320px);line-height:1;opacity:.26;pointer-events:none}.yomu-doodle-stage.trace-hidden .yomu-doodle-ghost,.yomu-doodle-ghost[hidden]{display:none!important}.yomu-doodle-ghost svg{width:100%;height:100%}.yomu-doodle-ghost path,.yomu-doodle-ghost line,.yomu-doodle-ghost polyline{fill:none!important;stroke:currentColor!important;stroke-width:2.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}#yomu-jpdb-doodle-preview{display:inline-flex;place-items:center;gap:0;min-width:0;margin-left:24px;padding:0;border:0;border-radius:0;background:transparent;vertical-align:top}.yomu-doodle-preview-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1;text-transform:uppercase}#yomu-jpdb-doodle-preview img{width:min(180px,30vw);height:auto;border-radius:8px;border:0;background:transparent;box-shadow:none}[data-yomu-jpdb-addon] .jpdb-reader-icon-mini,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn{border-color:var(--jpdb-reader-border);background:transparent;box-shadow:none;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:hover,[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:focus-visible,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn:hover:not(:disabled),[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn:focus-visible:not(:disabled){border-color:var(--jpdb-reader-muted);background:transparent;box-shadow:none;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn{min-height:34px;padding-inline:10px;border-radius:7px}.yomu-doodle-result{min-height:28px;padding:6px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;line-height:1.2}.yomu-doodle-result:empty{display:none}.yomu-doodle-pass .yomu-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface));color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 88%,var(--jpdb-reader-text))}@media (min-height: 960px) and (min-width: 700px){[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode]{width:100%}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-stage{width:min(92vw,420px)}}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion,#yomu-jpdb-immersion{container-type:inline-size;--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px) , 260px)}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{display:flex;align-items:center;justify-content:space-between;gap:8px}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:var(--jpdb-reader-example-media-max-height);object-fit:contain}.jpdb-reader-example-media{display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}.jpdb-reader-example-body{display:grid;align-content:start;gap:7px;min-width:0}.jpdb-reader-example-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-summary,.yomu-jpdb-immersion-group>summary.jpdb-reader-local-head{display:flex!important;align-items:center!important;justify-content:space-between;gap:8px!important;min-height:38px;padding:8px 0;width:100%}.jpdb-reader-example-summary .jpdb-reader-example-source,.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group>summary .jpdb-reader-example-source,.yomu-jpdb-immersion-group>summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}.jpdb-reader-example-summary .jpdb-reader-local-dict,.yomu-jpdb-immersion-group>summary .jpdb-reader-local-dict{display:block;max-width:100%;flex:1 1 auto;margin-left:0;min-width:0;text-align:left;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.5;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35;text-align:center;text-wrap:balance}.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);-webkit-user-select:none;user-select:none;cursor:pointer;transition:filter .16s ease,opacity .16s ease}.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}.jpdb-reader-immersion>.jpdb-reader-example-actions,.yomu-jpdb-immersion-group>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{align-items:flex-start}.jpdb-reader-example-media{--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px) , 230px);max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-image{max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-meta{gap:5px 6px}.jpdb-reader-example-source{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-media-note{color:var(--jpdb-reader-muted);font-style:italic}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-actions{display:flex;flex-wrap:wrap;gap:7px}.jpdb-reader-study-actions .jpdb-reader-icon-mini{width:auto;min-width:76px;padding:0 10px}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:11px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-title,.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-title{font-size:13px;line-height:1.2}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item.known{opacity:.72}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent-readable);font-size:11px;width:max-content}.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-more{display:grid;gap:4px}.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}.jpdb-reader-grammar-more[open]>summary:after{content:"-"}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-weight:700}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:11px;margin-top:6px}.jpdb-reader-modal-nav,.jpdb-reader-kanji-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-modal-nav span,.jpdb-reader-kanji-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface);--chip-border: var(--jpdb-reader-border);--chip-text: var(--jpdb-reader-muted)}.jpdb-reader-kanji-mining{margin-top:8px;max-width:420px}.jpdb-reader-kanji-mining-row{gap:8px}.jpdb-reader-kanji-mining-row .jpdb-reader-btn{min-height:34px;border-radius:8px;padding-inline:10px;font-size:11px}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:24px;padding:3px 9px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 34%,var(--jpdb-reader-border));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,var(--jpdb-reader-accent) 12%);color:var(--jpdb-reader-text);box-shadow:none;font-size:12px;font-weight:780;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline;flex:0 0 auto;height:auto;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:9px;font-weight:800;line-height:1;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:6px}.jpdb-reader-kanji-facts span{display:grid;gap:2px;min-width:0;padding:7px 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:11px;font-weight:750}.jpdb-reader-kanji-facts strong{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.jpdb-reader-origin-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:8px;margin-top:8px}.jpdb-reader-origin-node{display:grid;place-items:center;gap:2px;min-height:58px;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent),var(--jpdb-reader-surface-2));color:var(--jpdb-reader-text);text-align:center;font:inherit;cursor:pointer}.jpdb-reader-origin-node.current{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 64%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2))}.jpdb-reader-origin-node.related{border-style:dashed;cursor:default}.jpdb-reader-origin-node:hover,.jpdb-reader-origin-node:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-node strong{font-size:20px;line-height:1}.jpdb-reader-origin-node small,.jpdb-reader-origin-edges small{color:var(--jpdb-reader-muted);font-size:10px;line-height:1.2}.jpdb-reader-origin-edges{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:5px}.jpdb-reader-origin-edges span{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.3}.jpdb-reader-origin-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.jpdb-reader-origin-examples button{min-width:0;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);text-align:left;cursor:pointer;font:inherit}.jpdb-reader-origin-examples button:hover,.jpdb-reader-origin-examples button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-examples strong,.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-wiktionary{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-origin-wiktionary summary{color:var(--jpdb-reader-text);cursor:pointer;font-weight:800}.jpdb-reader-origin-wiktionary p{margin:7px 0 0;line-height:1.4}.jpdb-reader-origin-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.jpdb-reader-origin-images img{width:64px;height:64px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:#fff}.jpdb-reader-origin-sources{display:flex;flex-wrap:wrap;gap:7px;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-sources a{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-origin-graph-wrap{position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,#000);border-radius:8px;background:#11171d;box-shadow:inset 0 1px #ffffff09,inset 0 -18px 44px #0000002e;overflow:hidden}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:#f2f4f8c7;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:#f2f4f8d1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle{fill:#f2f4f8f0;stroke:#11171d;stroke-width:.12}.jpdb-reader-origin-graph-wrap:not(.show-outbound) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-toggle{position:absolute;top:7px;right:7px;z-index:4;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 14px);padding:4px 7px;border:1px solid rgba(242,244,248,.18);border-radius:999px;background:#03070bbd;color:#f2f4f8e6;font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px #0000003d}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:var(--jpdb-reader-accent, #5ea780)}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;min-width:62px;height:62px;padding:0;border:4px solid #03070b;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 72%,#f4f7fb);color:#03070b;font:850 32px/1 Hiragino Sans,Yu Gothic,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 9px 26px #00000057;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:1;transition:border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{width:68px;min-width:68px;height:68px;border-color:#03070b;background:var(--jpdb-reader-accent, #5ea780);font-size:34px;box-shadow:0 12px 32px #0006}.jpdb-reader-origin-graph-node.component{border-color:#03070b}.jpdb-reader-origin-graph-node.related{background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 22%,#f4f7fb);color:#03070b;font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:#03070b;box-shadow:0 14px 34px #00000070,0 0 0 3px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 24%,transparent);outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px #00000080,0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 28%,transparent)}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements span,.jpdb-reader-rtk-elements button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:11px;font-weight:750}.jpdb-reader-rtk-elements button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements button{cursor:pointer}.jpdb-reader-rtk-elements button:hover,.jpdb-reader-rtk-elements button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-rtk-elements span+span:before,.jpdb-reader-rtk-elements span+button:before,.jpdb-reader-rtk-elements button+span:before,.jpdb-reader-rtk-elements button+button:before{content:"+";margin-right:6px;color:color-mix(in srgb,var(--jpdb-reader-accent) 72%,var(--jpdb-reader-muted))}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-similar-word{min-width:0;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;justify-self:center;margin:8px auto 0;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-mini-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:max-content!important;height:28px!important;min-height:28px!important;max-height:30px!important;padding:4px 9px!important;border:1px solid var(--jpdb-reader-border)!important;border-radius:7px!important;background:transparent!important;color:var(--jpdb-reader-text)!important;cursor:pointer;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif!important;white-space:nowrap!important}.jpdb-reader-mini-btn:hover,.jpdb-reader-mini-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-btn.jpdb-reader-doodle-control{min-height:28px;max-height:30px;padding:4px 9px;border-radius:7px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover-body{min-height:0;overflow:auto;padding:14px;overscroll-behavior:contain}.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;--jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);background:var(--jpdb-reader-actions-bg);box-shadow:0 -1px 0 var(--jpdb-reader-actions-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:flex-end;align-items:center;pointer-events:none}.jpdb-reader-mining-collapse{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;min-height:30px;border:0;border-radius:5px;background:transparent;color:var(--jpdb-reader-muted);cursor:pointer;padding:0;font:900 17px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;line-height:1;text-align:center;pointer-events:auto;transform:translateY(0);transition:color .18s ease-in-out,background .18s ease-in-out,transform .18s ease-in-out}.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{background:var(--jpdb-reader-hover);color:var(--jpdb-reader-accent-readable);outline:none;transform:translateY(-.08rem)}.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(0,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(6px,1.8cqi,10px);font-size:clamp(10.5px,3cqi,13px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(2px,1cqi,6px);font-size:clamp(9.3px,2.55cqi,11px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-btn:hover:not(:disabled),.jpdb-reader-btn:focus-visible:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, currentColor) 18%);box-shadow:inset 0 1px #ffffff0d,0 8px 18px #0003;transform:translateY(-.25rem);outline:none}.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}.jpdb-reader-grades .jpdb-reader-btn:before,.jpdb-reader-btn.fail:before,.jpdb-reader-btn.pass:before{margin-right:clamp(2px,.8cqi,4px);color:var(--button-accent, currentColor);font-weight:950}.jpdb-reader-grades .jpdb-reader-btn.nothing:before,.jpdb-reader-grades .jpdb-reader-btn.something:before,.jpdb-reader-btn.fail:before{content:"✖"}.jpdb-reader-grades .jpdb-reader-btn.hard:before,.jpdb-reader-grades .jpdb-reader-btn.okay:before,.jpdb-reader-grades .jpdb-reader-btn.easy:before,.jpdb-reader-btn.pass:before{content:"✔"}.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 72%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--button-accent, var(--jpdb-reader-border)) 14%)}@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:clamp(10px,2.85cqi,11.5px)}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:clamp(1px,.75cqi,4px);font-size:clamp(8.8px,2.4cqi,10.4px)}}@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}.jpdb-reader-actions-has-mining{padding-top:29px}.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}.jpdb-reader-mining-collapse{width:28px;height:28px;min-width:28px;min-height:28px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}.jpdb-reader-grades{grid-template-columns:1.12fr 1.3fr .86fr .86fr .86fr}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:11px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 20px));max-height:min(760px,calc(100vh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none;transition-property:background-color,border-color,box-shadow,color,opacity}.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-tab:hover,.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.25rem);outline:none}.jpdb-reader-settings-tab:active{transform:scale(.98)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;height:38px;padding:8px;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,color .14s ease}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;text-align:center;text-decoration:none!important;transition:all .2s ease-in-out}.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--button-accent, var(--jpdb-reader-accent));background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, var(--jpdb-reader-accent)) 18%);outline:none}.jpdb-reader-btn:active{transform:scale(.98)}.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px);transition:border-color .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}.jpdb-reader-segment-field{display:grid;align-content:start;gap:6px;margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-segment-title{font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;min-height:38px;padding:3px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-segmented label{position:relative;display:grid;place-items:center;min-width:0;min-height:30px;margin:0;color:var(--jpdb-reader-muted)!important;cursor:pointer}.jpdb-reader-segmented input{position:absolute;top:0;right:0;bottom:0;left:0;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0;opacity:0;cursor:pointer}.jpdb-reader-segmented span{display:grid;place-items:center;width:100%;min-height:30px;padding:0 8px;border-radius:6px;color:inherit;font:850 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented input:checked+span{background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-segmented input:focus-visible+span{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex}.jpdb-reader-support-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-support-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-support-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-support-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.jpdb-reader-support-card+.jpdb-reader-support-card{margin-top:12px}.jpdb-reader-help-links-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-support-actions .jpdb-reader-btn{min-height:42px;padding-inline:10px}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:7px;margin:10px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:11px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:48px minmax(130px,1fr) minmax(120px,.8fr) 74px 58px}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:48px minmax(160px,1fr) 74px 58px}.jpdb-reader-order-head{color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%;cursor:grab}.jpdb-reader-order-row.jpdb-reader-dragging{opacity:.58;border-color:var(--jpdb-reader-accent);cursor:grabbing}.jpdb-reader-order-row.jpdb-reader-touch-dragging{box-shadow:0 8px 24px #0003}.jpdb-reader-order-row.jpdb-reader-drop-before,.jpdb-reader-order-row.jpdb-reader-drop-after{border-color:var(--jpdb-reader-accent)}.jpdb-reader-order-row.jpdb-reader-drop-before:before,.jpdb-reader-order-row.jpdb-reader-drop-after:after{content:"";position:absolute;left:8px;right:8px;height:4px;border-radius:999px;background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft);pointer-events:none}.jpdb-reader-order-row.jpdb-reader-drop-before:before{top:-7px}.jpdb-reader-order-row.jpdb-reader-drop-after:after{bottom:-7px}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}.jpdb-reader-lookup-link-fixed{width:34px;height:34px}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-mini:active{transform:scale(.98)}.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:min(45%,calc(100% - 24px));overflow:hidden;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;width:fit-content;max-width:100%;margin-top:8px;margin-left:auto;margin-right:auto;padding:0;border:0!important;background:transparent!important;color:#ffffffd1;font-size:.62em;font-family:inherit;font-weight:650;line-height:1.25;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86);cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere;transition:filter .12s ease,opacity .12s ease}.jpdb-subtitle-secondary-blurred{filter:blur(5px);opacity:.8}.jpdb-subtitle-secondary-blurred:hover,.jpdb-subtitle-secondary-blurred:focus-visible{filter:none;opacity:1}.jpdb-subtitle-karaoke-word{display:inline;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-word-spoken,.jpdb-subtitle-word-current{opacity:1;color:var(--subtitle-color)}.jpdb-subtitle-word-spoken{color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 58%,var(--subtitle-color));text-decoration-line:underline;text-decoration-color:var(--jpdb-reader-accent, #5ea780);text-decoration-thickness:.09em;text-underline-offset:.16em}.jpdb-subtitle-word-current{text-decoration-line:underline;text-decoration-color:var(--subtitle-color);text-decoration-thickness:.1em;text-underline-offset:.16em}.jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken{opacity:1;--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current{opacity:1;text-decoration-line:underline!important;text-decoration-color:var(--subtitle-color)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{filter:saturate(.72)}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary-loading{opacity:.78;color:currentColor}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78;transition:opacity .14s ease,background .14s ease,border-color .14s ease}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:0;pointer-events:none}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap;transition:opacity .14s ease,visibility .14s ease,border-color .14s ease,color .14s ease,background .14s ease}.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}.jpdb-subtitle-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list{position:fixed;right:max(12px,env(safe-area-inset-right));top:72px;width:min(460px,calc(100vw - 24px));height:min(78vh,860px);max-height:calc(100vh - 24px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid color-mix(in srgb,var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%,rgba(255,255,255,.1));border-radius:22px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,rgba(255,255,255,.06));color:var(--jpdb-reader-text, #fff);box-shadow:0 24px 56px #00000052;pointer-events:auto;backdrop-filter:blur(18px) saturate(1.08);-webkit-backdrop-filter:blur(18px) saturate(1.08);transform:translateZ(0)}html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:0;transition:opacity .12s ease,background .12s ease}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:.88}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-12px;height:24px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}.jpdb-subtitle-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 76%,transparent)}.jpdb-subtitle-drawer-brand{display:grid;gap:4px;min-width:0}.jpdb-subtitle-drawer-title{min-width:0;color:var(--jpdb-reader-text, #fff);font:800 15px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:.01em}.jpdb-subtitle-drawer-meta{min-width:0;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 11px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jpdb-subtitle-drawer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}.jpdb-subtitle-drawer-close{display:inline-grid;place-items:center;min-width:34px;width:34px;min-height:34px;height:34px;padding:0!important;border-radius:12px!important}.jpdb-subtitle-drawer-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-mode{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-mode button{min-height:30px;padding:0 11px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:11px;font-weight:700}.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-panel-mode button:disabled{opacity:.42}.jpdb-subtitle-panel-nav{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0 0 2px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}.jpdb-subtitle-panel-nav button:disabled{opacity:.38}.jpdb-subtitle-list-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;align-content:start;grid-auto-rows:max-content;gap:4px;padding:8px 10px 12px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}.jpdb-subtitle-row-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}.jpdb-subtitle-row-text{min-width:0;max-width:100%;grid-column:1;color:var(--jpdb-reader-text, #fff);overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0;text-shadow:0 1px 1px rgba(0,0,0,.38)}.jpdb-subtitle-row-text .jpdb-reader-word{color:inherit;background:transparent;text-decoration-color:var(--jpdb-reader-word-underline, currentColor);text-decoration-thickness:.08em;text-underline-offset:.16em;border-radius:4px;padding:0 1px;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-row-text ruby,.jpdb-subtitle-row-text rt,.jpdb-subtitle-row-text .jpdb-reader-furi{white-space:normal!important}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}.jpdb-youtube-filtered,.jpdb-youtube-filter-pending{display:none!important}.jpdb-youtube-filter-active :is(ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-grid-video-renderer,ytd-reel-item-renderer,ytd-reel-video-renderer,yt-lockup-view-model,.ytGridShelfViewModelGridShelfItem,ytm-rich-item-renderer,ytm-compact-video-renderer,ytm-video-card-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2):not([data-yomu-youtube-checked=true]):not([data-jpdb-reader-root]){visibility:hidden!important}.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-youtube-filter-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;max-height:min(70vh,620px);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{padding:14px 16px}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{max-height:100vh;max-height:100svh;border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-settings{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0}.jpdb-reader-settings-head{padding:18px 20px 0}.jpdb-reader-settings-scroll{padding:0 20px 106px}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 20px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions{grid-template-columns:1fr}.jpdb-reader-support-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-recommended-item,.jpdb-reader-template-preview-grid{grid-template-columns:1fr}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}.jpdb-reader-dictionary-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact{grid-template-columns:52px 1fr}.jpdb-reader-dictionary-row input[name$=".alias"],.jpdb-reader-dictionary-row .jpdb-reader-row-tools,.jpdb-reader-dictionary-row-help{grid-column:2}.jpdb-reader-dictionary-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-audio-source-head{display:none}.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:52px 1fr}.jpdb-reader-audio-source-choice{grid-column:2}.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row input[name$=".urlTemplate"]{grid-column:1 / -1}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start;flex-wrap:wrap;min-width:0}.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start}.jpdb-ocr-line{min-width:0;min-height:0;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}@media (max-width: 519px){.jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}';
   const READER_CSS = readerCss;
   const CAPTION_SELECTOR_LIST = [
     ".caption-visual-line",
@@ -21967,6 +23645,8 @@ ${spelling}`);
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
   const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
+  const TRANSCRIPT_PREPARSE_WINDOW = 18;
+  const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 8;
   const log$3 = Logger.scope("Subtitles");
   class SubtitlePlayerController {
     constructor(options) {
@@ -21989,9 +23669,11 @@ ${spelling}`);
       __publicField(this, "selectedTrackId", "");
       __publicField(this, "secondaryTrackId", "");
       __publicField(this, "youtubeVideoId", "");
+      __publicField(this, "youtubeAutoSelectSuppressedVideoId", "");
       __publicField(this, "lastDomCaption", "");
       __publicField(this, "pendingDomCaption");
       __publicField(this, "parsedHtmlCache", /* @__PURE__ */ new Map());
+      __publicField(this, "pendingParsedHtml", /* @__PURE__ */ new Map());
       __publicField(this, "renderSerial", 0);
       __publicField(this, "panelMode", "lines");
       __publicField(this, "lastMenuSignature", "");
@@ -22007,6 +23689,13 @@ ${spelling}`);
       __publicField(this, "lastRenderedPrimaryText", "");
       __publicField(this, "lastRenderedPrimaryHtml", "");
       __publicField(this, "parseWarmupSerial", 0);
+      __publicField(this, "transcriptHydrationCursor", 0);
+      __publicField(this, "effectiveTranscriptPlacement", "right");
+      __publicField(this, "lastAutoCopiedCueSignature", "");
+      __publicField(this, "youtubeTrackDiscoveryInFlight", false);
+      __publicField(this, "lastYouTubeTrackDiscoveryAt", 0);
+      __publicField(this, "primarySelectionRequest", 0);
+      __publicField(this, "secondarySelectionRequest", 0);
       this.options = options;
     }
     init() {
@@ -22043,9 +23732,7 @@ ${spelling}`);
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
       this.root.classList.toggle("jpdb-subtitle-controls-idle", settings.subtitleControlsMode === "auto" && this.root.classList.contains("jpdb-subtitle-controls-idle"));
-      this.root.classList.toggle("jpdb-subtitle-transcript-right", settings.subtitleTranscriptPlacement === "right");
-      this.root.classList.toggle("jpdb-subtitle-transcript-left", settings.subtitleTranscriptPlacement === "left");
-      this.root.classList.toggle("jpdb-subtitle-transcript-bottom", settings.subtitleTranscriptPlacement === "bottom");
+      this.syncTranscriptPlacementClass();
       this.syncFullscreenState();
       setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${settings.subtitleFontSize}px`);
       setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${settings.subtitleFontSize}px`);
@@ -22083,8 +23770,7 @@ ${spelling}`);
                 <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">${subtitleIcon("eye")}</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
-                <button type="button" data-action="list" title="Open transcript panel" aria-label="Open transcript panel">${subtitleIcon("transcript")}</button>
-                <button type="button" data-action="tracks" title="Subtitle tracks" aria-label="Subtitle tracks">${subtitleIcon("tracks")}</button>
+                <button type="button" data-action="panel" title="Open subtitle drawer" aria-label="Open subtitle drawer">${subtitleIcon("transcript")}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -22124,7 +23810,8 @@ ${spelling}`);
         this.observeVideoLayout(candidate);
         log$3.info("Subtitle video detected", videoSummary(candidate));
       }
-      void this.discoverYouTubeTracks();
+      this.discoverPageSubtitleTracks();
+      void this.discoverYouTubeTracksThrottled(true);
       this.refresh();
     }
     attachTextTracks(video) {
@@ -22161,25 +23848,64 @@ ${spelling}`);
       }, 0);
       this.syncControls();
     }
+    discoverPageSubtitleTracks() {
+      const sources = collectPageSubtitleSources(document);
+      if (!sources.length) return;
+      let added = 0;
+      for (const source of sources) {
+        if (this.tracks.some((track2) => track2.sourceKey === source.sourceKey || track2.url && sameSubtitleUrl(track2.url, source.url))) continue;
+        const track = {
+          id: `remote-${this.tracks.length}`,
+          label: source.label,
+          kind: "remote",
+          language: source.language,
+          url: source.url,
+          sourceKey: source.sourceKey
+        };
+        this.tracks.push(track);
+        this.maybeAutoSelectPageSubtitleTrack(track);
+        added += 1;
+      }
+      if (added) {
+        log$3.debug("Page subtitle files discovered", { added, total: this.tracks.length });
+        this.renderTrackPanel();
+        this.syncControls();
+      }
+    }
+    maybeAutoSelectPageSubtitleTrack(option) {
+      if (option.kind !== "remote" || !option.url) return;
+      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
+      const secondary = this.tracks.find((track) => track.id === this.secondaryTrackId);
+      if (isJapaneseSubtitleTrack(option) && (!this.selectedTrackId || shouldReplaceWaitingNativeTrack(selected, option, this.cues))) {
+        void this.selectTrack(option.id);
+        log$3.debug("Auto-selected Japanese page subtitle file", { id: option.id, label: option.label, host: safeHost(option.url) });
+      } else if (isEnglishSubtitleTrack(option) && (!this.secondaryTrackId || shouldReplaceWaitingNativeTrack(secondary, option, this.secondaryCues))) {
+        void this.selectSecondaryTrack(option.id);
+        log$3.debug("Auto-selected secondary page subtitle file", { id: option.id, label: option.label, host: safeHost(option.url) });
+      }
+    }
     maybeAutoSelectNativeTrack(option) {
       if (!option.track) return;
       if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) {
+        const requestId = this.beginTrackSelection("primary");
         this.selectedTrackId = option.id;
-        option.track.mode = "hidden";
-        void this.loadNativeTrackCues(option, "primary");
+        ensureTextTrackReadable(option.track);
+        void this.loadNativeTrackCues(option, "primary", requestId);
         log$3.debug("Auto-selected Japanese native subtitle track", { id: option.id, label: option.label });
       } else if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) {
+        const requestId = this.beginTrackSelection("secondary");
         this.secondaryTrackId = option.id;
-        option.track.mode = "hidden";
-        void this.loadNativeTrackCues(option, "secondary");
+        ensureTextTrackReadable(option.track);
+        void this.loadNativeTrackCues(option, "secondary", requestId);
         log$3.debug("Auto-selected secondary native subtitle track", { id: option.id, label: option.label });
       }
     }
-    async loadNativeTrackCues(option, role) {
+    async loadNativeTrackCues(option, role, requestId) {
       const track = option.track;
       if (!track) return;
       const cues = readTrackCues(track);
       const loadedCues = cues.length ? cues : await waitForTextTrackCues(track);
+      if (!this.isTrackSelectionCurrent(role, requestId, option.id)) return;
       if (!loadedCues.length) return;
       if (role === "primary" && this.selectedTrackId === option.id) this.cues = loadedCues;
       if (role === "secondary" && this.secondaryTrackId === option.id) this.secondaryCues = loadedCues;
@@ -22195,11 +23921,12 @@ ${spelling}`);
       const active = (_a = track.activeCues) == null ? void 0 : _a[0];
       if (!active) return;
       if ((primary == null ? void 0 : primary.track) === track) {
-        this.currentCue = { start: active.startTime, end: active.endTime, text: getCueText(active) };
+        this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getCueText(active) }])[0];
         if (!this.cues.length) this.cues = readTrackCues(track);
+        void this.autoCopyCurrentCue();
       }
       if ((secondary == null ? void 0 : secondary.track) === track) {
-        this.secondaryCue = { start: active.startTime, end: active.endTime, text: getCueText(active) };
+        this.secondaryCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getCueText(active), transcriptEligible: false }])[0];
         if (!this.secondaryCues.length) this.secondaryCues = readTrackCues(track);
       }
       this.render();
@@ -22209,8 +23936,12 @@ ${spelling}`);
     tick() {
       const settings = this.options.getSettings();
       if (settings.subtitlePlayerEnabled) {
+        if (isYouTubePage() && (!this.selectedTrackId || this.selectedTrackId && !this.cues.length)) {
+          void this.discoverYouTubeTracksThrottled();
+        }
         this.refreshNativeCueLists();
         this.updateFromLoadedCues();
+        if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
         if (!isYouTubePage() || this.selectedTrackId && !this.cues.length) this.updateFromDomCaptions();
       }
       window.setTimeout(() => this.tick(), 250);
@@ -22232,7 +23963,7 @@ ${spelling}`);
         this.positionTranscriptPanel();
         return;
       }
-      const rect = this.video.getBoundingClientRect();
+      const rect = this.videoLayoutRect();
       this.applyVideoLayout(rect);
     }
     applyVideoLayout(rect) {
@@ -22249,11 +23980,14 @@ ${spelling}`);
     updateFromLoadedCues() {
       if (!this.video) return;
       const time = this.video.currentTime;
-      const cue = this.cues.find((item) => time >= item.start && time <= item.end);
-      const secondary = this.secondaryCues.find((item) => time >= item.start && time <= item.end);
+      const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : void 0;
+      const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : void 0;
       let changed = false;
       if (cue && cue !== this.currentCue) {
         this.currentCue = cue;
+        changed = true;
+      } else if (!cue && this.currentCue && time > this.currentCue.end + 0.12) {
+        this.currentCue = void 0;
         changed = true;
       }
       if (secondary !== this.secondaryCue) {
@@ -22265,13 +23999,16 @@ ${spelling}`);
         this.renderTranscriptPanel();
         this.syncControls();
         this.warmParseAroundActiveCue();
+        void this.autoCopyCurrentCue();
       }
     }
     updateFromDomCaptions() {
       var _a, _b, _c;
       if (this.cues.length) return;
+      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
+      const selectedNativeTrackNeedsDomFallback = Boolean((selected == null ? void 0 : selected.kind) === "native" && selected.track && !this.cues.length);
       if (isYouTubePage() && !this.selectedTrackId) return;
-      if (!isYouTubePage() && this.selectedTrackId) return;
+      if (!isYouTubePage() && this.selectedTrackId && !selectedNativeTrackNeedsDomFallback) return;
       if (!this.options.getSettings().subtitleOverlayVisible) return;
       const text2 = readPageCaptionText(this.video, this.root);
       if (!text2) {
@@ -22292,32 +24029,54 @@ ${spelling}`);
       if (nowMs2 - this.pendingDomCaption.firstSeenAt < 450 || text2 === this.lastDomCaption) return;
       this.lastDomCaption = text2;
       const now = ((_c = this.video) == null ? void 0 : _c.currentTime) ?? 0;
-      this.currentCue = { start: now, end: now + 4, text: text2 };
+      this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text: text2 }])[0];
+      if ((selected == null ? void 0 : selected.loadingState) === "waiting") selected.loadingState = "ready";
       this.render();
       this.renderTranscriptPanel();
       this.syncControls();
+      void this.autoCopyCurrentCue();
     }
     render() {
-      var _a, _b, _c;
+      var _a, _b, _c, _d, _e;
       if (!this.subtitleEl) return;
       const settings = this.options.getSettings();
       const text2 = ((_a = this.currentCue) == null ? void 0 : _a.text.trim()) ?? "";
       if (!text2) {
-        setInnerHtml(this.subtitleEl, ((_b = this.secondaryCue) == null ? void 0 : _b.text) ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : "");
+        setInnerHtml(this.subtitleEl, ((_b = this.secondaryCue) == null ? void 0 : _b.text) ? this.renderSecondarySubtitle(this.secondaryCue.text, settings) : "");
         return;
       }
-      const secondary = settings.subtitleSecondaryVisible && ((_c = this.secondaryCue) == null ? void 0 : _c.text) ? `<div class="jpdb-subtitle-secondary">${escapeWithBreaks(this.secondaryCue.text)}</div>` : "";
+      const secondary = settings.subtitleSecondaryVisible && ((_c = this.secondaryCue) == null ? void 0 : _c.text) ? this.renderSecondarySubtitle(this.secondaryCue.text, settings) : "";
       const parsed = this.parsedHtmlCache.get(this.parseCacheKey(text2, settings));
       const hasParser = this.shouldParseSubtitles(settings);
-      const primary = parsed ? parsed : hasParser && this.lastRenderedPrimaryText === text2 && this.lastRenderedPrimaryHtml ? this.lastRenderedPrimaryHtml : hasParser ? `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(text2)}</span>` : escapeWithBreaks(text2);
+      const activeCue = this.currentCue;
+      const karaokeActive = settings.subtitleKaraokeMode && cueHasExactWordTimings(activeCue);
+      const parsedHasReaderWords = (parsed == null ? void 0 : parsed.includes("jpdb-reader-word")) ?? false;
+      const primary = karaokeActive && parsedHasReaderWords ? parsed : karaokeActive && activeCue ? this.renderKaraokeCue(activeCue, ((_d = this.video) == null ? void 0 : _d.currentTime) ?? activeCue.start) : parsed ? parsed : hasParser && this.lastRenderedPrimaryText === text2 && this.lastRenderedPrimaryHtml ? this.lastRenderedPrimaryHtml : hasParser ? `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(text2)}</span>` : escapeWithBreaks(text2);
       setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${primary}</div>${secondary}`);
+      if (karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, ((_e = this.video) == null ? void 0 : _e.currentTime) ?? activeCue.start);
       this.fitSubtitleTextToVideo();
-      if (parsed) {
+      if (karaokeActive && !parsed) {
+        this.lastRenderedPrimaryText = text2;
+        this.lastRenderedPrimaryHtml = "";
+        if (hasParser) void this.renderParsedPrimary(text2);
+      } else if (parsed) {
         this.lastRenderedPrimaryText = text2;
         this.lastRenderedPrimaryHtml = parsed;
       } else if (hasParser) {
         void this.renderParsedPrimary(text2);
       }
+    }
+    renderSecondarySubtitle(text2, settings) {
+      const blurClass = settings.subtitleNativeBlurred ? "jpdb-subtitle-secondary-blurred" : "jpdb-subtitle-secondary-clear";
+      return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="Toggle native subtitle blur" aria-label="Toggle native subtitle blur">${escapeWithBreaks(text2)}</button>`;
+    }
+    renderKaraokeCue(cue, time) {
+      if (!(cue == null ? void 0 : cue.text.trim())) return "";
+      if (!cueHasExactWordTimings(cue)) return escapeWithBreaks(cue.text);
+      const words = cue.words;
+      if (!words.length) return "";
+      const progress = karaokeCharacterProgress(cue, words, time);
+      return renderKaraokeTextParts(cue.text, progress);
     }
     async renderParsedPrimary(text2) {
       const settings = this.options.getSettings();
@@ -22339,11 +24098,17 @@ ${spelling}`);
       }
     }
     replacePrimaryHtml(html, serial) {
-      var _a;
+      var _a, _b, _c, _d;
       if (serial !== this.renderSerial) return;
       const primary = (_a = this.subtitleEl) == null ? void 0 : _a.querySelector(".jpdb-subtitle-primary");
       if (primary) {
-        setInnerHtml(primary, html);
+        const settings = this.options.getSettings();
+        const currentCue = this.currentCue;
+        const shouldKaraoke = Boolean(settings.subtitleKaraokeMode && currentCue && cueHasExactWordTimings(currentCue) && ((_b = primary.textContent) == null ? void 0 : _b.replace(/\s+/g, " ").trim()) === currentCue.text.replace(/\s+/g, " ").trim());
+        setInnerHtml(primary, shouldKaraoke && currentCue && !html.includes("jpdb-reader-word") ? this.renderKaraokeCue(currentCue, ((_c = this.video) == null ? void 0 : _c.currentTime) ?? currentCue.start) : html);
+        if (shouldKaraoke && currentCue) {
+          this.applyKaraokeStateToPrimary(currentCue, ((_d = this.video) == null ? void 0 : _d.currentTime) ?? currentCue.start);
+        }
         this.fitSubtitleTextToVideo();
       }
     }
@@ -22369,17 +24134,27 @@ ${spelling}`);
       const key = this.parseCacheKey(text2, settings);
       const cached = this.parsedHtmlCache.get(key);
       if (cached) return cached;
-      const tokens = await this.options.parseJapanese(text2);
-      const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-      this.parsedHtmlCache.set(key, html);
-      if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
-      return html;
+      const pending = this.pendingParsedHtml.get(key);
+      if (pending) return pending;
+      const promise = (async () => {
+        const tokens = await this.options.parseJapanese(text2);
+        const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
+        this.parsedHtmlCache.set(key, html);
+        if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
+        return html;
+      })();
+      this.pendingParsedHtml.set(key, promise);
+      try {
+        return await promise;
+      } finally {
+        this.pendingParsedHtml.delete(key);
+      }
     }
     warmParseAroundActiveCue() {
       if (!this.shouldParseSubtitles() || !this.cues.length) return;
       const active = this.activeTranscriptIndex();
-      const start = Math.max(0, active >= 0 ? active - 2 : 0);
-      const end = Math.min(this.cues.length, start + 14);
+      const start = Math.max(0, active >= 0 ? active - 5 : 0);
+      const end = Math.min(this.cues.length, start + TRANSCRIPT_PREPARSE_WINDOW);
       const serial = ++this.parseWarmupSerial;
       const settings = this.options.getSettings();
       void (async () => {
@@ -22395,26 +24170,53 @@ ${spelling}`);
           }
         }
         if ((_b = this.currentCue) == null ? void 0 : _b.text.trim()) this.render();
-        this.renderTranscriptPanel(true);
       })();
     }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
       const settings = this.options.getSettings();
       const target = settings.subtitleFontSize;
-      this.root.style.setProperty("--subtitle-font-size", `${target}px`);
+      let fitted = target;
+      this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
       const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
       if (!primary) return;
       const rootRect = this.root.getBoundingClientRect();
-      const textRect = this.subtitleEl.getBoundingClientRect();
-      const availableHeight = Math.max(34, rootRect.height * Math.max(0.12, Math.min(0.45, settings.subtitleBottomOffset / 100 + 0.18)));
-      const availableWidth = Math.max(120, rootRect.width - 28);
-      if (textRect.height <= availableHeight && textRect.width <= availableWidth) return;
-      const heightScale = availableHeight / Math.max(1, textRect.height);
-      const widthScale = availableWidth / Math.max(1, textRect.width);
-      const scale = Math.min(1, heightScale, widthScale);
-      const fitted = Math.max(16, Math.floor(target * scale));
+      const minimum = rootRect.width < 420 || rootRect.height < 260 ? 11 : 14;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const overflowsHeight = this.subtitleEl.scrollHeight > this.subtitleEl.clientHeight + 1;
+        const overflowsWidth = this.subtitleEl.scrollWidth > this.subtitleEl.clientWidth + 1;
+        if (!overflowsHeight && !overflowsWidth) return;
+        const heightScale = this.subtitleEl.clientHeight / Math.max(1, this.subtitleEl.scrollHeight);
+        const widthScale = this.subtitleEl.clientWidth / Math.max(1, this.subtitleEl.scrollWidth);
+        const next = Math.max(minimum, Math.floor(fitted * Math.min(0.92, heightScale, widthScale)));
+        if (next >= fitted) break;
+        fitted = next;
+        this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
+      }
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
+    }
+    applyKaraokeStateToPrimary(cue, time) {
+      var _a, _b;
+      const primary = (_a = this.subtitleEl) == null ? void 0 : _a.querySelector(".jpdb-subtitle-primary");
+      if (!primary) return;
+      if (!cueHasExactWordTimings(cue)) return;
+      const words = cue.words;
+      if (!words.length) return;
+      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
+      if (!wordElements.length) return;
+      const progress = karaokeCharacterProgress(cue, words, time);
+      let cursor = 0;
+      for (const element2 of wordElements) {
+        element2.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
+        const surface = ((_b = element2.textContent) == null ? void 0 : _b.replace(/\s+/g, "")) ?? "";
+        if (!surface) continue;
+        const start = cursor;
+        const end = cursor + compactTextLength(surface);
+        cursor = end;
+        if (progress >= end) element2.classList.add("jpdb-subtitle-word-spoken");
+        else if (progress > start) element2.classList.add("jpdb-subtitle-word-current");
+        else element2.classList.add("jpdb-subtitle-word-pending");
+      }
     }
     handleClick(event) {
       var _a, _b, _c, _d, _e, _f, _g;
@@ -22435,18 +24237,17 @@ ${spelling}`);
         this.toggleMenu();
         return;
       }
+      if (action === "panel") this.toggleTranscriptDrawer();
       if (action === "list") this.toggleTranscriptPanel();
       if (action === "tracks") this.toggleTrackPanel();
       if (action === "panel-lines") this.openLinesPanel();
       if (action === "panel-tracks") this.openTracksPanel();
       if (action === "close-panel") this.closeTranscriptPanel();
-      if (action === "transcript-left") this.setTranscriptPlacement("left");
-      if (action === "transcript-right") this.setTranscriptPlacement("right");
-      if (action === "transcript-bottom") this.setTranscriptPlacement("bottom");
       if (action === "primary-track") void this.choosePrimaryTrack((_f = event.target.closest("[data-track-id]")) == null ? void 0 : _f.dataset.trackId);
       if (action === "secondary-track") void this.chooseSecondaryTrack((_g = event.target.closest("[data-track-id]")) == null ? void 0 : _g.dataset.trackId);
       if (action === "toggle") this.toggleSubtitles();
       if (action === "toggle-secondary") this.toggleSecondarySubtitles();
+      if (action === "toggle-native-blur") this.toggleNativeSubtitleBlur();
       this.syncControls();
     }
     handlePointerActivity(event) {
@@ -22537,13 +24338,21 @@ ${spelling}`);
       await ((_a = navigator.clipboard) == null ? void 0 : _a.writeText(text2).catch((error) => log$3.warn("Subtitle clipboard copy failed", error)));
       log$3.debug("Subtitle copied", { length: text2.length });
     }
+    async autoCopyCurrentCue() {
+      var _a, _b;
+      if (!this.options.getSettings().subtitleAutoCopyLine || !((_a = this.currentCue) == null ? void 0 : _a.text.trim())) return;
+      const signature = subtitleCueSignature(this.currentCue);
+      if (signature === this.lastAutoCopiedCueSignature) return;
+      this.lastAutoCopiedCueSignature = signature;
+      await ((_b = navigator.clipboard) == null ? void 0 : _b.writeText(this.currentCue.text.trim()).catch((error) => log$3.warn("Subtitle auto-copy failed", error)));
+    }
     async loadSubtitleFile(kind) {
       var _a;
       const input2 = kind === "primary" ? this.primaryFileInput : this.secondaryFileInput;
       const file = (_a = input2 == null ? void 0 : input2.files) == null ? void 0 : _a[0];
       if (!file) return;
       const text2 = await file.text();
-      const cues = parseSubtitleText(text2);
+      const cues = normalizeSubtitleCues(parseSubtitleText(text2), { transcriptEligible: kind === "primary" });
       const track = {
         id: `file-${kind}-${Date.now()}`,
         label: file.name.replace(/\.(srt|vtt|ass|ssa)$/i, ""),
@@ -22559,8 +24368,11 @@ ${spelling}`);
     }
     async selectTrack(id) {
       var _a;
+      const requestId = this.beginTrackSelection("primary");
       this.selectedTrackId = id;
+      this.lastAutoCopiedCueSignature = "";
       if (this.secondaryTrackId === id) {
+        this.invalidateTrackSelection("secondary");
         this.secondaryTrackId = "";
         this.secondaryCues = [];
         this.secondaryCue = void 0;
@@ -22575,31 +24387,46 @@ ${spelling}`);
       }
       (_a = this.root) == null ? void 0 : _a.classList.remove("jpdb-subtitle-hidden");
       let selected = this.tracks.find((option) => option.id === id);
+      let currentTrackId = id;
       if (selected) {
         selected.loadingState = "loading";
         this.renderTrackPanel();
       }
-      if (selected == null ? void 0 : selected.cues) this.cues = selected.cues;
+      let nextCues = (selected == null ? void 0 : selected.cues) ?? [];
       if (selected == null ? void 0 : selected.track) {
-        selected.track.mode = "hidden";
+        ensureTextTrackReadable(selected.track);
         this.setNativeTrackModes();
-        this.cues = readTrackCues(selected.track);
-        if (!this.cues.length) this.cues = await waitForTextTrackCues(selected.track);
+        nextCues = readTrackCues(selected.track);
+        if (!nextCues.length) nextCues = await waitForTextTrackCues(selected.track);
+        if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return;
+      }
+      if ((selected == null ? void 0 : selected.kind) === "remote" && selected.url) {
+        nextCues = await this.loadRemoteTrackCues(selected, true);
+        if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return;
+        selected.cues = nextCues;
       }
       if ((selected == null ? void 0 : selected.kind) === "youtube" && selected.url) {
-        this.cues = await this.loadYouTubeTrackCues(selected);
-        if (!this.cues.length) {
+        nextCues = await this.loadYouTubeTrackCues(selected);
+        if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return;
+        if (!nextCues.length) {
           const fallback = await this.loadFirstUsableYouTubeSibling(selected);
+          if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return;
           if (fallback) {
             selected = fallback.track;
-            this.selectedTrackId = fallback.track.id;
-            this.cues = fallback.cues;
+            currentTrackId = fallback.track.id;
+            this.selectedTrackId = currentTrackId;
+            nextCues = fallback.cues;
           }
         }
-        selected.cues = this.cues;
+        selected.cues = nextCues;
+      }
+      if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return;
+      this.cues = nextCues;
+      if (currentTrackId !== this.selectedTrackId) {
+        this.selectedTrackId = currentTrackId;
       }
       if ((selected == null ? void 0 : selected.kind) === "youtube") {
-        this.youtubeDomCaptionFallbackTrackId = this.cues.length ? "" : selected.id;
+        this.youtubeDomCaptionFallbackTrackId = this.cues.length ? "" : currentTrackId;
         if (!this.cues.length) activateYouTubeCaptionTrack(selected);
       } else {
         this.youtubeDomCaptionFallbackTrackId = "";
@@ -22615,12 +24442,15 @@ ${spelling}`);
     }
     async selectSecondaryTrack(id) {
       if (this.selectedTrackId === id) {
+        this.suppressYouTubeAutoSelectForCurrentVideo();
+        this.invalidateTrackSelection("primary");
         this.selectedTrackId = "";
         this.cues = [];
         this.currentCue = void 0;
         this.pendingDomCaption = void 0;
         this.youtubeDomCaptionFallbackTrackId = "";
       }
+      const requestId = this.beginTrackSelection("secondary");
       this.secondaryTrackId = id;
       this.secondaryCues = [];
       this.secondaryCue = void 0;
@@ -22630,28 +24460,43 @@ ${spelling}`);
         this.options.onSettingsChange();
       }
       let selected = this.tracks.find((option) => option.id === id);
+      let currentTrackId = id;
       if (selected) {
         selected.loadingState = "loading";
         this.renderTrackPanel();
       }
-      if (selected == null ? void 0 : selected.cues) this.secondaryCues = selected.cues;
+      let nextCues = (selected == null ? void 0 : selected.cues) ?? [];
       if (selected == null ? void 0 : selected.track) {
-        selected.track.mode = "hidden";
+        ensureTextTrackReadable(selected.track);
         this.setNativeTrackModes();
-        this.secondaryCues = readTrackCues(selected.track);
-        if (!this.secondaryCues.length) this.secondaryCues = await waitForTextTrackCues(selected.track);
+        nextCues = readTrackCues(selected.track);
+        if (!nextCues.length) nextCues = await waitForTextTrackCues(selected.track);
+        if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return;
+      }
+      if ((selected == null ? void 0 : selected.kind) === "remote" && selected.url) {
+        nextCues = await this.loadRemoteTrackCues(selected, false);
+        if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return;
+        selected.cues = nextCues;
       }
       if ((selected == null ? void 0 : selected.kind) === "youtube" && selected.url) {
-        this.secondaryCues = await this.loadYouTubeTrackCues(selected);
-        if (!this.secondaryCues.length) {
+        nextCues = await this.loadYouTubeTrackCues(selected);
+        if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return;
+        if (!nextCues.length) {
           const fallback = await this.loadFirstUsableYouTubeSibling(selected);
+          if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return;
           if (fallback) {
             selected = fallback.track;
-            this.secondaryTrackId = fallback.track.id;
-            this.secondaryCues = fallback.cues;
+            currentTrackId = fallback.track.id;
+            this.secondaryTrackId = currentTrackId;
+            nextCues = fallback.cues;
           }
         }
-        selected.cues = this.secondaryCues;
+        selected.cues = nextCues;
+      }
+      if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return;
+      this.secondaryCues = nextCues;
+      if (currentTrackId !== this.secondaryTrackId) {
+        this.secondaryTrackId = currentTrackId;
       }
       if (selected) selected.loadingState = this.secondaryCues.length ? "ready" : "waiting";
       this.setNativeTrackModes();
@@ -22668,6 +24513,14 @@ ${spelling}`);
       var _a;
       const yomuCaptionsActive = Boolean(this.options.getSettings().subtitleOverlayVisible && (this.selectedTrackId || this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text)));
       const needsYouTubeDomFallback = Boolean(this.youtubeDomCaptionFallbackTrackId && this.youtubeDomCaptionFallbackTrackId === this.selectedTrackId);
+      if (!isYouTubePage()) {
+        for (const option of this.tracks) {
+          if (option.track && (option.id === this.selectedTrackId || option.id === this.secondaryTrackId)) ensureTextTrackReadable(option.track);
+        }
+        document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
+        this.lastYomuCaptionsActive = false;
+        return;
+      }
       for (const option of this.tracks) {
         if (option.track) option.track.mode = option.id === this.selectedTrackId || option.id === this.secondaryTrackId ? "hidden" : "disabled";
       }
@@ -22688,11 +24541,22 @@ ${spelling}`);
       }
       for (const url of youtubeSubtitleRequestUrls(track.url)) {
         try {
-          const cues = parseSubtitleText(await requestText(url));
+          const cues = normalizeSubtitleCues(parseSubtitleText(await requestText(url)));
           if (cues.length) return cues;
         } catch (error) {
           log$3.debug("YouTube subtitle track request failed quietly", { id: track.id, label: track.label, host: safeHost(url) }, error);
         }
+      }
+      return [];
+    }
+    async loadRemoteTrackCues(track, transcriptEligible) {
+      if (!track.url) return [];
+      try {
+        const cues = normalizeSubtitleCues(parseSubtitleText(await requestText(track.url)), { transcriptEligible });
+        if (cues.length) return cues;
+        log$3.debug("Page subtitle file contained no cues", { id: track.id, label: track.label, host: safeHost(track.url) });
+      } catch (error) {
+        log$3.debug("Page subtitle file request failed quietly", { id: track.id, label: track.label, host: safeHost(track.url) }, error);
       }
       return [];
     }
@@ -22706,6 +24570,19 @@ ${spelling}`);
         return { track: sibling, cues };
       }
       return null;
+    }
+    async discoverYouTubeTracksThrottled(force = false) {
+      if (this.youtubeTrackDiscoveryInFlight) return;
+      const now = performance.now();
+      const interval = this.tracks.some((track) => track.kind === "youtube") ? 5e3 : 1500;
+      if (!force && now - this.lastYouTubeTrackDiscoveryAt < interval) return;
+      this.lastYouTubeTrackDiscoveryAt = now;
+      this.youtubeTrackDiscoveryInFlight = true;
+      try {
+        await this.discoverYouTubeTracks();
+      } finally {
+        this.youtubeTrackDiscoveryInFlight = false;
+      }
     }
     async discoverYouTubeTracks() {
       if (!location.hostname.includes("youtube.com")) return;
@@ -22722,17 +24599,23 @@ ${spelling}`);
         this.secondaryCue = void 0;
         this.pendingDomCaption = void 0;
         this.youtubeDomCaptionFallbackTrackId = "";
+        this.youtubeAutoSelectSuppressedVideoId = "";
+        this.lastYouTubeTrackDiscoveryAt = 0;
         log$3.debug("YouTube video changed for subtitle discovery", { videoId });
       }
       const tracks = getYouTubeCaptionTracks();
       if (!tracks.length) return;
       let added = 0;
+      let updatedSelectedTrack = false;
       const existingKeys = new Set(this.tracks.filter((existing) => existing.kind === "youtube").map((existing) => youtubeCaptionTrackIdentity(existing)));
       for (const track of tracks) {
         const key = youtubeCaptionTrackIdentity(track);
         const existing = this.tracks.find((option) => option.kind === "youtube" && youtubeCaptionTrackIdentity(option) === key);
         if (existing) {
-          if (shouldPreferYouTubeTrackUrl(track.url, existing.url)) existing.url = track.url;
+          if (shouldPreferYouTubeTrackUrl(track.url, existing.url)) {
+            existing.url = track.url;
+            updatedSelectedTrack || (updatedSelectedTrack = existing.id === this.selectedTrackId && !this.cues.length);
+          }
           existing.youtubeTrack = track.raw;
           continue;
         }
@@ -22740,15 +24623,26 @@ ${spelling}`);
         this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: "youtube", language: track.language, url: track.url, youtubeTrack: track.raw });
         added += 1;
       }
-      if (!added) return;
-      log$3.debug("YouTube caption tracks discovered", { discovered: tracks.length, added, total: this.tracks.length });
-      const autoTrack = !this.selectedTrackId ? [...this.tracks].filter((track) => track.kind === "youtube" && isJapaneseSubtitleTrack(track)).sort(compareSubtitleTrackOptions)[0] : void 0;
+      if (added || updatedSelectedTrack) {
+        log$3.debug("YouTube caption tracks discovered", { discovered: tracks.length, added, updatedSelectedTrack, total: this.tracks.length });
+      }
+      const autoTrack = this.findAutoYouTubeTrack();
       if (autoTrack) {
         void this.selectTrack(autoTrack.id);
         return;
       }
+      if (updatedSelectedTrack && this.selectedTrackId) {
+        void this.selectTrack(this.selectedTrackId);
+        return;
+      }
+      if (!added) return;
       this.renderTrackPanel();
       this.syncControls();
+    }
+    findAutoYouTubeTrack() {
+      if (this.selectedTrackId) return void 0;
+      if (this.youtubeAutoSelectSuppressedVideoId && this.youtubeAutoSelectSuppressedVideoId === this.youtubeVideoId) return void 0;
+      return [...this.tracks].filter((track) => track.kind === "youtube" && isJapaneseSubtitleTrack(track)).sort(compareSubtitleTrackOptions)[0];
     }
     syncControls() {
       var _a, _b, _c, _d, _e, _f, _g;
@@ -22759,12 +24653,13 @@ ${spelling}`);
       (_d = this.root) == null ? void 0 : _d.classList.toggle("jpdb-subtitle-panel-open", !((_c = this.transcriptPanel) == null ? void 0 : _c.hidden));
       (_e = this.root) == null ? void 0 : _e.classList.toggle("jpdb-subtitle-has-lines", hasLines);
       (_f = this.root) == null ? void 0 : _f.classList.toggle("jpdb-subtitle-has-track", Boolean(this.selectedTrackId || hasLines));
+      this.syncTranscriptPlacementClass();
       if (menuOpen) this.renderMenu();
       const secondaryToggle = (_g = this.menuEl) == null ? void 0 : _g.querySelector('[data-action="toggle-secondary"]');
       if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off";
       this.syncSubtitleToggle(settings);
       this.syncLineNavigationButtons(hasLines);
-      this.syncTrackButton();
+      this.syncPanelButton(hasLines);
       this.syncStatus();
       this.setNativeTrackModes();
     }
@@ -22788,7 +24683,7 @@ ${spelling}`);
       subtitleToggle.setAttribute("aria-label", subtitleToggle.title);
     }
     syncLineNavigationButtons(hasLines) {
-      var _a, _b, _c;
+      var _a, _b;
       const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.fullscreen);
       for (const action of ["previous", "next"]) {
         const railButton = (_a = this.root) == null ? void 0 : _a.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
@@ -22802,23 +24697,19 @@ ${spelling}`);
           button2.disabled = !this.video || !hasLines;
         }
       }
-      const listButton = (_c = this.root) == null ? void 0 : _c.querySelector('.jpdb-subtitle-rail [data-action="list"]');
-      if (listButton) {
-        listButton.hidden = !hasLines || panelOpen;
-        listButton.disabled = !this.video || !hasLines;
-        listButton.title = panelOpen ? "Close transcript panel" : "Open transcript panel";
-        listButton.setAttribute("aria-label", listButton.title);
-      }
     }
-    syncTrackButton() {
+    syncPanelButton(hasLines) {
       var _a;
-      const tracks = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="tracks"]');
-      if (!tracks) return;
-      tracks.hidden = false;
-      setInnerHtml(tracks, subtitleIcon("tracks"));
-      tracks.title = this.selectedTrackId ? "Subtitle tracks" : "Choose subtitles";
-      tracks.setAttribute("aria-label", tracks.title);
-      tracks.setAttribute("aria-pressed", String(Boolean(this.selectedTrackId)));
+      const button2 = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="panel"]');
+      if (!button2) return;
+      const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
+      const wantsTracks = this.preferredTranscriptDrawerMode() === "tracks" && !hasLines;
+      setInnerHtml(button2, subtitleIcon(wantsTracks ? "tracks" : "transcript"));
+      button2.hidden = false;
+      button2.disabled = !this.video && !this.tracks.length && !hasLines;
+      button2.title = panelOpen ? "Close subtitle drawer" : wantsTracks ? "Choose subtitles" : "Open subtitle drawer";
+      button2.setAttribute("aria-label", button2.title);
+      button2.setAttribute("aria-pressed", String(panelOpen));
     }
     syncPanelState() {
       var _a;
@@ -22829,12 +24720,33 @@ ${spelling}`);
       }
       this.syncLineNavigationButtons(hasLines);
     }
+    syncTranscriptPlacementClass() {
+      if (!this.root) return;
+      this.root.classList.toggle("jpdb-subtitle-transcript-right", this.effectiveTranscriptPlacement === "right");
+      this.root.classList.toggle("jpdb-subtitle-transcript-left", this.effectiveTranscriptPlacement === "left");
+      this.root.classList.toggle("jpdb-subtitle-transcript-bottom", this.effectiveTranscriptPlacement === "bottom");
+      this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+    }
     shouldStayInTrackSetup() {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && this.panelMode === "tracks");
     }
     hasTranscriptSurface() {
       var _a;
       return Boolean(this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text) || this.selectedTrackId);
+    }
+    preferredTranscriptDrawerMode() {
+      if (this.panelMode === "lines" && this.hasTranscriptSurface()) return "lines";
+      if (this.panelMode === "tracks") return "tracks";
+      return this.hasTranscriptSurface() ? "lines" : "tracks";
+    }
+    toggleTranscriptDrawer() {
+      if (!this.transcriptPanel) return;
+      if (!this.transcriptPanel.hidden) {
+        this.closeTranscriptPanel();
+        return;
+      }
+      if (this.preferredTranscriptDrawerMode() === "tracks") this.openTracksPanel();
+      else this.openLinesPanel();
     }
     openLinesPanel() {
       if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
@@ -22848,7 +24760,7 @@ ${spelling}`);
       this.syncControls();
     }
     renderMenu() {
-      var _a, _b, _c, _d;
+      var _a, _b, _c;
       if (!this.menuEl) return;
       const hasLines = Boolean(this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text));
       const hasSecondary = Boolean(this.secondaryTrackId || this.secondaryCues.length || ((_b = this.secondaryCue) == null ? void 0 : _b.text));
@@ -22861,6 +24773,7 @@ ${spelling}`);
       ].join(":");
       if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
       this.lastMenuSignature = signature;
+      const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
       setInnerHtml(this.menuEl, `
             <div class="jpdb-subtitle-menu-head">
                 <span>Options</span>
@@ -22868,7 +24781,7 @@ ${spelling}`);
             </div>
             <button type="button" data-action="load">Load Japanese subtitles</button>
             <button type="button" data-action="load-secondary">Load native subtitles</button>
-            ${hasLines ? `<button type="button" data-action="list">${((_d = this.transcriptPanel) == null ? void 0 : _d.hidden) || this.panelMode !== "lines" ? "Open transcript panel" : "Close transcript panel"}</button>` : ""}
+            ${hasLines || this.tracks.length ? `<button type="button" data-action="panel">${panelOpen ? "Close subtitle drawer" : "Open subtitle drawer"}</button>` : ""}
             ${hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : ""}
             ${hasSecondary ? `<button type="button" data-action="toggle-secondary" aria-pressed="${this.options.getSettings().subtitleSecondaryVisible}">${this.options.getSettings().subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off"}</button>` : ""}
         `);
@@ -22898,6 +24811,13 @@ ${spelling}`);
       this.options.onSettingsChange();
       this.render();
       log$3.info("Secondary subtitles toggled", { visible: settings.subtitleSecondaryVisible });
+    }
+    toggleNativeSubtitleBlur() {
+      const settings = this.options.getSettings();
+      settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
+      this.options.onSettingsChange();
+      this.render();
+      log$3.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     toggleTranscriptPanel() {
       var _a;
@@ -22933,20 +24853,12 @@ ${spelling}`);
       this.options.getSettings().subtitleTranscriptVisible = false;
       this.options.onSettingsChange();
       this.positionTranscriptPanel();
-      this.syncPanelState();
+      this.syncControls();
     }
     toggleTrackPanel() {
       if (!this.transcriptPanel) return;
       if (!this.transcriptPanel.hidden && this.panelMode === "tracks") {
-        if (!this.hasTranscriptSurface()) {
-          this.transcriptPanel.hidden = true;
-          this.options.getSettings().subtitleTranscriptVisible = false;
-          this.options.onSettingsChange();
-          this.positionTranscriptPanel();
-          this.syncPanelState();
-          return;
-        }
-        this.openLinesPanel();
+        this.closeTranscriptPanel();
         return;
       }
       this.openTracksPanel();
@@ -22954,13 +24866,11 @@ ${spelling}`);
     renderTranscriptPanel(force = false) {
       var _a;
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
-      const rows = this.cues.length ? this.cues : this.currentCue ? [this.currentCue] : [];
+      const rows = (this.cues.length ? this.cues : this.currentCue ? [this.currentCue] : []).filter((cue) => cue.transcriptEligible !== false);
       const currentIndex = this.cues.length ? this.activeTranscriptIndex() : rows.length ? 0 : -1;
       const signature = [
         rows.length,
-        this.secondaryCues.length,
         currentIndex,
-        this.options.getSettings().subtitleTranscriptPlacement,
         this.selectedTrackId,
         ((_a = this.tracks.find((track) => track.id === this.selectedTrackId)) == null ? void 0 : _a.loadingState) ?? ""
       ].join(":");
@@ -22969,38 +24879,33 @@ ${spelling}`);
         return;
       }
       this.lastTranscriptSignature = signature;
-      const placement = this.options.getSettings().subtitleTranscriptPlacement;
       setInnerHtml(this.transcriptPanel, `
-            <div class="jpdb-subtitle-list-head">
-                <span>Transcript</span>
-                ${renderPanelModeControls("lines", this.hasTranscriptSurface())}
-                ${renderPanelNavigationControls(Boolean(this.video && rows.length))}
-                ${renderTranscriptPlacementControls(placement)}
-                <button class="jpdb-reader-icon-mini" type="button" data-action="list" title="Close subtitle lines" aria-label="Close subtitle lines">${closeIcon()}</button>
+            <div class="jpdb-subtitle-drawer-head">
+                <div class="jpdb-subtitle-drawer-brand">
+                    <strong class="jpdb-subtitle-drawer-title">Subtitles</strong>
+                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(this.drawerMetaText("lines", rows.length))}</span>
+                </div>
+                <div class="jpdb-subtitle-drawer-actions">
+                    ${renderPanelModeControls("lines", this.hasTranscriptSurface())}
+                    ${renderPanelNavigationControls(Boolean(this.video && rows.length))}
+                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="Close subtitle drawer" aria-label="Close subtitle drawer">${closeIcon()}</button>
+                </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${rows.length ? rows.map((cue, index) => this.renderTranscriptRow(cue, index, this.cues.length ? currentIndex : 0)).join("") : this.renderTranscriptWaitingState()}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize transcript" aria-label="Resize transcript panel"></button>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize transcript panel"></button>
         `);
-      this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel();
       this.scrollTranscriptToActive();
-      this.scheduleTranscriptHydration(currentIndex);
       this.syncPanelState();
     }
     renderTranscriptRow(cue, index, currentIndex) {
-      var _a;
-      const secondary = (_a = findAlignedCue(this.secondaryCues, cue)) == null ? void 0 : _a.text.trim();
-      const settings = this.options.getSettings();
-      const cached = this.parsedHtmlCache.get(this.parseCacheKey(cue.text, settings));
-      const textHtml = cached ?? (this.shouldParseSubtitles(settings) ? `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(cue.text)}</span>` : escapeWithBreaks(cue.text));
       return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-index="${index}" data-row-index="${index}">
                 <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parsed-key="${cached ? escapeHtml$1(this.parseCacheKey(cue.text, settings)) : ""}">${textHtml}</strong>
-                    ${secondary ? `<em class="jpdb-subtitle-row-translation">${escapeWithBreaks(secondary)}</em>` : ""}
+                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}">${escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
                     <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-index="${index}" title="Copy subtitle line" aria-label="Copy subtitle line">${subtitleIcon("copy")}</button>
@@ -23021,7 +24926,6 @@ ${spelling}`);
       const active = this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
       if (active) active.classList.add("active");
       this.scrollTranscriptToActive();
-      this.scheduleTranscriptHydration(currentIndex);
     }
     scrollTranscriptToActive() {
       if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden) return;
@@ -23052,7 +24956,7 @@ ${spelling}`);
       if (!this.transcriptPanel) return;
       event.preventDefault();
       event.stopPropagation();
-      const placement = this.options.getSettings().subtitleTranscriptPlacement;
+      const placement = this.effectiveTranscriptPlacement;
       const panelRect = this.transcriptPanel.getBoundingClientRect();
       const startX = event.clientX;
       const startY = event.clientY;
@@ -23060,27 +24964,20 @@ ${spelling}`);
       const startHeight = panelRect.height;
       (_b = (_a = event.currentTarget).setPointerCapture) == null ? void 0 : _b.call(_a, event.pointerId);
       const onMove = (moveEvent) => {
-        var _a2, _b2, _c, _d, _e, _f;
-        if (placement === "bottom" || window.innerWidth <= 700 || ((_a2 = window.matchMedia) == null ? void 0 : _a2.call(window, "(pointer: coarse)").matches)) {
-          const nextHeight = clampNumber(startHeight + startY - moveEvent.clientY, 150, Math.max(150, window.innerHeight - TRANSCRIPT_PANEL_MARGIN * 3));
+        if (placement === "bottom") {
+          const nextHeight = clampNumber(startHeight + startY - moveEvent.clientY, 220, Math.max(220, window.innerHeight - TRANSCRIPT_PANEL_MARGIN * 3));
           this.transcriptPanelSize.bottomHeight = Math.round(nextHeight);
-          const bottom = Math.min(window.innerHeight - TRANSCRIPT_PANEL_MARGIN, panelRect.bottom);
-          (_b2 = this.transcriptPanel) == null ? void 0 : _b2.style.setProperty("top", `${Math.max(TRANSCRIPT_PANEL_MARGIN, bottom - nextHeight)}px`);
-          (_c = this.transcriptPanel) == null ? void 0 : _c.style.setProperty("height", `${Math.round(nextHeight)}px`);
-          (_d = this.transcriptPanel) == null ? void 0 : _d.style.setProperty("max-height", `${Math.round(nextHeight)}px`);
         } else {
-          const delta = placement === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX;
-          const nextWidth = clampNumber(startWidth + delta, 260, Math.max(260, window.innerWidth - TRANSCRIPT_PANEL_MARGIN * 3));
+          const nextWidth = clampNumber(startWidth + startX - moveEvent.clientX, 340, Math.max(340, window.innerWidth - TRANSCRIPT_PANEL_MARGIN * 3));
           this.transcriptPanelSize.sideWidth = Math.round(nextWidth);
-          if (placement === "right") (_e = this.transcriptPanel) == null ? void 0 : _e.style.setProperty("left", `${Math.max(TRANSCRIPT_PANEL_MARGIN, panelRect.right - nextWidth)}px`);
-          (_f = this.transcriptPanel) == null ? void 0 : _f.style.setProperty("width", `${Math.round(nextWidth)}px`);
         }
-        saveTranscriptPanelSize(this.transcriptPanelSize);
         this.positionTranscriptPanel();
       };
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        saveTranscriptPanelSize(this.transcriptPanelSize);
+        this.positionTranscriptPanel();
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp, { once: true });
@@ -23130,6 +25027,11 @@ ${spelling}`);
           if (indexes.size >= 18) break;
         }
       }
+      for (let count = 0; count < TRANSCRIPT_BACKGROUND_HYDRATION_BATCH && this.cues.length; count++) {
+        const index = this.transcriptHydrationCursor % this.cues.length;
+        this.transcriptHydrationCursor = (this.transcriptHydrationCursor + 1) % this.cues.length;
+        indexes.add(index);
+      }
       return [...indexes].sort((a, b) => a - b);
     }
     async hydrateTranscriptRow(index, settings) {
@@ -23160,15 +25062,18 @@ ${spelling}`);
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "tracks") return;
       const tracks = [...this.tracks].sort(compareSubtitleTrackOptions);
-      const placement = this.options.getSettings().subtitleTranscriptPlacement;
-      const autoDetected = tracks.filter((track) => track.kind === "youtube" || track.kind === "native").length;
+      const autoDetected = tracks.filter((track) => track.kind === "youtube" || track.kind === "native" || track.kind === "remote").length;
       setInnerHtml(this.transcriptPanel, `
-            <div class="jpdb-subtitle-list-head">
-                <span>Subtitle tracks</span>
-                ${renderPanelModeControls("tracks", this.hasTranscriptSurface())}
-                ${renderPanelNavigationControls(Boolean(this.video && this.cues.length))}
-                ${renderTranscriptPlacementControls(placement)}
-                <button class="jpdb-reader-icon-mini" type="button" data-action="close-panel" title="Close subtitle tracks" aria-label="Close subtitle tracks">${closeIcon()}</button>
+            <div class="jpdb-subtitle-drawer-head">
+                <div class="jpdb-subtitle-drawer-brand">
+                    <strong class="jpdb-subtitle-drawer-title">Subtitles</strong>
+                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(this.drawerMetaText("tracks", tracks.length))}</span>
+                </div>
+                <div class="jpdb-subtitle-drawer-actions">
+                    ${renderPanelModeControls("tracks", this.hasTranscriptSurface())}
+                    ${this.video && this.cues.length ? renderPanelNavigationControls(true) : ""}
+                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="Close subtitle drawer" aria-label="Close subtitle drawer">${closeIcon()}</button>
+                </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
@@ -23194,10 +25099,41 @@ ${spelling}`);
                 `;
     }).join("") : '<div class="jpdb-subtitle-list-empty">No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.</div>'}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript title="Resize subtitle tracks" aria-label="Resize subtitle tracks panel"></button>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize subtitle tracks panel"></button>
         `);
       this.bindTranscriptResizeHandle();
       this.syncPanelState();
+    }
+    drawerMetaText(mode, count) {
+      var _a, _b;
+      const primary = (_a = this.tracks.find((track) => track.id === this.selectedTrackId)) == null ? void 0 : _a.label;
+      const secondary = (_b = this.tracks.find((track) => track.id === this.secondaryTrackId)) == null ? void 0 : _b.label;
+      if (mode === "tracks") {
+        return [
+          `${count} option${count === 1 ? "" : "s"}`,
+          primary ? `Japanese: ${primary}` : "Choose Japanese subtitles",
+          secondary ? `Native: ${secondary}` : ""
+        ].filter(Boolean).join(" · ");
+      }
+      return [
+        primary || "Transcript",
+        `${count} line${count === 1 ? "" : "s"}`,
+        secondary ? `Native: ${secondary}` : ""
+      ].filter(Boolean).join(" · ");
+    }
+    beginTrackSelection(role) {
+      if (role === "primary") {
+        this.primarySelectionRequest += 1;
+        return this.primarySelectionRequest;
+      }
+      this.secondarySelectionRequest += 1;
+      return this.secondarySelectionRequest;
+    }
+    invalidateTrackSelection(role) {
+      this.beginTrackSelection(role);
+    }
+    isTrackSelectionCurrent(role, requestId, trackId) {
+      return role === "primary" ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId;
     }
     async choosePrimaryTrack(id) {
       if (!id) return;
@@ -23205,7 +25141,8 @@ ${spelling}`);
         this.clearPrimaryTrack();
         return;
       }
-      await this.discoverYouTubeTracks();
+      this.youtubeAutoSelectSuppressedVideoId = "";
+      await this.discoverYouTubeTracksThrottled(true);
       await this.selectTrack(id);
     }
     async chooseSecondaryTrack(id) {
@@ -23214,10 +25151,12 @@ ${spelling}`);
         this.clearSecondaryTrack();
         return;
       }
-      await this.discoverYouTubeTracks();
+      await this.discoverYouTubeTracksThrottled(true);
       await this.selectSecondaryTrack(id);
     }
     clearPrimaryTrack() {
+      this.suppressYouTubeAutoSelectForCurrentVideo();
+      this.invalidateTrackSelection("primary");
       this.selectedTrackId = "";
       this.cues = [];
       this.currentCue = void 0;
@@ -23238,7 +25177,12 @@ ${spelling}`);
       this.syncControls();
       log$3.info("Primary subtitle track cleared");
     }
+    suppressYouTubeAutoSelectForCurrentVideo() {
+      if (!isYouTubePage()) return;
+      this.youtubeAutoSelectSuppressedVideoId = this.youtubeVideoId || getYouTubeVideoId();
+    }
     clearSecondaryTrack() {
+      this.invalidateTrackSelection("secondary");
       this.secondaryTrackId = "";
       this.secondaryCues = [];
       this.secondaryCue = void 0;
@@ -23254,18 +25198,7 @@ ${spelling}`);
       this.syncControls();
       log$3.info("Secondary subtitle track cleared");
     }
-    setTranscriptPlacement(placement) {
-      const settings = this.options.getSettings();
-      settings.subtitleTranscriptPlacement = placement;
-      this.options.onSettingsChange();
-      this.lastTranscriptSignature = "";
-      this.renderTranscriptPanel(true);
-      this.positionTranscriptPanel();
-      this.syncControls();
-      log$3.info("Subtitle transcript placement changed", { placement });
-    }
     positionTranscriptPanel() {
-      var _a;
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
         return;
@@ -23277,17 +25210,17 @@ ${spelling}`);
       const panel = this.transcriptPanel;
       const viewportWidth = Math.max(320, window.innerWidth);
       const viewportHeight = Math.max(240, window.innerHeight);
-      const placement = this.options.getSettings().subtitleTranscriptPlacement;
-      const layout = computeTranscriptPanelLayout({
-        placement,
-        videoRect: (_a = this.video) == null ? void 0 : _a.getBoundingClientRect(),
+      const layout = computeSubtitleDrawerLayout({
         viewportWidth,
         viewportHeight,
-        compactPanel: shouldUseCompactTranscriptPanel(placement, viewportWidth)
+        anchorTop: this.transcriptAnchorRect().top,
+        compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
+        size: this.transcriptPanelSize
       });
-      const resizedLayout = resizeTranscriptPanelLayout(layout, this.transcriptPanelSize);
-      applyTranscriptPanelLayout(panel, resizedLayout);
-      this.applyVideoInsetForTranscriptPanel(resizedLayout);
+      applyTranscriptPanelLayout(panel, layout);
+      this.effectiveTranscriptPlacement = layout.placement;
+      this.syncTranscriptPlacementClass();
+      this.clearVideoInsetForTranscriptPanel();
     }
     syncFullscreenState() {
       var _a;
@@ -23303,153 +25236,108 @@ ${spelling}`);
         this.alignToVideo();
       });
     }
-    applyVideoInsetForTranscriptPanel(layout) {
-      this.clearVideoInsetForTranscriptPanel();
-      if (!this.root || !this.video || layout.placement === "bottom") return;
-      const videoRect = this.video.getBoundingClientRect();
-      if (!usableVideoRect(videoRect)) return;
-      const panelLeft = layout.left;
-      const panelRight = layout.left + layout.width;
-      const overlapsVertically = layout.top < videoRect.bottom && layout.top + layout.height > videoRect.top;
-      if (!overlapsVertically) return;
-      if (layout.placement === "right") {
-        const right = Math.max(videoRect.left + 260, Math.min(videoRect.right, panelLeft - layout.margin));
-        this.root.style.width = `${Math.round(right - videoRect.left)}px`;
-        this.applyPageVideoInset("right", right - videoRect.left);
-        return;
+    videoLayoutRect() {
+      var _a;
+      if (isYouTubePage()) {
+        const rect = youtubeVisiblePlayerRect();
+        if (rect) return rect;
       }
-      if (layout.placement === "left") {
-        const left = Math.min(videoRect.right - 260, Math.max(videoRect.left, panelRight + layout.margin));
-        this.root.style.left = `${Math.round(left)}px`;
-        this.root.style.width = `${Math.round(videoRect.right - left)}px`;
-        this.applyPageVideoInset("left", videoRect.right - left);
-      }
+      return ((_a = this.video) == null ? void 0 : _a.getBoundingClientRect()) ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+    transcriptAnchorRect() {
+      if (isYouTubePage()) return this.videoLayoutRect();
+      if (isCijVideoPage()) return this.videoLayoutRect();
+      if (!this.video) return this.videoLayoutRect();
+      return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
     }
     clearVideoInsetForTranscriptPanel() {
-      if (!this.lastInsetSignature && !document.documentElement.classList.contains("jpdb-subtitle-video-inset-left") && !document.documentElement.classList.contains("jpdb-subtitle-video-inset-right")) return;
+      if (!this.lastInsetSignature && !document.documentElement.classList.contains("jpdb-subtitle-video-inset-left") && !document.documentElement.classList.contains("jpdb-subtitle-video-inset-right") && !document.documentElement.classList.contains("jpdb-subtitle-video-inset-bottom")) return;
       this.lastInsetSignature = "";
-      document.documentElement.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right");
+      document.documentElement.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
       document.documentElement.style.removeProperty("--jpdb-subtitle-video-inset");
       const watchFlexy = document.querySelector("ytd-watch-flexy");
       watchFlexy == null ? void 0 : watchFlexy.style.removeProperty("--ytd-watch-flexy-player-width");
       watchFlexy == null ? void 0 : watchFlexy.style.removeProperty("--ytd-watch-flexy-player-height");
+      watchFlexy == null ? void 0 : watchFlexy.style.removeProperty("--ytd-watch-flexy-min-player-height");
       for (const element2 of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element2);
+      if (this.video) clearGenericVideoInset(this.video);
     }
-    applyPageVideoInset(side, playerWidth) {
+    applyPageVideoInset(side, playerSize) {
       var _a;
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
         return;
       }
-      const inset = `${Math.max(0, Math.round(((_a = this.transcriptPanel) == null ? void 0 : _a.getBoundingClientRect().width) ?? 0) + TRANSCRIPT_PANEL_MARGIN)}px`;
-      const width = Math.max(320, Math.round(playerWidth));
+      const panelRect = (_a = this.transcriptPanel) == null ? void 0 : _a.getBoundingClientRect();
+      const insetPixels = Math.max(0, Math.round((side === "bottom" ? panelRect == null ? void 0 : panelRect.height : panelRect == null ? void 0 : panelRect.width) ?? 0) + TRANSCRIPT_PANEL_MARGIN);
+      const inset = `${insetPixels}px`;
+      const videoRect = this.videoLayoutRect();
+      const width = side === "bottom" ? Math.max(320, Math.round((videoRect == null ? void 0 : videoRect.width) ?? 0)) : Math.max(320, Math.round(playerSize));
       const aspect = this.video && this.video.videoWidth && this.video.videoHeight ? this.video.videoHeight / this.video.videoWidth : this.video ? this.video.getBoundingClientRect().height / Math.max(1, this.video.getBoundingClientRect().width) : 9 / 16;
-      const height = Number.isFinite(aspect) && aspect > 0 ? Math.round(width * aspect) : 0;
+      const height = side === "bottom" ? Math.max(180, Math.round(playerSize)) : Number.isFinite(aspect) && aspect > 0 ? Math.round(width * aspect) : 0;
       const signature = `${side}:${inset}:${width}:${height}`;
       if (signature === this.lastInsetSignature) return;
       this.lastInsetSignature = signature;
       document.documentElement.classList.toggle("jpdb-subtitle-video-inset-left", side === "left");
       document.documentElement.classList.toggle("jpdb-subtitle-video-inset-right", side === "right");
+      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-bottom", side === "bottom");
       document.documentElement.style.setProperty("--jpdb-subtitle-video-inset", inset);
       const watchFlexy = document.querySelector("ytd-watch-flexy");
-      watchFlexy == null ? void 0 : watchFlexy.style.setProperty("--ytd-watch-flexy-player-width", `${width}px`);
+      if (side !== "bottom") watchFlexy == null ? void 0 : watchFlexy.style.setProperty("--ytd-watch-flexy-player-width", `${width}px`);
       if (height) watchFlexy == null ? void 0 : watchFlexy.style.setProperty("--ytd-watch-flexy-player-height", `${height}px`);
-      for (const element2 of youtubePlayerContainers()) applyYouTubePlayerContainerInset(element2, side, width);
+      if (side === "bottom" && height) watchFlexy == null ? void 0 : watchFlexy.style.setProperty("--ytd-watch-flexy-min-player-height", `${height}px`);
+      if (side !== "bottom") {
+        for (const element2 of youtubePlayerContainers()) applyYouTubePlayerContainerInset(element2, side, width, insetPixels);
+      } else {
+        for (const element2 of youtubePlayerContainers()) applyYouTubePlayerContainerInset(element2, side, width, insetPixels, height);
+      }
+      if (!isYouTubePage() && this.video) applyGenericVideoInset(this.video, side, side === "bottom" ? height : width);
+      requestYouTubePlayerResize(width, height);
     }
   }
   const TRANSCRIPT_PANEL_MARGIN = 10;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
-  function computeTranscriptPanelLayout(options) {
+  function computeSubtitleDrawerLayout(options) {
     const margin = TRANSCRIPT_PANEL_MARGIN;
-    const videoRect = usableVideoRect(options.videoRect) ? options.videoRect : void 0;
-    if (options.compactPanel) return compactTranscriptPanelLayout(options.viewportWidth, options.viewportHeight, margin);
-    if (videoRect) {
-      return videoAnchoredTranscriptLayout(options.placement, videoRect, options.viewportWidth, options.viewportHeight, margin);
+    const size = options.size ?? {};
+    if (options.compactPanel) {
+      const height = clampNumber(
+        size.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46),
+        220,
+        Math.max(220, options.viewportHeight - margin * 3)
+      );
+      return {
+        placement: "bottom",
+        left: margin,
+        top: Math.max(margin, options.viewportHeight - height - margin),
+        width: options.viewportWidth - margin * 2,
+        height,
+        viewportWidth: options.viewportWidth,
+        viewportHeight: options.viewportHeight,
+        margin
+      };
     }
-    return viewportTranscriptPanelLayout(options.placement, options.viewportWidth, options.viewportHeight, margin);
-  }
-  function shouldUseCompactTranscriptPanel(placement, viewportWidth) {
-    return placement === "bottom" || viewportWidth < 520;
-  }
-  function compactTranscriptPanelLayout(viewportWidth, viewportHeight, margin) {
-    const top = Math.max(margin, viewportHeight - Math.min(390, viewportHeight * 0.48) - margin);
+    const top = clampNumber(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
+    const width = clampNumber(
+      size.sideWidth ?? Math.min(460, options.viewportWidth * 0.32),
+      340,
+      Math.max(340, options.viewportWidth - margin * 3)
+    );
     return {
-      placement: "bottom",
-      left: margin,
+      placement: "right",
+      left: Math.max(margin, options.viewportWidth - width - margin),
       top,
-      width: viewportWidth - margin * 2,
-      height: viewportHeight - top - margin,
-      viewportWidth,
-      viewportHeight,
-      margin
+      width,
+      height: Math.max(260, options.viewportHeight - top - margin),
+      viewportWidth: options.viewportWidth,
+      viewportHeight: options.viewportHeight,
+      margin,
+      maxWidth: Math.max(340, options.viewportWidth - margin * 3)
     };
   }
-  function videoAnchoredTranscriptLayout(placement, videoRect, viewportWidth, viewportHeight, margin) {
-    const availableRight = viewportWidth - videoRect.right - margin * 2;
-    const availableLeft = videoRect.left - margin * 2;
-    const belowVideo = viewportHeight - videoRect.bottom - margin;
-    const effectivePlacement = shouldUseBottomTranscriptFallback(placement, availableLeft, availableRight, belowVideo) ? "bottom" : placement;
-    if (effectivePlacement === "right") return rightTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableRight);
-    if (effectivePlacement === "left") return leftTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableLeft);
-    return bottomTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin);
-  }
-  function shouldUseBottomTranscriptFallback(placement, availableLeft, availableRight, belowVideo) {
-    if (placement === "right" && availableRight < 280) return true;
-    if (placement === "left" && availableLeft < 280) return true;
-    const hasRoomBelow = belowVideo >= 150;
-    if (!hasRoomBelow) return false;
-    return false;
-  }
-  function rightTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableRight) {
-    const width = Math.min(Math.max(360, availableRight), viewportWidth - margin * 2);
-    if (availableRight < 280) {
-      const top2 = Math.max(margin, videoRect.top);
-      return { placement: "right", left: Math.max(margin, viewportWidth - width - margin), top: top2, width, height: viewportHeight - top2 - margin, viewportWidth, viewportHeight, margin };
-    }
-    const top = Math.max(margin, videoRect.top);
-    return { placement: "right", left: videoRect.right + margin, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
-  }
-  function leftTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin, availableLeft) {
-    const top = Math.max(margin, videoRect.top);
-    const fallbackWidth = Math.min(Math.max(360, availableLeft), viewportWidth - margin * 2);
-    const fallback = { placement: "left", left: margin, top, width: fallbackWidth, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
-    if (availableLeft < 280) return fallback;
-    const width = Math.min(Math.max(360, availableLeft), availableLeft);
-    return { ...fallback, left: Math.max(margin, videoRect.left - width - margin), width };
-  }
-  function bottomTranscriptPanelLayout(videoRect, viewportWidth, viewportHeight, margin) {
-    const width = Math.min(Math.max(320, videoRect.width), viewportWidth - margin * 2);
-    const left = Math.max(margin, Math.min(videoRect.left, viewportWidth - width - margin));
-    const preferredTop = videoRect.bottom + margin;
-    const below = viewportHeight - preferredTop - margin;
-    const top = below < 150 ? Math.max(margin, viewportHeight - Math.min(360, viewportHeight * 0.42) - margin) : preferredTop;
-    return { placement: "bottom", left, top, width, height: Math.min(360, viewportHeight - top - margin), viewportWidth, viewportHeight, margin };
-  }
-  function viewportTranscriptPanelLayout(placement, viewportWidth, viewportHeight, margin) {
-    const width = placement === "bottom" ? viewportWidth - margin * 2 : Math.min(Math.max(360, viewportWidth * 0.32), viewportWidth - margin * 2);
-    if (placement === "bottom") {
-      const top2 = Math.max(96, viewportHeight - Math.min(360, viewportHeight * 0.44) - margin);
-      return { placement, left: margin, top: top2, width, height: viewportHeight - top2 - margin, viewportWidth, viewportHeight, margin };
-    }
-    const top = 68;
-    const left = placement === "left" ? margin : Math.max(margin, viewportWidth - width - margin);
-    return { placement, left, top, width, height: viewportHeight - top - margin, viewportWidth, viewportHeight, margin };
-  }
-  function resizeTranscriptPanelLayout(layout, size) {
-    const maxWidth = layout.viewportWidth - layout.margin * 2;
-    if (layout.placement === "bottom") {
-      const maxHeight = Math.max(150, layout.viewportHeight - layout.margin * 2);
-      const height = size.bottomHeight ? clampNumber(size.bottomHeight, 150, maxHeight) : layout.height;
-      const top = Math.max(layout.margin, Math.min(layout.top, layout.viewportHeight - height - layout.margin));
-      return { ...layout, top, height };
-    }
-    const width = size.sideWidth ? clampNumber(size.sideWidth, 260, Math.max(260, maxWidth)) : layout.width;
-    if (layout.placement === "right") {
-      const right2 = Math.min(layout.viewportWidth - layout.margin, layout.left + layout.width);
-      return { ...layout, left: Math.max(layout.margin, right2 - width), width };
-    }
-    const right = Math.min(layout.viewportWidth - layout.margin, layout.left + width);
-    return { ...layout, left: Math.max(layout.margin, right - width), width };
+  function shouldUseCompactSubtitleDrawer(viewportWidth) {
+    var _a;
+    return viewportWidth < 900 || Boolean((_a = window.matchMedia) == null ? void 0 : _a.call(window, "(pointer: coarse)").matches);
   }
   function applyTranscriptPanelLayout(panel, layout) {
     setStylePropertyIfChanged(panel, "left", `${Math.round(layout.left)}px`);
@@ -23457,18 +25345,10 @@ ${spelling}`);
     setStylePropertyIfChanged(panel, "right", "auto");
     setStylePropertyIfChanged(panel, "bottom", "auto");
     setStylePropertyIfChanged(panel, "width", `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`);
-    const height = `${Math.round(Math.max(150, layout.height))}px`;
+    const minHeight = layout.placement === "bottom" ? 80 : 150;
+    const height = `${Math.round(Math.max(minHeight, layout.height))}px`;
     setStylePropertyIfChanged(panel, "height", height);
     setStylePropertyIfChanged(panel, "max-height", height);
-  }
-  function renderTranscriptPlacementControls(placement) {
-    return `
-        <div class="jpdb-subtitle-placement" aria-label="Panel position">
-            <button type="button" data-action="transcript-left" aria-pressed="${placement === "left"}" title="Move panel left" aria-label="Move panel left">${subtitleIcon("panel-left")}</button>
-            <button type="button" data-action="transcript-bottom" aria-pressed="${placement === "bottom"}" title="Move panel below" aria-label="Move panel below">${subtitleIcon("panel-bottom")}</button>
-            <button type="button" data-action="transcript-right" aria-pressed="${placement === "right"}" title="Move panel right" aria-label="Move panel right">${subtitleIcon("panel-right")}</button>
-        </div>
-    `;
   }
   function renderPanelNavigationControls(enabled) {
     return `
@@ -23522,16 +25402,138 @@ ${spelling}`);
       document.querySelector("ytd-watch-flexy #primary-inner")
     ].filter((element2) => Boolean(element2));
   }
-  function applyYouTubePlayerContainerInset(element2, side, width) {
-    setStylePropertyIfChanged(element2, "width", `${width}px`);
-    setStylePropertyIfChanged(element2, "max-width", `${width}px`);
+  function applyYouTubePlayerContainerInset(element2, side, width, inset, height = 0) {
+    if (side === "bottom") {
+      if (height) {
+        setStylePropertyIfChanged(element2, "height", `${height}px`);
+        setStylePropertyIfChanged(element2, "max-height", `${height}px`);
+        setStylePropertyIfChanged(element2, "min-height", "0px");
+      }
+      return;
+    }
+    const widthValue = `${width}px`;
+    setStylePropertyIfChanged(element2, "width", widthValue);
+    setStylePropertyIfChanged(element2, "max-width", widthValue);
     setStylePropertyIfChanged(element2, "min-width", "0px");
-    setStylePropertyIfChanged(element2, side === "left" ? "margin-left" : "margin-right", "var(--jpdb-subtitle-video-inset, 0px)");
+    const margin = side === "left" ? `${Math.max(0, Math.round(inset - element2.getBoundingClientRect().left))}px` : `${Math.max(0, Math.round(element2.getBoundingClientRect().right - (window.innerWidth - inset)))}px`;
+    setStylePropertyIfChanged(element2, side === "left" ? "margin-left" : "margin-right", margin);
     setStylePropertyIfChanged(element2, side === "left" ? "margin-right" : "margin-left", "0px");
   }
+  function youtubeVisiblePlayerRect() {
+    var _a;
+    for (const selector of [
+      "#movie_player",
+      "ytd-watch-flexy #player-container-inner",
+      "ytd-watch-flexy #player-container-outer",
+      "ytd-watch-flexy #player"
+    ]) {
+      const rect = (_a = document.querySelector(selector)) == null ? void 0 : _a.getBoundingClientRect();
+      if (usableVideoRect(rect)) return rect;
+    }
+    return void 0;
+  }
+  function requestYouTubePlayerResize(width, height) {
+    if (!isYouTubePage()) return;
+    const player = document.querySelector("#movie_player");
+    if ((player == null ? void 0 : player.setSize) && width > 0 && height > 0) {
+      try {
+        player.setSize(Math.round(width), Math.round(height));
+      } catch (error) {
+        log$3.debug("YouTube player setSize failed quietly", error);
+      }
+    }
+    window.dispatchEvent(new Event("resize"));
+    window.setTimeout(() => window.dispatchEvent(new Event("resize")), 0);
+  }
   function clearYouTubePlayerContainerInset(element2) {
-    for (const property of ["width", "max-width", "min-width", "margin-left", "margin-right"]) {
+    for (const property of ["width", "max-width", "min-width", "height", "max-height", "min-height", "margin-left", "margin-right"]) {
       if (element2.style.getPropertyValue(property)) element2.style.removeProperty(property);
+    }
+  }
+  const genericVideoInsetStyles = /* @__PURE__ */ new WeakMap();
+  const genericVideoInsetTargets = /* @__PURE__ */ new WeakMap();
+  function applyGenericVideoInset(video, side, size) {
+    const target = genericVideoLayoutTarget(video);
+    const previousTarget = genericVideoInsetTargets.get(video);
+    if (previousTarget && previousTarget !== target) clearGenericVideoInsetTarget(previousTarget);
+    genericVideoInsetTargets.set(video, target);
+    if (!genericVideoInsetStyles.has(target)) {
+      genericVideoInsetStyles.set(target, {
+        width: target.style.width,
+        height: target.style.height,
+        maxWidth: target.style.maxWidth,
+        maxHeight: target.style.maxHeight,
+        minWidth: target.style.minWidth,
+        minHeight: target.style.minHeight,
+        marginLeft: target.style.marginLeft,
+        marginRight: target.style.marginRight
+      });
+    }
+    if (side === "bottom") {
+      setStylePropertyIfChanged(target, "height", `${Math.round(size)}px`);
+      setStylePropertyIfChanged(target, "max-height", `${Math.round(size)}px`);
+      setStylePropertyIfChanged(target, "min-height", "0px");
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const inset = Number.parseFloat(document.documentElement.style.getPropertyValue("--jpdb-subtitle-video-inset")) || 0;
+    const margin = side === "left" ? Math.max(0, Math.round(inset - rect.left)) : Math.max(0, Math.round(rect.right - (window.innerWidth - inset)));
+    setStylePropertyIfChanged(target, "width", `${Math.round(size)}px`);
+    setStylePropertyIfChanged(target, "max-width", `${Math.round(size)}px`);
+    setStylePropertyIfChanged(target, "min-width", "0px");
+    setStylePropertyIfChanged(target, side === "left" ? "margin-left" : "margin-right", `${margin}px`);
+    setStylePropertyIfChanged(target, side === "left" ? "margin-right" : "margin-left", "0px");
+  }
+  function clearGenericVideoInset(video) {
+    const target = genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video);
+    clearGenericVideoInsetTarget(target);
+    genericVideoInsetTargets.delete(video);
+  }
+  function clearGenericVideoInsetTarget(target) {
+    const previous = genericVideoInsetStyles.get(target);
+    if (!previous) return;
+    setRestoredStyleProperty(target, "width", previous.width);
+    setRestoredStyleProperty(target, "height", previous.height);
+    setRestoredStyleProperty(target, "max-width", previous.maxWidth);
+    setRestoredStyleProperty(target, "max-height", previous.maxHeight);
+    setRestoredStyleProperty(target, "min-width", previous.minWidth);
+    setRestoredStyleProperty(target, "min-height", previous.minHeight);
+    setRestoredStyleProperty(target, "margin-left", previous.marginLeft);
+    setRestoredStyleProperty(target, "margin-right", previous.marginRight);
+    genericVideoInsetStyles.delete(target);
+  }
+  function genericVideoLayoutTarget(video) {
+    const parent = video.parentElement;
+    if (!parent || parent === document.body || parent === document.documentElement) return video;
+    const parentRect = parent.getBoundingClientRect();
+    const videoRect = video.getBoundingClientRect();
+    if (Math.abs(parentRect.width - videoRect.width) <= 3 && Math.abs(parentRect.height - videoRect.height) <= 3) return video;
+    if (parentRect.width >= videoRect.width && parentRect.height >= videoRect.height) return parent;
+    return video;
+  }
+  function transcriptAvoidanceTarget(video) {
+    const videoRect = video.getBoundingClientRect();
+    let best = genericVideoLayoutTarget(video);
+    for (let ancestor = video.parentElement; ancestor && ancestor !== document.body && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
+      const rect = ancestor.getBoundingClientRect();
+      if (!usableVideoRect(rect)) continue;
+      if (!rectContainsRect(rect, videoRect, 2)) continue;
+      if (rect.width > window.innerWidth * 0.92 || rect.height > window.innerHeight * 0.9) continue;
+      const meaningfulExtraWidth = rect.width - videoRect.width >= 180;
+      const meaningfulExtraHeight = rect.height - videoRect.height >= 80;
+      if (!meaningfulExtraWidth && !meaningfulExtraHeight) continue;
+      best = ancestor;
+    }
+    return best;
+  }
+  function rectContainsRect(container, child, tolerance = 0) {
+    return container.left <= child.left + tolerance && container.top <= child.top + tolerance && container.right >= child.right - tolerance && container.bottom >= child.bottom - tolerance;
+  }
+  function setRestoredStyleProperty(element2, property, value) {
+    if (value) {
+      element2.style.setProperty(property, value);
+    } else {
+      element2.style.removeProperty(property);
     }
   }
   function disableYouTubeNativeCaptions() {
@@ -23589,6 +25591,7 @@ ${spelling}`);
   }
   function formatTrackKind(kind) {
     if (kind === "native") return "page track";
+    if (kind === "remote") return "page file";
     if (kind === "youtube") return "YouTube captions";
     return "loaded file";
   }
@@ -23597,9 +25600,11 @@ ${spelling}`);
   }
   function subtitleTrackRank(track) {
     if (track.kind === "file") return 0;
-    if (isJapaneseSubtitleTrack(track)) return 1;
-    if (isAutoGeneratedSubtitleTrack(track)) return 2;
-    if (isEnglishSubtitleTrack(track)) return 3;
+    if (track.kind === "remote" && isJapaneseSubtitleTrack(track) && !isAutoGeneratedSubtitleTrack(track)) return 1;
+    if (isJapaneseSubtitleTrack(track) && !isAutoGeneratedSubtitleTrack(track)) return 1;
+    if (isJapaneseSubtitleTrack(track)) return 2;
+    if (isAutoGeneratedSubtitleTrack(track)) return 3;
+    if (isEnglishSubtitleTrack(track)) return 4;
     if (track.kind === "native") return 4;
     return 5;
   }
@@ -23609,12 +25614,118 @@ ${spelling}`);
   function isEnglishSubtitleTrack(track) {
     return /(^|\b)(en|eng|english)(\b|$)/i.test(`${track.label} ${track.language ?? ""}`);
   }
+  function collectPageSubtitleSources(root = document) {
+    const sources = [];
+    for (const track of Array.from(root.querySelectorAll("track[src]"))) {
+      if (track.kind && !/subtitles|captions/i.test(track.kind)) continue;
+      const url = resolveSubtitleSourceUrl(track.src || track.getAttribute("src") || "");
+      if (!url || !isSupportedSubtitleSourceUrl(url)) continue;
+      const label = subtitleSourceLabel(track.label || track.srclang || track.getAttribute("aria-label") || "", url);
+      sources.push({
+        url,
+        label,
+        language: normalizeSubtitleLanguage(track.srclang || inferSubtitleLanguage(label, url)),
+        sourceKey: pageSubtitleSourceKey("track", url)
+      });
+    }
+    for (const link of Array.from(root.querySelectorAll("a[href]"))) {
+      const url = resolveSubtitleSourceUrl(link.href || link.getAttribute("href") || "");
+      if (!url || !isSupportedSubtitleSourceUrl(url)) continue;
+      const label = subtitleSourceLabel(
+        link.getAttribute("download") || link.getAttribute("aria-label") || link.getAttribute("title") || link.textContent || "",
+        url
+      );
+      sources.push({
+        url,
+        label,
+        language: normalizeSubtitleLanguage(link.lang || inferSubtitleLanguage(label, url)),
+        sourceKey: pageSubtitleSourceKey("link", url)
+      });
+    }
+    const seen = /* @__PURE__ */ new Set();
+    return sources.filter((source) => {
+      const key = source.sourceKey;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function resolveSubtitleSourceUrl(value) {
+    try {
+      const url = new URL(value, document.baseURI);
+      if (!/^(https?|blob|data):$/i.test(url.protocol)) return "";
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
+  function isSupportedSubtitleSourceUrl(value) {
+    try {
+      const url = new URL(value, document.baseURI);
+      const haystack = [
+        decodeURIComponent(url.pathname),
+        ...Array.from(url.searchParams.values()).map((part) => decodeURIComponent(part))
+      ].join(" ");
+      return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(`${haystack} `);
+    } catch {
+      return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(value);
+    }
+  }
+  function subtitleSourceLabel(value, url) {
+    const cleaned = value.replace(/\s+/g, " ").trim();
+    if (cleaned && !/^(vtt|srt|subtitles?)$/i.test(cleaned)) {
+      return cleaned.replace(/\.(vtt|srt|ass|ssa)$/i, "").trim();
+    }
+    try {
+      const parsed = new URL(url, document.baseURI);
+      const filename = parsed.searchParams.get("filename") || parsed.pathname.split("/").pop() || "";
+      return decodeURIComponent(filename).replace(/\.(vtt|srt|ass|ssa)$/i, "").replace(/[_-]+/g, " ").trim() || "Subtitle file";
+    } catch {
+      return "Subtitle file";
+    }
+  }
+  function inferSubtitleLanguage(label, url) {
+    const text2 = `${label} ${url}`;
+    if (/(^|[\s._/-])(ja|jp|jpn|japanese|日本語)(?=$|[\s._/-])/i.test(text2) || /[\u3040-\u30ff\u3400-\u9fff]/u.test(label)) return "ja";
+    if (/(^|[\s._/-])(en|eng|english|native)(?=$|[\s._/-])/i.test(text2)) return "en";
+    return void 0;
+  }
+  function normalizeSubtitleLanguage(language) {
+    if (!language) return void 0;
+    if (/^(ja|jp|jpn)(?:-|$)/i.test(language)) return "ja";
+    if (/^(en|eng)(?:-|$)/i.test(language)) return "en";
+    return language;
+  }
+  function pageSubtitleSourceKey(kind, url) {
+    return `${kind}:${normalizedSubtitleUrl(url)}`;
+  }
+  function normalizedSubtitleUrl(value) {
+    try {
+      const url = new URL(value, document.baseURI);
+      url.searchParams.delete("v");
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function sameSubtitleUrl(a, b) {
+    return normalizedSubtitleUrl(a) === normalizedSubtitleUrl(b);
+  }
+  function shouldReplaceWaitingNativeTrack(selected, replacement, cues) {
+    if (!selected || selected.kind !== "native" || cues.length) return false;
+    const sameRole = isJapaneseSubtitleTrack(selected) && isJapaneseSubtitleTrack(replacement) || isEnglishSubtitleTrack(selected) && isEnglishSubtitleTrack(replacement);
+    if (sameRole) return true;
+    const selectedLanguage = normalizeSubtitleLanguage(selected.language);
+    const replacementLanguage = normalizeSubtitleLanguage(replacement.language);
+    return Boolean(selectedLanguage && replacementLanguage && selectedLanguage === replacementLanguage);
+  }
   function getCueText(cue) {
     if ("text" in cue && typeof cue.text === "string") return cue.text;
     return "";
   }
   function readTrackCues(track) {
-    return Array.from(track.cues ?? []).map((cue) => ({ start: cue.startTime, end: cue.endTime, text: getCueText(cue).trim() })).filter((cue) => cue.text).sort((a, b) => a.start - b.start);
+    return normalizeSubtitleCues(Array.from(track.cues ?? []).map((cue) => ({ start: cue.startTime, end: cue.endTime, text: getCueText(cue).trim() })).filter((cue) => cue.text).sort((a, b) => a.start - b.start));
   }
   function waitForTextTrackCues(track, timeoutMs = 900) {
     const startedAt = performance.now();
@@ -23629,6 +25740,171 @@ ${spelling}`);
       };
       poll();
     });
+  }
+  function ensureTextTrackReadable(track) {
+    if (track.mode === "disabled") track.mode = "hidden";
+  }
+  function normalizeSubtitleCues(cues, options = {}) {
+    const normalized = [];
+    cues.forEach((cue) => {
+      const text2 = normalizeCaptionText(cue.text);
+      if (!text2 || !Number.isFinite(cue.start) || !Number.isFinite(cue.end)) return;
+      const words = exactSubtitleWords(cue, cue.start, Math.max(cue.end, cue.start + 0.12));
+      const base = {
+        ...cue,
+        text: text2,
+        start: cue.start,
+        end: Math.max(cue.end, cue.start + 0.12),
+        originalText: cue.originalText ?? text2,
+        words,
+        wordTimingsExact: Boolean(words == null ? void 0 : words.length),
+        transcriptEligible: options.transcriptEligible ?? cue.transcriptEligible ?? true
+      };
+      const sentenceParts = splitCueDisplayText(text2);
+      if (sentenceParts.length <= 1) {
+        normalized.push({ ...base, transcriptEligible: base.transcriptEligible });
+        return;
+      }
+      const timedParts = distributeCueParts(base, sentenceParts);
+      for (const part of timedParts) {
+        const partWords = sliceCueWords(base, part.start, part.end);
+        normalized.push({
+          start: part.start,
+          end: part.end,
+          text: part.text,
+          originalText: base.originalText,
+          words: partWords,
+          wordTimingsExact: Boolean(partWords == null ? void 0 : partWords.length),
+          transcriptEligible: base.transcriptEligible
+        });
+      }
+      if (!timedParts.length) normalized.push({ ...base, transcriptEligible: base.transcriptEligible });
+    });
+    return normalized.sort((a, b) => a.start - b.start);
+  }
+  function splitCueDisplayText(text2) {
+    const normalized = normalizeCaptionText(text2);
+    if (!normalized) return [];
+    const sentenceParts = splitSentencesByPunctuation(normalized);
+    if (sentenceParts.length > 1) return sentenceParts;
+    if (displayTextWeight(normalized) <= 38) return [normalized];
+    return splitOverlongCue(normalized);
+  }
+  function splitSentencesByPunctuation(text2) {
+    const parts = [];
+    let start = 0;
+    const chars = Array.from(text2);
+    let offset = 0;
+    for (const char of chars) {
+      offset += char.length;
+      if (!/[。！？!?]/u.test(char)) continue;
+      while (offset < text2.length && /["'」』）\]]/u.test(text2[offset])) offset++;
+      const part = text2.slice(start, offset).trim();
+      if (part) parts.push(part);
+      start = offset;
+    }
+    const rest = text2.slice(start).trim();
+    if (rest) parts.push(rest);
+    return parts.length ? parts : [text2];
+  }
+  function splitOverlongCue(text2) {
+    const parts = [];
+    const tokens = text2.includes(" ") ? text2.split(/(\s+)/u).filter(Boolean) : Array.from(text2);
+    let current = "";
+    for (const token of tokens) {
+      if (displayTextWeight(current + token) > 32 && current.trim()) {
+        parts.push(current.trim());
+        current = token.trimStart();
+      } else {
+        current += token;
+      }
+    }
+    if (current.trim()) parts.push(current.trim());
+    return parts.length > 1 ? parts : [text2];
+  }
+  function distributeCueParts(cue, parts) {
+    const duration = Math.max(0.12, cue.end - cue.start);
+    const weights = parts.map((part) => Math.max(1, displayTextWeight(part)));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || parts.length;
+    let cursor = cue.start;
+    return parts.map((part, index) => {
+      const partDuration = index === parts.length - 1 ? cue.end - cursor : duration * (weights[index] / totalWeight);
+      const start = cursor;
+      const end = index === parts.length - 1 ? cue.end : Math.min(cue.end, cursor + Math.max(0.12, partDuration));
+      cursor = end;
+      return { text: part, start, end: Math.max(end, start + 0.12) };
+    });
+  }
+  function exactSubtitleWords(cue, start, end) {
+    var _a;
+    if (!cue.wordTimingsExact || !((_a = cue.words) == null ? void 0 : _a.length)) return void 0;
+    const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber(word.start, start, end), end: clampNumber(word.end, start, end) })).filter((word) => word.end > word.start);
+    return words.length ? words : void 0;
+  }
+  function sliceCueWords(cue, start, end) {
+    return exactSubtitleWords(cue, start, end);
+  }
+  function renderKaraokeTextParts(text2, progress) {
+    const chars = Array.from(text2);
+    const split = clampNumber(Math.round(progress), 0, chars.length);
+    const past = chars.slice(0, split).join("");
+    const current = chars.slice(split, split + 1).join("");
+    const upcoming = chars.slice(split + 1).join("");
+    return [
+      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml$1(past)}</span>` : "",
+      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml$1(current)}</span>` : "",
+      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml$1(upcoming)}</span>` : ""
+    ].join("");
+  }
+  function karaokeCharacterProgress(cue, words, time) {
+    const total = compactTextLength(cue.text);
+    if (!total) return 0;
+    if (time <= cue.start) return 0;
+    if (time >= cue.end) return total;
+    const sorted = [...words].filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end)).sort((a, b) => a.start - b.start);
+    let cursor = 0;
+    for (const word of sorted) {
+      const length = compactTextLength(word.text);
+      if (!length) continue;
+      if (time >= word.end) {
+        cursor += length;
+        continue;
+      }
+      if (time <= word.start) return Math.min(total, cursor);
+      const ratio = clampNumber((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
+      return Math.min(total, cursor + Math.max(1, Math.floor(length * ratio)));
+    }
+    return Math.min(total, cursor);
+  }
+  function compactTextLength(text2) {
+    return Array.from(text2.replace(/\s+/gu, "")).length;
+  }
+  function displayTextWeight(text2) {
+    return Array.from(text2.replace(/\s+/gu, "")).length;
+  }
+  function parseVttCuePayload(raw, cueStart, cueEnd) {
+    const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
+    const markers = [];
+    raw.replace(timestampPattern, (match, rawTime, index) => {
+      const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
+      if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
+      return match;
+    });
+    const text2 = raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
+    if (!markers.length) return { text: text2 };
+    const words = [];
+    for (let index = 0; index < markers.length; index++) {
+      const marker = markers[index];
+      const next = markers[index + 1];
+      const segmentRaw = raw.slice(marker.endIndex, (next == null ? void 0 : next.index) ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
+      const segmentText = segmentRaw.trim();
+      if (!segmentText) continue;
+      if (/\s/u.test(segmentText)) return { text: text2 };
+      const start = clampNumber(marker.time, cueStart, cueEnd);
+      const end = clampNumber((next == null ? void 0 : next.time) ?? cueEnd, cueStart, cueEnd);
+      words.push({ text: segmentText, start, end: Math.max(start + 0.04, end) });
+    }
+    return { text: text2, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
   }
   function parseSubtitleText(text2) {
     const youtubeJson = parseYouTubeJson3SubtitleText(text2);
@@ -23645,8 +25921,8 @@ ${spelling}`);
       const [startRaw, endRaw] = lines[timeIndex].split("-->").map((part) => part.trim().split(/\s+/)[0]);
       const start = parseSubtitleTime(startRaw);
       const end = parseSubtitleTime(endRaw);
-      const cueText = lines.slice(timeIndex + 1).join("\n").replace(/<[^>]+>/g, "").trim();
-      if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
+      const payload = parseVttCuePayload(lines.slice(timeIndex + 1).join("\n"), start, end);
+      if (Number.isFinite(start) && Number.isFinite(end) && payload.text) cues.push({ start, end, text: payload.text, words: payload.words, wordTimingsExact: payload.wordTimingsExact });
     }
     return cues.sort((a, b) => a.start - b.start);
   }
@@ -23654,15 +25930,30 @@ ${spelling}`);
     if (!/^\s*\{/.test(text2)) return [];
     try {
       const parsed = JSON.parse(text2);
-      return (parsed.events ?? []).map((event) => {
+      const cues = (parsed.events ?? []).map((event) => {
         const start = Number(event.tStartMs ?? Number.NaN) / 1e3;
         const duration = Number(event.dDurationMs ?? 0) / 1e3;
         const cueText = (event.segs ?? []).map((seg) => seg.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
-        return { start, end: start + Math.max(duration, 0.75), text: cueText };
+        const end = start + Math.max(duration, 0.75);
+        const words = youtubeJson3WordTimings(event.segs ?? [], start, end);
+        return { start, end, text: cueText, words, wordTimingsExact: Boolean(words == null ? void 0 : words.length) };
       }).filter((cue) => Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.text).sort((a, b) => a.start - b.start);
+      return smoothFragmentedYouTubeCues(cues);
     } catch {
       return [];
     }
+  }
+  function youtubeJson3WordTimings(segs, cueStart, cueEnd) {
+    const visible = segs.map((seg) => ({ text: seg.utf8 ?? "", offset: Number(seg.tOffsetMs) })).filter((seg) => seg.text.trim());
+    const timed = visible.filter((seg) => Number.isFinite(seg.offset) && !/\s/u.test(seg.text.trim()));
+    if (!timed.length || timed.length !== visible.length) return void 0;
+    return timed.map((seg, index) => {
+      var _a;
+      const nextOffset = (_a = timed[index + 1]) == null ? void 0 : _a.offset;
+      const start = cueStart + seg.offset / 1e3;
+      const end = nextOffset === void 0 ? cueEnd : cueStart + nextOffset / 1e3;
+      return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
+    }).filter((word) => word.end > word.start);
   }
   function parseYouTubeXmlSubtitleText(text2) {
     if (!/^\s*</.test(text2) || !/(<text\b|<p\b)/i.test(text2)) return [];
@@ -23681,10 +25972,107 @@ ${spelling}`);
         const cueText = normalizeCaptionText(element2.textContent ?? "");
         if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
       }
-      return cues.sort((a, b) => a.start - b.start);
+      for (const element2 of Array.from(document2.querySelectorAll("p[t], p[_t]"))) {
+        const startMs = Number(element2.getAttribute("t") ?? element2.getAttribute("_t"));
+        const durationMs = Number(element2.getAttribute("d") ?? element2.getAttribute("_d") ?? 0);
+        const start = startMs / 1e3;
+        const end = start + Math.max(durationMs / 1e3, 0.75);
+        const words = parseYouTubeSrv3WordNodes(element2, start, end);
+        const cueText = normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element2.textContent ?? "");
+        if (Number.isFinite(start) && cueText) cues.push({ start, end, text: cueText, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) });
+      }
+      return smoothFragmentedYouTubeCues(cues.sort((a, b) => a.start - b.start));
     } catch {
       return [];
     }
+  }
+  function smoothFragmentedYouTubeCues(cues) {
+    if (cues.length < 3 || !looksLikeFragmentedYouTubeCues(cues)) return cues;
+    const merged = [];
+    let current;
+    for (const cue of cues) {
+      const normalized = {
+        ...cue,
+        text: normalizeCaptionText(cue.text),
+        words: cueHasExactWordTimings(cue) ? cue.words : void 0,
+        wordTimingsExact: cueHasExactWordTimings(cue)
+      };
+      if (!normalized.text) continue;
+      if (!current || shouldBreakYouTubeLine(current, normalized)) {
+        if (current) merged.push(current);
+        current = normalized;
+        continue;
+      }
+      current = mergeYouTubeCueFragments(current, normalized);
+    }
+    if (current) merged.push(current);
+    return merged;
+  }
+  function looksLikeFragmentedYouTubeCues(cues) {
+    const sampled = cues.slice(0, 80);
+    const fragments = sampled.filter((cue) => displayTextWeight(cue.text) <= 14 || cue.end - cue.start <= 1.35).length;
+    return fragments / sampled.length >= 0.42;
+  }
+  function shouldBreakYouTubeLine(current, next) {
+    const gap = next.start - current.end;
+    if (isTrailingPunctuationFragment(next.text)) return false;
+    if (gap > 2.6) return true;
+    if (gap < -0.2 && !isProgressiveYouTubeCaption(current.text, next.text)) return true;
+    if (/[。！？!?]$/u.test(current.text.trim())) return true;
+    if (current.end - current.start >= 12) return true;
+    if (displayTextWeight(current.text) >= 68) return true;
+    return false;
+  }
+  function mergeYouTubeCueFragments(current, next) {
+    const progressive = isProgressiveYouTubeCaption(current.text, next.text);
+    const text2 = progressive ? next.text : joinYouTubeCaptionFragments(current.text, next.text);
+    const currentWords = cueHasExactWordTimings(current) ? current.words : void 0;
+    const nextWords = cueHasExactWordTimings(next) ? next.words : void 0;
+    const allowsUntimedPunctuation = isTrailingPunctuationFragment(next.text);
+    const words = progressive ? nextWords : currentWords && (nextWords || allowsUntimedPunctuation) ? [...currentWords, ...nextWords ?? []] : void 0;
+    return {
+      ...current,
+      end: Math.max(current.end, next.end),
+      text: text2,
+      originalText: text2,
+      words,
+      wordTimingsExact: Boolean(words == null ? void 0 : words.length)
+    };
+  }
+  function isProgressiveYouTubeCaption(current, next) {
+    const compactCurrent = current.replace(/\s+/gu, "");
+    const compactNext = next.replace(/\s+/gu, "");
+    return compactCurrent.length >= 2 && compactNext.length > compactCurrent.length && compactNext.startsWith(compactCurrent);
+  }
+  function joinYouTubeCaptionFragments(left, right) {
+    const a = left.trim();
+    const b = right.trim();
+    if (!a) return b;
+    if (!b) return a;
+    if (/^[、。，．！？!?））」』\]}]/u.test(b)) return `${a}${b}`;
+    if (/[\s「『（([{]$/u.test(a)) return `${a}${b}`;
+    if (/[A-Za-z0-9]$/u.test(a) && /^[A-Za-z0-9]/u.test(b)) return `${a} ${b}`;
+    return `${a}${b}`;
+  }
+  function isTrailingPunctuationFragment(text2) {
+    return /^[、。，．！？!?…・]+$/u.test(text2.trim());
+  }
+  function parseYouTubeSrv3WordNodes(element2, cueStart, cueEnd) {
+    const nodes = Array.from(element2.querySelectorAll("s"));
+    if (!nodes.length) return [];
+    if (nodes.some((node) => /\s/u.test((node.textContent ?? "").trim()))) return [];
+    const starts = nodes.map((node) => {
+      const raw = Number(node.getAttribute("t") ?? node.getAttribute("_t"));
+      return Number.isFinite(raw) ? cueStart + raw / 1e3 : Number.NaN;
+    });
+    return nodes.map((node, index) => {
+      const text2 = node.textContent ?? "";
+      if (!text2) return null;
+      const start = Number.isFinite(starts[index]) ? starts[index] : cueStart;
+      const nextStart = starts.slice(index + 1).find((value) => Number.isFinite(value));
+      const end = typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
+      return { text: text2, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
+    }).filter((word) => Boolean((word == null ? void 0 : word.text.trim()) && word.end > word.start));
   }
   function parseAssSubtitleText(text2) {
     const cues = [];
@@ -23792,6 +26180,16 @@ ${spelling}`);
       startDistance: Math.abs(cue.start - item.start)
     })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]) == null ? void 0 : _a.item;
   }
+  function findActiveSubtitleCue(cues, time) {
+    return cues.filter((cue) => time >= cue.start - 0.05 && time < cue.end + 0.12).sort((a, b) => b.start - a.start || b.end - a.end)[0];
+  }
+  function subtitleCueSignature(cue) {
+    return `${cue.start.toFixed(2)}:${cue.end.toFixed(2)}:${cue.text.trim()}`;
+  }
+  function cueHasExactWordTimings(cue) {
+    var _a;
+    return Boolean((cue == null ? void 0 : cue.wordTimingsExact) && ((_a = cue.words) == null ? void 0 : _a.length));
+  }
   function collectCaptionTexts(elements, video, readerRoot, nearVideoOnly = false) {
     const lines = [];
     const seen = /* @__PURE__ */ new Set();
@@ -23867,6 +26265,9 @@ ${spelling}`);
   function isYouTubePage() {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
   }
+  function isCijVideoPage() {
+    return /(^|\.)cijapanese\.com$/i.test(location.hostname) && /^\/video\//i.test(location.pathname);
+  }
   function isJapaneseSubtitleTrack(track) {
     var _a;
     const language = ((_a = track.language) == null ? void 0 : _a.toLowerCase()) ?? "";
@@ -23910,7 +26311,9 @@ ${spelling}`);
     const rawUrl = typeof record.url === "string" ? record.url : typeof record.baseUrl === "string" ? record.baseUrl : "";
     if (!rawUrl) return null;
     const url = new URL(rawUrl, location.href);
-    if (!url.searchParams.has("fmt")) url.searchParams.set("fmt", "vtt");
+    url.searchParams.set("fmt", "srv3");
+    const clientName = readYouTubeClientName();
+    if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
     const language = record.languageCode;
     const label = ((_a = record.name) == null ? void 0 : _a.simpleText) ?? ((_c = (_b = record.name) == null ? void 0 : _b.runs) == null ? void 0 : _c.map((run) => run.text ?? "").join("")) ?? record.displayName ?? record.languageName ?? language ?? "YouTube subtitles";
     return { label: `${label}${language ? ` (${language})` : ""}`, language, url: url.toString(), raw: track };
@@ -24045,15 +26448,24 @@ ${spelling}`);
   }
   function youtubeSubtitleRequestUrls(url) {
     return uniqueStrings([
-      withYouTubeSubtitleFormat(url, "vtt"),
+      withYouTubeSubtitleFormat(url, "srv3"),
       withYouTubeSubtitleFormat(url, "json3"),
+      withYouTubeSubtitleFormat(url, "vtt"),
       url
     ]);
   }
   function withYouTubeSubtitleFormat(url, format) {
     const parsed = new URL(url);
     parsed.searchParams.set("fmt", format);
+    const clientName = readYouTubeClientName();
+    if (clientName && !parsed.searchParams.has("c")) parsed.searchParams.set("c", clientName);
     return parsed.href;
+  }
+  function readYouTubeClientName() {
+    var _a;
+    const ytcfg = window.ytcfg;
+    const value = (_a = ytcfg == null ? void 0 : ytcfg.get) == null ? void 0 : _a.call(ytcfg, "INNERTUBE_CLIENT_NAME");
+    return typeof value === "string" && value ? value : "";
   }
   function shouldPreferYouTubeTrackUrl(next, current) {
     return youtubeTrackUrlScore(next) > youtubeTrackUrlScore(current);
@@ -24076,6 +26488,13 @@ ${spelling}`);
     return [...new Set(values)];
   }
   function requestText(url) {
+    if (/^(blob|data):/i.test(url)) {
+      log$3.debug("Subtitle request via fetch", { host: safeHost(url) });
+      return fetch(url, { signal: AbortSignal.timeout(8e3) }).then((response) => {
+        if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
+        return response.text();
+      });
+    }
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
       log$3.debug("Subtitle request via userscript API", { host: safeHost(url) });
@@ -24204,7 +26623,7 @@ ${spelling}`);
   }
   function isProbablyJapaneseYouTubeText(text2) {
     const compact = text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(/\s+/g, " ").trim();
-    if (!HAS_JAPANESE$1.test(compact)) return false;
+    if (!HAS_JAPANESE$2.test(compact)) return false;
     if (DECORATIVE_SYMBOL_RE.test(compact)) {
       return HIRAGANA_RE.test(compact) && KATAKANA_RE.test(compact) && HAN_RE.test(compact);
     }
@@ -24496,6 +26915,7 @@ ${spelling}`);
       __publicField(this, "jpdb", new JpdbClient(() => this.settings.apiKey.trim()));
       __publicField(this, "jpdbKanji", new JpdbKanjiClient());
       __publicField(this, "jpdbPublicPitch", new JpdbPublicPitchClient());
+      __publicField(this, "jpdbVocabulary", new JpdbVocabularyClient());
       __publicField(this, "kanjiVG", new KanjiVGClient());
       __publicField(this, "kanjiOrigin", new KanjiOriginClient());
       __publicField(this, "immersionKit", new ImmersionKitClient());
@@ -24672,6 +27092,8 @@ ${spelling}`);
       __publicField(this, "preloadedTermAudioKeys", /* @__PURE__ */ new Set());
       __publicField(this, "wordNavigationStack", []);
       __publicField(this, "currentWordNavigation");
+      __publicField(this, "kanjiNavigationStack", []);
+      __publicField(this, "currentKanjiNavigation");
       __publicField(this, "dictionarySourceOpenOverrides", /* @__PURE__ */ new Map());
       __publicField(this, "cardRenderDataCache", /* @__PURE__ */ new Map());
       __publicField(this, "pressedKeys", /* @__PURE__ */ new Set());
@@ -24733,21 +27155,45 @@ ${spelling}`);
     registerMenuCommands() {
       if (typeof GM_registerMenuCommand === "function") {
         GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
-        GM_registerMenuCommand(`${APP_NAME} scan visible page`, () => this.scanVisiblePage());
-        GM_registerMenuCommand(`${APP_NAME} scan nearby images`, () => this.ocr.scanVisible());
+        GM_registerMenuCommand(`${APP_NAME} open new tab`, () => this.openNewTabPage());
         GM_registerMenuCommand(`${APP_NAME} open video player`, () => this.openVideoPlayer());
         GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
         GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
           this.settings.showFloatingButton = !this.settings.showFloatingButton;
           void saveSettings(this.settings).then(() => this.installFab());
         });
+        GM_registerMenuCommand(`${APP_NAME} reset all`, () => void this.resetAllData());
       }
+    }
+    openNewTabPage() {
+      const opened = window.open(NEW_TAB_PAGE_URL, "_blank");
+      if (opened) opened.opener = null;
+      if (!opened) location.href = NEW_TAB_PAGE_URL;
+      log$1.info("New tab page opened", { url: NEW_TAB_PAGE_URL });
     }
     openVideoPlayer() {
       const opened = window.open(VIDEO_PLAYER_PAGE_URL, "_blank");
       if (opened) opened.opener = null;
       if (!opened) location.href = VIDEO_PLAYER_PAGE_URL;
       log$1.info("Video player page opened", { url: VIDEO_PLAYER_PAGE_URL });
+    }
+    async resetAllData() {
+      const confirmed = window.confirm([
+        `Reset all ${APP_NAME} data?`,
+        "",
+        "This deletes settings, cached cards, local dictionaries, and other local/GM storage for the userscript."
+      ].join("\n"));
+      if (!confirmed) return;
+      try {
+        const deletedStorageValues = await clearManagedStoredValues();
+        await this.dictionaries.deleteDatabase();
+        log$1.info("All local data reset", { deletedStorageValues });
+        this.toast("All よむ data was reset. Reloading...");
+        window.setTimeout(() => location.reload(), 350);
+      } catch (error) {
+        log$1.warn("All-data reset failed", error);
+        this.toast(error instanceof Error ? error.message : "Reset failed.");
+      }
     }
     installStyles() {
       if (typeof GM_addStyle === "function") {
@@ -25302,7 +27748,7 @@ ${spelling}`);
     preloadReaderWordAudio(word, options = {}) {
       if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
       const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
-      if (!card) return false;
+      if (!card || !isUsefulImmersionPreloadQuery(card.spelling)) return false;
       const key = cardKey$1(card);
       if (this.preloadedTermAudioKeys.has(key)) return false;
       this.preloadedTermAudioKeys.add(key);
@@ -25630,7 +28076,7 @@ ${spelling}`);
       if (this.isDestroyed) return;
       if (Date.now() < this.suppressSelectionLookupUntil) return;
       const selected = getSelectionText();
-      if (selected.length < 1 || selected.length > 120 || !HAS_JAPANESE$1.test(selected)) return;
+      if (selected.length < 1 || selected.length > 120 || !HAS_JAPANESE$2.test(selected)) return;
       if ((_b = (_a = document.activeElement) == null ? void 0 : _a.closest) == null ? void 0 : _b.call(_a, "[data-jpdb-reader-root]")) return;
       log$1.debug("Looking up selected text", { length: selected.length });
       await this.lookupText(selected, getSelectionSentence());
@@ -25638,7 +28084,7 @@ ${spelling}`);
     async lookupText(text2, sentence = text2, options = {}) {
       var _a;
       const selected = text2.replace(/\s+/g, " ").trim();
-      if (!selected || !HAS_JAPANESE$1.test(selected)) return;
+      if (!selected || !HAS_JAPANESE$2.test(selected)) return;
       const anchor = ((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0;
       const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
       const navigation = options.navigation ?? "reset";
@@ -25689,7 +28135,7 @@ ${spelling}`);
       return true;
     }
     async lookupDictionaryReference(query, reading, sourceDictionary, anchor, trigger, preservePosition = false) {
-      if (!HAS_JAPANESE$1.test(query)) return;
+      if (!HAS_JAPANESE$2.test(query)) return;
       const normalizedReading = reading.replace(/\s+/g, " ").trim();
       const navigation = trigger === "modal" ? "push-current" : "reset";
       const done = log$1.time("dictionaryReferenceLookup", { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
@@ -25743,7 +28189,7 @@ ${spelling}`);
     }
     async showLookupCandidate(candidate, trigger, options = {}) {
       const sentence = candidate.text.replace(/\s+/g, " ").trim();
-      if (!sentence || !HAS_JAPANESE$1.test(sentence)) return;
+      if (!sentence || !HAS_JAPANESE$2.test(sentence)) return;
       const done = log$1.time("lookupTextAtPointer", { length: sentence.length, offset: candidate.offset, trigger });
       try {
         const [tokens] = await this.parseJapanese([candidate.text]);
@@ -25884,6 +28330,7 @@ ${spelling}`);
       if (insideReaderPopup && word.closest(".jpdb-reader-example-card")) {
         this.immersionPopover.rememberPageMiningContext(card, word.dataset.sentence || void 0, word);
       }
+      const sentence = nearestReadableSentenceForElement(word, word.dataset.sentence || "");
       const anchor = insideReaderPopup ? this.activePopoverAnchor ?? void 0 : word;
       const trigger = insideReaderPopup && this.activePopoverMode === "hover" ? "hover" : options.trigger === "hover" ? "hover" : "modal";
       const navigation = options.navigation ?? (insideReaderPopup && trigger === "modal" ? "push-current" : "reset");
@@ -25894,7 +28341,7 @@ ${spelling}`);
       }
       log$1.debug("Showing word card from rendered token", { term: card.spelling, trigger, source: card.source ?? "jpdb" });
       this.preloadHoverWordAudio(word);
-      await this.showCard(card, word.dataset.sentence || void 0, anchor, {
+      await this.showCard(card, sentence || void 0, anchor, {
         trigger,
         navigation,
         preservePosition: insideReaderPopup,
@@ -25970,6 +28417,7 @@ ${spelling}`);
       const hoverLookupGeneration = trigger === "hover" ? options.hoverLookupGeneration : void 0;
       const isCurrentHoverCard = () => hoverLookupGeneration === void 0 || this.hoverLookupGeneration === hoverLookupGeneration;
       this.updateWordNavigation(card, sentence, trigger, navigation);
+      this.clearKanjiNavigation();
       const done = log$1.time("showCard", { term: card.spelling, source: card.source ?? "jpdb", trigger });
       if (!this.immersionPopover.hasActiveContext(card, sentence)) {
         this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
@@ -25977,7 +28425,6 @@ ${spelling}`);
       const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null };
       this.lastAnkiLookup = fallbackAnkiLookup;
       const renderData = this.loadCardRenderData(card);
-      const immersionExamples = this.settings.immersionKitEnabled ? this.immersionPopover.searchExamples(card) : void 0;
       const instantLocalEntries = await waitForInstantData(renderData.localEntries, INSTANT_DICTIONARY_RENDER_WAIT_MS);
       if (!isCurrentHoverCard()) {
         log$1.debug("Discarding stale hover card before mount", { term: card.spelling, hoverLookupGeneration });
@@ -25991,6 +28438,7 @@ ${spelling}`);
         ankiLookup: fallbackAnkiLookup,
         jpdbDecks: [],
         ankiDecks: [],
+        jpdbVocabularyInfo: null,
         loading: true
       };
       setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, initialData));
@@ -26019,6 +28467,7 @@ ${spelling}`);
             ankiLookup: this.lastAnkiLookup ?? fallbackAnkiLookup,
             jpdbDecks: [],
             ankiDecks: [],
+            jpdbVocabularyInfo: null,
             loading: true
           }));
           log$1.debug("Card local dictionaries rendered", { term: card.spelling, localEntries: localEntries2.length });
@@ -26026,7 +28475,7 @@ ${spelling}`);
           void this.parsePopoverJapanese(popover);
         });
       }
-      const { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks } = await renderData.all;
+      const { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo } = await renderData.all;
       fullRenderCompleted = true;
       if (!isCurrentHoverCard() || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) {
         log$1.debug("Discarding stale card render", { term: card.spelling, requestId });
@@ -26042,6 +28491,7 @@ ${spelling}`);
         ankiLookup,
         jpdbDecks,
         ankiDecks,
+        jpdbVocabularyInfo,
         loading: false
       }));
       log$1.debug("Card rendered", {
@@ -26054,9 +28504,18 @@ ${spelling}`);
       });
       this.repositionActivePopover();
       void this.parsePopoverJapanese(popover);
-      void this.immersionPopover.loadExamples(popover, card, immersionExamples);
+      if (this.settings.immersionKitEnabled) {
+        const immersionExamples = this.immersionPopover.searchExamples(card, {
+          relatedQueries: this.immersionRelatedQueries(jpdbVocabularyInfo)
+        });
+        void this.immersionPopover.loadExamples(popover, card, immersionExamples);
+      }
       this.installStudyTranslationLoader(popover, sentence);
       done();
+    }
+    immersionRelatedQueries(info) {
+      if (!info) return [];
+      return info.compounds.flatMap((compound) => [compound.term, compound.reading]).filter(Boolean);
     }
     renderCardPopoverContent(card, sentence, trigger, data) {
       var _a;
@@ -26095,13 +28554,13 @@ ${spelling}`);
                     </div>
                 </div>
                 ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(cardPosDetails)}">${escapeHtml$1(cardPos)}</div>` : ""}
-                ${this.renderDefinitionSources(card, data.localEntries, sentence)}
+                ${this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo)}
                 ${loadingDetails}
                 ${data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, storedContext)}
                 ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dictionaryLabel(name))}
             </div>
-            <div class="jpdb-reader-actions${miningActions ? " jpdb-reader-actions-has-mining" : ""}">
-                ${miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse" type="button" data-action="mining-collapse" aria-expanded="true" title="Hide mining actions" aria-label="Hide mining actions">-</button></div>' : ""}
+                <div class="jpdb-reader-actions${miningActions ? " jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed" : ""}">
+                ${miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions">+</button></div>' : ""}
                 ${miningActions}
                 ${ankiActions}
                 ${reviewButtons}
@@ -26224,6 +28683,10 @@ ${spelling}`);
         log$1.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }) : Promise.resolve([]);
+      const jpdbVocabularyInfoPromise = this.isJpdbBackedCard(card) ? this.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
+        log$1.warn("JPDB vocabulary page lookup failed while rendering card", { term: card.spelling }, error);
+        return null;
+      }) : Promise.resolve(null);
       const ankiLookupPromise = this.settings.ankiEnabled ? this.anki.findExistingCards(card).catch((error) => {
         log$1.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
         return { state: "not-in-deck", notes: [], primary: null };
@@ -26243,10 +28706,11 @@ ${spelling}`);
         jpdbPublicPitchPromise,
         ankiLookupPromise,
         jpdbDecksPromise,
-        ankiDecksPromise
-      ]).then(([localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks]) => {
+        ankiDecksPromise,
+        jpdbVocabularyInfoPromise
+      ]).then(([localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
         if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
-        return { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks };
+        return { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
       });
       return { localEntries: localEntriesPromise, all };
     }
@@ -26383,8 +28847,30 @@ ${spelling}`);
       this.wordNavigationStack = [];
       this.currentWordNavigation = void 0;
     }
+    updateKanjiNavigation(card, kanji, sentence, mode) {
+      const next = { card, kanji, sentence };
+      if (mode === "reset") {
+        this.kanjiNavigationStack = [];
+        this.currentKanjiNavigation = next;
+        return;
+      }
+      if (mode === "push-current" && this.currentKanjiNavigation && !this.isSameNavigationKanji(this.currentKanjiNavigation, next)) {
+        const lastStackEntry = this.kanjiNavigationStack[this.kanjiNavigationStack.length - 1];
+        if (!lastStackEntry || !this.isSameNavigationKanji(lastStackEntry, this.currentKanjiNavigation)) {
+          this.kanjiNavigationStack.push(this.currentKanjiNavigation);
+        }
+      }
+      this.currentKanjiNavigation = next;
+    }
+    clearKanjiNavigation() {
+      this.kanjiNavigationStack = [];
+      this.currentKanjiNavigation = void 0;
+    }
     isSameNavigationCard(first2, second) {
       return cardKey$1(first2.card) === cardKey$1(second.card);
+    }
+    isSameNavigationKanji(first2, second) {
+      return this.isSameNavigationCard(first2, second) && first2.kanji === second.kanji;
     }
     renderWordHistoryNavigation(language, trigger) {
       if (trigger !== "modal") return "";
@@ -26411,6 +28897,14 @@ ${spelling}`);
       await this.showCard(previous.card, previous.sentence, anchor, {
         autoPlay: false,
         trigger,
+        navigation: "preserve",
+        preservePosition: true
+      });
+    }
+    async showPreviousKanji(anchor) {
+      const previous = this.kanjiNavigationStack.pop();
+      if (!previous) return;
+      await this.showKanjiCard(previous.card, previous.kanji, previous.sentence, anchor, {
         navigation: "preserve",
         preservePosition: true
       });
@@ -26452,6 +28946,8 @@ ${spelling}`);
     }
     async showKanjiCard(card, kanji, sentence, anchor, options = {}) {
       if (!isKanjiCharacter(kanji)) return;
+      const navigation = options.navigation ?? "reset";
+      this.updateKanjiNavigation(card, kanji, sentence, navigation);
       log$1.debug("Rendering kanji card", { term: card.spelling, kanji });
       const popover = this.createPopover();
       const kanjiCharacters2 = uniqueKanji(card.spelling);
@@ -26471,12 +28967,20 @@ ${spelling}`);
             <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
             <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language, "nextKanji"))}">›</button>
         ` : "";
+      const previousKanji = this.kanjiNavigationStack[this.kanjiNavigationStack.length - 1];
+      const modalBack = previousKanji ? {
+        backAction: "kanji-history-back",
+        backTitle: `${uiText(language, "backToKanji")}: ${previousKanji.kanji}`,
+        label: previousKanji.kanji
+      } : {
+        backAction: "word-back",
+        backTitle: `${uiText(language, "backToWord")}: ${card.spelling}`,
+        label: card.spelling
+      };
       setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             ${this.renderModalNavigation({
-      backAction: "word-back",
-      backTitle: `${uiText(language, "backToWord")}: ${card.spelling}`,
-      label: card.spelling,
+      ...modalBack,
       controlsHtml: kanjiNavigationControls
     })}
             <div class="jpdb-reader-header">
@@ -26509,8 +29013,9 @@ ${spelling}`);
           return;
         }
         if (action === "word-back") void this.showCard(card, sentence, anchor, { autoPlay: false, navigation: "preserve", preservePosition: true });
-        if (action === "kanji-prev" || action === "kanji-next") void this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { preservePosition: true });
-        if (action === "kanji") void this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { preservePosition: true });
+        if (action === "kanji-history-back") void this.showPreviousKanji(anchor);
+        if (action === "kanji-prev" || action === "kanji-next") void this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { navigation: "push-current", preservePosition: true });
+        if (action === "kanji") void this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { navigation: "push-current", preservePosition: true });
         if (action === "similar-word") void this.lookupText(actionButton.dataset.expression ?? "", actionButton.dataset.expression ?? "", { navigation: "push-current", preservePosition: true });
       });
       this.mountPopover(popover, anchor, { preservePosition: options.preservePosition });
@@ -26766,7 +29271,7 @@ ${spelling}`);
       });
       installKanjiGraphDrag(mount);
     }
-    renderDefinitionSources(card, entries, sentence) {
+    renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo = null) {
       const grouped = groupTermEntriesByDictionary(entries);
       const setup = this.renderFallbackSetupSource(card);
       const sourceIds = orderedDefinitionSourceIds(this.settings, [...grouped.keys()]);
@@ -26776,7 +29281,7 @@ ${spelling}`);
         setup,
         ...sourceIds.map((sourceId) => {
           if ((card.source === "local" || card.source === "anki" || card.source === "fallback") && sourceId === JPDB_DEFINITION_SOURCE_ID) return "";
-          if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded));
+          if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), jpdbVocabularyInfo);
           if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.renderStudyTranslationSource(sentence);
           if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.renderStudyGrammarSource(sentence);
           if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
@@ -26940,6 +29445,7 @@ ${spelling}`);
       if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
       let queued = 0;
       for (const token of tokens) {
+        if (!isUsefulImmersionPreloadQuery(token.card.spelling)) continue;
         const key = cardKey$1(token.card);
         if (this.preloadedTermAudioKeys.has(key)) continue;
         this.preloadedTermAudioKeys.add(key);
@@ -27269,7 +29775,10 @@ ${spelling}`);
       this.activeHoverWord = void 0;
       this.activeHoverLookupKey = "";
       this.activePointerTextLookup = void 0;
-      if (!options.preserveNavigation) this.clearWordNavigation();
+      if (!options.preserveNavigation) {
+        this.clearWordNavigation();
+        this.clearKanjiNavigation();
+      }
       if (hadDialog) log$1.debug("Reader dialog dismissed", { suppressHoverTarget: Boolean(options.suppressHoverTarget) });
       if (hadSettingsDialog && this.dictionaryRescanPending) {
         this.dictionaryRescanPending = false;

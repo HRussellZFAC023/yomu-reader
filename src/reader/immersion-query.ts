@@ -22,8 +22,24 @@ export function queryHasKanji(value: string): boolean {
     return /[\u3400-\u9fff々〆]/u.test(value);
 }
 
+export function shouldRequireOriginalSurfaceMatch(value: string): boolean {
+    return queryHasKanji(value) && queryLength(value) >= 3;
+}
+
+export function immersionSentenceContainsQuery(sentence: string, query: string): boolean {
+    const normalizedSentence = normalizeImmersionSurface(sentence);
+    const normalizedQuery = normalizeImmersionSurface(query);
+    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
+}
+
 export function isUsefulImmersionFallbackQuery(query: string, exactQuery: string): boolean {
     if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE.test(query)) return false;
+    if (COMMON_PARTICLES.has(queryKey(query))) return false;
+    return queryLength(query) >= 2;
+}
+
+export function isUsefulImmersionPreloadQuery(query: string): boolean {
+    if (!query || !HAS_JAPANESE.test(query)) return false;
     if (COMMON_PARTICLES.has(queryKey(query))) return false;
     return queryLength(query) >= 2;
 }
@@ -53,4 +69,8 @@ export function immersionFallbackFragments(value: string): string[] {
     }
     return uniqueImmersionQueries(fragments)
         .sort((a, b) => Number(queryHasKanji(b)) - Number(queryHasKanji(a)) || queryLength(b) - queryLength(a));
+}
+
+function normalizeImmersionSurface(value: string): string {
+    return value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 }

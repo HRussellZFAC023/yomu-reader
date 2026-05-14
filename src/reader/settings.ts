@@ -105,7 +105,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     wordUnderlineColorSource: 'auto',
     wordTextColorSource: 'off',
     subtitleHighlightColorSource: 'off',
-    subtitleUnderlineColorSource: 'off',
+    subtitleUnderlineColorSource: 'pitch',
     subtitleTextColorSource: 'auto',
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
@@ -218,9 +218,12 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
     subtitleSecondaryVisible: false,
+    subtitleNativeBlurred: true,
+    subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
+    subtitleAutoCopyLine: false,
     subtitleControlsMode: 'auto',
     subtitleFontSize: 28,
     subtitleBottomOffset: 12,
@@ -481,6 +484,9 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
+        subtitleNativeBlurred: typeof value?.subtitleNativeBlurred === 'boolean' ? value.subtitleNativeBlurred : DEFAULT_SETTINGS.subtitleNativeBlurred,
+        subtitleKaraokeMode: typeof value?.subtitleKaraokeMode === 'boolean' ? value.subtitleKaraokeMode : DEFAULT_SETTINGS.subtitleKaraokeMode,
+        subtitleAutoCopyLine: typeof value?.subtitleAutoCopyLine === 'boolean' ? value.subtitleAutoCopyLine : DEFAULT_SETTINGS.subtitleAutoCopyLine,
         subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
         subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
         subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),

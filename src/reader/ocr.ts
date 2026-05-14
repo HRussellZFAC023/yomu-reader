@@ -87,10 +87,18 @@ export class ImageOcrController {
         }, { passive: true });
         this.mutationObserver = new MutationObserver(mutations => {
             const settings = this.options.getSettings();
-            if (!settings.ocrEnabled || !settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false) return;
-            if (mutations.some(mutation => [...mutation.addedNodes].some(nodeContainsImage))) this.refresh();
+            if (!settings.ocrEnabled) return;
+            if (mutations.some(mutation => mutationTouchesRenderableMedia(mutation))) {
+                this.schedulePosition();
+                if (settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false) this.scheduleRefresh(80);
+            }
         });
-        this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+        this.mutationObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster'],
+        });
         log.info('OCR controller initialized');
     }
 
@@ -112,12 +120,18 @@ export class ImageOcrController {
         this.ensureObserver(settings);
         const images = Array.from(document.images)
             .filter(image => isCandidateImage(image, settings) && shouldObserveImage(image, settings))
-            .sort((a, b) => imageViewportDistance(a) - imageViewportDistance(b))
+            .sort((a, b) => {
+                const priorityDelta = this.observePriority(a) - this.observePriority(b);
+                return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
+            })
             .slice(0, settings.ocrMaxImagesPerPage);
 
         for (const image of images) {
-            this.ensureState(image);
+            const state = this.ensureState(image);
             this.observer?.observe(image);
+            if (settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !state.result && !state.loading && !state.autoSkipped && isNearViewport(image, settings.ocrPrefetchMargin)) {
+                this.enqueue(image);
+            }
         }
         this.schedulePosition();
         log.debugThrottled('refresh', 2500, 'OCR refreshed image candidates', { images: images.length });
@@ -321,21 +335,30 @@ export class ImageOcrController {
             element.className = 'jpdb-ocr-line';
             if (showText) element.classList.add('jpdb-ocr-line-visible');
             element.dataset.ocrText = line.text;
+            element.dataset.boxLeft = String(line.box.left / result.width);
+            element.dataset.boxTop = String(line.box.top / result.height);
             element.dataset.vertical = String(line.vertical);
             element.dataset.boxWidth = String(line.box.width / result.width);
             element.dataset.boxHeight = String(line.box.height / result.height);
             element.dataset.sentence = sentence;
             element.title = line.text;
             element.tabIndex = 0;
+            element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
+            element.setAttribute('aria-label', line.text);
+            const textElement = document.createElement('span');
+            textElement.className = 'jpdb-ocr-line-text';
+            setInnerHtml(textElement, parsed[index]?.length
+                ? renderTokensToHtml(line.text, parsed[index], settings)
+                : escapeHtml(line.text));
+            normalizeOcrRuby(textElement);
+            normalizeOcrPlainText(textElement);
+            element.append(textElement);
+            const hasFurigana = Boolean(textElement.querySelector('.jpdb-reader-has-furi'));
+            element.dataset.hasFuri = String(hasFurigana);
             element.style.left = `${100 * line.box.left / result.width}%`;
             element.style.top = `${100 * line.box.top / result.height}%`;
             element.style.width = `${100 * line.box.width / result.width}%`;
             element.style.height = `${100 * line.box.height / result.height}%`;
-            element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
-            element.setAttribute('aria-label', line.text);
-            setInnerHtml(element, parsed[index]?.length
-                ? renderTokensToHtml(line.text, parsed[index], settings)
-                : escapeHtml(line.text));
             element.addEventListener('pointerenter', event => {
                 if (event.pointerType === 'touch') return;
                 this.activateLine(state, element, false);
@@ -386,6 +409,13 @@ export class ImageOcrController {
         element.dataset.pinned = 'false';
     }
 
+    private observePriority(image: HTMLImageElement): number {
+        const state = this.states.get(image);
+        if (!state) return 0;
+        if (!state.result) return state.autoSkipped ? 2 : 0;
+        return 1;
+    }
+
     private resetStateIfImageChanged(state: ImageState): void {
         const key = imageCacheKey(state.image);
         if (key === state.key) return;
@@ -426,7 +456,11 @@ export class ImageOcrController {
         const state = this.states.get(image);
         if (!state) return;
         const rect = image.getBoundingClientRect();
-        const visible = rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+        const visible = rect.width > 0
+            && rect.height > 0
+            && rect.bottom >= 0
+            && rect.top <= window.innerHeight
+            && !isImageOccludedByVideo(image, rect);
         state.overlay.hidden = !visible;
         if (!visible) return;
         state.overlay.style.left = `${rect.left}px`;
@@ -439,13 +473,61 @@ export class ImageOcrController {
     private fitLineFonts(state: ImageState, imageWidth: number, imageHeight: number): void {
         const scale = this.options.getSettings().ocrFontScale;
         state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line').forEach(element => {
+            const boxLeft = Number(element.dataset.boxLeft) * imageWidth;
+            const boxTop = Number(element.dataset.boxTop) * imageHeight;
             const boxWidth = Number(element.dataset.boxWidth) * imageWidth;
             const boxHeight = Number(element.dataset.boxHeight) * imageHeight;
             if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
             const text = element.dataset.ocrText ?? '';
             const vertical = element.dataset.vertical === 'true';
             element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
+            this.fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, imageWidth, imageHeight, vertical);
         });
+    }
+
+    private fitLineFrame(
+        element: HTMLElement,
+        boxLeft: number,
+        boxTop: number,
+        boxWidth: number,
+        boxHeight: number,
+        imageWidth: number,
+        imageHeight: number,
+        vertical: boolean,
+    ): void {
+        const textElement = element.querySelector<HTMLElement>('.jpdb-ocr-line-text');
+        if (!textElement) return;
+        const hasFurigana = element.dataset.hasFuri === 'true';
+        const fontSize = Number.parseFloat(element.style.fontSize) || 16;
+        const padX = Math.max(4, Math.round(fontSize * 0.16));
+        const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
+        const padBottom = Math.max(3, Math.round(fontSize * 0.1));
+        element.style.setProperty('--jpdb-ocr-pad-x', `${padX}px`);
+        element.style.setProperty('--jpdb-ocr-pad-top', `${padTop}px`);
+        element.style.setProperty('--jpdb-ocr-pad-bottom', `${padBottom}px`);
+
+        const contentRect = textElement.getBoundingClientRect();
+        const contentWidth = Math.max(1, contentRect.width);
+        const contentHeight = Math.max(1, contentRect.height);
+        const frameWidth = Math.min(imageWidth, Math.max(1, contentWidth + padX * 2));
+        const frameHeight = Math.min(imageHeight, Math.max(1, contentHeight + padTop + padBottom));
+        const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, 0, Math.max(0, imageWidth - frameWidth));
+        const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
+        const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
+        const top = clampNumber(!vertical ? baselineAlignedTop : centeredTop, 0, Math.max(0, imageHeight - frameHeight));
+
+        if (vertical) {
+            element.style.left = `${left}px`;
+            element.style.top = `${top}px`;
+            element.style.width = `${frameWidth}px`;
+            element.style.height = `${frameHeight}px`;
+            return;
+        }
+
+        element.style.left = `${left}px`;
+        element.style.top = `${top}px`;
+        element.style.width = `${frameWidth}px`;
+        element.style.height = `${frameHeight}px`;
     }
 
     private clear(): void {
@@ -563,10 +645,62 @@ function visualTextLength(text: string): number {
     }, 0);
 }
 
+function normalizeOcrRuby(root: HTMLElement): void {
+    root.querySelectorAll('ruby').forEach(ruby => {
+        const replacement = document.createElement('span');
+        replacement.className = 'jpdb-ocr-ruby';
+
+        const furi = document.createElement('span');
+        furi.className = 'jpdb-ocr-furi';
+        const base = document.createElement('span');
+        base.className = 'jpdb-ocr-ruby-base';
+
+        for (const child of Array.from(ruby.childNodes)) {
+            if (child instanceof HTMLElement && child.tagName === 'RT') {
+                furi.textContent += child.textContent ?? '';
+            } else if (!(child instanceof HTMLElement && child.tagName === 'RP')) {
+                base.append(child.cloneNode(true));
+            }
+        }
+
+        replacement.append(furi, base);
+        ruby.replaceWith(replacement);
+    });
+}
+
+function normalizeOcrPlainText(root: HTMLElement): void {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => {
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+            if (parent.classList.contains('jpdb-ocr-furi') || parent.classList.contains('jpdb-ocr-ruby-base')) return NodeFilter.FILTER_REJECT;
+            return parent === root || parent.classList.contains('jpdb-reader-word')
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT;
+        },
+    });
+
+    const textNodes: Text[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node instanceof Text) textNodes.push(node);
+    }
+
+    for (const textNode of textNodes) {
+        const replacement = document.createElement('span');
+        replacement.className = 'jpdb-ocr-plain';
+        replacement.textContent = textNode.textContent ?? '';
+        textNode.replaceWith(replacement);
+    }
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
+
 async function recognizeViaLocalService(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
     log.debug('Recognizing image via local OCR service', { endpointHost: safeHost(settings.ocrEndpointUrl), engine: settings.ocrEngine });
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const payload = await canvasToBase64Payload(canvas);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const engine = settings.ocrEngine === 'auto' ? '' : settings.ocrEngine;
     const body = JSON.stringify({
         id: imageCacheKey(image),
@@ -588,8 +722,7 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
 
 async function recognizeViaCloudVision(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
     log.debug('Recognizing image via Cloud Vision');
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const payload = await canvasToBase64Payload(canvas);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const body = JSON.stringify({
         requests: [{
             image: { content: payload.base64 },
@@ -604,8 +737,7 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
 
 async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
     log.debug('Recognizing image via Google Lens');
-    const canvas = await imageToCanvas(image, settings.ocrMaxImagePixels);
-    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.88);
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
     try {
@@ -614,6 +746,22 @@ async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderS
     } catch (error) {
         log.warn('Google Lens protobuf endpoint failed; trying upload fallback', error);
         return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
+    }
+}
+
+async function imageToBase64Payload(image: HTMLImageElement, maxPixels: number): Promise<{ base64: string; width: number; height: number }> {
+    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, 'image/jpeg', 0.86);
+    return { base64: (await blobToDataUrl(blob)).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
+}
+
+async function imageToBlobPayload(image: HTMLImageElement, maxPixels: number, type: string, quality: number): Promise<{ canvas: HTMLCanvasElement; blob: Blob }> {
+    const canvas = await imageToCanvas(image, maxPixels);
+    try {
+        return { canvas, blob: await canvasToBlob(canvas, type, quality) };
+    } catch (error) {
+        log.debug('Canvas export failed; retrying OCR image through blob fallback', { image: imageSummary(image) }, error);
+        const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
+        return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
     }
 }
 
@@ -627,19 +775,27 @@ async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: n
 
 async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
     try {
-        return drawImageToCanvas(image, maxPixels);
+        const canvas = drawImageToCanvas(image, maxPixels);
+        assertCanvasReadable(canvas);
+        return canvas;
     } catch (error) {
-        log.debug('Direct canvas draw failed; fetching image blob fallback', { image: imageSummary(image) }, error);
-        const url = image.currentSrc || image.src;
-        if (!url || url.startsWith('data:')) throw new Error('Image cannot be read by OCR.');
-        const blob = await requestBlob(url);
-        const objectUrl = URL.createObjectURL(blob);
-        try {
-            const loaded = await loadImage(objectUrl);
-            return drawImageToCanvas(loaded, maxPixels);
-        } finally {
-            URL.revokeObjectURL(objectUrl);
-        }
+        log.debug('Direct image canvas unavailable; fetching image blob fallback', { image: imageSummary(image) }, error);
+        return imageBlobToCanvas(image, maxPixels);
+    }
+}
+
+async function imageBlobToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
+    const url = image.currentSrc || image.src;
+    if (!url || url.startsWith('data:')) throw new Error('Image cannot be read by OCR.');
+    const blob = await requestBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        const loaded = await loadImage(objectUrl);
+        const canvas = drawImageToCanvas(loaded, maxPixels);
+        assertCanvasReadable(canvas);
+        return canvas;
+    } finally {
+        URL.revokeObjectURL(objectUrl);
     }
 }
 
@@ -657,9 +813,8 @@ function drawImageToCanvas(image: HTMLImageElement, maxPixels: number): HTMLCanv
     return canvas;
 }
 
-async function canvasToBase64Payload(canvas: HTMLCanvasElement): Promise<{ base64: string; width: number; height: number }> {
-    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.86);
-    return { base64: (await blobToDataUrl(blob)).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
+function assertCanvasReadable(canvas: HTMLCanvasElement): void {
+    canvas.getContext('2d')?.getImageData(0, 0, 1, 1);
 }
 
 function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
@@ -997,12 +1152,68 @@ function cleanOcrText(value: unknown): string {
 
 function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (image.closest('[data-jpdb-reader-root]')) return false;
+    if (image.closest('[aria-hidden="true"], [hidden], .slick-cloned')) return false;
     const rect = image.getBoundingClientRect();
     const area = rect.width * rect.height;
     if (area < settings.ocrMinImageArea) return false;
     if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
+    if (isImageOccludedByVideo(image, rect)) return false;
     const style = getComputedStyle(image);
-    return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || '1') > 0;
+    return style.visibility !== 'hidden'
+        && style.display !== 'none'
+        && Number(style.opacity || '1') > 0
+        && !isInsideHiddenAncestor(image);
+}
+
+function isInsideHiddenAncestor(element: Element): boolean {
+    for (let current: Element | null = element.parentElement; current && current !== document.body; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity || '1') <= 0) return true;
+        if (current.getAttribute('aria-hidden') === 'true' || current.hasAttribute('hidden')) return true;
+    }
+    return false;
+}
+
+function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {
+    if (mutation.type === 'childList') {
+        return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
+    }
+    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
+}
+
+function nodeContainsRenderableMedia(node: Node): boolean {
+    return node instanceof HTMLImageElement
+        || node instanceof HTMLVideoElement
+        || node instanceof HTMLSourceElement
+        || (node instanceof Element && Boolean(node.querySelector('img, video, source')));
+}
+
+function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {
+    const imageArea = rect.width * rect.height;
+    if (imageArea < 4) return false;
+    const imageRoot = image.getRootNode();
+    for (const video of document.querySelectorAll('video')) {
+        if (!video.isConnected || video.getRootNode() !== imageRoot || isSameMediaNode(video, image)) continue;
+        const videoRect = video.getBoundingClientRect();
+        if (videoRect.width < 2 || videoRect.height < 2) continue;
+        const style = getComputedStyle(video);
+        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) continue;
+        const overlap = intersectionArea(rect, videoRect);
+        if (overlap / imageArea >= 0.6) return true;
+    }
+    return false;
+}
+
+function isSameMediaNode(video: HTMLVideoElement, image: HTMLImageElement): boolean {
+    return video === image.parentElement || image === video.parentElement;
+}
+
+function intersectionArea(a: DOMRect, b: DOMRect): number {
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {

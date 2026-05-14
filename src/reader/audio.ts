@@ -643,37 +643,63 @@ async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wikti
 }
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
-    const url = getProxyUrl(responseUrl);
     const userscriptRequest = getUserscriptHttpRequest();
+    const requestUrl = getProxyUrl(responseUrl);
     if (userscriptRequest) {
-        log.debug('Audio request via userscript API', { responseType, host: safeHost(url) });
-        return new Promise((resolve, reject) => {
-            const handleLoad = (response: UserscriptHttpResponse) => {
-                if (response.status >= 200 && response.status < 300) {
-                    resolve(response.response ?? response.responseText ?? '');
-                } else {
-                    reject(new Error(`Audio request failed (${response.status}).`));
-                }
-            };
-            const result = userscriptRequest({
-                method: options.method ?? 'GET',
-                url,
-                headers: options.headers,
-                data: options.data,
-                responseType,
-                timeout: timeoutMs,
-                onload: handleLoad,
-                onerror: reject,
-                ontimeout: () => reject(new Error('Audio request timed out.')),
+        log.debug('Audio request via userscript API', { responseType, host: safeHost(responseUrl) });
+        return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest)
+            .catch(error => {
+                log.debug('Audio request via userscript API failed; retrying with fetch', { responseType, host: safeHost(responseUrl), error: String(error instanceof Error ? error.message : error) });
+                return requestViaAudioFetch(requestUrl, responseType, timeoutMs, options);
             });
-            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-                (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
-            }
-        });
     }
 
-    log.debug('Audio request via fetch', { responseType, host: safeHost(url) });
-    return fetch(url, {
+    log.debug('Audio request via fetch', { responseType, host: safeHost(requestUrl) });
+    return requestViaAudioFetch(requestUrl, responseType, timeoutMs, options);
+}
+
+function requestViaUserscriptAudio(
+    responseUrl: string,
+    responseType: 'blob' | 'text',
+    timeoutMs: number,
+    options: AudioRequestOptions,
+    userscriptRequest: UserscriptHttpRequest,
+): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+        const handleLoad = (response: UserscriptHttpResponse) => {
+            if (response.status >= 200 && response.status < 300) {
+                const value = response.response ?? response.responseText;
+                if (responseType === 'blob' && value instanceof Blob) {
+                    resolve(value);
+                    return;
+                }
+                if (responseType === 'text' && typeof value === 'string') {
+                    resolve(value);
+                    return;
+                }
+            }
+            reject(new Error(`Audio request failed (${response.status}).`));
+        };
+
+        const result = userscriptRequest({
+            method: options.method ?? 'GET',
+            url: responseUrl,
+            headers: options.headers,
+            data: options.data,
+            responseType,
+            timeout: timeoutMs,
+            onload: handleLoad,
+            onerror: () => reject(new Error('Audio request failed.')),
+            ontimeout: () => reject(new Error('Audio request timed out.')),
+        });
+        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+            (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Audio request failed.')));
+        }
+    });
+}
+
+function requestViaAudioFetch(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions): Promise<unknown> {
+    return fetch(responseUrl, {
         method: options.method ?? 'GET',
         headers: options.headers,
         body: options.data,
@@ -868,7 +894,6 @@ function preconnectAudioUrl(value: string): void {
 }
 
 function getProxyUrl(url: string): string {
-    if (getUserscriptHttpRequest()) return url;
     if (!['localhost', '127.0.0.1'].includes(location.hostname)) return url;
     if (!/^https?:\/\//.test(url)) return url;
     return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
