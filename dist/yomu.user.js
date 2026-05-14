@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.8
+// @version      0.4.9
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -31,14 +31,16 @@
 // @connect      *.ts.net
 // @connect      *
 // @grant        GM.xmlHttpRequest
-// @grant        GM.xmlhttpRequest
 // @grant        GM_addStyle
+// @grant        GM_addValueChangeListener
 // @grant        GM_deleteValue
 // @grant        GM_getValue
 // @grant        GM_listValues
 // @grant        GM_registerMenuCommand
+// @grant        GM_removeValueChangeListener
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @inject-into  content
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -49,6 +51,29 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
   const MISSING = { missing: true };
+  const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+  const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
+  const MANAGED_STORAGE_KEY_PREFIXES = [
+    "yomu-",
+    "yomu:",
+    "yomu.",
+    "jpdb-reader-",
+    "jpdb-popup-reader-"
+  ];
+  const KNOWN_MANAGED_STORAGE_KEYS = [
+    "jpdb-popup-reader-settings",
+    "jpdb-reader-newtab-card-cache",
+    "jpdb-reader-newtab-current-word",
+    "jpdb-reader-newtab-install-dictionary",
+    "jpdb-reader-newtab-ui",
+    "jpdb-reader-transcript-panel-size",
+    "yomu-jpdb-doodle-current-drawing",
+    "yomu-jpdb-review-examples-open",
+    "yomu.grammarPreferences.v1",
+    "yomu.hanabiraGrammarIndex.v1",
+    "yomu:enable-logs",
+    FACTORY_RESET_SIGNAL_KEY
+  ];
   async function gmStorageGet(key, fallback) {
     if (typeof GM_getValue === "function") {
       try {
@@ -105,27 +130,26 @@
   }
   async function gmStorageDelete(key) {
     if (typeof GM_deleteValue === "function") {
-      await GM_deleteValue(key);
-      return;
+      try {
+        await GM_deleteValue(key);
+      } catch (error) {
+        debugStorageError("GM storage delete failed", key, error);
+      }
     }
-    try {
-      localStorage.removeItem(key);
-    } catch {
-    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
   function gmStorageDeleteSync(key) {
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (!isPromiseLike(result)) return;
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
     }
-    try {
-      localStorage.removeItem(key);
-    } catch {
-    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
   async function exportStoredValues(prefixes) {
     const keys = await storageKeys(prefixes);
@@ -153,6 +177,65 @@
     }
     return count;
   }
+  function createFactoryResetSignal(phase, id = createFactoryResetId()) {
+    return {
+      id,
+      phase,
+      at: Date.now(),
+      href: location.href
+    };
+  }
+  async function publishFactoryResetSignal(signal) {
+    const normalized = normalizeFactoryResetSignal(signal);
+    await gmStorageSet(FACTORY_RESET_SIGNAL_KEY, normalized);
+    publishBroadcastFactoryResetSignal(normalized);
+  }
+  function subscribeToFactoryResetSignals(onSignal) {
+    const cleanups = [];
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      try {
+        const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+          const signal = parseFactoryResetSignal(newValue);
+          if (signal) onSignal(signal, { remote, transport: "gm-storage" });
+        });
+        cleanups.push(() => {
+          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+        });
+      } catch (error) {
+        debugStorageError("GM factory reset listener failed", FACTORY_RESET_SIGNAL_KEY, error);
+      }
+    }
+    if (typeof BroadcastChannel === "function") {
+      try {
+        const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+        channel.onmessage = (event) => {
+          const signal = parseFactoryResetSignal(event.data);
+          if (signal) onSignal(signal, { remote: true, transport: "broadcast-channel" });
+        };
+        cleanups.push(() => channel.close());
+      } catch (error) {
+        debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
+      }
+    }
+    const onStorage = (event) => {
+      if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
+      const signal = parseFactoryResetSignal(event.newValue);
+      if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
+    };
+    window.addEventListener("storage", onStorage);
+    cleanups.push(() => window.removeEventListener("storage", onStorage));
+    return () => {
+      var _a;
+      while (cleanups.length) {
+        try {
+          (_a = cleanups.pop()) == null ? void 0 : _a();
+        } catch {
+        }
+      }
+    };
+  }
   async function storageKeys(prefixes) {
     const keys = /* @__PURE__ */ new Set();
     const listValues = globalThis.GM_listValues;
@@ -172,6 +255,9 @@
       }
     } catch {
     }
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (prefixes.some((prefix) => key.startsWith(prefix)) && await storedValueExists(key)) keys.add(key);
+    }
     return [...keys].sort();
   }
   async function allStorageKeys() {
@@ -186,6 +272,9 @@
     }
     collectWebStorageKeys(localStorage, keys);
     collectWebStorageKeys(sessionStorage, keys);
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (await storedValueExists(key)) keys.add(key);
+    }
     return [...keys].sort();
   }
   function collectWebStorageKeys(storage, keys) {
@@ -223,11 +312,69 @@
     } catch {
     }
   }
+  async function storedValueExists(key) {
+    if (typeof GM_getValue === "function") {
+      try {
+        if (await GM_getValue(key, MISSING) !== MISSING) return true;
+      } catch (error) {
+        debugStorageError("GM storage existence check failed", key, error);
+      }
+    }
+    return webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key);
+  }
+  function webStorageHasKey(storage, key) {
+    try {
+      return storage.getItem(key) !== null;
+    } catch {
+      return false;
+    }
+  }
   function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === "function";
   }
+  function normalizeFactoryResetSignal(signal) {
+    return {
+      id: String(signal.id || createFactoryResetId()),
+      phase: signal.phase === "complete" ? "complete" : "prepare",
+      at: typeof signal.at === "number" && Number.isFinite(signal.at) ? signal.at : Date.now(),
+      href: typeof signal.href === "string" ? signal.href : location.href
+    };
+  }
+  function parseFactoryResetSignal(value) {
+    const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const record = parsed;
+    if (typeof record.id !== "string" || !record.id.trim()) return null;
+    if (record.phase !== "prepare" && record.phase !== "complete") return null;
+    return {
+      id: record.id,
+      phase: record.phase,
+      at: typeof record.at === "number" && Number.isFinite(record.at) ? record.at : Date.now(),
+      href: typeof record.href === "string" ? record.href : ""
+    };
+  }
+  function parseJsonRecord(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  function publishBroadcastFactoryResetSignal(signal) {
+    if (typeof BroadcastChannel !== "function") return;
+    try {
+      const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+      channel.postMessage(signal);
+      channel.close();
+    } catch (error) {
+      debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
+    }
+  }
+  function createFactoryResetId() {
+    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
   function isManagedStorageKey(key) {
-    return key.startsWith("yomu-") || key.startsWith("yomu:") || key.startsWith("yomu.") || key.startsWith("jpdb-reader-") || key.startsWith("jpdb-popup-reader-");
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
   function debugStorageError(message, key, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -610,7 +757,7 @@
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
   const STORAGE_KEY = "jpdb-popup-reader-settings";
-  const log$F = Logger.scope("Settings");
+  const log$H = Logger.scope("Settings");
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = "#5ea780";
   const DEFAULT_WORD_COLORS = {
@@ -1194,7 +1341,7 @@
     const audio = (_b = params.get("audio")) == null ? void 0 : _b.trim();
     const ocr = (_c = params.get("ocr")) == null ? void 0 : _c.trim();
     if (!apiKey && !audio && !ocr) return settings;
-    log$F.info("Applying URL bootstrap settings", {
+    log$H.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(apiKey),
       hasAudio: Boolean(audio),
       hasOcr: Boolean(ocr)
@@ -1228,19 +1375,19 @@
   async function loadSettings() {
     try {
       const settings = mergeSettings(await gmStorageGet(STORAGE_KEY, null));
-      log$F.debug("Loaded settings from storage", settingsSummary(settings));
+      log$H.debug("Loaded settings from storage", settingsSummary(settings));
       return settings;
     } catch (error) {
-      log$F.warn("Settings load failed, using defaults", { error });
+      log$H.warn("Settings load failed, using defaults", { error });
       return mergeSettings(null);
     }
   }
   async function saveSettings(settings) {
     try {
       await gmStorageSet(STORAGE_KEY, settings);
-      log$F.debug("Saved settings to storage", settingsSummary(settings));
+      log$H.debug("Saved settings to storage", settingsSummary(settings));
     } catch (error) {
-      log$F.warn("Settings save failed", { error });
+      log$H.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -1454,7 +1601,7 @@
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const log$E = Logger.scope("Dom");
+  const log$G = Logger.scope("Dom");
   let trustedHtmlPolicy;
   const SKIP_SELECTOR = [
     "script",
@@ -1464,9 +1611,6 @@
     "label",
     "fieldset",
     "legend",
-    "nav",
-    "header",
-    "footer",
     "textarea",
     "input",
     "select",
@@ -1478,18 +1622,13 @@
     "rt",
     "rp",
     '[contenteditable="true"]',
-    '[role="button"]',
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
-    "[onclick]",
     "[data-audio]",
     '[class*="audio" i]',
     '[class*="sound" i]',
     '[class*="speaker" i]',
-    '[class*="listen" i]',
-    '[class*="button" i]',
-    '[class*="btn" i]',
     '[class*="voice" i]',
     '[aria-hidden="true"]',
     ".jpdb-reader-word"
@@ -1503,9 +1642,6 @@
     "label",
     "fieldset",
     "legend",
-    "nav",
-    "header",
-    "footer",
     "textarea",
     "input",
     "select",
@@ -1515,18 +1651,13 @@
     "svg",
     "use",
     '[contenteditable="true"]',
-    '[role="button"]',
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
-    "[onclick]",
     "[data-audio]",
     '[class*="audio" i]',
     '[class*="sound" i]',
     '[class*="speaker" i]',
-    '[class*="listen" i]',
-    '[class*="button" i]',
-    '[class*="btn" i]',
     '[class*="voice" i]',
     '[aria-hidden="true"]',
     "[data-jpdb-reader-root]",
@@ -1543,33 +1674,25 @@
     "textarea",
     "input",
     "select",
-    "button",
     "option",
     "svg",
     "use",
-    'a[href="#"]',
-    'a[href=""]',
     '[contenteditable="true"]',
-    '[role="button"]',
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
-    "[onclick]",
     "[data-audio]",
     "[data-jpdb-reader-root]",
     '[class*="audio" i]',
     '[class*="sound" i]',
     '[class*="speaker" i]',
-    '[class*="listen" i]',
-    '[class*="button" i]',
-    '[class*="btn" i]',
     '[class*="control" i]',
     '[class*="toggle" i]',
     '[class*="player" i]',
     '[class*="voice" i]',
     ".jpdb-reader-word"
   ].join(",");
-  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|btn|button|chip|control|icon|label|menu|nav|pill|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
@@ -1793,7 +1916,7 @@
       word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
     }
     parents.forEach((parent) => parent.normalize());
-    log$E.debug("Unwrapped reader words", { count: words.length });
+    log$G.debug("Unwrapped reader words", { count: words.length });
     return words.length;
   }
   function readerWordSurfaceText(element2) {
@@ -1938,7 +2061,7 @@
       fragment2.append(document.createTextNode(text2.slice(offset)));
     }
     target.node.replaceWith(fragment2);
-    log$E.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
+    log$G.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
   }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!tokens.length || !target.fragments.length) return;
@@ -1971,7 +2094,7 @@
       }
       range.detach();
     }
-    log$E.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
+    log$G.debugThrottled("apply-fragment", 1e3, "Applied tokens to fragment target", {
       tokens: safeTokens.length,
       fragments: target.fragments.length,
       textLength: target.text.length,
@@ -2010,7 +2133,7 @@
       if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
       fragmentInfo.node.replaceWith(replacement);
     }
-    log$E.debugThrottled("apply-fragment-pieces", 1e3, "Applied tokens to native ruby fragment target", {
+    log$G.debugThrottled("apply-fragment-pieces", 1e3, "Applied tokens to native ruby fragment target", {
       tokens: safeTokens.length,
       fragments: target.fragments.length,
       textLength: target.text.length,
@@ -2061,7 +2184,7 @@
       offset = token.end;
     }
     if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
-    log$E.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
+    log$G.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
     return html;
   }
   function renderHighlightedTextHtml(text2, targets, className) {
@@ -2289,7 +2412,7 @@
     const controlShape = style.display.includes("flex") || style.display.includes("grid") || style.display === "inline-block" || Number.parseFloat(style.borderRadius) > 0 || style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
     return controlShape && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
   }
-  const log$D = Logger.scope("ObjectUrlCache");
+  const log$F = Logger.scope("ObjectUrlCache");
   class ObjectUrlCache {
     constructor(ttlMs, label) {
       __publicField(this, "entries", /* @__PURE__ */ new Map());
@@ -2300,7 +2423,7 @@
       const now = Date.now();
       const cached = this.entries.get(key);
       if (cached && cached.expiresAt > now) {
-        log$D.debug("Object URL cache hit", { label: this.label });
+        log$F.debug("Object URL cache hit", { label: this.label });
         return cached.promise;
       }
       if (cached) this.delete(key);
@@ -2357,23 +2480,42 @@
     });
   }
   var _monkeyWindow = /* @__PURE__ */ (() => window)();
-  const log$C = Logger.scope("Userscript");
+  const log$E = Logger.scope("Userscript");
   function getUserscriptHttpRequest() {
-    for (const source of userscriptRequestSources()) {
-      const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
-      if (directRequest) {
-        log$C.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: sourceLabel(source), path: "GM_xmlhttpRequest" });
-        return directRequest.bind(source);
-      }
-      const gm = source.GM;
-      const gmRequest = asUserscriptRequest(gm == null ? void 0 : gm.xmlHttpRequest) ?? asUserscriptRequest(gm == null ? void 0 : gm.xmlhttpRequest);
-      if (gmRequest) {
-        log$C.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: sourceLabel(source), path: (gm == null ? void 0 : gm.xmlHttpRequest) ? "GM.xmlHttpRequest" : "GM.xmlhttpRequest" });
-        return gmRequest.bind(gm);
+    for (const candidate of userscriptRequestCandidates()) {
+      const request = asUserscriptRequest(candidate.request);
+      if (request) {
+        log$E.debugThrottled("resolved-request", 5e3, "Userscript HTTP request resolved", { source: candidate.source, path: candidate.path });
+        return request.bind(candidate.thisArg);
       }
     }
-    log$C.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
+    log$E.debugThrottled("missing-userscript-request", 5e3, "Userscript HTTP request unavailable");
     return void 0;
+  }
+  function userscriptRequestCandidates() {
+    var _a, _b;
+    const candidates = [];
+    const add = (request, thisArg, source, path) => {
+      candidates.push({ request, thisArg, source, path });
+    };
+    const direct = directUserscriptGlobals();
+    add(direct.GM_xmlhttpRequest, globalThis, "directGlobal", "GM_xmlhttpRequest");
+    add((_a = direct.GM) == null ? void 0 : _a.xmlHttpRequest, direct.GM, "directGlobal", "GM.xmlHttpRequest");
+    add((_b = direct.GM) == null ? void 0 : _b.xmlhttpRequest, direct.GM, "directGlobal", "GM.xmlhttpRequest");
+    for (const source of userscriptRequestSources()) {
+      const label = sourceLabel(source);
+      add(readSourceProperty(source, "GM_xmlhttpRequest"), source, label, "GM_xmlhttpRequest");
+      const gm = readSourceProperty(source, "GM");
+      add(readSourceProperty(gm, "xmlHttpRequest"), gm, label, "GM.xmlHttpRequest");
+      add(readSourceProperty(gm, "xmlhttpRequest"), gm, label, "GM.xmlhttpRequest");
+    }
+    return candidates;
+  }
+  function directUserscriptGlobals() {
+    return {
+      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
+      GM: typeof GM === "object" && GM ? GM : void 0
+    };
   }
   function userscriptRequestSources() {
     const sources = [];
@@ -2391,13 +2533,21 @@
   }
   function mountedMonkeyWindows() {
     if (typeof document === "undefined") return [];
-    const record = document;
-    const windows = Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => record[key]);
-    log$C.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
+    const windows = Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+    log$E.debugThrottled("mounted-monkey-windows", 5e3, "Mounted monkey windows inspected", { count: windows.length });
     return windows;
   }
   function isRequestSource(value) {
     return Boolean(value) && (typeof value === "object" || typeof value === "function");
+  }
+  function readSourceProperty(source, key) {
+    if (!isRequestSource(source)) return void 0;
+    try {
+      return source[key];
+    } catch (error) {
+      log$E.debugThrottled(`userscript-property-${key}`, 5e3, "Userscript API property unavailable", { key, error });
+      return void 0;
+    }
   }
   function asUserscriptRequest(value) {
     return typeof value === "function" ? value : void 0;
@@ -2415,7 +2565,7 @@
   const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
   const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
-  const log$B = Logger.scope("Audio");
+  const log$D = Logger.scope("Audio");
   class AudioPlayer {
     constructor(getSettings) {
       __publicField(this, "current");
@@ -2437,15 +2587,15 @@
       const sources = getOrderedAudioSources(settings);
       this.stopCurrent();
       if (!sources.length) {
-        log$B.warn("No audio sources configured", { term: card.spelling });
+        log$D.warn("No audio sources configured", { term: card.spelling });
         return await this.playMissingAudioFallback(settings, requestId, isCurrent);
       }
-      const done = log$B.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
+      const done = log$D.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
       const errors = [];
       const triedUrls = /* @__PURE__ */ new Set();
       for (const source of sources) {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-          log$B.debug("Audio request superseded", { term: card.spelling, requestId });
+          log$D.debug("Audio request superseded", { term: card.spelling, requestId });
           done();
           return false;
         }
@@ -2456,18 +2606,18 @@
             return false;
           }
           if (played) {
-            log$B.debug("Audio source succeeded", { term: card.spelling, source: source.type });
+            log$D.debug("Audio source succeeded", { term: card.spelling, source: source.type });
             done();
             return true;
           }
         } catch (error) {
-          log$B.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
+          log$D.debug("Audio source failed; trying next source", { term: card.spelling, source: source.type }, error);
           errors.push(error instanceof Error ? error.message : String(error));
         }
       }
       done();
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$B.warn("No playable audio found", { term: card.spelling, errors });
+      log$D.warn("No playable audio found", { term: card.spelling, errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     preload(card, options = {}) {
@@ -2485,15 +2635,15 @@
             if (triedUrls.has(candidateKey2)) continue;
             triedUrls.add(candidateKey2);
             preconnectAudioUrl(candidate.url);
-            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$B.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
+            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$D.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
           }
-        }).catch((error) => log$B.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
+        }).catch((error) => log$D.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
       }
     }
     stop() {
       this.playRequestId++;
       this.stopCurrent();
-      log$B.debug("Audio stopped");
+      log$D.debug("Audio stopped");
     }
     async playJapaneseText(text2, voiceName = "") {
       const requestId = ++this.playRequestId;
@@ -2502,7 +2652,7 @@
       this.stopCurrent();
       await this.playTextToSpeech(trimmed, voiceName);
       if (requestId !== this.playRequestId) this.stopCurrent();
-      log$B.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
+      log$D.debug("Japanese text-to-speech playback started", { textLength: trimmed.length, voice: voiceName || "auto" });
     }
     stopCurrent() {
       var _a;
@@ -2521,17 +2671,17 @@
       if (source.type === "text-to-speech" || source.type === "text-to-speech-reading") {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
-        log$B.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
+        log$D.debug("Text-to-speech playback started", { source: source.type, voice: source.voice || "auto" });
         return this.isPlaybackCurrent(requestId, isCurrent);
       }
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$B.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
+      log$D.debug("Audio candidates resolved", { source: source.type, candidates: candidates.length });
       const bagKey = getAudioBagKey(source, card);
       for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
         const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
         if (triedUrls.has(candidateKey2)) {
-          log$B.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
+          log$D.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
           continue;
         }
         triedUrls.add(candidateKey2);
@@ -2541,10 +2691,10 @@
           const played = await this.playPreparedAudio(audio, requestId, isCurrent);
           if (!played) return false;
           this.shuffledAudio.markPlayed(bagKey, id);
-          log$B.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
+          log$D.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
           return true;
         } catch (error) {
-          log$B.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
+          log$D.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
         }
       }
       return false;
@@ -2606,7 +2756,7 @@
       const now = Date.now();
       const cached = this.candidateCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log$B.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
+        log$D.debug("Audio candidate cache hit", { source: source.type, term: card.spelling });
         return cached.promise.then(cloneAudioCandidates);
       }
       let promise;
@@ -2631,7 +2781,7 @@
         throw new Error("JapanesePod101 has no audio for this term.");
       }
       const blobUrl = await createPageMediaUrl(response);
-      log$B.debug("Audio media URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith("data:") });
+      log$D.debug("Audio media URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith("data:") });
       return blobUrl;
     }
     playTextToSpeech(text2, voiceName) {
@@ -2649,17 +2799,17 @@
     }
     async playMissingAudioFallback(settings, requestId, isCurrent) {
       if (!settings.audioFallbackChimeEnabled) {
-        log$B.debug("Missing-audio fallback is silent");
+        log$D.debug("Missing-audio fallback is silent");
         return false;
       }
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       try {
         const played = await this.playSoftChime(requestId, isCurrent);
         if (!played) return false;
-        log$B.debug("Missing-audio fallback chime played");
+        log$D.debug("Missing-audio fallback chime played");
         return true;
       } catch (error) {
-        log$B.debug("Missing-audio fallback chime unavailable", {}, error);
+        log$D.debug("Missing-audio fallback chime unavailable", {}, error);
         return false;
       }
     }
@@ -2933,16 +3083,20 @@
   }
   function requestUrl(responseUrl, responseType, timeoutMs, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    const requestUrl2 = getProxyUrl(responseUrl);
+    const browserUrl = getBrowserFetchUrl(responseUrl);
     if (userscriptRequest) {
-      log$B.debug("Audio request via userscript API", { responseType, host: safeHost$6(responseUrl) });
+      log$D.debug("Audio request via userscript API", { responseType, host: safeHost$6(responseUrl) });
       return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest).catch((error) => {
-        log$B.debug("Audio request via userscript API failed; retrying with fetch", { responseType, host: safeHost$6(responseUrl), error: String(error instanceof Error ? error.message : error) });
-        return requestViaAudioFetch(requestUrl2, responseType, timeoutMs, options);
+        if (!browserUrl) throw error;
+        log$D.debug("Audio request via userscript API failed; retrying with browser fetch", { responseType, host: safeHost$6(responseUrl), error: String(error instanceof Error ? error.message : error) });
+        return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
       });
     }
-    log$B.debug("Audio request via fetch", { responseType, host: safeHost$6(requestUrl2) });
-    return requestViaAudioFetch(requestUrl2, responseType, timeoutMs, options);
+    if (!browserUrl) {
+      return Promise.reject(new Error("Cross-origin audio request needs a userscript HTTP bridge."));
+    }
+    log$D.debug("Audio request via browser fetch", { responseType, host: safeHost$6(browserUrl) });
+    return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
   }
   function requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
@@ -3132,10 +3286,17 @@
       (_a = document.head) == null ? void 0 : _a.append(link);
     }
   }
-  function getProxyUrl(url) {
-    if (!["localhost", "127.0.0.1"].includes(location.hostname)) return url;
-    if (!/^https?:\/\//.test(url)) return url;
-    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+  function getBrowserFetchUrl(url) {
+    if (!/^https?:\/\//i.test(url)) return url;
+    if (isLocalDevHost(location.hostname)) return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+    try {
+      return new URL(url).origin === location.origin ? url : null;
+    } catch {
+      return null;
+    }
+  }
+  function isLocalDevHost(hostname) {
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
   }
   function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -3158,8 +3319,8 @@
   const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
-  const FALLBACK_SETUP_SOURCE_ID = "__fallback_setup__";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const STUDY_TOOLS_SOURCE_ID = "__study_tools__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
@@ -3171,7 +3332,7 @@
     paypal: "https://paypal.me/HenryRussell163",
     migakuPricing: "https://migaku.com/pricing"
   };
-  const log$A = Logger.scope("NewTab");
+  const log$C = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
@@ -3228,8 +3389,16 @@
       const swapIndex = Math.floor(Math.random() * (index + 1));
       [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
     }
-    log$A.debug("Shuffled new tab cards", { count: cards.length });
+    log$C.debug("Shuffled new tab cards", { count: cards.length });
     return shuffled;
+  }
+  function uniqueStrings$2(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map((value) => value.trim()).filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
   }
   function firstCardMeaning(card) {
     const meanings = card.meanings ?? [];
@@ -3294,7 +3463,7 @@
           channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
         } catch (error) {
           isClosed = true;
-          log$A.warn("Failed to publish new tab state update", error);
+          log$C.warn("Failed to publish new tab state update", error);
           try {
             channel.close();
           } catch {
@@ -3408,7 +3577,7 @@
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$z = Logger.scope("MiningContext");
+  const log$B = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -3458,7 +3627,7 @@
     videoImageDataUrl,
     fetchImageDataUrl
   }) {
-    const done = log$z.time("Resolve mining context", {
+    const done = log$B.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
       activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
@@ -3470,20 +3639,20 @@
     const cleanSentence = normalizeMiningSentence(sentence);
     try {
       if (imageDataUrl && cleanSentence) {
-        log$z.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
+        log$B.debug("Using direct image mining context", { term, sentenceLength: cleanSentence.length });
         return miningContextWithImage(term, cleanSentence, "image", imageDataUrl);
       }
       if (videoImageDataUrl && cleanSentence) {
-        log$z.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
+        log$B.debug("Using video image mining context", { term, sentenceLength: cleanSentence.length });
         return miningContextWithImage(term, cleanSentence, "video", videoImageDataUrl);
       }
       const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
       if (chosen && shouldUseImmersionContext(settings, chosen)) {
         const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch((error) => {
-          log$z.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
+          log$B.debug("Mining context image fetch skipped", { term, sourceKind: chosen.sourceKind, error });
           return void 0;
         }) : void 0;
-        log$z.debug("Using immersion mining context", {
+        log$B.debug("Using immersion mining context", {
           term,
           sourceTitle: chosen.sourceTitle,
           hasImageUrl: Boolean(chosen.imageUrl),
@@ -3493,7 +3662,7 @@
       }
       const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
       const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-      log$z.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
+      log$B.debug("Using page mining context", { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
       return result;
     } finally {
       done();
@@ -3501,7 +3670,7 @@
   }
   function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
     const context = pageMiningContext(sentence, sourceKind);
-    log$z.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
+    log$B.debug("Creating mining context with image", { term, sourceKind, sentenceLength: sentence.length, imageBytes: imageDataUrl.length });
     return {
       ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
       imageDataUrl
@@ -3510,14 +3679,14 @@
   function saveMiningContext(term, context) {
     const stored = createStoredMiningContext(term, context);
     if (!stored) {
-      log$z.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
+      log$B.debug("Mining context not saved", { term, reason: "missing-term-or-sentence", sourceKind: context.sourceKind });
       return null;
     }
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
-      log$z.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
+      log$B.debug("Mining context saved", { term: stored.term, sourceKind: stored.sourceKind, sentenceLength: stored.sentence.length });
     } catch (error) {
-      log$z.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$B.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -3527,14 +3696,14 @@
     try {
       const stored = gmStorageGetSync(contextStorageKey(normalized), null);
       if (!stored) {
-        log$z.debug("Mining context cache miss", { term: normalized });
+        log$B.debug("Mining context cache miss", { term: normalized });
         return null;
       }
       const context = parseStoredMiningContext(stored, normalized);
-      log$z.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
+      log$B.debug("Mining context cache read", { term: normalized, hit: Boolean(context), sourceKind: context == null ? void 0 : context.sourceKind });
       return context;
     } catch (error) {
-      log$z.warn("Mining context load failed", { term: normalized, error });
+      log$B.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -3589,7 +3758,7 @@
     if (!isMiningSourceKind(value.sourceKind)) return null;
     const updatedAt = Number(value.updatedAt);
     if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
-      log$z.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
+      log$B.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
       return null;
     }
     const context = createStoredMiningContext(expectedTerm, {
@@ -3939,7 +4108,7 @@
       docs: "Docs",
       supportTitle: "Free Japanese reading and mining tools",
       supportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
-      supportDonation: "Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Even a small donation helps bring that future closer, and it also encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.",
+      supportDonation: "Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.",
       documentation: "Documentation",
       donate: "Donate",
       reportIssue: "Report issue",
@@ -4315,7 +4484,7 @@
       docs: "ドキュメント",
       supportTitle: "無料の日本語リーダー・採掘ツール",
       supportCopy: "よむはポップアップ辞書、JPDB採掘、インポート辞書、字幕、画像読み取り、Anki出力を1つの無料ユーザースクリプトにまとめます。Migakuのような学習スイートは月$10からの有料プランを案内していますが、よむは同じ中心的な読解・採掘ワークフローを無料で提供します。",
-      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間を支える助けになります。個人的な夢として、いつか日本へ移住し、遠距離恋愛中の日本人の彼女と結婚できるように十分なお金を貯めたいと思っています。小さな寄付でもその未来に近づく助けになり、よむを維持し、不具合を直し、学習者が求める機能を追加し続ける大きな励みになります。",
+      supportDonation: "寄付は任意です。テスト端末、サービス、メンテナンス、磨き込みの時間、そしてAI/APIトークン費用を支える助けになります。正直なところ、よむの開発で使ったAI/APIトークン代は、寄付で回収できる見込みよりもずっと大きいです。それでも小さな寄付があるだけで、その負担は少し軽くなります。個人的な夢として、いつか日本へ移住し、遠距離恋愛中の日本人の彼女と結婚できるように十分なお金を貯めたいと思っています。どんな支援でもその未来に近づく助けになり、よむを維持し、不具合を直し、学習者が求める機能を追加し続ける大きな励みになります。",
       documentation: "ドキュメント",
       donate: "寄付",
       reportIssue: "不具合報告",
@@ -6811,7 +6980,7 @@
   })(jszip_min);
   var jszip_minExports = jszip_min.exports;
   const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(jszip_minExports);
-  const log$y = Logger.scope("Deinflect");
+  const log$A = Logger.scope("Deinflect");
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -6961,7 +7130,7 @@
       }
     }
     const sorted = results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-    log$y.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
+    log$A.debugThrottled("deinflect-term", 1e3, "Deinflected Japanese term", {
       source,
       candidates: sorted.length,
       derived: sorted.filter((candidate) => candidate.depth > 0).length
@@ -7252,10 +7421,10 @@ ${candidate.depth}`;
     }
     return -1;
   }
-  const log$x = Logger.scope("YomitanRanking");
+  const log$z = Logger.scope("YomitanRanking");
   function dictionaryRank(preferences) {
     const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
-    log$x.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
+    log$z.debugThrottled("dictionary-rank", 2e3, "Built dictionary rank map", { preferences: preferences.length, enabled: [...rank.values()].filter((item) => item.enabled).length });
     return rank;
   }
   function dictionaryEnabled(dictionary, rank) {
@@ -7296,7 +7465,7 @@ ${candidate.depth}`;
       if (selected.length >= limit) break;
     }
     const result = selected.sort((a, b) => a.start - b.start);
-    log$x.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
+    log$z.debug("Selected non-overlapping matches", { input: matches.length, result: result.length, limit });
     return result;
   }
   function isJpdbFrequencyDictionary(dictionary) {
@@ -7362,7 +7531,7 @@ ${candidate.depth}`;
     listStyleType: "list-style-type"
   };
   const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
-  const log$w = Logger.scope("YomitanGlossary");
+  const log$y = Logger.scope("YomitanGlossary");
   function glossaryToText(value) {
     if (value == null) return "";
     if (typeof value === "string") return value;
@@ -7388,7 +7557,7 @@ ${candidate.depth}`;
   }
   function glossaryToHtml(value, dictionary = "", options = {}) {
     const html = renderGlossaryValue(value, { dictionary, internalSearchLinks: options.internalSearchLinks ?? false, root: true });
-    log$w.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
+    log$y.debugThrottled("glossary-html", 1e3, "Rendered glossary HTML", { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? "array" : typeof value });
     return html;
   }
   function renderDictionaryScopedStyles(dictionaries, preferences = []) {
@@ -7399,7 +7568,7 @@ ${candidate.depth}`;
       if (!styles) return "";
       return scopeDictionaryStyles(styles, dictionaryScopeSelector(dictionary.title));
     }).filter(Boolean).join("\n");
-    log$w.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
+    log$y.debug("Rendered dictionary scoped styles", { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
     return css;
   }
   function renderGlossaryValue(value, context) {
@@ -7671,14 +7840,14 @@ ${scopedInner}
   function escapeHtml(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-  const log$v = Logger.scope("YomitanSettingsImport");
+  const log$x = Logger.scope("YomitanSettingsImport");
   function parseYomitanSettingsExport(value) {
     var _a, _b, _c;
-    const done = log$v.time("Yomitan settings export parse");
+    const done = log$x.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$v.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$x.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error("This does not look like a Yomitan settings export.");
     }
     const settings = {};
@@ -7718,7 +7887,7 @@ ${scopedInner}
       settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join("+") };
     }
     done();
-    log$v.info("Yomitan settings import parsed", {
+    log$x.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean((_c = settings.audioSources) == null ? void 0 : _c.length),
       parseSelection: settings.parseSelection,
       autoScanJapanese: settings.autoScanJapanese,
@@ -7770,9 +7939,11 @@ ${scopedInner}
   const DB_VERSION = 2;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+  const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
+  const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const JAPANESE_RE$4 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$u = Logger.scope("Yomitan");
+  const log$w = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor() {
       __publicField(this, "dbPromise");
@@ -7781,20 +7952,20 @@ ${scopedInner}
       __publicField(this, "dictionaryStyleCssCache", /* @__PURE__ */ new Map());
     }
     async warm(preferences = []) {
-      const done = log$u.time("Dictionary store warmup", { dictionaries: preferences.length });
+      const done = log$w.time("Dictionary store warmup", { dictionaries: preferences.length });
       try {
         await this.summary();
         if (preferences.length) await this.dictionaryStyleCss(preferences);
-        log$u.debug("Dictionary store warmed");
+        log$w.debug("Dictionary store warmed");
       } catch (error) {
-        log$u.warn("Dictionary store warmup failed", { error });
+        log$w.warn("Dictionary store warmup failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async lookup(expression, reading, limit, preferences = []) {
-      const done = log$u.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+      const done = log$w.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const entries = await this.getTermLookupEntries(
@@ -7814,17 +7985,17 @@ ${scopedInner}
           seen.add(key);
           return true;
         }).slice(0, limit);
-        log$u.debug("Term lookup completed", { expression, reading, candidates: entries.length, results: results.length });
+        log$w.debug("Term lookup completed", { expression, reading, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$u.warn("Term lookup failed", { expression, reading, error });
+        log$w.warn("Term lookup failed", { expression, reading, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupKanji(text2, limit, preferences = []) {
-      const done = log$u.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$w.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -7834,33 +8005,33 @@ ${scopedInner}
           entries.push(...await this.getByIndex(db, "kanji", "character", character, limit));
         }
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)).slice(0, limit);
-        log$u.debug("Kanji lookup completed", { characters, candidates: entries.length, results: results.length });
+        log$w.debug("Kanji lookup completed", { characters, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$u.warn("Kanji lookup failed", { length: text2.length, error });
+        log$w.warn("Kanji lookup failed", { length: text2.length, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupTermMeta(expression, limit, preferences = []) {
-      const done = log$u.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+      const done = log$w.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
         const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
-        log$u.debug("Term metadata lookup completed", { expression, candidates: entries.length, results: results.length });
+        log$w.debug("Term metadata lookup completed", { expression, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$u.warn("Term metadata lookup failed", { expression, error });
+        log$w.warn("Term metadata lookup failed", { expression, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-      const done = log$u.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+      const done = log$w.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -7892,17 +8063,17 @@ ${entry.reading}`;
         const results = entries.sort(
           (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
         ).slice(0, limit);
-        log$u.debug("Similar terms by kanji lookup completed", { character, candidates: entries.length, results: results.length });
+        log$w.debug("Similar terms by kanji lookup completed", { character, candidates: entries.length, results: results.length });
         return results;
       } catch (error) {
-        log$u.warn("Similar terms by kanji lookup failed", { character, error });
+        log$w.warn("Similar terms by kanji lookup failed", { character, error });
         throw error;
       } finally {
         done();
       }
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$u.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$w.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -7924,7 +8095,7 @@ ${entry.reading}`;
         }
       }
       if (!candidates.size) {
-        log$u.debug("Inline term match search skipped", { reason: "no-candidates", length: source.length });
+        log$w.debug("Inline term match search skipped", { reason: "no-candidates", length: source.length });
         done();
         return [];
       }
@@ -7981,7 +8152,7 @@ ${item.sequence ?? ""}`;
           tx.onerror = () => reject(tx.error);
         });
         const results = nonOverlappingMatches(matches, limit);
-        log$u.debug("Inline term match search completed", {
+        log$w.debug("Inline term match search completed", {
           length: source.length,
           candidates: candidates.size,
           overlappingMatches: matches.length,
@@ -7989,18 +8160,18 @@ ${item.sequence ?? ""}`;
         });
         return results;
       } catch (error) {
-        log$u.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$w.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
       }
     }
     async summary() {
-      const done = log$u.time("Dictionary summary");
+      const done = log$w.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
-          log$u.debug("Dictionary summary cache hit", {
+          log$w.debug("Dictionary summary cache hit", {
             dictionaries: summary2.dictionaries.length,
             terms: summary2.terms,
             kanji: summary2.kanji,
@@ -8021,7 +8192,7 @@ ${item.sequence ?? ""}`;
           throw error;
         });
         const summary = await this.summaryPromise;
-        log$u.debug("Dictionary summary loaded", {
+        log$w.debug("Dictionary summary loaded", {
           dictionaries: summary.dictionaries.length,
           terms: summary.terms,
           kanji: summary.kanji,
@@ -8030,7 +8201,7 @@ ${item.sequence ?? ""}`;
         });
         return summary;
       } catch (error) {
-        log$u.warn("Dictionary summary failed", { error });
+        log$w.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -8041,7 +8212,7 @@ ${item.sequence ?? ""}`;
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
     async listRandomTerms(limit, preferences = []) {
-      const done = log$u.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$w.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -8076,27 +8247,27 @@ ${entry.reading}`;
             cursor.continue();
           };
         });
-        log$u.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
+        log$w.debug("Random term listing completed", { limit, scanned: count, results: reservoir.length });
         return reservoir;
       } catch (error) {
-        log$u.warn("Random term listing failed", { limit, error });
+        log$w.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = []) {
-      const done = log$u.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$w.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
         const results = topTerms.size ? await this.entriesForRandomExpressions(topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank);
         if (!topTerms.size && !results.length) {
-          log$u.debug("No common dictionary terms found, falling back to fully random terms");
+          log$w.debug("No common dictionary terms found, falling back to fully random terms");
           return await this.listRandomTerms(limit, preferences);
         }
-        log$u.debug("Random top term listing completed", {
+        log$w.debug("Random top term listing completed", {
           limit,
           frequencyCandidates: topTerms.size,
           results: results.length,
@@ -8104,7 +8275,7 @@ ${entry.reading}`;
         });
         return results;
       } catch (error) {
-        log$u.warn("Random top term listing failed", { limit, error });
+        log$w.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -8175,35 +8346,35 @@ ${entry.reading}`;
           cursor.continue();
         };
       });
-      log$u.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
+      log$w.debug("Random common term listing completed", { limit, scanned: count, results: reservoir.length });
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$u.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$w.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$u.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$w.info("Dictionary file import started", fileSummary(file, sourceUrl));
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$u.info("Dictionary file import completed", summary);
+        log$w.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$u.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$w.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$u.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
+      log$w.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
       onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
       const blob = await requestBlob$3(url, onProgress);
       const file = new File([blob], filename, { type: blob.type || "application/zip" });
       const summary = await this.importFile(file, onProgress, url);
-      log$u.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
+      log$w.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
       var _a;
-      log$u.debug("ZIP dictionary import started", fileSummary(file, sourceUrl));
+      log$w.debug("ZIP dictionary import started", fileSummary(file, sourceUrl));
       onProgress == null ? void 0 : onProgress("Reading dictionary ZIP...");
       const zip = await JSZip.loadAsync(file);
       const indexFile = zip.file("index.json");
@@ -8243,20 +8414,20 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$u.info("ZIP dictionary import parsed", summary);
+      log$w.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
       var _a, _b;
-      log$u.debug("JSON dictionary import started", fileSummary(file));
+      log$w.debug("JSON dictionary import started", fileSummary(file));
       const head = await readBlobText(file.slice(0, 4096));
       if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
-        log$u.debug("Detected Yomitan Dexie dictionary export", { name: file.name, size: file.size });
+        log$w.debug("Detected Yomitan Dexie dictionary export", { name: file.name, size: file.size });
         return this.importDexieJson(file, onProgress);
       }
       const json = JSON.parse(await readBlobText(file));
       if (isReaderDictionaryExport(json)) {
-        log$u.debug("Detected Yomu dictionary export", { name: file.name, size: file.size });
+        log$w.debug("Detected Yomu dictionary export", { name: file.name, size: file.size });
         await this.clear();
         const dictionaryTypes = dictionaryTypesFromReaderExport(json);
         const dictionaryNames = ((_a = json.dictionaries) == null ? void 0 : _a.map((item) => item.title)) ?? [...new Set((json.terms ?? json.entries ?? []).map((entry) => entry.dictionary))];
@@ -8277,18 +8448,18 @@ ${entry.reading}`;
           termMeta: (json.termMeta ?? []).length,
           kanjiMeta: (json.kanjiMeta ?? []).length
         };
-        log$u.info("JSON dictionary import parsed", summary);
+        log$w.info("JSON dictionary import parsed", summary);
         return summary;
       }
       throw new Error("Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.");
     }
     async importDexieJson(file, onProgress) {
-      log$u.debug("Dexie dictionary import started", fileSummary(file));
+      log$w.debug("Dexie dictionary import started", fileSummary(file));
       onProgress == null ? void 0 : onProgress("Streaming Yomitan dictionary export...");
       await this.clear();
       const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
       const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
-      log$u.debug("Dexie dictionary row counts read", { totalRows, rowCounts });
+      log$w.debug("Dexie dictionary row counts read", { totalRows, rowCounts });
       if (totalRows > 0) onProgress == null ? void 0 : onProgress(`Preparing to import ${totalRows.toLocaleString()} dictionary records...`);
       const dictionaries = /* @__PURE__ */ new Set();
       const dictionaryInfo = /* @__PURE__ */ new Map();
@@ -8382,11 +8553,11 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$u.info("Dexie dictionary import parsed", summary);
+      log$w.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     async exportJson() {
-      const done = log$u.time("Dictionary export");
+      const done = log$w.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -8396,7 +8567,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$u.info("Dictionary export prepared", {
+        log$w.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -8414,7 +8585,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$u.warn("Dictionary export failed", { error });
+        log$w.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -8425,22 +8596,22 @@ ${entry.reading}`;
         const cacheKey = JSON.stringify(normalizeDictionaryPreferences(preferences));
         const cached = this.dictionaryStyleCssCache.get(cacheKey);
         if (cached !== void 0) {
-          log$u.debug("Dictionary stylesheet cache hit", { bytes: cached.length, preferences: preferences.length });
+          log$w.debug("Dictionary stylesheet cache hit", { bytes: cached.length, preferences: preferences.length });
           return cached;
         }
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         const css = renderDictionaryScopedStyles(dictionaries, preferences);
         this.dictionaryStyleCssCache.set(cacheKey, css);
-        log$u.debug("Dictionary stylesheet rendered", { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
+        log$w.debug("Dictionary stylesheet rendered", { bytes: css.length, dictionaries: dictionaries.length, preferences: preferences.length });
         return css;
       } catch (error) {
-        log$u.warn("Dictionary stylesheet render failed", { error });
+        log$w.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$u.time("Dictionary store clear");
+      const done = log$w.time("Dictionary store clear");
       try {
         const db = await this.db();
         await new Promise((resolve, reject) => {
@@ -8451,37 +8622,86 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$u.info("Dictionary store cleared");
+        log$w.info("Dictionary store cleared");
       } catch (error) {
-        log$u.warn("Dictionary store clear failed", { error });
+        log$w.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
-    async deleteDatabase() {
-      const done = log$u.time("Dictionary database delete");
+    async resetDatabase(options = {}) {
+      const done = log$w.time("Dictionary database factory reset");
+      let cleared = false;
       try {
+        await this.clear();
+        cleared = true;
+        await this.deleteDatabase({ timeoutMs: options.deleteTimeoutMs ?? DB_FACTORY_RESET_DELETE_TIMEOUT_MS });
+        return { cleared, deleted: true };
+      } catch (error) {
+        if (!cleared) {
+          log$w.warn("Dictionary database factory reset failed before clearing entries", { error });
+          throw error;
+        }
+        log$w.warn("Dictionary database delete did not complete after clearing entries; continuing reset with empty stores", { error });
+        return { cleared, deleted: false };
+      } finally {
+        done();
+      }
+    }
+    async invalidateForFactoryReset() {
+      const dbPromise = this.dbPromise;
+      this.dbPromise = void 0;
+      this.invalidateCaches();
+      if (!dbPromise) return;
+      try {
+        const db = await dbPromise;
+        db.close();
+        log$w.info("Dictionary database connection closed for factory reset", { name: DB_NAME });
+      } catch (error) {
+        log$w.debug("Dictionary database connection was not open during factory reset invalidation", { error });
+      }
+    }
+    async deleteDatabase(options = {}) {
+      const done = log$w.time("Dictionary database delete");
+      try {
+        const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
         db == null ? void 0 : db.close();
         this.dbPromise = void 0;
         this.invalidateCaches();
         await new Promise((resolve, reject) => {
+          let blocked = false;
+          let settled = false;
+          const timeout = globalThis.setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error(blocked ? "Dictionary database reset is still waiting on another open Yomu tab. Reload the other Yomu tabs, then try again." : "Dictionary database reset timed out."));
+          }, timeoutMs);
+          const settle = (callback) => {
+            if (settled) return;
+            settled = true;
+            globalThis.clearTimeout(timeout);
+            callback();
+          };
           const request = indexedDB.deleteDatabase(DB_NAME);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-          request.onblocked = () => reject(new Error("Dictionary database delete was blocked by an open tab."));
+          request.onsuccess = () => settle(resolve);
+          request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
+          request.onblocked = () => {
+            blocked = true;
+            log$w.warn("Dictionary database delete is blocked; waiting for other Yomu tabs to close their dictionary connection", { name: DB_NAME });
+          };
         });
-        log$u.info("Dictionary database deleted", { name: DB_NAME });
+        log$w.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$u.warn("Dictionary database delete failed", { error });
+        log$w.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$u.time("Dictionary delete", { dictionary });
+      const done = log$w.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -8493,9 +8713,9 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$u.info("Dictionary deleted", { dictionary });
+        log$w.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$u.warn("Dictionary delete failed", { dictionary, error });
+        log$w.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -8626,12 +8846,12 @@ ${entry.reading}`;
     }
     db() {
       this.dbPromise ?? (this.dbPromise = new Promise((resolve, reject) => {
-        log$u.debug("Opening dictionary database", { name: DB_NAME, version: DB_VERSION });
+        log$w.debug("Opening dictionary database", { name: DB_NAME, version: DB_VERSION });
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$u.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$w.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -8650,15 +8870,29 @@ ${entry.reading}`;
           }
         };
         request.onsuccess = () => {
-          log$u.debug("Dictionary database opened", { name: DB_NAME, version: request.result.version });
-          resolve(request.result);
+          const db = request.result;
+          this.installVersionChangeHandler(db);
+          log$w.debug("Dictionary database opened", { name: DB_NAME, version: db.version });
+          resolve(db);
         };
         request.onerror = () => {
-          log$u.warn("Dictionary database open failed", { error: request.error });
+          log$w.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       }));
       return this.dbPromise;
+    }
+    installVersionChangeHandler(db) {
+      db.onversionchange = (event) => {
+        log$w.info("Dictionary database version change requested; closing open connection", {
+          name: DB_NAME,
+          oldVersion: event.oldVersion,
+          newVersion: event.newVersion
+        });
+        db.close();
+        this.dbPromise = void 0;
+        this.invalidateCaches();
+      };
     }
     invalidateCaches() {
       this.dictionaryInfoPromise = void 0;
@@ -8856,25 +9090,25 @@ ${glossaryKey}`;
     }
   }
   async function requestBlob$3(url, onProgress) {
-    const done = log$u.time("Dictionary download", { host: safeHost$5(url) });
+    const done = log$w.time("Dictionary download", { host: safeHost$5(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$u.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
+      log$w.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
       return new Promise((resolve, reject) => {
         const handleLoad = (response) => {
           if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-            log$u.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: response.response.size });
+            log$w.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: response.response.size });
             done();
             resolve(response.response);
             return;
           }
           if (response.status < 200 || response.status >= 300) {
-            log$u.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
+            log$w.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
             done();
             reject(new Error(`Dictionary download failed (${response.status}).`));
             return;
           }
-          log$u.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response.status });
+          log$w.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response.status });
           done();
           reject(new Error("Dictionary download did not return a ZIP file."));
         };
@@ -8891,19 +9125,19 @@ ${glossaryKey}`;
           },
           onload: handleLoad,
           onerror: () => {
-            log$u.warn("Dictionary download failed", { host: safeHost$5(url) });
+            log$w.warn("Dictionary download failed", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download failed."));
           },
           ontimeout: () => {
-            log$u.warn("Dictionary download timed out", { host: safeHost$5(url) });
+            log$w.warn("Dictionary download timed out", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download timed out."));
           }
         });
         if (result && typeof result.then === "function") {
           result.then(handleLoad, () => {
-            log$u.warn("Dictionary download failed", { host: safeHost$5(url) });
+            log$w.warn("Dictionary download failed", { host: safeHost$5(url) });
             done();
             reject(new Error("Dictionary download failed."));
           });
@@ -8911,45 +9145,49 @@ ${glossaryKey}`;
       });
     }
     const downloadUrl = dictionaryDownloadUrl(url);
+    if (!downloadUrl) {
+      done();
+      throw new Error("Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
+    }
     try {
-      log$u.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
+      log$w.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
       const response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
       if (!response.ok) {
-        log$u.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
+        log$w.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
         throw new Error(`Dictionary download failed (${response.status}).`);
       }
       const blob = await response.blob();
-      log$u.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
+      log$w.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
       done();
       return blob;
     } catch (error) {
       const host = safeHost$5(url);
       if (error instanceof Error) {
         if (error.name === "TypeError") {
-          log$u.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
+          log$w.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
           done();
           throw new Error("Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
         }
-        log$u.warn("Dictionary download fetch failed", { host, error });
+        log$w.warn("Dictionary download fetch failed", { host, error });
       } else {
-        log$u.warn("Dictionary download fetch failed", { host, error });
+        log$w.warn("Dictionary download fetch failed", { host, error });
       }
       done();
       throw error;
     }
   }
   function dictionaryDownloadUrl(url) {
-    if (!isLoopbackPage$1()) return url;
     try {
       const target = new URL(url, location.href);
       const current = new URL(location.href);
       if (target.origin === current.origin) return target.href;
+      if (!isLoopbackPage$4()) return null;
       return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
     } catch {
       return url;
     }
   }
-  function isLoopbackPage$1() {
+  function isLoopbackPage$4() {
     return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
   }
   function splitTags(value) {
@@ -9005,7 +9243,7 @@ ${glossaryKey}`;
     });
   }
   const ANKI_VERSION = 6;
-  const log$t = Logger.scope("Anki");
+  const log$v = Logger.scope("Anki");
   const YOMU_MODEL_FIELDS = [
     "Expression",
     "Reading",
@@ -9031,28 +9269,28 @@ ${glossaryKey}`;
     async isConnected() {
       try {
         await this.invoke("version");
-        log$t.debug("AnkiConnect reachable");
+        log$v.debug("AnkiConnect reachable");
         return true;
       } catch (error) {
-        log$t.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$v.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
     async deckNames() {
       const decks = await this.invoke("deckNames");
-      log$t.debug("Deck names loaded", { decks: decks.length });
+      log$v.debug("Deck names loaded", { decks: decks.length });
       return decks;
     }
     async modelNames() {
       const models = await this.invoke("modelNames");
-      log$t.debug("Model names loaded", { models: models.length });
+      log$v.debug("Model names loaded", { models: models.length });
       return models;
     }
     async listNewTabCards(limit = 80) {
       const settings = this.getSettings();
       if (!settings.ankiEnabled || Date.now() < this.unavailableUntil) return [];
       try {
-        const done = log$t.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
+        const done = log$v.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
         const query = [
           settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : "",
           settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : "",
@@ -9063,7 +9301,7 @@ ${glossaryKey}`;
         const sampledCardIds = sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
         if (!sampledCardIds.length) {
           done();
-          log$t.debug("No due Anki cards available for new tab", { query });
+          log$v.debug("No due Anki cards available for new tab", { query });
           return [];
         }
         const dueFlags = await this.invoke("areDue", { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
@@ -9077,10 +9315,10 @@ ${glossaryKey}`;
         });
         if (!dueCards.length) {
           done();
-          log$t.debug("Anki cards found but none are reviewable for new tab", { query, cards: cards.length });
+          log$v.debug("Anki cards found but none are reviewable for new tab", { query, cards: cards.length });
           return [];
         }
-        const noteIds = unique$1(dueCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
+        const noteIds = unique$2(dueCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
         const notes = await this.invoke("notesInfo", { notes: noteIds });
         const cardsByNote = /* @__PURE__ */ new Map();
         for (const cardInfo of dueCards) {
@@ -9092,10 +9330,10 @@ ${glossaryKey}`;
         }
         const result = notes.map((note) => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? [])).filter((card) => card !== null).slice(0, Math.max(1, limit));
         done();
-        log$t.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length, dueCards: dueCards.length });
+        log$v.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length, dueCards: dueCards.length });
         return result;
       } catch (error) {
-        log$t.warn("Anki new tab lookup failed; entering cooldown", error);
+        log$v.warn("Anki new tab lookup failed; entering cooldown", error);
         this.unavailableUntil = Date.now() + 3e4;
         return [];
       }
@@ -9103,18 +9341,18 @@ ${glossaryKey}`;
     async findExistingCards(card) {
       const empty = { state: "not-in-deck", notes: [], primary: null };
       if (Date.now() < this.unavailableUntil) {
-        log$t.debug("Anki lookup skipped during cooldown", { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
+        log$v.debug("Anki lookup skipped during cooldown", { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
         return empty;
       }
       const cacheKey = `${card.spelling}|${card.reading}`;
       const cached = this.lookupCache.get(cacheKey);
       if (cached && Date.now() - cached.at < 45e3) {
-        log$t.debug("Anki lookup cache hit", { term: card.spelling, state: cached.result.state });
+        log$v.debug("Anki lookup cache hit", { term: card.spelling, state: cached.result.state });
         return cached.result;
       }
       try {
-        const done = log$t.time("findExistingCards", { term: card.spelling });
-        const queryTerms = unique$1([card.spelling, card.reading].filter(Boolean));
+        const done = log$v.time("findExistingCards", { term: card.spelling });
+        const queryTerms = unique$2([card.spelling, card.reading].filter(Boolean));
         const noteIds = /* @__PURE__ */ new Set();
         for (const term of queryTerms) {
           const ids = await this.invoke("findNotes", { query: quoteAnkiSearch(term) }).catch(() => []);
@@ -9122,7 +9360,7 @@ ${glossaryKey}`;
         }
         if (!noteIds.size) {
           this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-          log$t.debug("No Anki notes found", { term: card.spelling });
+          log$v.debug("No Anki notes found", { term: card.spelling });
           done();
           return empty;
         }
@@ -9130,11 +9368,11 @@ ${glossaryKey}`;
         const matchingNotes = notes.filter((note) => noteLooksLikeCard(note, card));
         if (!matchingNotes.length) {
           this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-          log$t.debug("Anki notes found but none matched Yomu card", { term: card.spelling, candidateNotes: notes.length });
+          log$v.debug("Anki notes found but none matched Yomu card", { term: card.spelling, candidateNotes: notes.length });
           done();
           return empty;
         }
-        const cardIds = unique$1(matchingNotes.flatMap((note) => note.cards ?? []));
+        const cardIds = unique$2(matchingNotes.flatMap((note) => note.cards ?? []));
         const cards = cardIds.length ? await this.invoke("cardsInfo", { cards: cardIds }).catch(() => []) : [];
         const cardsByNote = /* @__PURE__ */ new Map();
         for (const cardInfo of cards) {
@@ -9152,7 +9390,7 @@ ${glossaryKey}`;
           return {
             noteId: note.noteId,
             modelName: note.modelName,
-            deckNames: unique$1(noteCards.map((item) => item.deckName).filter(Boolean)),
+            deckNames: unique$2(noteCards.map((item) => item.deckName).filter(Boolean)),
             cardIds: note.cards ?? [],
             primaryCardId: ((_a = pickPrimaryCard(noteCards)) == null ? void 0 : _a.cardId) ?? ((_b = note.cards) == null ? void 0 : _b[0]) ?? null,
             state,
@@ -9168,29 +9406,29 @@ ${glossaryKey}`;
           primary: pickPrimaryExistingNote(existing)
         };
         this.lookupCache.set(cacheKey, { at: Date.now(), result });
-        log$t.debug("Anki lookup completed", { term: card.spelling, notes: existing.length, state: result.state });
+        log$v.debug("Anki lookup completed", { term: card.spelling, notes: existing.length, state: result.state });
         done();
         return result;
       } catch (error) {
-        log$t.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
+        log$v.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
         this.unavailableUntil = Date.now() + 3e4;
         return empty;
       }
     }
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$t.info("Answering Anki card", { cardId, grade, ease });
+      log$v.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
     }
     async browseNote(noteId) {
-      log$t.info("Opening Anki note browser", { noteId });
+      log$v.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async addCard(card, sentence = "", options = {}) {
       var _a;
       const settings = this.getSettings();
       if (!settings.ankiEnabled) {
-        log$t.debug("Anki add skipped because Anki is disabled", { term: card.spelling });
+        log$v.debug("Anki add skipped because Anki is disabled", { term: card.spelling });
         return null;
       }
       const deckName = ((_a = options.deckName) == null ? void 0 : _a.trim()) || settings.ankiDeck || "よむ";
@@ -9211,7 +9449,7 @@ ${glossaryKey}`;
       };
       const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
       if (image) note.picture = [image];
-      log$t.info("Adding Anki note", {
+      log$v.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -9219,18 +9457,18 @@ ${glossaryKey}`;
         tags: note.tags
       });
       if (settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment()) {
-        log$t.info("Opening mobile Anki handoff", { term: card.spelling });
+        log$v.info("Opening mobile Anki handoff", { term: card.spelling });
         if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
         return null;
       }
       try {
         await this.ensureDeckAndModel(deckName);
         const noteId = await this.invoke("addNote", { note });
-        log$t.info("Anki note added", { term: card.spelling, noteId });
+        log$v.info("Anki note added", { term: card.spelling, noteId });
         return noteId;
       } catch (error) {
         if (settings.ankiMobileHandoff && isMobileUserAgent()) {
-          log$t.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
+          log$v.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
           if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
           return null;
         }
@@ -9241,9 +9479,9 @@ ${glossaryKey}`;
       const settings = this.getSettings();
       const deckName = (deckOverride == null ? void 0 : deckOverride.trim()) || settings.ankiDeck || "よむ";
       const modelName = settings.ankiModel || "よむ Japanese";
-      log$t.debug("Ensuring Anki deck/model", { deckName, modelName });
+      log$v.debug("Ensuring Anki deck/model", { deckName, modelName });
       await this.invoke("createDeck", { deck: deckName }).catch((error) => {
-        log$t.debug("createDeck ignored", { deckName }, error);
+        log$v.debug("createDeck ignored", { deckName }, error);
         return null;
       });
       const modelNames = await this.modelNames().catch(() => []);
@@ -9251,7 +9489,7 @@ ${glossaryKey}`;
         await this.ensureModelFields(modelName);
         await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
         await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
-        log$t.debug("Anki model updated", { modelName });
+        log$v.debug("Anki model updated", { modelName });
         return;
       }
       await this.invoke("createModel", {
@@ -9260,14 +9498,14 @@ ${glossaryKey}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings.ankiTemplateMode)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$t.info("Anki model created", { modelName });
+      log$v.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invoke("modelFieldNames", { modelName }).catch(() => []);
       const existing = new Set(fieldNames);
       for (const fieldName of YOMU_MODEL_FIELDS) {
         if (!existing.has(fieldName)) {
-          log$t.debug("Adding missing Anki model field", { modelName, fieldName });
+          log$v.debug("Adding missing Anki model field", { modelName, fieldName });
           await this.invoke("modelFieldAdd", { modelName, fieldName });
         }
       }
@@ -9276,10 +9514,10 @@ ${glossaryKey}`;
       const settings = this.getSettings();
       const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
       const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-      log$t.debug("Invoking AnkiConnect action", { action });
+      log$v.debug("Invoking AnkiConnect action", { action });
       const response = await postJson$1(url, body);
       if (response.error) {
-        log$t.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$v.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(response.error);
       }
       return response.result;
@@ -9288,7 +9526,7 @@ ${glossaryKey}`;
   function captureActiveVideoFrame() {
     const video = Array.from(document.querySelectorAll("video")).filter((item) => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0).sort((a, b) => visibleArea(b) - visibleArea(a))[0];
     if (!video) {
-      log$t.debug("No active video available for Anki screenshot");
+      log$v.debug("No active video available for Anki screenshot");
       return void 0;
     }
     try {
@@ -9301,10 +9539,10 @@ ${glossaryKey}`;
       if (!context) return void 0;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
-      log$t.debug("Captured active video frame", { width: canvas.width, height: canvas.height });
+      log$v.debug("Captured active video frame", { width: canvas.width, height: canvas.height });
       return dataUrl;
     } catch (error) {
-      log$t.warn("Active video frame capture failed", error);
+      log$v.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -9332,6 +9570,9 @@ ${glossaryKey}`;
         }
       });
     }
+    if (!canFetchAnkiConnect(url)) {
+      return Promise.reject(new Error("AnkiConnect needs the userscript request bridge on content pages."));
+    }
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -9340,6 +9581,15 @@ ${glossaryKey}`;
       if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
       return response.json();
     });
+  }
+  function canFetchAnkiConnect(url) {
+    try {
+      const target = new URL(url, location.href);
+      if (target.origin === location.origin) return true;
+      return ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+    } catch {
+      return false;
+    }
   }
   function buildYomuAnkiFields(card, sentence = "", context = {}) {
     const dictionaryPreferences = context.dictionaryPreferences ?? [];
@@ -9434,11 +9684,11 @@ ${glossaryKey}`;
   function quoteAnkiSearch(term) {
     return `"${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   }
-  function unique$1(items) {
+  function unique$2(items) {
     return [...new Set(items)];
   }
   function sampleAnkiIds(ids, limit) {
-    const uniqueIds = unique$1(ids).filter((id) => Number.isFinite(Number(id)));
+    const uniqueIds = unique$2(ids).filter((id) => Number.isFinite(Number(id)));
     if (uniqueIds.length <= limit) return uniqueIds.reverse();
     const sampled = uniqueIds.slice();
     for (let index = sampled.length - 1; index > 0; index--) {
@@ -9515,7 +9765,7 @@ ${glossaryKey}`;
   function noteLooksLikeCard(note, card) {
     const fields = flattenNoteFields(note.fields);
     const values = Object.values(fields).map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean);
-    const exactTargets = unique$1([card.spelling, card.reading].filter(Boolean));
+    const exactTargets = unique$2([card.spelling, card.reading].filter(Boolean));
     if (exactTargets.some((target) => values.some((value) => value === target))) return true;
     const expression = fields.Expression || fields.Front || fields.Word || fields.Vocab || fields.Term || fields["Expression Reading"];
     if (expression && exactTargets.some((target) => expression.includes(target))) return true;
@@ -9821,7 +10071,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
-  const log$s = Logger.scope("BrowserUi");
+  const log$u = Logger.scope("BrowserUi");
   function pauseActiveVideo() {
     const videos = Array.from(document.querySelectorAll("video"));
     const playable = videos.filter((video) => video.readyState > 0).sort((a, b) => {
@@ -9831,7 +10081,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
     const target = playable[0];
     target == null ? void 0 : target.pause();
-    log$s.debug("Pause active video requested", { videos: videos.length, playable: playable.length, paused: Boolean(target) });
+    log$u.debug("Pause active video requested", { videos: videos.length, playable: playable.length, paused: Boolean(target) });
   }
   function isEditableTarget(target) {
     const element2 = target instanceof Element ? target : null;
@@ -9842,10 +10092,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
       try {
         await navigator.clipboard.writeText(text2);
-        log$s.debug("Copied text with Clipboard API", { length: text2.length });
+        log$u.debug("Copied text with Clipboard API", { length: text2.length });
         return;
       } catch (error) {
-        log$s.debug("Clipboard API copy failed, falling back", { length: text2.length, error });
+        log$u.debug("Clipboard API copy failed, falling back", { length: text2.length, error });
       }
     }
     const textarea = document.createElement("textarea");
@@ -9856,7 +10106,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
-    log$s.debug("Copied text with execCommand fallback", { length: text2.length });
+    log$u.debug("Copied text with execCommand fallback", { length: text2.length });
   }
   function normalizePressedKey(key) {
     if (key === " ") return "space";
@@ -9880,7 +10130,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - width - margin))}px`;
       popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - height - margin))}px`;
       if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-      log$s.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
+      log$u.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
       return;
     }
     const writingMode = getPopoverWritingMode(anchor);
@@ -9891,7 +10141,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     popover.style.left = `${position.left}px`;
     popover.style.top = `${position.top}px`;
     if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-    log$s.debugThrottled("position-popover", 1e3, "Popover positioned", {
+    log$u.debugThrottled("position-popover", 1e3, "Popover positioned", {
       left: Math.round(position.left),
       top: Math.round(position.top),
       side: popover.dataset.jpdbReaderPlacementSide,
@@ -9917,8 +10167,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const selection = window.getSelection();
     if (!(selection == null ? void 0 : selection.rangeCount)) return [];
     const range = selection.getRangeAt(0);
-    const selectionRects = rectListToPopoverRects(range.getClientRects());
+    const selectionRects = typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects()) : [];
     if (selectionRects.length) return selectionRects;
+    if (typeof range.getBoundingClientRect !== "function") return [];
     const rect = domRectToPopoverRect(range.getBoundingClientRect());
     return hasRectArea(rect) ? [rect] : [];
   }
@@ -10076,8 +10327,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
   }
-  const log$r = Logger.scope("StudyTools");
-  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやの、。！？\s]{1,16}`;
+  const log$t = Logger.scope("StudyTools");
+  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？\s]{1,16}`;
   const FORM_CHUNK = String.raw`[ぁ-んァ-ン一-龯]{1,16}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
   const GRAMMAR_PATTERNS = [
@@ -10092,10 +10343,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     { pattern: new RegExp(`${FORM_CHUNK}て(?:くれる|くださる|あげる|やる|もらう|いただく)`, "u"), name: "てくれる / てもらう", kind: "Giving and receiving", short: "favor done for someone", detail: "Combines て-form with giving or receiving verbs to show who benefits from an action.", url: "https://www.tofugu.com/japanese-grammar/te-kureru/", confidence: "medium", priority: 8 },
     { pattern: new RegExp(`${FORM_CHUNK}ようにな(?:る|ります|った|りました)`, "u"), name: "ようになる", kind: "Change over time", short: "come to do or become so that", detail: "Shows a new ability, habit, or state developing over time.", url: "https://www.tofugu.com/japanese-grammar/you-ni-naru/", confidence: "high", priority: 8 },
     { pattern: new RegExp(`${FORM_CHUNK}ようにす(?:る|ます|た|ました)`, "u"), name: "ようにする", kind: "Effort / habit", short: "make sure to do", detail: "Shows an intentional effort to make an action happen regularly or reliably.", url: "https://www.tofugu.com/japanese-grammar/you-ni-suru/", confidence: "high", priority: 8 },
-    { pattern: new RegExp(`${FORM_CHUNK}(?:させられる|[かがさざただなばまわ]せられる|[かがさざただなばまわ]される)`, "u"), name: "させられる", kind: "Causative-passive", short: "be made to do", detail: "Combines causative and passive meaning: someone is made to do an action, often unwillingly.", url: "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", confidence: "medium", priority: 8 },
-    { pattern: new RegExp(`${FORM_CHUNK}(?:させる|[かがさざただなばまわ](?:せる|す))`, "u"), name: "させる", kind: "Causative", short: "make or let someone do", detail: "Adds a causer: someone makes, lets, or has someone else do the action.", url: "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", confidence: "medium", priority: 9 },
+    { pattern: new RegExp(`${FORM_CHUNK}(?:させられる|[かがさざただなばまらわ]せられる|[かがさざただなばまらわ]される)`, "u"), name: "させられる", kind: "Causative-passive", short: "be made to do", detail: "Combines causative and passive meaning: someone is made to do an action, often unwillingly.", url: "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", confidence: "medium", priority: 8 },
+    { pattern: new RegExp(`${FORM_CHUNK}(?:させる|[かがさざただなばまらわ]せる)`, "u"), name: "させる", kind: "Causative", short: "make or let someone do", detail: "Adds a causer: someone makes, lets, or has someone else do the action.", url: "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", confidence: "medium", priority: 9 },
     { pattern: new RegExp(`${FORM_CHUNK}(?:られる|[かがさざただなばまわ]れる)`, "u"), name: "れる / られる", kind: "Passive / potential", short: "passive, potential, or honorific form", detail: "This ending can mark passive voice, ability, or respectful speech; context decides which reading fits.", url: "https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/", confidence: "medium", priority: 9 },
-    { pattern: new RegExp(`${FORM_CHUNK}(?:らしい|みたい|っぽい)`, "u"), name: "らしい / みたい", kind: "Hearsay / likeness", short: "seems like or apparently", detail: "Expresses appearance, hearsay, or resemblance depending on the form and context.", url: "https://www.tofugu.com/japanese-grammar/rashii/", confidence: "medium", priority: 9 },
+    { pattern: new RegExp(`(?:${FORM_CHUNK}(?:らしい|っぽい)|${FORM_CHUNK}みたい(?:だ|です|に|な))`, "u"), name: "らしい / みたい", kind: "Hearsay / likeness", short: "seems like or apparently", detail: "Expresses appearance, hearsay, or resemblance depending on the form and context.", url: "https://www.tofugu.com/japanese-grammar/rashii/", confidence: "medium", priority: 9 },
     { pattern: /(?:かもしれない|かもしれません)/u, name: "かもしれない", kind: "Possibility", short: "might or maybe", detail: "Softens a statement into a possibility rather than a firm claim.", url: "https://www.tofugu.com/japanese-grammar/kamoshirenai/", confidence: "high", priority: 9 },
     { pattern: /(?:でしょう|だろう)/u, name: "でしょう / だろう", kind: "Probability", short: "probably or right?", detail: "Adds probability, expectation, or a confirmation-seeking tone.", url: "https://www.tofugu.com/japanese-grammar/deshou/", confidence: "high", priority: 10 },
     { pattern: new RegExp(`${FORM_CHUNK}と思(?:う|います|った|いました)`, "u"), name: "と思う", kind: "Quotation / thought", short: "think that...", detail: "Marks the content of a thought or statement before 思う.", url: "https://www.tofugu.com/japanese-grammar/to-omou/", confidence: "high", priority: 10 },
@@ -10118,17 +10369,20 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     { pattern: new RegExp(`${FORM_CHUNK}に対して`, "u"), name: "に対して", kind: "Target / contrast", short: "toward, against, or in contrast to", detail: "Marks the target of an attitude/action, or sets up a contrast.", url: "https://bunpro.jp/grammar_points/%E3%81%AB%E5%AF%BE%E3%81%97%E3%81%A6", confidence: "medium", priority: 18 },
     { pattern: new RegExp(`${FORM_CHUNK}にもかかわらず`, "u"), name: "にもかかわらず", kind: "Concession", short: "despite or even though", detail: "Connects two facts when the second happens despite the first.", url: "https://bunpro.jp/grammar_points/%E3%81%AB%E3%82%82%E9%96%A2%E3%82%8F%E3%82%89%E3%81%9A", confidence: "high", priority: 18 },
     { pattern: new RegExp(`${FORM_CHUNK}くせに`, "u"), name: "くせに", kind: "Blame / contradiction", short: "even though, with criticism", detail: "Marks a contradiction with a blaming or critical tone.", url: "https://bunpro.jp/grammar_points/%E3%81%8F%E3%81%9B%E3%81%AB", confidence: "medium", priority: 18 },
-    { pattern: new RegExp(`${PARTICLE_CHUNK}は`, "u"), name: "は", kind: "Topic particle", short: "sets the topic or contrast", detail: 'Read it as "as for..." and look to the rest of the sentence for the new information.', url: "https://www.tofugu.com/japanese-grammar/particle-wa/", confidence: "high" },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}(?:たち|達)`, "u"), name: "たち / 達", kind: "Plural / group suffix", short: "marks a group or plural set", detail: "Attaches to a person, pronoun, or animate noun to point to that person and their group, or to a plural group.", url: "https://bunpro.jp/grammar_points/%E9%81%94", confidence: "medium", priority: 20 },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}は(?!ず)`, "u"), name: "は", kind: "Topic particle", short: "sets the topic or contrast", detail: 'Read it as "as for..." and look to the rest of the sentence for the new information.', url: "https://www.tofugu.com/japanese-grammar/particle-wa/", confidence: "high" },
     { pattern: new RegExp(`${PARTICLE_CHUNK}が`, "u"), name: "が", kind: "Subject particle", short: "marks the doer or focus", detail: "Highlights the subject of the clause, often when that subject is new or important.", url: "https://www.tofugu.com/japanese-grammar/particle-ga/", confidence: "high" },
     { pattern: new RegExp(`${PARTICLE_CHUNK}を`, "u"), name: "を", kind: "Object particle", short: "marks what receives the action", detail: "The phrase before を is usually what the following verb acts on.", url: "https://www.tofugu.com/japanese-grammar/particle-wo/", confidence: "high" },
-    { pattern: new RegExp(`${PARTICLE_CHUNK}で(?!き)`, "u"), name: "で", kind: "Context particle", short: "marks where or how an action happens", detail: "Often points to the setting, tool, method, or conditions for the action.", url: "https://www.tofugu.com/japanese-grammar/particle-de/", confidence: "medium" },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}(?<![まん])で(?!き|す|し)`, "u"), name: "で", kind: "Context particle", short: "marks where or how an action happens", detail: "Often points to the setting, tool, method, or conditions for the action.", url: "https://www.tofugu.com/japanese-grammar/particle-de/", confidence: "medium" },
     { pattern: new RegExp(`${PARTICLE_CHUNK}に`, "u"), name: "に", kind: "Target particle", short: "marks a target, point, time, or adverbial role", detail: "Think of に as pinning the action to a destination, time, target, or manner.", url: "https://www.tofugu.com/japanese-grammar/particle-ni/", confidence: "medium" },
+    { pattern: new RegExp(`${PARTICLE_CHUNK}(?<![っッこコ])と(?!して)`, "u"), name: "と", kind: "Quote / partner particle", short: "marks with, and, or quoted content", detail: "Can mark who someone does something with, exact quoted content, comparison, or a complete list.", url: "https://www.tofugu.com/japanese-grammar/particle-to/", confidence: "medium" },
     { pattern: new RegExp(`${PARTICLE_CHUNK}の`, "u"), name: "の", kind: "Noun linker", short: "connects or labels nouns", detail: "The phrase before の modifies or belongs with the noun that follows.", url: "https://www.tofugu.com/japanese-grammar/particle-no-noun-modifier/", confidence: "medium" },
     { pattern: new RegExp(`${FORM_CHUNK}[てで](?:い(?:る|ます|た|ない)?|る|た)`, "u"), name: "ている", kind: "Verb form", short: "ongoing action or resulting state", detail: "Shows an action in progress, or a state that remains after something changed.", url: "https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/", confidence: "high" },
     { pattern: new RegExp(`${FORM_CHUNK}(?:たい|たくない|たかった)`, "u"), name: "たい", kind: "Verb ending", short: "want to do something", detail: "Attaches to a verb stem to say the speaker wants to do that action.", url: "https://www.tofugu.com/japanese-grammar/tai-form/", confidence: "high" },
     { pattern: new RegExp(`${FORM_CHUNK}(?:ない|ません|なかった|ませんでした)`, "u"), name: "ない", kind: "Verb ending", short: "negative form", detail: 'Turns the verb or expression into "do not," "is not," or "did not."', url: "https://www.tofugu.com/japanese-grammar/verb-negative-nai-form/", confidence: "medium" },
     { pattern: new RegExp(`${FORM_CHUNK}ました`, "u"), name: "ました", kind: "Polite past", short: "polite completed action", detail: 'A polite ます-form verb in the past tense: "did" or "was/were."', url: "https://www.tofugu.com/japanese-grammar/masu/", confidence: "high" },
     { pattern: new RegExp(`${FORM_CHUNK}ます`, "u"), name: "ます", kind: "Polite form", short: "polite non-past verb", detail: "Softens the verb into polite speech; tense depends on the surrounding sentence.", url: "https://www.tofugu.com/japanese-grammar/masu/", confidence: "medium" },
+    { pattern: new RegExp(`${FORM_CHUNK}(?:かった|だった|った|いた|いだ|(?<!で)した|んだ|[きぎしじちにびみりえけげせてねべめれ]た|[来見寝出]た)(?![いらり])`, "u"), name: "た", kind: "Plain past", short: "plain completed action or past state", detail: "Marks a plain past-tense action or state. Common verb endings include した, った, いた, いだ, and んだ.", url: "", confidence: "medium", priority: 24 },
     { pattern: new RegExp(`${FORM_CHUNK}たら`, "u"), name: "たら", kind: "Clause linker", short: "conditional or time sequence", detail: 'Turns the first clause into the condition or timing for what follows: "if," "when," or "after."', url: "https://www.tofugu.com/japanese-grammar/conditional-form-tara/", confidence: "high" },
     { pattern: new RegExp(`${FORM_CHUNK}(?:えば|ければ)`, "u"), name: "ば", kind: "Conditional", short: "conditional if", detail: "Marks the condition that needs to be true for the next clause to happen.", url: "https://www.tofugu.com/japanese-grammar/verb-conditional-form-ba/", confidence: "high" },
     { pattern: /(?:なので|ので)/u, name: "ので", kind: "Clause linker", short: "reason or cause", detail: "Gives the reason or cause for the following statement, usually with a softer tone than から.", url: "https://www.tofugu.com/japanese-grammar/conjunctive-particle-node/", confidence: "high" },
@@ -10176,17 +10430,20 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     ["に対して", { ruleId: "target-ni-taishite", level: "N3" }],
     ["にもかかわらず", { ruleId: "concession-ni-mo-kakawarazu", level: "N2" }],
     ["くせに", { ruleId: "concession-kuse-ni", level: "N3" }],
+    ["たち / 達", { ruleId: "suffix-tachi", level: "N5" }],
     ["は", { ruleId: "particle-wa", level: "N5" }],
     ["が", { ruleId: "particle-ga", level: "N5" }],
     ["を", { ruleId: "particle-wo", level: "N5" }],
     ["で", { ruleId: "particle-de", level: "N5" }],
     ["に", { ruleId: "particle-ni", level: "N5" }],
+    ["と", { ruleId: "particle-to", level: "N5" }],
     ["の", { ruleId: "particle-no", level: "N5" }],
     ["ている", { ruleId: "aspect-te-iru", level: "N5" }],
     ["たい", { ruleId: "desire-tai", level: "N5" }],
     ["ない", { ruleId: "negative-nai", level: "N5" }],
     ["ました", { ruleId: "polite-past-mashita", level: "N5" }],
     ["ます", { ruleId: "polite-masu", level: "N5" }],
+    ["た", { ruleId: "plain-past-ta", level: "N5" }],
     ["たら", { ruleId: "conditional-tara", level: "N4" }],
     ["ば", { ruleId: "conditional-ba", level: "N4" }],
     ["ので", { ruleId: "reason-node", level: "N4" }],
@@ -10211,8 +10468,42 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       seenNames.set(item.name, count + 1);
       return true;
     }).slice(0, 10).sort((a, b) => a.index - b.index || a.priority - b.priority || a.name.localeCompare(b.name)).map(({ priority: _priority, ...hint }) => hint);
-    log$r.debug("Grammar hints detected", { sentenceLength: sentence.length, hints: hints.map((hint) => hint.name) });
+    log$t.debug("Grammar hints detected", { sentenceLength: sentence.length, hints: hints.map((hint) => hint.name) });
     return hints;
+  }
+  function mergeGrammarHints(primary, fallback, limit = 10) {
+    const seen = /* @__PURE__ */ new Set();
+    const merged = [];
+    for (const hint of [...primary].sort(compareGrammarHints).concat([...fallback].sort(compareGrammarHints))) {
+      const key = `${hint.ruleId}:${hint.match}`;
+      if (seen.has(key) || merged.some((existing) => isDuplicateGrammarHint(existing, hint))) continue;
+      seen.add(key);
+      merged.push(hint);
+    }
+    return merged.sort(compareGrammarHints).slice(0, limit);
+  }
+  function compareGrammarHints(a, b) {
+    return a.index - b.index || a.name.localeCompare(b.name);
+  }
+  function isDuplicateGrammarHint(existing, next) {
+    if (existing.match === next.match && existing.index === next.index) return true;
+    const existingHanabira = existing.ruleId.startsWith("hanabira-");
+    const nextHanabira = next.ruleId.startsWith("hanabira-");
+    if (existingHanabira === nextHanabira || !grammarHintRangesOverlap(existing, next)) return false;
+    const hanabira = existingHanabira ? existing : next;
+    const local = existingHanabira ? next : existing;
+    const hanabiraName = normalizeGrammarTextForDedupe(hanabira.name);
+    const localName = normalizeGrammarTextForDedupe(local.name);
+    const localMatch = normalizeGrammarTextForDedupe(local.match);
+    return Boolean(localName && hanabiraName.includes(localName)) || Boolean(localMatch && localMatch.length >= 3 && hanabiraName.includes(localMatch));
+  }
+  function grammarHintRangesOverlap(a, b) {
+    const aEnd = a.index + a.match.length;
+    const bEnd = b.index + b.match.length;
+    return a.index < bEnd && b.index < aEnd;
+  }
+  function normalizeGrammarTextForDedupe(value) {
+    return value.normalize("NFKC").replace(/[^\p{Letter}\p{Number}ぁ-んァ-ン一-龯々〆ヵヶ]/gu, "").toLowerCase();
   }
   function readGrammarPreferences() {
     var _a;
@@ -10226,7 +10517,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         showKnown: parsed.showKnown === true
       };
     } catch (error) {
-      log$r.warn("Grammar preference read failed", { error });
+      log$t.warn("Grammar preference read failed", { error });
       return fallback;
     }
   }
@@ -10239,7 +10530,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         showKnown: preferences.showKnown
       }));
     } catch (error) {
-      log$r.warn("Grammar preference write failed", { error });
+      log$t.warn("Grammar preference write failed", { error });
     }
   }
   function setGrammarRuleKnown(ruleId, known) {
@@ -10261,26 +10552,26 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (!trimmed) return "";
     const cached = translationCache.get(trimmed);
     if (cached) {
-      log$r.debug("Translation cache hit", { sentenceLength: trimmed.length });
+      log$t.debug("Translation cache hit", { sentenceLength: trimmed.length });
       return cached;
     }
     const inFlight = translationInFlight.get(trimmed);
     if (inFlight) {
-      log$r.debug("Translation in-flight cache hit", { sentenceLength: trimmed.length });
+      log$t.debug("Translation in-flight cache hit", { sentenceLength: trimmed.length });
       return inFlight;
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
     const promise = (async () => {
-      const done = log$r.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$t.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
-        const json = await requestJson$2(url);
+        const json = await requestJson$3(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(trimmed, translated);
-        log$r.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$t.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$r.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$t.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -10327,7 +10618,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                         <summary>Details</summary>
                         <div class="jpdb-reader-study-detail">${escapeHtml$1(hint.detail)}</div>
                         <div class="jpdb-reader-study-match"><span>Found in</span>${escapeHtml$1(hint.match)}</div>
-                        <a class="jpdb-reader-study-guide" href="${escapeHtml$1(hint.url)}" target="_blank" rel="noopener">Guide</a>
+                        ${hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$1(hint.url)}" target="_blank" rel="noopener">Guide</a>` : ""}
                     </details>
                 </div>
             </li>`;
@@ -10364,14 +10655,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function learnerMatch(name, rawMatch) {
     let match = rawMatch.replace(/^(?:そして|それで|でも|また)/u, "");
-    if (!["たい", "ない", "ました", "ます"].includes(name)) return match;
+    if (!["たい", "ない", "ました", "ます", "た"].includes(name)) return match;
     const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "");
     return afterLastParticle || match;
   }
-  function requestJson$2(url) {
+  function requestJson$3(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$r.debug("Translation request using userscript request");
+      log$t.debug("Translation request using userscript request");
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -10380,42 +10671,42 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
           timeout: 8e3,
           onload: (response) => {
             if (response.status >= 200 && response.status < 300) {
-              log$r.debug("Translation request completed", { status: response.status });
+              log$t.debug("Translation request completed", { status: response.status });
               resolve(response.response ?? JSON.parse(String(response.responseText ?? "{}")));
             } else {
-              log$r.warn("Translation request returned HTTP error", { status: response.status });
+              log$t.warn("Translation request returned HTTP error", { status: response.status });
               reject(new Error(`Translation request failed (${response.status}).`));
             }
           },
           onerror: (error) => {
-            log$r.warn("Translation request failed", { error });
+            log$t.warn("Translation request failed", { error });
             reject(error);
           },
           ontimeout: () => {
-            log$r.warn("Translation request timed out");
+            log$t.warn("Translation request timed out");
             reject(new Error("Translation timed out."));
           }
         });
       });
     }
-    log$r.debug("Translation request using fetch");
+    log$t.debug("Translation request using fetch");
     return fetch(url).then(async (response) => {
       if (!response.ok) {
-        log$r.warn("Translation request returned HTTP error", { status: response.status });
+        log$t.warn("Translation request returned HTTP error", { status: response.status });
         throw new Error(`Translation request failed (${response.status}).`);
       }
-      log$r.debug("Translation request completed", { status: response.status });
+      log$t.debug("Translation request completed", { status: response.status });
       return response.json();
     });
   }
-  const log$q = Logger.scope("StudyRender");
-  async function renderStudyToolResult(button2, action, sentence) {
+  const log$s = Logger.scope("StudyRender");
+  async function renderStudyToolResult(button2, action, sentence, grammarHints) {
     var _a;
     const panel = (_a = button2.closest(".jpdb-reader-study-tools")) == null ? void 0 : _a.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = action === "study-translate" ? "Translating..." : "Finding grammar...";
-    const done = log$q.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$s.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence(sentence);
@@ -10425,7 +10716,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         done();
       }
     }
-    const hints = detectGrammarHints(sentence);
+    const hints = grammarHints ?? detectGrammarHints(sentence);
     if (!hints.length) {
       panel.hidden = true;
       panel.textContent = "";
@@ -10466,10 +10757,15 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         case "study-grammar-toggle-known":
         case "study-grammar-toggle-known-visibility":
           handleStudyGrammarAction(button2, sentence);
+          void this.reparsePopoverJapanese(button2);
           return false;
         case "study-translate":
-        case "study-grammar":
           await renderStudyToolResult(button2, action, sentence);
+          void this.reparsePopoverJapanese(button2);
+          return false;
+        case "study-grammar":
+          await renderStudyToolResult(button2, action, sentence, sentence ? await this.options.detectGrammarHints(sentence) : void 0);
+          void this.reparsePopoverJapanese(button2);
           return false;
         case "study-read-sentence":
           await this.options.playSentenceAudio(sentence);
@@ -10509,8 +10805,16 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
           return Boolean(action);
       }
     }
+    async reparsePopoverJapanese(button2) {
+      const popover = button2.closest(".jpdb-reader-popover");
+      if (!popover) return;
+      delete popover.dataset.jpdbReaderParseKey;
+      delete popover.dataset.jpdbReaderParseLoadingKey;
+      await this.options.parsePopoverJapanese(popover);
+    }
     assertJpdbActionAllowed(card, message) {
       if (!this.options.getSettings().jpdbMiningEnabled) throw new Error("JPDB mining actions are disabled in settings.");
+      if (!this.options.getSettings().apiKey.trim()) throw new Error(message);
       if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
     async addToSelectedDeck(button2, card, sentence) {
@@ -10801,6 +11105,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function orderedDefinitionSourceIds(settings, dictionaryNames) {
     const preferences = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
+    const studyToolsCombined = settings.studyTranslationEnabled && settings.studyGrammarEnabled;
     const sources = [
       {
         id: JPDB_DEFINITION_SOURCE_ID,
@@ -10809,14 +11114,20 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         name: "JPDB"
       },
       {
+        id: STUDY_TOOLS_SOURCE_ID,
+        enabled: studyToolsCombined,
+        priority: Math.min(settings.studyTranslationPriority, settings.studyGrammarPriority),
+        name: "Study"
+      },
+      {
         id: STUDY_TRANSLATION_SOURCE_ID,
-        enabled: settings.studyTranslationEnabled,
+        enabled: settings.studyTranslationEnabled && !studyToolsCombined,
         priority: settings.studyTranslationPriority,
         name: "Translation"
       },
       {
         id: STUDY_GRAMMAR_SOURCE_ID,
-        enabled: settings.studyGrammarEnabled,
+        enabled: settings.studyGrammarEnabled && !studyToolsCombined,
         priority: settings.studyGrammarPriority,
         name: "Grammar"
       },
@@ -10949,7 +11260,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
   const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$p = Logger.scope("JpdbKanji");
+  const log$r = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -10960,11 +11271,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!key) return Promise.resolve(null);
       let promise = this.cache.get(key);
       if (!promise) {
-        log$p.debug("Lookup cache miss", { kanji: key });
+        log$r.debug("Lookup cache miss", { kanji: key });
         promise = this.fetchInfo(key);
         this.cache.set(key, promise);
       } else {
-        log$p.debug("Lookup cache hit", { kanji: key });
+        log$r.debug("Lookup cache hit", { kanji: key });
       }
       return promise;
     }
@@ -10972,7 +11283,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$p.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$r.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$7(action.url, {
         method: action.method,
         payload: action.payload
@@ -10982,14 +11293,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$7(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch((error) => {
-        log$p.warn("Kanji page request failed", { kanji }, error);
+        log$r.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
       if (info) {
         visibleJpdbKanjiActions(info).forEach((action) => this.actions.set(action.id, action));
       }
-      log$p.debug("Kanji info parsed", { kanji, found: Boolean(info) });
+      log$r.debug("Kanji info parsed", { kanji, found: Boolean(info) });
       return info;
     }
   }
@@ -11048,11 +11359,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const url = absoluteJpdbUrl(form.getAttribute("action") || `/kanji/${encodeURIComponent(kanji)}`);
       const submitters = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"]')).filter((submitter) => {
         var _a;
-        return cleanText$6(labelForControl(submitter)) && ((_a = submitter.getAttribute("type")) == null ? void 0 : _a.toLowerCase()) !== "button";
+        return cleanText$7(labelForControl(submitter)) && ((_a = submitter.getAttribute("type")) == null ? void 0 : _a.toLowerCase()) !== "button";
       });
       const controls = submitters.length ? submitters : [form];
       controls.forEach((control) => {
-        const label = cleanText$6(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
+        const label = cleanText$7(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
         if (!label) return;
         push({
           kanji,
@@ -11068,7 +11379,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
     menu.querySelectorAll("a[href]").forEach((link) => {
       if (link.closest("form")) return;
-      const label = cleanText$6(labelForControl(link));
+      const label = cleanText$7(labelForControl(link));
       if (!label) return;
       const url = absoluteJpdbUrl(link.getAttribute("href") ?? "");
       push({
@@ -11131,9 +11442,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function sectionText$1(doc, label) {
     var _a;
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$6(element2.textContent ?? "") === label);
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$7(element2.textContent ?? "") === label);
     const section = ((_a = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a.querySelector(".subsection")) ?? null;
-    const value = cleanText$6((section == null ? void 0 : section.textContent) ?? "");
+    const value = cleanText$7((section == null ? void 0 : section.textContent) ?? "");
     return isMissingSectionValue(value, section) ? "" : value;
   }
   function infoTableRows(doc) {
@@ -11141,7 +11452,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     doc.querySelectorAll(".cross-table tr").forEach((row) => {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length < 2) return;
-      const key = cleanText$6(cells[0].textContent ?? "");
+      const key = cleanText$7(cells[0].textContent ?? "");
       const value = cleanInfoTableValue(cells[1]);
       if (value) rows.set(key, value);
     });
@@ -11150,21 +11461,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function oldForms(doc) {
     const row = Array.from(doc.querySelectorAll(".cross-table tr")).find((item) => {
       var _a;
-      return cleanText$6(((_a = item.querySelector("td")) == null ? void 0 : _a.textContent) ?? "") === "Old form";
+      return cleanText$7(((_a = item.querySelector("td")) == null ? void 0 : _a.textContent) ?? "") === "Old form";
     });
-    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$6(link.textContent ?? "")).filter(Boolean);
+    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$7(link.textContent ?? "")).filter(Boolean);
   }
   function readings(doc) {
     const seen = /* @__PURE__ */ new Set();
     const entries = [];
     doc.querySelectorAll(".kanji-reading-list-common > div, .kanji-reading-list > div").forEach((row) => {
       const link = row.querySelector("a");
-      const reading = cleanText$6((link == null ? void 0 : link.textContent) ?? "");
+      const reading = cleanText$7((link == null ? void 0 : link.textContent) ?? "");
       if (!reading || seen.has(reading)) return;
       seen.add(reading);
       entries.push({
         reading,
-        share: cleanText$6(row.textContent ?? "").replace(reading, "").trim(),
+        share: cleanText$7(row.textContent ?? "").replace(reading, "").trim(),
         common: row.closest(".kanji-reading-list-common") !== null
       });
     });
@@ -11179,12 +11490,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function kanjiSectionEntries(doc, matchesLabel) {
     return Array.from(doc.querySelectorAll(".subsection-composed-of-kanji")).filter((section) => {
       var _a;
-      return matchesLabel(cleanText$6(((_a = section.querySelector(".subsection-label")) == null ? void 0 : _a.textContent) ?? ""));
+      return matchesLabel(cleanText$7(((_a = section.querySelector(".subsection-label")) == null ? void 0 : _a.textContent) ?? ""));
     }).flatMap((section) => Array.from(section.querySelectorAll(".subsection > div"))).map((element2) => {
       var _a, _b;
       return {
-        kanji: cleanText$6(((_a = element2.querySelector(".spelling")) == null ? void 0 : _a.textContent) ?? ""),
-        keyword: cleanText$6(((_b = element2.querySelector(".description")) == null ? void 0 : _b.textContent) ?? "")
+        kanji: cleanText$7(((_a = element2.querySelector(".spelling")) == null ? void 0 : _a.textContent) ?? ""),
+        keyword: cleanText$7(((_b = element2.querySelector(".description")) == null ? void 0 : _b.textContent) ?? "")
       };
     }).filter((component) => component.kanji && component.keyword);
   }
@@ -11196,7 +11507,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!link) return;
       const { expression, reading } = vocabularyFromHref(link.getAttribute("href") ?? "");
       const fallbackExpression = expression || textWithoutRuby(link);
-      const meaning = cleanText$6(((_a = element2.querySelector(".en")) == null ? void 0 : _a.textContent) ?? "");
+      const meaning = cleanText$7(((_a = element2.querySelector(".en")) == null ? void 0 : _a.textContent) ?? "");
       if (!JAPANESE_RE$3.test(fallbackExpression) || !meaning) return;
       entries.push({
         expression: fallbackExpression,
@@ -11212,11 +11523,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const parts = path.split("/").filter(Boolean);
     if (parts[0] !== "vocabulary") return { expression: "", reading: "" };
     return {
-      expression: decodePathPart$2(parts[2] ?? ""),
-      reading: decodePathPart$2(parts[3] ?? "")
+      expression: decodePathPart$3(parts[2] ?? ""),
+      reading: decodePathPart$3(parts[3] ?? "")
     };
   }
-  function decodePathPart$2(value) {
+  function decodePathPart$3(value) {
     try {
       return decodeURIComponent(value);
     } catch {
@@ -11226,19 +11537,19 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function textWithoutRuby(element2) {
     const clone = element2.cloneNode(true);
     clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
-    return cleanText$6(clone.textContent ?? "");
+    return cleanText$7(clone.textContent ?? "");
   }
   function metaKeyword(doc, kanji) {
     var _a;
     const description = ((_a = doc.querySelector('meta[name="description"]')) == null ? void 0 : _a.content) ?? "";
     const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
-    return cleanText$6((match == null ? void 0 : match[1]) ?? "");
+    return cleanText$7((match == null ? void 0 : match[1]) ?? "");
   }
-  function cleanText$6(value) {
+  function cleanText$7(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function cleanInfoTableValue(cell) {
-    return cleanText$6(cell.textContent ?? "").replace(/\s+\?$/, "");
+    return cleanText$7(cell.textContent ?? "").replace(/\s+\?$/, "");
   }
   function isMissingSectionValue(value, section) {
     const normalized = value.trim().toLowerCase();
@@ -11254,7 +11565,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const headers = method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : void 0;
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$p.debug("Kanji page request via userscript API");
+      log$r.debug("Kanji page request via userscript API");
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method,
@@ -11271,8 +11582,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         });
       });
     }
-    log$p.debug("Kanji page request via fetch");
-    return fetch(requestUrl2, {
+    const fetchUrl = publicFetchUrl$2(requestUrl2, method);
+    if (!fetchUrl) return Promise.reject(new Error("Cross-origin JPDB kanji request needs a userscript HTTP bridge."));
+    log$r.debug("Kanji page request via fetch");
+    return fetch(fetchUrl, {
       method,
       headers,
       body: method === "POST" ? body : void 0,
@@ -11283,15 +11596,193 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return response.text();
     });
   }
-  const log$o = Logger.scope("PopupRender");
+  function publicFetchUrl$2(url, method) {
+    try {
+      const target = new URL(url, location.href);
+      if (target.origin === location.origin) return target.href;
+      if (method === "GET" && isLoopbackPage$3()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
+      return null;
+    } catch {
+      return url;
+    }
+  }
+  function isLoopbackPage$3() {
+    return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+  }
+  function graphEllipseOffset(dx, dy, rx, ry) {
+    const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
+    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
+  }
+  function formatGraphCoordinate(value) {
+    return Number(value.toFixed(2)).toString();
+  }
+  function graphEdgePath(from, to, targetZone = "auto") {
+    const normalizedTargetZone = normalizeGraphAnchorZone(targetZone);
+    if (normalizedTargetZone === "auto" || normalizedTargetZone === "center") {
+      return graphAutoEdgePath(from, to);
+    }
+    const target = graphFixedAnchorPoint(to, normalizedTargetZone, 1.75);
+    const source = graphAutoBoundaryPoint(from, target, 0.8);
+    return {
+      d: `M${formatGraphCoordinate(source.x)} ${formatGraphCoordinate(source.y)} L${formatGraphCoordinate(target.x)} ${formatGraphCoordinate(target.y)}`,
+      points: [
+        graphLinePoint(source.x, source.y, target.x, target.y, 0.38),
+        graphLinePoint(source.x, source.y, target.x, target.y, 0.66)
+      ]
+    };
+  }
+  function graphAutoEdgePath(from, to) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const sourceOffset = graphEllipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
+    const targetOffset = graphEllipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
+    const x1 = from.x + dx * sourceOffset;
+    const y1 = from.y + dy * sourceOffset;
+    const x2 = to.x - dx * targetOffset;
+    const y2 = to.y - dy * targetOffset;
+    return {
+      d: `M${formatGraphCoordinate(x1)} ${formatGraphCoordinate(y1)} L${formatGraphCoordinate(x2)} ${formatGraphCoordinate(y2)}`,
+      points: [
+        graphLinePoint(x1, y1, x2, y2, 0.38),
+        graphLinePoint(x1, y1, x2, y2, 0.66)
+      ]
+    };
+  }
+  function graphAutoBoundaryPoint(from, to, padding) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const offset = graphEllipseOffset(dx, dy, from.rx + padding, from.ry + padding);
+    return {
+      x: from.x + dx * offset,
+      y: from.y + dy * offset
+    };
+  }
+  function graphFixedAnchorPoint(node, zone, padding) {
+    switch (zone) {
+      case "top":
+        return { x: node.x, y: node.y - node.ry - padding };
+      case "left":
+        return { x: node.x - node.rx - padding, y: node.y };
+      case "right":
+        return { x: node.x + node.rx + padding, y: node.y };
+      case "bottom":
+        return { x: node.x, y: node.y + node.ry + padding };
+    }
+    return { x: node.x, y: node.y };
+  }
+  function normalizeGraphAnchorZone(zone) {
+    if (zone === "upper") return "top";
+    if (zone === "lower") return "bottom";
+    return zone;
+  }
+  function graphLinePoint(x1, y1, x2, y2, t) {
+    return {
+      x: x1 + (x2 - x1) * t,
+      y: y1 + (y2 - y1) * t
+    };
+  }
+  function splitRtkElements$1(value) {
+    const seen = /* @__PURE__ */ new Set();
+    const elements = [];
+    value.split(/[、,;＋+]/).map(cleanRtkElementKeyword).filter(Boolean).forEach((keyword) => {
+      const key = rtkElementKey(keyword);
+      if (seen.has(key)) return;
+      seen.add(key);
+      elements.push(keyword);
+    });
+    return elements.slice(0, 16);
+  }
+  function cleanRtkElementKeyword(value) {
+    return value.replace(/\s+/g, " ").trim().replace(/\d+$/u, "").trim();
+  }
+  function rtkElementKey(value) {
+    return cleanRtkElementKeyword(value).toLowerCase().replace(/[’']/g, "");
+  }
+  const RTK_ELEMENT_GLYPH_FALLBACKS = /* @__PURE__ */ new Map([
+    ["heart", { glyph: "心", kanji: "心" }],
+    ["fishhook", { glyph: "乙", kanji: "乙" }],
+    ["fishguts", { glyph: "乙", kanji: "乙" }],
+    ["fish guts", { glyph: "乙", kanji: "乙" }],
+    ["stick", { glyph: "丨" }],
+    ["walking stick", { glyph: "丨" }],
+    ["drop", { glyph: "丶" }],
+    ["drops", { glyph: "丶" }],
+    ["a drop of", { glyph: "丶" }],
+    ["hook right", { glyph: "⺃" }],
+    ["hook (right)", { glyph: "⺃" }],
+    ["state of mind", { glyph: "⺖" }],
+    ["valentine", { glyph: "⺗" }],
+    ["animal legs", { glyph: "ハ" }],
+    ["human legs", { glyph: "儿" }],
+    ["wind", { glyph: "几" }],
+    ["bound up", { glyph: "勹" }],
+    ["bound up small", { glyph: "⺈" }],
+    ["bound up (small)", { glyph: "⺈" }],
+    ["horns", { glyph: "丷" }],
+    ["saber", { glyph: "⺉" }],
+    ["little", { glyph: "⺌" }],
+    ["cliff", { glyph: "厂" }],
+    ["water", { glyph: "⺡" }],
+    ["fire", { glyph: "⺣" }],
+    ["hood", { glyph: "冂" }],
+    ["house", { glyph: "宀" }],
+    ["flower", { glyph: "艹" }],
+    ["pack of wild dogs", { glyph: "⺨" }],
+    ["cow left", { glyph: "牜" }],
+    ["cow top", { glyph: "⺧" }],
+    ["umbrella", { glyph: "𠆢" }],
+    ["road", { glyph: "⻌" }],
+    ["walking legs", { glyph: "夂" }],
+    ["crown", { glyph: "冖" }],
+    ["top hat", { glyph: "亠" }],
+    ["taskmaster", { glyph: "攵" }],
+    ["fiesta", { glyph: "戈" }],
+    ["stretch", { glyph: "廴" }],
+    ["zoo", { glyph: "疋" }],
+    ["zoo left", { glyph: "⺪" }],
+    ["cloak", { glyph: "⻂" }],
+    ["ice left", { glyph: "冫" }],
+    ["ice bottom", { glyph: "⺀" }],
+    ["reclining", { glyph: "𠂉" }],
+    ["wings", { glyph: "羽", kanji: "羽" }],
+    ["feathers", { glyph: "羽", kanji: "羽" }],
+    ["person", { glyph: "⺅" }],
+    ["finger", { glyph: "扌" }],
+    ["two hands bottom", { glyph: "廾" }],
+    ["elbow", { glyph: "厶" }],
+    ["going", { glyph: "彳" }],
+    ["altar", { glyph: "⺭" }],
+    ["broom", { glyph: "彐" }],
+    ["broom old", { glyph: "⺔" }],
+    ["rake", { glyph: "⺺" }],
+    ["shovel", { glyph: "凵" }],
+    ["old man", { glyph: "耂" }],
+    ["cocoon", { glyph: "幺" }],
+    ["stamp", { glyph: "卩" }],
+    ["chop seal", { glyph: "ㄗ" }],
+    ["chop seal small", { glyph: "マ" }],
+    ["silver", { glyph: "艮" }],
+    ["sheaf", { glyph: "㐅" }],
+    ["cornucopia", { glyph: "丩" }],
+    ["key", { glyph: "ユ" }],
+    ["sickness", { glyph: "疒" }],
+    ["box", { glyph: "匚" }],
+    ["shape", { glyph: "彡" }],
+    ["row", { glyph: "业" }],
+    ["city walls right", { glyph: "⻏" }]
+  ]);
+  function rtkElementFallbackGlyph(keyword) {
+    return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
+  }
+  const log$q = Logger.scope("PopupRender");
   function pickTokenForSelection(tokens = [], selected) {
     const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
     if (exact) {
-      log$o.debug("Picked exact token for selection", { selected, vid: exact.card.vid, sid: exact.card.sid });
+      log$q.debug("Picked exact token for selection", { selected, vid: exact.card.vid, sid: exact.card.sid });
       return exact;
     }
     const fuzzy = tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
-    log$o.debug("Picked fuzzy token for selection", { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
+    log$q.debug("Picked fuzzy token for selection", { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
     return fuzzy;
   }
   function formatMetaFrequency(value) {
@@ -11320,7 +11811,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       group.push(entry);
       grouped.set(entry.dictionary, group);
     }
-    log$o.debug("Grouped term entries by dictionary", { entries: entries.length, dictionaries: grouped.size });
+    log$q.debug("Grouped term entries by dictionary", { entries: entries.length, dictionaries: grouped.size });
     return grouped;
   }
   function groupTermEntriesByHeadword(entries) {
@@ -11348,11 +11839,11 @@ ${reading}`;
       }
       grouped.set(key, group);
     }
-    log$o.debug("Grouped term entries by headword", { entries: entries.length, headwords: grouped.size });
+    log$q.debug("Grouped term entries by headword", { entries: entries.length, headwords: grouped.size });
     return [...grouped.values()];
   }
   function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
-    const elementKeywords = splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "");
+    const elementKeywords = splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((keyword) => rtkElementKey(keyword) !== rtkElementKey((rtkInfo == null ? void 0 : rtkInfo.keyword) ?? ""));
     const jpdbByKanji = new Map(((jpdbInfo == null ? void 0 : jpdbInfo.components) ?? []).map((component) => [component.kanji, component.keyword]));
     const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
     const summaries = [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter).map((kanji, index) => ({
@@ -11360,7 +11851,7 @@ ${reading}`;
       keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
       meaning: localByKanji.get(kanji) || ""
     }));
-    log$o.debug("Built RTK component summaries", { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
+    log$q.debug("Built RTK component summaries", { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
     return summaries;
   }
   function mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel2) {
@@ -11397,7 +11888,7 @@ ${entry.reading}`;
     const result = Array.from(words.values()).sort(
       (a, b) => compareOptionalNumber(a.frequency, b.frequency) || a.expression.length - b.expression.length || a.expression.localeCompare(b.expression)
     );
-    log$o.debug("Merged similar kanji words", { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
+    log$q.debug("Merged similar kanji words", { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
     return result;
   }
   function summarizeLearnerGlossary(entry) {
@@ -11456,8 +11947,52 @@ ${entry.reading}`;
     const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
     return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
   }
-  function splitRtkElements$1(value) {
-    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  function parseRtkElementChip(value) {
+    var _a;
+    const match = value.match(/^([^\sA-Za-z0-9])\s*(.+)$/u);
+    if (!match) return { keyword: value, glyph: "", kanji: "" };
+    const glyph = match[1] ?? "";
+    return { glyph, kanji: isKanjiCharacter(glyph) ? glyph : "", keyword: ((_a = match[2]) == null ? void 0 : _a.trim()) ?? "" };
+  }
+  function buildRtkElementChips(info, components2) {
+    const componentKanji = new Set(components2.map((component) => component.kanji).filter(Boolean));
+    const componentByKeyword = /* @__PURE__ */ new Map();
+    components2.forEach((component) => {
+      if (component.keyword) componentByKeyword.set(rtkElementKey(component.keyword), { glyph: component.kanji, kanji: component.kanji });
+    });
+    const chips = splitRtkElements$1(info.elements).map(parseRtkElementChip).filter((chip) => chip.keyword && rtkElementKey(chip.keyword) !== rtkElementKey(info.keyword)).map((chip) => {
+      var _a;
+      const inlineGlyph = chip.glyph && (!componentKanji.size || componentKanji.has(chip.kanji)) ? { glyph: chip.glyph, kanji: chip.kanji } : void 0;
+      const inferred = inlineGlyph ?? componentByKeyword.get(rtkElementKey(chip.keyword)) ?? ((_a = info.elementGlyphs) == null ? void 0 : _a[rtkElementKey(chip.keyword)]) ?? rtkElementFallbackGlyph(chip.keyword);
+      return {
+        keyword: chip.keyword,
+        glyph: (inferred == null ? void 0 : inferred.glyph) ?? "",
+        kanji: (inferred == null ? void 0 : inferred.kanji) ?? ""
+      };
+    });
+    const anchoredKanji = new Set(chips.map((chip) => chip.kanji).filter(Boolean));
+    const allKnownComponentsAnchored = componentKanji.size > 0 && [...componentKanji].every((kanji) => anchoredKanji.has(kanji));
+    return chips.map((chip, index) => {
+      if (chip.glyph) return chip;
+      const previous = lastAnchoredRtkChip(chips, index);
+      if (!previous) return chip;
+      const next = nextAnchoredRtkChip(chips, index);
+      return next || allKnownComponentsAnchored ? { ...chip, glyph: previous.glyph, kanji: previous.kanji } : chip;
+    });
+  }
+  function lastAnchoredRtkChip(chips, beforeIndex) {
+    var _a;
+    for (let index = beforeIndex - 1; index >= 0; index -= 1) {
+      if ((_a = chips[index]) == null ? void 0 : _a.kanji) return chips[index] ?? null;
+    }
+    return null;
+  }
+  function nextAnchoredRtkChip(chips, afterIndex) {
+    var _a;
+    for (let index = afterIndex + 1; index < chips.length; index += 1) {
+      if ((_a = chips[index]) == null ? void 0 : _a.kanji) return chips[index] ?? null;
+    }
+    return null;
   }
   function compareOptionalNumber(a, b) {
     if (a === void 0 && b === void 0) return 0;
@@ -11487,7 +12022,7 @@ ${entry.reading}`;
   }
   function renderKanjiOrigins(facts, graph, sourceInfo, settings, language, initiallyExpanded = settings.dictionarySourcesInitiallyExpanded, sourceStateKey) {
     if (!facts.length && (!graph || graph.nodes.length <= 1) && !(sourceInfo == null ? void 0 : sourceInfo.kanjiMap)) {
-      log$o.debug("Kanji origins render skipped", { reason: "no-origin-data" });
+      log$q.debug("Kanji origins render skipped", { reason: "no-origin-data" });
       return "";
     }
     const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
@@ -11521,7 +12056,7 @@ ${entry.reading}`;
     const nodeIds = new Set(nodeById.keys());
     const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))) ?? [];
     if (nodes.length <= 1 || !edges.length) {
-      log$o.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
+      log$q.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
       return "";
     }
     const current = nodes.find((node) => node.kind === "current") ?? nodes[0];
@@ -11533,7 +12068,7 @@ ${entry.reading}`;
     const outboundEdges = selectOriginOutboundEdgeGroups(groupedEdges, nodeById, current.id);
     const selectedEdges = [...primaryEdges, ...outboundEdges];
     if (!selectedEdges.length) {
-      log$o.debug("Kanji origin graph render skipped", { reason: "no-selected-edges", nodes: nodes.length, edges: edges.length });
+      log$q.debug("Kanji origin graph render skipped", { reason: "no-selected-edges", nodes: nodes.length, edges: edges.length });
       return "";
     }
     const connectedIds = /* @__PURE__ */ new Set([current.id]);
@@ -11546,7 +12081,7 @@ ${entry.reading}`;
     const visibleIds = new Set(visibleNodes.map((node) => node.id));
     const edgeGroups = selectedEdges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
     if (visibleNodes.length <= 1 || !edgeGroups.length) {
-      log$o.debug("Kanji origin graph render skipped", { reason: "no-visible-graph", visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
+      log$q.debug("Kanji origin graph render skipped", { reason: "no-visible-graph", visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
       return "";
     }
     const primaryIds = /* @__PURE__ */ new Set([current.id]);
@@ -11568,12 +12103,13 @@ ${entry.reading}`;
       const from = coords.get(edge.from);
       const to = coords.get(edge.to);
       if (!from || !to) return "";
-      const edgePath = clippedOriginEdgePath(from, to);
+      const targetZone = originEdgeTargetZone(edge, current.id, nodeById);
+      const edgePath = clippedOriginEdgePath(from, to, targetZone);
       const label = edge.labels.join(" / ");
-      const particles = originEdgeParticles(edgePath);
+      const particles = edgePath.points;
       const outbound = isOriginOutboundEdge(edge, current.id);
       const outboundAttrs = outbound ? ' data-origin-outbound="true"' : "";
-      return `<g class="jpdb-reader-origin-edge-group${outbound ? " outbound" : ""}" data-from="${escapeHtml$1(edge.from)}" data-to="${escapeHtml$1(edge.to)}" data-label="${escapeHtml$1(label)}"${outboundAttrs}>
+      return `<g class="jpdb-reader-origin-edge-group${outbound ? " outbound" : ""}" data-from="${escapeHtml$1(edge.from)}" data-to="${escapeHtml$1(edge.to)}" data-label="${escapeHtml$1(label)}" data-target-zone="${targetZone}"${outboundAttrs}>
                 <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml$1(label)}</title></path>
                 ${particles.map((point) => `<circle class="jpdb-reader-origin-edge-particle" cx="${formatGraphNumber(point.x)}" cy="${formatGraphNumber(point.y)}" r="0.55"></circle>`).join("")}
             </g>`;
@@ -11587,7 +12123,7 @@ ${entry.reading}`;
       }
       return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" ${attrs} title="${escapeHtml$1([node.detail, node.source].filter(Boolean).join(" · "))}">${escapeHtml$1(node.label)}</button>`;
     }).join("");
-    log$o.debug("Kanji origin graph rendered", { nodes: positioned.length, edges: edgeGroups.length });
+    log$q.debug("Kanji origin graph rendered", { nodes: positioned.length, edges: edgeGroups.length });
     return `
         <div class="${graphClass}" aria-label="${uiText(language, "originMapLabel")}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -11661,6 +12197,17 @@ ${entry.reading}`;
   }
   function isOriginOutboundEdge(edge, currentId) {
     return edge.from === currentId && edge.to !== currentId;
+  }
+  function originEdgeTargetZone(edge, currentId, nodeById) {
+    if (edge.to === currentId) {
+      const source = nodeById.get(edge.from);
+      return source ? inferInboundComponentZone(source) : "auto";
+    }
+    if (edge.from === currentId) {
+      const target = nodeById.get(edge.to);
+      return target ? inferOutboundComponentZone(currentId, target) : "auto";
+    }
+    return "auto";
   }
   function isNoisyOriginNode(node) {
     return SIMPLIFIED_ONLY_COMPONENTS.has(node.id) || SIMPLIFIED_ONLY_COMPONENTS.has(node.label);
@@ -11836,17 +12383,17 @@ ${entry.reading}`;
     const offset = (index - (total - 1) / 2) * 10;
     switch (zone) {
       case "top":
-        return { x: 38 + offset, y: 23 };
+        return { x: 50 + offset, y: 23 };
       case "upper":
-        return { x: 32 + offset, y: 36 };
+        return { x: 58 + offset, y: 35 };
       case "left":
         return { x: 24, y: 50 + offset };
       case "right":
-        return { x: 38, y: 50 + offset };
+        return { x: 76, y: 50 + offset };
       case "lower":
-        return { x: 32 + offset, y: 64 };
+        return { x: 58 + offset, y: 65 };
       case "bottom":
-        return { x: 38 + offset, y: 77 };
+        return { x: 50 + offset, y: 77 };
       case "center":
       default:
         return { x: 32, y: 50 + offset };
@@ -11898,56 +12445,14 @@ ${entry.reading}`;
     if (node.kind === "related") return { rx: Math.min(13, 7.2 + length * 1.2), ry: 12.8 };
     return { rx: Math.min(10.4, 7.4 + Math.max(0, length - 1) * 1.15), ry: 13 };
   }
-  function clippedOriginEdgePath(from, to) {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const sourceOffset = ellipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
-    const targetOffset = ellipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
-    const x1 = from.x + dx * sourceOffset;
-    const y1 = from.y + dy * sourceOffset;
-    const x2 = to.x - dx * targetOffset;
-    const y2 = to.y - dy * targetOffset;
-    const curve = edgeCurveControl(x1, y1, x2, y2);
-    return {
-      d: `M${formatGraphNumber(x1)} ${formatGraphNumber(y1)} Q${formatGraphNumber(curve.x)} ${formatGraphNumber(curve.y)} ${formatGraphNumber(x2)} ${formatGraphNumber(y2)}`,
-      x1,
-      y1,
-      cx: curve.x,
-      cy: curve.y,
-      x2,
-      y2
-    };
-  }
-  function ellipseOffset(dx, dy, rx, ry) {
-    const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
-    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
+  function clippedOriginEdgePath(from, to, targetZone) {
+    return graphEdgePath(from, to, targetZone);
   }
   function clampGraphValue(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
   function formatGraphNumber(value) {
     return Number(value.toFixed(2)).toString();
-  }
-  function originEdgeParticles(path) {
-    return [0.38, 0.66].map((t) => quadraticPoint(path.x1, path.y1, path.cx, path.cy, path.x2, path.y2, t));
-  }
-  function quadraticPoint(x1, y1, cx, cy, x2, y2, t) {
-    const mt = 1 - t;
-    return {
-      x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
-      y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2
-    };
-  }
-  function edgeCurveControl(x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bend = Math.min(4.6, Math.max(1.8, distance * 0.08));
-    const sign = y1 <= y2 ? 1 : -1;
-    return {
-      x: (x1 + x2) / 2 - dy / distance * bend * sign,
-      y: (y1 + y2) / 2 + dx / distance * bend * sign
-    };
   }
   function hashOriginGraphId(value) {
     let hash = 0;
@@ -12005,8 +12510,7 @@ ${entry.reading}`;
   }
   function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey) {
     if (!info) return "";
-    const elementKeywords = splitRtkElements$1(info.elements);
-    const componentByKeyword = new Map(components2.filter((component) => component.keyword).map((component) => [component.keyword.toLowerCase(), component.kanji]));
+    const elementChips = buildRtkElementChips(info, components2);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
             <summary class="jpdb-reader-local-title">RTK</summary>
@@ -12019,11 +12523,10 @@ ${entry.reading}`;
                     ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml$1(info.onYomi)}</span>` : ""}
                     ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml$1(info.kunYomi)}</span>` : ""}
                 </div>` : ""}
-                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
-                    ${elementKeywords.map((keyword, index) => {
-    var _a;
-    const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || ((_a = components2[index]) == null ? void 0 : _a.kanji);
-    return componentKanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(componentKanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${componentKanji}`)}"><strong>${escapeHtml$1(componentKanji)}</strong><span>${escapeHtml$1(keyword)}</span></button>` : `<span>${escapeHtml$1(keyword)}</span>`;
+                ${elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">
+                    ${elementChips.map((chip) => {
+    const content = `${chip.glyph ? `<strong>${escapeHtml$1(chip.glyph)}</strong>` : ""}<span>${escapeHtml$1(chip.keyword)}</span>`;
+    return chip.kanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(chip.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${chip.kanji}`)}">${content}</button>` : `<span>${content}</span>`;
   }).join("")}
                 </div>` : ""}
                 ${info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : ""}
@@ -12140,7 +12643,7 @@ ${entry.reading}`;
     return "odaka";
   }
   function renderJpdbDefinitionSource(card, sourceAttributes, info = null) {
-    const meanings = card.meanings.slice(0, 6).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning.glosses.join("; "))}</div>`).join("");
+    const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes);
     if (!meanings && !extras) return "";
     return `
@@ -12150,6 +12653,13 @@ ${entry.reading}`;
             ${extras}
         </details>
     `;
+  }
+  function jpdbDefinitionMeanings(card, info) {
+    if (card.source !== "local" && card.source !== "anki" && card.source !== "fallback") {
+      const cardMeanings = card.meanings.slice(0, 6).map((meaning) => meaning.glosses.join("; ").trim()).filter(Boolean);
+      if (cardMeanings.length) return cardMeanings;
+    }
+    return ((info == null ? void 0 : info.meanings) ?? []).slice(0, 6);
   }
   function renderJpdbVocabularyExtras(info, sourceAttributes) {
     if (!info || !info.compounds.length && !info.examples.length) return "";
@@ -12371,7 +12881,7 @@ ${entry.reading}`;
   const SEARCH_EXAMPLE_LIMIT = 250;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$n = Logger.scope("ImmersionKit");
+  const log$p = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_PROXY_PATH = "/__jpdb-reader-immersion-proxy";
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
@@ -12491,12 +13001,12 @@ ${entry.reading}`;
       });
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        log$n.debug("Search cache hit", { query, examples: cached.length });
+        log$p.debug("Search cache hit", { query, examples: cached.length });
         return cached;
       }
       const inflight = this.inflight.get(cacheKey);
       if (inflight) {
-        log$n.debug("Search joined in-flight request", { query });
+        log$p.debug("Search joined in-flight request", { query });
         return inflight;
       }
       const params = new URLSearchParams({
@@ -12506,12 +13016,12 @@ ${entry.reading}`;
       });
       if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
       if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
-      const done = log$n.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-      const promise = requestJson$1(apiUrls(`/search?${params}`), settings.audioTimeoutMs).then((data) => {
+      const done = log$p.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const promise = requestJson$2(apiUrls(`/search?${params}`), settings.audioTimeoutMs).then((data) => {
         const examples = collectExamples(data).map(normalizeExample).filter((example) => Boolean(example)).filter((example) => sentenceLength(example.sentence) >= this.minimumSentenceLength(settings)).filter((example) => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength).filter((example) => !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query));
         const result = examples;
         this.cache.set(cacheKey, result);
-        log$n.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
+        log$p.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
         return result;
       }).finally(() => {
         this.inflight.delete(cacheKey);
@@ -12552,9 +13062,9 @@ ${entry.reading}`;
       const query = term.trim();
       if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
       this.preloadKeys.add(query);
-      log$n.debug("Preload queued", { query });
+      log$p.debug("Preload queued", { query });
       void this.search(query, settings).then((examples) => {
-        log$n.debug("Preload search completed", { query, examples: examples.length });
+        log$p.debug("Preload search completed", { query, examples: examples.length });
         for (const example of examples.slice(0, 1)) {
           const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
           if (imageUrls.length) {
@@ -12563,14 +13073,14 @@ ${entry.reading}`;
               image.decoding = "async";
               image.loading = "eager";
               image.src = url;
-            }).catch((error) => log$n.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+            }).catch((error) => log$p.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
           }
           const soundUrls = this.mediaUrls(example, "sound");
           if (soundUrls.length) {
-            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$n.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$p.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
           }
         }
-      }).catch((error) => log$n.debug("Preload search failed quietly", { query }, error));
+      }).catch((error) => log$p.debug("Preload search failed quietly", { query }, error));
     }
     async fetchBlobUrl(url, timeoutMs) {
       const urls = Array.isArray(url) ? url : [url];
@@ -12578,13 +13088,13 @@ ${entry.reading}`;
       return this.mediaBlobUrlCache.getOrCreate(key, async () => {
         const blob = await requestFirstBlob(url, timeoutMs);
         const blobUrl = await createPageMediaUrl(blob);
-        log$n.debug("Media URL created", { host: safeHost$4(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith("data:") });
+        log$p.debug("Media URL created", { host: safeHost$4(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith("data:") });
         return blobUrl;
       });
     }
     async fetchDataUrl(url, timeoutMs) {
       const blob = await requestFirstBlob(url, timeoutMs);
-      log$n.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
+      log$p.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
       return blobToDataUrl$1(blob);
     }
   }
@@ -12686,7 +13196,7 @@ ${entry.reading}`;
   function normalizeForSurfaceMatch(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
-  async function requestJson$1(url, timeoutMs) {
+  async function requestJson$2(url, timeoutMs) {
     const urls = Array.isArray(url) ? url : [url];
     let lastError;
     for (const candidate of urls) {
@@ -12694,7 +13204,7 @@ ${entry.reading}`;
         return await requestJsonCandidate(candidate, timeoutMs);
       } catch (error) {
         lastError = error;
-        log$n.debug("JSON candidate failed; trying next", { host: safeHost$4(candidate) }, error);
+        log$p.debug("JSON candidate failed; trying next", { host: safeHost$4(candidate) }, error);
       }
     }
     throw lastError instanceof Error ? lastError : new Error("Immersion Kit request failed.");
@@ -12705,7 +13215,7 @@ ${entry.reading}`;
     if (userscriptRequest) {
       return requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest).catch((error) => {
         if (!canUsePageFetch(requestUrl2) || !isUserscriptTransportError(error)) throw error;
-        log$n.debug("JSON request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
+        log$p.debug("JSON request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
         return requestImmersionJsonViaFetch(requestUrl2, timeoutMs);
       });
     }
@@ -12720,7 +13230,7 @@ ${entry.reading}`;
     if (userscriptRequest) {
       return requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest).catch((error) => {
         if (!canUsePageFetch(requestUrl2) || !isUserscriptTransportError(error)) throw error;
-        log$n.debug("Media request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
+        log$p.debug("Media request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
         return requestImmersionBlobViaFetch(requestUrl2, timeoutMs);
       });
     }
@@ -12840,7 +13350,7 @@ ${entry.reading}`;
         return await requestBlob$2(url, timeoutMs);
       } catch (error) {
         lastError = error;
-        log$n.debugThrottled("media-candidate-failed", 5e3, "Media candidate failed; trying next", { host: safeHost$4(url), candidates: candidates.length }, error);
+        log$p.debugThrottled("media-candidate-failed", 5e3, "Media candidate failed; trying next", { host: safeHost$4(url), candidates: candidates.length }, error);
       }
     }
     throw lastError instanceof Error ? lastError : new Error("No Immersion Kit media candidate could be loaded.");
@@ -12877,7 +13387,7 @@ ${entry.reading}`;
     }
   }
   function proxiedImmersionKitUrl(url) {
-    if (!isLoopbackPage()) return url;
+    if (!isLoopbackPage$2()) return url;
     try {
       const target = new URL(url, location.href);
       const current = new URL(location.href);
@@ -12887,13 +13397,13 @@ ${entry.reading}`;
       return url;
     }
   }
-  function isLoopbackPage() {
+  function isLoopbackPage$2() {
     return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
   }
   function canUsePageFetch(url) {
     try {
       const target = new URL(url, location.href);
-      return target.origin === location.origin || isLoopbackPage();
+      return target.origin === location.origin || isLoopbackPage$2();
     } catch {
       return false;
     }
@@ -12968,7 +13478,7 @@ ${entry.reading}`;
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
-  const log$m = Logger.scope("ImmersionPopover");
+  const log$o = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       __publicField(this, "audioElement");
@@ -13001,7 +13511,7 @@ ${entry.reading}`;
         const stored2 = saveMiningContext(card.spelling, immersionContextFromElement(cleanSentence, immersionCard));
         if (stored2) {
           this.activeMiningContext = stored2;
-          log$m.debug("Mining context captured from Immersion Kit", { term: card.spelling, sourceTitle: stored2.sourceTitle });
+          log$o.debug("Mining context captured from Immersion Kit", { term: card.spelling, sourceTitle: stored2.sourceTitle });
         }
         return;
       }
@@ -13013,7 +13523,7 @@ ${entry.reading}`;
       const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
       if (stored) {
         this.activeMiningContext = stored;
-        log$m.debug("Mining context captured from page", { term: card.spelling, sourceKind });
+        log$o.debug("Mining context captured from page", { term: card.spelling, sourceKind });
       }
     }
     async loadExamples(popover, card, searchPromise = this.searchExamples(card)) {
@@ -13024,11 +13534,11 @@ ${entry.reading}`;
         const { examples } = result;
         if (!popover.isConnected || !container.isConnected) return;
         if (!examples.length) {
-          log$m.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
+          log$o.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
           this.renderEmpty(container);
           return;
         }
-        log$m.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
+        log$o.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
         let index = this.startIndex(card, examples);
         let renderRequest = 0;
         let hoverAudioCanPlay = false;
@@ -13105,7 +13615,7 @@ ${entry.reading}`;
         });
         render(index, false);
       } catch (error) {
-        log$m.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$o.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         if (!popover.isConnected || !container.isConnected) return;
         this.renderEmpty(container);
       }
@@ -13115,7 +13625,7 @@ ${entry.reading}`;
       const now = Date.now();
       const cached = this.searchResultCache.get(key);
       if (cached && cached.expiresAt > now) {
-        log$m.debug("Immersion Kit result cache hit", { term: card.spelling });
+        log$o.debug("Immersion Kit result cache hit", { term: card.spelling });
         return cached.promise;
       }
       const promise = this.fetchExamples(card, options).catch((error) => {
@@ -13138,7 +13648,7 @@ ${entry.reading}`;
         queued++;
         if (queued >= 2) break;
       }
-      if (queued) log$m.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
+      if (queued) log$o.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
     }
     stopAudio() {
       this.audioRequestId++;
@@ -13166,7 +13676,7 @@ ${entry.reading}`;
             };
           }
         } catch (error) {
-          log$m.debug("Immersion query failed, trying next query", {
+          log$o.debug("Immersion query failed, trying next query", {
             query,
             exactQuery,
             error: error instanceof Error ? error.message : String(error)
@@ -13201,7 +13711,7 @@ ${entry.reading}`;
       if (card.reading !== card.spelling) add(card.reading);
       if (this.options.canParseJapanese()) {
         const [tokens] = await this.options.parseJapanese([card.spelling]).catch((error) => {
-          log$m.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
+          log$o.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
           return [[]];
         });
         const tokenQueries = (tokens ?? []).map((token) => ({
@@ -13252,7 +13762,7 @@ ${entry.reading}`;
         if (promoteMiningContext || !this.activeMiningContext || this.activeMiningContext.term !== card.spelling) {
           this.activeMiningContext = storedContext;
         }
-        log$m.debug("Immersion mining context stored", {
+        log$o.debug("Immersion mining context stored", {
           term: card.spelling,
           sourceTitle: storedContext.sourceTitle,
           index,
@@ -13276,13 +13786,14 @@ ${entry.reading}`;
       delete container.dataset.immersionEmpty;
       setInnerHtml(container, `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${uiText(language, "immersionKit")}</span>
                 <span class="jpdb-reader-local-dict">${escapeHtml$1(sourceLabel2)} · ${index + 1}/${examples.length}</span>
-                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}" aria-label="${uiText(language, "previousExample")}">‹</button>
-                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, "playExampleAudio")}" aria-label="${uiText(language, "playExampleAudio")}">${speakerIcon()}</button>` : ""}
-                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, "nextExample")}" aria-label="${uiText(language, "nextExample")}">›</button>
-                </div>
             </summary>
+            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, "previousExample")}" aria-label="${uiText(language, "previousExample")}">‹</button>
+                ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, "playExampleAudio")}" aria-label="${uiText(language, "playExampleAudio")}">${speakerIcon()}</button>` : ""}
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, "nextExample")}" aria-label="${uiText(language, "nextExample")}">›</button>
+            </div>
             <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${examples.length}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(imageUrl)}">
                 <div class="jpdb-reader-example-body">
                     ${image}
@@ -13363,7 +13874,7 @@ ${entry.reading}`;
         void this.options.parsePopoverJapanese(container);
         void this.options.enrichAnkiWords(tokens ?? []);
         this.options.repositionPopover();
-      }).catch((error) => log$m.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
+      }).catch((error) => log$o.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
     }
     highlightTarget(sentence, card, searchQuery = "") {
       const cardVid = String(card.vid);
@@ -13389,14 +13900,14 @@ ${entry.reading}`;
       const urls = this.mediaUrls(example, "sound");
       const url = urls[0] ?? "";
       if (!url) {
-        log$m.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
+        log$o.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
         if (!quiet) this.options.toast("No Immersion Kit audio for this example.");
         return;
       }
       let requestId = 0;
       try {
         if (this.isAudioBusy(url)) {
-          log$m.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
+          log$o.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
           return;
         }
         requestId = ++this.audioRequestId;
@@ -13430,10 +13941,10 @@ ${entry.reading}`;
           this.clearAudio();
           return;
         }
-        log$m.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
+        log$o.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
       } catch (error) {
         if (!requestId || requestId === this.audioRequestId) this.clearAudio();
-        log$m.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
+        log$o.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
         if (!quiet) this.options.toast(error instanceof Error ? error.message : "Immersion Kit audio failed.");
       }
     }
@@ -13647,10 +14158,159 @@ ${entry.reading}`;
   function intersects(a, b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   }
+  const log$n = Logger.scope("HanabiraGrammar");
+  const HANABIRA_RAW_BASE = "https://raw.githubusercontent.com/tristcoil/hanabira.org/main/backend/express/json_data";
+  const HANABIRA_GRAMMAR_FILES = ["N5", "N4", "N3", "N2", "N1"].map((level) => `grammar_ja_JLPT_${level}_0001.json`);
+  const HANABIRA_CACHE_KEY = "yomu.hanabiraGrammarIndex.v1";
+  const HANABIRA_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
+  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const ROMAN_PLACEHOLDER_RE = /\b(?:A|B|Noun\d*|Nouns?|Verb|Verbs?|Adjective|Adjectives?|い-Adjective|な-Adjective|i-Adjective|na-Adjective|casual|plain|dictionary|form|stem|te|ta|ru|negative|volitional)\b/gi;
+  let grammarIndexPromise;
+  async function detectHanabiraGrammarHints(sentence) {
+    const index = await loadHanabiraGrammarIndex();
+    return detectHanabiraGrammarHintsFromIndex(sentence, index);
+  }
+  async function loadHanabiraGrammarIndex() {
+    if (grammarIndexPromise) return grammarIndexPromise;
+    grammarIndexPromise = loadHanabiraGrammarIndexUncached().catch((error) => {
+      grammarIndexPromise = void 0;
+      throw error;
+    });
+    return grammarIndexPromise;
+  }
+  function detectHanabiraGrammarHintsFromIndex(sentence, index) {
+    const normalized = normalizeGrammarText(sentence);
+    if (!normalized) return [];
+    const ranked = [];
+    for (const item of index) {
+      const match = bestCandidateMatch(normalized, item.candidates);
+      if (!match) continue;
+      ranked.push({
+        ruleId: hanabiraRuleId(item.title),
+        name: item.title,
+        level: item.level,
+        kind: "Hanabira grammar",
+        short: item.short || item.formation || item.title,
+        detail: item.detail || item.short || item.formation || item.title,
+        url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
+        match: match.candidate,
+        confidence: match.candidate.length >= 4 ? "high" : "medium",
+        index: match.index,
+        candidateLength: match.candidate.length
+      });
+    }
+    return ranked.sort((a, b) => a.index - b.index || b.candidateLength - a.candidateLength || grammarLevelRank(a.level) - grammarLevelRank(b.level)).slice(0, 10).map(({ candidateLength: _candidateLength, ...hint }) => hint);
+  }
+  function buildHanabiraGrammarIndex(points) {
+    return points.map((point) => {
+      const title = cleanText$6(point.title ?? "");
+      const formation = cleanText$6(point.formation ?? "");
+      const candidates = grammarCandidatesForPoint(title, formation);
+      if (!title || !candidates.length) return null;
+      return {
+        title,
+        short: cleanText$6(point.short_explanation ?? ""),
+        detail: cleanText$6(point.long_explanation ?? ""),
+        formation,
+        level: grammarLevelFromTag(point.p_tag),
+        candidates
+      };
+    }).filter((item) => Boolean(item));
+  }
+  function grammarCandidatesForPoint(title, formation) {
+    const candidates = /* @__PURE__ */ new Set();
+    for (const source of [title, formation]) {
+      const withoutRomaji = source.replace(/\([^ぁ-んァ-ン一-龯々〆ヵヶ]*\)/gu, " ");
+      for (const piece of withoutRomaji.split(/[,\n;|]/u)) {
+        const normalized = normalizeGrammarCandidate(piece);
+        addCandidateVariants(candidates, normalized);
+      }
+    }
+    return Array.from(candidates).filter((candidate) => candidate.length >= 3 && JAPANESE_TEXT_RE.test(candidate)).sort((a, b) => b.length - a.length || a.localeCompare(b)).slice(0, 8);
+  }
+  function addCandidateVariants(candidates, candidate) {
+    if (!candidate) return;
+    candidates.add(candidate);
+    if (candidate.startsWith("る") && candidate.length > 3) candidates.add(candidate.slice(1));
+  }
+  function normalizeGrammarCandidate(value) {
+    return normalizeGrammarText(value.replace(ROMAN_PLACEHOLDER_RE, " ").replace(/[A-Za-z0-9_+\-=~～「」『』"'()[\]{}<>]/gu, " ").replace(/[、。！？!?]/gu, " "));
+  }
+  function normalizeGrammarText(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, "").replace(/[+・]/gu, "").trim();
+  }
+  function bestCandidateMatch(sentence, candidates) {
+    let best = null;
+    for (const candidate of candidates) {
+      const index = sentence.indexOf(candidate);
+      if (index < 0) continue;
+      if (!best || index < best.index || index === best.index && candidate.length > best.candidate.length) {
+        best = { candidate, index };
+      }
+    }
+    return best;
+  }
+  async function loadHanabiraGrammarIndexUncached() {
+    const cached = await gmStorageGet(HANABIRA_CACHE_KEY, null);
+    if (cached && Date.now() - cached.fetchedAt < HANABIRA_CACHE_TTL_MS && Array.isArray(cached.items)) {
+      log$n.debug("Hanabira grammar index cache hit", { items: cached.items.length });
+      return cached.items;
+    }
+    const done = log$n.time("Load Hanabira grammar index");
+    try {
+      const files = await Promise.all(HANABIRA_GRAMMAR_FILES.map(async (file) => requestJson$1(`${HANABIRA_RAW_BASE}/${file}`)));
+      const items = buildHanabiraGrammarIndex(files.flat());
+      await gmStorageSet(HANABIRA_CACHE_KEY, { fetchedAt: Date.now(), items });
+      log$n.info("Hanabira grammar index loaded", { items: items.length });
+      return items;
+    } finally {
+      done();
+    }
+  }
+  function grammarLevelFromTag(tag) {
+    const match = tag == null ? void 0 : tag.match(/N([1-5])/i);
+    return match ? `N${match[1]}` : "Core";
+  }
+  function grammarLevelRank(level) {
+    return { Core: 0, N5: 1, N4: 2, N3: 3, N2: 4, N1: 5 }[level] ?? 9;
+  }
+  function hanabiraRuleId(title) {
+    const slug = title.normalize("NFKC").toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "");
+    return slug ? `hanabira-${slug}` : "hanabira-grammar";
+  }
+  function cleanText$6(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function requestJson$1(url) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+      return new Promise((resolve, reject) => {
+        userscriptRequest({
+          method: "GET",
+          url,
+          responseType: "json",
+          timeout: 1e4,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) {
+              resolve(response.response ?? JSON.parse(String(response.responseText ?? "null")));
+            } else {
+              reject(new Error(`Hanabira grammar request failed (${response.status}).`));
+            }
+          },
+          onerror: reject,
+          ontimeout: () => reject(new Error("Hanabira grammar request timed out."))
+        });
+      });
+    }
+    return fetch(url).then(async (response) => {
+      if (!response.ok) throw new Error(`Hanabira grammar request failed (${response.status}).`);
+      return response.json();
+    });
+  }
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const REQUEST_TIMEOUT_MS$1 = 3e4;
-  const log$l = Logger.scope("JpdbApi");
+  const log$m = Logger.scope("JpdbApi");
   class JpdbApiClient {
     constructor(getApiKey) {
       __publicField(this, "retryAfter", 0);
@@ -13663,34 +14323,34 @@ ${entry.reading}`;
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       if (!token) {
-        log$l.warn("Request blocked; JPDB API key is missing", { endpoint });
+        log$m.warn("Request blocked; JPDB API key is missing", { endpoint });
         throw new Error("JPDB API key is not set.");
       }
       if (Date.now() < this.retryAfter) {
-        log$l.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$m.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new Error("JPDB is rate limited. Try again in a moment.");
       }
-      const done = log$l.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$m.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await postJson(url, token, body);
       done();
-      log$l.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
+      log$m.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$l.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$m.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) {
-        log$l.warn("JPDB rejected API key", { endpoint });
+        log$m.warn("JPDB rejected API key", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$l.warn("JPDB request failed", { endpoint, status: response.status });
+        log$m.warn("JPDB request failed", { endpoint, status: response.status });
         throw new Error(`JPDB request failed (${response.status}).`);
       }
       if (options.response === "none" || !response.text) return void 0;
       const json = JSON.parse(response.text);
       if (json && typeof json === "object" && "error_message" in json && json.error_message) {
-        log$l.warn("JPDB returned application error", { endpoint, message: json.error_message });
+        log$m.warn("JPDB returned application error", { endpoint, message: json.error_message });
         throw new Error(json.error_message);
       }
       return json;
@@ -13747,7 +14407,7 @@ ${entry.reading}`;
     }
   }
   const COMBINING_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
-  const log$k = Logger.scope("JpdbParser");
+  const log$l = Logger.scope("JpdbParser");
   function jpdbVocabularyToCards(vocabulary2) {
     const cards = vocabulary2.map(([
       vid,
@@ -13778,13 +14438,13 @@ ${entry.reading}`;
       wordWithReading: null,
       source: "jpdb"
     }));
-    log$k.debug("Converted JPDB vocabulary to cards", { vocabulary: vocabulary2.length, cards: cards.length });
+    log$l.debug("Converted JPDB vocabulary to cards", { vocabulary: vocabulary2.length, cards: cards.length });
     return cards;
   }
   function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
     const tokens = rawTokens.map((innerTokens) => parseParagraphTokens(innerTokens, cards));
     assignSentenceInfo(paragraphs, tokens);
-    log$k.debug("Converted JPDB parse result to tokens", {
+    log$l.debug("Converted JPDB parse result to tokens", {
       paragraphs: paragraphs.length,
       tokenGroups: rawTokens.length,
       tokens: tokens.reduce((total, group) => total + group.length, 0),
@@ -13889,7 +14549,7 @@ ${entry.reading}`;
     if (tail) sentences.push(tail);
     const nonEmptySentences = sentences.filter(Boolean);
     const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-    log$k.debugThrottled("split-sentences", 1e3, "Split Japanese sentences", { textLength: text2.length, sentences: result.length });
+    log$l.debugThrottled("split-sentences", 1e3, "Split Japanese sentences", { textLength: text2.length, sentences: result.length });
     return result;
   }
   function getPitchClass(pitchAccent, reading) {
@@ -13936,7 +14596,7 @@ ${entry.reading}`;
     }
     card.wordWithReading = word.join("");
   }
-  const log$j = Logger.scope("LruCache");
+  const log$k = Logger.scope("LruCache");
   class LruCache {
     constructor(maxSize) {
       __publicField(this, "map", /* @__PURE__ */ new Map());
@@ -13947,9 +14607,9 @@ ${entry.reading}`;
       if (value !== void 0) {
         this.map.delete(key);
         this.map.set(key, value);
-        log$j.debugThrottled("cache-hit", 1e3, "LRU cache hit", { size: this.map.size, maxSize: this.maxSize });
+        log$k.debugThrottled("cache-hit", 1e3, "LRU cache hit", { size: this.map.size, maxSize: this.maxSize });
       } else {
-        log$j.debugThrottled("cache-miss", 1e3, "LRU cache miss", { size: this.map.size, maxSize: this.maxSize });
+        log$k.debugThrottled("cache-miss", 1e3, "LRU cache miss", { size: this.map.size, maxSize: this.maxSize });
       }
       return value;
     }
@@ -13960,13 +14620,13 @@ ${entry.reading}`;
         const oldest = this.map.keys().next().value;
         if (oldest !== void 0) {
           this.map.delete(oldest);
-          log$j.debug("LRU cache evicted oldest entry", { size: this.map.size, maxSize: this.maxSize });
+          log$k.debug("LRU cache evicted oldest entry", { size: this.map.size, maxSize: this.maxSize });
         }
       }
     }
     clear() {
       this.map.clear();
-      log$j.debug("LRU cache cleared", { maxSize: this.maxSize });
+      log$k.debug("LRU cache cleared", { maxSize: this.maxSize });
     }
   }
   const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
@@ -13985,7 +14645,7 @@ ${entry.reading}`;
   ];
   const DECK_FIELDS = ["id", "name"];
   const PARSE_CACHE_SIZE = 250;
-  const log$i = Logger.scope("JpdbClient");
+  const log$j = Logger.scope("JpdbClient");
   class JpdbClient {
     constructor(getApiKey) {
       __publicField(this, "api");
@@ -14000,12 +14660,12 @@ ${entry.reading}`;
       const cacheKey = text2.join("\n");
       const cached = this.parseCache.get(cacheKey);
       if (cached) {
-        log$i.debug("Parse cache hit", { paragraphs: text2.length, tokens: cached.reduce((sum, tokens) => sum + tokens.length, 0) });
+        log$j.debug("Parse cache hit", { paragraphs: text2.length, tokens: cached.reduce((sum, tokens) => sum + tokens.length, 0) });
         return cached;
       }
       const inFlight = this.parseInFlight.get(cacheKey);
       if (inFlight) {
-        log$i.debug("Parse in-flight cache hit", { paragraphs: text2.length, chars: cacheKey.length });
+        log$j.debug("Parse in-flight cache hit", { paragraphs: text2.length, chars: cacheKey.length });
         return inFlight;
       }
       const promise = this.fetchParse(text2, cacheKey);
@@ -14018,12 +14678,12 @@ ${entry.reading}`;
       return promise;
     }
     async reviewCard(card, grade) {
-      log$i.info("Reviewing card", { term: card.spelling, grade });
+      log$j.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
       await this.refreshCard(card);
     }
     async addToDeck(deckId, card, sentence) {
-      log$i.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$j.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       if (sentence) await this.setCardSentence(card, sentence);
       await this.refreshCard(card);
@@ -14031,12 +14691,12 @@ ${entry.reading}`;
     async listDecks() {
       const response = await this.api.request("list-user-decks", { fields: DECK_FIELDS });
       const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
-      log$i.debug("Decks listed", { decks: decks.length });
+      log$j.debug("Decks listed", { decks: decks.length });
       return decks;
     }
     async listDeckCards(deckId, limit = 80) {
       const id = normalizeDeckRequestId(deckId);
-      const done = log$i.time("listDeckCards", { deckId, limit });
+      const done = log$j.time("listDeckCards", { deckId, limit });
       const response = await this.api.request("deck/list-vocabulary", {
         id,
         fetch_occurences: false
@@ -14044,7 +14704,7 @@ ${entry.reading}`;
       const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
       if (!pairs.length) {
         done();
-        log$i.debug("Deck vocabulary list was empty", { deckId });
+        log$j.debug("Deck vocabulary list was empty", { deckId });
         return [];
       }
       const lookup = await this.api.request("lookup-vocabulary", {
@@ -14054,11 +14714,11 @@ ${entry.reading}`;
       const cards = jpdbVocabularyToCards(lookup.vocabulary_info ?? []);
       this.cacheCards(cards);
       done();
-      log$i.debug("Deck cards loaded", { deckId, requested: pairs.length, cards: cards.length });
+      log$j.debug("Deck cards loaded", { deckId, requested: pairs.length, cards: cards.length });
       return cards;
     }
     async removeFromDeck(deckId, card) {
-      log$i.info("Removing card from deck", { term: card.spelling, deckId });
+      log$j.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: deckId,
         vocabulary: [[card.vid, card.sid]]
@@ -14071,11 +14731,11 @@ ${entry.reading}`;
     clear() {
       this.cardCache.clear();
       this.parseCache.clear();
-      log$i.debug("Caches cleared");
+      log$j.debug("Caches cleared");
     }
     async addVocabularyToDeck(deckId, card) {
       if (deckId === "forq") {
-        log$i.debug("Adding card via JPDB prioritize endpoint", { term: card.spelling });
+        log$j.debug("Adding card via JPDB prioritize endpoint", { term: card.spelling });
         await this.api.requestByUrl("https://jpdb.io/prioritize", {
           v: card.vid,
           s: card.sid,
@@ -14094,7 +14754,7 @@ ${entry.reading}`;
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$i.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$j.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     async refreshCard(card) {
@@ -14104,12 +14764,12 @@ ${entry.reading}`;
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$i.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$j.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       this.cardCache.set(cardKey(card.vid, card.sid), fresh);
       Object.assign(card, fresh);
-      log$i.debug("Card refreshed", { term: card.spelling, state: fresh.cardState });
+      log$j.debug("Card refreshed", { term: card.spelling, state: fresh.cardState });
     }
     cacheCards(cards) {
       for (const card of cards) {
@@ -14117,7 +14777,7 @@ ${entry.reading}`;
       }
     }
     async fetchParse(text2, cacheKey) {
-      const done = log$i.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$j.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -14129,7 +14789,7 @@ ${entry.reading}`;
         const tokens = jpdbParseResultToTokens(text2, raw.tokens, cards);
         this.cacheCards(cards);
         this.parseCache.set(cacheKey, tokens);
-        log$i.debug("Parse completed", {
+        log$j.debug("Parse completed", {
           paragraphs: tokens.length,
           tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
           cards: cards.length
@@ -14219,7 +14879,7 @@ ${entry.reading}`;
     return scored.length ? scored.reduce((sum, value) => sum + value, 0) / scored.length : 0;
   }
   const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
-  const log$h = Logger.scope("KanjiVG");
+  const log$i = Logger.scope("KanjiVG");
   class KanjiVGClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -14229,23 +14889,23 @@ ${entry.reading}`;
       if (!character) return Promise.resolve(null);
       let promise = this.cache.get(character);
       if (!promise) {
-        log$h.debug("Lookup cache miss", { kanji: character });
+        log$i.debug("Lookup cache miss", { kanji: character });
         promise = this.fetchSvg(character);
         this.cache.set(character, promise);
       } else {
-        log$h.debug("Lookup cache hit", { kanji: character });
+        log$i.debug("Lookup cache hit", { kanji: character });
       }
       return promise;
     }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$6(url).catch((error) => {
-        log$h.warn("Stroke-order request failed", { kanji }, error);
+        log$i.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
       const info = parseKanjiVGSvg(svgText, kanji);
-      log$h.debug("Stroke-order SVG parsed", { kanji, found: Boolean(info), strokes: (info == null ? void 0 : info.strokeCount) ?? 0 });
+      log$i.debug("Stroke-order SVG parsed", { kanji, found: Boolean(info), strokes: (info == null ? void 0 : info.strokeCount) ?? 0 });
       return info;
     }
   }
@@ -14258,6 +14918,7 @@ ${entry.reading}`;
     const sourceSvg = doc.querySelector("svg");
     if (!sourceSvg) return null;
     const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
+    const componentPositions = readKanjiVGComponentPositions(sourceSvg, kanji);
     const paths = Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => {
       const d = path.getAttribute("d");
       if (!d || !/^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/.test(d)) return "";
@@ -14274,7 +14935,39 @@ ${entry.reading}`;
         <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
         <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
     </svg>`;
-    return { kanji, svg, strokeCount: paths.length };
+    return { kanji, svg, strokeCount: paths.length, componentPositions };
+  }
+  function readKanjiVGComponentPositions(sourceSvg, kanji) {
+    const root = Array.from(sourceSvg.querySelectorAll("g")).find((group) => group.getAttribute("kvg:element") === kanji);
+    const positions = /* @__PURE__ */ new Map();
+    const add = (entry) => {
+      const key = `${entry.component}\0${entry.original ?? ""}\0${entry.position}`;
+      const existing = positions.get(key);
+      if (!existing || !existing.direct && entry.direct) positions.set(key, entry);
+    };
+    Array.from(sourceSvg.querySelectorAll("g")).forEach((group) => {
+      const component = cleanComponent(group.getAttribute("kvg:element") ?? "");
+      if (!component || component === kanji) return;
+      const position = cleanComponent(group.getAttribute("kvg:position") ?? inheritedKanjiVGPosition(group, root));
+      if (!position) return;
+      const original = cleanComponent(group.getAttribute("kvg:original") ?? "");
+      const direct = Boolean(root && group.parentNode === root);
+      add({ component, original: original || void 0, position, direct });
+      if (original && original !== component) add({ component: original, original: component, position, direct });
+    });
+    return Array.from(positions.values());
+  }
+  function inheritedKanjiVGPosition(group, root) {
+    let parent = group.parentElement;
+    while (parent && parent !== root) {
+      const position = parent.getAttribute("kvg:position");
+      if (position) return position;
+      parent = parent.parentElement;
+    }
+    return "";
+  }
+  function cleanComponent(value) {
+    return value.replace(/\s+/g, " ").trim();
   }
   function requestText$6(url) {
     const userscriptRequest = getUserscriptHttpRequest();
@@ -14322,7 +15015,7 @@ ${entry.reading}`;
     let ghostAvailable = Boolean(glyph);
     let traceVisible = false;
     let canvasRect = canvas.getBoundingClientRect();
-    let strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text") || "#111";
+    let strokeStyle = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim() || getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text").trim() || "#111";
     let guideStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-border") || "rgba(128,128,128,0.35)";
     const cleanup = [];
     const add = (target, type, listener, addOptions) => {
@@ -14450,7 +15143,7 @@ ${entry.reading}`;
       drawing = true;
       pointerId = event.pointerId;
       canvasRect = canvas.getBoundingClientRect();
-      strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text") || "#111";
+      strokeStyle = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim() || getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text").trim() || "#111";
       guideStyle = getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-border") || guideStyle;
       current = [point(event)];
       try {
@@ -14906,8 +15599,8 @@ ${glossaryKey}`;
     if (linkToVocabulary) {
       const parts = linkToVocabulary.pathname.split("/").filter(Boolean);
       if (parts[0] === "vocabulary" && parts[2]) {
-        const term = decodePathPart$1(parts[2]);
-        return { term, reading: decodePathPart$1(parts[3] ?? "") || term };
+        const term = decodePathPart$2(parts[2]);
+        return { term, reading: decodePathPart$2(parts[3] ?? "") || term };
       }
     }
     const text2 = cleanText$5(extractBaseText(root));
@@ -14928,15 +15621,15 @@ ${glossaryKey}`;
   }
   function extractTermFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
-    if (parts[0] === "vocabulary" && parts[2]) return decodePathPart$1(parts[2]);
-    if (parts[0] === "kanji" && parts[1]) return decodePathPart$1(parts[1]);
+    if (parts[0] === "vocabulary" && parts[2]) return decodePathPart$2(parts[2]);
+    if (parts[0] === "kanji" && parts[1]) return decodePathPart$2(parts[1]);
     return "";
   }
   function extractReadingFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
-    return parts[0] === "vocabulary" && parts[3] ? decodePathPart$1(parts[3]) : "";
+    return parts[0] === "vocabulary" && parts[3] ? decodePathPart$2(parts[3]) : "";
   }
-  function decodePathPart$1(value) {
+  function decodePathPart$2(value) {
     try {
       return decodeURIComponent(value);
     } catch {
@@ -14994,7 +15687,7 @@ ${glossaryKey}`;
   }
   function vocabularyPathTerm(pathname) {
     const parts = pathname.split("/").filter(Boolean);
-    return parts[0] === "vocabulary" && parts[2] ? decodePathPart$1(parts[2]) : "";
+    return parts[0] === "vocabulary" && parts[2] ? decodePathPart$2(parts[2]) : "";
   }
   function uniqueLookupValues(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -15023,7 +15716,7 @@ ${glossaryKey}`;
   const SOURCE_STATE_STORAGE_PREFIX = "yomu-jpdb-source-open:";
   const UCHISEN_STAR_PREFIX = "yomu-jpdb-uchisen-star:";
   const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
-  const log$g = Logger.scope("JpdbExtensions");
+  const log$h = Logger.scope("JpdbExtensions");
   let immersionAddonAudio;
   let immersionAddonAudioBlobUrl = "";
   let immersionAddonAudioKey = "";
@@ -15056,7 +15749,7 @@ ${glossaryKey}`;
         this.schedule(urlChanged ? 80 : 260);
       });
       this.observer.observe(document.documentElement, { childList: true, subtree: true });
-      log$g.info("JPDB page add-ons initialized", { href: location.href });
+      log$h.info("JPDB page add-ons initialized", { href: location.href });
     }
     destroy() {
       var _a;
@@ -15067,20 +15760,20 @@ ${glossaryKey}`;
       if (!isJpdbHost()) return;
       this.resetSeenKeys();
       this.schedule(40);
-      log$g.debug("JPDB page add-ons refresh scheduled");
+      log$h.debug("JPDB page add-ons refresh scheduled");
     }
-    schedule(delay) {
+    schedule(delay2) {
       window.clearTimeout(this.timer);
-      this.timer = window.setTimeout(() => this.run(), delay);
+      this.timer = window.setTimeout(() => this.run(), delay2);
     }
     run() {
       const settings = this.options.getSettings();
       if (!settings.jpdbExtensionsEnabled) {
         this.removeAll();
-        log$g.debug("JPDB page add-ons disabled; removed all add-ons");
+        log$h.debug("JPDB page add-ons disabled; removed all add-ons");
         return;
       }
-      log$g.debugThrottled("run", 2500, "JPDB page add-ons scan", {
+      log$h.debugThrottled("run", 2500, "JPDB page add-ons scan", {
         isKanjiPage: isKanjiPage(),
         isReviewPage: isReviewPage(),
         isReviewAnswer: isReviewAnswer(),
@@ -15194,7 +15887,7 @@ ${glossaryKey}`;
     }
     rememberReviewExamplesOpen(open) {
       gmStorageSetSync(REVIEW_EXAMPLES_STORAGE_KEY, open);
-      log$g.debug("JPDB review examples open state remembered", { open });
+      log$h.debug("JPDB review examples open state remembered", { open });
     }
     restoreReviewUiTweak() {
       document.documentElement.classList.remove("yomu-jpdb-review-compact-nav");
@@ -15231,7 +15924,7 @@ ${glossaryKey}`;
         `);
       insertAfter(anchor, container);
       const info = await this.options.rtk.lookup(kanji).catch((error) => {
-        log$g.warn("JPDB add-on RTK lookup failed", { kanji }, error);
+        log$h.warn("JPDB add-on RTK lookup failed", { kanji }, error);
         return null;
       });
       if (!container.isConnected || this.rtkKanji !== kanji) return;
@@ -15240,7 +15933,7 @@ ${glossaryKey}`;
         container.remove();
         return;
       }
-      log$g.debug("JPDB add-on RTK rendered", { kanji });
+      log$h.debug("JPDB add-on RTK rendered", { kanji });
       setInnerHtml(container, renderRtkPanel(info, !isReviewPage(), this.sourceStateAttributes(`rtk:${kanji}`, !isReviewPage())));
       this.installSourceStateTracking(container);
     }
@@ -15262,7 +15955,7 @@ ${glossaryKey}`;
         `);
       insertAfter(anchor, container);
       const images = await loadUchisenImages(kanji).catch((error) => {
-        log$g.warn("Uchisen request failed", { kanji }, error);
+        log$h.warn("Uchisen request failed", { kanji }, error);
         return null;
       });
       if (!container.isConnected || this.uchisenKanji !== kanji) return;
@@ -15272,11 +15965,11 @@ ${glossaryKey}`;
       }
       if (!images.length) {
         this.uchisenEmptyKanji.add(kanji);
-        log$g.debug("No Uchisen images found", { kanji });
+        log$h.debug("No Uchisen images found", { kanji });
         container.remove();
         return;
       }
-      log$g.debug("Uchisen images loaded", { kanji, images: images.length });
+      log$h.debug("Uchisen images loaded", { kanji, images: images.length });
       this.uchisenCleanup = await installUchisenCarousel(container, kanji, images, {
         sourceAttributes: this.sourceStateAttributes(`uchisen:${kanji}`, !isReviewPage()),
         detailsClass: "jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source",
@@ -15308,13 +16001,13 @@ ${glossaryKey}`;
       if (!container.isConnected || this.immersionKey !== key) return;
       const { examples, query } = result;
       if (!examples.length) {
-        log$g.debug("JPDB add-on Immersion Kit returned no examples", { term: target.term, queries: target.queries });
+        log$h.debug("JPDB add-on Immersion Kit returned no examples", { term: target.term, queries: target.queries });
         setInnerHtml(container, `
                 <div class="jpdb-reader-help">No examples found for ${escapeHtml$1(target.term)}.</div>
             `);
         return;
       }
-      log$g.debug("JPDB add-on Immersion Kit rendered", { term: target.term, query, examples: examples.length });
+      log$h.debug("JPDB add-on Immersion Kit rendered", { term: target.term, query, examples: examples.length });
       let index = savedImmersionIndex(query, examples.length);
       let navigationRequestId = 0;
       const render = (prefetchedImageSrc) => renderImmersionPanel(
@@ -15344,7 +16037,7 @@ ${glossaryKey}`;
           if (!sentenceElement) return;
           setInnerHtml(sentenceElement, renderTokensToHtml(sentence, tokens ?? [], this.options.getSettings()));
           highlightImmersionTerm(sentenceElement, query);
-        }).catch((error) => log$g.debug("JPDB add-on Immersion example parse failed quietly", { term: query }, error));
+        }).catch((error) => log$h.debug("JPDB add-on Immersion example parse failed quietly", { term: query }, error));
       };
       container.addEventListener("click", (event) => {
         const translation = event.target.closest(".jpdb-reader-example-translation");
@@ -15456,7 +16149,7 @@ ${glossaryKey}`;
             `);
         this.installSourceStateTracking(container);
         this.insertTermAddon(target.anchor, container, LOCAL_DICTIONARIES_SLOT);
-        log$g.debug("JPDB add-on local dictionaries rendered", { term: target.term, entries: entries.length });
+        log$h.debug("JPDB add-on local dictionaries rendered", { term: target.term, entries: entries.length });
       }
     }
     async searchImmersionExamples(target) {
@@ -15464,7 +16157,7 @@ ${glossaryKey}`;
       const pageExamples = jpdbPageExamplesToImmersionKit(target);
       for (const query of target.queries) {
         const examples = await this.options.immersionKit.search(query, this.options.getSettings()).catch((error) => {
-          log$g.warn("JPDB add-on Immersion Kit search failed", { term: target.term, query }, error);
+          log$h.warn("JPDB add-on Immersion Kit search failed", { term: target.term, query }, error);
           return [];
         });
         const accurateExamples = requireOriginalSurface ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, target.term)) : examples;
@@ -15481,7 +16174,7 @@ ${glossaryKey}`;
       for (let index = 0; index < variants.length; index++) {
         const variant = variants[index];
         const found = await this.options.dictionaries.lookup(variant.term, variant.reading, limit, settings.dictionaryPreferences).catch((error) => {
-          log$g.warn("JPDB add-on local dictionary lookup failed", { term: variant.term, reading: variant.reading, original: target.term }, error);
+          log$h.warn("JPDB add-on local dictionary lookup failed", { term: variant.term, reading: variant.reading, original: target.term }, error);
           return [];
         });
         for (const entry of found) {
@@ -15538,9 +16231,9 @@ ${glossaryKey}`;
       const card = jpdbAudioCard(term, reading);
       try {
         await this.options.audio.play(card);
-        log$g.debug("JPDB page Yomu audio started", { term });
+        log$h.debug("JPDB page Yomu audio started", { term });
       } catch (error) {
-        log$g.warn("JPDB page Yomu audio failed", { term }, error);
+        log$h.warn("JPDB page Yomu audio failed", { term }, error);
       }
     }
     sourceStateAttributes(key, fallback = this.options.getSettings().dictionarySourcesInitiallyExpanded) {
@@ -15558,7 +16251,7 @@ ${glossaryKey}`;
         if (!details || !key) return;
         this.sourceOpenOverrides.set(key, details.open);
         storageSetSync(`${SOURCE_STATE_STORAGE_PREFIX}${key}`, details.open);
-        log$g.debug("JPDB add-on source open state remembered", { key, open: details.open });
+        log$h.debug("JPDB add-on source open state remembered", { key, open: details.open });
       }, true);
     }
     renderDoodle() {
@@ -15723,7 +16416,7 @@ ${glossaryKey}`;
         currentImageUrl = url;
         image.src = url;
       }).catch((error) => {
-        log$g.debug("Uchisen image load failed quietly", { kanji }, error);
+        log$h.debug("Uchisen image load failed quietly", { kanji }, error);
         if (image.isConnected) image.remove();
       });
     };
@@ -15763,13 +16456,14 @@ ${glossaryKey}`;
     setInnerHtml(container, `
             <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-immersion-group" ${sourceStateAttributes}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">Immersion Kit</span>
                 <span class="jpdb-reader-local-dict">${escapeHtml$1(example.sourceTitle)} · ${index + 1}/${examples.length}</span>
-                <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="Previous example" aria-label="Previous example">‹</button>
-                    ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="Play example audio" aria-label="Play example audio">${speakerIcon()}</button>` : ""}
-                    <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="Next example" aria-label="Next example">›</button>
-                </div>
             </summary>
+            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="Previous example" aria-label="Previous example">‹</button>
+                ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="Play example audio" aria-label="Play example audio">${speakerIcon()}</button>` : ""}
+                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="Next example" aria-label="Next example">›</button>
+            </div>
             <div class="jpdb-reader-local-glossary">
                 <div class="jpdb-reader-example-card ${image ? "has-image" : ""}">
                     <div class="jpdb-reader-example-body">
@@ -15992,7 +16686,7 @@ ${glossaryKey}`;
     return new Promise((resolve, reject) => {
       const userscriptRequest = getUserscriptHttpRequest();
       if (userscriptRequest) {
-        log$g.debug("Text request via userscript API", { host: safeHost$3(url) });
+        log$h.debug("Text request via userscript API", { host: safeHost$3(url) });
         userscriptRequest({
           method: "GET",
           url,
@@ -16006,7 +16700,7 @@ ${glossaryKey}`;
         });
         return;
       }
-      log$g.debug("Text request via fetch", { host: safeHost$3(url) });
+      log$h.debug("Text request via fetch", { host: safeHost$3(url) });
       fetch(url).then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -16020,7 +16714,7 @@ ${glossaryKey}`;
     return new Promise((resolve, reject) => {
       const userscriptRequest = getUserscriptHttpRequest();
       if (userscriptRequest) {
-        log$g.debug("Blob request via userscript API", { host: safeHost$3(url) });
+        log$h.debug("Blob request via userscript API", { host: safeHost$3(url) });
         userscriptRequest({
           method: "GET",
           url,
@@ -16035,7 +16729,7 @@ ${glossaryKey}`;
         });
         return;
       }
-      log$g.debug("Blob request via fetch", { host: safeHost$3(url) });
+      log$h.debug("Blob request via fetch", { host: safeHost$3(url) });
       fetch(url).then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.blob();
@@ -16069,10 +16763,10 @@ ${glossaryKey}`;
       return "invalid-url";
     }
   }
-  const JPDB_SEARCH_URL = "https://jpdb.io/search";
+  const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
   const REQUEST_TIMEOUT_MS = 6e3;
   const SMALL_KANA = new Set("ゃゅょャュョァィゥェォ");
-  const log$f = Logger.scope("JpdbPublicPitch");
+  const log$g = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -16091,30 +16785,30 @@ ${normalizedReading}`;
       return promise;
     }
     async fetchPitch(spelling, reading) {
-      for (const query of unique([spelling, reading].filter(Boolean))) {
-        const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+      for (const query of unique$1([spelling, reading].filter(Boolean))) {
+        const url = `${JPDB_SEARCH_URL$1}?q=${encodeURIComponent(query)}`;
         const html = await requestText$4(url).catch((error) => {
-          log$f.warn("Public JPDB pitch request failed", { query }, error);
+          log$g.warn("Public JPDB pitch request failed", { query }, error);
           return "";
         });
         const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
         if (pitch.length) {
-          log$f.debug("Public JPDB pitch loaded", { spelling, reading, query, pitch });
+          log$g.debug("Public JPDB pitch loaded", { spelling, reading, query, pitch });
           return pitch;
         }
       }
-      log$f.debug("Public JPDB pitch not found", { spelling, reading });
+      log$g.debug("Public JPDB pitch not found", { spelling, reading });
       return [];
     }
   }
   function parseJpdbPublicPitchHtml(html, spelling = "", reading = "") {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const roots = Array.from(doc.querySelectorAll(".result.vocabulary"));
-    const matchingRoots = roots.filter((root) => vocabularyRootMatches(root, spelling, reading));
+    const matchingRoots = roots.filter((root) => vocabularyRootMatches$1(root, spelling, reading));
     const hasRequestedIdentity = Boolean(cleanText$4(spelling) || cleanText$4(reading));
-    const candidates = matchingRoots.length ? matchingRoots : !hasRequestedIdentity && roots.length === 1 || documentMatchesVocabulary(doc, spelling, reading) ? [roots[0] ?? doc] : [];
+    const candidates = matchingRoots.length ? matchingRoots : !hasRequestedIdentity && roots.length === 1 || documentMatchesVocabulary$1(doc, spelling, reading) ? [roots[0] ?? doc] : [];
     const patterns = candidates.flatMap(readPitchPatterns).filter(Boolean);
-    return unique(patterns);
+    return unique$1(patterns);
   }
   function readPitchPatterns(root) {
     const patterns = [];
@@ -16133,33 +16827,33 @@ ${normalizedReading}`;
     if (!level) return "";
     return level.repeat(splitMorae(cleanText$4(segment.textContent ?? "")).length);
   }
-  function vocabularyRootMatches(root, spelling, reading) {
-    return vocabularyIdentities(root).some((identity) => vocabularyIdentityMatches(identity, spelling, reading));
+  function vocabularyRootMatches$1(root, spelling, reading) {
+    return vocabularyIdentities$1(root).some((identity) => vocabularyIdentityMatches$1(identity, spelling, reading));
   }
-  function documentMatchesVocabulary(doc, spelling, reading) {
+  function documentMatchesVocabulary$1(doc, spelling, reading) {
     var _a;
     const canonical = ((_a = doc.querySelector('link[rel="canonical"][href*="/vocabulary/"]')) == null ? void 0 : _a.href) ?? "";
-    const identity = vocabularyIdentityFromUrl(canonical);
-    return identity ? vocabularyIdentityMatches(identity, spelling, reading) : false;
+    const identity = vocabularyIdentityFromUrl$1(canonical);
+    return identity ? vocabularyIdentityMatches$1(identity, spelling, reading) : false;
   }
-  function vocabularyIdentities(root) {
-    return Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).filter((link) => !link.closest(".subsection-used-in, .subsection-examples")).map((link) => vocabularyIdentityFromUrl(link.href || link.getAttribute("href") || "")).filter((identity) => identity !== null);
+  function vocabularyIdentities$1(root) {
+    return Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).filter((link) => !link.closest(".subsection-used-in, .subsection-examples")).map((link) => vocabularyIdentityFromUrl$1(link.href || link.getAttribute("href") || "")).filter((identity) => identity !== null);
   }
-  function vocabularyIdentityFromUrl(value) {
+  function vocabularyIdentityFromUrl$1(value) {
     if (!value) return null;
     try {
       const parsed = new URL(value, "https://jpdb.io");
       const parts = parsed.pathname.split("/").filter(Boolean);
       if (parts[0] !== "vocabulary") return null;
       return {
-        expression: decodePathPart(parts[2] ?? ""),
-        reading: decodePathPart(parts[3] ?? "")
+        expression: decodePathPart$1(parts[2] ?? ""),
+        reading: decodePathPart$1(parts[3] ?? "")
       };
     } catch {
       return null;
     }
   }
-  function vocabularyIdentityMatches(identity, spelling, reading) {
+  function vocabularyIdentityMatches$1(identity, spelling, reading) {
     const requestedSpelling = cleanText$4(spelling);
     const requestedReading = cleanText$4(reading);
     const expression = cleanText$4(identity.expression);
@@ -16178,7 +16872,7 @@ ${normalizedReading}`;
     }
     return morae;
   }
-  function decodePathPart(value) {
+  function decodePathPart$1(value) {
     try {
       return decodeURIComponent(value);
     } catch {
@@ -16188,7 +16882,7 @@ ${normalizedReading}`;
   function cleanText$4(value) {
     return value.replace(/\s+/g, "").trim();
   }
-  function unique(values) {
+  function unique$1(values) {
     return [...new Set(values)];
   }
   function requestText$4(url) {
@@ -16208,10 +16902,27 @@ ${normalizedReading}`;
         });
       });
     }
-    return fetch(url).then((response) => {
+    const fetchUrl = publicFetchUrl$1(url);
+    if (!fetchUrl) {
+      return Promise.reject(new Error("Cross-origin JPDB public request needs a userscript HTTP bridge."));
+    }
+    return fetch(fetchUrl).then((response) => {
       if (!response.ok) throw new Error(`Public JPDB pitch request failed (${response.status}).`);
       return response.text();
     });
+  }
+  function publicFetchUrl$1(url) {
+    try {
+      const target = new URL(url, location.href);
+      if (target.origin === location.origin) return target.href;
+      if (isLoopbackPage$1()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
+      return null;
+    } catch {
+      return url;
+    }
+  }
+  function isLoopbackPage$1() {
+    return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
   }
   const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
   const EMPTY_STATUS = {
@@ -16455,22 +17166,23 @@ ${normalizedReading}`;
       return null;
     }
   }
-  function debounce(callback, delay) {
+  function debounce(callback, delay2) {
     let timer = 0;
     return () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(callback, delay);
+      timer = window.setTimeout(callback, delay2);
     };
   }
-  const log$e = Logger.scope("JpdbVocabulary");
+  const log$f = Logger.scope("JpdbVocabulary");
   const JPDB_VOCABULARY_BASE_URL = "https://jpdb.io/vocabulary";
+  const JPDB_SEARCH_URL = "https://jpdb.io/search";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   class JpdbVocabularyClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
     }
     lookup(vid, spelling, reading) {
-      if (!vid || !spelling) return Promise.resolve(null);
+      if (!spelling) return Promise.resolve(null);
       const key = `${vid}:${spelling}:${reading}`;
       let promise = this.cache.get(key);
       if (!promise) {
@@ -16480,19 +17192,89 @@ ${normalizedReading}`;
       return promise;
     }
     async fetchInfo(vid, spelling, reading) {
-      const url = `${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
-      const html = await requestText$3(url).catch((error) => {
-        log$e.warn("Vocabulary page request failed", { vid, spelling }, error);
-        return "";
-      });
-      return html ? parseJpdbVocabularyHtml(html) : null;
+      for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
+        const html = await requestText$3(url).catch((error) => {
+          log$f.warn("Vocabulary page request failed", { vid, spelling, url }, error);
+          return "";
+        });
+        const info = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
+        if (info) return info;
+      }
+      return null;
     }
   }
-  function parseJpdbVocabularyHtml(html) {
+  function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
     const doc = new DOMParser().parseFromString(html, "text/html");
-    const compounds = extractCompounds(doc);
-    const examples = extractExamples(doc);
-    return compounds.length || examples.length ? { compounds, examples } : null;
+    const root = vocabularyRoot(doc, spelling, reading);
+    if (!root) return null;
+    const meanings = extractMeanings(root, doc, spelling, reading);
+    const compounds = extractCompounds(root);
+    const examples = extractExamples(root);
+    return meanings.length || compounds.length || examples.length ? { meanings, compounds, examples } : null;
+  }
+  function vocabularyLookupUrls(vid, spelling, reading) {
+    const urls = [];
+    if (vid > 0) {
+      urls.push(`${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`);
+    }
+    unique([spelling, reading].filter(Boolean)).forEach((query) => urls.push(`${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`));
+    return unique(urls);
+  }
+  function vocabularyRoot(doc, spelling, reading) {
+    const roots = Array.from(doc.querySelectorAll(".result.vocabulary"));
+    const matches = roots.filter((root) => vocabularyRootMatches(root, spelling, reading));
+    if (matches.length) return matches[0] ?? null;
+    const hasRequestedIdentity = Boolean(cleanText$2(spelling) || cleanText$2(reading));
+    if (!hasRequestedIdentity && !roots.length) return doc;
+    if (!hasRequestedIdentity && roots.length === 1) return roots[0] ?? null;
+    if (documentMatchesVocabulary(doc, spelling, reading)) return roots[0] ?? doc;
+    return null;
+  }
+  function vocabularyRootMatches(root, spelling, reading) {
+    return vocabularyIdentities(root).some((identity) => vocabularyIdentityMatches(identity, spelling, reading));
+  }
+  function documentMatchesVocabulary(doc, spelling, reading) {
+    var _a;
+    const canonical = ((_a = doc.querySelector('link[rel="canonical"][href*="/vocabulary/"]')) == null ? void 0 : _a.href) ?? "";
+    const identity = vocabularyIdentityFromUrl(canonical);
+    return identity ? vocabularyIdentityMatches(identity, spelling, reading) : false;
+  }
+  function vocabularyIdentities(root) {
+    return Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).filter((link) => !link.closest(".subsection-used-in, .subsection-examples")).map((link) => vocabularyIdentityFromUrl(link.href || link.getAttribute("href") || "")).filter((identity) => identity !== null);
+  }
+  function vocabularyIdentityFromUrl(value) {
+    if (!value) return null;
+    try {
+      const parsed = new URL(value, "https://jpdb.io");
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      return {
+        expression: decodePathPart(parts[2] ?? ""),
+        reading: decodePathPart(parts[3] ?? "")
+      };
+    } catch {
+      return null;
+    }
+  }
+  function vocabularyIdentityMatches(identity, spelling, reading) {
+    const requestedSpelling = cleanText$2(spelling);
+    const requestedReading = cleanText$2(reading);
+    const expression = cleanText$2(identity.expression);
+    const canonicalReading = cleanText$2(identity.reading);
+    const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
+    if (!requested.size) return true;
+    if (!requested.has(expression) && !requested.has(canonicalReading)) return false;
+    if (!requestedReading) return true;
+    return canonicalReading === requestedReading || expression === requestedReading || expression === requestedSpelling;
+  }
+  function extractMeanings(root, doc, spelling, reading) {
+    var _a;
+    const meanings = Array.from(root.querySelectorAll(".subsection-meanings .description")).map((element2) => cleanMeaning(element2.textContent ?? "")).filter(Boolean);
+    if (meanings.length) return unique(meanings).slice(0, 8);
+    if (!spelling && !reading) return [];
+    const description = ((_a = doc.querySelector('meta[name="description"]')) == null ? void 0 : _a.content) ?? "";
+    const match = /\s[—-]\s(.+)$/.exec(description);
+    return (match == null ? void 0 : match[1]) ? match[1].split(/;\s+/).map(cleanMeaning).filter(Boolean).slice(0, 8) : [];
   }
   function extractCompounds(root) {
     const entries = [];
@@ -16557,6 +17339,19 @@ ${normalizedReading}`;
   function cleanText$2(value) {
     return value.replace(/\s+/g, " ").trim();
   }
+  function cleanMeaning(value) {
+    return cleanText$2(value).replace(/^\d+\.\s*/, "");
+  }
+  function decodePathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function unique(values) {
+    return [...new Set(values)];
+  }
   function requestText$3(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
@@ -16574,15 +17369,37 @@ ${normalizedReading}`;
         });
       });
     }
-    return fetch(url, { credentials: "include", redirect: "follow" }).then((response) => {
+    const fetchUrl = publicFetchUrl(url);
+    if (!fetchUrl) {
+      return Promise.reject(new Error("Cross-origin JPDB vocabulary request needs a userscript HTTP bridge."));
+    }
+    return fetch(fetchUrl, { credentials: "include", redirect: "follow", signal: AbortSignal.timeout(8e3) }).then((response) => {
       if (!response.ok) throw new Error(`JPDB vocabulary request failed (${response.status}).`);
       return response.text();
+    }).catch((error) => {
+      if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
+        throw new Error("JPDB vocabulary request timed out.");
+      }
+      throw error;
     });
+  }
+  function publicFetchUrl(url) {
+    try {
+      const target = new URL(url, location.href);
+      if (target.origin === location.origin) return target.href;
+      if (isLoopbackPage()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
+      return null;
+    } catch {
+      return url;
+    }
+  }
+  function isLoopbackPage() {
+    return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const WIKTIONARY_PARSE_URL = "https://en.wiktionary.org/w/api.php?action=parse&prop=text&format=json&origin=*&page=";
   const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$d = Logger.scope("KanjiOrigin");
+  const log$e = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -16590,7 +17407,7 @@ ${normalizedReading}`;
     lookup(kanji, settings) {
       const key = Array.from(kanji)[0] ?? kanji;
       if (!key || !settings.kanjiOriginsEnabled) {
-        log$d.debug("Kanji origin lookup skipped", { kanji, enabled: settings.kanjiOriginsEnabled });
+        log$e.debug("Kanji origin lookup skipped", { kanji, enabled: settings.kanjiOriginsEnabled });
         return Promise.resolve(null);
       }
       const cacheKey = [
@@ -16600,46 +17417,46 @@ ${normalizedReading}`;
       ].join(":");
       let promise = this.cache.get(cacheKey);
       if (!promise) {
-        log$d.debug("Kanji origin cache miss", { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
+        log$e.debug("Kanji origin cache miss", { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
         promise = this.fetchInfo(key, settings);
         this.cache.set(cacheKey, promise);
       } else {
-        log$d.debug("Kanji origin cache hit", { kanji: key });
+        log$e.debug("Kanji origin cache hit", { kanji: key });
       }
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$d.time("Kanji origin lookup", { kanji });
+      const done = log$e.time("Kanji origin lookup", { kanji });
       const [kanjiMap, wiktionary] = await Promise.all([
         settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch((error) => {
-          log$d.warn("Kanji Map origin lookup failed", { kanji, error });
+          log$e.warn("Kanji Map origin lookup failed", { kanji, error });
           return void 0;
         }) : Promise.resolve(void 0),
         settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch((error) => {
-          log$d.warn("Wiktionary origin lookup failed", { kanji, error });
+          log$e.warn("Wiktionary origin lookup failed", { kanji, error });
           return void 0;
         }) : Promise.resolve(void 0)
       ]);
       const result = kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
-      log$d.debug("Kanji origin lookup completed", { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
+      log$e.debug("Kanji origin lookup completed", { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
       done();
       return result;
     }
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$d.time("Fetch Kanji Map info", { kanji });
+    const done = log$e.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$2(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
-    log$d.debug("Kanji Map info parsed", { kanji, found: Boolean(info), examples: (info == null ? void 0 : info.examples.length) ?? 0, references: (info == null ? void 0 : info.references.length) ?? 0 });
+    log$e.debug("Kanji Map info parsed", { kanji, found: Boolean(info), examples: (info == null ? void 0 : info.examples.length) ?? 0, references: (info == null ? void 0 : info.references.length) ?? 0 });
     done();
     return info;
   }
   async function fetchWiktionaryInfo(kanji) {
-    const done = log$d.time("Fetch Wiktionary info", { kanji });
+    const done = log$e.time("Fetch Wiktionary info", { kanji });
     const raw = parseJson(await requestText$2(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
     const info = raw ? parseWiktionaryInfo(raw, kanji) : void 0;
-    log$d.debug("Wiktionary info parsed", { kanji, found: Boolean(info), glyphOrigin: (info == null ? void 0 : info.glyphOrigin.length) ?? 0, images: (info == null ? void 0 : info.images.length) ?? 0 });
+    log$e.debug("Wiktionary info parsed", { kanji, found: Boolean(info), glyphOrigin: (info == null ? void 0 : info.glyphOrigin.length) ?? 0, images: (info == null ? void 0 : info.images.length) ?? 0 });
     done();
     return info;
   }
@@ -16703,7 +17520,15 @@ ${normalizedReading}`;
       facts.set(label, { label, value: normalized, source: source || "source unknown" });
     };
     const local = extractLocalKanjiFacts(entries);
+    const localMeaning = firstLocalMeaning(entries);
     const map = sourceInfo == null ? void 0 : sourceInfo.kanjiMap;
+    const meaning = firstFactCandidate([
+      { value: map == null ? void 0 : map.meaning, source: "Kanji Alive / Jisho" },
+      { value: jpdbInfo == null ? void 0 : jpdbInfo.keyword, source: "JPDB" },
+      { value: rtkInfo == null ? void 0 : rtkInfo.keyword, source: "RTK" },
+      ...localMeaning ? [localMeaning] : []
+    ]);
+    add("Meaning", meaning == null ? void 0 : meaning.value, meaning == null ? void 0 : meaning.source);
     add("Type", normalizeKanjiType(jpdbInfo == null ? void 0 : jpdbInfo.type) ?? local.type ?? typeFromGrade(map == null ? void 0 : map.grade), (jpdbInfo == null ? void 0 : jpdbInfo.type) ? "JPDB" : local.typeSource ?? "Kanji Alive / Jisho");
     add("JLPT", local.jlpt ?? (map == null ? void 0 : map.jlpt), local.jlptSource ?? "Jisho");
     add("Grade", local.grade ?? (map == null ? void 0 : map.grade), local.gradeSource ?? "Kanji Alive / Jisho");
@@ -16712,14 +17537,15 @@ ${normalizedReading}`;
     add("Radical", (map == null ? void 0 : map.radical) ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(" ") : void 0, "Kanji Alive / Jisho");
     if (!facts.has("Character")) add("Character", kanji, "current lookup");
     const result = Array.from(facts.values()).filter((fact) => fact.label !== "Character").slice(0, 6);
-    log$d.debug("Kanji facts built", { kanji, facts: result.map((fact) => fact.label) });
+    log$e.debug("Kanji facts built", { kanji, facts: result.map((fact) => fact.label) });
     return result;
   }
-  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null) {
-    var _a, _b, _c, _d, _e;
+  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
+    var _a, _b, _c, _d, _e, _f;
     const nodes = /* @__PURE__ */ new Map();
     const edges = [];
     const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
+    const kanjiVGPositions = kanjiVGComponentPositionMap(kanjiVGInfo);
     nodes.set(kanji, {
       id: kanji,
       label: kanji,
@@ -16728,13 +17554,15 @@ ${normalizedReading}`;
       source: "current lookup"
     });
     const addComponent = (id, detail, label, source, position) => {
+      var _a2;
       if (!id || id === kanji) return;
       const existing = nodes.get(id);
+      const resolvedPosition = position || ((_a2 = kanjiVGPositions.get(id)) == null ? void 0 : _a2.position);
       if (!existing) {
-        nodes.set(id, { id, label: id, kind: "component", detail, source, position });
+        nodes.set(id, { id, label: id, kind: "component", detail, source, position: resolvedPosition });
       } else {
         if (!existing.detail && detail) existing.detail = detail;
-        if (!existing.position && position) existing.position = position;
+        if (!existing.position && resolvedPosition) existing.position = resolvedPosition;
       }
       if (!edges.some((edge) => edge.from === id && edge.to === kanji && edge.label === label)) {
         edges.push({ from: id, to: kanji, label });
@@ -16763,14 +17591,53 @@ ${normalizedReading}`;
     jpdbInfo == null ? void 0 : jpdbInfo.components.forEach((component) => addComponent(component.kanji, component.keyword, "JPDB component", "JPDB"));
     (_e = jpdbInfo == null ? void 0 : jpdbInfo.usedInKanji) == null ? void 0 : _e.forEach((component) => addUsedInKanji(component.kanji, component.keyword, "JPDB"));
     rtkInfo == null ? void 0 : rtkInfo.componentKanji.forEach((component) => addComponent(component, "RTK element", "RTK element", "RTK"));
+    (_f = kanjiVGInfo == null ? void 0 : kanjiVGInfo.componentPositions) == null ? void 0 : _f.filter((component) => component.direct).forEach((component) => {
+      const id = nodes.has(component.component) ? component.component : component.original && nodes.has(component.original) ? component.original : component.component;
+      addComponent(id, "visual component", "KanjiVG component", "KanjiVG", component.position);
+    });
     splitRtkElements((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((element2) => !Array.from(element2).some((character) => character === kanji)).slice(0, 6).forEach((element2, index) => {
       const id = `rtk:${index}:${element2}`;
       nodes.set(id, { id, label: element2, kind: "related", detail: "RTK keyword", source: "RTK" });
       edges.push({ from: id, to: kanji, label: "memory cue" });
     });
     const graph = { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
-    log$d.debug("Kanji origin graph built", { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
+    log$e.debug("Kanji origin graph built", { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
     return graph;
+  }
+  function kanjiVGComponentPositionMap(info) {
+    var _a;
+    const positions = /* @__PURE__ */ new Map();
+    (_a = info == null ? void 0 : info.componentPositions) == null ? void 0 : _a.forEach((component) => {
+      const position = normalizeKanjiVGPosition(component.position);
+      if (!position) return;
+      const existing = positions.get(component.component);
+      if (!existing || !existing.direct && component.direct) {
+        positions.set(component.component, { position, direct: component.direct });
+      }
+    });
+    return positions;
+  }
+  function normalizeKanjiVGPosition(value) {
+    const normalized = value.toLowerCase().trim();
+    if (normalized === "top" || normalized === "tare") return "top";
+    if (normalized === "bottom" || normalized === "nyo") return "bottom";
+    if (normalized === "left") return "left";
+    if (normalized === "right") return "right";
+    if (normalized === "inside" || normalized === "kamae" || normalized === "middle") return "center";
+    return normalized;
+  }
+  function firstFactCandidate(candidates) {
+    return candidates.find((candidate) => {
+      var _a;
+      return (_a = candidate.value) == null ? void 0 : _a.trim();
+    });
+  }
+  function firstLocalMeaning(entries) {
+    for (const entry of entries) {
+      const value = first(entry.meanings);
+      if (value) return { value, source: entry.dictionary || "local dictionary" };
+    }
+    return void 0;
   }
   function readKanjiMapRadical(kanjiAlive, jisho) {
     var _a;
@@ -17023,7 +17890,7 @@ ${normalizedReading}`;
   function requestText$2(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$d.debug("Kanji origin request using userscript request", { host: safeHost$2(url) });
+      log$e.debug("Kanji origin request using userscript request", { host: safeHost$2(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -17031,31 +17898,31 @@ ${normalizedReading}`;
           timeout: 1e4,
           onload: (response) => {
             if (response.status >= 200 && response.status < 300) {
-              log$d.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
+              log$e.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
               resolve(String(response.responseText ?? ""));
             } else {
-              log$d.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
+              log$e.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
               reject(new Error(`Kanji origin request failed (${response.status}).`));
             }
           },
           onerror: (error) => {
-            log$d.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+            log$e.warn("Kanji origin request failed", { host: safeHost$2(url), error });
             reject(error);
           },
           ontimeout: () => {
-            log$d.warn("Kanji origin request timed out", { host: safeHost$2(url) });
+            log$e.warn("Kanji origin request timed out", { host: safeHost$2(url) });
             reject(new Error("Kanji origin request timed out."));
           }
         });
       });
     }
-    log$d.debug("Kanji origin request using fetch", { host: safeHost$2(url) });
+    log$e.debug("Kanji origin request using fetch", { host: safeHost$2(url) });
     return fetch(url).then((response) => {
       if (!response.ok) {
-        log$d.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
+        log$e.warn("Kanji origin request returned HTTP error", { host: safeHost$2(url), status: response.status });
         throw new Error(`Kanji origin request failed (${response.status}).`);
       }
-      log$d.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
+      log$e.debug("Kanji origin request completed", { host: safeHost$2(url), status: response.status });
       return response.text();
     });
   }
@@ -17070,7 +17937,7 @@ ${normalizedReading}`;
       return "";
     }
   }
-  const log$c = Logger.scope("KanjiDoodle");
+  const log$d = Logger.scope("KanjiDoodle");
   function installKanjiDoodle(popover, getLanguage, options = {}) {
     var _a;
     const root = popover;
@@ -17082,15 +17949,15 @@ ${normalizedReading}`;
     const clear = popover.querySelector("[data-doodle-clear]");
     const trace = popover.querySelector("[data-doodle-trace]");
     if (!stage || !canvas || !ghost) {
-      log$c.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
+      log$d.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
       return;
     }
     const context = canvas.getContext("2d");
     if (!context) {
-      log$c.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$d.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
-    log$c.debug("Kanji doodle installed", { kanji: stage.dataset.kanji ?? "" });
+    log$d.debug("Kanji doodle installed", { kanji: stage.dataset.kanji ?? "" });
     let dpr = 1;
     let drawing = false;
     let pointerId = -1;
@@ -17107,7 +17974,7 @@ ${normalizedReading}`;
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
       canvasRect = canvas.getBoundingClientRect();
       redraw();
-      log$c.debugThrottled("resize", 1e3, "Kanji doodle resized", { width: canvas.width, height: canvas.height, dpr });
+      log$d.debugThrottled("resize", 1e3, "Kanji doodle resized", { width: canvas.width, height: canvas.height, dpr });
     };
     const toPoint = (event) => {
       return {
@@ -17119,7 +17986,7 @@ ${normalizedReading}`;
     const strokeWidth = (point) => Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + ((point == null ? void 0 : point.pressure) ?? 0.55) * 0.42);
     const setupStroke = (point) => {
       const style = getComputedStyle(stage);
-      context.strokeStyle = style.getPropertyValue("--jpdb-reader-doodle-ink").trim() || getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text").trim() || "#141820";
+      context.strokeStyle = style.getPropertyValue("--jpdb-reader-doodle-ink").trim() || "#141820";
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = strokeWidth(point);
@@ -17155,7 +18022,7 @@ ${normalizedReading}`;
       canvasRect = canvas.getBoundingClientRect();
       points = [toPoint(event)];
       (_a2 = canvas.setPointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
-      log$c.debug("Kanji doodle stroke started", { pointerType: event.pointerType, strokes: strokes.length });
+      log$d.debug("Kanji doodle stroke started", { pointerType: event.pointerType, strokes: strokes.length });
     };
     const move = (event) => {
       if (!drawing || event.pointerId !== pointerId) return;
@@ -17180,7 +18047,7 @@ ${normalizedReading}`;
       pointerId = -1;
       (_a2 = canvas.releasePointerCapture) == null ? void 0 : _a2.call(canvas, event.pointerId);
       (_b = options.onChange) == null ? void 0 : _b.call(options, strokes.map((stroke) => [...stroke]));
-      log$c.debug("Kanji doodle stroke ended", { strokes: strokes.length });
+      log$d.debug("Kanji doodle stroke ended", { strokes: strokes.length });
     };
     canvas.addEventListener("pointerdown", start, { passive: false, signal });
     canvas.addEventListener("pointermove", move, { passive: false, signal });
@@ -17195,7 +18062,7 @@ ${normalizedReading}`;
       redraw();
       (_a2 = options.onClear) == null ? void 0 : _a2.call(options);
       (_b = options.onChange) == null ? void 0 : _b.call(options, []);
-      log$c.debug("Kanji doodle cleared");
+      log$d.debug("Kanji doodle cleared");
     }, { signal });
     trace == null ? void 0 : trace.addEventListener("click", (event) => {
       event.preventDefault();
@@ -17204,7 +18071,7 @@ ${normalizedReading}`;
       ghost.hidden = !traceVisible;
       stage.classList.toggle("trace-hidden", !traceVisible);
       trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
-      log$c.debug("Kanji doodle trace toggled", { traceVisible });
+      log$d.debug("Kanji doodle trace toggled", { traceVisible });
     }, { signal });
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
@@ -17217,38 +18084,13 @@ ${normalizedReading}`;
       var _a2;
       if (!popover.isConnected) {
         (_a2 = root.__yomuKanjiDoodleCleanup) == null ? void 0 : _a2.call(root);
-        log$c.debug("Kanji doodle detached");
+        log$d.debug("Kanji doodle detached");
         return;
       }
       requestAnimationFrame(disconnectWhenDetached);
     };
     requestAnimationFrame(resize);
     requestAnimationFrame(disconnectWhenDetached);
-  }
-  function graphEllipseOffset(dx, dy, rx, ry) {
-    const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
-    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
-  }
-  function formatGraphCoordinate(value) {
-    return Number(value.toFixed(2)).toString();
-  }
-  function graphEdgeCurveControl(x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bend = Math.min(4.6, Math.max(1.8, distance * 0.08));
-    const sign = y1 <= y2 ? 1 : -1;
-    return {
-      x: (x1 + x2) / 2 - dy / distance * bend * sign,
-      y: (y1 + y2) / 2 + dx / distance * bend * sign
-    };
-  }
-  function graphQuadraticPoint(x1, y1, cx, cy, x2, y2, t) {
-    const mt = 1 - t;
-    return {
-      x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
-      y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2
-    };
   }
   function installKanjiGraphDrag(root) {
     const graph = root.querySelector(".jpdb-reader-origin-graph-wrap");
@@ -17277,31 +18119,13 @@ ${normalizedReading}`;
         ry: nodeRect.height / graphRect.height * 50
       };
     };
-    const edgePath = (from, to) => {
-      const dx = to.x - from.x;
-      const dy = to.y - from.y;
-      const sourceOffset = graphEllipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
-      const targetOffset = graphEllipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
-      const x1 = from.x + dx * sourceOffset;
-      const y1 = from.y + dy * sourceOffset;
-      const x2 = to.x - dx * targetOffset;
-      const y2 = to.y - dy * targetOffset;
-      const curve = graphEdgeCurveControl(x1, y1, x2, y2);
-      return {
-        d: `M${formatGraphCoordinate(x1)} ${formatGraphCoordinate(y1)} Q${formatGraphCoordinate(curve.x)} ${formatGraphCoordinate(curve.y)} ${formatGraphCoordinate(x2)} ${formatGraphCoordinate(y2)}`,
-        points: [
-          graphQuadraticPoint(x1, y1, curve.x, curve.y, x2, y2, 0.38),
-          graphQuadraticPoint(x1, y1, curve.x, curve.y, x2, y2, 0.66)
-        ]
-      };
-    };
     const updateLines = () => {
       var _a;
       for (const group of edgeGroups) {
         const from = group.dataset.from ? nodeById.get(group.dataset.from) : void 0;
         const to = group.dataset.to ? nodeById.get(group.dataset.to) : void 0;
         if (!from || !to) continue;
-        const path = edgePath(readNodeGeometry(from), readNodeGeometry(to));
+        const path = graphEdgePath(readNodeGeometry(from), readNodeGeometry(to), graphAnchorZone(group.dataset.targetZone));
         (_a = group.querySelector(".jpdb-reader-origin-edge")) == null ? void 0 : _a.setAttribute("d", path.d);
         group.querySelectorAll(".jpdb-reader-origin-edge-particle").forEach((particle, index) => {
           const point = path.points[index];
@@ -17385,7 +18209,16 @@ ${normalizedReading}`;
     }
     requestAnimationFrame(updateLines);
   }
-  const AUTO_SCAN_OBSERVER_OPTIONS = { childList: true, subtree: true, characterData: true };
+  function graphAnchorZone(value) {
+    return value === "top" || value === "upper" || value === "left" || value === "right" || value === "lower" || value === "bottom" || value === "center" ? value : "auto";
+  }
+  const AUTO_SCAN_OBSERVER_OPTIONS = {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["class", "style", "hidden", "open", "aria-hidden", "aria-expanded"]
+  };
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   function mutationTouchesAsbPlayer(mutation) {
     const nodes = [
@@ -17412,6 +18245,7 @@ ${normalizedReading}`;
   }
   function mutationMayContainJapaneseText(mutation) {
     if (mutation.type === "characterData") return HAS_JAPANESE.test(mutation.target.textContent ?? "");
+    if (mutation.type === "attributes") return HAS_JAPANESE.test(mutation.target.textContent ?? "");
     return Array.from(mutation.addedNodes).some((node) => HAS_JAPANESE.test(node.textContent ?? ""));
   }
   function el(tagName, attrs, ...children) {
@@ -17476,7 +18310,7 @@ ${normalizedReading}`;
       }
     }
   }
-  const log$b = Logger.scope("NewTab");
+  const log$c = Logger.scope("NewTab");
   const SESSION_WORD_KEY = "jpdb-reader-newtab-current-word";
   const SESSION_DICTIONARY_SETUP_KEY = "jpdb-reader-newtab-install-dictionary";
   const JPDB_ALL_DECKS = "all";
@@ -17484,6 +18318,25 @@ ${normalizedReading}`;
   const JPDB_WORDS_PER_DECK = 36;
   const NEW_TAB_WORD_LIMIT = 180;
   const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
+  const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
+    ".jpdb-reader-word",
+    ".jpdb-reader-doodle-stage",
+    ".jpdb-reader-newtab-answer",
+    ".jpdb-reader-newtab-meaning",
+    "[data-action]",
+    "[data-immersion-action]",
+    "a",
+    "audio",
+    "button",
+    "canvas",
+    "details",
+    "input",
+    "select",
+    "summary",
+    "textarea",
+    "video",
+    '[contenteditable="true"]'
+  ].join(",");
   class NewTabController {
     constructor(dependencies) {
       __publicField(this, "allWords", []);
@@ -17505,6 +18358,8 @@ ${normalizedReading}`;
       __publicField(this, "immersionAudioKey", "");
       __publicField(this, "immersionAudioRequestId", 0);
       __publicField(this, "dictionarySetupRequired", false);
+      __publicField(this, "dictionarySetupRetryTimer");
+      __publicField(this, "dictionarySetupRetryAttempts", 0);
       __publicField(this, "loadGeneration", 0);
       __publicField(this, "rootEventController");
       this.dependencies = dependencies;
@@ -17553,12 +18408,34 @@ ${normalizedReading}`;
     }
     destroy() {
       var _a;
+      this.clearDictionarySetupRetry();
       this.stateChannel.close();
       this.unsubscribeJpdbBridge();
       (_a = this.rootEventController) == null ? void 0 : _a.abort();
       this.rootEventController = void 0;
       const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
       if (root) delete root.dataset.newtabBound;
+    }
+    invalidateForFactoryReset() {
+      var _a;
+      this.loadGeneration++;
+      this.allWords = [];
+      this.visibleWords = [];
+      this.index = 0;
+      this.sourceLabel = "";
+      this.visiblePoolSignature = "";
+      this.dictionarySetupRequired = false;
+      this.clearDictionarySetupRetry();
+      this.liveCards.clear();
+      this.keywordCache.clear();
+      this.kanjiInfoCache.clear();
+      this.immersionCache.clear();
+      this.immersionExampleIndex.clear();
+      this.doodlePreviewCache.clear();
+      (_a = this.immersionAudio) == null ? void 0 : _a.pause();
+      this.immersionAudio = void 0;
+      this.immersionAudioKey = "";
+      this.immersionAudioRequestId++;
     }
     renderEnabledContent() {
       const brand = resolveNewTabBrandAssets(location.href);
@@ -17656,8 +18533,15 @@ ${normalizedReading}`;
       root.addEventListener("click", (event) => {
         var _a2, _b, _c, _d, _e;
         const target = event.target;
+        if (this.handleNestedLookupClick(root, target, event)) return;
         const action = (_a2 = target.closest("[data-newtab-action]")) == null ? void 0 : _a2.dataset.newtabAction;
         const immersionAction = (_b = target.closest("[data-immersion-action]")) == null ? void 0 : _b.dataset.immersionAction;
+        const blurredTranslation = target.closest('.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]');
+        if (blurredTranslation) {
+          event.preventDefault();
+          this.revealNewTabImmersionTranslations(root);
+          return;
+        }
         if (immersionAction) {
           event.preventDefault();
           this.performNewTabImmersionAction(root, immersionAction);
@@ -17718,7 +18602,7 @@ ${normalizedReading}`;
           return;
         }
         const study = target.closest("[data-newtab-study]");
-        if (study && !target.closest(".jpdb-reader-word, .jpdb-reader-doodle-stage, audio, button, a")) {
+        if (study && !isNewTabStudyInteractiveTarget(target)) {
           event.preventDefault();
           this.toggleReveal(root);
         }
@@ -17726,7 +18610,15 @@ ${normalizedReading}`;
       root.addEventListener("keydown", (event) => {
         if (root.dataset.standaloneNewtab === "true" && !this.allWords.length) return;
         const target = event.target;
-        if (target == null ? void 0 : target.matches("input, select, textarea")) return;
+        if (target && (event.key === " " || event.key === "Enter")) {
+          const blurredTranslation = target.closest('.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]');
+          if (blurredTranslation) {
+            event.preventDefault();
+            this.revealNewTabImmersionTranslations(root);
+            return;
+          }
+        }
+        if (target && isNewTabStudyInteractiveTarget(target)) return;
         if (event.key === "ArrowRight" || event.key === "n") {
           event.preventDefault();
           this.showNextWord();
@@ -17743,6 +18635,63 @@ ${normalizedReading}`;
         }
       }, { signal: controller.signal });
       this.rootEventController = controller;
+    }
+    handleNestedLookupClick(root, target, event) {
+      var _a, _b, _c, _d, _e, _f, _g;
+      const dictionaryLink = target.closest("a.gloss-link[data-dictionary-lookup]");
+      if (dictionaryLink && root.contains(dictionaryLink)) {
+        const query = ((_a = dictionaryLink.dataset.dictionaryLookup) == null ? void 0 : _a.replace(/\s+/g, " ").trim()) ?? "";
+        if (!query) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        void ((_c = (_b = this.dependencies).lookupDictionaryReference) == null ? void 0 : _c.call(
+          _b,
+          query,
+          dictionaryLink.dataset.dictionaryReading ?? "",
+          dictionaryLink.dataset.dictionary ?? "",
+          dictionaryLink
+        ));
+        return true;
+      }
+      const actionTarget = target.closest("[data-action]");
+      if (!actionTarget || !root.contains(actionTarget)) return false;
+      const action = actionTarget.dataset.action;
+      if (action === "kanji") {
+        const card = this.visibleWords[this.index];
+        const kanji = actionTarget.dataset.kanji ?? "";
+        if (!card || !kanji) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        void ((_e = (_d = this.dependencies).showKanjiCard) == null ? void 0 : _e.call(_d, card, kanji, sentenceForCard(card), actionTarget));
+        return true;
+      }
+      if (action === "similar-word" || action === "lookup") {
+        const term = (actionTarget.dataset.expression ?? actionTarget.dataset.term ?? "").replace(/\s+/g, " ").trim();
+        if (!term) return false;
+        const reading = (actionTarget.dataset.reading ?? "").replace(/\s+/g, " ").trim();
+        event.preventDefault();
+        event.stopPropagation();
+        void ((_g = (_f = this.dependencies).lookupText) == null ? void 0 : _g.call(_f, term, reading || term, actionTarget));
+        return true;
+      }
+      return false;
+    }
+    revealNewTabImmersionTranslations(root) {
+      const settings = this.dependencies.getSettings();
+      if (settings.immersionKitRevealTranslationOnClick) {
+        if (this.dependencies.setImmersionTranslationBlurred) {
+          this.dependencies.setImmersionTranslationBlurred(false);
+        } else {
+          settings.immersionKitRevealTranslationOnClick = false;
+          void this.dependencies.onSettingsChange();
+        }
+      }
+      root.querySelectorAll(".jpdb-reader-example-translation").forEach((translation) => {
+        delete translation.dataset.yomuImmersionTranslationBlurred;
+        translation.removeAttribute("tabindex");
+        translation.removeAttribute("role");
+        translation.removeAttribute("aria-label");
+      });
     }
     toggleReveal(root) {
       const current = this.visibleWords[this.index];
@@ -17796,10 +18745,11 @@ ${normalizedReading}`;
           this.renderEmpty(root, "よむ", "No words yet.");
           return;
         }
+        this.clearDictionarySetupRetry();
         delete root.dataset.standaloneNewtab;
         this.applyWords(root, preferStoredWord);
       } catch (error) {
-        log$b.warn("Failed to load words", error);
+        log$c.warn("Failed to load words", error);
         const cached = await this.readOfflineCache();
         if (!this.isCurrentLoad(loadGeneration)) return;
         if (cached.cards.length) {
@@ -17812,6 +18762,24 @@ ${normalizedReading}`;
         }
         this.renderEmpty(root, "よむ", "Could not load words.");
       }
+    }
+    scheduleDictionarySetupRetry(root) {
+      if (this.dictionarySetupRetryTimer !== void 0 || this.dictionarySetupRetryAttempts >= 8) return;
+      const delay2 = Math.min(1e3 + this.dictionarySetupRetryAttempts * 500, 3500);
+      this.dictionarySetupRetryTimer = window.setTimeout(() => {
+        this.dictionarySetupRetryTimer = void 0;
+        if (!root.isConnected || !this.dictionarySetupRequired || this.allWords.length) return;
+        this.dependencies.dictionaries.invalidateCaches();
+        this.dictionarySetupRetryAttempts += 1;
+        void this.loadWordsInto(root, true);
+      }, delay2);
+    }
+    clearDictionarySetupRetry() {
+      if (this.dictionarySetupRetryTimer !== void 0) {
+        window.clearTimeout(this.dictionarySetupRetryTimer);
+        this.dictionarySetupRetryTimer = void 0;
+      }
+      this.dictionarySetupRetryAttempts = 0;
     }
     async loadWords(onProgress) {
       const source = this.state.source;
@@ -17865,7 +18833,7 @@ ${normalizedReading}`;
       const settings = this.dependencies.getSettings();
       if (!settings.ankiEnabled) return { cards: [], sourceLabel: "Anki", needsDictionarySetup: false };
       const cards = await this.dependencies.anki.listNewTabCards(80).catch((error) => {
-        log$b.debug("Anki new tab source unavailable", error);
+        log$c.debug("Anki new tab source unavailable", error);
         return [];
       });
       return { cards, sourceLabel: cards.length ? "Anki" : "Anki", needsDictionarySetup: false };
@@ -17884,7 +18852,7 @@ ${normalizedReading}`;
           needsDictionarySetup: false
         };
       } catch (error) {
-        log$b.debug("Dictionary word load failed", error);
+        log$c.debug("Dictionary word load failed", error);
         return { cards: [], sourceLabel: "Dictionaries", needsDictionarySetup: false };
       }
     }
@@ -17903,7 +18871,7 @@ ${normalizedReading}`;
           const cards2 = await this.dependencies.jpdb.listDeckCards(selectedDeck, 90);
           return { cards: cards2, sourceLabel: "JPDB", needsDictionarySetup: false };
         } catch (error) {
-          log$b.debug("JPDB selected deck load failed", { deckId: selectedDeck }, error);
+          log$c.debug("JPDB selected deck load failed", { deckId: selectedDeck }, error);
         }
       }
       const decks = await this.dependencies.jpdb.listDecks().catch(() => []);
@@ -17913,7 +18881,7 @@ ${normalizedReading}`;
         try {
           cards.push(...await this.dependencies.jpdb.listDeckCards(deck.id, JPDB_WORDS_PER_DECK));
         } catch (error) {
-          log$b.debug("JPDB all-decks sample failed", { deck: deck.id }, error);
+          log$c.debug("JPDB all-decks sample failed", { deck: deck.id }, error);
         }
       }
       return { cards, sourceLabel: "JPDB", needsDictionarySetup: false };
@@ -18034,7 +19002,16 @@ ${normalizedReading}`;
       if (slots.prompt) {
         slots.prompt.lang = this.state.revealAnswer ? "ja" : "en";
         slots.prompt.dataset.newtabExpression = "true";
-        slots.prompt.textContent = this.state.revealAnswer ? kanji : keyword || "keyword";
+        if (this.state.revealAnswer) {
+          replaceChildrenWith(slots.prompt, el("button", {
+            class: "jpdb-reader-newtab-kanji-popover-word",
+            type: "button",
+            dataset: { action: "kanji", kanji },
+            title: `Show kanji: ${kanji}`
+          }, kanji));
+        } else {
+          slots.prompt.textContent = keyword || "keyword";
+        }
       }
       if (slots.answer) {
         if (this.state.revealAnswer) {
@@ -18117,12 +19094,14 @@ ${normalizedReading}`;
       return wrap;
     }
     async renderImmersionExample(slots, card) {
+      var _a, _b;
       if (!this.state.revealAnswer || !slots.meaning || !this.dependencies.getSettings().immersionKitEnabled) return;
       const key = cardKey$2(card);
       const examples = await this.loadImmersionExamples(card);
       if (!examples.length || cardKey$2(this.visibleWords[this.index]) !== key || !slots.meaning.isConnected) return;
       const index = this.normalizedImmersionExampleIndex(key, examples);
       slots.meaning.append(this.renderNewTabImmersionCard(card, examples, index));
+      void ((_b = (_a = this.dependencies).parseContent) == null ? void 0 : _b.call(_a, slots.meaning));
       this.loadNewTabImmersionImage(slots.meaning, examples[index]);
     }
     renderNewTabImmersionCard(card, examples, index) {
@@ -18153,28 +19132,29 @@ ${normalizedReading}`;
         "div",
         { class: "jpdb-reader-newtab-immersion" },
         el(
-          "summary",
+          "div",
           { class: "jpdb-reader-local-title jpdb-reader-example-summary" },
-          el("span", { class: "jpdb-reader-local-dict" }, `${example.sourceTitle} · ${index + 1}/${examples.length}`),
-          el(
-            "div",
-            { class: "jpdb-reader-example-actions", role: "group", "aria-label": "Immersion Kit example controls" },
-            el("button", {
-              class: "jpdb-reader-icon-mini",
-              type: "button",
-              dataset: { immersionAction: "previous" },
-              title: "Previous example",
-              "aria-label": "Previous example"
-            }, "‹"),
-            audioButton,
-            el("button", {
-              class: "jpdb-reader-icon-mini",
-              type: "button",
-              dataset: { immersionAction: "next" },
-              title: "Next example",
-              "aria-label": "Next example"
-            }, "›")
-          )
+          el("span", { class: "jpdb-reader-example-source" }, "Immersion Kit"),
+          el("span", { class: "jpdb-reader-local-dict" }, `${example.sourceTitle} · ${index + 1}/${examples.length}`)
+        ),
+        el(
+          "div",
+          { class: "jpdb-reader-example-actions", role: "group", "aria-label": "Immersion Kit example controls" },
+          el("button", {
+            class: "jpdb-reader-icon-mini",
+            type: "button",
+            dataset: { immersionAction: "previous" },
+            title: "Previous example",
+            "aria-label": "Previous example"
+          }, "‹"),
+          audioButton,
+          el("button", {
+            class: "jpdb-reader-icon-mini",
+            type: "button",
+            dataset: { immersionAction: "next" },
+            title: "Next example",
+            "aria-label": "Next example"
+          }, "›")
         ),
         el(
           "div",
@@ -18271,7 +19251,7 @@ ${normalizedReading}`;
       return this.keywordCache.get(kanji) || card.kanjiKeyword || ((_a = firstCardMeaning(card).split(/[;；,，]/)[0]) == null ? void 0 : _a.trim()) || card.reading || kanji;
     }
     async enrichKanjiCard(slots, card, kanji, state) {
-      var _a;
+      var _a, _b, _c;
       const key = cardKey$2(card);
       const details = await this.loadKanjiDetails(kanji);
       if (cardKey$2(this.visibleWords[this.index]) !== key) return;
@@ -18287,22 +19267,32 @@ ${normalizedReading}`;
         if (ghost) setInnerHtml(ghost, details.vg.svg);
       }
       if (this.state.revealAnswer && slots.meaning) {
-        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, state));
+        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar, state));
+        void ((_c = (_b = this.dependencies).parseContent) == null ? void 0 : _c.call(_b, slots.meaning));
       }
     }
-    renderKanjiDetails(card, kanji, info, rtk, state) {
-      const readings2 = (info == null ? void 0 : info.readings.slice(0, 8)) ?? [];
-      const facts = [
-        (info == null ? void 0 : info.keyword) ? ["Keyword", info.keyword] : null,
-        (info == null ? void 0 : info.type) ? ["Type", info.type] : null,
-        (info == null ? void 0 : info.frequency) ? ["Frequency", info.frequency] : null,
-        (info == null ? void 0 : info.kanken) ? ["Kanken", info.kanken] : null,
-        (info == null ? void 0 : info.heisig) || (rtk == null ? void 0 : rtk.frameNumber) ? ["Heisig", [info == null ? void 0 : info.heisig, (rtk == null ? void 0 : rtk.frameNumber) ? `#${rtk.frameNumber}` : ""].filter(Boolean).join(" ")] : null
-      ].filter((item) => Boolean(item));
-      const miningActions = this.renderKanjiMiningControls(info);
-      return el(
+    renderKanjiDetails(card, kanji, info, rtk, vg, localEntries, similarEntries, state) {
+      const settings = this.dependencies.getSettings();
+      const fullInfo = info ? normalizeJpdbKanjiInfo(info) : null;
+      const localMeanings = uniqueStrings$2(localEntries.flatMap((entry) => entry.meanings)).slice(0, 6);
+      const localReadings = uniqueStrings$2(localEntries.flatMap((entry) => [...entry.onyomi, ...entry.kunyomi])).slice(0, 8);
+      const readings2 = (fullInfo == null ? void 0 : fullInfo.readings.length) ? fullInfo.readings.slice(0, 8).map((reading) => `${reading.reading}${reading.share ? ` ${reading.share}` : ""}`) : localReadings;
+      const sourceAttrs = (sourceStateKey, initiallyExpanded = true) => `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
+      const componentSummaries = buildRtkComponentSummaries(rtk, fullInfo, localEntries);
+      const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries);
+      const graph = settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, null, vg) : null;
+      const sharedSections = [
+        renderJpdbKanjiInfo(fullInfo, settings.interfaceLanguage, true, kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID)),
+        renderRtkInfo(rtk, componentSummaries, settings.interfaceLanguage, true, kanjiSourceStateKey(KANJI_RTK_SOURCE_ID)),
+        renderKanjiDefinitions(localEntries, sourceAttrs, (name) => this.dictionaryLabel(name), KANJI_DICTIONARIES_SOURCE_ID, "Kanji dictionaries"),
+        this.renderNewTabSimilarKanjiWords(kanji, card, (fullInfo == null ? void 0 : fullInfo.vocabulary) ?? [], similarEntries),
+        renderKanjiOrigins(factsForOrigins, graph, null, settings, settings.interfaceLanguage, true, kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID))
+      ].filter(Boolean).join("");
+      const facts = this.newTabKanjiFacts(card, fullInfo, rtk, localMeanings);
+      const wrap = el(
         "div",
         { class: "jpdb-reader-newtab-kanji-details" },
+        el("div", { class: "jpdb-reader-newtab-kanji-keywords" }),
         facts.length ? el(
           "div",
           { class: "jpdb-reader-kanji-facts" },
@@ -18311,31 +19301,84 @@ ${normalizedReading}`;
         readings2.length ? el(
           "div",
           { class: "jpdb-reader-kanji-readings" },
-          readings2.map((reading) => el("span", {}, `${reading.reading}${reading.share ? ` ${reading.share}` : ""}`))
+          readings2.map((reading) => el("span", {}, reading))
         ) : null,
-        (info == null ? void 0 : info.components.length) ? el(
+        localMeanings.length ? el(
+          "div",
+          { class: "jpdb-reader-newtab-kanji-vocab" },
+          localMeanings.map((meaning) => el("span", {}, meaning))
+        ) : null,
+        (fullInfo == null ? void 0 : fullInfo.components.length) ? el(
           "div",
           { class: "jpdb-reader-component-grid" },
-          info.components.slice(0, 8).map((component) => el("button", {
+          fullInfo.components.slice(0, 8).map((component) => el("button", {
             class: "jpdb-reader-component-card",
             type: "button",
             dataset: { action: "kanji", kanji: component.kanji },
             title: `Show kanji: ${component.kanji}`
           }, el("strong", {}, component.kanji), el("span", {}, component.keyword)))
         ) : null,
-        (info == null ? void 0 : info.vocabulary.length) ? el(
+        (fullInfo == null ? void 0 : fullInfo.vocabulary.length) ? el(
           "div",
           { class: "jpdb-reader-newtab-kanji-vocab" },
-          info.vocabulary.slice(0, 5).map((item) => el(
-            "span",
-            {},
+          fullInfo.vocabulary.slice(0, 5).map((item) => el(
+            "button",
+            {
+              class: "jpdb-reader-newtab-kanji-popover-word",
+              type: "button",
+              dataset: { action: "similar-word", expression: item.expression, reading: item.reading },
+              title: `Look up ${item.expression}`
+            },
             el("strong", {}, item.expression),
             [item.reading, item.meaning].filter(Boolean).join(" · ")
           ))
         ) : null,
-        (info == null ? void 0 : info.mnemonic) ? el("p", { class: "jpdb-reader-newtab-kanji-mnemonic" }, info.mnemonic) : null,
-        miningActions
+        (fullInfo == null ? void 0 : fullInfo.mnemonic) ? el("p", { class: "jpdb-reader-newtab-kanji-mnemonic" }, fullInfo.mnemonic) : null,
+        el("div", { class: "jpdb-reader-newtab-kanji-sources" }),
+        this.renderKanjiMiningControls(fullInfo)
       );
+      const keywordMount = wrap.querySelector(".jpdb-reader-newtab-kanji-keywords");
+      const sourcesMount = wrap.querySelector(".jpdb-reader-newtab-kanji-sources");
+      if (keywordMount) setInnerHtml(keywordMount, renderKanjiKeywordLine(fullInfo, rtk, localEntries));
+      if (sourcesMount) setInnerHtml(sourcesMount, sharedSections);
+      return wrap;
+    }
+    newTabKanjiFacts(card, fullInfo, rtk, localMeanings) {
+      const keyword = (fullInfo == null ? void 0 : fullInfo.keyword) || (rtk == null ? void 0 : rtk.keyword) || card.kanjiKeyword || localMeanings[0] || firstCardMeaning(card);
+      const facts = [
+        keyword ? ["Keyword", keyword] : null,
+        (fullInfo == null ? void 0 : fullInfo.type) ? ["Type", fullInfo.type] : null,
+        (fullInfo == null ? void 0 : fullInfo.frequency) ? ["Frequency", fullInfo.frequency] : null,
+        card.frequencyRank ? ["Word frequency", `#${card.frequencyRank}`] : null,
+        (fullInfo == null ? void 0 : fullInfo.kanken) ? ["Kanken", fullInfo.kanken] : null,
+        (fullInfo == null ? void 0 : fullInfo.heisig) || (rtk == null ? void 0 : rtk.frameNumber) ? ["Heisig", [fullInfo == null ? void 0 : fullInfo.heisig, (rtk == null ? void 0 : rtk.frameNumber) ? `#${rtk.frameNumber}` : ""].filter(Boolean).join(" ")] : null,
+        (fullInfo == null ? void 0 : fullInfo.oldForms.length) ? ["Old forms", fullInfo.oldForms.join(", ")] : null
+      ];
+      return facts.filter((item) => Boolean(item));
+    }
+    renderNewTabSimilarKanjiWords(kanji, card, jpdbVocabulary, localEntries) {
+      if (!this.dependencies.getSettings().similarKanjiWords) return "";
+      const content = renderSimilarKanjiWordsContent(
+        localEntries,
+        jpdbVocabulary,
+        card,
+        this.dependencies.getSettings(),
+        (name) => this.dictionaryLabel(name)
+      );
+      if (!content) return "";
+      return `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" ${this.newTabSourceAttributes(kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID))}>
+                <summary class="jpdb-reader-local-title">Words using ${escapeHtml$1(kanji)}</summary>
+                ${content}
+            </details>
+        `;
+    }
+    newTabSourceAttributes(sourceStateKey, initiallyExpanded = true) {
+      return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
+    }
+    dictionaryLabel(name) {
+      var _a;
+      return ((_a = this.dependencies.getSettings().dictionaryPreferences.find((item) => item.name === name)) == null ? void 0 : _a.alias) || name;
     }
     renderKanjiMiningControls(info) {
       const actions = visibleJpdbKanjiActions(info);
@@ -18352,13 +19395,17 @@ ${normalizedReading}`;
       );
     }
     loadKanjiDetails(kanji) {
+      var _a, _b, _c, _d;
       const existing = this.kanjiInfoCache.get(kanji);
       if (existing) return existing;
+      const settings = this.dependencies.getSettings();
       const promise = Promise.all([
         this.dependencies.jpdbKanji.lookup(kanji).catch(() => null),
         this.dependencies.rtk.lookup(kanji).catch(() => null),
-        this.dependencies.kanjiVG.lookup(kanji).catch(() => null)
-      ]).then(([jpdb, rtk, vg]) => ({ jpdb, rtk, vg }));
+        this.dependencies.kanjiVG.lookup(kanji).catch(() => null),
+        ((_b = (_a = this.dependencies.dictionaries).lookupKanji) == null ? void 0 : _b.call(_a, kanji, 6, settings.dictionaryPreferences).catch(() => [])) ?? Promise.resolve([]),
+        settings.similarKanjiWords ? ((_d = (_c = this.dependencies.dictionaries).lookupSimilarTermsByKanji) == null ? void 0 : _d.call(_c, kanji, settings.similarKanjiWordLimit, settings.dictionaryPreferences).catch(() => [])) ?? Promise.resolve([]) : Promise.resolve([])
+      ]).then(([jpdb, rtk, vg, local, similar]) => ({ jpdb, rtk, vg, local, similar }));
       this.kanjiInfoCache.set(kanji, promise);
       return promise;
     }
@@ -18391,7 +19438,19 @@ ${normalizedReading}`;
       const canvas = (_a = slots.answer) == null ? void 0 : _a.querySelector(".jpdb-reader-doodle-canvas");
       if (!canvas) return;
       try {
-        this.doodlePreviewCache.set(cardKey$2(card), canvas.toDataURL("image/png"));
+        const snapshot = document.createElement("canvas");
+        snapshot.width = canvas.width;
+        snapshot.height = canvas.height;
+        const context = snapshot.getContext("2d");
+        if (!context || typeof context.fillRect !== "function" || typeof context.drawImage !== "function") {
+          this.doodlePreviewCache.set(cardKey$2(card), canvas.toDataURL("image/png"));
+          return;
+        }
+        const stage = canvas.closest(".jpdb-reader-doodle-stage");
+        context.fillStyle = getComputedStyle(stage ?? canvas).backgroundColor || "#181b20";
+        context.fillRect(0, 0, snapshot.width, snapshot.height);
+        context.drawImage(canvas, 0, 0);
+        this.doodlePreviewCache.set(cardKey$2(card), snapshot.toDataURL("image/png"));
       } catch {
       }
     }
@@ -18456,6 +19515,7 @@ ${normalizedReading}`;
           el("button", { type: "button", dataset: { newtabAction: "load-dictionary" } }, "Add dictionary")
         );
       }
+      this.scheduleDictionarySetupRetry(root);
     }
     async installStarterDictionary(root) {
       if (!hasYomuRuntime()) {
@@ -18473,7 +19533,7 @@ ${normalizedReading}`;
         this.dictionarySetupRequired = false;
         await this.loadWordsInto(root, false);
       } catch (error) {
-        log$b.warn("Starter dictionary setup failed", error);
+        log$c.warn("Starter dictionary setup failed", error);
         this.setStatus(root, error instanceof Error ? error.message : "Could not add the dictionary. Check your connection and try again.");
       }
     }
@@ -18530,7 +19590,7 @@ ${normalizedReading}`;
         if (card && this.visibleWords[this.index] === card) this.renderWord(root, card);
         this.setStatus(root, "JPDB kanji updated.");
       } catch (error) {
-        log$b.warn("New tab JPDB kanji action failed", { kanji }, error);
+        log$c.warn("New tab JPDB kanji action failed", { kanji }, error);
         this.setStatus(root, "Could not update JPDB kanji. Enable kanji reviews on JPDB first.");
       }
     }
@@ -18557,7 +19617,7 @@ ${normalizedReading}`;
         this.setStatus(root, grade === "pass" || grade === "easy" || grade === "okay" ? "✓" : "✕");
         this.advanceAfterGrade(root, card);
       } catch (error) {
-        log$b.warn("New tab grade failed", { term: card.spelling, source: card.source, grade }, error);
+        log$c.warn("New tab grade failed", { term: card.spelling, source: card.source, grade }, error);
         this.setStatus(root, "Could not submit grade.");
       }
     }
@@ -18626,7 +19686,7 @@ ${normalizedReading}`;
         at: Date.now(),
         sourceLabel: sourceLabel2,
         cards: cards.slice(0, limit)
-      }).catch((error) => log$b.debug("New tab offline cache write failed", error));
+      }).catch((error) => log$c.debug("New tab offline cache write failed", error));
     }
     async readOfflineCache() {
       const settings = this.dependencies.getSettings();
@@ -18721,9 +19781,34 @@ ${card.reading}`;
     if (card.source === "anki") return 1;
     return 2;
   }
+  function normalizeJpdbKanjiInfo(info) {
+    return {
+      kanji: info.kanji ?? "",
+      keyword: info.keyword ?? "",
+      frequency: info.frequency ?? "",
+      type: info.type ?? "",
+      kanken: info.kanken ?? "",
+      heisig: info.heisig ?? "",
+      oldForms: Array.isArray(info.oldForms) ? info.oldForms : [],
+      readings: Array.isArray(info.readings) ? info.readings : [],
+      components: Array.isArray(info.components) ? info.components : [],
+      usedInKanji: Array.isArray(info.usedInKanji) ? info.usedInKanji : [],
+      mnemonic: info.mnemonic ?? "",
+      vocabulary: Array.isArray(info.vocabulary) ? info.vocabulary : [],
+      actions: Array.isArray(info.actions) ? info.actions : [],
+      loggedIn: Boolean(info.loggedIn),
+      kanjiReviewsEnabled: Boolean(info.kanjiReviewsEnabled)
+    };
+  }
+  function isNewTabStudyInteractiveTarget(target) {
+    return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
+  }
   function hasYomuRuntime() {
     const runtime = globalThis;
-    return Boolean(runtime.GM_info || runtime.__YOMU_READER_RUNTIME__);
+    const marker = typeof document !== "undefined" ? document.getElementById("jpdb-reader-runtime-owner") : null;
+    return Boolean(
+      runtime.GM_info || runtime.__YOMU_READER_RUNTIME__ || runtime.__yomuDemoApp || runtime.__yomuReaderAppInitialized && (marker == null ? void 0 : marker.dataset.yomuRuntimeKind) === "demo"
+    );
   }
   function shouldShowInStudyQueue(card) {
     if (card.source === "local" || card.source === "fallback") return true;
@@ -18743,7 +19828,7 @@ ${card.reading}`;
     if (withReading && withReading.includes(card.spelling)) return withReading;
     return card.spelling;
   }
-  const log$a = Logger.scope("Onboarding");
+  const log$b = Logger.scope("Onboarding");
   class OnboardingController {
     constructor(options) {
       __publicField(this, "panel");
@@ -18753,14 +19838,14 @@ ${card.reading}`;
     }
     async showIfNeeded() {
       if (this.options.getSettings().onboardingSeen) {
-        log$a.debug("Onboarding skipped", { reason: "already-seen" });
+        log$b.debug("Onboarding skipped", { reason: "already-seen" });
         return false;
       }
       this.show();
       return true;
     }
     show() {
-      log$a.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      log$b.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
       this.close();
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
@@ -18834,7 +19919,7 @@ ${card.reading}`;
       this.languageSelect.addEventListener("change", () => {
         var _a;
         const language2 = normalizeLanguage((_a = this.languageSelect) == null ? void 0 : _a.value, this.options.getSettings().interfaceLanguage);
-        log$a.info("Onboarding language changed", { language: language2 });
+        log$b.info("Onboarding language changed", { language: language2 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
@@ -18884,7 +19969,7 @@ ${card.reading}`;
     }
     async complete(openSettings) {
       var _a;
-      const done = log$a.time("Onboarding complete", { openSettings });
+      const done = log$b.time("Onboarding complete", { openSettings });
       const language = (_a = this.languageSelect) == null ? void 0 : _a.value;
       const settings = {
         ...this.options.getSettings(),
@@ -18900,9 +19985,9 @@ ${card.reading}`;
         this.close();
         if (openSettings === "dictionaries") this.options.showSettings("dictionaries");
         else if (openSettings) this.options.showSettings();
-        log$a.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
+        log$b.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
       } catch (error) {
-        log$a.warn("Onboarding completion failed", { openSettings, error });
+        log$b.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
@@ -18910,7 +19995,7 @@ ${card.reading}`;
     }
     close() {
       var _a, _b;
-      if (this.panel || this.backdrop) log$a.debug("Closing onboarding");
+      if (this.panel || this.backdrop) log$b.debug("Closing onboarding");
       (_a = this.panel) == null ? void 0 : _a.remove();
       (_b = this.backdrop) == null ? void 0 : _b.remove();
       this.panel = void 0;
@@ -18943,7 +20028,7 @@ ${card.reading}`;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
   const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const log$9 = Logger.scope("OCR");
+  const log$a = Logger.scope("OCR");
   class ImageOcrController {
     constructor(options) {
       __publicField(this, "states", /* @__PURE__ */ new Map());
@@ -18984,20 +20069,20 @@ ${card.reading}`;
         attributes: true,
         attributeFilter: ["class", "style", "hidden", "src", "srcset", "sizes", "loading", "poster"]
       });
-      log$9.info("OCR controller initialized");
+      log$a.info("OCR controller initialized");
     }
     refresh(options = {}) {
       var _a, _b, _c, _d, _e;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) {
         this.clear();
-        log$9.debug("OCR disabled; cleared overlays");
+        log$a.debug("OCR disabled; cleared overlays");
         return;
       }
       const hasEmbeddedOcr = Array.from(document.images).some(hasFallbackOcrMetadata);
       if (!options.userRequested && !hasEmbeddedOcr && (!settings.ocrAutoScanImages || ((_b = (_a = this.options).shouldAutoScan) == null ? void 0 : _b.call(_a)) === false)) {
         this.clear();
-        log$9.debugThrottled("refresh-skipped", 5e3, "OCR auto-scan skipped until Japanese text appears");
+        log$a.debugThrottled("refresh-skipped", 5e3, "OCR auto-scan skipped until Japanese text appears");
         return;
       }
       this.pruneDisconnectedStates();
@@ -19014,25 +20099,25 @@ ${card.reading}`;
         }
       }
       this.schedulePosition();
-      log$9.debugThrottled("refresh", 2500, "OCR refreshed image candidates", { images: images.length });
+      log$a.debugThrottled("refresh", 2500, "OCR refreshed image candidates", { images: images.length });
     }
     toggle() {
       const settings = this.options.getSettings();
       settings.ocrEnabled = !settings.ocrEnabled;
       this.options.onToast(settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
       this.refresh();
-      log$9.info("OCR toggled", { enabled: settings.ocrEnabled });
+      log$a.info("OCR toggled", { enabled: settings.ocrEnabled });
     }
     async scanVisible() {
       this.refresh({ userRequested: true });
       const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
       if (!images.length) {
-        log$9.debug("Manual OCR scan found no nearby images");
+        log$a.debug("Manual OCR scan found no nearby images");
         this.options.onToast("No readable images nearby.");
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$9.info("Manual OCR scan queued images", { images: images.length });
+      log$a.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element2) {
       var _a;
@@ -19041,7 +20126,7 @@ ${card.reading}`;
       const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
       if (!state) return void 0;
       const image = captureImageElement(state.image);
-      log$9.debug("Captured OCR source image for mining", { success: Boolean(image) });
+      log$a.debug("Captured OCR source image for mining", { success: Boolean(image) });
       return image;
     }
     ensureObserver(settings) {
@@ -19059,7 +20144,7 @@ ${card.reading}`;
           if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
         }
       }, { rootMargin });
-      log$9.debug("OCR observer configured", { rootMargin });
+      log$a.debug("OCR observer configured", { rootMargin });
     }
     ensureState(image) {
       const existing = this.states.get(image);
@@ -19079,7 +20164,7 @@ ${card.reading}`;
         this.scheduleRefresh(80);
       });
       this.states.set(image, state);
-      log$9.debug("OCR state created for image", imageSummary(image));
+      log$a.debug("OCR state created for image", imageSummary(image));
       return state;
     }
     enqueue(image, userRequested = false) {
@@ -19098,7 +20183,7 @@ ${card.reading}`;
         state.status.hidden = false;
         state.status.textContent = "Reading image...";
       }
-      log$9.debug("OCR image queued", { userRequested, queue: this.queue.length, image: imageSummary(image) });
+      log$a.debug("OCR image queued", { userRequested, queue: this.queue.length, image: imageSummary(image) });
       this.drainQueue();
     }
     drainQueue() {
@@ -19108,9 +20193,9 @@ ${card.reading}`;
       if (!image) return;
       this.busy = true;
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
-      const delay = ((_a = this.states.get(image)) == null ? void 0 : _a.overlayRequested) || hasFastText ? 0 : 900;
-      log$9.debug("OCR queue draining", { delay, hasFastText, remaining: this.queue.length });
-      void waitForIdle(delay).then(() => this.scanImage(image)).finally(() => {
+      const delay2 = ((_a = this.states.get(image)) == null ? void 0 : _a.overlayRequested) || hasFastText ? 0 : 900;
+      log$a.debug("OCR queue draining", { delay: delay2, hasFastText, remaining: this.queue.length });
+      void waitForIdle(delay2).then(() => this.scanImage(image)).finally(() => {
         this.busy = false;
         this.drainQueue();
       });
@@ -19123,7 +20208,7 @@ ${card.reading}`;
       this.resetStateIfImageChanged(state);
       const cached = this.cache.get(key);
       if (cached) {
-        log$9.debug("OCR cache hit", { image: imageSummary(image), lines: cached.lines.length });
+        log$a.debug("OCR cache hit", { image: imageSummary(image), lines: cached.lines.length });
         await this.renderResult(state, cached);
         state.manualRequested = false;
         return;
@@ -19135,7 +20220,7 @@ ${card.reading}`;
       const canUseGoogleLens = settings.ocrProvider === "google-lens";
       state.status.textContent = "Reading image...";
       const provider = inlineProviderLabel(settings);
-      const done = log$9.time("scanImage", { provider, image: imageSummary(image), manualRequested });
+      const done = log$a.time("scanImage", { provider, image: imageSummary(image), manualRequested });
       try {
         const inlineFallback = readFallbackOcrResult(image, false);
         const providerResult = inlineFallback ? null : canUseLocalService ? await recognizeViaLocalService(image, settings) : canUseCloudVision ? await recognizeViaCloudVision(image, settings) : canUseGoogleLens ? await recognizeViaGoogleLens(image, settings) : null;
@@ -19144,23 +20229,23 @@ ${card.reading}`;
           state.autoSkipped = !manualRequested;
           state.status.textContent = "No Japanese text found";
           state.status.hidden = !state.overlayRequested || state.autoSkipped;
-          log$9.debug("OCR found no lines", { provider, manualRequested });
+          log$a.debug("OCR found no lines", { provider, manualRequested });
           return;
         }
         this.remember(key, result);
         state.key = key;
         await this.renderResult(state, result);
-        log$9.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+        log$a.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
       } catch (error) {
         const fallback = readFallbackOcrResult(image, false);
         if (fallback == null ? void 0 : fallback.lines.length) {
-          log$9.warn("OCR provider failed; rendered fallback metadata", { provider }, error);
+          log$a.warn("OCR provider failed; rendered fallback metadata", { provider }, error);
           await this.renderResult(state, fallback);
         } else {
           state.status.textContent = error instanceof Error ? error.message : "OCR failed";
           state.autoSkipped = !manualRequested;
           state.status.hidden = !state.overlayRequested || state.autoSkipped;
-          log$9.warn("OCR scan failed", { provider, manualRequested }, error);
+          log$a.warn("OCR scan failed", { provider, manualRequested }, error);
         }
       } finally {
         state.loading = false;
@@ -19177,7 +20262,7 @@ ${card.reading}`;
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const sentence = result.lines.map((line) => line.text).join("\n");
       const parsed = settings.apiKey.trim() || settings.localDictionariesEnabled ? await Promise.all(result.lines.map((line) => this.options.parseJapanese(line.text).catch((error) => {
-        log$9.debug("OCR line parse failed quietly", { textLength: line.text.length }, error);
+        log$a.debug("OCR line parse failed quietly", { textLength: line.text.length }, error);
         return [];
       }))) : result.lines.map(() => []);
       state.overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
@@ -19240,7 +20325,7 @@ ${card.reading}`;
         state.overlay.append(element2);
       }
       this.positionState(state.image);
-      log$9.debug("OCR overlay lines positioned", {
+      log$a.debug("OCR overlay lines positioned", {
         lines: result.lines.length,
         parsedTokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0),
         forcedOverlay: forceOverlay
@@ -19275,7 +20360,7 @@ ${card.reading}`;
       state.autoSkipped = false;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       state.status.hidden = true;
-      log$9.debug("OCR image state reset after source change", { image: imageSummary(state.image) });
+      log$a.debug("OCR image state reset after source change", { image: imageSummary(state.image) });
     }
     remember(key, result) {
       this.cache.set(key, result);
@@ -19292,9 +20377,9 @@ ${card.reading}`;
         for (const image of this.states.keys()) this.positionState(image);
       });
     }
-    scheduleRefresh(delay) {
+    scheduleRefresh(delay2) {
       window.clearTimeout(this.refreshTimer);
-      this.refreshTimer = window.setTimeout(() => this.refresh(), delay);
+      this.refreshTimer = window.setTimeout(() => this.refresh(), delay2);
     }
     positionState(image) {
       const state = this.states.get(image);
@@ -19364,7 +20449,7 @@ ${card.reading}`;
       this.queue = [];
       for (const state of this.states.values()) state.overlay.remove();
       this.states.clear();
-      log$9.debug("OCR state cleared");
+      log$a.debug("OCR state cleared");
     }
     pruneDisconnectedStates() {
       var _a;
@@ -19503,7 +20588,7 @@ ${card.reading}`;
     return Math.min(max, Math.max(min, value));
   }
   async function recognizeViaLocalService(image, settings) {
-    log$9.debug("Recognizing image via local OCR service", { endpointHost: safeHost$1(settings.ocrEndpointUrl), engine: settings.ocrEngine });
+    log$a.debug("Recognizing image via local OCR service", { endpointHost: safeHost$1(settings.ocrEndpointUrl), engine: settings.ocrEngine });
     const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
     const body = JSON.stringify({
@@ -19524,7 +20609,7 @@ ${card.reading}`;
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaCloudVision(image, settings) {
-    log$9.debug("Recognizing image via Cloud Vision");
+    log$a.debug("Recognizing image via Cloud Vision");
     const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const body = JSON.stringify({
       requests: [{
@@ -19538,7 +20623,7 @@ ${card.reading}`;
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaGoogleLens(image, settings) {
-    log$9.debug("Recognizing image via Google Lens");
+    log$a.debug("Recognizing image via Google Lens");
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
@@ -19546,7 +20631,7 @@ ${card.reading}`;
       const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
       return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
     } catch (error) {
-      log$9.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
+      log$a.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
       return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
     }
   }
@@ -19559,13 +20644,13 @@ ${card.reading}`;
     try {
       return { canvas, blob: await canvasToBlob(canvas, type, quality) };
     } catch (error) {
-      log$9.debug("Canvas export failed; retrying OCR image through blob fallback", { image: imageSummary(image) }, error);
+      log$a.debug("Canvas export failed; retrying OCR image through blob fallback", { image: imageSummary(image) }, error);
       const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
       return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
     }
   }
   async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-    log$9.debug("Recognizing image via Google Lens upload fallback", { width, height, size: blob.size });
+    log$a.debug("Recognizing image via Google Lens upload fallback", { width, height, size: blob.size });
     const data = new FormData();
     data.append("encoded_image", blob, "image.jpg");
     const response = await requestTextForm("https://lens.google.com/v3/upload?stcs=" + Date.now().toString().slice(0, 10), data, timeout);
@@ -19577,7 +20662,7 @@ ${card.reading}`;
       assertCanvasReadable(canvas);
       return canvas;
     } catch (error) {
-      log$9.debug("Direct image canvas unavailable; fetching image blob fallback", { image: imageSummary(image) }, error);
+      log$a.debug("Direct image canvas unavailable; fetching image blob fallback", { image: imageSummary(image) }, error);
       return imageBlobToCanvas(image, maxPixels);
     }
   }
@@ -20112,7 +21197,7 @@ ${card.reading}`;
   function requestJson(url, data, timeout) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$9.debug("JSON OCR request via userscript API", { host: safeHost$1(url), bytes: data.length });
+      log$a.debug("JSON OCR request via userscript API", { host: safeHost$1(url), bytes: data.length });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "POST",
@@ -20127,14 +21212,14 @@ ${card.reading}`;
         });
       });
     }
-    log$9.debug("JSON OCR request via fetch", { host: safeHost$1(url), bytes: data.length });
+    log$a.debug("JSON OCR request via fetch", { host: safeHost$1(url), bytes: data.length });
     return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data }).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
   }
   function requestArrayBuffer(url, data, timeout) {
     const body = new Uint8Array(data);
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$9.debug("ArrayBuffer OCR request via userscript API", { host: safeHost$1(url), bytes: body.byteLength });
+      log$a.debug("ArrayBuffer OCR request via userscript API", { host: safeHost$1(url), bytes: body.byteLength });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "POST",
@@ -20154,7 +21239,7 @@ ${card.reading}`;
         });
       });
     }
-    log$9.debug("ArrayBuffer OCR request via fetch", { host: safeHost$1(url), bytes: body.byteLength });
+    log$a.debug("ArrayBuffer OCR request via fetch", { host: safeHost$1(url), bytes: body.byteLength });
     return fetch(url, {
       method: "POST",
       headers: {
@@ -20169,7 +21254,7 @@ ${card.reading}`;
   function requestTextForm(url, data, timeout) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$9.debug("Form OCR request via userscript API", { host: safeHost$1(url) });
+      log$a.debug("Form OCR request via userscript API", { host: safeHost$1(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "POST",
@@ -20183,13 +21268,13 @@ ${card.reading}`;
         });
       });
     }
-    log$9.debug("Form OCR request via fetch", { host: safeHost$1(url) });
+    log$a.debug("Form OCR request via fetch", { host: safeHost$1(url) });
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
   function requestBlob(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-      log$9.debug("Image blob request via userscript API", { host: safeHost$1(url) });
+      log$a.debug("Image blob request via userscript API", { host: safeHost$1(url) });
       return new Promise((resolve, reject) => {
         userscriptRequest({
           method: "GET",
@@ -20200,7 +21285,7 @@ ${card.reading}`;
         });
       });
     }
-    log$9.debug("Image blob request via fetch", { host: safeHost$1(url) });
+    log$a.debug("Image blob request via fetch", { host: safeHost$1(url) });
     return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
   }
   function waitForIdle(timeout) {
@@ -20444,6 +21529,7 @@ ${card.reading}`;
     const reset = () => {
       popover.style.transition = "transform .16s ease";
       popover.style.transform = "";
+      popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
       window.setTimeout(() => {
         popover.style.transition = "";
       }, 180);
@@ -20509,7 +21595,13 @@ ${card.reading}`;
       lastY = event.clientY;
       const delta = lastY - startY;
       if (Math.abs(delta) > 8) moved = true;
-      popover.style.transform = `translateY(${delta}px)`;
+      if (delta < 0 && !popover.classList.contains("jpdb-reader-sheet-expanded")) {
+        popover.style.transform = "";
+        popover.style.setProperty("--jpdb-reader-sheet-drag-up", `${Math.abs(delta)}px`);
+        return;
+      }
+      popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
+      popover.style.transform = `translateY(${Math.max(0, delta)}px)`;
     });
     popover.addEventListener("pointerup", finish);
     popover.addEventListener("pointercancel", () => {
@@ -20536,34 +21628,60 @@ ${card.reading}`;
     return window.innerWidth <= 768 || matchMedia("(pointer: coarse)").matches;
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
+  const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE = /[\u3400-\u9fff]/u;
-  const log$8 = Logger.scope("RTK");
+  const log$9 = Logger.scope("RTK");
   class RtkClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
+      __publicField(this, "keywordIndex");
     }
     lookup(kanji) {
       if (!KANJI_RE.test(kanji)) return Promise.resolve(null);
       const key = Array.from(kanji)[0] ?? kanji;
       let promise = this.cache.get(key);
       if (!promise) {
-        log$8.debug("Lookup cache miss", { kanji: key });
+        log$9.debug("Lookup cache miss", { kanji: key });
         promise = this.fetchInfo(key);
         this.cache.set(key, promise);
       } else {
-        log$8.debug("Lookup cache hit", { kanji: key });
+        log$9.debug("Lookup cache hit", { kanji: key });
       }
       return promise;
     }
     async fetchInfo(kanji) {
       const html = await requestText$1(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$8.warn("RTK request failed", { kanji }, error);
+        log$9.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
       const info = parseRtkHtml(html, kanji);
-      log$8.debug("RTK info parsed", { kanji, found: Boolean(info), keyword: (info == null ? void 0 : info.keyword) ?? "" });
-      return info;
+      log$9.debug("RTK info parsed", { kanji, found: Boolean(info), keyword: (info == null ? void 0 : info.keyword) ?? "" });
+      return info ? this.withElementGlyphs(info) : null;
+    }
+    async withElementGlyphs(info) {
+      const index = await this.lookupKeywordIndex().catch((error) => {
+        log$9.debug("RTK keyword index unavailable", { kanji: info.kanji }, error);
+        return /* @__PURE__ */ new Map();
+      });
+      const elementGlyphs = {};
+      splitRtkElements$1(info.elements).filter((keyword) => rtkElementKey(keyword) !== rtkElementKey(info.keyword)).forEach((keyword) => {
+        const key = rtkElementKey(keyword);
+        const fallback = rtkElementFallbackGlyph(keyword);
+        const indexedKanji = index.get(key) ?? index.get(compactRtkElementKey(key));
+        const glyph = fallback ?? (indexedKanji ? { glyph: indexedKanji, kanji: indexedKanji } : void 0);
+        if (glyph) elementGlyphs[key] = glyph;
+      });
+      return Object.keys(elementGlyphs).length ? { ...info, elementGlyphs } : info;
+    }
+    lookupKeywordIndex() {
+      if (!this.keywordIndex) {
+        this.keywordIndex = requestText$1(RTK_SEARCH_INDEX_URL).then(parseRtkSearchIndex).catch((error) => {
+          this.keywordIndex = void 0;
+          throw error;
+        });
+      }
+      return this.keywordIndex;
     }
   }
   function parseRtkHtml(html, kanji) {
@@ -20591,6 +21709,33 @@ ${card.reading}`;
       heisigComment,
       koohiiStories
     };
+  }
+  function parseRtkSearchIndex(script) {
+    const entries = /* @__PURE__ */ new Map();
+    const collisions = /* @__PURE__ */ new Set();
+    const entryRe = /"kanji"\s*:\s*"([^"]+)"[\s\S]*?"keyword"\s*:\s*"([^"]+)"/g;
+    let match;
+    while (match = entryRe.exec(script)) {
+      const kanji = Array.from(match[1] ?? "").find((character) => KANJI_RE.test(character)) ?? "";
+      const keyword = match[2] ?? "";
+      if (!kanji || !keyword) continue;
+      addRtkKeywordIndexEntry(entries, collisions, rtkElementKey(keyword), kanji);
+      addRtkKeywordIndexEntry(entries, collisions, compactRtkElementKey(keyword), kanji);
+    }
+    return entries;
+  }
+  function addRtkKeywordIndexEntry(entries, collisions, key, kanji) {
+    if (!key || collisions.has(key)) return;
+    const existing = entries.get(key);
+    if (existing && existing !== kanji) {
+      entries.delete(key);
+      collisions.add(key);
+      return;
+    }
+    entries.set(key, kanji);
+  }
+  function compactRtkElementKey(value) {
+    return rtkElementKey(value).replace(/\s+/g, "");
   }
   function textAfterHeading(doc, label) {
     const heading = Array.from(doc.querySelectorAll("h2")).find((element2) => {
@@ -20641,7 +21786,7 @@ ${card.reading}`;
   }
   const LOCAL_MATCH_LIMIT = 40;
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const log$7 = Logger.scope("ReaderParser");
+  const log$8 = Logger.scope("ReaderParser");
   class ReaderParser {
     constructor(dependencies) {
       __publicField(this, "localCardCache", /* @__PURE__ */ new Map());
@@ -20650,7 +21795,7 @@ ${card.reading}`;
     async parse(paragraphs) {
       const { getSettings, jpdb } = this.dependencies;
       const settings = getSettings();
-      const done = log$7.time("parse", {
+      const done = log$8.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: Boolean(settings.apiKey.trim()),
         localFallback: settings.localDictionariesEnabled
@@ -20658,7 +21803,7 @@ ${card.reading}`;
       if (settings.apiKey.trim()) {
         try {
           const result = await jpdb.parse(paragraphs);
-          log$7.debug("Parsed with JPDB", {
+          log$8.debug("Parsed with JPDB", {
             paragraphs: result.length,
             tokens: result.reduce((sum, tokens) => sum + tokens.length, 0)
           });
@@ -20666,21 +21811,21 @@ ${card.reading}`;
           return result;
         } catch (error) {
           if (!this.canUseLocalDictionaryFallback()) {
-            log$7.warn("JPDB parse failed without local fallback", error);
+            log$8.warn("JPDB parse failed without local fallback", error);
             done();
             throw error;
           }
-          log$7.warn("JPDB parse failed; using local dictionary fallback", error);
+          log$8.warn("JPDB parse failed; using local dictionary fallback", error);
         }
       }
       if (!this.canUseLocalDictionaryFallback()) {
-        log$7.debug("Parsing skipped; no JPDB key or local fallback");
+        log$8.debug("Parsing skipped; no JPDB key or local fallback");
         done();
         return paragraphs.map(() => []);
       }
       try {
         const result = await Promise.all(paragraphs.map((text2) => this.parseLocalDictionaryText(text2)));
-        log$7.debug("Parsed with local dictionary fallback", {
+        log$8.debug("Parsed with local dictionary fallback", {
           paragraphs: result.length,
           tokens: result.reduce((sum, tokens) => sum + tokens.length, 0)
         });
@@ -20694,7 +21839,7 @@ ${card.reading}`;
       return Boolean(settings.apiKey.trim()) || this.canUseLocalDictionaryFallback();
     }
     isJpdbBackedCard(card) {
-      return (!card.source || card.source === "jpdb") && card.vid > 0 && card.sid > 0 && Boolean(this.dependencies.getSettings().apiKey.trim());
+      return (!card.source || card.source === "jpdb") && card.vid > 0 && card.sid > 0;
     }
     getCachedCard(vid, sid) {
       return this.dependencies.jpdb.getCard(vid, sid) ?? this.localCardCache.get(cardCacheKey(vid, sid));
@@ -20708,7 +21853,7 @@ ${card.reading}`;
     }
     clearLocalCache() {
       this.localCardCache.clear();
-      log$7.debug("Local card cache cleared");
+      log$8.debug("Local card cache cleared");
     }
     localCardFromEntry(entry) {
       const id = -stableLocalId(`${entry.dictionary}
@@ -20762,7 +21907,7 @@ ${spelling}`);
       const { dictionaries, getSettings } = this.dependencies;
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$7.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$8.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return matches.map((match) => {
@@ -20867,7 +22012,7 @@ ${spelling}`);
   function findRecommendedDictionary(id) {
     return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
-  const log$6 = Logger.scope("SettingsForm");
+  const log$7 = Logger.scope("SettingsForm");
   const COLOR_SOURCE_OPTIONS = [
     ["auto", "Automatic"],
     ["off", "Off"],
@@ -20910,7 +22055,7 @@ ${spelling}`);
     `;
   }
   function renderSettingsForm(settings, jpdbSettingsUrl) {
-    log$6.debug("Rendering settings form", {
+    log$7.debug("Rendering settings form", {
       language: settings.interfaceLanguage,
       dictionaries: settings.dictionaryPreferences.length,
       audioSources: settings.audioSources.length,
@@ -21285,7 +22430,7 @@ ${spelling}`);
   }
   function localizeSettingsForm(form, language) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
-    log$6.debug("Localizing settings form", { language });
+    log$7.debug("Localizing settings form", { language });
     const text2 = (key) => uiText(language, key);
     form.lang = resolveUiLanguage(language);
     form.setAttribute("aria-label", text2("settingsTitle"));
@@ -21727,7 +22872,7 @@ ${spelling}`);
     `;
   }
   function activateSettingsPanel(form, panel) {
-    log$6.debug("Activating settings panel", { panel });
+    log$7.debug("Activating settings panel", { panel });
     form.querySelectorAll("[data-settings-panel]").forEach((section) => {
       section.hidden = section.dataset.settingsPanel !== panel;
     });
@@ -21852,7 +22997,7 @@ ${spelling}`);
     const index = row ? rows.indexOf(row) : -1;
     if (action === "audio-source-up" || action === "audio-source-down") {
       moveSourceRow(container, index, action === "audio-source-up" ? index - 1 : index + 1);
-      log$6.debug("Reordered audio source row", { action, rows: rows.length });
+      log$7.debug("Reordered audio source row", { action, rows: rows.length });
       return;
     }
     const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
@@ -21863,7 +23008,7 @@ ${spelling}`);
       sources.splice(index, 1);
     }
     setInnerHtml(container, renderAudioSourceEditor(sources));
-    log$6.debug("Updated audio source editor", { action, rows: sources.length });
+    log$7.debug("Updated audio source editor", { action, rows: sources.length });
   }
   function renderDictionaryLookupLinkEditor(links) {
     const rows = normalizeDictionaryLookupLinks(links);
@@ -21955,7 +23100,7 @@ ${spelling}`);
       links.splice(index + 1, 0, link);
     }
     setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
-    log$6.debug("Updated lookup link editor", { action, rows: links.length });
+    log$7.debug("Updated lookup link editor", { action, rows: links.length });
   }
   function updateSourceRowEditor(form, action, control) {
     const row = control == null ? void 0 : control.closest("[data-source-row]");
@@ -21965,7 +23110,7 @@ ${spelling}`);
     const index = rows.indexOf(row);
     const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
     moveSourceRow(container, index, targetIndex);
-    log$6.debug("Updated ordered source editor", { action, rows: rows.length });
+    log$7.debug("Updated ordered source editor", { action, rows: rows.length });
   }
   function installSourceRowDrag(form) {
     let dragged = null;
@@ -21979,7 +23124,7 @@ ${spelling}`);
       row.classList.add("jpdb-reader-dragging");
       (_a = event.dataTransfer) == null ? void 0 : _a.setData("text/plain", row.dataset.sourceId ?? "");
       (_b = event.dataTransfer) == null ? void 0 : _b.setDragImage(row, 18, 18);
-      log$6.debug("Source row drag started", { sourceId: row.dataset.sourceId });
+      log$7.debug("Source row drag started", { sourceId: row.dataset.sourceId });
     });
     form.addEventListener("dragover", (event) => {
       if (!dragged) return;
@@ -21995,11 +23140,11 @@ ${spelling}`);
       if (!dropSlot) return;
       event.preventDefault();
       moveSourceRowToSlot(dropSlot);
-      log$6.debug("Source row dropped", sourceRowDropSlotLog(dropSlot));
+      log$7.debug("Source row dropped", sourceRowDropSlotLog(dropSlot));
     });
     form.addEventListener("dragend", () => {
       dragged == null ? void 0 : dragged.classList.remove("jpdb-reader-dragging");
-      if (dragged) log$6.debug("Source row drag ended", { sourceId: dragged.dataset.sourceId });
+      if (dragged) log$7.debug("Source row drag ended", { sourceId: dragged.dataset.sourceId });
       clearSourceRowDropSlot(form);
       dragged = null;
       dropSlot = null;
@@ -22021,7 +23166,7 @@ ${spelling}`);
         touchDrag.active = true;
         dragged = touchDrag.row;
         dragged.classList.add("jpdb-reader-dragging", "jpdb-reader-touch-dragging");
-        log$6.debug("Source row touch drag started", { sourceId: dragged.dataset.sourceId });
+        log$7.debug("Source row touch drag started", { sourceId: dragged.dataset.sourceId });
       }
       event.preventDefault();
       const target = ((_a = document.elementFromPoint(touch.clientX, touch.clientY)) == null ? void 0 : _a.closest("[data-source-row]")) ?? null;
@@ -22033,7 +23178,7 @@ ${spelling}`);
     form.addEventListener("touchend", () => {
       if ((touchDrag == null ? void 0 : touchDrag.active) && touchDrag.slot) {
         moveSourceRowToSlot(touchDrag.slot);
-        log$6.debug("Source row touch dropped", sourceRowDropSlotLog(touchDrag.slot));
+        log$7.debug("Source row touch dropped", sourceRowDropSlotLog(touchDrag.slot));
       }
       endSourceRowTouchDrag(form, touchDrag);
       touchDrag = null;
@@ -22085,7 +23230,7 @@ ${spelling}`);
   function endSourceRowTouchDrag(form, touchDrag) {
     touchDrag == null ? void 0 : touchDrag.row.classList.remove("jpdb-reader-dragging", "jpdb-reader-touch-dragging");
     clearSourceRowDropSlot(form);
-    if (touchDrag == null ? void 0 : touchDrag.active) log$6.debug("Source row touch drag ended", { sourceId: touchDrag.row.dataset.sourceId });
+    if (touchDrag == null ? void 0 : touchDrag.active) log$7.debug("Source row touch drag ended", { sourceId: touchDrag.row.dataset.sourceId });
   }
   function isInteractiveDragTarget(target) {
     return Boolean(target == null ? void 0 : target.closest("input, select, textarea, button, a"));
@@ -22142,11 +23287,11 @@ ${spelling}`);
         event.stopPropagation();
         if (event.key === "Backspace" || event.key === "Delete") {
           inputEl.value = "";
-          log$6.debug("Shortcut cleared", { name: inputEl.name });
+          log$7.debug("Shortcut cleared", { name: inputEl.name });
           return;
         }
         inputEl.value = formatShortcutEvent(event);
-        log$6.debug("Shortcut captured", { name: inputEl.name, value: inputEl.value });
+        log$7.debug("Shortcut captured", { name: inputEl.name, value: inputEl.value });
       });
       inputEl.addEventListener("paste", (event) => event.preventDefault());
     });
@@ -22568,7 +23713,7 @@ ${spelling}`);
     if (settings.jpdbWordAudioAutoPlayReviewAudio || !settings.immersionKitEnabled || !settings.jpdbImmersionKitEnabled) {
       settings.jpdbImmersionKitAutoPlayReviewAudio = false;
     }
-    log$6.info("Read settings form data", {
+    log$7.info("Read settings form data", {
       enableLogging: settings.enableLogging,
       dictionaries: settings.dictionaryPreferences.length,
       lookupLinks: settings.dictionaryLookupLinks.length,
@@ -22629,7 +23774,7 @@ ${spelling}`);
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$6.warn("File picker input missing", { type });
+      log$7.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
@@ -22637,10 +23782,10 @@ ${spelling}`);
         var _a;
         const file = ((_a = inputEl.files) == null ? void 0 : _a[0]) ?? null;
         inputEl.value = "";
-        log$6.info("File picker completed", { type, name: (file == null ? void 0 : file.name) ?? "", size: (file == null ? void 0 : file.size) ?? 0 });
+        log$7.info("File picker completed", { type, name: (file == null ? void 0 : file.name) ?? "", size: (file == null ? void 0 : file.size) ?? 0 });
         resolve(file);
       };
-      log$6.debug("Opening file picker", { type });
+      log$7.debug("Opening file picker", { type });
       inputEl.click();
     });
   }
@@ -22651,12 +23796,12 @@ ${spelling}`);
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$6.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
+    log$7.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
-  const log$5 = Logger.scope("SettingsDialog");
+  const log$6 = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   class SettingsDialogController {
     constructor(dependencies) {
@@ -22664,7 +23809,7 @@ ${spelling}`);
       this.dependencies = dependencies;
     }
     open(panel) {
-      log$5.info("Opening settings", { panel: panel ?? "default" });
+      log$6.info("Opening settings", { panel: panel ?? "default" });
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);
@@ -22711,14 +23856,14 @@ ${spelling}`);
           this.dependencies.clearDictionarySourceOpenOverrides();
         }
         void saveSettings(this.settings).then(() => this.afterSettingsSaved()).catch((error) => {
-          log$5.error("Settings save failed", error);
+          log$6.error("Settings save failed", error);
           this.dependencies.toast(error instanceof Error ? error.message : "Settings save failed.");
         });
       });
       (_a = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _a.addEventListener("click", () => this.dependencies.dismiss());
     }
     async afterSettingsSaved() {
-      log$5.info("Settings saved", loggingSettingsSummary(this.settings));
+      log$6.info("Settings saved", loggingSettingsSummary(this.settings));
       this.dependencies.jpdb.clear();
       this.dependencies.applyTheme();
       await this.dependencies.refreshDictionaryStyles();
@@ -22869,7 +24014,7 @@ ${spelling}`);
       if (!container) return;
       const apiKey = ((_a = form.querySelector('input[name="apiKey"]')) == null ? void 0 : _a.value.trim()) ?? this.settings.apiKey.trim();
       if (!apiKey) {
-        log$5.debug("Deck controls rendered without API key");
+        log$6.debug("Deck controls rendered without API key");
         setInnerHtml(container, renderDeckControls(this.settings, [], false));
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         return;
@@ -22878,10 +24023,10 @@ ${spelling}`);
       this.settings.apiKey = apiKey;
       try {
         const decks = await this.dependencies.jpdb.listDecks();
-        log$5.debug("Deck controls loaded", { decks: decks.length });
+        log$6.debug("Deck controls loaded", { decks: decks.length });
         setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true));
       } catch (error) {
-        log$5.warn("Deck controls failed to load", error);
+        log$6.warn("Deck controls failed to load", error);
         setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true));
       } finally {
         this.settings.apiKey = originalKey;
@@ -22894,7 +24039,7 @@ ${spelling}`);
       const recommended = form.querySelector("[data-recommended-dictionaries]");
       try {
         const summary = await this.dependencies.dictionaries.summary();
-        log$5.debug("Dictionary status loaded", summary);
+        log$6.debug("Dictionary status loaded", summary);
         const names = summary.dictionaries.map((item) => item.title);
         const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
         const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
@@ -22910,7 +24055,7 @@ ${spelling}`);
         if (recommended) setInnerHtml(recommended, renderRecommendedDictionaries(summary.dictionaries));
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       } catch (error) {
-        log$5.warn("Dictionary status unavailable", error);
+        log$6.warn("Dictionary status unavailable", error);
         if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
       }
     }
@@ -22921,7 +24066,7 @@ ${spelling}`);
       let importedEntries = 0;
       for (const [index, dictionary] of missing.entries()) {
         onProgress == null ? void 0 : onProgress(`Downloading ${dictionary.name} (${index + 1}/${missing.length})...`);
-        log$5.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
+        log$6.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
         const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => onProgress == null ? void 0 : onProgress(message));
         importedEntries += imported.entries;
         this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries, imported.dictionaryTypes ?? {});
@@ -22931,7 +24076,7 @@ ${spelling}`);
         this.dependencies.scheduleDictionaryRescan();
       }
       onProgress == null ? void 0 : onProgress(`Dictionary ready: ${importedEntries.toLocaleString()} records imported.`);
-      log$5.info("Starter dictionaries downloaded", { dictionaries: missing.length, importedEntries });
+      log$6.info("Starter dictionaries downloaded", { dictionaries: missing.length, importedEntries });
       return true;
     }
     async handleSettingsAction(form, action, control) {
@@ -22947,31 +24092,31 @@ ${spelling}`);
         if (await this.handleSettingsConnectionAction(form, action, control)) return;
         await this.handleSettingsSupportAction(action, setStatus);
       } catch (error) {
-        log$5.warn("Settings action failed", { action }, error);
+        log$6.warn("Settings action failed", { action }, error);
         if (action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary") control == null ? void 0 : control.removeAttribute("disabled");
         setStatus(error instanceof Error ? error.message : "Import failed.");
       }
     }
     handleSettingsEditorAction(form, action, control) {
       if (action === "settings-panel") {
-        log$5.debug("Settings panel selected", { panel: (control == null ? void 0 : control.dataset.panel) ?? "basics" });
+        log$6.debug("Settings panel selected", { panel: (control == null ? void 0 : control.dataset.panel) ?? "basics" });
         activateSettingsPanel(form, (control == null ? void 0 : control.dataset.panel) ?? "basics");
         return true;
       }
       if (action === "dictionary-source-up" || action === "dictionary-source-down") {
-        log$5.debug("Dictionary source order changed", { action });
+        log$6.debug("Dictionary source order changed", { action });
         updateSourceRowEditor(form, action, control);
         return true;
       }
       if (action === "audio-source-add" || action === "audio-source-remove" || action === "audio-source-up" || action === "audio-source-down") {
-        log$5.debug("Audio source editor changed", { action });
+        log$6.debug("Audio source editor changed", { action });
         updateAudioSourceEditor(form, action, control);
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         syncBrowserTtsVoiceOptions(form);
         return true;
       }
       if (action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down") {
-        log$5.debug("Lookup link editor changed", { action });
+        log$6.debug("Lookup link editor changed", { action });
         updateDictionaryLookupLinkEditor(form, action, control);
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         return true;
@@ -22997,9 +24142,9 @@ ${spelling}`);
       try {
         this.dependencies.toast("Playing よむ...");
         await this.dependencies.audio.play(createAudioPreviewCard());
-        log$5.info("Audio settings preview started");
+        log$6.info("Audio settings preview started");
       } catch (error) {
-        log$5.warn("Audio settings preview failed", error);
+        log$6.warn("Audio settings preview failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : "Audio preview failed.");
       } finally {
         this.settings = previous;
@@ -23024,7 +24169,7 @@ ${spelling}`);
         const blob = await this.dependencies.dictionaries.exportJson();
         downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
         setStatus("Dictionaries exported.");
-        log$5.info("Dictionaries exported");
+        log$6.info("Dictionaries exported");
         return true;
       }
       return false;
@@ -23051,7 +24196,7 @@ ${spelling}`);
           ])
         }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
         setStatus("Settings exported.");
-        log$5.info("Settings exported");
+        log$6.info("Settings exported");
         return true;
       }
       return false;
@@ -23076,10 +24221,10 @@ ${spelling}`);
         await this.dependencies.anki.ensureDeckAndModel();
         const readyMessage = resolveUiLanguage(language) === "ja" ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。` : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
         setAnkiStatus(readyMessage, "success");
-        log$5.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+        log$6.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
       } catch (error) {
         const message = error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
-        log$5.warn("Anki settings test failed", error);
+        log$6.warn("Anki settings test failed", error);
         setAnkiStatus(message, "error");
         this.dependencies.toast(message);
       } finally {
@@ -23091,13 +24236,13 @@ ${spelling}`);
     async handleSettingsSupportAction(action, setStatus) {
       if (action === "copy-discord") {
         await copyText(SUPPORT_LINKS.discordUsername);
-        log$5.debug("Support Discord username copied");
+        log$6.debug("Support Discord username copied");
         this.dependencies.toast(`Copied Discord username: ${SUPPORT_LINKS.discordUsername}`);
         return true;
       }
       if (action === "copy-newtab-url") {
         await copyText(NEW_TAB_PAGE_URL);
-        log$5.debug("New tab URL copied");
+        log$6.debug("New tab URL copied");
         this.dependencies.toast("New tab address copied.");
         return true;
       }
@@ -23118,7 +24263,7 @@ ${spelling}`);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
       setStatus(`Removed ${dictionary}.`);
-      log$5.info("Dictionary removed", { dictionary });
+      log$6.info("Dictionary removed", { dictionary });
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
@@ -23129,7 +24274,7 @@ ${spelling}`);
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
-      log$5.info("Dictionary file imported", summary);
+      log$6.info("Dictionary file imported", summary);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
     }
@@ -23139,7 +24284,7 @@ ${spelling}`);
       if (!dictionary) throw new Error("Recommended dictionary not found.");
       control == null ? void 0 : control.setAttribute("disabled", "true");
       setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
-      log$5.info("Downloading selected dictionary", { dictionary: dictionary.name });
+      log$6.info("Downloading selected dictionary", { dictionary: dictionary.name });
       let summary;
       try {
         summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
@@ -23148,7 +24293,7 @@ ${spelling}`);
         if (this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) {
           window.open(dictionary.downloadUrl, "_blank");
           setStatus(`${message} Opened the dictionary link in a new tab. Download the ZIP and use Import dictionary above.`);
-          log$5.warn("Dictionary auto-download unavailable, opened manual fallback", { dictionary: dictionary.name, message });
+          log$6.warn("Dictionary auto-download unavailable, opened manual fallback", { dictionary: dictionary.name, message });
           control == null ? void 0 : control.removeAttribute("disabled");
           return;
         }
@@ -23162,7 +24307,7 @@ ${spelling}`);
       setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
-      log$5.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+      log$6.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
     }
     shouldPromptManualDictionaryDownload(error, downloadUrl) {
       const message = String((error == null ? void 0 : error.message) ?? "").toLowerCase();
@@ -23199,7 +24344,7 @@ ${spelling}`);
       this.dependencies.youtube.refresh();
       this.dependencies.jpdbExtensions.refresh();
       this.dependencies.clearSettingsPreview();
-      log$5.info("Settings imported", loggingSettingsSummary(this.settings));
+      log$6.info("Settings imported", loggingSettingsSummary(this.settings));
       this.open();
     }
     async mergeImportedDictionaryPreferences() {
@@ -23226,25 +24371,10 @@ ${spelling}`);
     };
   }
   const COMMON_EXCLUDE = [
-    "nav",
-    "header",
-    "footer",
-    "aside",
-    "button",
-    'a[role="button"]',
     '[role="dialog"]',
     '[aria-modal="true"]',
     "[data-jpdb-reader-root]",
-    ".jpdb-reader-word",
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="listen" i]',
-    '[class*="button" i]',
-    '[class*="btn" i]',
-    '[class*="voice" i]',
-    '[aria-label*="聞"]',
-    '[aria-label*="音声"]'
+    ".jpdb-reader-word"
   ].join(",");
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   const DEFAULT_SCAN_TARGET_LIMIT = 2e3;
@@ -23267,11 +24397,19 @@ ${spelling}`);
   ].join(",");
   const GENERIC_PROSE_EXCLUDE = [
     COMMON_EXCLUDE,
+    "nav",
+    "header",
+    "footer",
     "aside",
+    "button",
+    'a[role="button"]',
     '[role="complementary"]',
+    '[class*="audio" i]',
     '[class*="aside" i]',
     '[class*="banner" i]',
     '[class*="breadcrumb" i]',
+    '[class*="btn" i]',
+    '[class*="button" i]',
     '[class*="card" i]',
     '[class*="comment" i]',
     '[class*="footer" i]',
@@ -23288,10 +24426,15 @@ ${spelling}`);
     '[class*="related" i]',
     '[class*="share" i]',
     '[class*="sidebar" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
     '[class*="teaser" i]',
+    '[class*="voice" i]',
+    '[aria-label*="聞"]',
+    '[aria-label*="音声"]',
     "time"
   ].join(",");
-  const log$4 = Logger.scope("SiteParsers");
+  const log$5 = Logger.scope("SiteParsers");
   const SITE_PARSER_PROFILES = [
     {
       id: "jpdb-parser",
@@ -23406,6 +24549,7 @@ ${spelling}`);
       ],
       allowUiText: true,
       includeGenericPageText: true,
+      scanLimit: 80,
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
     },
     {
@@ -23467,33 +24611,18 @@ ${spelling}`);
     {
       id: "nhk-parser",
       name: "NHK Easy",
-      description: "NHK Easy article text with native ruby.",
+      description: "NHK Easy visible page text with native ruby.",
       roots: [
-        "main",
-        "#easy-wrapper",
-        "#js-article-body",
-        "#js-article-date",
-        ".article-title"
+        "body"
       ],
       exclude: [
-        COMMON_EXCLUDE,
         "#loading",
-        "#nhk-one-header",
-        "#nhk-one-footer",
-        ".audio-player",
-        ".article-info",
-        ".article-share",
-        ".article-link",
-        ".article-buttons",
-        ".soundButton",
-        ".js-sound",
-        ".js-play",
-        ".player",
-        "[onclick]",
-        "[data-audio]"
+        ".article-top-tool",
+        ".article-share"
       ].join(","),
       allowUiText: true,
       minLength: 1,
+      includeUiChrome: true,
       matches: (url) => url.hostname === "news.web.nhk" && /\/news\/easy\//.test(url.pathname) || url.protocol === "file:" && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)) || /NHKやさしいことばニュース|NEWS WEB EASY/i.test(document.title)
     },
     {
@@ -23544,21 +24673,26 @@ ${spelling}`);
     if (!profiles.length) {
       return null;
     }
+    const effectiveLimit = effectiveScanTargetLimit(profiles, limit);
     const targets = [];
     const seen = /* @__PURE__ */ new Set();
     for (const profile of profiles) {
       const roots = queryParserRoots(profile);
       if (!roots.length) continue;
       for (const root of roots) {
-        const remaining = limit - targets.length;
+        const remaining = effectiveLimit - targets.length;
         if (remaining <= 0) break;
-        const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE, { allowUiText: profile.allowUiText, minLength: profile.minLength });
+        const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE, {
+          allowUiText: profile.allowUiText,
+          minLength: profile.minLength,
+          includeUiChrome: profile.includeUiChrome
+        });
         for (const target of collected) {
           const firstNode = (_a = target.fragments[0]) == null ? void 0 : _a.node;
           if (!firstNode || seen.has(firstNode)) continue;
           seen.add(firstNode);
           targets.push({ ...target, parserId: profile.id });
-          if (targets.length >= limit) break;
+          if (targets.length >= effectiveLimit) break;
         }
       }
     }
@@ -23569,18 +24703,23 @@ ${spelling}`);
   }
   function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href) {
     const matchingProfiles = getMatchingSiteParsers(href);
+    const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     if (matchingProfiles.length) {
-      const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+      const siteTargets = collectSiteScanTargets(effectiveLimit, href) ?? [];
       if (siteTargets.length || !matchingProfiles.some((profile) => profile.includeGenericPageText)) {
         return siteTargets;
       }
     }
-    const genericTargets = collectGenericProseTargets(limit);
+    const genericTargets = collectGenericProseTargets(effectiveLimit);
     if (genericTargets.length) {
       return genericTargets;
     }
-    const broadTargets = collectWholePageScanTargets(limit);
-    return broadTargets.length ? broadTargets : collectVisibleTextTargets(limit);
+    const broadTargets = collectWholePageScanTargets(effectiveLimit);
+    return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
+  }
+  function effectiveScanTargetLimit(profiles, requestedLimit) {
+    const profileLimit = profiles.reduce((limit, profile) => Math.min(limit, profile.scanLimit ?? limit), requestedLimit);
+    return Math.max(1, profileLimit);
   }
   function collectWholePageScanTargets(limit) {
     const targets = collectFragmentTextTargetsIn(document.body, limit, true, "", {
@@ -23588,7 +24727,7 @@ ${spelling}`);
       includeUiChrome: true,
       minLength: 1
     });
-    log$4.debugThrottled("whole-page-targets", 2500, "Collected whole-page scan targets", { targets: targets.length });
+    log$5.debugThrottled("whole-page-targets", 2500, "Collected whole-page scan targets", { targets: targets.length });
     return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
   }
   function collectGenericProseTargets(limit) {
@@ -23608,7 +24747,7 @@ ${spelling}`);
         if (targets.length >= limit) break;
       }
     }
-    log$4.debugThrottled("generic-prose-targets", 2500, "Collected generic prose targets", { roots: roots.length, targets: targets.length });
+    log$5.debugThrottled("generic-prose-targets", 2500, "Collected generic prose targets", { roots: roots.length, targets: targets.length });
     return targets;
   }
   function isUsefulGenericProseRoot(root) {
@@ -23624,7 +24763,7 @@ ${spelling}`);
       roots.push(...Array.from(document.querySelectorAll(selector)));
     }
     const result = uniqueVisibleRoots(roots);
-    log$4.debugThrottled(`parser-roots:${profile.id}`, 2e3, "Queried parser roots", { parserId: profile.id, roots: result.length });
+    log$5.debugThrottled(`parser-roots:${profile.id}`, 2e3, "Queried parser roots", { parserId: profile.id, roots: result.length });
     return result;
   }
   function uniqueVisibleRoots(roots) {
@@ -23635,8 +24774,181 @@ ${spelling}`);
     }
     return unique2;
   }
-  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08)}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}[data-jpdb-reader-root] :where(button){-moz-appearance:none;appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}[data-jpdb-reader-root] :where(input,select,textarea){-moz-appearance:auto;appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:0;text-transform:none}.jpdb-reader-newtab-document,.jpdb-reader-newtab-document body{min-height:100%;margin:0;background:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab{min-height:100dvh;width:100%;overflow:hidden;background:var(--jpdb-reader-bg, #181b20);color:var(--jpdb-reader-text, #f2f4f8);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-newtab:before{content:"";position:fixed;inset:0 0 auto;height:2px;background:var(--jpdb-reader-accent, #5ea780);opacity:.8;pointer-events:none}.jpdb-reader-newtab *{box-sizing:border-box}.jpdb-reader-newtab button{font:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-newtab-shell{width:min(760px,calc(100vw - 28px));min-height:100dvh;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(12px,2.2vh,22px);padding:max(18px,env(safe-area-inset-top)) 0 max(18px,env(safe-area-inset-bottom))}.jpdb-reader-newtab-topbar{min-height:42px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}.jpdb-reader-newtab-overflow{width:36px;height:36px;display:grid;place-items:center;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);text-decoration:none}.jpdb-reader-newtab-brand{min-width:112px;display:flex;align-items:center}.jpdb-reader-newtab-brand .title{display:inline-flex;align-items:center;gap:8px;min-width:0;height:42px;color:var(--jpdb-reader-text, #f2f4f8);font-size:16px;font-weight:760;line-height:1;text-decoration:none}.jpdb-reader-newtab-brand .logo{display:block;width:24px;height:24px;flex:0 0 auto;border-radius:5px}.jpdb-reader-newtab-brand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-overflow{padding-bottom:4px;font-size:18px;font-weight:900;line-height:1;cursor:pointer}.jpdb-reader-newtab-mode{justify-self:center;display:inline-grid;grid-template-columns:repeat(2,minmax(70px,1fr));gap:2px;padding:3px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,transparent)}.jpdb-reader-newtab-mode button{display:grid;place-items:center;min-height:32px;border:0;border-radius:6px;padding:0 12px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:820;line-height:1;text-align:center;cursor:pointer}.jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:center;width:48px;min-width:48px;height:36px}.jpdb-reader-theme-switch{position:relative;display:block;width:44px;min-width:44px;height:24px;min-height:24px;padding:0;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .16));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);cursor:pointer;transition:border-color .18s ease,background .18s ease}.jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:20px;height:20px;border-radius:999px;background:var(--jpdb-reader-bg, #181b20);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(20px)}.jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted, #aab2c0)}.jpdb-reader-theme-switch .sun,.jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-newtab-mode button[data-active=true]{background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 18%,var(--jpdb-reader-surface-2, #282e37));color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-study{min-height:0;display:grid;grid-template-rows:auto minmax(0,.85fr) auto auto;align-items:center;justify-items:center;gap:clamp(8px,1.8vh,16px);cursor:pointer;-webkit-user-select:none;user-select:none}.jpdb-reader-newtab-count,.jpdb-reader-newtab-status{color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;line-height:1.2;font-weight:760;text-align:center}.jpdb-reader-newtab-prompt{max-width:min(100%,720px);margin:0;padding:0 clamp(8px,3vw,22px);border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(2.25rem,7vw,5.2rem);font-weight:900;line-height:1.06;text-align:center;overflow-wrap:anywhere;text-wrap:balance;text-shadow:0 1px 2px rgba(0,0,0,.18)}.jpdb-reader-newtab-prompt .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-family:inherit;font-size:clamp(2.6rem,8vw,5.8rem);line-height:1.02}.jpdb-reader-newtab-sentence{display:inline}.jpdb-reader-newtab-sentence .jpdb-reader-word{padding:0 .08em;border-radius:.1em;background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 16%,transparent)!important;color:inherit;text-decoration-color:var(--jpdb-reader-accent, #5ea780)!important;text-underline-offset:.08em}.jpdb-reader-newtab-answer{min-height:clamp(68px,11vh,124px);max-width:min(640px,100%);display:grid;align-content:start;justify-items:center;gap:8px;transition:opacity .16s ease,transform .16s ease,filter .16s ease}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-answer{min-height:0;opacity:0;filter:blur(8px);transform:translateY(4px);pointer-events:none;visibility:hidden}.jpdb-reader-newtab-reading{max-width:100%;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(1.2rem,3.2vw,2rem);font-weight:780;line-height:1.12;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-reading .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-meaning{max-width:min(540px,100%);color:var(--jpdb-reader-muted, #aab2c0);font-size:clamp(14px,2.1vw,18px);font-weight:650;line-height:1.42;text-align:center;overflow-wrap:anywhere;text-wrap:balance}.jpdb-reader-newtab-controls{justify-self:center;display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;width:min(100%,680px)}.jpdb-reader-newtab-controls button{display:grid;place-items:center;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:13px;font-weight:820;line-height:1.1;text-align:center;cursor:pointer;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-newtab-controls button[data-newtab-action=reveal]{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls{width:min(240px,100%);grid-template-columns:minmax(0,1fr)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls button{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-controls button[data-grade=fail],.jpdb-reader-newtab-controls button[data-grade=nothing]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=pass],.jpdb-reader-newtab-controls button[data-grade=okay]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-controls button[data-grade=easy]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-newtab-controls button[data-grade=something]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=hard]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-newtab-controls button[data-grade]{border-color:color-mix(in srgb,var( --jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255, 255, 255, .12)) ) 72%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,var( --jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255, 255, 255, .12)) ) 14%)}.jpdb-reader-newtab-controls button[data-grade]:hover,.jpdb-reader-newtab-controls button[data-grade]:focus-visible{border-color:var(--jpdb-newtab-grade-accent);background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,var(--jpdb-newtab-grade-accent) 22%);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-newtab-grade-accent) 24%,transparent);color:var(--jpdb-reader-text, #f2f4f8);outline:2px solid color-mix(in srgb,var(--jpdb-newtab-grade-accent) 54%,transparent);outline-offset:3px;transform:translateY(-.25rem)}.jpdb-reader-newtab-controls button[data-grade]:active{transform:scale(.98)}.jpdb-reader-newtab-kanji-answer{width:min(540px,calc(100vw - 32px));display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));justify-content:center;align-items:center;gap:12px}.jpdb-reader-newtab-kanji-front{display:grid;justify-items:center;gap:8px;width:min(360px,calc(100vw - 32px));margin-block:clamp(28px,6vh,72px);margin-inline:auto}.jpdb-reader-newtab-kanji-svg,.jpdb-reader-newtab-doodle,.jpdb-reader-newtab-doodle-preview{border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-kanji-svg{width:100%;aspect-ratio:1;display:grid;place-items:center}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-svg,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-svg{width:min(78%,190px);height:auto}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-strokes path,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-strokes path{fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-numbers,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-numbers{fill:color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 56%,transparent);font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-doodle-stage.jpdb-reader-newtab-doodle{grid-column:1 / -1;position:relative;width:min(360px,100%);aspect-ratio:1;justify-self:center;margin-inline:auto;overflow:hidden;touch-action:none;--jpdb-reader-doodle-ink: var(--jpdb-reader-text, #f2f4f8);background:transparent}.jpdb-reader-newtab-doodle:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(90deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 12%,transparent) 1px,transparent 1px),linear-gradient(0deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 12%,transparent) 1px,transparent 1px);background-size:25% 25%;z-index:0;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost,.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost{z-index:1;opacity:.18;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{z-index:2}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{pointer-events:none}.jpdb-reader-newtab-doodle.trace-hidden .jpdb-reader-doodle-ghost{opacity:0}.jpdb-reader-newtab-doodle-actions{display:flex;position:static;z-index:auto;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:2px}.jpdb-reader-newtab-doodle-actions button{min-height:30px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:800}.jpdb-reader-newtab-doodle-result{grid-column:1 / -1;justify-self:center;min-height:28px;padding:7px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:820}.jpdb-reader-newtab-doodle-result:empty{display:none}.jpdb-reader-newtab-doodle-preview{display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden}.jpdb-reader-newtab-doodle-preview img{width:100%;height:100%;object-fit:contain}.jpdb-reader-newtab-kanji-details{display:grid;gap:9px;width:min(620px,calc(100vw - 32px));margin-top:4px;text-align:left}.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings span,.jpdb-reader-newtab-kanji-vocab span{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 8px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:760}.jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:6px}.jpdb-reader-newtab-kanji-details .jpdb-reader-component-card{display:grid;justify-items:center;gap:2px;min-height:48px;padding:6px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);text-align:center}.jpdb-reader-newtab-kanji-vocab{display:grid;gap:5px}.jpdb-reader-newtab-kanji-vocab span{justify-content:flex-start}.jpdb-reader-newtab-kanji-vocab strong{color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-kanji-mnemonic{margin:0;color:var(--jpdb-reader-muted, #aab2c0);font-size:12px;font-weight:650;line-height:1.45;text-align:center}.jpdb-reader-newtab-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-kanji-popover-word{display:inline-flex;justify-content:center}.jpdb-reader-newtab-kanji-mining{margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.jpdb-reader-newtab-mini-action{min-height:32px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:820}.jpdb-reader-newtab-mini-action.add,.jpdb-reader-newtab-mini-action.review{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, #f2f4f8))}.jpdb-reader-newtab-mini-action.nf{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-mini-action.blacklist,.jpdb-reader-newtab-mini-action.danger{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-immersion{margin-top:8px;width:min(540px,100%);display:grid;gap:8px;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;line-height:1.35}.jpdb-reader-newtab-immersion .jpdb-reader-example-summary{grid-template-columns:minmax(0,1fr) auto auto auto;min-height:34px}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini{width:34px;min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);cursor:pointer}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-immersion .jpdb-reader-example-media,.jpdb-reader-newtab-immersion .jpdb-reader-example-image{max-height:min(210px,30vh)}.jpdb-reader-newtab-install{justify-self:end;color:var(--jpdb-reader-faint, #6f7a89);font-size:11px;font-weight:760;text-decoration:none}.jpdb-reader-theme-switch:hover,.jpdb-reader-theme-switch:focus-visible,.jpdb-reader-newtab-overflow:hover,.jpdb-reader-newtab-overflow:focus-visible,.jpdb-reader-newtab-mode button:hover,.jpdb-reader-newtab-mode button:focus-visible,.jpdb-reader-newtab-controls button:hover,.jpdb-reader-newtab-controls button:focus-visible,.jpdb-reader-newtab-doodle-actions button:hover,.jpdb-reader-newtab-doodle-actions button:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 60%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,transparent);outline-offset:3px}.jpdb-reader-newtab-brand .title:hover,.jpdb-reader-newtab-brand .title:focus-visible{outline:none;box-shadow:none;color:var(--jpdb-reader-text, #f2f4f8)}@media (max-width: 640px){.jpdb-reader-newtab-shell{width:min(100vw - 18px,560px);gap:14px}.jpdb-reader-newtab-mode{grid-template-columns:repeat(2,minmax(62px,1fr))}.jpdb-reader-newtab-mode button{padding:0 10px}.jpdb-reader-newtab-prompt{font-size:2.45rem}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-size:3rem}.jpdb-reader-newtab-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-newtab-controls button{min-height:42px;padding:0 8px;font-size:11px}.jpdb-reader-newtab-kanji-answer{grid-template-columns:1fr}.jpdb-reader-newtab-kanji-glyph{min-height:104px;font-size:4.2rem}.jpdb-reader-newtab-kanji-svg{min-height:116px}.jpdb-reader-newtab-doodle{width:min(280px,100%)}}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: currentColor;--jpdb-reader-source-status-decoration: transparent;--jpdb-reader-source-status-soft: transparent;--jpdb-reader-source-jpdb-color: currentColor;--jpdb-reader-source-jpdb-decoration: transparent;--jpdb-reader-source-jpdb-soft: transparent;--jpdb-reader-source-anki-color: currentColor;--jpdb-reader-source-anki-decoration: transparent;--jpdb-reader-source-anki-soft: transparent;--jpdb-reader-source-pitch-color: currentColor;--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-unknown, #94a3b8 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-unknown-soft, transparent );position:static;display:inline;white-space:nowrap;word-break:keep-all;overflow-wrap:normal!important;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .12s ease,text-decoration-color .12s ease}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.jpdb-learning{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-soft: transparent}.jpdb-reader-word.jpdb-due{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.jpdb-failed{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-ignored, #b8a7ff );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16) );opacity:.82!important}.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.anki-learning{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-anki-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.anki-known{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-soft: transparent}.jpdb-reader-word.anki-due{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.anki-failed{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-anki-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck,.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.jpdb-learning,.jpdb-reader-word.anki-learning{--jpdb-reader-source-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant,.jpdb-reader-word.anki-known{--jpdb-reader-source-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-known, #7bd88f );--jpdb-reader-source-status-soft: transparent}.jpdb-reader-word.jpdb-due,.jpdb-reader-word.anki-due{--jpdb-reader-source-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.jpdb-failed,.jpdb-reader-word.anki-failed{--jpdb-reader-source-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-ignored, #b8a7ff );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16) )}.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-heiban, #359eff );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, .14) )}.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-atamadaka, #fe4b74 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, .14) )}.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-nakadaka, #fba840 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, .16) )}.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-odaka, #57ccb7 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, .14) )}.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-kifuku, #9050f6 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, .14) )}.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important;opacity:1!important}.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent )}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-jpdb-decoration, transparent )}.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-anki-decoration, transparent )}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent );opacity:1!important}.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important;opacity:1!important}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:11px;font-weight:700}.jpdb-ocr-line{position:absolute;display:flex;align-items:flex-end;justify-content:center;overflow:visible;min-width:0;min-height:0;padding:var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px) var(--jpdb-ocr-pad-bottom, 3px);border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text;transition:opacity .12s ease,background .12s ease,border-color .12s ease}.jpdb-ocr-line-text{display:inline-flex;flex:none;justify-content:center;align-items:flex-end;align-content:flex-end;flex-wrap:nowrap;white-space:nowrap;max-width:none;overflow-wrap:normal}.jpdb-ocr-line[data-vertical=true]{align-items:center;justify-content:center;letter-spacing:0}.jpdb-ocr-line[data-vertical=true] .jpdb-ocr-line-text{white-space:normal;flex-wrap:wrap}.jpdb-ocr-line-visible{border-color:#ffffff1a;background:#181b2024;box-shadow:0 6px 16px #0003,inset 0 0 0 1px #ffffff0a}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, .48));border-color:#ffffff2e;box-shadow:0 10px 24px #0000003d,inset 0 0 0 1px #ffffff0d;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:1!important}.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi{line-height:1!important}.jpdb-ocr-line[data-has-furi=true] .jpdb-reader-word{display:inline-flex;align-items:flex-end}.jpdb-ocr-line .jpdb-ocr-plain{display:inline-flex;align-items:flex-end;line-height:1;white-space:pre}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-ruby{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;padding-top:.5em;line-height:1;vertical-align:baseline}.jpdb-ocr-ruby-base{display:inline-flex;align-items:flex-end;line-height:1}.jpdb-ocr-furi{position:absolute;top:0;left:50%;color:currentColor;font-size:.42em;line-height:1;opacity:0;pointer-events:none;text-align:center;text-shadow:none;transform:translate(-50%);white-space:nowrap}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-ocr-furi{opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}.jpdb-reader-subtitle-highlight-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent )}.jpdb-reader-subtitle-underline-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-jpdb-decoration, transparent )}.jpdb-reader-subtitle-underline-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-anki-decoration, transparent )}.jpdb-reader-subtitle-underline-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent )}.jpdb-reader-subtitle-text-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-subtitle-text-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-subtitle-text-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-subtitle-text-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban{color:var(--jpdb-reader-pitch-heiban, #359eff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka{color:var(--jpdb-reader-pitch-atamadaka, #fe4b74)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka{color:var(--jpdb-reader-pitch-nakadaka, #fba840)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka{color:var(--jpdb-reader-pitch-odaka, #57ccb7)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku{color:var(--jpdb-reader-pitch-kifuku, #9050f6)!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;touch-action:none;transform:translateZ(0);transition:opacity .15s ease,transform .15s ease,border-color .15s ease,color .15s ease}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;padding:14px;container-type:inline-size}:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}}@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}}.jpdb-reader-sheet-handle{display:none;width:72px;height:28px;border-radius:999px;background:transparent;margin:-4px auto 6px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";display:block;width:42px;height:5px;border-radius:999px;margin:11px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out;-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-btn:active{transform:scale(.98)}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span,.jpdb-reader-onboarding-note{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}@keyframes jpdb-reader-audio-loading-a{0%{left:0}25%{left:0}75%{left:100%}to{left:100%}}@keyframes jpdb-reader-audio-loading-b{0%{right:100%}50%{right:0}to{right:0}}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}.jpdb-reader-pill{-moz-appearance:none;appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8% );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-text);cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,outline-color .2s ease-in-out!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}.jpdb-reader-jpdb-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface) );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-accent-readable)}.jpdb-reader-action-pill:active{transform:scale(.98)!important}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}.jpdb-reader-heading{display:contents}.jpdb-reader-title-row{grid-column:1;grid-row:1}.jpdb-reader-card-tools{display:contents}.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:11px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);font-size:13px;line-height:1.32}.jpdb-reader-jpdb-extras{display:grid;gap:10px;margin:10px 0 0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group{border:0;border-radius:0;background:transparent;padding:0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-jpdb-extra{display:grid;gap:6px}.jpdb-reader-jpdb-extra h6{margin:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.jpdb-reader-jpdb-compounds,.jpdb-reader-jpdb-examples{display:grid;gap:6px;margin:0;padding:0;list-style:none}.jpdb-reader-jpdb-example{padding-left:10px;border-left:2px solid var(--jpdb-reader-border);color:var(--jpdb-reader-text);line-height:1.3}.jpdb-reader-jpdb-compounds li{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:baseline;gap:8px;min-width:0}.jpdb-reader-jpdb-compound{display:inline-flex;align-items:flex-start;min-width:0;color:inherit!important;text-decoration:none}.jpdb-reader-jpdb-compound:hover,.jpdb-reader-jpdb-compound:focus-visible{color:inherit!important;outline:none}.jpdb-reader-jpdb-compound-head{display:grid;gap:2px;max-width:100%}.jpdb-reader-jpdb-compound-term{display:inline-block;width:max-content;max-width:100%;font-size:17px;line-height:1.1;font-weight:850;white-space:nowrap}.jpdb-reader-jpdb-compound-reading,.jpdb-reader-jpdb-compounds small,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.jpdb-reader-jpdb-compound-reading{white-space:nowrap}.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading{display:none}.jpdb-reader-example-summary .jpdb-reader-example-count{flex:0 0 auto;margin-left:auto;text-align:right;white-space:nowrap}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence{line-height:1.35}.jpdb-reader-jpdb-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.jpdb-reader-meaning-pos{color:var(--jpdb-reader-faint);font-size:11px;margin-right:5px;font-style:italic;text-transform:none}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px}.jpdb-reader-inline-link{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary{position:absolute;top:8px;right:8px;z-index:1;display:inline-flex;width:20px;min-height:20px;padding:0;justify-content:center}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary:after{margin:0;font-size:13px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary+.jpdb-reader-local-terms{padding-top:0}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;white-space:normal;display:grid;gap:2px;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-more{margin-top:6px;border-top:1px solid var(--jpdb-reader-border);padding-top:5px}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary{align-items:center;cursor:pointer;display:flex;gap:8px;justify-content:space-between;list-style:none;min-height:38px;padding:8px 0}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){white-space:normal}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class=form-valid]{text-align:center;vertical-align:middle}.jpdb-reader-local-glossary [data-sc-class=form-valid]{color:var(--jpdb-reader-accent-readable);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:11px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-anki-card-preview div{display:grid;gap:2px}.jpdb-reader-anki-card-preview strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-card-preview span,.jpdb-reader-anki-card-preview small{white-space:pre-wrap}.yomu-jpdb-addon-card{display:grid;gap:7px;margin:10px 0;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, inherit);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;line-height:1.42;box-shadow:none}.yomu-jpdb-addon-card,.yomu-jpdb-addon-card *{box-sizing:border-box}.yomu-jpdb-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.yomu-jpdb-card-title a{color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-decoration:none;text-transform:none}.yomu-jpdb-collapsible-card{display:grid;gap:9px}.yomu-jpdb-collapsible-card>summary{cursor:pointer;list-style:none}.yomu-jpdb-collapsible-card>summary::-webkit-details-marker{display:none}.yomu-jpdb-collapsible-card>summary:after{content:"Show";color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-transform:none}.yomu-jpdb-collapsible-card[open]>summary:after{content:"Hide"}.yomu-jpdb-collapsible-body{display:grid;gap:9px}.yomu-jpdb-toolbar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}.yomu-jpdb-toolbar a{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent)!important;font-size:11px;font-weight:800;text-decoration:none!important}.yomu-jpdb-counter,.yomu-jpdb-source-meta{display:inline-flex;align-items:center;justify-content:center;min-height:0;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.yomu-jpdb-source-meta{justify-content:flex-start;margin-bottom:2px}.yomu-jpdb-image-shell{display:grid;place-items:center}.yomu-jpdb-image-shell img{display:block;width:min(320px,100%);max-height:340px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-bg)}.yomu-jpdb-story{max-width:58ch;margin:0 auto;color:var(--jpdb-reader-text);white-space:pre-wrap}.yomu-jpdb-addon-card>.jpdb-reader-local,.yomu-jpdb-addon-card>.jpdb-reader-source-card,.yomu-jpdb-addon-card .jpdb-reader-local-entry,.yomu-jpdb-addon-card .jpdb-reader-dictionary-group,.yomu-jpdb-uchisen-source,.yomu-jpdb-rtk-source{padding:0;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important}.yomu-jpdb-addon-card>.jpdb-reader-local,.yomu-jpdb-addon-card>.jpdb-reader-source-card,.yomu-jpdb-uchisen-source,.yomu-jpdb-rtk-source{margin-top:0}.yomu-jpdb-addon-card>.jpdb-reader-source-card[open]>:last-child,.yomu-jpdb-uchisen-source[open]>:last-child,.yomu-jpdb-rtk-source[open]>:last-child{margin-bottom:0}.yomu-jpdb-addon-card .jpdb-reader-local-title,.yomu-jpdb-addon-card .jpdb-reader-local-head{padding-inline:0}.yomu-jpdb-addon-card>.jpdb-reader-source-card>summary.jpdb-reader-local-title{min-height:38px;padding-top:8px;padding-bottom:8px}.yomu-jpdb-addon-card .jpdb-reader-local-glossary{padding-inline:0!important}.yomu-jpdb-uchisen-body,.yomu-jpdb-doodle-body{display:grid;gap:9px}.yomu-jpdb-doodle-body{justify-items:center;justify-self:center;width:min(100%,420px);margin-inline:auto}.yomu-jpdb-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px}.yomu-jpdb-facts span{display:grid;gap:2px;padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-facts strong,.yomu-jpdb-addon-card h6{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.yomu-jpdb-addon-card h6,.yomu-jpdb-addon-card p{margin:0}.yomu-jpdb-addon-card section{display:grid;gap:5px}.yomu-jpdb-chip-row,.yomu-jpdb-component-row,.yomu-jpdb-used-words{display:flex;flex-wrap:wrap;gap:7px}.yomu-jpdb-chip-row span{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:3px 8px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-weight:750}.yomu-jpdb-chip-row span.common{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}.yomu-jpdb-chip-row small{color:var(--jpdb-reader-muted);font-size:11px}.yomu-jpdb-component,.yomu-jpdb-used-words a{display:inline-grid;gap:1px;min-width:70px;padding:7px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-component:hover,.yomu-jpdb-component:focus-visible,.yomu-jpdb-used-words a:hover,.yomu-jpdb-used-words a:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component strong{color:var(--jpdb-reader-text);font-size:22px;line-height:1}.yomu-jpdb-component span,.yomu-jpdb-used-words small{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-used-words a span{font-weight:800}.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry,.yomu-jpdb-immersion-group{padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-local-dictionaries{gap:7px}.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group{border-radius:0}.yomu-jpdb-local-dictionaries .jpdb-reader-local-head{min-height:38px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary{line-height:1.45}.yomu-jpdb-page-dictionary .jpdb-reader-local-glossary{display:grid;gap:12px}.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group{border:0;border-radius:0;background:transparent;padding:0}.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.yomu-jpdb-dictionary-section{display:grid;gap:7px}.yomu-jpdb-compounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px}.yomu-jpdb-compound{display:grid;align-content:start;gap:3px;min-height:56px;padding:8px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 82%,transparent);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-compound:hover,.yomu-jpdb-compound:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-compound-head{display:grid;gap:2px;min-width:0}.yomu-jpdb-compound .yomu-jpdb-compound-term{display:inline-block;min-width:0;width:max-content;max-width:100%;white-space:nowrap}.yomu-jpdb-compound-term{font-size:18px;font-weight:850;line-height:1.1}.yomu-jpdb-compound-reading{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650;line-height:1.1;white-space:nowrap}.yomu-jpdb-compound-meaning{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-compound:has(.jpdb-reader-word) .yomu-jpdb-compound-reading{display:none}.yomu-jpdb-page-examples{display:grid;gap:6px}.yomu-jpdb-page-example{display:grid;gap:3px;padding:6px 8px;border-left:2px solid var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent-soft) 55%,transparent)}.yomu-jpdb-page-example .jpdb-reader-example-sentence,.yomu-jpdb-page-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.yomu-jpdb-page-example .jpdb-reader-example-sentence{line-height:1.35}.yomu-jpdb-page-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.yomu-jpdb-immersion-group>.jpdb-reader-local-glossary{padding:0 8px 8px}#yomu-jpdb-immersion .jpdb-reader-example-media{border:0;border-radius:0;background:transparent}.yomu-jpdb-audio-button{display:inline-grid;align-items:center;justify-content:center;width:1.55em;height:1.55em;min-width:1.55em;min-height:1.55em;margin:0 0 0 .35em;padding:0;border:0;border-radius:999px;background:transparent;box-shadow:none;color:currentColor;cursor:pointer;opacity:.72;vertical-align:middle;-webkit-tap-highlight-color:transparent;transform:translateY(.08em);transition:background-color .15s ease,color .15s ease,opacity .15s ease}.yomu-jpdb-audio-button:hover,.yomu-jpdb-audio-button:focus-visible{background:color-mix(in srgb,currentColor 10%,transparent);color:var(--jpdb-reader-accent, currentColor);opacity:1;outline:none}.yomu-jpdb-audio-button:active{opacity:.85}.yomu-jpdb-audio-button svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),.yomu-jpdb-review-compact-nav .menu-icon{display:none!important}.yomu-jpdb-review-compact-nav .menu{max-height:32px!important;transition:none!important}.yomu-jpdb-items-left-count{color:#e5484d}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode]{display:grid;align-items:center;justify-items:stretch;gap:10px;width:100%;margin:14px 0 8px;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-stage,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-jpdb-toolbar,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-result{justify-self:center}.yomu-doodle-stage{position:relative;width:min(92vw,420px);aspect-ratio:1;touch-action:none}.yomu-doodle-canvas,.yomu-doodle-ghost{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.yomu-doodle-canvas{z-index:1;border:2px solid color-mix(in srgb,var(--jpdb-reader-text) 82%,var(--jpdb-reader-border));border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 25%}.yomu-doodle-ghost{z-index:0;display:grid;place-items:center;overflow:hidden;color:var(--jpdb-reader-text);font-size:min(72vw,320px);line-height:1;opacity:.26;pointer-events:none}.yomu-doodle-stage.trace-hidden .yomu-doodle-ghost,.yomu-doodle-ghost[hidden]{display:none!important}.yomu-doodle-ghost svg{width:100%;height:100%}.yomu-doodle-ghost path,.yomu-doodle-ghost line,.yomu-doodle-ghost polyline{fill:none!important;stroke:currentColor!important;stroke-width:2.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}#yomu-jpdb-doodle-preview{display:inline-flex;place-items:center;gap:0;min-width:0;margin-left:24px;padding:0;border:0;border-radius:0;background:transparent;vertical-align:top}.yomu-doodle-preview-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1;text-transform:uppercase}#yomu-jpdb-doodle-preview img{width:min(180px,30vw);height:auto;border-radius:8px;border:0;background:transparent;box-shadow:none}[data-yomu-jpdb-addon] .jpdb-reader-icon-mini,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn{border-color:var(--jpdb-reader-border);background:transparent;box-shadow:none;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:hover,[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:focus-visible,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn:hover:not(:disabled),[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn:focus-visible:not(:disabled){border-color:var(--jpdb-reader-muted);background:transparent;box-shadow:none;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn{min-height:34px;padding-inline:10px;border-radius:7px}.yomu-doodle-result{min-height:28px;padding:6px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;line-height:1.2}.yomu-doodle-result:empty{display:none}.yomu-doodle-pass .yomu-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface));color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 88%,var(--jpdb-reader-text))}@media (min-height: 960px) and (min-width: 700px){[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode]{width:100%}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-stage{width:min(92vw,420px)}}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion,#yomu-jpdb-immersion{container-type:inline-size;--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px) , 260px)}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{display:flex;align-items:center;justify-content:space-between;gap:8px}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:var(--jpdb-reader-example-media-max-height);object-fit:contain}.jpdb-reader-example-media{display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}.jpdb-reader-example-body{display:grid;align-content:start;gap:7px;min-width:0}.jpdb-reader-example-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-summary,.yomu-jpdb-immersion-group>summary.jpdb-reader-local-head{display:flex!important;align-items:center!important;justify-content:space-between;gap:8px!important;min-height:38px;padding:8px 0;width:100%}.jpdb-reader-example-summary .jpdb-reader-example-source,.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group>summary .jpdb-reader-example-source,.yomu-jpdb-immersion-group>summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}.jpdb-reader-example-summary .jpdb-reader-local-dict,.yomu-jpdb-immersion-group>summary .jpdb-reader-local-dict{display:block;max-width:100%;flex:1 1 auto;margin-left:0;min-width:0;text-align:left;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.5;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35;text-align:center;text-wrap:balance}.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);-webkit-user-select:none;user-select:none;cursor:pointer;transition:filter .16s ease,opacity .16s ease}.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}.jpdb-reader-immersion>.jpdb-reader-example-actions,.yomu-jpdb-immersion-group>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{align-items:flex-start}.jpdb-reader-example-media{--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px) , 230px);max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-image{max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-meta{gap:5px 6px}.jpdb-reader-example-source{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-media-note{color:var(--jpdb-reader-muted);font-style:italic}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-actions{display:flex;flex-wrap:wrap;gap:7px}.jpdb-reader-study-actions .jpdb-reader-icon-mini{width:auto;min-width:76px;padding:0 10px}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:11px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-title,.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-title{font-size:13px;line-height:1.2}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item.known{opacity:.72}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent-readable);font-size:11px;width:max-content}.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-more{display:grid;gap:4px}.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}.jpdb-reader-grammar-more[open]>summary:after{content:"-"}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-weight:700}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:11px;margin-top:6px}.jpdb-reader-modal-nav,.jpdb-reader-kanji-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-modal-nav span,.jpdb-reader-kanji-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface);--chip-border: var(--jpdb-reader-border);--chip-text: var(--jpdb-reader-muted)}.jpdb-reader-kanji-mining{margin-top:8px;max-width:420px}.jpdb-reader-kanji-mining-row{gap:8px}.jpdb-reader-kanji-mining-row .jpdb-reader-btn{min-height:34px;border-radius:8px;padding-inline:10px;font-size:11px}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:24px;padding:3px 9px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 34%,var(--jpdb-reader-border));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,var(--jpdb-reader-accent) 12%);color:var(--jpdb-reader-text);box-shadow:none;font-size:12px;font-weight:780;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline;flex:0 0 auto;height:auto;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:9px;font-weight:800;line-height:1;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:6px}.jpdb-reader-kanji-facts span{display:grid;gap:2px;min-width:0;padding:7px 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:11px;font-weight:750}.jpdb-reader-kanji-facts strong{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.jpdb-reader-origin-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:8px;margin-top:8px}.jpdb-reader-origin-node{display:grid;place-items:center;gap:2px;min-height:58px;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent),var(--jpdb-reader-surface-2));color:var(--jpdb-reader-text);text-align:center;font:inherit;cursor:pointer}.jpdb-reader-origin-node.current{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 64%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2))}.jpdb-reader-origin-node.related{border-style:dashed;cursor:default}.jpdb-reader-origin-node:hover,.jpdb-reader-origin-node:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-node strong{font-size:20px;line-height:1}.jpdb-reader-origin-node small,.jpdb-reader-origin-edges small{color:var(--jpdb-reader-muted);font-size:10px;line-height:1.2}.jpdb-reader-origin-edges{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:5px}.jpdb-reader-origin-edges span{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.3}.jpdb-reader-origin-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.jpdb-reader-origin-examples button{min-width:0;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);text-align:left;cursor:pointer;font:inherit}.jpdb-reader-origin-examples button:hover,.jpdb-reader-origin-examples button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-examples strong,.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-wiktionary{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-origin-wiktionary summary{color:var(--jpdb-reader-text);cursor:pointer;font-weight:800}.jpdb-reader-origin-wiktionary p{margin:7px 0 0;line-height:1.4}.jpdb-reader-origin-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.jpdb-reader-origin-images img{width:64px;height:64px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:#fff}.jpdb-reader-origin-sources{display:flex;flex-wrap:wrap;gap:7px;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-sources a{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-origin-graph-wrap{position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,#000);border-radius:8px;background:#11171d;box-shadow:inset 0 1px #ffffff09,inset 0 -18px 44px #0000002e;overflow:hidden}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:#f2f4f8c7;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:#f2f4f8d1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle{fill:#f2f4f8f0;stroke:#11171d;stroke-width:.12}.jpdb-reader-origin-graph-wrap:not(.show-outbound) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-toggle{position:absolute;top:7px;right:7px;z-index:4;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 14px);padding:4px 7px;border:1px solid rgba(242,244,248,.18);border-radius:999px;background:#03070bbd;color:#f2f4f8e6;font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px #0000003d}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:var(--jpdb-reader-accent, #5ea780)}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;min-width:62px;height:62px;padding:0;border:4px solid #03070b;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 72%,#f4f7fb);color:#03070b;font:850 32px/1 Hiragino Sans,Yu Gothic,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 9px 26px #00000057;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:1;transition:border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{width:68px;min-width:68px;height:68px;border-color:#03070b;background:var(--jpdb-reader-accent, #5ea780);font-size:34px;box-shadow:0 12px 32px #0006}.jpdb-reader-origin-graph-node.component{border-color:#03070b}.jpdb-reader-origin-graph-node.related{background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 22%,#f4f7fb);color:#03070b;font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:#03070b;box-shadow:0 14px 34px #00000070,0 0 0 3px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 24%,transparent);outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px #00000080,0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 28%,transparent)}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements span,.jpdb-reader-rtk-elements button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:11px;font-weight:750}.jpdb-reader-rtk-elements button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements button{cursor:pointer}.jpdb-reader-rtk-elements button:hover,.jpdb-reader-rtk-elements button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-rtk-elements span+span:before,.jpdb-reader-rtk-elements span+button:before,.jpdb-reader-rtk-elements button+span:before,.jpdb-reader-rtk-elements button+button:before{content:"+";margin-right:6px;color:color-mix(in srgb,var(--jpdb-reader-accent) 72%,var(--jpdb-reader-muted))}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-similar-word{min-width:0;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;justify-self:center;margin:8px auto 0;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-mini-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:max-content!important;height:28px!important;min-height:28px!important;max-height:30px!important;padding:4px 9px!important;border:1px solid var(--jpdb-reader-border)!important;border-radius:7px!important;background:transparent!important;color:var(--jpdb-reader-text)!important;cursor:pointer;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif!important;white-space:nowrap!important}.jpdb-reader-mini-btn:hover,.jpdb-reader-mini-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-btn.jpdb-reader-doodle-control{min-height:28px;max-height:30px;padding:4px 9px;border-radius:7px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover-body{min-height:0;overflow:auto;padding:14px;overscroll-behavior:contain}.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;--jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);background:var(--jpdb-reader-actions-bg);box-shadow:0 -1px 0 var(--jpdb-reader-actions-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:flex-end;align-items:center;pointer-events:none}.jpdb-reader-mining-collapse{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;min-height:30px;border:0;border-radius:5px;background:transparent;color:var(--jpdb-reader-muted);cursor:pointer;padding:0;font:900 17px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;line-height:1;text-align:center;pointer-events:auto;transform:translateY(0);transition:color .18s ease-in-out,background .18s ease-in-out,transform .18s ease-in-out}.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{background:var(--jpdb-reader-hover);color:var(--jpdb-reader-accent-readable);outline:none;transform:translateY(-.08rem)}.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(0,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(6px,1.8cqi,10px);font-size:clamp(10.5px,3cqi,13px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(2px,1cqi,6px);font-size:clamp(9.3px,2.55cqi,11px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-btn:hover:not(:disabled),.jpdb-reader-btn:focus-visible:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, currentColor) 18%);box-shadow:inset 0 1px #ffffff0d,0 8px 18px #0003;transform:translateY(-.25rem);outline:none}.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}.jpdb-reader-grades .jpdb-reader-btn:before,.jpdb-reader-btn.fail:before,.jpdb-reader-btn.pass:before{margin-right:clamp(2px,.8cqi,4px);color:var(--button-accent, currentColor);font-weight:950}.jpdb-reader-grades .jpdb-reader-btn.nothing:before,.jpdb-reader-grades .jpdb-reader-btn.something:before,.jpdb-reader-btn.fail:before{content:"✖"}.jpdb-reader-grades .jpdb-reader-btn.hard:before,.jpdb-reader-grades .jpdb-reader-btn.okay:before,.jpdb-reader-grades .jpdb-reader-btn.easy:before,.jpdb-reader-btn.pass:before{content:"✔"}.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 72%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--button-accent, var(--jpdb-reader-border)) 14%)}@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:clamp(10px,2.85cqi,11.5px)}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:clamp(1px,.75cqi,4px);font-size:clamp(8.8px,2.4cqi,10.4px)}}@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}.jpdb-reader-actions-has-mining{padding-top:29px}.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}.jpdb-reader-mining-collapse{width:28px;height:28px;min-width:28px;min-height:28px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}.jpdb-reader-grades{grid-template-columns:1.12fr 1.3fr .86fr .86fr .86fr}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:11px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 20px));max-height:min(760px,calc(100vh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none;transition-property:background-color,border-color,box-shadow,color,opacity}.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-tab:hover,.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.25rem);outline:none}.jpdb-reader-settings-tab:active{transform:scale(.98)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;height:38px;padding:8px;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,color .14s ease}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;text-align:center;text-decoration:none!important;transition:all .2s ease-in-out}.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--button-accent, var(--jpdb-reader-accent));background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, var(--jpdb-reader-accent)) 18%);outline:none}.jpdb-reader-btn:active{transform:scale(.98)}.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px);transition:border-color .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}.jpdb-reader-segment-field{display:grid;align-content:start;gap:6px;margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-segment-title{font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;min-height:38px;padding:3px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-segmented label{position:relative;display:grid;place-items:center;min-width:0;min-height:30px;margin:0;color:var(--jpdb-reader-muted)!important;cursor:pointer}.jpdb-reader-segmented input{position:absolute;top:0;right:0;bottom:0;left:0;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0;opacity:0;cursor:pointer}.jpdb-reader-segmented span{display:grid;place-items:center;width:100%;min-height:30px;padding:0 8px;border-radius:6px;color:inherit;font:850 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented input:checked+span{background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-segmented input:focus-visible+span{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex}.jpdb-reader-support-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-support-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-support-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-support-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.jpdb-reader-support-card+.jpdb-reader-support-card{margin-top:12px}.jpdb-reader-help-links-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-support-actions .jpdb-reader-btn{min-height:42px;padding-inline:10px}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:7px;margin:10px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:11px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:48px minmax(130px,1fr) minmax(120px,.8fr) 74px 58px}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:48px minmax(160px,1fr) 74px 58px}.jpdb-reader-order-head{color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%;cursor:grab}.jpdb-reader-order-row.jpdb-reader-dragging{opacity:.58;border-color:var(--jpdb-reader-accent);cursor:grabbing}.jpdb-reader-order-row.jpdb-reader-touch-dragging{box-shadow:0 8px 24px #0003}.jpdb-reader-order-row.jpdb-reader-drop-before,.jpdb-reader-order-row.jpdb-reader-drop-after{border-color:var(--jpdb-reader-accent)}.jpdb-reader-order-row.jpdb-reader-drop-before:before,.jpdb-reader-order-row.jpdb-reader-drop-after:after{content:"";position:absolute;left:8px;right:8px;height:4px;border-radius:999px;background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft);pointer-events:none}.jpdb-reader-order-row.jpdb-reader-drop-before:before{top:-7px}.jpdb-reader-order-row.jpdb-reader-drop-after:after{bottom:-7px}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}.jpdb-reader-lookup-link-fixed{width:34px;height:34px}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-mini:active{transform:scale(.98)}.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:min(45%,calc(100% - 24px));overflow:hidden;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;width:fit-content;max-width:100%;margin-top:8px;margin-left:auto;margin-right:auto;padding:0;border:0!important;background:transparent!important;color:#ffffffd1;font-size:.62em;font-family:inherit;font-weight:650;line-height:1.25;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86);cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere;transition:filter .12s ease,opacity .12s ease}.jpdb-subtitle-secondary-blurred{filter:blur(5px);opacity:.8}.jpdb-subtitle-secondary-blurred:hover,.jpdb-subtitle-secondary-blurred:focus-visible{filter:none;opacity:1}.jpdb-subtitle-karaoke-word{display:inline;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-word-spoken,.jpdb-subtitle-word-current{opacity:1;color:var(--subtitle-color)}.jpdb-subtitle-word-spoken{color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 58%,var(--subtitle-color));text-decoration-line:underline;text-decoration-color:var(--jpdb-reader-accent, #5ea780);text-decoration-thickness:.09em;text-underline-offset:.16em}.jpdb-subtitle-word-current{text-decoration-line:underline;text-decoration-color:var(--subtitle-color);text-decoration-thickness:.1em;text-underline-offset:.16em}.jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken{opacity:1;--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current{opacity:1;text-decoration-line:underline!important;text-decoration-color:var(--subtitle-color)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{filter:saturate(.72)}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary-loading{opacity:.78;color:currentColor}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78;transition:opacity .14s ease,background .14s ease,border-color .14s ease}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:0;pointer-events:none}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap;transition:opacity .14s ease,visibility .14s ease,border-color .14s ease,color .14s ease,background .14s ease}.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}.jpdb-subtitle-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list{position:fixed;right:max(12px,env(safe-area-inset-right));top:72px;width:min(460px,calc(100vw - 24px));height:min(78vh,860px);max-height:calc(100vh - 24px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid color-mix(in srgb,var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%,rgba(255,255,255,.1));border-radius:22px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,rgba(255,255,255,.06));color:var(--jpdb-reader-text, #fff);box-shadow:0 24px 56px #00000052;pointer-events:auto;backdrop-filter:blur(18px) saturate(1.08);-webkit-backdrop-filter:blur(18px) saturate(1.08);transform:translateZ(0)}html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:0;transition:opacity .12s ease,background .12s ease}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:.88}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-12px;height:24px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}.jpdb-subtitle-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 76%,transparent)}.jpdb-subtitle-drawer-brand{display:grid;gap:4px;min-width:0}.jpdb-subtitle-drawer-title{min-width:0;color:var(--jpdb-reader-text, #fff);font:800 15px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:.01em}.jpdb-subtitle-drawer-meta{min-width:0;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 11px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jpdb-subtitle-drawer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}.jpdb-subtitle-drawer-close{display:inline-grid;place-items:center;min-width:34px;width:34px;min-height:34px;height:34px;padding:0!important;border-radius:12px!important}.jpdb-subtitle-drawer-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-mode{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-mode button{min-height:30px;padding:0 11px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:11px;font-weight:700}.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-panel-mode button:disabled{opacity:.42}.jpdb-subtitle-panel-nav{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0 0 2px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}.jpdb-subtitle-panel-nav button:disabled{opacity:.38}.jpdb-subtitle-list-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;align-content:start;grid-auto-rows:max-content;gap:4px;padding:8px 10px 12px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}.jpdb-subtitle-row-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}.jpdb-subtitle-row-text{min-width:0;max-width:100%;grid-column:1;color:var(--jpdb-reader-text, #fff);overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0;text-shadow:0 1px 1px rgba(0,0,0,.38)}.jpdb-subtitle-row-text .jpdb-reader-word{color:inherit;background:transparent;text-decoration-color:var(--jpdb-reader-word-underline, currentColor);text-decoration-thickness:.08em;text-underline-offset:.16em;border-radius:4px;padding:0 1px;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-row-text ruby,.jpdb-subtitle-row-text rt,.jpdb-subtitle-row-text .jpdb-reader-furi{white-space:normal!important}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}.jpdb-youtube-filtered,.jpdb-youtube-filter-pending{display:none!important}.jpdb-youtube-filter-active :is(ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-grid-video-renderer,ytd-reel-item-renderer,ytd-reel-video-renderer,yt-lockup-view-model,.ytGridShelfViewModelGridShelfItem,ytm-rich-item-renderer,ytm-compact-video-renderer,ytm-video-card-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2):not([data-yomu-youtube-checked=true]):not([data-jpdb-reader-root]){visibility:hidden!important}.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-youtube-filter-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;max-height:min(70vh,620px);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{padding:14px 16px}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{max-height:100vh;max-height:100svh;border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-settings{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0}.jpdb-reader-settings-head{padding:18px 20px 0}.jpdb-reader-settings-scroll{padding:0 20px 106px}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 20px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions{grid-template-columns:1fr}.jpdb-reader-support-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-recommended-item,.jpdb-reader-template-preview-grid{grid-template-columns:1fr}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}.jpdb-reader-dictionary-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact{grid-template-columns:52px 1fr}.jpdb-reader-dictionary-row input[name$=".alias"],.jpdb-reader-dictionary-row .jpdb-reader-row-tools,.jpdb-reader-dictionary-row-help{grid-column:2}.jpdb-reader-dictionary-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-audio-source-head{display:none}.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:52px 1fr}.jpdb-reader-audio-source-choice{grid-column:2}.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row input[name$=".urlTemplate"]{grid-column:1 / -1}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start;flex-wrap:wrap;min-width:0}.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start}.jpdb-ocr-line{min-width:0;min-height:0;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}@media (max-width: 519px){.jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}';
+  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08)}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}[data-jpdb-reader-root] :where(button){-moz-appearance:none;appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}[data-jpdb-reader-root] :where(input,select,textarea){-moz-appearance:auto;appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:0;text-transform:none}.jpdb-reader-newtab-document,.jpdb-reader-newtab-document body{min-height:100%;margin:0;overflow-x:hidden;overflow-y:auto;background:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab{min-height:100dvh;width:100%;overflow-x:hidden;overflow-y:visible;background:var(--jpdb-reader-bg, #181b20);color:var(--jpdb-reader-text, #f2f4f8);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-newtab:before{content:"";position:fixed;inset:0 0 auto;height:2px;background:var(--jpdb-reader-accent, #5ea780);opacity:.8;pointer-events:none}.jpdb-reader-newtab *{box-sizing:border-box}.jpdb-reader-newtab button{font:inherit;-webkit-tap-highlight-color:transparent}.jpdb-reader-newtab-shell{width:min(760px,calc(100vw - 28px));min-height:100dvh;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(12px,2.2vh,22px);padding:max(18px,env(safe-area-inset-top)) 0 max(18px,env(safe-area-inset-bottom))}.jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-shell{width:min(920px,calc(100vw - 28px))}.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell{grid-template-rows:auto auto auto;align-content:start}.jpdb-reader-newtab-topbar{min-height:42px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}.jpdb-reader-newtab-overflow{width:36px;height:36px;display:grid;place-items:center;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);text-decoration:none}.jpdb-reader-newtab-brand{min-width:112px;display:flex;align-items:center}.jpdb-reader-newtab-brand .title{display:inline-flex;align-items:center;gap:8px;min-width:0;height:42px;color:var(--jpdb-reader-text, #f2f4f8);font-size:16px;font-weight:760;line-height:1;text-decoration:none}.jpdb-reader-newtab-brand .logo{display:block;width:24px;height:24px;flex:0 0 auto;border-radius:5px}.jpdb-reader-newtab-brand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-newtab-overflow{padding-bottom:4px;font-size:18px;font-weight:900;line-height:1;cursor:pointer}.jpdb-reader-newtab-mode{justify-self:center;display:inline-grid;grid-template-columns:repeat(2,minmax(70px,1fr));gap:2px;padding:3px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,transparent)}.jpdb-reader-newtab-mode button{display:grid;place-items:center;min-height:32px;border:0;border-radius:6px;padding:0 12px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-family:inherit;font-size:11px;font-weight:820;line-height:1;text-align:center;cursor:pointer}.jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:center;width:48px;min-width:48px;height:36px}.jpdb-reader-theme-switch{position:relative;display:block;width:44px;min-width:44px;height:24px;min-height:24px;padding:0;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .16));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);cursor:pointer;transition:border-color .18s ease,background .18s ease}.jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:20px;height:20px;border-radius:999px;background:var(--jpdb-reader-bg, #181b20);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(20px)}.jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted, #aab2c0)}.jpdb-reader-theme-switch .sun,.jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-newtab-mode button[data-active=true]{background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 18%,var(--jpdb-reader-surface-2, #282e37));color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-study{min-height:0;display:grid;grid-template-rows:auto minmax(0,.85fr) auto auto;align-items:center;justify-items:center;gap:clamp(8px,1.8vh,16px);cursor:pointer;-webkit-user-select:none;user-select:none}.jpdb-reader-newtab-answer,.jpdb-reader-newtab-meaning{cursor:auto;-webkit-user-select:text;user-select:text}.jpdb-reader-newtab-answer :is(button,a,summary),.jpdb-reader-newtab-meaning :is(button,a,summary){cursor:pointer}.jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-study{grid-template-rows:auto auto auto auto;align-content:start;gap:8px}.jpdb-reader-newtab-count,.jpdb-reader-newtab-status{color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;line-height:1.2;font-weight:760;text-align:center}.jpdb-reader-newtab-prompt{max-width:min(100%,720px);margin:0;padding:0 clamp(8px,3vw,22px);border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(2.25rem,7vw,5.2rem);font-weight:900;line-height:1.06;text-align:center;overflow-wrap:anywhere;text-wrap:balance;text-shadow:0 1px 2px rgba(0,0,0,.18)}.jpdb-reader-newtab-prompt .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-family:inherit;font-size:clamp(2.6rem,8vw,5.8rem);line-height:1.02}.jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-size:clamp(3.5rem,9vh,5rem)}.jpdb-reader-newtab-sentence{display:inline}.jpdb-reader-newtab-sentence .jpdb-reader-word{padding:0 .08em;border-radius:.1em;background:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 16%,transparent)!important;color:inherit;text-decoration-color:var(--jpdb-reader-accent, #5ea780)!important;text-underline-offset:.08em}.jpdb-reader-newtab-answer{min-height:clamp(68px,11vh,124px);max-width:min(640px,100%);display:grid;align-content:start;justify-items:center;gap:8px;transition:opacity .16s ease,transform .16s ease,filter .16s ease}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-answer{min-height:0;opacity:0;filter:blur(8px);transform:translateY(4px);pointer-events:none;visibility:hidden}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer:has(.jpdb-reader-newtab-kanji-front){min-height:clamp(68px,11vh,124px);opacity:1;filter:none;transform:none;pointer-events:auto;visibility:visible}.jpdb-reader-newtab-reading{max-width:100%;color:var(--jpdb-reader-text, #f2f4f8);font-size:clamp(1.2rem,3.2vw,2rem);font-weight:780;line-height:1.12;text-align:center;overflow-wrap:anywhere}.jpdb-reader-newtab-reading .jpdb-reader-word{background:transparent!important;color:inherit;text-decoration-color:transparent!important}.jpdb-reader-newtab-meaning{max-width:min(540px,100%);color:var(--jpdb-reader-muted, #aab2c0);font-size:clamp(14px,2.1vw,18px);font-weight:650;line-height:1.42;text-align:center;overflow-wrap:anywhere;text-wrap:balance}.jpdb-reader-newtab-controls{justify-self:center;display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;width:min(100%,680px)}.jpdb-reader-newtab-controls button{display:grid;place-items:center;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:13px;font-weight:820;line-height:1.1;text-align:center;cursor:pointer;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-newtab-controls button[data-newtab-action=reveal]{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls{width:min(240px,100%);grid-template-columns:minmax(0,1fr)}.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls button{background:var(--jpdb-reader-text, #f2f4f8);border-color:var(--jpdb-reader-text, #f2f4f8);color:var(--jpdb-reader-bg, #181b20)}.jpdb-reader-newtab-controls button[data-grade=fail],.jpdb-reader-newtab-controls button[data-grade=nothing]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=pass],.jpdb-reader-newtab-controls button[data-grade=okay]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-controls button[data-grade=easy]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-newtab-controls button[data-grade=something]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-controls button[data-grade=hard]{--jpdb-newtab-grade-accent: var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-newtab-controls button[data-grade]{border-color:color-mix(in srgb,var( --jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255, 255, 255, .12)) ) 72%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,var( --jpdb-newtab-grade-accent, var(--jpdb-reader-border, rgba(255, 255, 255, .12)) ) 14%)}.jpdb-reader-newtab-controls button[data-grade]:hover,.jpdb-reader-newtab-controls button[data-grade]:focus-visible{border-color:var(--jpdb-newtab-grade-accent);background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 78%,var(--jpdb-newtab-grade-accent) 22%);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-newtab-grade-accent) 24%,transparent);color:var(--jpdb-reader-text, #f2f4f8);outline:2px solid color-mix(in srgb,var(--jpdb-newtab-grade-accent) 54%,transparent);outline-offset:3px;transform:translateY(-.25rem)}.jpdb-reader-newtab-controls button[data-grade]:active{transform:scale(.98)}.jpdb-reader-newtab-kanji-answer{width:min(540px,calc(100vw - 32px));display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));justify-content:center;align-items:center;gap:12px}.jpdb-reader-newtab-kanji-front{display:grid;justify-items:center;gap:8px;width:min(360px,calc(100vw - 32px));margin-block:clamp(28px,6vh,72px);margin-inline:auto}.jpdb-reader-newtab-kanji-svg,.jpdb-reader-newtab-doodle,.jpdb-reader-newtab-doodle-preview{border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 88%,#000);color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-kanji-svg{width:100%;aspect-ratio:1;display:grid;place-items:center}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-svg,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-svg{width:min(78%,190px);height:auto}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-strokes path,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-strokes path{fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-numbers,.jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-numbers{fill:color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 56%,transparent);font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-doodle-stage.jpdb-reader-newtab-doodle{grid-column:1 / -1;position:relative;width:min(360px,100%);aspect-ratio:1;justify-self:center;margin-inline:auto;overflow:hidden;touch-action:none;--jpdb-reader-doodle-ink: var(--jpdb-reader-text, #f2f4f8);background:linear-gradient(90deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent) 1px,transparent 1px),linear-gradient(0deg,color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent) 1px,transparent 1px),color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 88%,#000);background-size:25% 25%}.jpdb-reader-newtab-doodle:before{content:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost,.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost{z-index:1;opacity:.18;pointer-events:none}.jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{z-index:2}.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas{pointer-events:none}.jpdb-reader-newtab-doodle.trace-hidden .jpdb-reader-doodle-ghost{opacity:0}.jpdb-reader-newtab-doodle-actions{display:flex;position:static;z-index:auto;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:2px}.jpdb-reader-newtab-doodle-actions button{min-height:30px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:800}.jpdb-reader-newtab-doodle-result{grid-column:1 / -1;justify-self:center;min-height:28px;padding:7px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:820}.jpdb-reader-newtab-doodle-result:empty{display:none}.jpdb-reader-newtab-doodle-preview{display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden}.jpdb-reader-newtab-doodle-preview img{width:100%;height:100%;object-fit:contain}.jpdb-reader-newtab-kanji-details{display:grid;gap:9px;width:min(620px,calc(100vw - 32px));margin-top:4px;text-align:left}.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings span,.jpdb-reader-newtab-kanji-vocab span,.jpdb-reader-newtab-kanji-vocab button{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 8px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:760}.jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:6px}.jpdb-reader-newtab-kanji-details .jpdb-reader-component-card{display:grid;justify-items:center;gap:2px;min-height:48px;padding:6px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-text, #f2f4f8);text-align:center}.jpdb-reader-newtab-kanji-vocab{display:grid;gap:5px}.jpdb-reader-newtab-kanji-vocab span,.jpdb-reader-newtab-kanji-vocab button{justify-content:flex-start}.jpdb-reader-newtab-kanji-vocab strong{color:var(--jpdb-reader-text, #f2f4f8)}.jpdb-reader-newtab-kanji-mnemonic{margin:0;color:var(--jpdb-reader-muted, #aab2c0);font-size:12px;font-weight:650;line-height:1.45;text-align:center}.jpdb-reader-newtab-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-newtab-kanji-popover-word{display:inline-flex;justify-content:center;cursor:pointer}.jpdb-reader-newtab-prompt .jpdb-reader-newtab-kanji-popover-word{border:0;background:transparent;color:inherit;font:inherit;line-height:inherit;text-align:inherit;padding:0}.jpdb-reader-newtab-kanji-mining{margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.jpdb-reader-newtab-mini-action{min-height:32px;padding:0 12px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:transparent;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;font-weight:820}.jpdb-reader-newtab-mini-action.add,.jpdb-reader-newtab-mini-action.review{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, #f2f4f8))}.jpdb-reader-newtab-mini-action.nf{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-newtab-mini-action.blacklist,.jpdb-reader-newtab-mini-action.danger{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));color:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-newtab-immersion{margin-top:8px;width:min(540px,100%);display:grid;gap:8px;color:var(--jpdb-reader-muted, #aab2c0);font-size:11px;line-height:1.35}.jpdb-reader-newtab-immersion .jpdb-reader-example-summary{grid-template-columns:minmax(0,1fr) auto auto auto;min-height:34px}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini{width:34px;min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);color:var(--jpdb-reader-text, #f2f4f8);cursor:pointer}.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-newtab-immersion .jpdb-reader-example-media,.jpdb-reader-newtab-immersion .jpdb-reader-example-image{max-height:min(210px,30vh)}.jpdb-reader-newtab-install{justify-self:end;color:var(--jpdb-reader-faint, #6f7a89);font-size:11px;font-weight:760;text-decoration:none}.jpdb-reader-theme-switch:hover,.jpdb-reader-theme-switch:focus-visible,.jpdb-reader-newtab-overflow:hover,.jpdb-reader-newtab-overflow:focus-visible,.jpdb-reader-newtab-mode button:hover,.jpdb-reader-newtab-mode button:focus-visible,.jpdb-reader-newtab-controls button:hover,.jpdb-reader-newtab-controls button:focus-visible,.jpdb-reader-newtab-doodle-actions button:hover,.jpdb-reader-newtab-doodle-actions button:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 60%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 54%,transparent);outline-offset:3px}.jpdb-reader-newtab-brand .title:hover,.jpdb-reader-newtab-brand .title:focus-visible{outline:none;box-shadow:none;color:var(--jpdb-reader-text, #f2f4f8)}@media (max-width: 640px){.jpdb-reader-newtab-shell{width:min(100vw - 18px,560px);gap:14px}.jpdb-reader-newtab-mode{grid-template-columns:repeat(2,minmax(62px,1fr))}.jpdb-reader-newtab-mode button{padding:0 10px}.jpdb-reader-newtab-prompt{font-size:2.45rem}.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt{font-size:3rem}.jpdb-reader-newtab-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-newtab-controls button{min-height:42px;padding:0 8px;font-size:11px}.jpdb-reader-newtab-kanji-answer{grid-template-columns:1fr}.jpdb-reader-newtab-kanji-glyph{min-height:104px;font-size:4.2rem}.jpdb-reader-newtab-kanji-svg{min-height:116px}.jpdb-reader-newtab-doodle{width:min(280px,100%)}}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: currentColor;--jpdb-reader-source-status-decoration: transparent;--jpdb-reader-source-status-soft: transparent;--jpdb-reader-source-jpdb-color: currentColor;--jpdb-reader-source-jpdb-decoration: transparent;--jpdb-reader-source-jpdb-soft: transparent;--jpdb-reader-source-anki-color: currentColor;--jpdb-reader-source-anki-decoration: transparent;--jpdb-reader-source-anki-soft: transparent;--jpdb-reader-source-pitch-color: currentColor;--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-unknown, #94a3b8 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-unknown-soft, transparent );position:static;display:inline;white-space:nowrap;word-break:keep-all;overflow-wrap:normal!important;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .12s ease,text-decoration-color .12s ease}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.jpdb-learning{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-jpdb-soft: transparent}.jpdb-reader-word.jpdb-due{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.jpdb-failed{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-jpdb-decoration: var( --jpdb-reader-state-ignored, #b8a7ff );--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16) );opacity:.82!important}.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.anki-learning{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-anki-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.anki-known{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-anki-soft: transparent}.jpdb-reader-word.anki-due{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.anki-failed{--jpdb-reader-source-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-anki-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-anki-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-new,.jpdb-reader-word.jpdb-suspended,.jpdb-reader-word.jpdb-not-in-deck,.jpdb-reader-word.anki-new,.jpdb-reader-word.anki-suspended{--jpdb-reader-source-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-source-status-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, .16) )}.jpdb-reader-word.jpdb-learning,.jpdb-reader-word.anki-learning{--jpdb-reader-source-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-learning, #ffd166 );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16) )}.jpdb-reader-word.jpdb-known,.jpdb-reader-word.jpdb-never-forget,.jpdb-reader-word.jpdb-redundant,.jpdb-reader-word.anki-known{--jpdb-reader-source-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-known, #7bd88f );--jpdb-reader-source-status-soft: transparent}.jpdb-reader-word.jpdb-due,.jpdb-reader-word.anki-due{--jpdb-reader-source-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-decoration: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-source-status-soft: var( --jpdb-reader-state-due-soft, rgba(95, 179, 179, .16) )}.jpdb-reader-word.jpdb-failed,.jpdb-reader-word.anki-failed{--jpdb-reader-source-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-failed, #ff6b6b );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16) )}.jpdb-reader-word.jpdb-blacklisted,.jpdb-reader-word.jpdb-locked{--jpdb-reader-source-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-ignored, #b8a7ff );--jpdb-reader-source-status-soft: var( --jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16) )}.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-heiban, #359eff );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, .14) )}.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-atamadaka, #fe4b74 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, .14) )}.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-nakadaka, #fba840 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, .16) )}.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-odaka, #57ccb7 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, .14) )}.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-kifuku, #9050f6 );--jpdb-reader-source-pitch-soft: var( --jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, .14) )}.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important;opacity:1!important}.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent )}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-jpdb-decoration, transparent )}.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-anki-decoration, transparent )}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent );opacity:1!important}.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important;opacity:1!important}.jpdb-reader-newtab-word .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:11px;font-weight:700}.jpdb-ocr-line{position:absolute;display:flex;align-items:flex-end;justify-content:center;overflow:visible;min-width:0;min-height:0;padding:var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px) var(--jpdb-ocr-pad-bottom, 3px);border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text;transition:opacity .12s ease,background .12s ease,border-color .12s ease}.jpdb-ocr-line-text{display:inline-flex;flex:none;justify-content:center;align-items:flex-end;align-content:flex-end;flex-wrap:nowrap;white-space:nowrap;max-width:none;overflow-wrap:normal}.jpdb-ocr-line[data-vertical=true]{align-items:center;justify-content:center;letter-spacing:0}.jpdb-ocr-line[data-vertical=true] .jpdb-ocr-line-text{white-space:normal;flex-wrap:wrap}.jpdb-ocr-line-visible{border-color:#ffffff1a;background:#181b2024;box-shadow:0 6px 16px #0003,inset 0 0 0 1px #ffffff0a}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, .48));border-color:#ffffff2e;box-shadow:0 10px 24px #0000003d,inset 0 0 0 1px #ffffff0d;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:1!important}.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi{line-height:1!important}.jpdb-ocr-line[data-has-furi=true] .jpdb-reader-word{display:inline-flex;align-items:flex-end}.jpdb-ocr-line .jpdb-ocr-plain{display:inline-flex;align-items:flex-end;line-height:1;white-space:pre}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-ruby{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;padding-top:.5em;line-height:1;vertical-align:baseline}.jpdb-ocr-ruby-base{display:inline-flex;align-items:flex-end;line-height:1}.jpdb-ocr-furi{position:absolute;top:0;left:50%;color:currentColor;font-size:.42em;line-height:1;opacity:0;pointer-events:none;text-align:center;text-shadow:none;transform:translate(-50%);white-space:nowrap}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-ocr-furi{opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}.jpdb-reader-subtitle-highlight-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent )}.jpdb-reader-subtitle-underline-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-jpdb-decoration, transparent )}.jpdb-reader-subtitle-underline-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-anki-decoration, transparent )}.jpdb-reader-subtitle-underline-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent )}.jpdb-reader-subtitle-text-status .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-subtitle-text-jpdb .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-subtitle-text-anki .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-subtitle-text-pitch .asbplayer-subtitles-container-bottom .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban{color:var(--jpdb-reader-pitch-heiban, #359eff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka{color:var(--jpdb-reader-pitch-atamadaka, #fe4b74)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka{color:var(--jpdb-reader-pitch-nakadaka, #fba840)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka{color:var(--jpdb-reader-pitch-odaka, #57ccb7)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku{color:var(--jpdb-reader-pitch-kifuku, #9050f6)!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;touch-action:none;transform:translateZ(0);transition:opacity .15s ease,transform .15s ease,border-color .15s ease,color .15s ease}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;padding:14px;container-type:inline-size}:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}}@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}}.jpdb-reader-sheet-handle{display:none;width:72px;height:28px;border-radius:999px;background:transparent;margin:-4px auto 6px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";display:block;width:42px;height:5px;border-radius:999px;margin:11px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out;-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-btn:active{transform:scale(.98)}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span,.jpdb-reader-onboarding-note{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}@keyframes jpdb-reader-audio-loading-a{0%{left:0}25%{left:0}75%{left:100%}to{left:100%}}@keyframes jpdb-reader-audio-loading-b{0%{right:100%}50%{right:0}to{right:0}}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}.jpdb-reader-pill{-moz-appearance:none;appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8% );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-text);cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,outline-color .2s ease-in-out!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}.jpdb-reader-jpdb-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface) );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-accent-readable)}.jpdb-reader-action-pill:active{transform:scale(.98)!important}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}.jpdb-reader-heading{display:contents}.jpdb-reader-title-row{grid-column:1;grid-row:1}.jpdb-reader-card-tools{display:contents}.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:11px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);font-size:13px;line-height:1.32}.jpdb-reader-jpdb-extras{display:grid;gap:10px;margin:10px 0 0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group{border:0;border-radius:0;background:transparent;padding:0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-jpdb-extra{display:grid;gap:6px}.jpdb-reader-jpdb-extra h6{margin:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.jpdb-reader-jpdb-compounds,.jpdb-reader-jpdb-examples{display:grid;gap:6px;margin:0;padding:0;list-style:none}.jpdb-reader-jpdb-example{padding-left:10px;border-left:2px solid var(--jpdb-reader-border);color:var(--jpdb-reader-text);line-height:1.3}.jpdb-reader-jpdb-compounds li{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:baseline;gap:8px;min-width:0}.jpdb-reader-jpdb-compound{display:inline-flex;align-items:flex-start;min-width:0;color:inherit!important;text-decoration:none}.jpdb-reader-jpdb-compound:hover,.jpdb-reader-jpdb-compound:focus-visible{color:inherit!important;outline:none}.jpdb-reader-jpdb-compound-head{display:grid;gap:2px;max-width:100%}.jpdb-reader-jpdb-compound-term{display:inline-block;width:max-content;max-width:100%;font-size:17px;line-height:1.1;font-weight:850;white-space:nowrap}.jpdb-reader-jpdb-compound-reading,.jpdb-reader-jpdb-compounds small,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.jpdb-reader-jpdb-compound-reading{white-space:nowrap}.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading{display:none}.jpdb-reader-example-summary .jpdb-reader-example-count{flex:0 0 auto;margin-left:auto;text-align:right;white-space:nowrap}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence{line-height:1.35}.jpdb-reader-jpdb-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.jpdb-reader-meaning-pos{color:var(--jpdb-reader-faint);font-size:11px;margin-right:5px;font-style:italic;text-transform:none}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px}.jpdb-reader-inline-link{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary{position:absolute;top:8px;right:8px;z-index:1;display:inline-flex;width:20px;min-height:20px;padding:0;justify-content:center}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary:after{margin:0;font-size:13px}.jpdb-reader-source-card>summary.jpdb-reader-inline-source-summary+.jpdb-reader-local-terms{padding-top:0}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;white-space:normal;display:grid;gap:2px;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-more{margin-top:6px;border-top:1px solid var(--jpdb-reader-border);padding-top:5px}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary{align-items:center;cursor:pointer;display:flex;gap:8px;justify-content:space-between;list-style:none;min-height:38px;padding:8px 0}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){white-space:normal}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class=form-valid]{text-align:center;vertical-align:middle}.jpdb-reader-local-glossary [data-sc-class=form-valid]{color:var(--jpdb-reader-accent-readable);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:11px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-anki-card-preview div{display:grid;gap:2px}.jpdb-reader-anki-card-preview strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-card-preview span,.jpdb-reader-anki-card-preview small{white-space:pre-wrap}.yomu-jpdb-addon-card{display:grid;gap:7px;margin:10px 0;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text, inherit);font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;line-height:1.42;box-shadow:none}.yomu-jpdb-addon-card,.yomu-jpdb-addon-card *{box-sizing:border-box}.yomu-jpdb-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.yomu-jpdb-card-title a{color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-decoration:none;text-transform:none}.yomu-jpdb-collapsible-card{display:grid;gap:9px}.yomu-jpdb-collapsible-card>summary{cursor:pointer;list-style:none}.yomu-jpdb-collapsible-card>summary::-webkit-details-marker{display:none}.yomu-jpdb-collapsible-card>summary:after{content:"Show";color:var(--jpdb-reader-accent);font-size:11px;font-weight:800;text-transform:none}.yomu-jpdb-collapsible-card[open]>summary:after{content:"Hide"}.yomu-jpdb-collapsible-body{display:grid;gap:9px}.yomu-jpdb-toolbar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}.yomu-jpdb-toolbar a{display:inline-flex;align-items:center;min-height:24px;color:var(--jpdb-reader-accent)!important;font-size:11px;font-weight:800;text-decoration:none!important}.yomu-jpdb-counter,.yomu-jpdb-source-meta{display:inline-flex;align-items:center;justify-content:center;min-height:0;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.yomu-jpdb-source-meta{justify-content:flex-start;margin-bottom:2px}.yomu-jpdb-image-shell{display:grid;place-items:center}.yomu-jpdb-image-shell img{display:block;width:min(320px,100%);max-height:340px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-bg)}.yomu-jpdb-story{max-width:58ch;margin:0 auto;color:var(--jpdb-reader-text);white-space:pre-wrap}.yomu-jpdb-addon-card>.jpdb-reader-local,.yomu-jpdb-addon-card>.jpdb-reader-source-card,.yomu-jpdb-addon-card .jpdb-reader-local-entry,.yomu-jpdb-addon-card .jpdb-reader-dictionary-group,.yomu-jpdb-uchisen-source,.yomu-jpdb-rtk-source{padding:0;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important}.yomu-jpdb-addon-card>.jpdb-reader-local,.yomu-jpdb-addon-card>.jpdb-reader-source-card,.yomu-jpdb-uchisen-source,.yomu-jpdb-rtk-source{margin-top:0}.yomu-jpdb-addon-card>.jpdb-reader-source-card[open]>:last-child,.yomu-jpdb-uchisen-source[open]>:last-child,.yomu-jpdb-rtk-source[open]>:last-child{margin-bottom:0}.yomu-jpdb-addon-card .jpdb-reader-local-title,.yomu-jpdb-addon-card .jpdb-reader-local-head{padding-inline:0}.yomu-jpdb-addon-card>.jpdb-reader-source-card>summary.jpdb-reader-local-title{min-height:38px;padding-top:8px;padding-bottom:8px}.yomu-jpdb-addon-card .jpdb-reader-local-glossary{padding-inline:0!important}.yomu-jpdb-uchisen-body,.yomu-jpdb-doodle-body{display:grid;gap:9px}.yomu-jpdb-doodle-body{justify-items:center;justify-self:center;width:min(100%,420px);margin-inline:auto}.yomu-jpdb-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px}.yomu-jpdb-facts span{display:grid;gap:2px;padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-facts strong,.yomu-jpdb-addon-card h6{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.yomu-jpdb-addon-card h6,.yomu-jpdb-addon-card p{margin:0}.yomu-jpdb-addon-card section{display:grid;gap:5px}.yomu-jpdb-chip-row,.yomu-jpdb-component-row,.yomu-jpdb-used-words{display:flex;flex-wrap:wrap;gap:7px}.yomu-jpdb-chip-row span{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:3px 8px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-weight:750}.yomu-jpdb-chip-row span.common{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}.yomu-jpdb-chip-row small{color:var(--jpdb-reader-muted);font-size:11px}.yomu-jpdb-component,.yomu-jpdb-used-words a{display:inline-grid;gap:1px;min-width:70px;padding:7px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-component:hover,.yomu-jpdb-component:focus-visible,.yomu-jpdb-used-words a:hover,.yomu-jpdb-used-words a:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component strong{color:var(--jpdb-reader-text);font-size:22px;line-height:1}.yomu-jpdb-component span,.yomu-jpdb-used-words small{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-used-words a span{font-weight:800}.yomu-jpdb-local-dictionaries .jpdb-reader-local-entry,.yomu-jpdb-immersion-group{padding:0;border:0;border-radius:0;background:transparent}.yomu-jpdb-local-dictionaries{gap:7px}.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group{border-radius:0}.yomu-jpdb-local-dictionaries .jpdb-reader-local-head{min-height:38px}.yomu-jpdb-local-dictionaries .jpdb-reader-local-glossary{line-height:1.45}.yomu-jpdb-page-dictionary .jpdb-reader-local-glossary{display:grid;gap:12px}.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group{border:0;border-radius:0;background:transparent;padding:0}.yomu-jpdb-page-dictionary .yomu-jpdb-page-examples-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.yomu-jpdb-dictionary-section{display:grid;gap:7px}.yomu-jpdb-compounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px}.yomu-jpdb-compound{display:grid;align-content:start;gap:3px;min-height:56px;padding:8px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 82%,transparent);color:var(--jpdb-reader-text)!important;text-decoration:none!important}.yomu-jpdb-compound:hover,.yomu-jpdb-compound:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-compound-head{display:grid;gap:2px;min-width:0}.yomu-jpdb-compound .yomu-jpdb-compound-term{display:inline-block;min-width:0;width:max-content;max-width:100%;white-space:nowrap}.yomu-jpdb-compound-term{font-size:18px;font-weight:850;line-height:1.1}.yomu-jpdb-compound-reading{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650;line-height:1.1;white-space:nowrap}.yomu-jpdb-compound-meaning{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.yomu-jpdb-compound:has(.jpdb-reader-word) .yomu-jpdb-compound-reading{display:none}.yomu-jpdb-page-examples{display:grid;gap:6px}.yomu-jpdb-page-example{display:grid;gap:3px;padding:6px 8px;border-left:2px solid var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-accent-soft) 55%,transparent)}.yomu-jpdb-page-example .jpdb-reader-example-sentence,.yomu-jpdb-page-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.yomu-jpdb-page-example .jpdb-reader-example-sentence{line-height:1.35}.yomu-jpdb-page-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.yomu-jpdb-immersion-group>.jpdb-reader-local-glossary{padding:0 8px 8px}#yomu-jpdb-immersion .jpdb-reader-example-media{border:0;border-radius:0;background:transparent}.yomu-jpdb-audio-button{display:inline-grid;align-items:center;justify-content:center;width:1.55em;height:1.55em;min-width:1.55em;min-height:1.55em;margin:0 0 0 .35em;padding:0;border:0;border-radius:999px;background:transparent;box-shadow:none;color:currentColor;cursor:pointer;opacity:.72;vertical-align:middle;-webkit-tap-highlight-color:transparent;transform:translateY(.08em);transition:background-color .15s ease,color .15s ease,opacity .15s ease}.yomu-jpdb-audio-button:hover,.yomu-jpdb-audio-button:focus-visible{background:color-mix(in srgb,currentColor 10%,transparent);color:var(--jpdb-reader-accent, currentColor);opacity:1;outline:none}.yomu-jpdb-audio-button:active{opacity:.85}.yomu-jpdb-audio-button svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-review-compact-nav .menu .nav-item:not(:first-child),.yomu-jpdb-review-compact-nav .menu-icon{display:none!important}.yomu-jpdb-review-compact-nav .menu{max-height:32px!important;transition:none!important}.yomu-jpdb-items-left-count{color:#e5484d}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode]{display:grid;align-items:center;justify-items:stretch;gap:10px;width:100%;margin:14px 0 8px;padding:0;border:0;border-radius:0;background:transparent;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-stage,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-jpdb-toolbar,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-result{justify-self:center}.yomu-doodle-stage{position:relative;width:min(92vw,420px);aspect-ratio:1;--jpdb-reader-doodle-ink: var(--jpdb-reader-text, #f2f4f8);touch-action:none}.yomu-doodle-canvas,.yomu-doodle-ghost{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%}.yomu-doodle-canvas{z-index:1;border:2px solid color-mix(in srgb,var(--jpdb-reader-text) 82%,var(--jpdb-reader-border));border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:25% 25%}.yomu-doodle-ghost{z-index:0;display:grid;place-items:center;overflow:hidden;color:var(--jpdb-reader-text);font-size:min(72vw,320px);line-height:1;opacity:.26;pointer-events:none}.yomu-doodle-stage.trace-hidden .yomu-doodle-ghost,.yomu-doodle-ghost[hidden]{display:none!important}.yomu-doodle-ghost svg{width:100%;height:100%}.yomu-doodle-ghost path,.yomu-doodle-ghost line,.yomu-doodle-ghost polyline{fill:none!important;stroke:currentColor!important;stroke-width:2.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}#yomu-jpdb-doodle-preview{display:inline-flex;place-items:center;gap:0;min-width:0;margin-left:24px;padding:0;border:0;border-radius:0;background:transparent;vertical-align:top}.yomu-doodle-preview-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1;text-transform:uppercase}#yomu-jpdb-doodle-preview img{width:min(180px,30vw);height:auto;border-radius:8px;border:0;background:transparent;box-shadow:none}[data-yomu-jpdb-addon] .jpdb-reader-icon-mini,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn{border-color:var(--jpdb-reader-border);background:transparent;box-shadow:none;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:hover,[data-yomu-jpdb-addon] .jpdb-reader-icon-mini:focus-visible,[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn:hover:not(:disabled),[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn:focus-visible:not(:disabled){border-color:var(--jpdb-reader-muted);background:transparent;box-shadow:none;color:var(--jpdb-reader-text)}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .jpdb-reader-btn{min-height:34px;padding-inline:10px;border-radius:7px}.yomu-doodle-result{min-height:28px;padding:6px 10px;border:1px solid transparent;border-radius:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;line-height:1.2}.yomu-doodle-result:empty{display:none}.yomu-doodle-pass .yomu-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface));color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 88%,var(--jpdb-reader-text))}@media (min-height: 960px) and (min-width: 700px){[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode]{width:100%}[data-yomu-jpdb-addon=doodle][data-yomu-doodle-mode] .yomu-doodle-stage{width:min(92vw,420px)}}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion,#yomu-jpdb-immersion{container-type:inline-size;--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px) , 260px)}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{display:flex;align-items:center;justify-content:space-between;gap:8px}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:var(--jpdb-reader-example-media-max-height);object-fit:contain}.jpdb-reader-example-media{display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}.jpdb-reader-example-body{display:grid;align-content:start;gap:7px;min-width:0}.jpdb-reader-example-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-summary,.yomu-jpdb-immersion-group>summary.jpdb-reader-local-head{display:flex!important;align-items:center!important;justify-content:space-between;gap:8px!important;min-height:38px;padding:8px 0;width:100%}.jpdb-reader-example-summary .jpdb-reader-example-source,.yomu-jpdb-local-dictionaries .jpdb-reader-dictionary-group>summary .jpdb-reader-example-source,.yomu-jpdb-immersion-group>summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}.jpdb-reader-example-summary .jpdb-reader-local-dict,.yomu-jpdb-immersion-group>summary .jpdb-reader-local-dict{display:block;max-width:100%;flex:1 1 auto;margin-left:0;min-width:0;text-align:left;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.5;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35;text-align:center;text-wrap:balance}.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);-webkit-user-select:none;user-select:none;cursor:pointer;transition:filter .16s ease,opacity .16s ease}.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}.jpdb-reader-immersion>.jpdb-reader-example-actions,.yomu-jpdb-immersion-group>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-topline{align-items:flex-start}.jpdb-reader-example-media{--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px) , 230px);max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-image{max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-meta{gap:5px 6px}.jpdb-reader-example-source{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-media-note{color:var(--jpdb-reader-muted);font-style:italic}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-actions{display:flex;flex-wrap:wrap;gap:7px}.jpdb-reader-study-actions .jpdb-reader-icon-mini{width:auto;min-width:76px;padding:0 10px}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:11px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-combined{display:grid;gap:10px}.jpdb-reader-study-part{border-top:1px solid var(--jpdb-reader-border);padding-top:9px}.jpdb-reader-study-part:first-child{border-top:0;padding-top:0}.jpdb-reader-study-part-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;color:var(--jpdb-reader-text);cursor:pointer;font-size:12px;font-weight:850;line-height:1.2;list-style:none}.jpdb-reader-study-part-title::-webkit-details-marker{display:none}.jpdb-reader-study-part-title:after{content:"+";color:var(--jpdb-reader-muted);font-size:13px;font-weight:900}.jpdb-reader-study-part[open]>.jpdb-reader-study-part-title:after{content:"-"}.jpdb-reader-study-part>.jpdb-reader-study-panel{margin-top:8px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-title,.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-title{font-size:13px;line-height:1.2}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item.known{opacity:.72}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;border-radius:3px;color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 82%,var(--jpdb-reader-text));font-size:11px;font-weight:800;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 64%,transparent);text-decoration-thickness:1px;text-underline-offset:3px;width:max-content}.jpdb-reader-study-guide:hover{color:var(--jpdb-reader-text);text-decoration-color:var(--jpdb-reader-accent-readable)}.jpdb-reader-study-guide:focus-visible{color:var(--jpdb-reader-text);outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent-readable) 58%,transparent);outline-offset:2px;text-decoration-color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-more{display:grid;gap:4px}.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}.jpdb-reader-grammar-more[open]>summary:after{content:"-"}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-chip{display:inline-flex;align-items:center;min-height:22px;padding:2px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-weight:700}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:11px;margin-top:6px}.jpdb-reader-modal-nav,.jpdb-reader-kanji-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-modal-nav span,.jpdb-reader-kanji-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface);--chip-border: var(--jpdb-reader-border);--chip-text: var(--jpdb-reader-muted)}.jpdb-reader-kanji-mining{margin-top:8px;max-width:420px}.jpdb-reader-kanji-mining-row{gap:8px}.jpdb-reader-kanji-mining-row .jpdb-reader-btn{min-height:34px;border-radius:8px;padding-inline:10px;font-size:11px}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:24px;padding:3px 9px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 34%,var(--jpdb-reader-border));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,var(--jpdb-reader-accent) 12%);color:var(--jpdb-reader-text);box-shadow:none;font-size:12px;font-weight:780;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline;flex:0 0 auto;height:auto;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:9px;font-weight:800;line-height:1;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:6px}.jpdb-reader-kanji-facts span{display:grid;gap:2px;min-width:0;padding:7px 8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:11px;font-weight:750}.jpdb-reader-kanji-facts strong{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;text-transform:uppercase}.jpdb-reader-origin-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:8px;margin-top:8px}.jpdb-reader-origin-node{display:grid;place-items:center;gap:2px;min-height:58px;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:linear-gradient(180deg,color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent),var(--jpdb-reader-surface-2));color:var(--jpdb-reader-text);text-align:center;font:inherit;cursor:pointer}.jpdb-reader-origin-node.current{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 64%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2))}.jpdb-reader-origin-node.related{border-style:dashed;cursor:default}.jpdb-reader-origin-node:hover,.jpdb-reader-origin-node:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-node strong{font-size:20px;line-height:1}.jpdb-reader-origin-node small,.jpdb-reader-origin-edges small{color:var(--jpdb-reader-muted);font-size:10px;line-height:1.2}.jpdb-reader-origin-edges{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:5px}.jpdb-reader-origin-edges span{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2)}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.3}.jpdb-reader-origin-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.jpdb-reader-origin-examples button{min-width:0;padding:7px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);text-align:left;cursor:pointer;font:inherit}.jpdb-reader-origin-examples button:hover,.jpdb-reader-origin-examples button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-origin-examples strong,.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-origin-examples span,.jpdb-reader-origin-examples small{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-wiktionary{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-origin-wiktionary summary{color:var(--jpdb-reader-text);cursor:pointer;font-weight:800}.jpdb-reader-origin-wiktionary p{margin:7px 0 0;line-height:1.4}.jpdb-reader-origin-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.jpdb-reader-origin-images img{width:64px;height:64px;object-fit:contain;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:#fff}.jpdb-reader-origin-sources{display:flex;flex-wrap:wrap;gap:7px;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-origin-sources a{color:var(--jpdb-reader-accent);font-weight:800;text-decoration:none}.jpdb-reader-origin-graph-wrap{--jpdb-reader-origin-graph-bg: color-mix( in srgb, var(--jpdb-reader-surface, #20242b) 88%, var(--jpdb-reader-bg, #181b20) );--jpdb-reader-origin-graph-line: color-mix( in srgb, var(--jpdb-reader-text, #f2f4f8) 72%, transparent );--jpdb-reader-origin-graph-frame: color-mix( in srgb, var(--jpdb-reader-bg, #181b20) 84%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-node-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 72%, var(--jpdb-reader-surface-2, #282e37) );--jpdb-reader-origin-graph-related-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 18%, var(--jpdb-reader-surface, #20242b) );--jpdb-reader-origin-graph-accent-text: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 12%, #000 );position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 82%,var(--jpdb-reader-text, #f2f4f8));border-radius:8px;background:var(--jpdb-reader-origin-graph-bg);box-shadow:inset 0 1px color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent),inset 0 -18px 44px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 18%,transparent);overflow:hidden}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:var(--jpdb-reader-origin-graph-line);stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle{fill:color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 88%,var(--jpdb-reader-accent, #5ea780));stroke:var(--jpdb-reader-origin-graph-bg);stroke-width:.12}.jpdb-reader-origin-graph-wrap:not(.show-outbound) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-toggle{position:absolute;top:7px;right:7px;z-index:4;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 14px);padding:4px 7px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 24%,transparent)}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:var(--jpdb-reader-accent, #5ea780)}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;min-width:62px;height:62px;padding:0;border:4px solid var(--jpdb-reader-origin-graph-frame);border-radius:999px;background:var(--jpdb-reader-origin-graph-node-fill);color:var(--jpdb-reader-text, #f2f4f8);font:850 32px/1 Hiragino Sans,Yu Gothic,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 9px 26px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 34%,transparent);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:1;transition:border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{width:68px;min-width:68px;height:68px;border-color:var(--jpdb-reader-origin-graph-frame);background:var(--jpdb-reader-accent, #5ea780);color:var(--jpdb-reader-origin-graph-accent-text);font-size:34px;box-shadow:0 12px 32px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 40%,transparent)}.jpdb-reader-origin-graph-node.component{border-color:var(--jpdb-reader-origin-graph-frame)}.jpdb-reader-origin-graph-node.related{background:var(--jpdb-reader-origin-graph-related-fill);color:var(--jpdb-reader-text, #f2f4f8);font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:var(--jpdb-reader-origin-graph-frame);box-shadow:0 14px 34px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 44%,transparent),0 0 0 3px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 24%,transparent);outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 50%,transparent),0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 28%,transparent)}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements>span,.jpdb-reader-rtk-elements>button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:11px;font-weight:750}.jpdb-reader-rtk-elements>span strong,.jpdb-reader-rtk-elements>button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements>span span,.jpdb-reader-rtk-elements>button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements>button{cursor:pointer}.jpdb-reader-rtk-elements>button:hover,.jpdb-reader-rtk-elements>button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-similar-word{min-width:0;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;justify-self:center;margin:8px auto 0;--jpdb-reader-doodle-ink: #141820;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none}.jpdb-reader-kanjivg>.jpdb-reader-doodle-stage{margin-inline:auto}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-mini-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:max-content!important;height:28px!important;min-height:28px!important;max-height:30px!important;padding:4px 9px!important;border:1px solid var(--jpdb-reader-border)!important;border-radius:7px!important;background:transparent!important;color:var(--jpdb-reader-text)!important;cursor:pointer;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif!important;white-space:nowrap!important}.jpdb-reader-mini-btn:hover,.jpdb-reader-mini-btn:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-btn.jpdb-reader-doodle-control{min-height:28px;max-height:30px;padding:4px 9px;border-radius:7px;font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-popover:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover-body{min-height:0;overflow:auto;padding:14px;overscroll-behavior:contain}.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;--jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);background:var(--jpdb-reader-actions-bg);box-shadow:0 -1px 0 var(--jpdb-reader-actions-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:center;align-items:center;pointer-events:none}.jpdb-reader-mining-collapse{display:inline-flex;align-items:center;justify-content:center;width:72px;height:30px;min-width:72px;min-height:30px;border:0;border-radius:999px;background:transparent;color:var(--jpdb-reader-muted);cursor:grab;padding:0;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;transform:translateY(var(--jpdb-reader-mining-drawer-drag-y, 0));transition:opacity .18s ease-in-out,transform .18s ease-in-out}.jpdb-reader-mining-collapse:before{content:"";display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint);transition:background .18s ease-in-out,box-shadow .18s ease-in-out,width .18s ease-in-out}.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{outline:none}.jpdb-reader-mining-collapse:hover:before,.jpdb-reader-mining-collapse:focus-visible:before,.jpdb-reader-mining-drawer-handle-dragging:before{background:var(--jpdb-reader-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent)}.jpdb-reader-mining-collapse:active{cursor:grabbing}.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:48px;background:color-mix(in srgb,var(--jpdb-reader-accent) 74%,var(--jpdb-reader-faint))}.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(0,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(6px,1.8cqi,10px);font-size:clamp(10.5px,3cqi,13px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(2px,1cqi,6px);font-size:clamp(9.3px,2.55cqi,11px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-btn:hover:not(:disabled),.jpdb-reader-btn:focus-visible:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, currentColor) 18%);box-shadow:inset 0 1px #ffffff0d,0 8px 18px #0003;transform:translateY(-.25rem);outline:none}.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}.jpdb-reader-grades .jpdb-reader-btn:before,.jpdb-reader-btn.fail:before,.jpdb-reader-btn.pass:before{margin-right:clamp(2px,.8cqi,4px);color:var(--button-accent, currentColor);font-weight:950}.jpdb-reader-grades .jpdb-reader-btn.nothing:before,.jpdb-reader-grades .jpdb-reader-btn.something:before,.jpdb-reader-btn.fail:before{content:"✖"}.jpdb-reader-grades .jpdb-reader-btn.hard:before,.jpdb-reader-grades .jpdb-reader-btn.okay:before,.jpdb-reader-grades .jpdb-reader-btn.easy:before,.jpdb-reader-btn.pass:before{content:"✔"}.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 72%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--button-accent, var(--jpdb-reader-border)) 14%)}@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:clamp(10px,2.85cqi,11.5px)}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:clamp(1px,.75cqi,4px);font-size:clamp(8.8px,2.4cqi,10.4px)}}@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}.jpdb-reader-actions-has-mining{padding-top:29px}.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}.jpdb-reader-mining-collapse{width:64px;height:28px;min-width:64px;min-height:28px}.jpdb-reader-mining-collapse:before{width:38px}.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:44px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}.jpdb-reader-grades{grid-template-columns:1.12fr 1.3fr .86fr .86fr .86fr}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}.jpdb-reader-grades .jpdb-reader-btn:before{margin-right:2px}}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:11px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 20px));max-height:min(760px,calc(100vh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none;transition-property:background-color,border-color,box-shadow,color,opacity}.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;white-space:nowrap;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-tab:hover,.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.25rem);outline:none}.jpdb-reader-settings-tab:active{transform:scale(.98)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;height:38px;padding:8px;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,color .14s ease}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer;text-align:center;text-decoration:none!important;transition:all .2s ease-in-out}.jpdb-reader-btn:where(:link,:visited){color:var(--jpdb-reader-text)!important}.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--button-accent, var(--jpdb-reader-accent));background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, var(--jpdb-reader-accent)) 18%);outline:none}.jpdb-reader-btn:active{transform:scale(.98)}.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px);transition:border-color .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047;transition:transform .18s ease,background .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1;transition:opacity .18s ease}.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}.jpdb-reader-segment-field{display:grid;align-content:start;gap:6px;margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-segment-title{font:750 12px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;min-height:38px;padding:3px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-segmented label{position:relative;display:grid;place-items:center;min-width:0;min-height:30px;margin:0;color:var(--jpdb-reader-muted)!important;cursor:pointer}.jpdb-reader-segmented input{position:absolute;top:0;right:0;bottom:0;left:0;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0;opacity:0;cursor:pointer}.jpdb-reader-segmented span{display:grid;place-items:center;width:100%;min-height:30px;padding:0 8px;border-radius:6px;color:inherit;font:850 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-reader-segmented input:checked+span{background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-segmented input:focus-visible+span{outline:2px solid var(--jpdb-reader-accent);outline-offset:2px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex;min-width:0}.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%);color:var(--jpdb-reader-text)!important}.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible{border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 78%,var(--jpdb-reader-accent) 22%);box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent)}.jpdb-reader-support-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-support-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-support-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-support-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.jpdb-reader-support-card+.jpdb-reader-support-card{margin-top:12px}.jpdb-reader-help-links-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.jpdb-reader-support-actions .jpdb-reader-btn{min-height:42px;padding-inline:10px}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:7px;margin:10px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:11px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:8px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:48px minmax(130px,1fr) minmax(120px,.8fr) 74px 58px}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:48px minmax(160px,1fr) 74px 58px}.jpdb-reader-order-head{color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:8px;width:100%;cursor:grab}.jpdb-reader-order-row.jpdb-reader-dragging{opacity:.58;border-color:var(--jpdb-reader-accent);cursor:grabbing}.jpdb-reader-order-row.jpdb-reader-touch-dragging{box-shadow:0 8px 24px #0003}.jpdb-reader-order-row.jpdb-reader-drop-before,.jpdb-reader-order-row.jpdb-reader-drop-after{border-color:var(--jpdb-reader-accent)}.jpdb-reader-order-row.jpdb-reader-drop-before:before,.jpdb-reader-order-row.jpdb-reader-drop-after:after{content:"";position:absolute;left:8px;right:8px;height:4px;border-radius:999px;background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft);pointer-events:none}.jpdb-reader-order-row.jpdb-reader-drop-before:before{top:-7px}.jpdb-reader-order-row.jpdb-reader-drop-after:after{bottom:-7px}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}.jpdb-reader-lookup-link-fixed{width:34px;height:34px}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transform:translateY(-.01rem);transition:background .2s ease-in-out,border-color .2s ease-in-out,box-shadow .2s ease-in-out,color .2s ease-in-out,transform .2s ease-in-out}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-mini:active{transform:scale(.98)}.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:min(45%,calc(100% - 24px));overflow:hidden;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;width:fit-content;max-width:100%;margin-top:8px;margin-left:auto;margin-right:auto;padding:0;border:0!important;background:transparent!important;color:#ffffffd1;font-size:.62em;font-family:inherit;font-weight:650;line-height:1.25;min-height:24px;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86);cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere;transition:filter .12s ease,opacity .12s ease}.jpdb-subtitle-secondary-blurred{filter:blur(5px);opacity:.8}.jpdb-subtitle-secondary-blurred:hover,.jpdb-subtitle-secondary-blurred:focus-visible{filter:none;opacity:1}.jpdb-subtitle-karaoke-word{display:inline;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-word-spoken,.jpdb-subtitle-word-current{opacity:1;color:var(--subtitle-color)}.jpdb-subtitle-word-spoken{color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 58%,var(--subtitle-color));text-decoration-line:underline;text-decoration-color:var(--jpdb-reader-accent, #5ea780);text-decoration-thickness:.09em;text-underline-offset:.16em}.jpdb-subtitle-word-current{text-decoration-line:underline;text-decoration-color:var(--subtitle-color);text-decoration-thickness:.1em;text-underline-offset:.16em}.jpdb-subtitle-primary .jpdb-reader-word{background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken{opacity:1;--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current{opacity:1;text-decoration-line:underline!important;text-decoration-color:var(--subtitle-color)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{filter:saturate(.72)}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary-loading{opacity:.78;color:currentColor}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78;transition:opacity .14s ease,background .14s ease,border-color .14s ease}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:0;pointer-events:none}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap;transition:opacity .14s ease,visibility .14s ease,border-color .14s ease,color .14s ease,background .14s ease}.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}.jpdb-subtitle-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list{position:fixed;right:max(12px,env(safe-area-inset-right));top:72px;width:min(460px,calc(100vw - 24px));height:min(78vh,860px);max-height:calc(100vh - 24px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid color-mix(in srgb,var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%,rgba(255,255,255,.1));border-radius:22px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,rgba(255,255,255,.06));color:var(--jpdb-reader-text, #fff);box-shadow:0 24px 56px #00000052;pointer-events:auto;backdrop-filter:blur(18px) saturate(1.08);-webkit-backdrop-filter:blur(18px) saturate(1.08);transform:translateZ(0)}html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:0;transition:opacity .12s ease,background .12s ease}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:.88}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-12px;height:24px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}.jpdb-subtitle-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 76%,transparent)}.jpdb-subtitle-drawer-brand{display:grid;gap:4px;min-width:0}.jpdb-subtitle-drawer-title{min-width:0;color:var(--jpdb-reader-text, #fff);font:800 15px/1.2 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;letter-spacing:.01em}.jpdb-subtitle-drawer-meta{min-width:0;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 11px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jpdb-subtitle-drawer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}.jpdb-subtitle-drawer-close{display:inline-grid;place-items:center;min-width:34px;width:34px;min-height:34px;height:34px;padding:0!important;border-radius:12px!important}.jpdb-subtitle-drawer-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-mode{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-mode button{min-height:30px;padding:0 11px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:11px;font-weight:700}.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-panel-mode button:disabled{opacity:.42}.jpdb-subtitle-panel-nav{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0 0 2px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}.jpdb-subtitle-panel-nav button:disabled{opacity:.38}.jpdb-subtitle-list-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;align-content:start;grid-auto-rows:max-content;gap:4px;padding:8px 10px 12px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}.jpdb-subtitle-row-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}.jpdb-subtitle-list .jpdb-reader-word{color:inherit!important}.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}.jpdb-subtitle-row-text{min-width:0;max-width:100%;grid-column:1;color:var(--jpdb-reader-text, #fff);overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0;text-shadow:0 1px 1px rgba(0,0,0,.38)}.jpdb-subtitle-row-text .jpdb-reader-word{color:inherit;background:transparent;text-decoration-color:var(--jpdb-reader-word-underline, currentColor);text-decoration-thickness:.08em;text-underline-offset:.16em;border-radius:4px;padding:0 1px;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-row-text .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-row-text .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-row-text .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-row-text .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status .jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status .jpdb-subtitle-row-text .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--jpdb-reader-text, #fff))!important}.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-row-text .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-text, #fff))!important}.jpdb-reader-subtitle-text-anki .jpdb-subtitle-row-text .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--jpdb-reader-text, #fff))!important}.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-row-text .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-text, #fff))!important}.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby{color:inherit!important}.jpdb-subtitle-row-text ruby,.jpdb-subtitle-row-text rt,.jpdb-subtitle-row-text .jpdb-reader-furi{white-space:normal!important}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}.jpdb-youtube-filtered,.jpdb-youtube-filter-pending{display:none!important}.jpdb-youtube-filter-active :is(ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-grid-video-renderer,ytd-reel-item-renderer,ytd-reel-video-renderer,yt-lockup-view-model,.ytGridShelfViewModelGridShelfItem,ytm-rich-item-renderer,ytm-compact-video-renderer,ytm-video-card-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2):not([data-yomu-youtube-checked=true]):not([data-jpdb-reader-root]){visibility:hidden!important}.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-youtube-filter-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;max-height:min(calc(70vh + var(--jpdb-reader-sheet-drag-up, 0px)),100vh);max-height:min(calc(70svh + var(--jpdb-reader-sheet-drag-up, 0px)),100svh);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{padding:14px 16px}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{height:100vh;max-height:100vh;height:100svh;max-height:100svh;border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-settings{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0}.jpdb-reader-settings-head{padding:18px 20px 0}.jpdb-reader-settings-scroll{padding:0 20px 106px}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 20px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions{grid-template-columns:1fr}.jpdb-reader-support-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.jpdb-reader-recommended-item,.jpdb-reader-template-preview-grid{grid-template-columns:1fr}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}.jpdb-reader-dictionary-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact{grid-template-columns:52px 1fr}.jpdb-reader-dictionary-row input[name$=".alias"],.jpdb-reader-dictionary-row .jpdb-reader-row-tools,.jpdb-reader-dictionary-row-help{grid-column:2}.jpdb-reader-dictionary-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-audio-source-head{display:none}.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:52px 1fr}.jpdb-reader-audio-source-choice{grid-column:2}.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row input[name$=".urlTemplate"]{grid-column:1 / -1}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start;flex-wrap:wrap;min-width:0}.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{grid-column:1 / -1;justify-content:flex-start}.jpdb-ocr-line{min-width:0;min-height:0;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}@media (max-width: 519px){.jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}';
   const READER_CSS = readerCss;
+  const log$4 = Logger.scope("WindowEvents");
+  function createWindowEvent(type, init = {}) {
+    const documentEvent = createDocumentEvent(type, init);
+    if (documentEvent) return documentEvent;
+    const EventConstructor = eventConstructor(window, "Event") ?? eventConstructor(globalThis, "Event");
+    if (EventConstructor) {
+      try {
+        return new EventConstructor(type, init);
+      } catch (error) {
+        log$4.debugThrottled(`create-event-${type}`, 5e3, "Window Event constructor failed", { type, error });
+      }
+    }
+    throw new Error(`Unable to create window event: ${type}`);
+  }
+  function createWindowCustomEvent(type, detail, init = {}) {
+    const eventInit = { ...init, detail };
+    const documentEvent = createDocumentCustomEvent(type, eventInit);
+    if (documentEvent) return documentEvent;
+    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+    if (CustomEventConstructor) {
+      try {
+        return new CustomEventConstructor(type, eventInit);
+      } catch (error) {
+        log$4.debugThrottled(`create-custom-event-${type}`, 5e3, "Window CustomEvent constructor failed", { type, error });
+      }
+    }
+    throw new Error(`Unable to create window custom event: ${type}`);
+  }
+  function dispatchWindowEvent(event) {
+    const target = window;
+    const directDispatch = readMethod(target, "dispatchEvent");
+    const directResult = callEventTargetMethod(directDispatch, target, event);
+    if (directResult.called) return directResult.result;
+    let prototypeResult = directResult;
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+      if (prototypeDispatch === directDispatch) continue;
+      prototypeResult = callEventTargetMethod(prototypeDispatch, target, event);
+      if (prototypeResult.called) return prototypeResult.result;
+    }
+    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+    if (unshadowedResult.called) return unshadowedResult.result;
+    log$4.debugThrottled(`dispatch-window-event-${event.type}`, 5e3, "Window event dispatch unavailable", {
+      type: event.type,
+      error: unshadowedResult.error ?? prototypeResult.error ?? directResult.error
+    });
+    return false;
+  }
+  function addWindowEventListener(type, listener, options) {
+    const target = window;
+    const directAdd = readMethod(target, "addEventListener");
+    const directResult = callAddEventListener(directAdd, target, type, listener, options);
+    if (directResult.called) return true;
+    let prototypeResult = directResult;
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+      if (prototypeAdd === directAdd) continue;
+      prototypeResult = callAddEventListener(prototypeAdd, target, type, listener, options);
+      if (prototypeResult.called) return true;
+    }
+    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    log$4.debugThrottled(`add-window-listener-${type}`, 5e3, "Window event listener registration unavailable", {
+      type,
+      error: unshadowedResult.error ?? prototypeResult.error ?? directResult.error
+    });
+    return false;
+  }
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function createDocumentEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("Event");
+      event.initEvent(type, Boolean(init.bubbles), Boolean(init.cancelable));
+      return event;
+    } catch (error) {
+      log$4.debugThrottled(`create-document-event-${type}`, 5e3, "Document Event creation failed", { type, error });
+      return void 0;
+    }
+  }
+  function createDocumentCustomEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("CustomEvent");
+      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+      return event;
+    } catch (error) {
+      log$4.debugThrottled(`create-document-custom-event-${type}`, 5e3, "Document CustomEvent creation failed", { type, error });
+      return void 0;
+    }
+  }
+  function eventTargetPrototypeMethods(target, key) {
+    const methods = [];
+    const add = (method) => {
+      if (method && !methods.includes(method)) methods.push(method);
+    };
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype) {
+      add(readOwnMethod(prototype, key));
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    const WindowEventTarget = readProperty(window, "EventTarget");
+    add(readMethod(WindowEventTarget == null ? void 0 : WindowEventTarget.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+    return methods;
+  }
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function readOwnMethod(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
+  }
+  function readProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch (error) {
+      log$4.debugThrottled(`window-event-property-${key}`, 5e3, "Window event property unavailable", { key, error });
+      return void 0;
+    }
+  }
+  function callEventTargetMethod(method, target, event) {
+    if (!method) return { called: false };
+    try {
+      return { called: true, result: method.call(target, event) };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callAddEventListener(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callWithUnshadowedWindowDispatch(event) {
+    const descriptor = Object.getOwnPropertyDescriptor(window, "dispatchEvent");
+    if (!descriptor || typeof descriptor.value === "function") return { called: false };
+    try {
+      if (!Reflect.deleteProperty(window, "dispatchEvent")) return { called: false };
+      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("dispatchEvent", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const descriptor = Object.getOwnPropertyDescriptor(window, "addEventListener");
+    if (!descriptor || typeof descriptor.value === "function") return { called: false };
+    try {
+      if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
+      return callAddEventListener(readMethod(window, "addEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("addEventListener", descriptor);
+    }
+  }
+  function restoreWindowProperty(key, descriptor) {
+    try {
+      Object.defineProperty(window, key, descriptor);
+    } catch (error) {
+      log$4.debugThrottled(`restore-window-event-property-${key}`, 5e3, "Window event property restore failed", { key, error });
+    }
+  }
   const CAPTION_SELECTOR_LIST = [
     ".caption-visual-line",
     ".captions-text",
@@ -23645,8 +24957,18 @@ ${spelling}`);
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
   const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
-  const TRANSCRIPT_PREPARSE_WINDOW = 18;
-  const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 8;
+  const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 2;
+  const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 7;
+  const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
+  const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
+  const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
+  const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
+  const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 1;
+  const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
+  const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
+  const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
+  const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
+  const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
   const log$3 = Logger.scope("Subtitles");
   class SubtitlePlayerController {
     constructor(options) {
@@ -23681,6 +25003,8 @@ ${spelling}`);
       __publicField(this, "transcriptScrollFrame");
       __publicField(this, "transcriptHydrateFrame");
       __publicField(this, "transcriptHydrationSerial", 0);
+      __publicField(this, "transcriptCacheWarmupSerial", 0);
+      __publicField(this, "transcriptCacheWarmupSignature", "");
       __publicField(this, "transcriptPanelSize", loadTranscriptPanelSize());
       __publicField(this, "lastInsetSignature", "");
       __publicField(this, "lastYomuCaptionsActive", false);
@@ -23696,6 +25020,7 @@ ${spelling}`);
       __publicField(this, "lastYouTubeTrackDiscoveryAt", 0);
       __publicField(this, "primarySelectionRequest", 0);
       __publicField(this, "secondarySelectionRequest", 0);
+      __publicField(this, "subtitleSourceContextKey", "");
       this.options = options;
     }
     init() {
@@ -23770,7 +25095,8 @@ ${spelling}`);
                 <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">${subtitleIcon("eye")}</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
-                <button type="button" data-action="panel" title="Open subtitle drawer" aria-label="Open subtitle drawer">${subtitleIcon("transcript")}</button>
+                <button type="button" data-action="list" title="Open transcript" aria-label="Open transcript">${subtitleIcon("transcript")}</button>
+                <button type="button" data-action="tracks" title="Choose subtitles" aria-label="Choose subtitles">${subtitleIcon("tracks")}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -23806,10 +25132,13 @@ ${spelling}`);
       const candidate = [...document.querySelectorAll("video")].map((video) => video).filter((video) => video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
       if (candidate && candidate !== this.video) {
         this.video = candidate;
+        this.clearTransientSubtitleState();
+        this.removeStaleNativeTracks(candidate);
         this.attachTextTracks(candidate);
         this.observeVideoLayout(candidate);
         log$3.info("Subtitle video detected", videoSummary(candidate));
       }
+      this.syncSubtitleSourceContext(candidate ?? this.video);
       this.discoverPageSubtitleTracks();
       void this.discoverYouTubeTracksThrottled(true);
       this.refresh();
@@ -23818,10 +25147,61 @@ ${spelling}`);
       var _a, _b;
       for (const track of Array.from(video.textTracks)) this.addNativeTrack(track);
       (_b = (_a = video.textTracks).addEventListener) == null ? void 0 : _b.call(_a, "addtrack", (event) => {
+        if (video !== this.video) return;
         const track = event.track;
         if (track) this.addNativeTrack(track);
       });
       log$3.debug("Attached native text track listeners", { tracks: video.textTracks.length });
+    }
+    syncSubtitleSourceContext(video = this.video) {
+      const key = subtitleSourceContextKey(video);
+      if (!key) return false;
+      if (!this.subtitleSourceContextKey) {
+        this.subtitleSourceContextKey = key;
+        return false;
+      }
+      if (this.subtitleSourceContextKey === key) return false;
+      const previous = this.subtitleSourceContextKey;
+      this.subtitleSourceContextKey = key;
+      this.youtubeAutoSelectSuppressedVideoId = "";
+      this.lastYouTubeTrackDiscoveryAt = 0;
+      this.clearTransientSubtitleState();
+      this.removeSubtitleTracks((track) => track.kind !== "file", "context-change");
+      log$3.debug("Subtitle source context changed", { previous, next: key });
+      return true;
+    }
+    clearTransientSubtitleState() {
+      this.currentCue = void 0;
+      this.secondaryCue = void 0;
+      this.pendingDomCaption = void 0;
+      this.lastDomCaption = "";
+      this.lastAutoCopiedCueSignature = "";
+      this.lastRenderedPrimaryText = "";
+      this.lastRenderedPrimaryHtml = "";
+      this.renderSerial += 1;
+      this.parseWarmupSerial += 1;
+    }
+    removeStaleNativeTracks(video) {
+      const textTracks = new Set(Array.from(video.textTracks));
+      this.removeSubtitleTracks((track) => track.kind === "native" && (!track.track || !textTracks.has(track.track)), "video-change");
+    }
+    removeSubtitleTracks(predicate, reason) {
+      const removed = this.tracks.filter(predicate);
+      if (!removed.length) return 0;
+      const removedIds = new Set(removed.map((track) => track.id));
+      this.tracks = this.tracks.filter((track) => !removedIds.has(track.id));
+      if (removedIds.has(this.selectedTrackId)) this.resetPrimarySubtitleState();
+      if (removedIds.has(this.secondaryTrackId)) this.resetSecondarySubtitleState();
+      this.lastMenuSignature = "";
+      this.lastTranscriptSignature = "";
+      this.render();
+      if (this.transcriptPanel && !this.transcriptPanel.hidden) {
+        if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderTrackPanel();
+        else this.renderTranscriptPanel(true);
+      }
+      this.syncControls();
+      log$3.debug("Subtitle tracks removed", { reason, removed: removed.length, remaining: this.tracks.length });
+      return removed.length;
     }
     observeVideoLayout(video) {
       var _a;
@@ -23850,10 +25230,23 @@ ${spelling}`);
     }
     discoverPageSubtitleTracks() {
       const sources = collectPageSubtitleSources(document);
+      const sourceKeys = new Set(sources.map((source) => source.sourceKey));
+      const sourceUrls = new Set(sources.map((source) => normalizedSubtitleUrl(source.url)));
+      const removed = this.removeSubtitleTracks((track) => track.kind === "remote" && !sourceKeys.has(track.sourceKey ?? "") && !(track.url && sourceUrls.has(normalizedSubtitleUrl(track.url))), "page-source-refresh");
       if (!sources.length) return;
       let added = 0;
+      let updated = 0;
       for (const source of sources) {
-        if (this.tracks.some((track2) => track2.sourceKey === source.sourceKey || track2.url && sameSubtitleUrl(track2.url, source.url))) continue;
+        const existing = this.tracks.find((track2) => track2.sourceKey === source.sourceKey || track2.url && sameSubtitleUrl(track2.url, source.url));
+        if (existing) {
+          if (existing.label !== source.label || existing.language !== source.language || existing.sourceKey !== source.sourceKey) {
+            existing.label = source.label;
+            existing.language = source.language;
+            existing.sourceKey = source.sourceKey;
+            updated += 1;
+          }
+          continue;
+        }
         const track = {
           id: `remote-${this.tracks.length}`,
           label: source.label,
@@ -23866,8 +25259,8 @@ ${spelling}`);
         this.maybeAutoSelectPageSubtitleTrack(track);
         added += 1;
       }
-      if (added) {
-        log$3.debug("Page subtitle files discovered", { added, total: this.tracks.length });
+      if (added || updated || removed) {
+        log$3.debug("Page subtitle files discovered", { added, updated, removed, total: this.tracks.length });
         this.renderTrackPanel();
         this.syncControls();
       }
@@ -23936,6 +25329,11 @@ ${spelling}`);
     tick() {
       const settings = this.options.getSettings();
       if (settings.subtitlePlayerEnabled) {
+        const contextChanged = this.syncSubtitleSourceContext(this.video);
+        if (contextChanged) {
+          this.discoverPageSubtitleTracks();
+          void this.discoverYouTubeTracksThrottled(true);
+        }
         if (isYouTubePage() && (!this.selectedTrackId || this.selectedTrackId && !this.cues.length)) {
           void this.discoverYouTubeTracksThrottled();
         }
@@ -24153,8 +25551,11 @@ ${spelling}`);
     warmParseAroundActiveCue() {
       if (!this.shouldParseSubtitles() || !this.cues.length) return;
       const active = this.activeTranscriptIndex();
-      const start = Math.max(0, active >= 0 ? active - 5 : 0);
-      const end = Math.min(this.cues.length, start + TRANSCRIPT_PREPARSE_WINDOW);
+      const start = Math.max(0, active >= 0 ? active - SUBTITLE_ACTIVE_PREPARSE_BEHIND : 0);
+      const end = Math.min(
+        this.cues.length,
+        active >= 0 ? active + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1 : SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1
+      );
       const serial = ++this.parseWarmupSerial;
       const settings = this.options.getSettings();
       void (async () => {
@@ -24226,11 +25627,11 @@ ${spelling}`);
       event.stopPropagation();
       this.showControlsTemporarily();
       log$3.debug("Subtitle control clicked", { action });
-      if (action === "cue") this.seekToCue(Number((_b = event.target.closest("[data-index]")) == null ? void 0 : _b.dataset.index));
+      if (action === "cue") this.seekToTranscriptRow(Number((_b = event.target.closest("[data-row-index]")) == null ? void 0 : _b.dataset.rowIndex));
       if (action === "previous") this.seekSubtitle(-1);
       if (action === "next") this.seekSubtitle(1);
       if (action === "copy") void this.copySubtitle();
-      if (action === "copy-row") void this.copySubtitle(Number((_c = event.target.closest("[data-index]")) == null ? void 0 : _c.dataset.index));
+      if (action === "copy-row") void this.copyTranscriptRow(Number((_c = event.target.closest("[data-row-index]")) == null ? void 0 : _c.dataset.rowIndex));
       if (action === "load") (_d = this.primaryFileInput) == null ? void 0 : _d.click();
       if (action === "load-secondary") (_e = this.secondaryFileInput) == null ? void 0 : _e.click();
       if (action === "menu") {
@@ -24320,13 +25721,26 @@ ${spelling}`);
     seekToCue(index) {
       const cue = Number.isFinite(index) ? this.cues[index] : void 0;
       if (!cue) return;
+      this.seekToCueObject(cue);
+      log$3.debug("Subtitle cue selected", { index, start: cue.start, end: cue.end });
+    }
+    seekToTranscriptRow(index) {
+      const row = Number.isFinite(index) ? this.transcriptRows()[index] : void 0;
+      if (!row) return;
+      if (row.cueIndex >= 0) {
+        this.seekToCue(row.cueIndex);
+        return;
+      }
+      this.seekToCueObject(row.cue);
+      log$3.debug("Subtitle transcript row selected", { index, start: row.cue.start, end: row.cue.end });
+    }
+    seekToCueObject(cue) {
       if (this.video) this.video.currentTime = Math.max(0, cue.start + this.options.getSettings().subtitleSeekPadding);
       this.currentCue = cue;
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
       this.syncControls();
       this.renderTranscriptPanel();
-      log$3.debug("Subtitle cue selected", { index, start: cue.start, end: cue.end });
     }
     async copySubtitle(index) {
       var _a;
@@ -24337,6 +25751,20 @@ ${spelling}`);
       if (!text2) return;
       await ((_a = navigator.clipboard) == null ? void 0 : _a.writeText(text2).catch((error) => log$3.warn("Subtitle clipboard copy failed", error)));
       log$3.debug("Subtitle copied", { length: text2.length });
+    }
+    async copyTranscriptRow(index) {
+      var _a;
+      const row = Number.isFinite(index) ? this.transcriptRows()[index] : void 0;
+      if (!row) return;
+      if (row.cueIndex >= 0) {
+        await this.copySubtitle(row.cueIndex);
+        return;
+      }
+      const secondary = findAlignedCue(this.secondaryCues, row.cue);
+      const text2 = [row.cue.text.trim(), secondary == null ? void 0 : secondary.text.trim()].filter(Boolean).join("\n");
+      if (!text2) return;
+      await ((_a = navigator.clipboard) == null ? void 0 : _a.writeText(text2).catch((error) => log$3.warn("Subtitle clipboard copy failed", error)));
+      log$3.debug("Subtitle transcript row copied", { length: text2.length });
     }
     async autoCopyCurrentCue() {
       var _a, _b;
@@ -24436,7 +25864,7 @@ ${spelling}`);
       this.updateFromLoadedCues();
       this.warmParseAroundActiveCue();
       this.render();
-      this.openLinesPanel();
+      this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
       log$3.info("Primary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.cues.length });
     }
@@ -24503,9 +25931,7 @@ ${spelling}`);
       this.updateFromLoadedCues();
       this.warmParseAroundActiveCue();
       this.render();
-      if (this.hasTranscriptSurface()) this.openLinesPanel();
-      else if (this.panelMode === "lines") this.renderTranscriptPanel(true);
-      else this.renderTrackPanel();
+      this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
       log$3.info("Secondary subtitle track selected", { id, label: (selected == null ? void 0 : selected.label) ?? "", kind: (selected == null ? void 0 : selected.kind) ?? "unknown", cues: this.secondaryCues.length });
     }
@@ -24541,7 +25967,10 @@ ${spelling}`);
       }
       for (const url of youtubeSubtitleRequestUrls(track.url)) {
         try {
-          const cues = normalizeSubtitleCues(parseSubtitleText(await requestText(url)));
+          const cues = normalizeSubtitleCues(parseSubtitleText(await requestText(url), {
+            smoothYouTubeFragments: true,
+            youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
+          }));
           if (cues.length) return cues;
         } catch (error) {
           log$3.debug("YouTube subtitle track request failed quietly", { id: track.id, label: track.label, host: safeHost(url) }, error);
@@ -24590,14 +26019,8 @@ ${spelling}`);
       if (!videoId) return;
       if (videoId !== this.youtubeVideoId) {
         this.youtubeVideoId = videoId;
-        this.tracks = this.tracks.filter((track) => track.kind !== "youtube");
-        this.selectedTrackId = this.tracks.some((track) => track.id === this.selectedTrackId) ? this.selectedTrackId : "";
-        this.secondaryTrackId = this.tracks.some((track) => track.id === this.secondaryTrackId) ? this.secondaryTrackId : "";
-        this.cues = this.selectedTrackId ? this.cues : [];
-        this.secondaryCues = this.secondaryTrackId ? this.secondaryCues : [];
-        this.currentCue = void 0;
-        this.secondaryCue = void 0;
-        this.pendingDomCaption = void 0;
+        this.clearTransientSubtitleState();
+        this.removeSubtitleTracks((track) => track.kind === "youtube", "youtube-video-change");
         this.youtubeDomCaptionFallbackTrackId = "";
         this.youtubeAutoSelectSuppressedVideoId = "";
         this.lastYouTubeTrackDiscoveryAt = 0;
@@ -24617,10 +26040,19 @@ ${spelling}`);
             updatedSelectedTrack || (updatedSelectedTrack = existing.id === this.selectedTrackId && !this.cues.length);
           }
           existing.youtubeTrack = track.raw;
+          existing.autoGenerated = track.autoGenerated;
           continue;
         }
         existingKeys.add(key);
-        this.tracks.push({ id: `youtube-${this.tracks.length}`, label: track.label, kind: "youtube", language: track.language, url: track.url, youtubeTrack: track.raw });
+        this.tracks.push({
+          id: `youtube-${this.tracks.length}`,
+          label: track.label,
+          kind: "youtube",
+          language: track.language,
+          autoGenerated: track.autoGenerated,
+          url: track.url,
+          youtubeTrack: track.raw
+        });
         added += 1;
       }
       if (added || updatedSelectedTrack) {
@@ -24659,7 +26091,7 @@ ${spelling}`);
       if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off";
       this.syncSubtitleToggle(settings);
       this.syncLineNavigationButtons(hasLines);
-      this.syncPanelButton(hasLines);
+      this.syncDrawerButtons(hasLines);
       this.syncStatus();
       this.setNativeTrackModes();
     }
@@ -24698,18 +26130,26 @@ ${spelling}`);
         }
       }
     }
-    syncPanelButton(hasLines) {
-      var _a;
-      const button2 = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="panel"]');
-      if (!button2) return;
+    syncDrawerButtons(hasLines) {
+      var _a, _b;
+      const listButton = (_a = this.root) == null ? void 0 : _a.querySelector('[data-action="list"]');
+      const tracksButton = (_b = this.root) == null ? void 0 : _b.querySelector('[data-action="tracks"]');
       const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
-      const wantsTracks = this.preferredTranscriptDrawerMode() === "tracks" && !hasLines;
-      setInnerHtml(button2, subtitleIcon(wantsTracks ? "tracks" : "transcript"));
-      button2.hidden = false;
-      button2.disabled = !this.video && !this.tracks.length && !hasLines;
-      button2.title = panelOpen ? "Close subtitle drawer" : wantsTracks ? "Choose subtitles" : "Open subtitle drawer";
-      button2.setAttribute("aria-label", button2.title);
-      button2.setAttribute("aria-pressed", String(panelOpen));
+      const canOpenTranscript = hasLines || this.hasTranscriptSurface();
+      if (listButton) {
+        listButton.hidden = false;
+        listButton.disabled = !this.video && !canOpenTranscript;
+        listButton.title = panelOpen && this.panelMode === "lines" ? "Close transcript" : "Open transcript";
+        listButton.setAttribute("aria-label", listButton.title);
+        listButton.setAttribute("aria-pressed", String(panelOpen && this.panelMode === "lines"));
+      }
+      if (tracksButton) {
+        tracksButton.hidden = false;
+        tracksButton.disabled = !this.video && !this.tracks.length;
+        tracksButton.title = panelOpen && this.panelMode === "tracks" ? "Close subtitle tracks" : "Choose subtitles";
+        tracksButton.setAttribute("aria-label", tracksButton.title);
+        tracksButton.setAttribute("aria-pressed", String(panelOpen && this.panelMode === "tracks"));
+      }
     }
     syncPanelState() {
       var _a;
@@ -24836,6 +26276,21 @@ ${spelling}`);
       this.positionTranscriptPanel();
       this.syncPanelState();
     }
+    refreshTranscriptPanelAfterTrackChange() {
+      if (this.options.getSettings().subtitleTranscriptVisible && this.hasTranscriptSurface()) {
+        this.openLinesPanel();
+        return;
+      }
+      if (!this.transcriptPanel || this.transcriptPanel.hidden) return;
+      if (this.panelMode === "lines") {
+        if (this.hasTranscriptSurface()) this.renderTranscriptPanel(true);
+        else this.closeTranscriptPanel();
+        return;
+      }
+      this.renderTrackPanel();
+      this.positionTranscriptPanel();
+      this.syncPanelState();
+    }
     openTracksPanel() {
       if (!this.transcriptPanel) return;
       this.panelMode = "tracks";
@@ -24866,16 +26321,19 @@ ${spelling}`);
     renderTranscriptPanel(force = false) {
       var _a;
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
-      const rows = (this.cues.length ? this.cues : this.currentCue ? [this.currentCue] : []).filter((cue) => cue.transcriptEligible !== false);
-      const currentIndex = this.cues.length ? this.activeTranscriptIndex() : rows.length ? 0 : -1;
+      const rows = this.transcriptRows();
+      const currentCueIndex = this.activeTranscriptIndex();
+      const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
       const signature = [
         rows.length,
-        currentIndex,
+        currentRowIndex,
         this.selectedTrackId,
         ((_a = this.tracks.find((track) => track.id === this.selectedTrackId)) == null ? void 0 : _a.loadingState) ?? ""
       ].join(":");
       if (!force && this.lastTranscriptSignature === signature) {
-        this.updateTranscriptActiveLine(currentIndex);
+        this.updateTranscriptActiveLine(currentRowIndex);
+        this.scheduleTranscriptHydration(currentRowIndex);
+        this.scheduleTranscriptCacheWarmup(rows, currentRowIndex);
         return;
       }
       this.lastTranscriptSignature = signature;
@@ -24892,27 +26350,41 @@ ${spelling}`);
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
-                ${rows.length ? rows.map((cue, index) => this.renderTranscriptRow(cue, index, this.cues.length ? currentIndex : 0)).join("") : this.renderTranscriptWaitingState()}
+                ${rows.length ? rows.map((row, index) => this.renderTranscriptRow(row, index, currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
             </div>
             <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize transcript panel"></button>
         `);
+      this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel();
       this.scrollTranscriptToActive();
+      this.scheduleTranscriptHydration(currentRowIndex);
+      this.scheduleTranscriptCacheWarmup(rows, currentRowIndex);
       this.syncPanelState();
     }
-    renderTranscriptRow(cue, index, currentIndex) {
+    renderTranscriptRow(row, index, currentIndex) {
+      const cue = row.cue;
+      const settings = this.options.getSettings();
+      const parsedKey = this.parseCacheKey(cue.text, settings);
+      const parsed = this.parsedHtmlCache.get(parsedKey);
+      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parsedKey)}"` : "";
       return `
-            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-index="${index}" data-row-index="${index}">
+            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}">
                 <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}">${escapeWithBreaks(cue.text)}</strong>
+                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
-                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-index="${index}" title="Copy subtitle line" aria-label="Copy subtitle line">${subtitleIcon("copy")}</button>
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="Copy subtitle line" aria-label="Copy subtitle line">${subtitleIcon("copy")}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
             </div>
         `;
+    }
+    transcriptRows() {
+      if (this.cues.length) {
+        return this.cues.map((cue, cueIndex) => ({ cue, cueIndex })).filter((row) => row.cue.transcriptEligible !== false);
+      }
+      return this.currentCue && this.currentCue.transcriptEligible !== false ? [{ cue: this.currentCue, cueIndex: -1 }] : [];
     }
     renderTranscriptWaitingState() {
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
@@ -24982,7 +26454,7 @@ ${spelling}`);
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp, { once: true });
     }
-    scheduleTranscriptHydration(preferredIndex = this.activeTranscriptIndex()) {
+    scheduleTranscriptHydration(preferredIndex = this.activeTranscriptRowIndex()) {
       if (this.transcriptHydrateFrame) return;
       this.transcriptHydrateFrame = requestAnimationFrame(() => {
         this.transcriptHydrateFrame = void 0;
@@ -24995,26 +26467,38 @@ ${spelling}`);
       if (exact >= 0) return exact;
       return this.cues.findIndex((cue) => Math.abs(cue.start - this.currentCue.start) < 0.05 && Math.abs(cue.end - this.currentCue.end) < 0.05 && cue.text.trim() === this.currentCue.text.trim());
     }
+    activeTranscriptRowIndex(rows = this.transcriptRows(), activeCueIndex = this.activeTranscriptIndex()) {
+      if (!rows.length) return -1;
+      if (this.currentCue) {
+        const exact = rows.findIndex((row) => row.cue === this.currentCue);
+        if (exact >= 0) return exact;
+      }
+      if (activeCueIndex >= 0) return rows.findIndex((row) => row.cueIndex === activeCueIndex);
+      return this.cues.length ? -1 : 0;
+    }
     async hydrateTranscriptRows(preferredIndex) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
       const settings = this.options.getSettings();
       if (!settings.apiKey && !settings.localDictionariesEnabled) return;
+      const rows = this.transcriptRows();
+      if (!rows.length) return;
       const serial = ++this.transcriptHydrationSerial;
-      const indexes = this.transcriptHydrationIndexes(preferredIndex);
+      const indexes = this.transcriptHydrationIndexes(preferredIndex, rows.length);
       for (const index of indexes) {
         if (serial !== this.transcriptHydrationSerial) return;
-        await this.hydrateTranscriptRow(index, settings);
+        await this.hydrateTranscriptRow(index, settings, rows);
       }
     }
-    transcriptHydrationIndexes(preferredIndex) {
+    transcriptHydrationIndexes(preferredIndex, rowCount) {
       var _a;
       const indexes = /* @__PURE__ */ new Set();
       if (preferredIndex >= 0) {
-        for (let index = preferredIndex - 4; index <= preferredIndex + 4; index++) {
-          if (index >= 0 && index < this.cues.length) indexes.add(index);
+        for (let index = preferredIndex - TRANSCRIPT_ACTIVE_HYDRATION_BEHIND; index <= preferredIndex + TRANSCRIPT_ACTIVE_HYDRATION_AHEAD; index++) {
+          if (index >= 0 && index < rowCount) indexes.add(index);
+          if (indexes.size >= TRANSCRIPT_HYDRATION_MAX_ROWS) break;
         }
       } else {
-        for (let index = 0; index < Math.min(10, this.cues.length); index++) indexes.add(index);
+        for (let index = 0; index < Math.min(6, rowCount); index++) indexes.add(index);
       }
       const scroller = (_a = this.transcriptPanel) == null ? void 0 : _a.querySelector(".jpdb-subtitle-list-scroll");
       const scrollerRect = scroller == null ? void 0 : scroller.getBoundingClientRect();
@@ -25023,21 +26507,21 @@ ${spelling}`);
           const rect = row.getBoundingClientRect();
           if (rect.bottom < scrollerRect.top || rect.top > scrollerRect.bottom) continue;
           const index = Number(row.dataset.rowIndex);
-          if (Number.isInteger(index)) indexes.add(index);
-          if (indexes.size >= 18) break;
+          if (Number.isInteger(index) && index >= 0 && index < rowCount) indexes.add(index);
+          if (indexes.size >= TRANSCRIPT_HYDRATION_MAX_ROWS) break;
         }
       }
-      for (let count = 0; count < TRANSCRIPT_BACKGROUND_HYDRATION_BATCH && this.cues.length; count++) {
-        const index = this.transcriptHydrationCursor % this.cues.length;
-        this.transcriptHydrationCursor = (this.transcriptHydrationCursor + 1) % this.cues.length;
+      for (let count = 0; count < TRANSCRIPT_BACKGROUND_HYDRATION_BATCH && rowCount && indexes.size < TRANSCRIPT_HYDRATION_MAX_ROWS; count++) {
+        const index = this.transcriptHydrationCursor % rowCount;
+        this.transcriptHydrationCursor = (this.transcriptHydrationCursor + 1) % rowCount;
         indexes.add(index);
       }
       return [...indexes].sort((a, b) => a - b);
     }
-    async hydrateTranscriptRow(index, settings) {
-      var _a, _b, _c;
-      const cue = this.cues[index];
-      const target = (_a = this.transcriptPanel) == null ? void 0 : _a.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
+    async hydrateTranscriptRow(index, settings, rows = this.transcriptRows()) {
+      var _a, _b;
+      const cue = (_a = rows[index]) == null ? void 0 : _a.cue;
+      const target = (_b = this.transcriptPanel) == null ? void 0 : _b.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return;
       const key = this.parseCacheKey(cue.text, settings);
       if (target.dataset.parsedKey === key) return;
@@ -25049,14 +26533,95 @@ ${spelling}`);
       }
       try {
         const html = await this.parseCueHtml(cue.text, settings);
-        const currentTarget = (_b = this.transcriptPanel) == null ? void 0 : _b.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
-        if (((_c = currentTarget == null ? void 0 : currentTarget.textContent) == null ? void 0 : _c.replace(/\s+/g, " ").trim()) === cue.text.replace(/\s+/g, " ").trim()) {
-          currentTarget.dataset.parsedKey = key;
-          setInnerHtml(currentTarget, html);
-        }
+        this.updateTranscriptRowsForParseKey(key, html);
       } catch (error) {
         target.dataset.parsedKey = key;
         log$3.debug("Transcript row parse failed quietly", { index, length: cue.text.length }, error);
+      }
+    }
+    scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)) {
+      const settings = this.options.getSettings();
+      if (!this.shouldParseSubtitles(settings) || !rows.length) return;
+      const signature = this.transcriptCacheWarmupKey(rows, settings, preferredIndex);
+      if (signature === this.transcriptCacheWarmupSignature) return;
+      this.transcriptCacheWarmupSignature = signature;
+      const serial = ++this.transcriptCacheWarmupSerial;
+      void this.warmTranscriptParseCache(rows, preferredIndex, settings, serial);
+    }
+    transcriptCacheWarmupKey(rows, settings, preferredIndex) {
+      var _a, _b;
+      const first2 = (_a = rows[0]) == null ? void 0 : _a.cue;
+      const last = (_b = rows.at(-1)) == null ? void 0 : _b.cue;
+      return [
+        this.selectedTrackId,
+        rows.length,
+        preferredIndex >= 0 ? Math.floor(preferredIndex / TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE) : "start",
+        first2 ? subtitleCueSignature(first2) : "",
+        last ? subtitleCueSignature(last) : "",
+        this.parseCacheKey("", settings)
+      ].join("|");
+    }
+    async warmTranscriptParseCache(rows, preferredIndex, settings, serial) {
+      const planned = this.transcriptWarmupPlan(rows, preferredIndex, settings);
+      if (!planned.length) return;
+      let cursor = 0;
+      const pauseMs = this.transcriptBackgroundParsePauseMs();
+      const worker = async () => {
+        while (cursor < planned.length) {
+          if (serial !== this.transcriptCacheWarmupSerial) return;
+          const item = planned[cursor++];
+          if (!item || this.parsedHtmlCache.has(item.key)) continue;
+          try {
+            const html = await this.parseCueHtml(item.text, settings);
+            if (serial !== this.transcriptCacheWarmupSerial) return;
+            this.updateTranscriptRowsForParseKey(item.key, html);
+          } catch (error) {
+            log$3.debug("Transcript background parse failed quietly", { rowIndex: item.rowIndex, length: item.text.length }, error);
+          }
+          if (cursor < planned.length) await waitForBackgroundTranscriptParseTurn(pauseMs);
+        }
+      };
+      const workers = Array.from(
+        { length: Math.min(TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY, planned.length) },
+        () => worker()
+      );
+      await Promise.all(workers);
+    }
+    transcriptWarmupPlan(rows, preferredIndex, settings) {
+      var _a;
+      const priority = this.transcriptHydrationIndexes(preferredIndex, rows.length);
+      const focusIndex = preferredIndex >= 0 ? preferredIndex : 0;
+      const aheadIndexes = [];
+      for (let index = focusIndex; index < Math.min(rows.length, focusIndex + TRANSCRIPT_BACKGROUND_PARSE_AHEAD); index++) {
+        aheadIndexes.push(index);
+      }
+      const behindIndexes = [];
+      for (let index = focusIndex - 1; index >= Math.max(0, focusIndex - TRANSCRIPT_BACKGROUND_PARSE_BEHIND); index--) {
+        behindIndexes.push(index);
+      }
+      const orderedIndexes = [...priority, ...aheadIndexes, ...behindIndexes];
+      const seen = /* @__PURE__ */ new Set();
+      const plan = [];
+      for (const rowIndex of orderedIndexes) {
+        const text2 = (_a = rows[rowIndex]) == null ? void 0 : _a.cue.text.trim();
+        if (!text2) continue;
+        const key = this.parseCacheKey(text2, settings);
+        if (seen.has(key) || this.parsedHtmlCache.has(key)) continue;
+        seen.add(key);
+        plan.push({ rowIndex, text: text2, key });
+        if (plan.length >= TRANSCRIPT_BACKGROUND_PARSE_LIMIT) break;
+      }
+      return plan;
+    }
+    transcriptBackgroundParsePauseMs() {
+      return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
+    }
+    updateTranscriptRowsForParseKey(key, html) {
+      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
+      for (const target of Array.from(this.transcriptPanel.querySelectorAll("[data-transcript-text]"))) {
+        if (target.dataset.parseKey !== key || target.dataset.parsedKey === key) continue;
+        target.dataset.parsedKey = key;
+        setInnerHtml(target, html);
       }
     }
     renderTrackPanel() {
@@ -25135,6 +26700,26 @@ ${spelling}`);
     isTrackSelectionCurrent(role, requestId, trackId) {
       return role === "primary" ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId;
     }
+    resetPrimarySubtitleState() {
+      this.invalidateTrackSelection("primary");
+      this.selectedTrackId = "";
+      this.cues = [];
+      this.currentCue = void 0;
+      this.lastDomCaption = "";
+      this.pendingDomCaption = void 0;
+      this.youtubeDomCaptionFallbackTrackId = "";
+      this.lastAutoCopiedCueSignature = "";
+      this.lastRenderedPrimaryText = "";
+      this.lastRenderedPrimaryHtml = "";
+      this.renderSerial += 1;
+      this.parseWarmupSerial += 1;
+    }
+    resetSecondarySubtitleState() {
+      this.invalidateTrackSelection("secondary");
+      this.secondaryTrackId = "";
+      this.secondaryCues = [];
+      this.secondaryCue = void 0;
+    }
     async choosePrimaryTrack(id) {
       if (!id) return;
       if (id === this.selectedTrackId) {
@@ -25156,15 +26741,7 @@ ${spelling}`);
     }
     clearPrimaryTrack() {
       this.suppressYouTubeAutoSelectForCurrentVideo();
-      this.invalidateTrackSelection("primary");
-      this.selectedTrackId = "";
-      this.cues = [];
-      this.currentCue = void 0;
-      this.lastDomCaption = "";
-      this.pendingDomCaption = void 0;
-      this.youtubeDomCaptionFallbackTrackId = "";
-      this.lastRenderedPrimaryText = "";
-      this.lastRenderedPrimaryHtml = "";
+      this.resetPrimarySubtitleState();
       for (const track of this.tracks) {
         if (track.loadingState && track.id !== this.secondaryTrackId) track.loadingState = "idle";
       }
@@ -25182,10 +26759,7 @@ ${spelling}`);
       this.youtubeAutoSelectSuppressedVideoId = this.youtubeVideoId || getYouTubeVideoId();
     }
     clearSecondaryTrack() {
-      this.invalidateTrackSelection("secondary");
-      this.secondaryTrackId = "";
-      this.secondaryCues = [];
-      this.secondaryCue = void 0;
+      this.resetSecondarySubtitleState();
       for (const track of this.tracks) {
         if (track.loadingState && track.id !== this.selectedTrackId) track.loadingState = "idle";
       }
@@ -25294,6 +26868,10 @@ ${spelling}`);
       if (!isYouTubePage() && this.video) applyGenericVideoInset(this.video, side, side === "bottom" ? height : width);
       requestYouTubePlayerResize(width, height);
     }
+  }
+  function waitForBackgroundTranscriptParseTurn(delayMs) {
+    if (delayMs <= 0) return Promise.resolve();
+    return new Promise((resolve) => window.setTimeout(resolve, delayMs));
   }
   const TRANSCRIPT_PANEL_MARGIN = 10;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
@@ -25442,8 +27020,8 @@ ${spelling}`);
         log$3.debug("YouTube player setSize failed quietly", error);
       }
     }
-    window.dispatchEvent(new Event("resize"));
-    window.setTimeout(() => window.dispatchEvent(new Event("resize")), 0);
+    dispatchWindowEvent(createWindowEvent("resize"));
+    window.setTimeout(() => dispatchWindowEvent(createWindowEvent("resize")), 0);
   }
   function clearYouTubePlayerContainerInset(element2) {
     for (const property of ["width", "max-width", "min-width", "height", "max-height", "min-height", "margin-left", "margin-right"]) {
@@ -25609,18 +27187,22 @@ ${spelling}`);
     return 5;
   }
   function isAutoGeneratedSubtitleTrack(track) {
-    return /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ""}`);
+    return Boolean(track.autoGenerated) || /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ""}`);
   }
   function isEnglishSubtitleTrack(track) {
     return /(^|\b)(en|eng|english)(\b|$)/i.test(`${track.label} ${track.language ?? ""}`);
   }
   function collectPageSubtitleSources(root = document) {
     const sources = [];
+    const pageTitle = pageSubtitleTitle(root);
     for (const track of Array.from(root.querySelectorAll("track[src]"))) {
       if (track.kind && !/subtitles|captions/i.test(track.kind)) continue;
       const url = resolveSubtitleSourceUrl(track.src || track.getAttribute("src") || "");
       if (!url || !isSupportedSubtitleSourceUrl(url)) continue;
-      const label = subtitleSourceLabel(track.label || track.srclang || track.getAttribute("aria-label") || "", url);
+      const label = subtitleSourceLabel(track.label || track.srclang || track.getAttribute("aria-label") || "", url, {
+        pageTitle,
+        preferPageTitleForGeneric: true
+      });
       sources.push({
         url,
         label,
@@ -25633,7 +27215,8 @@ ${spelling}`);
       if (!url || !isSupportedSubtitleSourceUrl(url)) continue;
       const label = subtitleSourceLabel(
         link.getAttribute("download") || link.getAttribute("aria-label") || link.getAttribute("title") || link.textContent || "",
-        url
+        url,
+        { pageTitle }
       );
       sources.push({
         url,
@@ -25649,6 +27232,12 @@ ${spelling}`);
       seen.add(key);
       return true;
     });
+  }
+  function pageSubtitleTitle(root) {
+    var _a, _b;
+    const doc = root instanceof Document ? root : root.ownerDocument ?? document;
+    const candidate = ((_a = doc.querySelector('meta[property="og:title"], meta[name="twitter:title"]')) == null ? void 0 : _a.content) || ((_b = doc.querySelector("h1")) == null ? void 0 : _b.textContent) || doc.title || "";
+    return cleanSubtitleTitle(candidate);
   }
   function resolveSubtitleSourceUrl(value) {
     try {
@@ -25671,18 +27260,30 @@ ${spelling}`);
       return /\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(value);
     }
   }
-  function subtitleSourceLabel(value, url) {
-    const cleaned = value.replace(/\s+/g, " ").trim();
-    if (cleaned && !/^(vtt|srt|subtitles?)$/i.test(cleaned)) {
-      return cleaned.replace(/\.(vtt|srt|ass|ssa)$/i, "").trim();
-    }
+  function subtitleSourceLabel(value, url, options = {}) {
+    const cleaned = cleanSubtitleTitle(value);
+    const filename = subtitleSourceFilenameLabel(url);
+    if (cleaned && !isGenericSubtitleLabel(cleaned)) return cleaned;
+    if (filename && !isGenericSubtitleLabel(filename)) return filename;
+    if (options.preferPageTitleForGeneric && cleaned && options.pageTitle) return options.pageTitle;
+    if (options.pageTitle && !cleaned) return options.pageTitle;
+    if (cleaned) return cleaned;
+    return filename || "Subtitle file";
+  }
+  function subtitleSourceFilenameLabel(url) {
     try {
       const parsed = new URL(url, document.baseURI);
       const filename = parsed.searchParams.get("filename") || parsed.pathname.split("/").pop() || "";
-      return decodeURIComponent(filename).replace(/\.(vtt|srt|ass|ssa)$/i, "").replace(/[_-]+/g, " ").trim() || "Subtitle file";
+      return cleanSubtitleTitle(decodeURIComponent(filename).replace(/[_-]+/g, " "));
     } catch {
-      return "Subtitle file";
+      return "";
     }
+  }
+  function cleanSubtitleTitle(value) {
+    return value.replace(/\.(vtt|srt|ass|ssa)$/i, "").replace(/\s+/g, " ").trim();
+  }
+  function isGenericSubtitleLabel(value) {
+    return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?|日本語|英語|japanese|english|native|ja(?:panese)?|en(?:glish)?)$/i.test(value.trim());
   }
   function inferSubtitleLanguage(label, url) {
     const text2 = `${label} ${url}`;
@@ -25906,13 +27507,14 @@ ${spelling}`);
     }
     return { text: text2, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
   }
-  function parseSubtitleText(text2) {
-    const youtubeJson = parseYouTubeJson3SubtitleText(text2);
+  function parseSubtitleText(text2, options = {}) {
+    const normalizedText = text2.replace(/^\uFEFF/, "");
+    const youtubeJson = parseYouTubeJson3SubtitleText(normalizedText, options);
     if (youtubeJson.length) return youtubeJson;
-    const youtubeXml = parseYouTubeXmlSubtitleText(text2);
+    const youtubeXml = parseYouTubeXmlSubtitleText(normalizedText, options);
     if (youtubeXml.length) return youtubeXml;
-    if (/^\s*\[Script Info\]/im.test(text2) || /^\s*Dialogue:/im.test(text2)) return parseAssSubtitleText(text2);
-    const blocks = text2.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+    if (/^\s*\[Script Info\]/im.test(normalizedText) || /^\s*Dialogue:/im.test(normalizedText)) return parseAssSubtitleText(normalizedText);
+    const blocks = normalizedText.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
     const cues = [];
     for (const block of blocks) {
       const lines = block.split("\n").filter(Boolean);
@@ -25924,9 +27526,10 @@ ${spelling}`);
       const payload = parseVttCuePayload(lines.slice(timeIndex + 1).join("\n"), start, end);
       if (Number.isFinite(start) && Number.isFinite(end) && payload.text) cues.push({ start, end, text: payload.text, words: payload.words, wordTimingsExact: payload.wordTimingsExact });
     }
-    return cues.sort((a, b) => a.start - b.start);
+    const sorted = cues.sort((a, b) => a.start - b.start);
+    return options.smoothYouTubeFragments ? smoothFragmentedYouTubeCues(sorted) : sorted;
   }
-  function parseYouTubeJson3SubtitleText(text2) {
+  function parseYouTubeJson3SubtitleText(text2, options = {}) {
     if (!/^\s*\{/.test(text2)) return [];
     try {
       const parsed = JSON.parse(text2);
@@ -25935,10 +27538,10 @@ ${spelling}`);
         const duration = Number(event.dDurationMs ?? 0) / 1e3;
         const cueText = (event.segs ?? []).map((seg) => seg.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
         const end = start + Math.max(duration, 0.75);
-        const words = youtubeJson3WordTimings(event.segs ?? [], start, end);
+        const words = options.youtubeAutoGenerated ? void 0 : youtubeJson3WordTimings(event.segs ?? [], start, end);
         return { start, end, text: cueText, words, wordTimingsExact: Boolean(words == null ? void 0 : words.length) };
       }).filter((cue) => Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.text).sort((a, b) => a.start - b.start);
-      return smoothFragmentedYouTubeCues(cues);
+      return smoothFragmentedYouTubeCues(normalizeYouTubeAutoCaptionTiming(cues, options.youtubeAutoGenerated === true));
     } catch {
       return [];
     }
@@ -25955,36 +27558,90 @@ ${spelling}`);
       return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
     }).filter((word) => word.end > word.start);
   }
-  function parseYouTubeXmlSubtitleText(text2) {
+  function parseYouTubeXmlSubtitleText(text2, options = {}) {
     if (!/^\s*</.test(text2) || !/(<text\b|<p\b)/i.test(text2)) return [];
     try {
       const document2 = new DOMParser().parseFromString(text2, "text/xml");
-      const cues = [];
-      for (const element2 of Array.from(document2.querySelectorAll("text[start]"))) {
-        const start = Number(element2.getAttribute("start"));
-        const duration = Number(element2.getAttribute("dur") ?? 0);
-        const cueText = normalizeCaptionText(element2.textContent ?? "");
-        if (Number.isFinite(start) && cueText) cues.push({ start, end: start + Math.max(duration, 0.75), text: cueText });
-      }
-      for (const element2 of Array.from(document2.querySelectorAll("p[begin]"))) {
-        const start = parseSubtitleClockValue(element2.getAttribute("begin") ?? "");
-        const end = parseSubtitleClockValue(element2.getAttribute("end") ?? "");
-        const cueText = normalizeCaptionText(element2.textContent ?? "");
-        if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
-      }
-      for (const element2 of Array.from(document2.querySelectorAll("p[t], p[_t]"))) {
-        const startMs = Number(element2.getAttribute("t") ?? element2.getAttribute("_t"));
-        const durationMs = Number(element2.getAttribute("d") ?? element2.getAttribute("_d") ?? 0);
-        const start = startMs / 1e3;
-        const end = start + Math.max(durationMs / 1e3, 0.75);
-        const words = parseYouTubeSrv3WordNodes(element2, start, end);
-        const cueText = normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element2.textContent ?? "");
-        if (Number.isFinite(start) && cueText) cues.push({ start, end, text: cueText, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) });
-      }
-      return smoothFragmentedYouTubeCues(cues.sort((a, b) => a.start - b.start));
+      const srv3 = parseYouTubeSrv3Rows(document2, options);
+      const cues = [
+        ...parseYouTubeTimedTextElements(document2),
+        ...parseYouTubeTtmlParagraphs(document2),
+        ...srv3.cues
+      ];
+      const sorted = cues.sort((a, b) => a.start - b.start);
+      const autoGenerated = options.youtubeAutoGenerated === true || srv3.sawLineBoundary || looksLikeOverlappingAutoGeneratedCues(sorted);
+      const normalized = normalizeYouTubeAutoCaptionTiming(sorted, autoGenerated);
+      return autoGenerated ? normalized : smoothFragmentedYouTubeCues(normalized);
     } catch {
       return [];
     }
+  }
+  function parseYouTubeTimedTextElements(document2) {
+    return Array.from(document2.querySelectorAll("text[start]")).map((element2) => {
+      const start = Number(element2.getAttribute("start"));
+      const duration = Number(element2.getAttribute("dur") ?? 0);
+      const cueText = normalizeCaptionText(element2.textContent ?? "");
+      return Number.isFinite(start) && cueText ? { start, end: start + Math.max(duration, 0.75), text: cueText } : null;
+    }).filter((cue) => Boolean(cue));
+  }
+  function parseYouTubeTtmlParagraphs(document2) {
+    return Array.from(document2.querySelectorAll("p[begin]")).map((element2) => {
+      const start = parseSubtitleClockValue(element2.getAttribute("begin") ?? "");
+      const end = parseSubtitleClockValue(element2.getAttribute("end") ?? "");
+      const cueText = normalizeCaptionText(element2.textContent ?? "");
+      return Number.isFinite(start) && Number.isFinite(end) && cueText ? { start, end, text: cueText } : null;
+    }).filter((cue) => Boolean(cue));
+  }
+  function parseYouTubeSrv3Rows(document2, options) {
+    const rows = Array.from(document2.querySelectorAll("p[t], p[_t]"));
+    let sawLineBoundary = false;
+    const cues = rows.map((element2, index) => {
+      const startMs = Number(element2.getAttribute("t") ?? element2.getAttribute("_t"));
+      const durationMs = Number(element2.getAttribute("d") ?? element2.getAttribute("_d") ?? 0);
+      const start = startMs / 1e3;
+      const nextLineBoundary = youtubeSrv3LineBoundaryTime(rows[index + 1]);
+      sawLineBoundary || (sawLineBoundary = Number.isFinite(nextLineBoundary));
+      const rawEnd = start + Math.max(durationMs / 1e3, 0.75);
+      const end = Number.isFinite(nextLineBoundary) && nextLineBoundary > start ? Math.min(rawEnd, nextLineBoundary) : rawEnd;
+      const words = !options.youtubeAutoGenerated && !Number.isFinite(nextLineBoundary) ? parseYouTubeSrv3WordNodes(element2, start, end) : [];
+      const cueText = normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element2.textContent ?? "");
+      if (!Number.isFinite(start) || !cueText) return null;
+      const cue = { start, end, text: cueText, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
+      return cue;
+    }).filter((cue) => Boolean(cue));
+    return { cues, sawLineBoundary };
+  }
+  function youtubeSrv3LineBoundaryTime(element2) {
+    if (!element2) return Number.NaN;
+    const text2 = element2.textContent ?? "";
+    if (text2 !== "\n" && text2.trim()) return Number.NaN;
+    const startMs = Number(element2.getAttribute("t") ?? element2.getAttribute("_t"));
+    return Number.isFinite(startMs) ? startMs / 1e3 : Number.NaN;
+  }
+  function normalizeYouTubeAutoCaptionTiming(cues, knownAutoGenerated) {
+    if (!cues.length) return cues;
+    const probablyAutoGenerated = knownAutoGenerated || looksLikeOverlappingAutoGeneratedCues(cues);
+    if (!probablyAutoGenerated) return cues;
+    return cues.map((cue, index) => {
+      const next = cues[index + 1];
+      const nextStart = next == null ? void 0 : next.start;
+      const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - 1e-3)) : cue.end;
+      return {
+        ...cue,
+        end,
+        words: void 0,
+        wordTimingsExact: false
+      };
+    });
+  }
+  function looksLikeOverlappingAutoGeneratedCues(cues) {
+    const sampled = cues.slice(0, 80);
+    if (sampled.length < 3) return false;
+    let overlapping = 0;
+    for (let index = 1; index < sampled.length; index++) {
+      if (sampled[index - 1].end > sampled[index].start + 0.05) overlapping += 1;
+    }
+    return overlapping / sampled.length > 0.5;
   }
   function smoothFragmentedYouTubeCues(cues) {
     if (cues.length < 3 || !looksLikeFragmentedYouTubeCues(cues)) return cues;
@@ -26016,6 +27673,8 @@ ${spelling}`);
   function shouldBreakYouTubeLine(current, next) {
     const gap = next.start - current.end;
     if (isTrailingPunctuationFragment(next.text)) return false;
+    if (isShortYouTubeContinuationFragment(next.text)) return false;
+    if (hasYouTubeCaptionTextOverlap(current.text, next.text)) return false;
     if (gap > 2.6) return true;
     if (gap < -0.2 && !isProgressiveYouTubeCaption(current.text, next.text)) return true;
     if (/[。！？!?]$/u.test(current.text.trim())) return true;
@@ -26025,11 +27684,12 @@ ${spelling}`);
   }
   function mergeYouTubeCueFragments(current, next) {
     const progressive = isProgressiveYouTubeCaption(current.text, next.text);
-    const text2 = progressive ? next.text : joinYouTubeCaptionFragments(current.text, next.text);
+    const overlap = progressive ? 0 : youtubeCaptionTextOverlapLength(current.text, next.text);
+    const text2 = progressive ? next.text : mergeYouTubeCaptionFragmentText(current.text, next.text);
     const currentWords = cueHasExactWordTimings(current) ? current.words : void 0;
     const nextWords = cueHasExactWordTimings(next) ? next.words : void 0;
     const allowsUntimedPunctuation = isTrailingPunctuationFragment(next.text);
-    const words = progressive ? nextWords : currentWords && (nextWords || allowsUntimedPunctuation) ? [...currentWords, ...nextWords ?? []] : void 0;
+    const words = progressive ? nextWords : currentWords && (nextWords || allowsUntimedPunctuation) ? [...currentWords, ...nextWords ? subtitleWordsAfterCompactOffset(nextWords, overlap) : []] : void 0;
     return {
       ...current,
       end: Math.max(current.end, next.end),
@@ -26038,6 +27698,16 @@ ${spelling}`);
       words,
       wordTimingsExact: Boolean(words == null ? void 0 : words.length)
     };
+  }
+  function mergeYouTubeCaptionFragmentText(left, right) {
+    const a = left.trim();
+    const b = right.trim();
+    const overlap = youtubeCaptionTextOverlapLength(a, b);
+    if (overlap > 0) {
+      const tail = sliceByCompactOffset(b, overlap);
+      return tail ? joinYouTubeCaptionFragments(a, tail) : a;
+    }
+    return joinYouTubeCaptionFragments(a, b);
   }
   function isProgressiveYouTubeCaption(current, next) {
     const compactCurrent = current.replace(/\s+/gu, "");
@@ -26056,6 +27726,47 @@ ${spelling}`);
   }
   function isTrailingPunctuationFragment(text2) {
     return /^[、。，．！？!?…・]+$/u.test(text2.trim());
+  }
+  function isShortYouTubeContinuationFragment(text2) {
+    const compact = compactCaptionText(text2);
+    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
+  }
+  function hasYouTubeCaptionTextOverlap(left, right) {
+    return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
+  }
+  function youtubeCaptionTextOverlapLength(left, right) {
+    const a = compactCaptionText(left);
+    const b = compactCaptionText(right);
+    const max = Math.min(a.length, b.length);
+    for (let length = max; length >= 2; length--) {
+      if (a.endsWith(b.slice(0, length))) return length;
+    }
+    return 0;
+  }
+  function compactCaptionText(text2) {
+    return text2.replace(/\s+/gu, "");
+  }
+  function subtitleWordsAfterCompactOffset(words, compactOffset) {
+    if (compactOffset <= 0) return words;
+    let cursor = 0;
+    return words.filter((word) => {
+      const start = cursor;
+      cursor += compactTextLength(word.text);
+      return start >= compactOffset;
+    });
+  }
+  function sliceByCompactOffset(text2, compactOffset) {
+    if (compactOffset <= 0) return text2;
+    let seen = 0;
+    for (let index = 0; index < text2.length; ) {
+      const char = Array.from(text2.slice(index))[0] ?? "";
+      if (!char) break;
+      index += char.length;
+      if (/\s/u.test(char)) continue;
+      seen += 1;
+      if (seen >= compactOffset) return text2.slice(index);
+    }
+    return "";
   }
   function parseYouTubeSrv3WordNodes(element2, cueStart, cueEnd) {
     const nodes = Array.from(element2.querySelectorAll("s"));
@@ -26154,9 +27865,9 @@ ${spelling}`);
     return lines.join(" ").replace(/\s+/g, " ").trim();
   }
   function parseSubtitleTime(value) {
-    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})[,.](\d{1,3})/);
+    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?/);
     if (!match) return Number.NaN;
-    const [, hours = "0", minutes, seconds, fraction] = match;
+    const [, hours = "0", minutes, seconds, fraction = "0"] = match;
     return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1e3;
   }
   function parseSubtitleClockValue(value) {
@@ -26262,6 +27973,31 @@ ${spelling}`);
     const url = new URL(location.href);
     return url.searchParams.get("v") ?? ((_a = url.pathname.match(/\/shorts\/([^/?]+)/)) == null ? void 0 : _a[1]) ?? "";
   }
+  function subtitleSourceContextKey(video) {
+    const url = new URL(location.href);
+    url.hash = "";
+    if (isYouTubePage()) return `youtube:${getYouTubeVideoId() || url.pathname}`;
+    if (isCijVideoPage()) return `cij:${url.origin}${url.pathname}${url.search}`;
+    const videoSource = videoSourceKey(video);
+    return `page:${url.origin}${url.pathname}${url.search}${videoSource ? `|video:${videoSource}` : ""}`;
+  }
+  function videoSourceKey(video) {
+    var _a;
+    if (!video) return "";
+    const direct = video.currentSrc || video.src;
+    if (direct) return normalizeMediaSourceForContext(direct);
+    const source = (_a = video.querySelector("source[src]")) == null ? void 0 : _a.src;
+    return source ? normalizeMediaSourceForContext(source) : "";
+  }
+  function normalizeMediaSourceForContext(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
   function isYouTubePage() {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
   }
@@ -26316,10 +28052,15 @@ ${spelling}`);
     if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
     const language = record.languageCode;
     const label = ((_a = record.name) == null ? void 0 : _a.simpleText) ?? ((_c = (_b = record.name) == null ? void 0 : _b.runs) == null ? void 0 : _c.map((run) => run.text ?? "").join("")) ?? record.displayName ?? record.languageName ?? language ?? "YouTube subtitles";
-    return { label: `${label}${language ? ` (${language})` : ""}`, language, url: url.toString(), raw: track };
+    const autoGenerated = isAutoGeneratedYouTubeCaptionTrack(record, label);
+    const autoSuffix = autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
+    return { label: `${label}${language ? ` (${language})` : ""}${autoSuffix}`, language, autoGenerated, url: url.toString(), raw: track };
+  }
+  function isAutoGeneratedYouTubeCaptionTrack(track, label = "") {
+    return /asr/i.test(track.kind ?? "") || /^a\./i.test(track.vssId ?? "") || /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${label} ${track.languageCode ?? ""}`);
   }
   function youtubeCaptionTrackIdentity(track) {
-    return `${track.language ?? ""}:${track.label.replace(/\([^)]*\)\s*$/u, "").replace(/\s+/g, " ").trim().toLowerCase()}`;
+    return `${track.language ?? ""}:${track.label.replace(/\s+·\s+auto-generated$/iu, "").replace(/\([^)]*\)\s*$/u, "").replace(/\s+/g, " ").trim().toLowerCase()}`;
   }
   function findMatchingYouTubePlayerTrack(track, player) {
     var _a, _b, _c;
@@ -26678,13 +28419,13 @@ ${spelling}`);
       this.lastRequest = now;
       const previousScrollTop = window.scrollY;
       const scrollTarget = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-      window.dispatchEvent(new Event("scroll"));
+      dispatchWindowEvent(createWindowEvent("scroll"));
       if (shownCount < 12 && !/jsdom/i.test(navigator.userAgent)) {
         try {
           window.scrollTo({ top: scrollTarget, behavior: "auto" });
         } catch {
         }
-        window.dispatchEvent(new Event("scroll"));
+        dispatchWindowEvent(createWindowEvent("scroll"));
         try {
           window.scrollTo({ top: previousScrollTop, behavior: "auto" });
         } catch {
@@ -26733,8 +28474,8 @@ ${spelling}`);
       log$2.debug("YouTube filter refresh scheduled");
       this.schedule(0);
     }
-    schedule(delay) {
-      const due = performance.now() + delay;
+    schedule(delay2) {
+      const due = performance.now() + delay2;
       if (this.timer !== void 0 && this.timerDue <= due) return;
       window.clearTimeout(this.timer);
       this.timerDue = due;
@@ -26742,8 +28483,8 @@ ${spelling}`);
         this.timer = void 0;
         this.timerDue = 0;
         this.scan();
-      }, delay);
-      log$2.debugThrottled("schedule", 1e3, "YouTube filter scan scheduled", { delay });
+      }, delay2);
+      log$2.debugThrottled("schedule", 1e3, "YouTube filter scan scheduled", { delay: delay2 });
     }
     scan() {
       void this.scanCards();
@@ -26889,6 +28630,8 @@ ${spelling}`);
   }
   const log$1 = Logger.scope("ReaderApp");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
+  const CARD_RENDER_DETAIL_TIMEOUT_MS = 9e3;
+  const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
   const TERM_AUDIO_PRELOAD_LIMIT = 8;
   const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
@@ -26940,6 +28683,8 @@ ${spelling}`);
         showSettings: (panel) => this.showSettings(panel),
         playAudio: (card) => this.playAudio(card),
         playSentenceAudio: (sentence) => this.playSentenceAudio(sentence),
+        detectGrammarHints: (sentence) => this.detectStudyGrammarHints(sentence),
+        parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
         toast: (message) => this.toast(message)
       }));
       __publicField(this, "immersionPopover", new ImmersionPopoverController({
@@ -26972,6 +28717,11 @@ ${spelling}`);
         parser: this.parser,
         dictionaries: this.dictionaries,
         ensureStarterDictionary: (onProgress) => this.settingsDialog.ensureStarterDictionaryInstalled(onProgress),
+        lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence, { anchor }),
+        lookupDictionaryReference: (query, reading, sourceDictionary, anchor) => this.lookupDictionaryReference(query, reading, sourceDictionary, anchor, "modal"),
+        showKanjiCard: (card, kanji, sentence, anchor) => this.showKanjiCard(card, kanji, sentence, anchor),
+        parseContent: (root) => this.parseNewTabContent(root),
+        setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
         onSettingsChange: () => saveSettings(this.settings),
         applyTheme: () => this.applyTheme(),
         showSettings: (panel) => this.showSettings(panel),
@@ -27089,6 +28839,7 @@ ${spelling}`);
       __publicField(this, "audioLoadingRequest", 0);
       __publicField(this, "cardRenderRequest", 0);
       __publicField(this, "dictionaryRescanPending", false);
+      __publicField(this, "visiblePageReparseTimer");
       __publicField(this, "preloadedTermAudioKeys", /* @__PURE__ */ new Set());
       __publicField(this, "wordNavigationStack", []);
       __publicField(this, "currentWordNavigation");
@@ -27097,8 +28848,13 @@ ${spelling}`);
       __publicField(this, "dictionarySourceOpenOverrides", /* @__PURE__ */ new Map());
       __publicField(this, "cardRenderDataCache", /* @__PURE__ */ new Map());
       __publicField(this, "pressedKeys", /* @__PURE__ */ new Set());
+      __publicField(this, "factoryResetUnsubscribe");
+      __publicField(this, "activeFactoryResetId", "");
+      __publicField(this, "handledFactoryResetSignals", /* @__PURE__ */ new Set());
       __publicField(this, "hoverAnchorIds", /* @__PURE__ */ new WeakMap());
       __publicField(this, "nextHoverAnchorId", 1);
+      __publicField(this, "miningControlsDrag");
+      __publicField(this, "suppressedMiningToggleClicks", /* @__PURE__ */ new WeakSet());
       __publicField(this, "suppressSelectionLookupUntil", 0);
       __publicField(this, "suppressWordClickUntil", 0);
       __publicField(this, "pageHasJapaneseText", false);
@@ -27108,6 +28864,7 @@ ${spelling}`);
     }
     async init(options) {
       const done = log$1.time("init", { href: location.href, devMode: Logger.isDevMode() });
+      this.bindFactoryResetSignals();
       this.settings = await loadSettings();
       if (options == null ? void 0 : options.isDemo) {
         this.settings.onboardingSeen = true;
@@ -27184,16 +28941,57 @@ ${spelling}`);
         "This deletes settings, cached cards, local dictionaries, and other local/GM storage for the userscript."
       ].join("\n"));
       if (!confirmed) return;
+      const resetSignal = createFactoryResetSignal("prepare");
+      this.activeFactoryResetId = resetSignal.id;
       try {
+        await publishFactoryResetSignal(resetSignal);
+        await this.invalidateRuntimeStoresForFactoryReset();
+        await delay(FACTORY_RESET_PREPARE_DELAY_MS);
+        const dictionaryReset = await this.dictionaries.resetDatabase();
         const deletedStorageValues = await clearManagedStoredValues();
-        await this.dictionaries.deleteDatabase();
-        log$1.info("All local data reset", { deletedStorageValues });
-        this.toast("All よむ data was reset. Reloading...");
-        window.setTimeout(() => location.reload(), 350);
+        await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
+        log$1.info("All local data reset", { deletedStorageValues, dictionaryReset });
+        location.reload();
       } catch (error) {
+        this.activeFactoryResetId = "";
         log$1.warn("All-data reset failed", error);
         this.toast(error instanceof Error ? error.message : "Reset failed.");
       }
+    }
+    bindFactoryResetSignals() {
+      if (this.factoryResetUnsubscribe) return;
+      this.factoryResetUnsubscribe = subscribeToFactoryResetSignals((signal, source) => {
+        void this.handleFactoryResetSignal(signal, source);
+      });
+    }
+    async handleFactoryResetSignal(signal, source) {
+      if (this.isDestroyed || signal.id === this.activeFactoryResetId) return;
+      const handledKey = `${signal.id}:${signal.phase}`;
+      if (this.handledFactoryResetSignals.has(handledKey)) return;
+      this.handledFactoryResetSignals.add(handledKey);
+      log$1.info("Factory reset signal received", {
+        phase: signal.phase,
+        href: signal.href,
+        remote: source.remote,
+        transport: source.transport
+      });
+      await this.invalidateRuntimeStoresForFactoryReset();
+      if (signal.phase === "complete") {
+        this.toast("よむ was reset in another tab. Reloading...");
+        window.setTimeout(() => location.reload(), 50);
+      }
+    }
+    async invalidateRuntimeStoresForFactoryReset() {
+      this.dismiss({ suppressHoverTarget: false });
+      this.jpdb.clear();
+      this.parser.clearLocalCache();
+      this.newTab.invalidateForFactoryReset();
+      this.dictionarySourceOpenOverrides.clear();
+      this.cardRenderDataCache.clear();
+      this.preloadedTermAudioKeys.clear();
+      this.pressedKeys.clear();
+      this.cardRenderRequest++;
+      await this.dictionaries.invalidateForFactoryReset();
     }
     installStyles() {
       if (typeof GM_addStyle === "function") {
@@ -27271,7 +29069,15 @@ ${spelling}`);
         log$1.debug("Dictionary rescan deferred until settings closes");
         return;
       }
-      window.setTimeout(() => void this.reparseVisiblePage(), 120);
+      this.scheduleVisiblePageReparse(120);
+    }
+    scheduleVisiblePageReparse(delay2 = 0) {
+      if (this.isDestroyed) return;
+      if (this.visiblePageReparseTimer !== void 0) return;
+      this.visiblePageReparseTimer = window.setTimeout(() => {
+        this.visiblePageReparseTimer = void 0;
+        void this.reparseVisiblePage();
+      }, Math.max(0, delay2));
     }
     async reparseVisiblePage() {
       this.jpdb.clear();
@@ -27325,13 +29131,16 @@ ${spelling}`);
       log$1.debug("Floating puck refreshed", { enabled: this.settings.showFloatingButton });
     }
     destroy() {
-      var _a, _b, _c, _d, _e;
+      var _a, _b, _c, _d, _e, _f;
       this.isDestroyed = true;
+      (_a = this.factoryResetUnsubscribe) == null ? void 0 : _a.call(this);
+      this.factoryResetUnsubscribe = void 0;
       this.abortController.abort();
-      (_a = this.autoScanObserver) == null ? void 0 : _a.disconnect();
+      (_b = this.autoScanObserver) == null ? void 0 : _b.disconnect();
       window.clearTimeout(this.autoScanTimer);
       window.clearTimeout(this.asbScanTimer);
       window.clearTimeout(this.selectionTimer);
+      window.clearTimeout(this.visiblePageReparseTimer);
       window.clearTimeout(this.hoverLookupTimer);
       window.clearTimeout(this.hoverCloseTimer);
       window.clearTimeout(this.hoverWatchTimer);
@@ -27339,11 +29148,11 @@ ${spelling}`);
         window.cancelAnimationFrame(this.popoverRepositionFrame);
         this.popoverRepositionFrame = void 0;
       }
-      (_b = this.activePopoverResizeObserver) == null ? void 0 : _b.disconnect();
+      (_c = this.activePopoverResizeObserver) == null ? void 0 : _c.disconnect();
       this.newTab.destroy();
       this.floatingButton.destroy();
-      (_c = this.activePopover) == null ? void 0 : _c.remove();
-      (_d = this.activeBackdrop) == null ? void 0 : _d.remove();
+      (_d = this.activePopover) == null ? void 0 : _d.remove();
+      (_e = this.activeBackdrop) == null ? void 0 : _e.remove();
       document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el2) => {
         if (el2.classList.contains("jpdb-reader-word") || el2.classList.contains("jpdb-reader-ruby")) {
           const text2 = document.createTextNode(el2.textContent || "");
@@ -27352,7 +29161,7 @@ ${spelling}`);
           el2.remove();
         }
       });
-      (_e = this.dictionaryStyleElement) == null ? void 0 : _e.remove();
+      (_f = this.dictionaryStyleElement) == null ? void 0 : _f.remove();
       document.querySelectorAll("[data-jpdb-reader-root]").forEach((el2) => el2.remove());
     }
     setupAutoScan() {
@@ -27386,11 +29195,11 @@ ${spelling}`);
         if (this.autoScanObserver === observer) this.observeAutoScanMutations();
       }
     }
-    scheduleAutoScan(delay) {
+    scheduleAutoScan(delay2) {
       if (this.isDestroyed) return;
       if (!this.settings.autoScanJapanese || !this.canParseJapanese()) return;
       if (!this.pageHasJapaneseText) return;
-      const deadline = Date.now() + delay;
+      const deadline = Date.now() + delay2;
       if (this.autoScanTimer && this.autoScanDeadline <= deadline) return;
       window.clearTimeout(this.autoScanTimer);
       this.autoScanDeadline = deadline;
@@ -27402,13 +29211,13 @@ ${spelling}`);
         if ((((_a = collectSiteScanTargets(1)) == null ? void 0 : _a.length) ?? 0) > 0 || collectVisibleTextTargets(1).length > 0) {
           void this.scanVisiblePage({ silent: true });
         }
-      }, delay);
+      }, delay2);
     }
-    scheduleAsbPlayerScan(delay) {
+    scheduleAsbPlayerScan(delay2) {
       if (this.isDestroyed) return;
       if (!this.settings.autoScanJapanese || !this.canParseJapanese()) return;
       window.clearTimeout(this.asbScanTimer);
-      this.asbScanTimer = window.setTimeout(() => void this.scanAsbPlayerSubtitles(), delay);
+      this.asbScanTimer = window.setTimeout(() => void this.scanAsbPlayerSubtitles(), delay2);
     }
     bindEvents() {
       log$1.debug("Binding reader event handlers");
@@ -27935,12 +29744,12 @@ ${spelling}`);
           if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = "";
         });
       };
-      const delay = Math.max(0, this.settings.hoverOpenDelayMs);
-      if (delay === 0) {
+      const delay2 = Math.max(0, this.settings.hoverOpenDelayMs);
+      if (delay2 === 0) {
         runLookup();
         return;
       }
-      this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+      this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
     }
     schedulePointerTextLookup(candidate, event) {
       if (this.isActivePointerTextLookup(candidate)) {
@@ -27966,25 +29775,25 @@ ${spelling}`);
           if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = "";
         });
       };
-      const delay = Math.max(0, this.settings.hoverOpenDelayMs);
-      if (delay === 0) {
+      const delay2 = Math.max(0, this.settings.hoverOpenDelayMs);
+      if (delay2 === 0) {
         runLookup();
         return;
       }
-      this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+      this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
     }
     cancelHoverClose() {
       window.clearTimeout(this.hoverCloseTimer);
       this.hoverCloseTimer = void 0;
     }
-    scheduleHoverClose(delay = this.settings.hoverCloseDelayMs, options = {}) {
+    scheduleHoverClose(delay2 = this.settings.hoverCloseDelayMs, options = {}) {
       if (this.activePopoverMode !== "hover") return;
       this.cancelHoverClose();
       this.hoverCloseTimer = window.setTimeout(() => {
         this.hoverCloseTimer = void 0;
         if (this.isHoverContextActive(options)) return;
         this.dismiss({ suppressHoverTarget: false });
-      }, Math.max(0, delay));
+      }, Math.max(0, delay2));
     }
     isHoverContextActive(options = {}) {
       var _a;
@@ -28085,10 +29894,11 @@ ${spelling}`);
       var _a;
       const selected = text2.replace(/\s+/g, " ").trim();
       if (!selected || !HAS_JAPANESE$2.test(selected)) return;
-      const anchor = ((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0;
+      const anchor = options.anchor ?? (((_a = this.activePopoverAnchor) == null ? void 0 : _a.isConnected) ? this.activePopoverAnchor : void 0);
       const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
       const navigation = options.navigation ?? "reset";
       const preservePosition = options.preservePosition ?? (navigation !== "reset" && Boolean(this.activePopover));
+      const previousNavigationEntry = options.previousNavigationEntry ?? (trigger === "modal" && navigation === "push-current" ? this.activeKanjiNavigationEntry() : void 0);
       const done = log$1.time("lookupText", { length: selected.length, trigger });
       try {
         const [tokens] = await this.parseJapanese([sentence]);
@@ -28096,28 +29906,28 @@ ${spelling}`);
         if (!selectedToken) {
           if (tokens.length) {
             log$1.debug("Lookup produced token list", { selected, tokenCount: tokens.length });
-            this.showTokenList(tokens, selected, anchor, { trigger, navigation, preservePosition });
+            this.showTokenList(tokens, selected, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
             return;
           }
           const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
           if (localEntries.length) {
             log$1.debug("Lookup fell back to local dictionary entry", { selected, entries: localEntries.length });
-            void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition });
+            void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
             return;
           }
           log$1.debug("Lookup found no entries; showing fallback card", { selected });
-          void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition });
+          void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
           return;
         }
         log$1.debug("Lookup selected token", { selected, term: selectedToken.card.spelling, source: selectedToken.card.source ?? "jpdb" });
-        void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, anchor, { trigger, navigation, preservePosition });
+        void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
       } catch (error) {
         log$1.warn("Lookup failed; trying local fallback", { selected }, error);
         const localEntries = this.settings.localDictionariesEnabled ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : [];
-        if (localEntries.length) void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition });
+        if (localEntries.length) void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
         else {
           this.toast(error instanceof Error ? error.message : "JPDB lookup failed.");
-          void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition });
+          void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
         }
       } finally {
         done();
@@ -28322,8 +30132,8 @@ ${spelling}`);
       const sid = Number(word.dataset.sid);
       const card = this.getCachedCard(vid, sid);
       if (!card) {
-        log$1.warn("Clicked word missing from cache", { vid, sid });
-        this.toast("That word is no longer in the local JPDB cache. Scan it again.");
+        log$1.warn("Clicked word missing from cache; scheduling page reparse", { vid, sid });
+        this.scheduleVisiblePageReparse();
         return;
       }
       const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
@@ -28339,14 +30149,17 @@ ${spelling}`);
         this.refreshActiveHoverAnchor(word);
         return;
       }
+      const previousNavigationEntry = options.previousNavigationEntry ?? (insideReaderPopup && trigger === "modal" && navigation === "push-current" ? this.activeKanjiNavigationEntry() : void 0);
       log$1.debug("Showing word card from rendered token", { term: card.spelling, trigger, source: card.source ?? "jpdb" });
       this.preloadHoverWordAudio(word);
       await this.showCard(card, sentence || void 0, anchor, {
         trigger,
         navigation,
         preservePosition: insideReaderPopup,
+        previousNavigationEntry,
         hoverLookupKey,
-        hoverLookupGeneration: options.hoverLookupGeneration
+        hoverLookupGeneration: options.hoverLookupGeneration,
+        insideReaderPopup
       });
     }
     showTokenList(tokens, selected, anchor, options = {}) {
@@ -28372,7 +30185,7 @@ ${spelling}`);
         const button2 = event.target.closest("button[data-vid]");
         if (!button2) return;
         const card = this.getCachedCard(Number(button2.dataset.vid), Number(button2.dataset.sid));
-        if (card) void this.showCard(card, (_a = tokens.find((t) => t.card === card)) == null ? void 0 : _a.sentence, anchor, { trigger, navigation: options.navigation ?? "reset", preservePosition: true });
+        if (card) void this.showCard(card, (_a = tokens.find((t) => t.card === card)) == null ? void 0 : _a.sentence, anchor, { trigger, navigation: options.navigation ?? "reset", preservePosition: true, previousNavigationEntry: options.previousNavigationEntry });
       });
       this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition });
       void this.parsePopoverJapanese(popover);
@@ -28416,10 +30229,11 @@ ${spelling}`);
       const navigation = options.navigation ?? "reset";
       const hoverLookupGeneration = trigger === "hover" ? options.hoverLookupGeneration : void 0;
       const isCurrentHoverCard = () => hoverLookupGeneration === void 0 || this.hoverLookupGeneration === hoverLookupGeneration;
-      this.updateWordNavigation(card, sentence, trigger, navigation);
+      this.updateWordNavigation(card, sentence, trigger, navigation, options.previousNavigationEntry);
       this.clearKanjiNavigation();
       const done = log$1.time("showCard", { term: card.spelling, source: card.source ?? "jpdb", trigger });
-      if (!this.immersionPopover.hasActiveContext(card, sentence)) {
+      const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover.activeContextFor(card));
+      if (!hasNestedImmersionContext && !this.immersionPopover.hasActiveContext(card, sentence)) {
         this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
       }
       const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null };
@@ -28456,6 +30270,10 @@ ${spelling}`);
       }
       if (instantLocalEntries == null ? void 0 : instantLocalEntries.length) void this.parsePopoverJapanese(popover);
       this.installStudyTranslationLoader(popover, sentence);
+      this.installStudyGrammarLoader(popover, sentence);
+      if (this.settings.immersionKitEnabled) {
+        void this.immersionPopover.loadExamples(popover, card);
+      }
       let fullRenderCompleted = false;
       if (!instantLocalEntries) {
         void renderData.localEntries.then((localEntries2) => {
@@ -28511,6 +30329,7 @@ ${spelling}`);
         void this.immersionPopover.loadExamples(popover, card, immersionExamples);
       }
       this.installStudyTranslationLoader(popover, sentence);
+      this.installStudyGrammarLoader(popover, sentence);
       done();
     }
     immersionRelatedQueries(info) {
@@ -28560,7 +30379,7 @@ ${spelling}`);
                 ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dictionaryLabel(name))}
             </div>
                 <div class="jpdb-reader-actions${miningActions ? " jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed" : ""}">
-                ${miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions">+</button></div>' : ""}
+                ${miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button></div>' : ""}
                 ${miningActions}
                 ${ankiActions}
                 ${reviewButtons}
@@ -28568,7 +30387,7 @@ ${spelling}`);
         `;
     }
     renderJpdbMiningActions(cardStates, language, data, hasJpdb) {
-      if (!hasJpdb || !this.settings.jpdbMiningEnabled) return "";
+      if (!hasJpdb || !this.settings.apiKey.trim() || !this.settings.jpdbMiningEnabled) return "";
       const deckOptions = this.renderDeckChoiceOptions(data.jpdbDecks, data.ankiDecks, true);
       const addDeckSelect = deckOptions ? `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}">${deckOptions}</select>` : "";
       const isNeverForget = cardStates.includes("never-forget");
@@ -28590,7 +30409,7 @@ ${spelling}`);
     renderCardReviewButtons(cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language) {
       var _a;
       if (reviewBlockReason || data.loading || !this.settings.enableReviews) return "";
-      if (!(hasJpdb && this.settings.jpdbMiningEnabled || ((_a = data.ankiLookup.primary) == null ? void 0 : _a.primaryCardId))) return "";
+      if (!(hasJpdb && this.settings.apiKey.trim() && this.settings.jpdbMiningEnabled || ((_a = data.ankiLookup.primary) == null ? void 0 : _a.primaryCardId))) return "";
       return renderReviewButtons(this.settings, data.ankiLookup.primary, {
         title: cardStates.includes("not-in-deck") ? `${uiText(language, "reviewAddsToDeck")} ${selectedDeckLabel}` : ""
       });
@@ -28667,38 +30486,41 @@ ${spelling}`);
       return load;
     }
     fetchCardRenderData(card) {
-      const localEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
+      const timeoutMs = Math.max(CARD_RENDER_DETAIL_TIMEOUT_MS, this.settings.audioTimeoutMs + 1e3);
+      const withFallback = (detail, promise, fallback) => cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
+      const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null };
+      const localEntriesPromise = this.settings.localDictionariesEnabled ? withFallback("local term dictionary", this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
         log$1.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
         return [];
-      }) : Promise.resolve([]);
-      const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
+      }), []) : Promise.resolve([]);
+      const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? withFallback("local kanji dictionary", this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch((error) => {
         log$1.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
         return [];
-      }) : Promise.resolve([]);
-      const metaEntriesPromise = this.settings.localDictionariesEnabled ? this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch((error) => {
+      }), []) : Promise.resolve([]);
+      const metaEntriesPromise = this.settings.localDictionariesEnabled ? withFallback("local metadata dictionary", this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch((error) => {
         log$1.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
         return [];
-      }) : Promise.resolve([]);
-      const jpdbPublicPitchPromise = this.settings.showPitchAccent && !card.pitchAccent.length ? this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
+      }), []) : Promise.resolve([]);
+      const jpdbPublicPitchPromise = this.settings.showPitchAccent && !card.pitchAccent.length ? withFallback("JPDB public pitch", this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
         log$1.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
         return [];
-      }) : Promise.resolve([]);
-      const jpdbVocabularyInfoPromise = this.isJpdbBackedCard(card) ? this.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
+      }), []) : Promise.resolve([]);
+      const jpdbVocabularyInfoPromise = this.settings.jpdbDefinitionsEnabled ? withFallback("JPDB vocabulary details", this.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$1.warn("JPDB vocabulary page lookup failed while rendering card", { term: card.spelling }, error);
         return null;
-      }) : Promise.resolve(null);
-      const ankiLookupPromise = this.settings.ankiEnabled ? this.anki.findExistingCards(card).catch((error) => {
+      }), null) : Promise.resolve(null);
+      const ankiLookupPromise = this.settings.ankiEnabled ? withFallback("Anki existing cards", this.anki.findExistingCards(card).catch((error) => {
         log$1.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
-        return { state: "not-in-deck", notes: [], primary: null };
-      }) : Promise.resolve({ state: "not-in-deck", notes: [], primary: null });
-      const jpdbDecksPromise = this.settings.jpdbMiningEnabled && this.settings.apiKey.trim() && this.isJpdbBackedCard(card) ? this.jpdb.listDecks().catch((error) => {
+        return fallbackAnkiLookup;
+      }), fallbackAnkiLookup) : Promise.resolve(fallbackAnkiLookup);
+      const jpdbDecksPromise = this.settings.jpdbMiningEnabled && this.settings.apiKey.trim() && this.isJpdbBackedCard(card) ? withFallback("JPDB deck list", this.jpdb.listDecks().catch((error) => {
         log$1.warn("JPDB deck list failed while rendering card", { term: card.spelling }, error);
         return [];
-      }) : Promise.resolve([]);
-      const ankiDecksPromise = this.settings.ankiEnabled ? this.anki.deckNames().catch((error) => {
+      }), []) : Promise.resolve([]);
+      const ankiDecksPromise = this.settings.ankiEnabled ? withFallback("Anki deck list", this.anki.deckNames().catch((error) => {
         log$1.warn("Anki deck list failed while rendering card", { term: card.spelling }, error);
         return [];
-      }) : Promise.resolve([]);
+      }), []) : Promise.resolve([]);
       const all = Promise.all([
         localEntriesPromise,
         kanjiEntriesPromise,
@@ -28730,6 +30552,14 @@ ${spelling}`);
       });
     }
     installCardPopoverHandlers(popover, card, sentence, anchor, trigger) {
+      popover.addEventListener("pointerdown", (event) => {
+        const button2 = event.target.closest('[data-action="mining-collapse"]');
+        if (!button2) return;
+        this.startMiningControlsDrag(event, button2);
+      });
+      popover.addEventListener("pointermove", (event) => this.updateMiningControlsDrag(event));
+      popover.addEventListener("pointerup", (event) => this.finishMiningControlsDrag(event, true));
+      popover.addEventListener("pointercancel", (event) => this.finishMiningControlsDrag(event, false));
       popover.addEventListener("click", (event) => {
         if (this.handleDictionaryLookupLink(event, anchor, trigger)) return;
         const kanjiButton = event.target.closest('[data-action="kanji"]');
@@ -28748,6 +30578,7 @@ ${spelling}`);
           return;
         }
         if (button2.dataset.action === "mining-collapse") {
+          if (this.suppressedMiningToggleClicks.delete(button2)) return;
           this.toggleMiningControls(button2);
           return;
         }
@@ -28761,13 +30592,53 @@ ${spelling}`);
     toggleMiningControls(button2) {
       const actions = button2.closest(".jpdb-reader-actions");
       if (!actions) return;
-      const willCollapse = !actions.classList.contains("jpdb-reader-actions-mining-collapsed");
-      actions.classList.toggle("jpdb-reader-actions-mining-collapsed", willCollapse);
-      const expanded = String(!willCollapse);
-      button2.setAttribute("aria-expanded", expanded);
-      button2.setAttribute("aria-label", willCollapse ? "Show mining actions" : "Hide mining actions");
-      button2.title = willCollapse ? "Show mining actions" : "Hide mining actions";
-      button2.textContent = willCollapse ? "+" : "-";
+      this.setMiningControlsExpanded(button2, actions.classList.contains("jpdb-reader-actions-mining-collapsed"));
+    }
+    setMiningControlsExpanded(button2, expanded) {
+      const actions = button2.closest(".jpdb-reader-actions");
+      if (!actions) return;
+      actions.classList.toggle("jpdb-reader-actions-mining-collapsed", !expanded);
+      button2.setAttribute("aria-expanded", String(expanded));
+      const label = expanded ? "Hide mining actions" : "Show mining actions";
+      button2.setAttribute("aria-label", label);
+      button2.title = label;
+    }
+    startMiningControlsDrag(event, button2) {
+      var _a;
+      if (event.button !== void 0 && event.button !== 0) return;
+      this.miningControlsDrag = {
+        pointerId: event.pointerId,
+        startY: event.clientY,
+        lastY: event.clientY,
+        moved: false,
+        button: button2
+      };
+      button2.classList.add("jpdb-reader-mining-drawer-handle-dragging");
+      (_a = button2.setPointerCapture) == null ? void 0 : _a.call(button2, event.pointerId);
+    }
+    updateMiningControlsDrag(event) {
+      const drag = this.miningControlsDrag;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      drag.lastY = event.clientY;
+      const delta = drag.lastY - drag.startY;
+      if (Math.abs(delta) > 6) drag.moved = true;
+      if (!drag.moved) return;
+      event.preventDefault();
+      drag.button.style.setProperty("--jpdb-reader-mining-drawer-drag-y", `${Math.max(-10, Math.min(10, delta * 0.18))}px`);
+    }
+    finishMiningControlsDrag(event, commit) {
+      var _a, _b;
+      const drag = this.miningControlsDrag;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      this.miningControlsDrag = void 0;
+      (_b = (_a = drag.button).releasePointerCapture) == null ? void 0 : _b.call(_a, drag.pointerId);
+      drag.button.classList.remove("jpdb-reader-mining-drawer-handle-dragging");
+      drag.button.style.removeProperty("--jpdb-reader-mining-drawer-drag-y");
+      if (!commit || !drag.moved) return;
+      this.suppressedMiningToggleClicks.add(drag.button);
+      const delta = drag.lastY - drag.startY;
+      if (delta <= -24) this.setMiningControlsExpanded(drag.button, true);
+      else if (delta >= 24) this.setMiningControlsExpanded(drag.button, false);
     }
     openDeckPickerForAdd(button2, card, sentence) {
       var _a;
@@ -28824,7 +30695,7 @@ ${spelling}`);
       }
       return true;
     }
-    updateWordNavigation(card, sentence, trigger, mode) {
+    updateWordNavigation(card, sentence, trigger, mode, previousNavigationEntry) {
       if (trigger !== "modal") {
         this.clearWordNavigation();
         return;
@@ -28835,10 +30706,11 @@ ${spelling}`);
         this.currentWordNavigation = next;
         return;
       }
-      if (mode === "push-current" && this.currentWordNavigation && !this.isSameNavigationCard(this.currentWordNavigation, next)) {
+      const previous = previousNavigationEntry ?? (this.currentWordNavigation && !this.isSameNavigationCard(this.currentWordNavigation, next) ? this.wordNavigationEntry(this.currentWordNavigation) : void 0);
+      if (mode === "push-current" && previous && !this.isSameNavigationEntryAsWord(previous, next)) {
         const lastStackEntry = this.wordNavigationStack[this.wordNavigationStack.length - 1];
-        if (!lastStackEntry || !this.isSameNavigationCard(lastStackEntry, this.currentWordNavigation)) {
-          this.wordNavigationStack.push(this.currentWordNavigation);
+        if (!lastStackEntry || !this.isSamePopupNavigationEntry(lastStackEntry, previous)) {
+          this.wordNavigationStack.push(previous);
         }
       }
       this.currentWordNavigation = next;
@@ -28846,6 +30718,18 @@ ${spelling}`);
     clearWordNavigation() {
       this.wordNavigationStack = [];
       this.currentWordNavigation = void 0;
+    }
+    wordNavigationEntry(entry) {
+      return { kind: "word", card: entry.card, sentence: entry.sentence };
+    }
+    kanjiNavigationEntry(entry) {
+      return { kind: "kanji", card: entry.card, sentence: entry.sentence, kanji: entry.kanji };
+    }
+    activeKanjiNavigationEntry() {
+      var _a;
+      if (!this.currentKanjiNavigation || !((_a = this.activePopover) == null ? void 0 : _a.isConnected)) return void 0;
+      if (!this.activePopover.querySelector(".jpdb-reader-kanji-display")) return void 0;
+      return this.kanjiNavigationEntry(this.currentKanjiNavigation);
     }
     updateKanjiNavigation(card, kanji, sentence, mode) {
       const next = { card, kanji, sentence };
@@ -28872,14 +30756,22 @@ ${spelling}`);
     isSameNavigationKanji(first2, second) {
       return this.isSameNavigationCard(first2, second) && first2.kanji === second.kanji;
     }
+    isSameNavigationEntryAsWord(entry, word) {
+      return entry.kind === "word" && this.isSameNavigationCard(entry, word);
+    }
+    isSamePopupNavigationEntry(first2, second) {
+      if (first2.kind !== second.kind) return false;
+      if (first2.kind === "kanji" && second.kind === "kanji") return this.isSameNavigationKanji(first2, second);
+      return this.isSameNavigationCard(first2, second);
+    }
     renderWordHistoryNavigation(language, trigger) {
       if (trigger !== "modal") return "";
       const previous = this.wordNavigationStack[this.wordNavigationStack.length - 1];
       if (!previous) return "";
       return this.renderModalNavigation({
         backAction: "word-history-back",
-        backTitle: `${uiText(language, "backToWord")}: ${previous.card.spelling}`,
-        label: previous.card.spelling
+        backTitle: previous.kind === "kanji" ? `${uiText(language, "backToKanji")}: ${previous.kanji}` : `${uiText(language, "backToWord")}: ${previous.card.spelling}`,
+        label: previous.kind === "kanji" ? previous.kanji : previous.card.spelling
       });
     }
     renderModalNavigation(options) {
@@ -28894,6 +30786,13 @@ ${spelling}`);
     async showPreviousWord(anchor, trigger = "modal") {
       const previous = this.wordNavigationStack.pop();
       if (!previous) return;
+      if (previous.kind === "kanji") {
+        await this.showKanjiCard(previous.card, previous.kanji, previous.sentence, anchor, {
+          navigation: "preserve",
+          preservePosition: true
+        });
+        return;
+      }
       await this.showCard(previous.card, previous.sentence, anchor, {
         autoPlay: false,
         trigger,
@@ -28957,11 +30856,13 @@ ${spelling}`);
       const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
       const language = this.settings.interfaceLanguage;
       const hasJpdbKanji = this.settings.jpdbKanjiEnabled;
-      const kanjiVGPromise = this.settings.kanjivgEnabled ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null);
+      const needsKanjiVG = this.settings.kanjivgEnabled || this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled;
+      const kanjiVGPromise = needsKanjiVG ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null);
       const detailsPromises = {
         jpdbInfo: hasJpdbKanji ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null),
         kanjiEntries: this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]),
-        rtkInfo: this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null)
+        rtkInfo: this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null),
+        kanjiVGInfo: kanjiVGPromise
       };
       const kanjiNavigationControls = kanjiCharacters2.length > 1 ? `
             <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
@@ -29072,6 +30973,7 @@ ${spelling}`);
       let jpdbInfo = null;
       let kanjiEntries = [];
       let rtkInfo = null;
+      let kanjiVGInfo = null;
       const keywordMount = popover.querySelector("[data-kanji-keyword-mount]");
       const miningMount = popover.querySelector("[data-kanji-mining-mount]");
       const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
@@ -29131,18 +31033,26 @@ ${spelling}`);
         renderKeyword();
         renderRtk();
       });
-      await Promise.all([jpdbInfoPromise, kanjiEntriesPromise, rtkInfoPromise]);
+      const kanjiVGInfoPromise = detailsPromises.kanjiVGInfo.then((info) => {
+        var _a;
+        kanjiVGInfo = info;
+        if (!popover.isConnected) return;
+        log$1.debug("KanjiVG graph metadata loaded", { kanji, components: ((_a = kanjiVGInfo == null ? void 0 : kanjiVGInfo.componentPositions) == null ? void 0 : _a.length) ?? 0 });
+      });
+      await Promise.all([jpdbInfoPromise, kanjiEntriesPromise, rtkInfoPromise, kanjiVGInfoPromise]);
       if (!popover.isConnected) return;
       log$1.debug("Kanji details loaded", {
         kanji,
         hasJpdbInfo: Boolean(jpdbInfo),
         localKanjiEntries: kanjiEntries.length,
-        hasRtkInfo: Boolean(rtkInfo)
+        hasRtkInfo: Boolean(rtkInfo),
+        hasKanjiVGInfo: Boolean(kanjiVGInfo)
       });
       const resolvedJpdbInfo = jpdbInfo;
       const resolvedRtkInfo = rtkInfo;
+      const resolvedKanjiVGInfo = kanjiVGInfo;
       if (this.settings.kanjiOriginsEnabled) {
-        void this.renderKanjiOriginsInto(popover, kanji, resolvedJpdbInfo, resolvedRtkInfo, null, kanjiEntries);
+        void this.renderKanjiOriginsInto(popover, kanji, resolvedJpdbInfo, resolvedRtkInfo, resolvedKanjiVGInfo, kanjiEntries);
       }
       void this.parsePopoverJapanese(popover);
       this.repositionActivePopover();
@@ -29262,8 +31172,8 @@ ${spelling}`);
       });
       if (!popover.isConnected || !mount.isConnected) return;
       log$1.debug("Kanji origin rendered", { kanji, hasSourceInfo: Boolean(sourceInfo) });
-      const facts = buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
-      const graph = this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo) : null;
+      const facts = buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries, sourceInfo);
+      const graph = this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo, kanjiVGInfo) : null;
       const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
       setInnerHtml(mount, renderKanjiOrigins(facts, graph, sourceInfo, this.settings, this.settings.interfaceLanguage, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey));
       mount.querySelectorAll("[data-radical-frame]").forEach((image) => {
@@ -29280,8 +31190,8 @@ ${spelling}`);
       const sections = [
         setup,
         ...sourceIds.map((sourceId) => {
-          if ((card.source === "local" || card.source === "anki" || card.source === "fallback") && sourceId === JPDB_DEFINITION_SOURCE_ID) return "";
           if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), jpdbVocabularyInfo);
+          if (sourceId === STUDY_TOOLS_SOURCE_ID) return this.renderStudyToolsSource(sentence);
           if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.renderStudyTranslationSource(sentence);
           if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.renderStudyGrammarSource(sentence);
           if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
@@ -29303,21 +31213,7 @@ ${spelling}`);
       return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${uiText(this.settings.interfaceLanguage, "noDefinitions")}</div>`;
     }
     renderFallbackSetupSource(card) {
-      if (card.source !== "fallback") return "";
-      if (this.settings.apiKey.trim() || this.settings.dictionaryPreferences.length) return "";
-      const language = this.settings.interfaceLanguage;
-      return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-fallback-setup" ${this.dictionarySourceAttributes(definitionSourceStateKey(FALLBACK_SETUP_SOURCE_ID), true)}>
-                <summary class="jpdb-reader-local-title">${uiText(language, "fallbackSetupTitle")}</summary>
-                <div class="jpdb-reader-local-entry">
-                    <div class="jpdb-reader-help">${uiText(language, "fallbackSetupCopy")}</div>
-                    <div class="jpdb-reader-row" style="--cols: 2">
-                        <button class="jpdb-reader-btn add" type="button" data-action="setup-dictionaries">${uiText(language, "fallbackSetupDictionaries")}</button>
-                        <button class="jpdb-reader-btn" type="button" data-action="setup-jpdb">${uiText(language, "fallbackSetupJpdb")}</button>
-                    </div>
-                </div>
-            </details>
-        `;
+      return "";
     }
     renderImmersionKitMount() {
       if (!this.settings.immersionKitEnabled) return "";
@@ -29333,54 +31229,133 @@ ${spelling}`);
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.dictionarySourceAttributes(definitionSourceStateKey(STUDY_TRANSLATION_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">Translation</summary>
-                <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
-                    <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
-                        <div class="jpdb-reader-study-label-row">
-                            <div class="jpdb-reader-study-label">Japanese</div>
-                            <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="Read sentence aloud" aria-label="Read sentence aloud">${speakerIcon()}</button>
-                        </div>
-                        <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$1(sentence)}</div>
-                    </div>
-                    <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
-                        <div class="jpdb-reader-study-label">Meaning</div>
-                        <div class="jpdb-reader-study-translation" data-study-translation-result>Open this section to translate.</div>
-                    </div>
-                </div>
+                ${this.renderStudyTranslationPanel(sentence)}
             </details>
         `;
     }
     renderStudyGrammarSource(sentence) {
       if (!sentence || !this.settings.studyGrammarEnabled) return "";
       const hints = detectGrammarHints(sentence);
-      if (!hints.length) return "";
       return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" ${this.dictionarySourceAttributes(definitionSourceStateKey(STUDY_GRAMMAR_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.dictionarySourceAttributes(definitionSourceStateKey(STUDY_GRAMMAR_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">Grammar</summary>
-                <div class="jpdb-reader-study-panel">
-                    ${renderGrammarHints(hints, sentence)}
+                ${this.renderStudyGrammarPanel(sentence, hints)}
+            </details>
+        `;
+    }
+    renderStudyToolsSource(sentence) {
+      if (!sentence || !this.settings.studyTranslationEnabled || !this.settings.studyGrammarEnabled) return "";
+      const sourceStateKey = definitionSourceStateKey(STUDY_TOOLS_SOURCE_ID);
+      const hints = detectGrammarHints(sentence);
+      return `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source jpdb-reader-study-combined-source" data-study-tools ${this.dictionarySourceAttributes(sourceStateKey)}>
+                <summary class="jpdb-reader-local-title">Translation + Grammar</summary>
+                <div class="jpdb-reader-study-combined">
+                    <details class="jpdb-reader-study-part" data-study-translation open>
+                        <summary class="jpdb-reader-study-part-title">Translation</summary>
+                        ${this.renderStudyTranslationPanel(sentence)}
+                    </details>
+                    <details class="jpdb-reader-study-part" data-study-grammar open>
+                        <summary class="jpdb-reader-study-part-title">Grammar</summary>
+                        ${this.renderStudyGrammarPanel(sentence, hints)}
+                    </details>
                 </div>
             </details>
         `;
     }
-    installStudyTranslationLoader(popover, sentence) {
-      const container = popover.querySelector("[data-study-translation]");
-      if (!container || !sentence) return;
-      const load = () => {
-        if (!container.open || container.dataset.loaded === "true" || container.dataset.loading === "true") return;
-        container.dataset.loading = "true";
-        const result = container.querySelector("[data-study-translation-result]");
-        if (result) result.textContent = "Translating...";
-        void this.loadStudyTranslation(popover, sentence).finally(() => {
-          if (!container.isConnected) return;
-          delete container.dataset.loading;
-          container.dataset.loaded = "true";
-        });
-      };
-      container.addEventListener("toggle", load);
-      load();
+    renderStudyTranslationPanel(sentence) {
+      return `
+            <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
+                <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
+                    <div class="jpdb-reader-study-label-row">
+                        <div class="jpdb-reader-study-label">Japanese</div>
+                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="Read sentence aloud" aria-label="Read sentence aloud">${speakerIcon()}</button>
+                    </div>
+                    <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$1(sentence)}</div>
+                </div>
+                <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
+                    <div class="jpdb-reader-study-label">Meaning</div>
+                    <div class="jpdb-reader-study-translation" data-study-translation-result>Open this section to translate.</div>
+                </div>
+            </div>
+        `;
     }
-    async loadStudyTranslation(popover, sentence) {
-      const container = popover.querySelector("[data-study-translation]");
+    renderStudyGrammarPanel(sentence, hints = detectGrammarHints(sentence)) {
+      return `
+            <div class="jpdb-reader-study-panel" data-study-grammar-panel>
+                ${hints.length ? renderGrammarHints(hints, sentence) : '<div class="jpdb-reader-help">Finding grammar...</div>'}
+            </div>
+        `;
+    }
+    async detectStudyGrammarHints(sentence) {
+      const fallback = detectGrammarHints(sentence);
+      try {
+        const hanabiraHints = await detectHanabiraGrammarHints(sentence);
+        return mergeGrammarHints(hanabiraHints, fallback);
+      } catch (error) {
+        log$1.warn("Hanabira grammar lookup failed; using fallback hints", { sentenceLength: sentence.length }, error);
+        return fallback;
+      }
+    }
+    installStudyGrammarLoader(popover, sentence) {
+      var _a, _b;
+      const containers = Array.from(popover.querySelectorAll("[data-study-grammar]"));
+      if (!containers.length || !sentence) return;
+      for (const container of containers) {
+        const load = () => {
+          if (!this.isStudyDetailsOpen(container) || container.dataset.loaded === "true" || container.dataset.loading === "true") return;
+          container.dataset.loading = "true";
+          void this.loadStudyGrammar(popover, sentence, container).finally(() => {
+            if (!container.isConnected) return;
+            delete container.dataset.loading;
+            container.dataset.loaded = "true";
+          });
+        };
+        container.addEventListener("toggle", load);
+        (_b = (_a = container.parentElement) == null ? void 0 : _a.closest("details")) == null ? void 0 : _b.addEventListener("toggle", load);
+        load();
+      }
+    }
+    async loadStudyGrammar(popover, sentence, container) {
+      const panel = container == null ? void 0 : container.querySelector("[data-study-grammar-panel]");
+      if (!container || !panel) return;
+      try {
+        const hints = await this.detectStudyGrammarHints(sentence);
+        if (!this.isCurrentPopoverRoot(popover) || !container.isConnected) return;
+        if (!hints.length) {
+          container.remove();
+          return;
+        }
+        setInnerHtml(panel, renderGrammarHints(hints, sentence));
+        delete popover.dataset.jpdbReaderParseKey;
+        delete popover.dataset.jpdbReaderParseLoadingKey;
+        void this.parsePopoverJapanese(popover);
+      } catch (error) {
+        log$1.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
+      }
+    }
+    installStudyTranslationLoader(popover, sentence) {
+      var _a, _b;
+      const containers = Array.from(popover.querySelectorAll("[data-study-translation]"));
+      if (!containers.length || !sentence) return;
+      for (const container of containers) {
+        const load = () => {
+          if (!this.isStudyDetailsOpen(container) || container.dataset.loaded === "true" || container.dataset.loading === "true") return;
+          container.dataset.loading = "true";
+          const result = container.querySelector("[data-study-translation-result]");
+          if (result) result.textContent = "Translating...";
+          void this.loadStudyTranslation(popover, sentence, container).finally(() => {
+            if (!container.isConnected) return;
+            delete container.dataset.loading;
+            container.dataset.loaded = "true";
+          });
+        };
+        container.addEventListener("toggle", load);
+        (_b = (_a = container.parentElement) == null ? void 0 : _a.closest("details")) == null ? void 0 : _b.addEventListener("toggle", load);
+        load();
+      }
+    }
+    async loadStudyTranslation(popover, sentence, container) {
       if (!container || !sentence) return;
       try {
         const [tokens, translated] = await Promise.all([
@@ -29392,7 +31367,7 @@ ${spelling}`);
         if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings));
         const result = container.querySelector("[data-study-translation-result]");
         if (result) result.textContent = translated;
-        void this.parsePopoverJapanese(container);
+        void this.parsePopoverJapanese(popover);
         void this.enrichAnkiWords(tokens);
       } catch (error) {
         log$1.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
@@ -29400,6 +31375,16 @@ ${spelling}`);
         const result = container.querySelector("[data-study-translation-result]");
         if (result) result.textContent = "Translation unavailable.";
       }
+    }
+    isStudyDetailsOpen(container) {
+      var _a, _b;
+      if (!container.open) return false;
+      let ancestor = (_a = container.parentElement) == null ? void 0 : _a.closest("details");
+      while (ancestor) {
+        if (!ancestor.open) return false;
+        ancestor = (_b = ancestor.parentElement) == null ? void 0 : _b.closest("details");
+      }
+      return true;
     }
     async parsePopoverJapanese(popover) {
       if (!this.isCurrentPopoverRoot(popover)) return;
@@ -29421,6 +31406,28 @@ ${spelling}`);
         log$1.debug("Popover nested text parsing failed quietly", error);
       } finally {
         if (popover.dataset.jpdbReaderParseLoadingKey === parseKey) delete popover.dataset.jpdbReaderParseLoadingKey;
+      }
+    }
+    async parseNewTabContent(root) {
+      if (!root.isConnected || !this.canParseJapanese()) return;
+      const targets = Array.from(root.querySelectorAll(".jpdb-reader-parseable")).flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, 36, false, "", { includeReaderRoot: true, allowUiText: true, minLength: 1 })).slice(0, 36);
+      if (!targets.length) return;
+      const parseKey = targets.map((target) => target.text).join("\n\n");
+      if (root.dataset.jpdbReaderParseKey === parseKey || root.dataset.jpdbReaderParseLoadingKey === parseKey) return;
+      root.dataset.jpdbReaderParseLoadingKey = parseKey;
+      try {
+        const parsed = await this.parseJapanese(targets.map((target) => target.text));
+        if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== parseKey) return;
+        targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+        root.dataset.jpdbReaderParseKey = parseKey;
+        const tokens = parsed.flat();
+        this.preloadTermAudioForTokens(tokens);
+        void this.enrichAnkiWords(tokens);
+        log$1.debug("New tab nested text parsed", { targets: targets.length, tokens: tokens.length });
+      } catch (error) {
+        log$1.debug("New tab nested text parsing failed quietly", error);
+      } finally {
+        if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
       }
     }
     isCurrentPopoverRoot(root) {
@@ -29797,6 +31804,21 @@ ${spelling}`);
       window.setTimeout(() => toast.remove(), 3200);
     }
   }
+  function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
+    let timeout = 0;
+    return Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timeout = window.setTimeout(() => {
+          log$1.warn("Card detail lookup timed out", { term: card.spelling, detail, timeoutMs });
+          resolve(fallback);
+        }, timeoutMs);
+      })
+    ]).finally(() => window.clearTimeout(timeout));
+  }
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
   const log = Logger.scope("ReaderBoot");
   const RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
   function bootReaderApp() {
@@ -29825,10 +31847,10 @@ ${spelling}`);
     bindRuntimeClaims(app, ownerId, runtimeKind);
     if (isRealRuntime) {
       bootWindow.__yomuRealApp = app;
-      window.dispatchEvent(new CustomEvent("yomu-extension-loaded"));
+      dispatchWindowEvent(createWindowCustomEvent("yomu-extension-loaded"));
     } else {
       bootWindow.__yomuDemoApp = app;
-      window.addEventListener("yomu-extension-loaded", () => {
+      addWindowEventListener("yomu-extension-loaded", () => {
         if (bootWindow.__yomuDemoApp === app) {
           app.destroy();
           delete bootWindow.__yomuDemoApp;
@@ -29863,9 +31885,7 @@ ${spelling}`);
       log.debug("Skipping boot because another Yomu runtime owns the page", { existingKind, kind });
       return null;
     }
-    window.dispatchEvent(new CustomEvent("yomu-reader-runtime-claim", {
-      detail: { ownerId, kind, priority: runtimePriority(kind) }
-    }));
+    dispatchWindowEvent(createWindowCustomEvent("yomu-reader-runtime-claim", { ownerId, kind, priority: runtimePriority(kind) }));
     const marker = existing ?? document.createElement("meta");
     marker.id = RUNTIME_MARKER_ID;
     marker.dataset.yomuRuntimeKind = kind;
@@ -29876,7 +31896,7 @@ ${spelling}`);
     return ownerId;
   }
   function bindRuntimeClaims(app, ownerId, kind) {
-    window.addEventListener("yomu-reader-runtime-claim", (event) => {
+    addWindowEventListener("yomu-reader-runtime-claim", (event) => {
       const detail = event.detail;
       if (!detail || detail.ownerId === ownerId) return;
       const nextKind = normalizeRuntimeKind(detail.kind);

@@ -13,8 +13,8 @@ type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) =>
 type DictionaryLabel = (name: string) => string;
 
 export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null): string {
-    const meanings = card.meanings.slice(0, 6)
-        .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning.glosses.join('; '))}</div>`)
+    const meanings = jpdbDefinitionMeanings(card, info)
+        .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`)
         .join('');
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes);
     if (!meanings && !extras) return '';
@@ -25,6 +25,16 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
             ${extras}
         </details>
     `;
+}
+
+function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null): string[] {
+    if (card.source !== 'local' && card.source !== 'anki' && card.source !== 'fallback') {
+        const cardMeanings = card.meanings.slice(0, 6)
+            .map(meaning => meaning.glosses.join('; ').trim())
+            .filter(Boolean);
+        if (cardMeanings.length) return cardMeanings;
+    }
+    return (info?.meanings ?? []).slice(0, 6);
 }
 
 function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes): string {

@@ -223,8 +223,16 @@ export function buildKanjiFacts(
     };
 
     const local = extractLocalKanjiFacts(entries);
+    const localMeaning = firstLocalMeaning(entries);
     const map = sourceInfo?.kanjiMap;
+    const meaning = firstFactCandidate([
+        { value: map?.meaning, source: 'Kanji Alive / Jisho' },
+        { value: jpdbInfo?.keyword, source: 'JPDB' },
+        { value: rtkInfo?.keyword, source: 'RTK' },
+        ...(localMeaning ? [localMeaning] : []),
+    ]);
 
+    add('Meaning', meaning?.value, meaning?.source);
     add('Type', normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade), jpdbInfo?.type ? 'JPDB' : local.typeSource ?? 'Kanji Alive / Jisho');
     add('JLPT', local.jlpt ?? map?.jlpt, local.jlptSource ?? 'Jisho');
     add('Grade', local.grade ?? map?.grade, local.gradeSource ?? 'Kanji Alive / Jisho');
@@ -244,10 +252,12 @@ export function buildKanjiOriginGraph(
     rtkInfo: RtkInfo | null,
     entries: YomitanKanjiEntry[],
     sourceInfo: KanjiSourceInfo | null = null,
+    kanjiVGInfo: KanjiVGInfo | null = null,
 ): KanjiOriginGraph {
     const nodes = new Map<string, KanjiOriginNode>();
     const edges: KanjiOriginEdge[] = [];
     const meanings = entries.flatMap(entry => entry.meanings).filter(Boolean);
+    const kanjiVGPositions = kanjiVGComponentPositionMap(kanjiVGInfo);
     nodes.set(kanji, {
         id: kanji,
         label: kanji,
@@ -259,11 +269,12 @@ export function buildKanjiOriginGraph(
     const addComponent = (id: string, detail: string, label: string, source: string, position?: string) => {
         if (!id || id === kanji) return;
         const existing = nodes.get(id);
+        const resolvedPosition = position || kanjiVGPositions.get(id)?.position;
         if (!existing) {
-            nodes.set(id, { id, label: id, kind: 'component', detail, source, position });
+            nodes.set(id, { id, label: id, kind: 'component', detail, source, position: resolvedPosition });
         } else {
             if (!existing.detail && detail) existing.detail = detail;
-            if (!existing.position && position) existing.position = position;
+            if (!existing.position && resolvedPosition) existing.position = resolvedPosition;
         }
         if (!edges.some(edge => edge.from === id && edge.to === kanji && edge.label === label)) {
             edges.push({ from: id, to: kanji, label });
@@ -293,6 +304,14 @@ export function buildKanjiOriginGraph(
     jpdbInfo?.components.forEach(component => addComponent(component.kanji, component.keyword, 'JPDB component', 'JPDB'));
     jpdbInfo?.usedInKanji?.forEach(component => addUsedInKanji(component.kanji, component.keyword, 'JPDB'));
     rtkInfo?.componentKanji.forEach(component => addComponent(component, 'RTK element', 'RTK element', 'RTK'));
+    kanjiVGInfo?.componentPositions
+        ?.filter(component => component.direct)
+        .forEach(component => {
+            const id = nodes.has(component.component)
+                ? component.component
+                : component.original && nodes.has(component.original) ? component.original : component.component;
+            addComponent(id, 'visual component', 'KanjiVG component', 'KanjiVG', component.position);
+        });
 
     splitRtkElements(rtkInfo?.elements ?? '')
         .filter(element => !Array.from(element).some(character => character === kanji))
@@ -308,6 +327,29 @@ export function buildKanjiOriginGraph(
     return graph;
 }
 
+function kanjiVGComponentPositionMap(info: KanjiVGInfo | null): Map<string, { position: string; direct: boolean }> {
+    const positions = new Map<string, { position: string; direct: boolean }>();
+    info?.componentPositions?.forEach(component => {
+        const position = normalizeKanjiVGPosition(component.position);
+        if (!position) return;
+        const existing = positions.get(component.component);
+        if (!existing || (!existing.direct && component.direct)) {
+            positions.set(component.component, { position, direct: component.direct });
+        }
+    });
+    return positions;
+}
+
+function normalizeKanjiVGPosition(value: string): string {
+    const normalized = value.toLowerCase().trim();
+    if (normalized === 'top' || normalized === 'tare') return 'top';
+    if (normalized === 'bottom' || normalized === 'nyo') return 'bottom';
+    if (normalized === 'left') return 'left';
+    if (normalized === 'right') return 'right';
+    if (normalized === 'inside' || normalized === 'kamae' || normalized === 'middle') return 'center';
+    return normalized;
+}
+
 interface LocalKanjiFacts {
     type?: string;
     typeSource?: string;
@@ -319,6 +361,23 @@ interface LocalKanjiFacts {
     strokesSource?: string;
     frequency?: string;
     frequencySource?: string;
+}
+
+interface KanjiFactCandidate {
+    value?: string;
+    source?: string;
+}
+
+function firstFactCandidate(candidates: KanjiFactCandidate[]): KanjiFactCandidate | undefined {
+    return candidates.find(candidate => candidate.value?.trim());
+}
+
+function firstLocalMeaning(entries: YomitanKanjiEntry[]): KanjiFactCandidate | undefined {
+    for (const entry of entries) {
+        const value = first(entry.meanings);
+        if (value) return { value, source: entry.dictionary || 'local dictionary' };
+    }
+    return undefined;
 }
 
 function readKanjiMapRadical(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): KanjiMapRadicalInfo | undefined {

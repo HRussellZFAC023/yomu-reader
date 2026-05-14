@@ -217,7 +217,7 @@ npm run publish:greasyfork
 - OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
 - iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, the hosted video player, and the new-tab study page. Desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
-- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
+- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but support still helps soften that cost and keep the project moving. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
 
 ## Support
 
@@ -226,7 +226,7 @@ npm run publish:greasyfork
 - Discord: `henry281199`
 - Donate: https://paypal.me/HenryRussell163
 
-Donation note: feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ.
+Donation note: よむ has already cost more in AI/API tokens than donations are likely to repay, so every bit of support helps. Feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ.
 
 ## Credits and References
 

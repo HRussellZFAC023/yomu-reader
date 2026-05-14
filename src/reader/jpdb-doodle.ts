@@ -58,7 +58,9 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
     let ghostAvailable = Boolean(glyph);
     let traceVisible = false;
     let canvasRect = canvas.getBoundingClientRect();
-    let strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text') || '#111';
+    let strokeStyle = getComputedStyle(stage).getPropertyValue('--jpdb-reader-doodle-ink').trim()
+        || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
+        || '#111';
     let guideStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || 'rgba(128,128,128,0.35)';
     const cleanup: Array<() => void> = [];
     const add = <K extends keyof HTMLElementEventMap>(target: HTMLElement | Window, type: K, listener: (event: HTMLElementEventMap[K]) => void, addOptions?: AddEventListenerOptions) => {
@@ -200,7 +202,9 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
         drawing = true;
         pointerId = event.pointerId;
         canvasRect = canvas.getBoundingClientRect();
-        strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text') || '#111';
+        strokeStyle = getComputedStyle(stage).getPropertyValue('--jpdb-reader-doodle-ink').trim()
+            || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
+            || '#111';
         guideStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || guideStyle;
         current = [point(event)];
         try {

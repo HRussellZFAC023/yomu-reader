@@ -644,18 +644,23 @@ async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wikti
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
-    const requestUrl = getProxyUrl(responseUrl);
+    const browserUrl = getBrowserFetchUrl(responseUrl);
     if (userscriptRequest) {
         log.debug('Audio request via userscript API', { responseType, host: safeHost(responseUrl) });
         return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest)
             .catch(error => {
-                log.debug('Audio request via userscript API failed; retrying with fetch', { responseType, host: safeHost(responseUrl), error: String(error instanceof Error ? error.message : error) });
-                return requestViaAudioFetch(requestUrl, responseType, timeoutMs, options);
+                if (!browserUrl) throw error;
+                log.debug('Audio request via userscript API failed; retrying with browser fetch', { responseType, host: safeHost(responseUrl), error: String(error instanceof Error ? error.message : error) });
+                return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
             });
     }
 
-    log.debug('Audio request via fetch', { responseType, host: safeHost(requestUrl) });
-    return requestViaAudioFetch(requestUrl, responseType, timeoutMs, options);
+    if (!browserUrl) {
+        return Promise.reject(new Error('Cross-origin audio request needs a userscript HTTP bridge.'));
+    }
+
+    log.debug('Audio request via browser fetch', { responseType, host: safeHost(browserUrl) });
+    return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
 }
 
 function requestViaUserscriptAudio(
@@ -893,10 +898,18 @@ function preconnectAudioUrl(value: string): void {
     }
 }
 
-function getProxyUrl(url: string): string {
-    if (!['localhost', '127.0.0.1'].includes(location.hostname)) return url;
-    if (!/^https?:\/\//.test(url)) return url;
-    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+function getBrowserFetchUrl(url: string): string | null {
+    if (!/^https?:\/\//i.test(url)) return url;
+    if (isLocalDevHost(location.hostname)) return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+    try {
+        return new URL(url).origin === location.origin ? url : null;
+    } catch {
+        return null;
+    }
+}
+
+function isLocalDevHost(hostname: string): boolean {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
 
 function escapeRegExp(value: string): string {

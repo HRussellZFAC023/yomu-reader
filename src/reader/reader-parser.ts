@@ -67,7 +67,7 @@ export class ReaderParser {
     }
 
     isJpdbBackedCard(card: JPDBCard): boolean {
-        return (!card.source || card.source === 'jpdb') && card.vid > 0 && card.sid > 0 && Boolean(this.dependencies.getSettings().apiKey.trim());
+        return (!card.source || card.source === 'jpdb') && card.vid > 0 && card.sid > 0;
     }
 
     getCachedCard(vid: number, sid: number): JPDBCard | undefined {

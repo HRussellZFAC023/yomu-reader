@@ -69,6 +69,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     const reset = () => {
         popover.style.transition = 'transform .16s ease';
         popover.style.transform = '';
+        popover.style.removeProperty('--jpdb-reader-sheet-drag-up');
         window.setTimeout(() => { popover.style.transition = ''; }, 180);
     };
     const setExpanded = (expanded: boolean) => {
@@ -132,7 +133,13 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         lastY = event.clientY;
         const delta = lastY - startY;
         if (Math.abs(delta) > 8) moved = true;
-        popover.style.transform = `translateY(${delta}px)`;
+        if (delta < 0 && !popover.classList.contains('jpdb-reader-sheet-expanded')) {
+            popover.style.transform = '';
+            popover.style.setProperty('--jpdb-reader-sheet-drag-up', `${Math.abs(delta)}px`);
+            return;
+        }
+        popover.style.removeProperty('--jpdb-reader-sheet-drag-up');
+        popover.style.transform = `translateY(${Math.max(0, delta)}px)`;
     });
     popover.addEventListener('pointerup', finish);
     popover.addEventListener('pointercancel', () => {

@@ -1,10 +1,12 @@
 import { HAS_JAPANESE, escapeHtml } from './dom';
 import { uiText } from './i18n';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
+import { graphEdgePath, type GraphAnchorZone } from './kanji-graph-geometry';
 import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from './kanji-origin';
 import type { KanjiVGInfo } from './kanjivg';
 import { Logger } from './logger';
 import type { RtkInfo } from './rtk';
+import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
@@ -110,7 +112,8 @@ export interface RtkComponentSummary {
 }
 
 export function buildRtkComponentSummaries(rtkInfo: RtkInfo | null, jpdbInfo: JpdbKanjiInfo | null, entries: YomitanKanjiEntry[]): RtkComponentSummary[] {
-    const elementKeywords = splitRtkElements(rtkInfo?.elements ?? '');
+    const elementKeywords = splitRtkElements(rtkInfo?.elements ?? '')
+        .filter(keyword => rtkElementKey(keyword) !== rtkElementKey(rtkInfo?.keyword ?? ''));
     const jpdbByKanji = new Map((jpdbInfo?.components ?? []).map(component => [component.kanji, component.keyword]));
     const localByKanji = new Map(entries.map(entry => [entry.character, entry.meanings.slice(0, 3).join(', ')]));
     const summaries = [...new Set([...(rtkInfo?.componentKanji ?? []), ...(jpdbInfo?.components.map(component => component.kanji) ?? [])])]
@@ -166,6 +169,29 @@ export function mergeSimilarKanjiWords(
     );
     log.debug('Merged similar kanji words', { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
     return result;
+}
+
+export function renderSimilarKanjiWordsContent(
+    localEntries: YomitanTermEntry[],
+    jpdbVocabulary: JpdbKanjiVocabulary[],
+    currentCard: JPDBCard,
+    settings: ReaderSettings,
+    dictionaryLabel: (name: string) => string,
+): string {
+    const words = mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel).slice(0, settings.similarKanjiWordLimit);
+    if (!words.length) return '';
+    return `
+        <div class="jpdb-reader-local-entry jpdb-reader-similar-words">
+            ${words.map(word => `
+                <button class="jpdb-reader-similar-word" type="button" data-action="lookup" data-term="${escapeHtml(word.expression)}" data-reading="${escapeHtml(word.reading)}">
+                    <span class="jpdb-reader-similar-expression">${escapeHtml(word.expression)}</span>
+                    ${word.reading && word.reading !== word.expression ? `<span class="jpdb-reader-similar-reading">${escapeHtml(word.reading)}</span>` : ''}
+                    ${word.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml(word.meaning)}</span>` : ''}
+                    <span class="jpdb-reader-similar-source">${escapeHtml(word.source)}${word.frequency ? ` #${escapeHtml(String(word.frequency))}` : ''}</span>
+                </button>
+            `).join('')}
+        </div>
+    `;
 }
 
 export function summarizeLearnerGlossary(entry: Pick<YomitanTermEntry, 'glossary'>): string {
@@ -247,12 +273,66 @@ export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: 
     return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
 }
 
-function splitRtkElements(value: string): string[] {
-    return [...new Set(value
-        .split(/[、,;＋+]/)
-        .map(item => item.trim())
-        .filter(Boolean))]
-        .slice(0, 16);
+interface RtkElementChip {
+    keyword: string;
+    glyph: string;
+    kanji: string;
+}
+
+function parseRtkElementChip(value: string): RtkElementChip {
+    const match = value.match(/^([^\sA-Za-z0-9])\s*(.+)$/u);
+    if (!match) return { keyword: value, glyph: '', kanji: '' };
+    const glyph = match[1] ?? '';
+    return { glyph, kanji: isKanjiCharacter(glyph) ? glyph : '', keyword: match[2]?.trim() ?? '' };
+}
+
+function buildRtkElementChips(info: RtkInfo, components: RtkComponentSummary[]): RtkElementChip[] {
+    const componentKanji = new Set(components.map(component => component.kanji).filter(Boolean));
+    const componentByKeyword = new Map<string, RtkElementGlyph>();
+    components.forEach(component => {
+        if (component.keyword) componentByKeyword.set(rtkElementKey(component.keyword), { glyph: component.kanji, kanji: component.kanji });
+    });
+
+    const chips = splitRtkElements(info.elements)
+        .map(parseRtkElementChip)
+        .filter(chip => chip.keyword && rtkElementKey(chip.keyword) !== rtkElementKey(info.keyword))
+        .map(chip => {
+            const inlineGlyph = chip.glyph && (!componentKanji.size || componentKanji.has(chip.kanji)) ? { glyph: chip.glyph, kanji: chip.kanji } : undefined;
+            const inferred = inlineGlyph
+                ?? componentByKeyword.get(rtkElementKey(chip.keyword))
+                ?? info.elementGlyphs?.[rtkElementKey(chip.keyword)]
+                ?? rtkElementFallbackGlyph(chip.keyword);
+            return {
+                keyword: chip.keyword,
+                glyph: inferred?.glyph ?? '',
+                kanji: inferred?.kanji ?? '',
+            };
+        });
+
+    const anchoredKanji = new Set(chips.map(chip => chip.kanji).filter(Boolean));
+    const allKnownComponentsAnchored = componentKanji.size > 0 && [...componentKanji].every(kanji => anchoredKanji.has(kanji));
+
+    return chips.map((chip, index) => {
+        if (chip.glyph) return chip;
+        const previous = lastAnchoredRtkChip(chips, index);
+        if (!previous) return chip;
+        const next = nextAnchoredRtkChip(chips, index);
+        return next || allKnownComponentsAnchored ? { ...chip, glyph: previous.glyph, kanji: previous.kanji } : chip;
+    });
+}
+
+function lastAnchoredRtkChip(chips: RtkElementChip[], beforeIndex: number): RtkElementChip | null {
+    for (let index = beforeIndex - 1; index >= 0; index -= 1) {
+        if (chips[index]?.kanji) return chips[index] ?? null;
+    }
+    return null;
+}
+
+function nextAnchoredRtkChip(chips: RtkElementChip[], afterIndex: number): RtkElementChip | null {
+    for (let index = afterIndex + 1; index < chips.length; index += 1) {
+        if (chips[index]?.kanji) return chips[index] ?? null;
+    }
+    return null;
 }
 
 function compareOptionalNumber(a?: number, b?: number): number {
@@ -379,12 +459,13 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
             const from = coords.get(edge.from);
             const to = coords.get(edge.to);
             if (!from || !to) return '';
-            const edgePath = clippedOriginEdgePath(from, to);
+            const targetZone = originEdgeTargetZone(edge, current.id, nodeById);
+            const edgePath = clippedOriginEdgePath(from, to, targetZone);
             const label = edge.labels.join(' / ');
-            const particles = originEdgeParticles(edgePath);
+            const particles = edgePath.points;
             const outbound = isOriginOutboundEdge(edge, current.id);
             const outboundAttrs = outbound ? ' data-origin-outbound="true"' : '';
-            return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}"${outboundAttrs}>
+            return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}>
                 <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
                 ${particles.map(point => `<circle class="jpdb-reader-origin-edge-particle" cx="${formatGraphNumber(point.x)}" cy="${formatGraphNumber(point.y)}" r="0.55"></circle>`).join('')}
             </g>`;
@@ -452,16 +533,6 @@ interface PositionedOriginNode {
     ry: number;
 }
 
-interface OriginEdgePath {
-    d: string;
-    x1: number;
-    y1: number;
-    cx: number;
-    cy: number;
-    x2: number;
-    y2: number;
-}
-
 interface OriginNodeState extends PositionedOriginNode {
     vx: number;
     vy: number;
@@ -519,6 +590,18 @@ function selectOriginOutboundEdgeGroups(groups: OriginEdgeGroup[], nodeById: Map
 
 function isOriginOutboundEdge(edge: OriginEdgeGroup, currentId: string): boolean {
     return edge.from === currentId && edge.to !== currentId;
+}
+
+function originEdgeTargetZone(edge: OriginEdgeGroup, currentId: string, nodeById: Map<string, OriginGraphNode>): GraphAnchorZone {
+    if (edge.to === currentId) {
+        const source = nodeById.get(edge.from);
+        return source ? inferInboundComponentZone(source) : 'auto';
+    }
+    if (edge.from === currentId) {
+        const target = nodeById.get(edge.to);
+        return target ? inferOutboundComponentZone(currentId, target) : 'auto';
+    }
+    return 'auto';
 }
 
 function isNoisyOriginNode(node: OriginGraphNode): boolean {
@@ -711,17 +794,17 @@ function inboundZoneAnchor(zone: OriginComponentZone, index: number, total: numb
     const offset = (index - (total - 1) / 2) * 10;
     switch (zone) {
         case 'top':
-            return { x: 38 + offset, y: 23 };
+            return { x: 50 + offset, y: 23 };
         case 'upper':
-            return { x: 32 + offset, y: 36 };
+            return { x: 58 + offset, y: 35 };
         case 'left':
             return { x: 24, y: 50 + offset };
         case 'right':
-            return { x: 38, y: 50 + offset };
+            return { x: 76, y: 50 + offset };
         case 'lower':
-            return { x: 32 + offset, y: 64 };
+            return { x: 58 + offset, y: 65 };
         case 'bottom':
-            return { x: 38 + offset, y: 77 };
+            return { x: 50 + offset, y: 77 };
         case 'center':
         default:
             return { x: 32, y: 50 + offset };
@@ -777,30 +860,8 @@ function originNodeRadii(node: OriginGraphNode): { rx: number; ry: number } {
     return { rx: Math.min(10.4, 7.4 + Math.max(0, length - 1) * 1.15), ry: 13 };
 }
 
-function clippedOriginEdgePath(from: PositionedOriginNode, to: PositionedOriginNode): OriginEdgePath {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const sourceOffset = ellipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
-    const targetOffset = ellipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
-    const x1 = from.x + dx * sourceOffset;
-    const y1 = from.y + dy * sourceOffset;
-    const x2 = to.x - dx * targetOffset;
-    const y2 = to.y - dy * targetOffset;
-    const curve = edgeCurveControl(x1, y1, x2, y2);
-    return {
-        d: `M${formatGraphNumber(x1)} ${formatGraphNumber(y1)} Q${formatGraphNumber(curve.x)} ${formatGraphNumber(curve.y)} ${formatGraphNumber(x2)} ${formatGraphNumber(y2)}`,
-        x1,
-        y1,
-        cx: curve.x,
-        cy: curve.y,
-        x2,
-        y2,
-    };
-}
-
-function ellipseOffset(dx: number, dy: number, rx: number, ry: number): number {
-    const denominator = Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
-    return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
+function clippedOriginEdgePath(from: PositionedOriginNode, to: PositionedOriginNode, targetZone: GraphAnchorZone): ReturnType<typeof graphEdgePath> {
+    return graphEdgePath(from, to, targetZone);
 }
 
 function clampGraphValue(value: number, min: number, max: number): number {
@@ -809,30 +870,6 @@ function clampGraphValue(value: number, min: number, max: number): number {
 
 function formatGraphNumber(value: number): string {
     return Number(value.toFixed(2)).toString();
-}
-
-function originEdgeParticles(path: OriginEdgePath): Array<{ x: number; y: number }> {
-    return [0.38, 0.66].map(t => quadraticPoint(path.x1, path.y1, path.cx, path.cy, path.x2, path.y2, t));
-}
-
-function quadraticPoint(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number, t: number): { x: number; y: number } {
-    const mt = 1 - t;
-    return {
-        x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
-        y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2,
-    };
-}
-
-function edgeCurveControl(x1: number, y1: number, x2: number, y2: number): { x: number; y: number } {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bend = Math.min(4.6, Math.max(1.8, distance * 0.08));
-    const sign = y1 <= y2 ? 1 : -1;
-    return {
-        x: (x1 + x2) / 2 - (dy / distance) * bend * sign,
-        y: (y1 + y2) / 2 + (dx / distance) * bend * sign,
-    };
 }
 
 function hashOriginGraphId(value: string): string {
@@ -894,10 +931,7 @@ export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, langua
 
 export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSummary[], language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
     if (!info) return '';
-    const elementKeywords = splitRtkElements(info.elements);
-    const componentByKeyword = new Map(components
-        .filter(component => component.keyword)
-        .map(component => [component.keyword.toLowerCase(), component.kanji] as const));
+    const elementChips = buildRtkElementChips(info, components);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">RTK</summary>
@@ -910,12 +944,12 @@ export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSumm
                     ${info.onYomi ? `<span>${uiText(language, 'onReading')} ${escapeHtml(info.onYomi)}</span>` : ''}
                     ${info.kunYomi ? `<span>${uiText(language, 'kunReading')} ${escapeHtml(info.kunYomi)}</span>` : ''}
                 </div>` : ''}
-                ${elementKeywords.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, 'rtkComponentKeywords')}">
-                    ${elementKeywords.map((keyword, index) => {
-                        const componentKanji = componentByKeyword.get(keyword.toLowerCase()) || components[index]?.kanji;
-                        return componentKanji
-                            ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(componentKanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${componentKanji}`)}"><strong>${escapeHtml(componentKanji)}</strong><span>${escapeHtml(keyword)}</span></button>`
-                            : `<span>${escapeHtml(keyword)}</span>`;
+                ${elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, 'rtkComponentKeywords')}">
+                    ${elementChips.map(chip => {
+                        const content = `${chip.glyph ? `<strong>${escapeHtml(chip.glyph)}</strong>` : ''}<span>${escapeHtml(chip.keyword)}</span>`;
+                        return chip.kanji
+                            ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${chip.kanji}`)}">${content}</button>`
+                            : `<span>${content}</span>`;
                     }).join('')}
                 </div>` : ''}
                 ${info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : ''}

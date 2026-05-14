@@ -31,6 +31,8 @@ const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 2;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
+const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
@@ -800,18 +802,71 @@ export class YomitanDictionaryStore {
         }
     }
 
-    async deleteDatabase(): Promise<void> {
+    async resetDatabase(options: { deleteTimeoutMs?: number } = {}): Promise<{ cleared: boolean; deleted: boolean }> {
+        const done = log.time('Dictionary database factory reset');
+        let cleared = false;
+        try {
+            await this.clear();
+            cleared = true;
+            await this.deleteDatabase({ timeoutMs: options.deleteTimeoutMs ?? DB_FACTORY_RESET_DELETE_TIMEOUT_MS });
+            return { cleared, deleted: true };
+        } catch (error) {
+            if (!cleared) {
+                log.warn('Dictionary database factory reset failed before clearing entries', { error });
+                throw error;
+            }
+            log.warn('Dictionary database delete did not complete after clearing entries; continuing reset with empty stores', { error });
+            return { cleared, deleted: false };
+        } finally {
+            done();
+        }
+    }
+
+    async invalidateForFactoryReset(): Promise<void> {
+        const dbPromise = this.dbPromise;
+        this.dbPromise = undefined;
+        this.invalidateCaches();
+        if (!dbPromise) return;
+        try {
+            const db = await dbPromise;
+            db.close();
+            log.info('Dictionary database connection closed for factory reset', { name: DB_NAME });
+        } catch (error) {
+            log.debug('Dictionary database connection was not open during factory reset invalidation', { error });
+        }
+    }
+
+    async deleteDatabase(options: { timeoutMs?: number } = {}): Promise<void> {
         const done = log.time('Dictionary database delete');
         try {
+            const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
             const db = this.dbPromise ? await this.dbPromise.catch(() => undefined) : undefined;
             db?.close();
             this.dbPromise = undefined;
             this.invalidateCaches();
             await new Promise<void>((resolve, reject) => {
+                let blocked = false;
+                let settled = false;
+                const timeout = globalThis.setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    reject(new Error(blocked
+                        ? 'Dictionary database reset is still waiting on another open Yomu tab. Reload the other Yomu tabs, then try again.'
+                        : 'Dictionary database reset timed out.'));
+                }, timeoutMs);
+                const settle = (callback: () => void) => {
+                    if (settled) return;
+                    settled = true;
+                    globalThis.clearTimeout(timeout);
+                    callback();
+                };
                 const request = indexedDB.deleteDatabase(DB_NAME);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-                request.onblocked = () => reject(new Error('Dictionary database delete was blocked by an open tab.'));
+                request.onsuccess = () => settle(resolve);
+                request.onerror = () => settle(() => reject(request.error ?? new Error('Dictionary database reset failed.')));
+                request.onblocked = () => {
+                    blocked = true;
+                    log.warn('Dictionary database delete is blocked; waiting for other Yomu tabs to close their dictionary connection', { name: DB_NAME });
+                };
             });
             log.info('Dictionary database deleted', { name: DB_NAME });
         } catch (error) {
@@ -1009,8 +1064,10 @@ export class YomitanDictionaryStore {
                 }
             };
             request.onsuccess = () => {
-                log.debug('Dictionary database opened', { name: DB_NAME, version: request.result.version });
-                resolve(request.result);
+                const db = request.result;
+                this.installVersionChangeHandler(db);
+                log.debug('Dictionary database opened', { name: DB_NAME, version: db.version });
+                resolve(db);
             };
             request.onerror = () => {
                 log.warn('Dictionary database open failed', { error: request.error });
@@ -1020,7 +1077,20 @@ export class YomitanDictionaryStore {
         return this.dbPromise;
     }
 
-    private invalidateCaches(): void {
+    private installVersionChangeHandler(db: IDBDatabase): void {
+        db.onversionchange = event => {
+            log.info('Dictionary database version change requested; closing open connection', {
+                name: DB_NAME,
+                oldVersion: event.oldVersion,
+                newVersion: event.newVersion,
+            });
+            db.close();
+            this.dbPromise = undefined;
+            this.invalidateCaches();
+        };
+    }
+
+    invalidateCaches(): void {
         this.dictionaryInfoPromise = undefined;
         this.summaryPromise = undefined;
         this.dictionaryStyleCssCache.clear();
@@ -1316,6 +1386,10 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
     }
 
     const downloadUrl = dictionaryDownloadUrl(url);
+    if (!downloadUrl) {
+        done();
+        throw new Error('Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
+    }
     try {
         log.debug('Dictionary download using fetch', { host: safeHost(url), proxied: downloadUrl !== url });
         const response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
@@ -1344,12 +1418,12 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
     }
 }
 
-function dictionaryDownloadUrl(url: string): string {
-    if (!isLoopbackPage()) return url;
+function dictionaryDownloadUrl(url: string): string | null {
     try {
         const target = new URL(url, location.href);
         const current = new URL(location.href);
         if (target.origin === current.origin) return target.href;
+        if (!isLoopbackPage()) return null;
         return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
     } catch {
         return url;

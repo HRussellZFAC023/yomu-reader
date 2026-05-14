@@ -407,8 +407,11 @@ function requestText(url: string, options: { method?: 'GET' | 'POST'; payload?: 
         });
     }
 
+    const fetchUrl = publicFetchUrl(requestUrl, method);
+    if (!fetchUrl) return Promise.reject(new Error('Cross-origin JPDB kanji request needs a userscript HTTP bridge.'));
+
     log.debug('Kanji page request via fetch');
-    return fetch(requestUrl, {
+    return fetch(fetchUrl, {
         method,
         headers,
         body: method === 'POST' ? body : undefined,
@@ -418,4 +421,19 @@ function requestText(url: string, options: { method?: 'GET' | 'POST'; payload?: 
         if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
         return response.text();
     });
+}
+
+function publicFetchUrl(url: string, method: 'GET' | 'POST'): string | null {
+    try {
+        const target = new URL(url, location.href);
+        if (target.origin === location.origin) return target.href;
+        if (method === 'GET' && isLoopbackPage()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
+        return null;
+    } catch {
+        return url;
+    }
+}
+
+function isLoopbackPage(): boolean {
+    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }

@@ -1,4 +1,10 @@
-export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = { childList: true, subtree: true, characterData: true };
+export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'hidden', 'open', 'aria-hidden', 'aria-expanded'],
+};
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 
 export function mutationTouchesAsbPlayer(mutation: MutationRecord): boolean {
@@ -30,5 +36,6 @@ export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
 
 export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {
     if (mutation.type === 'characterData') return HAS_JAPANESE.test(mutation.target.textContent ?? '');
+    if (mutation.type === 'attributes') return HAS_JAPANESE.test(mutation.target.textContent ?? '');
     return Array.from(mutation.addedNodes).some(node => HAS_JAPANESE.test(node.textContent ?? ''));
 }

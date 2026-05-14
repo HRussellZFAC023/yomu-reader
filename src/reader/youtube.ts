@@ -3,6 +3,7 @@ import { HAS_JAPANESE } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import type { ReaderSettings } from './types';
+import { createWindowEvent, dispatchWindowEvent } from './window-events';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const VIDEO_CARD_SELECTOR = [
@@ -168,14 +169,14 @@ class YouTubeReplacementRequester {
 
         const previousScrollTop = window.scrollY;
         const scrollTarget = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-        window.dispatchEvent(new Event('scroll'));
+        dispatchWindowEvent(createWindowEvent('scroll'));
         if (shownCount < 12 && !/jsdom/i.test(navigator.userAgent)) {
             try {
                 window.scrollTo({ top: scrollTarget, behavior: 'auto' });
             } catch {
                 // jsdom and some embedded contexts do not implement scrollTo.
             }
-            window.dispatchEvent(new Event('scroll'));
+            dispatchWindowEvent(createWindowEvent('scroll'));
             try {
                 window.scrollTo({ top: previousScrollTop, behavior: 'auto' });
             } catch {

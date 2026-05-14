@@ -71,7 +71,6 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const setupStroke = (point?: DoodlePoint) => {
         const style = getComputedStyle(stage);
         context.strokeStyle = style.getPropertyValue('--jpdb-reader-doodle-ink').trim()
-            || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
             || '#141820';
         context.lineCap = 'round';
         context.lineJoin = 'round';

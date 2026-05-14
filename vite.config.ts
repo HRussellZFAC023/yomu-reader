@@ -69,17 +69,17 @@ export default defineConfig({
                 ],
                 grant: [
                     'GM.xmlHttpRequest',
-                    // Some managers expose this legacy lowercase-h alias, but vite-plugin-monkey's grant types omit it.
-                    // @ts-expect-error keep the literal metadata entry for compatibility.
-                    'GM.xmlhttpRequest',
                     'GM_xmlhttpRequest',
                     'GM_setValue',
                     'GM_getValue',
                     'GM_deleteValue',
                     'GM_listValues',
+                    'GM_addValueChangeListener',
+                    'GM_removeValueChangeListener',
                     'GM_addStyle',
                     'GM_registerMenuCommand',
                 ],
+                'inject-into': 'content',
                 'run-at': 'document-idle',
                 license: 'GPL-3.0-or-later',
                 icon: userscriptIcon,

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AnkiConnectClient } from '../../src/reader/anki';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/new-tab-controller';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb-review-bridge';
+import { installKanjiDoodle } from '../../src/reader/kanji-doodle';
 import { assessKanjiStrokes } from '../../src/reader/kanji-stroke-grader';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { definitionSourceRows } from '../../src/reader/source-sections';
@@ -326,6 +327,248 @@ describe('new tab review helpers', () => {
         });
     });
 
+    it('does not flip the new-tab card when interacting with revealed details', () => {
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            ensureStarterDictionary: vi.fn(),
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.innerHTML = `
+            <section data-newtab-study>
+                <div data-newtab-reading class="jpdb-reader-newtab-answer"></div>
+                <div data-newtab-meaning class="jpdb-reader-newtab-meaning">
+                    <details><summary>JPDB mnemonic</summary><p>Story text</p></details>
+                </div>
+            </section>
+        `;
+        let toggles = 0;
+        (controller as unknown as { toggleReveal(root: HTMLElement): void }).toggleReveal = () => {
+            toggles += 1;
+        };
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        const summary = root.querySelector<HTMLElement>('summary');
+        const study = root.querySelector<HTMLElement>('[data-newtab-study]');
+        expect(summary).not.toBeNull();
+        expect(study).not.toBeNull();
+
+        const summaryClickWasNotCanceled = summary!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(summaryClickWasNotCanceled).toBe(true);
+        expect(toggles).toBe(0);
+
+        const summaryKeyWasNotCanceled = summary!.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+        expect(summaryKeyWasNotCanceled).toBe(true);
+        expect(toggles).toBe(0);
+
+        const studyClickWasNotCanceled = study!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(studyClickWasNotCanceled).toBe(false);
+        expect(toggles).toBe(1);
+    });
+
+    it('routes nested kanji detail buttons and dictionary links to the popup lookup handlers', () => {
+        const lookupText = vi.fn();
+        const lookupDictionaryReference = vi.fn();
+        const showKanjiCard = vi.fn();
+        const card: JPDBCard = {
+            vid: 1,
+            sid: 1,
+            rid: 1,
+            spelling: '事情',
+            reading: 'じじょう',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [{ glosses: ['circumstances'], partOfSpeech: [] }],
+            cardState: ['new'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'local',
+            sentence: '事情を説明する。',
+        };
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            ensureStarterDictionary: vi.fn(),
+            lookupText,
+            lookupDictionaryReference,
+            showKanjiCard,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.innerHTML = `
+            <section data-newtab-study>
+                <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="国家" data-dictionary-reading="こっか" data-dictionary="Jitendex">国家</a>
+                <button type="button" data-action="similar-word" data-expression="何事" data-reading="なにごと">何事</button>
+                <button type="button" data-action="kanji" data-kanji="事">事</button>
+            </section>
+        `;
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; index: number }, {
+            visibleWords: [card],
+            index: 0,
+        });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        root.querySelector<HTMLAnchorElement>('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        root.querySelectorAll<HTMLButtonElement>('button')[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        root.querySelectorAll<HTMLButtonElement>('button')[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(lookupDictionaryReference).toHaveBeenCalledWith('国家', 'こっか', 'Jitendex', root.querySelector('a'));
+        expect(lookupText).toHaveBeenCalledWith('何事', 'なにごと', root.querySelectorAll('button')[0]);
+        expect(showKanjiCard).toHaveBeenCalledWith(card, '事', '事情を説明する。', root.querySelectorAll('button')[1]);
+    });
+
+    it('reveals blurred Immersion Kit translations on the new tab card', () => {
+        const settings = { ...DEFAULT_SETTINGS, immersionKitRevealTranslationOnClick: true };
+        const onSettingsChange = vi.fn();
+        const setImmersionTranslationBlurred = vi.fn((blurred: boolean) => {
+            settings.immersionKitRevealTranslationOnClick = blurred;
+        });
+        const controller = new NewTabController({
+            getSettings: () => settings,
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            ensureStarterDictionary: vi.fn(),
+            setImmersionTranslationBlurred,
+            onSettingsChange,
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.innerHTML = `
+            <section data-newtab-study>
+                <div class="jpdb-reader-newtab-meaning">
+                    <div class="jpdb-reader-example-translation jpdb-reader-parseable" data-yomu-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">Either way, there wouldn't have been a peaceful alternative.</div>
+                </div>
+            </section>
+        `;
+        let toggles = 0;
+        (controller as unknown as { toggleReveal(root: HTMLElement): void }).toggleReveal = () => {
+            toggles += 1;
+        };
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        const translation = root.querySelector<HTMLElement>('.jpdb-reader-example-translation')!;
+        const clickWasNotCanceled = translation.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(clickWasNotCanceled).toBe(false);
+        expect(settings.immersionKitRevealTranslationOnClick).toBe(false);
+        expect(setImmersionTranslationBlurred).toHaveBeenCalledWith(false);
+        expect(onSettingsChange).not.toHaveBeenCalled();
+        expect(translation.dataset.yomuImmersionTranslationBlurred).toBeUndefined();
+        expect(translation.hasAttribute('role')).toBe(false);
+        expect(translation.hasAttribute('tabindex')).toBe(false);
+        expect(translation.hasAttribute('aria-label')).toBe(false);
+        expect(toggles).toBe(0);
+
+        settings.immersionKitRevealTranslationOnClick = true;
+        translation.dataset.yomuImmersionTranslationBlurred = 'true';
+        translation.setAttribute('role', 'button');
+        translation.setAttribute('tabindex', '0');
+        translation.setAttribute('aria-label', 'Reveal translation');
+        setImmersionTranslationBlurred.mockClear();
+        onSettingsChange.mockClear();
+
+        const keyWasNotCanceled = translation.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+
+        expect(keyWasNotCanceled).toBe(false);
+        expect(settings.immersionKitRevealTranslationOnClick).toBe(false);
+        expect(setImmersionTranslationBlurred).toHaveBeenCalledWith(false);
+        expect(onSettingsChange).not.toHaveBeenCalled();
+        expect(translation.dataset.yomuImmersionTranslationBlurred).toBeUndefined();
+        expect(toggles).toBe(0);
+    });
+
+    it('uses dark ink for the light-grid popover kanji doodle even in dark theme', () => {
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        const originalGetContext = HTMLCanvasElement.prototype.getContext;
+        const context = {
+            strokeStyle: '',
+            lineCap: '',
+            lineJoin: '',
+            lineWidth: 0,
+            clearRect: vi.fn(),
+            beginPath: vi.fn(),
+            moveTo: vi.fn(),
+            lineTo: vi.fn(),
+            stroke: vi.fn(),
+            save: vi.fn(),
+            restore: vi.fn(),
+        };
+        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+            configurable: true,
+            value: vi.fn(() => context),
+        });
+        document.documentElement.style.setProperty('--jpdb-reader-text', '#fff');
+        const root = document.createElement('div');
+        root.innerHTML = `
+            <div class="jpdb-reader-doodle-stage" data-kanji="会">
+                <div class="jpdb-reader-doodle-ghost"></div>
+                <canvas class="jpdb-reader-doodle-canvas"></canvas>
+            </div>
+        `;
+        const stage = root.querySelector<HTMLElement>('.jpdb-reader-doodle-stage')!;
+        const canvas = root.querySelector<HTMLCanvasElement>('canvas')!;
+        stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+        canvas.getBoundingClientRect = stage.getBoundingClientRect;
+
+        installKanjiDoodle(root, () => DEFAULT_SETTINGS.interfaceLanguage);
+        canvas.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), {
+            clientX: 10,
+            clientY: 10,
+            pointerId: 1,
+            pointerType: 'mouse',
+            pressure: 0.5,
+        }));
+        canvas.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), {
+            clientX: 80,
+            clientY: 80,
+            pointerId: 1,
+            pointerType: 'mouse',
+            pressure: 0.5,
+        }));
+
+        expect(context.strokeStyle).toBe('#141820');
+        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+            configurable: true,
+            value: originalGetContext,
+        });
+        document.documentElement.style.removeProperty('--jpdb-reader-text');
+    });
+
     it('keeps new-tab word readings and meanings off the front side until reveal', async () => {
         const card: JPDBCard = {
             vid: 1,
@@ -408,5 +651,38 @@ describe('new tab review helpers', () => {
 
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
         expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+    });
+
+    it('allows the hosted demo runtime to install the starter dictionary', async () => {
+        vi.stubGlobal('__yomuDemoApp', {});
+        const ensureStarterDictionary = vi.fn(async () => false);
+        const showSettings = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+            } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            ensureStarterDictionary,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings,
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.innerHTML = '<div data-newtab-status></div>';
+
+        await (controller as unknown as { installStarterDictionary(root: HTMLElement): Promise<void> }).installStarterDictionary(root);
+
+        expect(showSettings).not.toHaveBeenCalled();
+        expect(ensureStarterDictionary).toHaveBeenCalledTimes(1);
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary was not added.');
     });
 });

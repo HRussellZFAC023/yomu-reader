@@ -11,23 +11,51 @@ type UserscriptRequestSource = {
     };
 };
 
-export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
-    for (const source of userscriptRequestSources()) {
-        const directRequest = asUserscriptRequest(source.GM_xmlhttpRequest);
-        if (directRequest) {
-            log.debugThrottled('resolved-request', 5000, 'Userscript HTTP request resolved', { source: sourceLabel(source), path: 'GM_xmlhttpRequest' });
-            return directRequest.bind(source);
-        }
+type UserscriptRequestCandidate = {
+    request: unknown;
+    thisArg: unknown;
+    source: string;
+    path: string;
+};
 
-        const gm = source.GM;
-        const gmRequest = asUserscriptRequest(gm?.xmlHttpRequest) ?? asUserscriptRequest(gm?.xmlhttpRequest);
-        if (gmRequest) {
-            log.debugThrottled('resolved-request', 5000, 'Userscript HTTP request resolved', { source: sourceLabel(source), path: gm?.xmlHttpRequest ? 'GM.xmlHttpRequest' : 'GM.xmlhttpRequest' });
-            return gmRequest.bind(gm);
+export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
+    for (const candidate of userscriptRequestCandidates()) {
+        const request = asUserscriptRequest(candidate.request);
+        if (request) {
+            log.debugThrottled('resolved-request', 5000, 'Userscript HTTP request resolved', { source: candidate.source, path: candidate.path });
+            return request.bind(candidate.thisArg);
         }
     }
     log.debugThrottled('missing-userscript-request', 5000, 'Userscript HTTP request unavailable');
     return undefined;
+}
+
+function userscriptRequestCandidates(): UserscriptRequestCandidate[] {
+    const candidates: UserscriptRequestCandidate[] = [];
+    const add = (request: unknown, thisArg: unknown, source: string, path: string) => {
+        candidates.push({ request, thisArg, source, path });
+    };
+
+    const direct = directUserscriptGlobals();
+    add(direct.GM_xmlhttpRequest, globalThis, 'directGlobal', 'GM_xmlhttpRequest');
+    add(direct.GM?.xmlHttpRequest, direct.GM, 'directGlobal', 'GM.xmlHttpRequest');
+    add(direct.GM?.xmlhttpRequest, direct.GM, 'directGlobal', 'GM.xmlhttpRequest');
+
+    for (const source of userscriptRequestSources()) {
+        const label = sourceLabel(source);
+        add(readSourceProperty(source, 'GM_xmlhttpRequest'), source, label, 'GM_xmlhttpRequest');
+        const gm = readSourceProperty(source, 'GM');
+        add(readSourceProperty(gm, 'xmlHttpRequest'), gm, label, 'GM.xmlHttpRequest');
+        add(readSourceProperty(gm, 'xmlhttpRequest'), gm, label, 'GM.xmlhttpRequest');
+    }
+    return candidates;
+}
+
+function directUserscriptGlobals(): UserscriptRequestSource {
+    return {
+        GM_xmlhttpRequest: typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : undefined,
+        GM: typeof GM === 'object' && GM ? GM : undefined,
+    };
 }
 
 function userscriptRequestSources(): UserscriptRequestSource[] {
@@ -48,16 +76,26 @@ function userscriptRequestSources(): UserscriptRequestSource[] {
 
 function mountedMonkeyWindows(): unknown[] {
     if (typeof document === 'undefined') return [];
-    const record = document as unknown as Record<string, unknown>;
     const windows = Object.getOwnPropertyNames(document)
         .filter(key => key.startsWith('__monkeyWindow-'))
-        .map(key => record[key]);
+        .map(key => readSourceProperty(document, key))
+        .filter(isRequestSource);
     log.debugThrottled('mounted-monkey-windows', 5000, 'Mounted monkey windows inspected', { count: windows.length });
     return windows;
 }
 
 function isRequestSource(value: unknown): value is UserscriptRequestSource {
     return Boolean(value) && (typeof value === 'object' || typeof value === 'function');
+}
+
+function readSourceProperty(source: unknown, key: string): unknown {
+    if (!isRequestSource(source)) return undefined;
+    try {
+        return (source as Record<string, unknown>)[key];
+    } catch (error) {
+        log.debugThrottled(`userscript-property-${key}`, 5000, 'Userscript API property unavailable', { key, error });
+        return undefined;
+    }
 }
 
 function asUserscriptRequest(value: unknown): UserscriptHttpRequest | undefined {

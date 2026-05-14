@@ -456,6 +456,7 @@
   position: relative;
   width: min(92vw, 420px);
   aspect-ratio: 1;
+  --jpdb-reader-doodle-ink: var(--jpdb-reader-text, #f2f4f8);
   touch-action: none;
 }
 .yomu-doodle-canvas,

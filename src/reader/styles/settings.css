@@ -183,6 +183,9 @@
   text-decoration: none !important;
   transition: all 0.2s ease-in-out;
 }
+.jpdb-reader-btn:where(:link, :visited) {
+  color: var(--jpdb-reader-text) !important;
+}
 .jpdb-reader-btn:hover,
 .jpdb-reader-btn:focus-visible {
   border-color: var(--button-accent, var(--jpdb-reader-accent));
@@ -507,6 +510,31 @@
 }
 .jpdb-reader-settings-actions .jpdb-reader-btn {
   display: inline-flex;
+  min-width: 0;
+}
+.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link] {
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 45%,
+    var(--jpdb-reader-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 86%,
+    var(--jpdb-reader-accent) 14%
+  );
+  color: var(--jpdb-reader-text) !important;
+}
+.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,
+.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 78%,
+    var(--jpdb-reader-accent) 22%
+  );
+  box-shadow: 0 6px 16px
+    color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
 .jpdb-reader-support-card {
   display: grid;

@@ -9,6 +9,14 @@ export interface KanjiVGInfo {
     kanji: string;
     svg: string;
     strokeCount: number;
+    componentPositions?: KanjiVGComponentPosition[];
+}
+
+export interface KanjiVGComponentPosition {
+    component: string;
+    original?: string;
+    position: string;
+    direct: boolean;
 }
 
 export class KanjiVGClient {
@@ -52,6 +60,7 @@ export function parseKanjiVGSvg(svgText: string, kanji: string): KanjiVGInfo | n
     if (!sourceSvg) return null;
 
     const viewBox = sourceSvg.getAttribute('viewBox') || '0 0 109 109';
+    const componentPositions = readKanjiVGComponentPositions(sourceSvg, kanji);
     const paths = Array.from(sourceSvg.querySelectorAll('path'))
         .map((path, index) => {
             const d = path.getAttribute('d');
@@ -75,7 +84,45 @@ export function parseKanjiVGSvg(svgText: string, kanji: string): KanjiVGInfo | n
         <g class="jpdb-reader-kanjivg-numbers">${numbers.join('')}</g>
     </svg>`;
 
-    return { kanji, svg, strokeCount: paths.length };
+    return { kanji, svg, strokeCount: paths.length, componentPositions };
+}
+
+function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string): KanjiVGComponentPosition[] {
+    const root = Array.from(sourceSvg.querySelectorAll('g'))
+        .find(group => group.getAttribute('kvg:element') === kanji);
+    const positions = new Map<string, KanjiVGComponentPosition>();
+    const add = (entry: KanjiVGComponentPosition) => {
+        const key = `${entry.component}\u0000${entry.original ?? ''}\u0000${entry.position}`;
+        const existing = positions.get(key);
+        if (!existing || (!existing.direct && entry.direct)) positions.set(key, entry);
+    };
+
+    Array.from(sourceSvg.querySelectorAll('g')).forEach(group => {
+        const component = cleanComponent(group.getAttribute('kvg:element') ?? '');
+        if (!component || component === kanji) return;
+        const position = cleanComponent(group.getAttribute('kvg:position') ?? inheritedKanjiVGPosition(group, root));
+        if (!position) return;
+        const original = cleanComponent(group.getAttribute('kvg:original') ?? '');
+        const direct = Boolean(root && group.parentNode === root);
+        add({ component, original: original || undefined, position, direct });
+        if (original && original !== component) add({ component: original, original: component, position, direct });
+    });
+
+    return Array.from(positions.values());
+}
+
+function inheritedKanjiVGPosition(group: Element, root: Element | undefined): string {
+    let parent = group.parentElement;
+    while (parent && parent !== root) {
+        const position = parent.getAttribute('kvg:position');
+        if (position) return position;
+        parent = parent.parentElement;
+    }
+    return '';
+}
+
+function cleanComponent(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
 }
 
 function requestText(url: string): Promise<string> {
