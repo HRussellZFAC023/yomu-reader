@@ -92,23 +92,29 @@
     return localStorageGet(key, fallback);
   }
   function gmStorageGetSync(key, fallback) {
-    if (typeof GM_getValue === "function") {
-      try {
-        const value = GM_getValue(key, MISSING);
-        if (!isPromiseLike(value)) {
-          if (value !== MISSING) return value;
-          const migrated = localStorageGet(key, MISSING);
-          if (migrated !== MISSING) {
-            void gmStorageSet(key, migrated);
-            return migrated;
-          }
-          return fallback;
-        }
-      } catch (error) {
-        debugStorageError("GM storage sync read failed", key, error);
-      }
+    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    if (getValue) {
+      const read = gmStorageSyncRead(key, getValue);
+      if (read.kind === "found") return read.value;
     }
     return localStorageGet(key, fallback);
+  }
+  function gmStorageSyncRead(key, getValue) {
+    try {
+      const value = getValue(key, MISSING);
+      if (isPromiseLike(value)) return { kind: "fallback" };
+      if (value !== MISSING) return { kind: "found", value };
+      return migratedLocalStorageSyncValue(key);
+    } catch (error) {
+      debugStorageError("GM storage sync read failed", key, error);
+      return { kind: "fallback" };
+    }
+  }
+  function migratedLocalStorageSyncValue(key) {
+    const migrated = localStorageGet(key, MISSING);
+    if (migrated === MISSING) return { kind: "fallback" };
+    void gmStorageSet(key, migrated);
+    return { kind: "found", value: migrated };
   }
   async function gmStorageSet(key, value) {
     if (typeof GM_setValue === "function") {
@@ -157,14 +163,18 @@
     return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
   }
   async function importStoredValues(values) {
-    if (!values || typeof values !== "object" || Array.isArray(values)) return 0;
     let count = 0;
-    for (const [key, value] of Object.entries(values)) {
-      if (!isManagedStorageKey(key)) continue;
+    for (const [key, value] of managedStoredValueEntries(values)) {
       await gmStorageSet(key, value);
       count++;
     }
     return count;
+  }
+  function managedStoredValueEntries(values) {
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key]) => isManagedStorageKey(key)) : [];
+  }
+  function isStorageImportRecord(values) {
+    return Boolean(values && typeof values === "object" && !Array.isArray(values));
   }
   async function clearManagedStoredValues() {
     const keys = await allStorageKeys();
@@ -238,12 +248,12 @@
   }
   async function storageKeys(prefixes) {
     const keys = /* @__PURE__ */ new Set();
-    await addGmStorageKeys(keys, prefixes);
+    await addPrefixedGmStorageKeys(keys, prefixes);
     addLocalStorageKeys(keys, prefixes);
     await addKnownManagedStorageKeys(keys, prefixes);
     return [...keys].sort();
   }
-  async function addGmStorageKeys(keys, prefixes) {
+  async function addPrefixedGmStorageKeys(keys, prefixes) {
     const listValues = globalThis.GM_listValues;
     if (typeof listValues !== "function") return;
     try {
@@ -276,20 +286,25 @@
   }
   async function allStorageKeys() {
     const keys = /* @__PURE__ */ new Set();
-    const listValues = globalThis.GM_listValues;
-    if (typeof listValues === "function") {
-      try {
-        for (const key of await listValues()) keys.add(key);
-      } catch (error) {
-        debugStorageError("GM storage list failed", "GM_listValues", error);
-      }
-    }
+    await addGmStorageKeys(keys);
     collectWebStorageKeys(localStorage, keys);
     collectWebStorageKeys(sessionStorage, keys);
+    await addKnownStoredKeys(keys);
+    return [...keys].sort();
+  }
+  async function addGmStorageKeys(keys) {
+    const listValues = globalThis.GM_listValues;
+    if (typeof listValues !== "function") return;
+    try {
+      for (const key of await listValues()) keys.add(key);
+    } catch (error) {
+      debugStorageError("GM storage list failed", "GM_listValues", error);
+    }
+  }
+  async function addKnownStoredKeys(keys) {
     for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
       if (await storedValueExists(key)) keys.add(key);
     }
-    return [...keys].sort();
   }
   function collectWebStorageKeys(storage, keys) {
     try {
@@ -348,11 +363,23 @@
   }
   function normalizeFactoryResetSignal(signal) {
     return {
-      id: String(signal.id || createFactoryResetId()),
-      phase: signal.phase === "complete" ? "complete" : "prepare",
-      at: typeof signal.at === "number" && Number.isFinite(signal.at) ? signal.at : Date.now(),
-      href: typeof signal.href === "string" ? signal.href : location.href
+      id: normalizedFactoryResetId(signal.id),
+      phase: normalizedFactoryResetPhase(signal.phase),
+      at: normalizedFactoryResetAt(signal.at),
+      href: normalizedFactoryResetHref(signal.href)
     };
+  }
+  function normalizedFactoryResetId(id) {
+    return String(id || createFactoryResetId());
+  }
+  function normalizedFactoryResetPhase(phase) {
+    return phase === "complete" ? "complete" : "prepare";
+  }
+  function normalizedFactoryResetAt(at) {
+    return typeof at === "number" && Number.isFinite(at) ? at : Date.now();
+  }
+  function normalizedFactoryResetHref(href) {
+    return typeof href === "string" ? href : location.href;
   }
   function parseFactoryResetSignal(value) {
     const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
@@ -1150,16 +1177,16 @@
   }
   function normalizeNewTabSettings(value) {
     return {
-      newTabEnabled: typeof (value == null ? void 0 : value.newTabEnabled) === "boolean" ? value.newTabEnabled : DEFAULT_SETTINGS.newTabEnabled,
+      newTabEnabled: booleanSetting(value, "newTabEnabled"),
       newTabSource: normalizeNewTabSource$1(value == null ? void 0 : value.newTabSource),
       newTabJpdbDeck: normalizeDeckIdSetting(value == null ? void 0 : value.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
       newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value == null ? void 0 : value.newTabJpdbReviewMode),
       newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value == null ? void 0 : value.newTabKanjiKeywordSource),
-      newTabParsingEnabled: typeof (value == null ? void 0 : value.newTabParsingEnabled) === "boolean" ? value.newTabParsingEnabled : DEFAULT_SETTINGS.newTabParsingEnabled,
-      newTabOfflineEnabled: typeof (value == null ? void 0 : value.newTabOfflineEnabled) === "boolean" ? value.newTabOfflineEnabled : DEFAULT_SETTINGS.newTabOfflineEnabled,
+      newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
+      newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
       newTabOfflineLimit: clampNumber$4(value == null ? void 0 : value.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
-      newTabKanjiAutogradeEnabled: typeof (value == null ? void 0 : value.newTabKanjiAutogradeEnabled) === "boolean" ? value.newTabKanjiAutogradeEnabled : DEFAULT_SETTINGS.newTabKanjiAutogradeEnabled,
-      newTabKanjiAutoSubmit: typeof (value == null ? void 0 : value.newTabKanjiAutoSubmit) === "boolean" ? value.newTabKanjiAutoSubmit : DEFAULT_SETTINGS.newTabKanjiAutoSubmit
+      newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
+      newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
   }
   function normalizeReaderDisplaySettings(value) {
@@ -1254,7 +1281,7 @@
       immersionKitSort: normalizeImmersionKitSort(value == null ? void 0 : value.immersionKitSort),
       immersionKitPlaybackRate: clampNumber$4(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
-      jpdbImmersionKitAutoPlayReviewAudio: jpdbImmersionReviewAudioEnabled(value, jpdbImmersionKitAvailable, jpdbWordAudioAutoPlayReviewAudio),
+      jpdbImmersionKitAutoPlayReviewAudio: jpdbImmersionReviewAudioEnabled$1(value, jpdbImmersionKitAvailable, jpdbWordAudioAutoPlayReviewAudio),
       jpdbWordAudioAutoPlayReviewAudio,
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
@@ -1270,14 +1297,14 @@
   function immersionKitAvailable(value) {
     return booleanSetting(value, "immersionKitEnabled") && booleanSetting(value, "jpdbImmersionKitEnabled");
   }
-  function jpdbImmersionReviewAudioEnabled(value, kitAvailable, jpdbWordAudioEnabled) {
+  function jpdbImmersionReviewAudioEnabled$1(value, kitAvailable, jpdbWordAudioEnabled) {
     return kitAvailable && !jpdbWordAudioEnabled && booleanSetting(value, "jpdbImmersionKitAutoPlayReviewAudio");
   }
   function normalizeSubtitleSettings(value) {
     return {
-      subtitleNativeBlurred: typeof (value == null ? void 0 : value.subtitleNativeBlurred) === "boolean" ? value.subtitleNativeBlurred : DEFAULT_SETTINGS.subtitleNativeBlurred,
-      subtitleKaraokeMode: typeof (value == null ? void 0 : value.subtitleKaraokeMode) === "boolean" ? value.subtitleKaraokeMode : DEFAULT_SETTINGS.subtitleKaraokeMode,
-      subtitleAutoCopyLine: typeof (value == null ? void 0 : value.subtitleAutoCopyLine) === "boolean" ? value.subtitleAutoCopyLine : DEFAULT_SETTINGS.subtitleAutoCopyLine,
+      subtitleNativeBlurred: booleanSetting(value, "subtitleNativeBlurred"),
+      subtitleKaraokeMode: booleanSetting(value, "subtitleKaraokeMode"),
+      subtitleAutoCopyLine: booleanSetting(value, "subtitleAutoCopyLine"),
       subtitleControlsMode: normalizeSubtitleControlsMode(value == null ? void 0 : value.subtitleControlsMode),
       subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value == null ? void 0 : value.subtitleTranscriptPlacement),
       subtitleTextColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
@@ -1706,22 +1733,27 @@
   function mergeDictionaryPreferences(current, names, types = {}) {
     const merged = new Map(current.map((item) => [item.name, item]));
     for (const name of names) {
-      const type = types[name] ?? inferDictionaryTypeFromName(name);
-      if (!merged.has(name)) {
-        merged.set(name, {
-          name,
-          alias: name,
-          enabled: true,
-          priority: merged.size,
-          allowSecondarySearches: false,
-          type
-        });
-      } else {
-        const existing = merged.get(name);
-        if (existing && !existing.type) merged.set(name, { ...existing, type });
-      }
+      mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
     }
     return normalizeDictionaryPreferences([...merged.values()]);
+  }
+  function mergeDictionaryPreference(merged, name, type) {
+    const existing = merged.get(name);
+    if (!existing) {
+      merged.set(name, defaultDictionaryPreference(name, type, merged.size));
+      return;
+    }
+    if (!existing.type) merged.set(name, { ...existing, type });
+  }
+  function defaultDictionaryPreference(name, type, priority) {
+    return {
+      name,
+      alias: name,
+      enabled: true,
+      priority,
+      allowSecondarySearches: false,
+      type
+    };
   }
   function normalizeDictionaryType(value, name = "") {
     if (value === "terms" || value === "kanji" || value === "frequency" || value === "metadata") return value;
@@ -7768,11 +7800,15 @@ ${candidate.depth}`;
   function dexieTableRowCounts(tables) {
     const counts = {};
     for (const table of tables) {
-      if (!table || typeof table !== "object") continue;
-      const record = table;
-      if (typeof record.name === "string" && typeof record.rowCount === "number") counts[record.name] = record.rowCount;
+      const count = dexieTableRowCount(table);
+      if (count) counts[count.name] = count.rowCount;
     }
     return counts;
+  }
+  function dexieTableRowCount(table) {
+    if (!table || typeof table !== "object") return null;
+    const record = table;
+    return typeof record.name === "string" && typeof record.rowCount === "number" ? { name: record.name, rowCount: record.rowCount } : null;
   }
   async function streamDexieTables(file, handlers, onTable) {
     if (typeof file.stream !== "function" || typeof TextDecoderStream === "undefined") {
@@ -7854,16 +7890,25 @@ ${candidate.depth}`;
   }
   async function readDexieRows(state, handlers) {
     let progress = false;
-    for (let index = 0; index < state.buffer.length; index++) {
-      const action = readDexieRowCharacter(state, index);
-      if (action === "continue") continue;
-      const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
-      if (result.done) return true;
-      progress = result.progress;
-      if (result.restart) index = -1;
+    let index = 0;
+    while (index < state.buffer.length) {
+      const step = await readDexieRowStep(state, handlers, index, progress);
+      if (step.done) return true;
+      progress = step.progress;
+      index = step.nextIndex;
     }
     if (!progress) compactDexieRowBuffer(state);
     return progress;
+  }
+  async function readDexieRowStep(state, handlers, index, progress) {
+    const action = readDexieRowCharacter(state, index);
+    if (action === "continue") return { done: false, progress, nextIndex: index + 1 };
+    const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
+    return {
+      done: result.done,
+      progress: result.progress,
+      nextIndex: result.restart ? 0 : index + 1
+    };
   }
   async function applyDexieRowReadAction(state, handlers, action, index, progress) {
     if (action === "close-array") return { done: true, progress, restart: false };
@@ -7901,14 +7946,18 @@ ${candidate.depth}`;
     return true;
   }
   function advanceStringState(state, char) {
-    if (state.inString) {
-      if (state.escaped) state.escaped = false;
-      else if (char === "\\") state.escaped = true;
-      else if (char === '"') state.inString = false;
-      return true;
-    }
+    if (state.inString) return advanceOpenStringState(state, char);
+    return enterStringState(state, char);
+  }
+  function enterStringState(state, char) {
     if (char !== '"') return false;
     state.inString = true;
+    return true;
+  }
+  function advanceOpenStringState(state, char) {
+    if (state.escaped) state.escaped = false;
+    else if (char === "\\") state.escaped = true;
+    else if (char === '"') state.inString = false;
     return true;
   }
   function compactDexieRowBuffer(state) {
@@ -8206,11 +8255,32 @@ ${candidate.depth}`;
     return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
   }
   function renderGlossaryRecord(record, context) {
-    if (typeof record.text === "string") return escapeHtml(record.text);
-    if (record.type === "structured-content") return renderStructuredContent(record, context);
-    if (isStructuredImageRecord(record)) return renderStructuredImage(record, context.dictionary);
-    if (record.type === "text" && "content" in record) return renderGlossaryValue(record.content, context);
-    return renderTaggedGlossaryRecord(record, context);
+    return renderDirectGlossaryRecord(record, context) ?? renderTaggedGlossaryRecord(record, context);
+  }
+  const DIRECT_GLOSSARY_RECORD_RENDERERS = [
+    renderTextGlossaryRecord,
+    renderStructuredContentGlossaryRecord,
+    renderImageGlossaryRecord,
+    renderTextContentGlossaryRecord
+  ];
+  function renderDirectGlossaryRecord(record, context) {
+    for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
+      const html = render(record, context);
+      if (html !== null) return html;
+    }
+    return null;
+  }
+  function renderTextGlossaryRecord(record) {
+    return typeof record.text === "string" ? escapeHtml(record.text) : null;
+  }
+  function renderStructuredContentGlossaryRecord(record, context) {
+    return record.type === "structured-content" ? renderStructuredContent(record, context) : null;
+  }
+  function renderImageGlossaryRecord(record, context) {
+    return isStructuredImageRecord(record) ? renderStructuredImage(record, context.dictionary) : null;
+  }
+  function renderTextContentGlossaryRecord(record, context) {
+    return record.type === "text" && "content" in record ? renderGlossaryValue(record.content, context) : null;
   }
   function renderStructuredContent(record, context) {
     const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
@@ -8219,12 +8289,15 @@ ${candidate.depth}`;
   function renderTaggedGlossaryRecord(record, context) {
     const tag = structuredRecordTag(record);
     if (!tag) return renderRecordValues(record, context);
+    return renderKnownTaggedGlossaryRecord(record, tag, context) ?? structuredFallbackContent(record, taggedRecordContent(record, tag, context));
+  }
+  function renderKnownTaggedGlossaryRecord(record, tag, context) {
     if (tag === "a") return renderStructuredLink(record, context);
     if (tag === "img") return renderStructuredImage(record, context.dictionary);
     const content = taggedRecordContent(record, tag, context);
     if (tag === "table") return renderStructuredTable(record, content, context.dictionary);
     if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record, tag, content, context.dictionary);
-    return structuredFallbackContent(record, content);
+    return null;
   }
   function taggedRecordContent(record, tag, context) {
     return tag === "br" ? "" : renderGlossaryValue(record.content, context);
@@ -8293,12 +8366,13 @@ ${candidate.depth}`;
     return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
   }
   function renderDirectDataAttributes(record) {
-    const attrs = [];
-    for (const [key, value] of Object.entries(record)) {
-      if (!key.startsWith("data-") || typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") continue;
-      attrs.push(` ${key}="${escapeHtml(String(value))}"`);
-    }
-    return attrs.join("");
+    return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
+  }
+  function renderDirectDataAttribute([key, value]) {
+    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
+  }
+  function isDirectDataAttribute(key, value) {
+    return key.startsWith("data-") && isStructuredAttributeValue(value);
   }
   function renderStructuredStyle(value) {
     const style = structuredStyleRecord(value);
@@ -8333,13 +8407,22 @@ ${candidate.depth}`;
   }
   function structuredLinkModel(record, context) {
     const rawHref = typeof record.href === "string" ? record.href : "";
-    const searchReference = context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
-    const href = searchReference ? "#jpdb-reader-dictionary-lookup" : normalizeStructuredHref(rawHref);
+    const searchReference = structuredLinkSearchReference(rawHref, context);
+    const href = structuredLinkHref(rawHref, searchReference);
     return {
       href,
-      external: href ? !href.startsWith(locationOrigin()) && !href.startsWith("#") : false,
+      external: isExternalStructuredHref(href),
       searchReference
     };
+  }
+  function structuredLinkSearchReference(rawHref, context) {
+    return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
+  }
+  function structuredLinkHref(rawHref, searchReference) {
+    return searchReference ? "#jpdb-reader-dictionary-lookup" : normalizeStructuredHref(rawHref);
+  }
+  function isExternalStructuredHref(href) {
+    return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith("#"));
   }
   function structuredLinkAttrs(link, dictionary, lang) {
     return [
@@ -8383,21 +8466,33 @@ ${candidate.depth}`;
     return `<span${renderStructuredImageAttributes(record, dictionary, path)}>${renderStructuredImageContainer(record, title, metrics)}<span class="gloss-image-link-text">Image</span></span>`;
   }
   function renderStructuredImageAttributes(record, dictionary, path) {
-    const dictionaryAttr = dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
     return [
       ` class="gloss-image-link"`,
-      dictionaryAttr,
-      path ? ` data-path="${escapeHtml(path)}"` : "",
+      dictionaryAttribute(dictionary),
+      structuredImagePathAttribute(path),
+      ...structuredImageStateAttributes(record),
+      ...structuredImageOptionalAttributes(record)
+    ].join("");
+  }
+  function structuredImagePathAttribute(path) {
+    return path ? ` data-path="${escapeHtml(path)}"` : "";
+  }
+  function structuredImageStateAttributes(record) {
+    return [
       ` data-image-load-state="unloaded"`,
       ` data-has-aspect-ratio="true"`,
       ` data-image-rendering="${escapeHtml(structuredImageRendering(record))}"`,
       ` data-appearance="${escapeHtml(String(record.appearance || "auto"))}"`,
       structuredImageBooleanAttribute(record, "background", true),
       structuredImageBooleanAttribute(record, "collapsed", false),
-      structuredImageBooleanAttribute(record, "collapsible", true),
+      structuredImageBooleanAttribute(record, "collapsible", true)
+    ];
+  }
+  function structuredImageOptionalAttributes(record) {
+    return [
       typeof record.verticalAlign === "string" ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : "",
       typeof record.sizeUnits === "string" ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : ""
-    ].join("");
+    ];
   }
   function structuredImageBooleanAttribute(record, key, fallback) {
     const value = typeof record[key] === "boolean" ? record[key] : fallback;
@@ -8458,17 +8553,19 @@ ${candidate.depth}`;
   }
   function parseStructuredSearchReference(href) {
     if (!href.startsWith("?")) return null;
+    const params = structuredSearchParams(href);
+    return params ? structuredSearchReferenceFromParams(params) : null;
+  }
+  function structuredSearchParams(href) {
     try {
-      const params = new URLSearchParams(href.slice(1));
-      const query = (params.get("query") ?? "").trim();
-      if (!query) return null;
-      return {
-        query,
-        reading: (params.get("primary_reading") ?? "").trim()
-      };
+      return new URLSearchParams(href.slice(1));
     } catch {
       return null;
     }
+  }
+  function structuredSearchReferenceFromParams(params) {
+    const query = (params.get("query") ?? "").trim();
+    return query ? { query, reading: (params.get("primary_reading") ?? "").trim() } : null;
   }
   function locationOrigin() {
     try {
@@ -9083,17 +9180,12 @@ ${entry.reading}`;
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
-        const results = topTerms.size ? await this.entriesForRandomExpressions(topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank);
-        if (!topTerms.size && !results.length) {
+        const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences);
+        if (this.shouldFallbackToRandomTerms(topTerms, results)) {
           log$w.debug("No common dictionary terms found, falling back to fully random terms");
           return await this.listRandomTerms(limit, preferences);
         }
-        log$w.debug("Random top term listing completed", {
-          limit,
-          frequencyCandidates: topTerms.size,
-          results: results.length,
-          fallback: topTerms.size ? "frequency" : "common-tags"
-        });
+        this.logRandomTopTermsComplete(limit, topTerms, results);
         return results;
       } catch (error) {
         log$w.warn("Random top term listing failed", { limit, error });
@@ -9101,6 +9193,20 @@ ${entry.reading}`;
       } finally {
         done();
       }
+    }
+    async randomTopTermResults(db, topTerms, limit, rank, preferences) {
+      return topTerms.size ? await this.entriesForRandomExpressions(topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank);
+    }
+    shouldFallbackToRandomTerms(topTerms, results) {
+      return !topTerms.size && !results.length;
+    }
+    logRandomTopTermsComplete(limit, topTerms, results) {
+      log$w.debug("Random top term listing completed", {
+        limit,
+        frequencyCandidates: topTerms.size,
+        results: results.length,
+        fallback: topTerms.size ? "frequency" : "common-tags"
+      });
     }
     async collectTopFrequencyTerms(db, maxRank, rank) {
       const expressions = /* @__PURE__ */ new Map();
@@ -9909,9 +10015,8 @@ ${item.sequence ?? ""}`;
     return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
   }
   function normalizeDexieTermRow(row) {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== "object") return null;
-    const record = candidate;
+    const record = dexieRowRecord(row);
+    if (!record) return null;
     if (typeof record.expression !== "string" || typeof record.dictionary !== "string") return null;
     return {
       expression: record.expression,
@@ -9950,11 +10055,8 @@ ${entry.reading}
 ${glossaryKey}`;
   }
   function normalizeDexieKanjiRow(row) {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== "object") return null;
-    const record = candidate;
-    if (typeof record.character !== "string" || typeof record.dictionary !== "string") return null;
-    return {
+    const record = dexieKanjiRecord(row);
+    return record ? {
       character: record.character,
       onyomi: dexieStringList(record.onyomi),
       kunyomi: dexieStringList(record.kunyomi),
@@ -9962,22 +10064,30 @@ ${glossaryKey}`;
       meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
       stats: record.stats,
       dictionary: record.dictionary
-    };
+    } : null;
+  }
+  function dexieKanjiRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.character === "string" && typeof record.dictionary === "string" ? record : null;
   }
   function dexieStringList(value) {
     return Array.isArray(value) ? value.map(String) : splitTags(value);
   }
   function normalizeDexieTermMetaRow(row) {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== "object") return null;
-    const record = candidate;
-    return typeof record.expression === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+    const record = dexieTermMetaRecord(row);
+    return record ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
   }
   function normalizeDexieKanjiMetaRow(row) {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== "object") return null;
-    const record = candidate;
-    return typeof record.character === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+    const record = dexieKanjiMetaRecord(row);
+    return record ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+  }
+  function dexieTermMetaRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.expression === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function dexieKanjiMetaRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.character === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
   }
   function normalizeDexieDictionaryRow(row) {
     const record = dexieDictionaryRecord(row);
@@ -9997,8 +10107,7 @@ ${glossaryKey}`;
     };
   }
   function dexieDictionaryRecord(row) {
-    const candidate = unwrapDexieRow(row);
-    return candidate && typeof candidate === "object" ? candidate : null;
+    return dexieRowRecord(row);
   }
   function dictionaryInfoEnabled(value) {
     return typeof value === "boolean" ? value : true;
@@ -10024,6 +10133,10 @@ ${glossaryKey}`;
       return Array.isArray(value) ? value.find((item) => item && typeof item === "object" && !Array.isArray(item)) : value;
     }
     return row;
+  }
+  function dexieRowRecord(row) {
+    const candidate = unwrapDexieRow(row);
+    return candidate && typeof candidate === "object" ? candidate : null;
   }
   function isReaderDictionaryExport(value) {
     const record = readerDictionaryExportRecord(value);
@@ -10122,36 +10235,43 @@ ${glossaryKey}`;
   }
   async function requestBlobViaFetch(url, done) {
     const downloadUrl = dictionaryDownloadUrl(url);
-    if (!downloadUrl) {
-      done();
-      throw new Error("Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
-    }
+    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done);
     try {
-      log$w.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
-      const response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
-      if (!response.ok) {
-        log$w.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
-        throw new Error(`Dictionary download failed (${response.status}).`);
-      }
-      const blob = await response.blob();
-      log$w.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
-      done();
-      return blob;
+      return await fetchDictionaryBlob(url, downloadUrl, done);
     } catch (error) {
-      const host = safeHost$5(url);
-      if (error instanceof Error) {
-        if (error.name === "TypeError") {
-          log$w.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
-          done();
-          throw new Error("Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
-        }
-        log$w.warn("Dictionary download fetch failed", { host, error });
-      } else {
-        log$w.warn("Dictionary download fetch failed", { host, error });
-      }
-      done();
-      throw error;
+      return handleDictionaryFetchError(url, downloadUrl, error, done);
     }
+  }
+  function throwMissingDictionaryDownloadBridge(done) {
+    done();
+    throw new Error("Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
+  }
+  async function fetchDictionaryBlob(url, downloadUrl, done) {
+    log$w.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
+    const response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
+    if (!response.ok) throwDictionaryHttpError(url, response.status);
+    const blob = await response.blob();
+    log$w.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
+    done();
+    return blob;
+  }
+  function throwDictionaryHttpError(url, status) {
+    log$w.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status });
+    throw new Error(`Dictionary download failed (${status}).`);
+  }
+  function handleDictionaryFetchError(url, downloadUrl, error, done) {
+    const host = safeHost$5(url);
+    if (isDictionaryCorsError(error)) {
+      log$w.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
+      done();
+      throw new Error("Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
+    }
+    log$w.warn("Dictionary download fetch failed", { host, error });
+    done();
+    throw error;
+  }
+  function isDictionaryCorsError(error) {
+    return error instanceof Error && error.name === "TypeError";
   }
   function dictionaryDownloadUrl(url) {
     try {
@@ -13117,7 +13237,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function renderSpellingForKanjiNavigation(spelling, language) {
     return Array.from(spelling).map(
-      (character) => isKanjiCharacter(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
+      (character) => isKanjiCharacter$1(character) ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml$1(character)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${character}`)}">${escapeHtml$1(character)}</button>` : `<span>${escapeHtml$1(character)}</span>`
     ).join("");
   }
   function groupTermEntriesByDictionary(entries) {
@@ -13171,7 +13291,7 @@ ${entry.reading || ""}`;
     const elementKeywords = splitRtkElements$1((rtkInfo == null ? void 0 : rtkInfo.elements) ?? "").filter((keyword) => rtkElementKey(keyword) !== rtkElementKey((rtkInfo == null ? void 0 : rtkInfo.keyword) ?? ""));
     const jpdbByKanji = new Map(((jpdbInfo == null ? void 0 : jpdbInfo.components) ?? []).map((component) => [component.kanji, component.keyword]));
     const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
-    const summaries = [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter).map((kanji, index) => ({
+    const summaries = [.../* @__PURE__ */ new Set([...(rtkInfo == null ? void 0 : rtkInfo.componentKanji) ?? [], ...(jpdbInfo == null ? void 0 : jpdbInfo.components.map((component) => component.kanji)) ?? []])].filter(isKanjiCharacter$1).map((kanji, index) => ({
       kanji,
       keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
       meaning: localByKanji.get(kanji) || ""
@@ -13277,7 +13397,7 @@ ${entry.reading}`;
     const match = value.match(/^([^\sA-Za-z0-9])\s*(.+)$/u);
     if (!match) return { keyword: value, glyph: "", kanji: "" };
     const glyph = match[1] ?? "";
-    return { glyph, kanji: isKanjiCharacter(glyph) ? glyph : "", keyword: ((_a = match[2]) == null ? void 0 : _a.trim()) ?? "" };
+    return { glyph, kanji: isKanjiCharacter$1(glyph) ? glyph : "", keyword: ((_a = match[2]) == null ? void 0 : _a.trim()) ?? "" };
   }
   function buildRtkElementChips(info, components2) {
     const componentKanji = new Set(components2.map((component) => component.kanji).filter(Boolean));
@@ -13442,6 +13562,13 @@ ${entry.reading}`;
     ["left", LEFT_COMPONENTS],
     ["right", RIGHT_COMPONENTS]
   ];
+  const COMPONENT_POSITION_ZONES = [
+    [/へん|left/, "left"],
+    [/つくり|right/, "right"],
+    [/かんむり|top|upper/, "top"],
+    [/あし|した|bottom|lower/, "bottom"],
+    [/かまえ|enclosure|surround/, "center"]
+  ];
   const OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES = /* @__PURE__ */ new Map([
     ["夫\0失", "upper"],
     ["夫\0替", "top"],
@@ -13467,20 +13594,33 @@ ${entry.reading}`;
     };
   }
   function originGraphBase(graph) {
-    const nodes = (graph == null ? void 0 : graph.nodes.filter((node) => !node.id.startsWith("rtk:"))) ?? [];
+    const nodes = originGraphRenderableNodes(graph);
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const nodeIds = new Set(nodeById.keys());
-    const edges = (graph == null ? void 0 : graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))) ?? [];
-    if (nodes.length <= 1 || !edges.length) {
-      log$q.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
-      return null;
-    }
+    const edges = originGraphRenderableEdges(graph, nodeById);
+    if (shouldSkipOriginGraph(nodes, edges)) return skippedOriginGraphBase(nodes, edges);
     return {
       nodes,
       nodeById,
       edges,
-      current: nodes.find((node) => node.kind === "current") ?? nodes[0]
+      current: originGraphCurrentNode(nodes)
     };
+  }
+  function originGraphRenderableNodes(graph) {
+    return (graph == null ? void 0 : graph.nodes.filter((node) => !node.id.startsWith("rtk:"))) ?? [];
+  }
+  function originGraphRenderableEdges(graph, nodeById) {
+    const nodeIds = new Set(nodeById.keys());
+    return (graph == null ? void 0 : graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))) ?? [];
+  }
+  function shouldSkipOriginGraph(nodes, edges) {
+    return nodes.length <= 1 || !edges.length;
+  }
+  function skippedOriginGraphBase(nodes, edges) {
+    log$q.debug("Kanji origin graph render skipped", { nodes: nodes.length, edges: edges.length });
+    return null;
+  }
+  function originGraphCurrentNode(nodes) {
+    return nodes.find((node) => node.kind === "current") ?? nodes[0];
   }
   function selectedOriginGraphEdges(base) {
     const groupedEdges = groupOriginEdges(base.edges);
@@ -13806,12 +13946,8 @@ ${entry.reading}`;
     return zoneFromComponentPosition(position) ?? zoneFromKnownComponent(node) ?? "center";
   }
   function zoneFromComponentPosition(position) {
-    if (/へん|left/.test(position)) return "left";
-    if (/つくり|right/.test(position)) return "right";
-    if (/かんむり|top|upper/.test(position)) return "top";
-    if (/あし|した|bottom|lower/.test(position)) return "bottom";
-    if (/かまえ|enclosure|surround/.test(position)) return "center";
-    return null;
+    var _a;
+    return ((_a = COMPONENT_POSITION_ZONES.find(([pattern]) => pattern.test(position))) == null ? void 0 : _a[1]) ?? null;
   }
   function zoneFromKnownComponent(node) {
     var _a;
@@ -14033,13 +14169,15 @@ ${entry.reading}`;
     const record = objectRecord(value);
     if (!record) return pitchPositionFromValue(value);
     if (!pitchMetadataReadingMatches(record, reading)) return null;
+    return pitchPositionFromMetadataRecord(record);
+  }
+  function pitchPositionFromMetadataRecord(record) {
     const direct = pitchPositionFromValue(record.position);
     if (direct != null) return direct;
-    for (const candidate of pitchPositionCandidates(record)) {
-      const position = pitchPositionFromValue(candidate);
-      if (position != null) return position;
-    }
-    return null;
+    return firstPitchPositionCandidate(record);
+  }
+  function firstPitchPositionCandidate(record) {
+    return pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).find((position) => position != null) ?? null;
   }
   function pitchMetadataReadingMatches(record, reading) {
     const metadataReading = typeof record.reading === "string" ? record.reading : "";
@@ -14095,9 +14233,9 @@ ${entry.reading}`;
     </svg>`;
   }
   function uniqueKanji(value) {
-    return [...new Set(Array.from(value).filter(isKanjiCharacter))];
+    return [...new Set(Array.from(value).filter(isKanjiCharacter$1))];
   }
-  function isKanjiCharacter(value) {
+  function isKanjiCharacter$1(value) {
     const code = value.codePointAt(0) ?? 0;
     return code >= 13312 && code <= 40959;
   }
@@ -14121,13 +14259,16 @@ ${entry.reading}`;
     });
   }
   function classifyPopupPitch(profile) {
-    if (isPopupAtamadaka(profile)) return "atamadaka";
-    if (isPopupOdaka(profile)) return "odaka";
-    if (isPopupHeiban(profile)) return "heiban";
-    if (isPopupNakadaka(profile)) return "nakadaka";
-    if (isPopupKifuku(profile)) return "kifuku";
-    return "odaka";
+    var _a;
+    return ((_a = POPUP_PITCH_CLASSIFIERS.find(([, matches]) => matches(profile))) == null ? void 0 : _a[0]) ?? "odaka";
   }
+  const POPUP_PITCH_CLASSIFIERS = [
+    ["atamadaka", isPopupAtamadaka],
+    ["odaka", isPopupOdaka],
+    ["heiban", isPopupHeiban],
+    ["nakadaka", isPopupNakadaka],
+    ["kifuku", isPopupKifuku]
+  ];
   function isPopupAtamadaka(profile) {
     return profile.pitch.startsWith("H") && profile.drops === 1;
   }
@@ -24508,16 +24649,26 @@ ${card.reading}`;
   function japaneseRunAt(text2, offset) {
     const index = japaneseRunIndexAt(text2, offset);
     if (index === null) return null;
-    let start = index;
-    let end = index + 1;
-    while (start > 0 && JAPANESE_RUN_RE.test(text2[start - 1])) start--;
-    while (end < text2.length && JAPANESE_RUN_RE.test(text2[end])) end++;
-    return { start, end, offset: index };
+    return {
+      start: japaneseRunStart(text2, index),
+      end: japaneseRunEnd(text2, index),
+      offset: index
+    };
   }
   function japaneseRunIndexAt(text2, offset) {
     let index = Math.min(Math.max(offset, 0), text2.length - 1);
     if (!isJapaneseCharacterAt(text2, index) && index > 0 && isJapaneseCharacterAt(text2, index - 1)) index--;
     return isJapaneseCharacterAt(text2, index) ? index : null;
+  }
+  function japaneseRunStart(text2, index) {
+    let start = index;
+    while (start > 0 && isJapaneseCharacterAt(text2, start - 1)) start--;
+    return start;
+  }
+  function japaneseRunEnd(text2, index) {
+    let end = index + 1;
+    while (end < text2.length && isJapaneseCharacterAt(text2, end)) end++;
+    return end;
   }
   function isJapaneseCharacterAt(text2, index) {
     return JAPANESE_RUN_RE.test(text2[index] ?? "");
@@ -24870,9 +25021,15 @@ ${card.reading}`;
     return entries;
   }
   function rtkSearchIndexEntry(match) {
-    const kanji = Array.from(match[1] ?? "").find((character) => KANJI_RE.test(character)) ?? "";
+    const kanji = firstKanjiCharacter(match[1]);
     const keyword = match[2] ?? "";
     return kanji && keyword ? { kanji, keyword } : null;
+  }
+  function firstKanjiCharacter(value) {
+    return Array.from(value ?? "").find(isKanjiCharacter) ?? "";
+  }
+  function isKanjiCharacter(character) {
+    return KANJI_RE.test(character);
   }
   function addRtkKeywordIndexEntry(entries, collisions, key, kanji) {
     if (!key || collisions.has(key)) return;
@@ -25286,13 +25443,22 @@ ${spelling}`);
     `;
   }
   function jpdbRevealAudioSettings(settings) {
-    const wordEnabled = settings.audioEnabled && settings.jpdbWordAudioAutoPlayReviewAudio;
-    const immersionAvailable = settings.immersionKitEnabled && settings.jpdbImmersionKitEnabled;
+    const wordEnabled = jpdbWordReviewAudioEnabled(settings);
+    const immersionAvailable = jpdbImmersionReviewAudioAvailable(settings);
     return {
       wordEnabled,
-      immersionEnabled: immersionAvailable && !wordEnabled && settings.jpdbImmersionKitAutoPlayReviewAudio,
+      immersionEnabled: jpdbImmersionReviewAudioEnabled(settings, immersionAvailable, wordEnabled),
       immersionDisabled: !immersionAvailable || wordEnabled
     };
+  }
+  function jpdbWordReviewAudioEnabled(settings) {
+    return settings.audioEnabled && settings.jpdbWordAudioAutoPlayReviewAudio;
+  }
+  function jpdbImmersionReviewAudioAvailable(settings) {
+    return settings.immersionKitEnabled && settings.jpdbImmersionKitEnabled;
+  }
+  function jpdbImmersionReviewAudioEnabled(settings, immersionAvailable, wordEnabled) {
+    return immersionAvailable && !wordEnabled && settings.jpdbImmersionKitAutoPlayReviewAudio;
   }
   function renderInterfaceSettingsPanel(settings) {
     return `
@@ -26559,15 +26725,23 @@ ${spelling}`);
     });
   }
   function sourceRowDropSlotFromRow(dragged, target, clientY) {
-    const container = dragged.closest("[data-source-editor]");
-    if (!target || !container || target === dragged || target.closest("[data-source-editor]") !== container) return null;
-    const rect = target.getBoundingClientRect();
+    const container = sourceRowDropContainer(dragged, target);
+    if (!container || !target) return null;
     return {
       container,
       dragged,
       target,
-      position: clientY < rect.top + rect.height / 2 ? "before" : "after"
+      position: sourceRowDropPosition(target, clientY)
     };
+  }
+  function sourceRowDropContainer(dragged, target) {
+    const container = dragged.closest("[data-source-editor]");
+    if (!target || !container || target === dragged) return null;
+    return target.closest("[data-source-editor]") === container ? container : null;
+  }
+  function sourceRowDropPosition(target, clientY) {
+    const rect = target.getBoundingClientRect();
+    return clientY < rect.top + rect.height / 2 ? "before" : "after";
   }
   function showSourceRowDropSlot(root, slot) {
     clearSourceRowDropSlot(root);
@@ -27300,6 +27474,34 @@ ${spelling}`);
       if (status) status.textContent = message;
     };
   }
+  function missingStarterDictionaries(summary) {
+    return RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => STARTER_DICTIONARY_IDS.includes(dictionary.id)).filter((dictionary) => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
+  }
+  function shouldDownloadStarterDictionaries(missing, summary, force) {
+    return Boolean(missing.length && (force || summary.terms <= 0));
+  }
+  function focusPreviewAudioSource(form, button2, previewSettings) {
+    const row = button2 == null ? void 0 : button2.closest("[data-audio-source-row]");
+    if (!row) return;
+    const source = previewSettings.audioSources[sourceRowIndex(form, row)];
+    if (!source) return;
+    previewSettings.audioSources = [{ ...source, enabled: true }];
+    previewSettings.audioEnableDefaultSources = false;
+  }
+  function sourceRowIndex(form, row) {
+    return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+  }
+  function recommendedDictionaryForControl(control) {
+    const dictionary = (control == null ? void 0 : control.dataset.dictionaryId) ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
+    if (!dictionary) throw new Error("Recommended dictionary not found.");
+    return dictionary;
+  }
+  function disableRecommendedDictionaryControl(control) {
+    control == null ? void 0 : control.setAttribute("disabled", "true");
+  }
+  function recommendedDictionaryDownloadStatus(control, dictionaryName) {
+    return `${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionaryName}...`;
+  }
   function settingsActionButton(control) {
     return control instanceof HTMLButtonElement ? control : (control == null ? void 0 : control.closest("button")) ?? null;
   }
@@ -27589,36 +27791,35 @@ ${spelling}`);
     }
     async downloadStarterDictionaries(onProgress, force = false) {
       const summary = await this.dependencies.dictionaries.summary();
-      const missing = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => STARTER_DICTIONARY_IDS.includes(dictionary.id)).filter((dictionary) => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
-      if (!missing.length || !force && summary.terms > 0) return false;
+      const missing = missingStarterDictionaries(summary);
+      if (!shouldDownloadStarterDictionaries(missing, summary, force)) return false;
       let importedEntries = 0;
       for (const [index, dictionary] of missing.entries()) {
-        onProgress == null ? void 0 : onProgress(`Downloading ${dictionary.name} (${index + 1}/${missing.length})...`);
-        log$6.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total: missing.length });
-        const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => onProgress == null ? void 0 : onProgress(message));
-        importedEntries += imported.entries;
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries, imported.dictionaryTypes ?? {});
-        this.settings.localDictionariesEnabled = true;
-        await saveSettings(this.settings);
-        await this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
+        importedEntries += await this.downloadStarterDictionary(dictionary, index, missing.length, onProgress);
       }
       onProgress == null ? void 0 : onProgress(`Dictionary ready: ${importedEntries.toLocaleString()} records imported.`);
       log$6.info("Starter dictionaries downloaded", { dictionaries: missing.length, importedEntries });
       return true;
     }
+    async downloadStarterDictionary(dictionary, index, total, onProgress) {
+      onProgress == null ? void 0 : onProgress(`Downloading ${dictionary.name} (${index + 1}/${total})...`);
+      log$6.info("Downloading starter dictionary", { dictionary: dictionary.name, index: index + 1, total });
+      const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => onProgress == null ? void 0 : onProgress(message));
+      await this.persistDictionaryImport(imported);
+      return imported.entries;
+    }
     async handleSettingsAction(form, action, control) {
       const status = form.querySelector("[data-import-status]");
       const setStatus = settingsStatusSetter(status);
       try {
-        if (this.handleSettingsEditorAction(form, action, control)) return;
-        if (await this.handleSettingsAudioAction(form, action, control)) return;
-        if (await this.handleSettingsDictionaryAction(form, action, control, setStatus)) return;
-        if (await this.handleSettingsImportExportAction(form, action, setStatus)) return;
-        await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
+        await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {
         handleSettingsActionError(action, control, setStatus, error);
       }
+    }
+    async runSettingsAction(form, action, control, setStatus) {
+      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus);
+      if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
     async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
       if (await this.handleSettingsConnectionAction(form, action, control)) return true;
@@ -27656,15 +27857,7 @@ ${spelling}`);
       const button2 = settingsActionButton(control);
       const previous = this.settings;
       const previewSettings = readFormSettings(new FormData(form), this.settings);
-      const row = button2 == null ? void 0 : button2.closest("[data-audio-source-row]");
-      if (row) {
-        const rowIndex = Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
-        const source = previewSettings.audioSources[rowIndex];
-        if (source) {
-          previewSettings.audioSources = [{ ...source, enabled: true }];
-          previewSettings.audioEnableDefaultSources = false;
-        }
-      }
+      focusPreviewAudioSource(form, button2, previewSettings);
       this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
       button2 == null ? void 0 : button2.setAttribute("disabled", "true");
       try {
@@ -27802,32 +27995,31 @@ ${spelling}`);
       const file = await pickFile(form, "dictionary");
       if (!file) return;
       const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
-      await saveSettings(this.settings);
-      await this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
+      await this.persistDictionaryImport(summary);
       setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
       log$6.info("Dictionary file imported", summary);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
     }
     async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
-      const dictionaryId = control == null ? void 0 : control.dataset.dictionaryId;
-      const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : void 0;
-      if (!dictionary) throw new Error("Recommended dictionary not found.");
-      control == null ? void 0 : control.setAttribute("disabled", "true");
-      setStatus(`${(control == null ? void 0 : control.dataset.installed) === "true" ? "Updating" : "Downloading"} ${dictionary.name}...`);
+      const dictionary = recommendedDictionaryForControl(control);
+      disableRecommendedDictionaryControl(control);
+      setStatus(recommendedDictionaryDownloadStatus(control, dictionary.name));
       log$6.info("Downloading selected dictionary", { dictionary: dictionary.name });
       const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
       if (!summary) return;
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
-      await saveSettings(this.settings);
-      await this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
+      await this.persistDictionaryImport(summary);
       setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
       log$6.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+    }
+    async persistDictionaryImport(summary) {
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
+      this.settings.localDictionariesEnabled = true;
+      await saveSettings(this.settings);
+      await this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
     }
     async downloadRecommendedDictionary(dictionary, control, setStatus) {
       try {
@@ -28293,20 +28485,30 @@ ${spelling}`);
     return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
   }
   function collectGenericProseTargets(limit) {
-    const roots = Array.from(document.querySelectorAll(GENERIC_PROSE_ROOTS)).filter((root) => isUsefulGenericProseRoot(root));
-    const targets = [];
-    const seen = /* @__PURE__ */ new Set();
+    const roots = genericProseRoots();
+    const collection = { targets: [], seen: /* @__PURE__ */ new Set(), limit };
     for (const root of roots) {
-      const remaining = limit - targets.length;
-      if (remaining <= 0) break;
-      const collected = collectFragmentTextTargetsIn(root, remaining, true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
-      for (const target of collected) {
-        if (!appendGenericProseTarget(targets, seen, target)) continue;
-        if (targets.length >= limit) break;
-      }
+      collectGenericProseTargetsFromRoot(root, collection);
+      if (genericProseCollectionFull(collection)) break;
     }
-    log$5.debugThrottled("generic-prose-targets", 2500, "Collected generic prose targets", { roots: roots.length, targets: targets.length });
-    return targets;
+    log$5.debugThrottled("generic-prose-targets", 2500, "Collected generic prose targets", { roots: roots.length, targets: collection.targets.length });
+    return collection.targets;
+  }
+  function genericProseRoots() {
+    return Array.from(document.querySelectorAll(GENERIC_PROSE_ROOTS)).filter((root) => isUsefulGenericProseRoot(root));
+  }
+  function collectGenericProseTargetsFromRoot(root, collection) {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
+    for (const target of collected) {
+      appendGenericProseTarget(collection.targets, collection.seen, target);
+      if (genericProseCollectionFull(collection)) break;
+    }
+  }
+  function genericProseRemaining(collection) {
+    return Math.max(0, collection.limit - collection.targets.length);
+  }
+  function genericProseCollectionFull(collection) {
+    return genericProseRemaining(collection) <= 0;
   }
   function appendGenericProseTarget(targets, seen, target) {
     var _a;
@@ -28392,17 +28594,32 @@ ${spelling}`);
   function splitSentencesByPunctuation(text2) {
     const parts = [];
     let start = 0;
-    const chars = Array.from(text2);
     let offset = 0;
-    for (const char of chars) {
+    for (const char of Array.from(text2)) {
       offset += char.length;
-      if (!/[。！？!?]/u.test(char)) continue;
-      while (offset < text2.length && /["'」』）\]]/u.test(text2[offset])) offset++;
+      const end = subtitleSentenceBoundaryEnd(text2, char, offset);
+      if (end === null) continue;
+      offset = end;
       pushSubtitleSentencePart(parts, text2, start, offset);
       start = offset;
     }
     pushSubtitleSentencePart(parts, text2, start, text2.length);
     return parts.length ? parts : [text2];
+  }
+  function subtitleSentenceBoundaryEnd(text2, char, offset) {
+    if (!isSubtitleSentencePunctuation(char)) return null;
+    return consumeClosingSubtitlePunctuation(text2, offset);
+  }
+  function isSubtitleSentencePunctuation(char) {
+    return /[。！？!?]/u.test(char);
+  }
+  function consumeClosingSubtitlePunctuation(text2, offset) {
+    let end = offset;
+    while (end < text2.length && isSubtitleSentenceCloser(text2[end])) end++;
+    return end;
+  }
+  function isSubtitleSentenceCloser(char) {
+    return /["'」』）\]]/u.test(char);
   }
   function pushSubtitleSentencePart(parts, text2, start, end) {
     const part = text2.slice(start, end).trim();
@@ -28513,14 +28730,12 @@ ${spelling}`);
   }
   function parseVttCuePayload(raw, cueStart, cueEnd) {
     const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
-    const markers = [];
-    raw.replace(timestampPattern, (match, rawTime, index) => {
-      const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
-      if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
-      return match;
-    });
-    const text2 = raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
+    const markers = vttTimestampMarkers(raw, timestampPattern);
+    const text2 = vttCueTextWithoutMarkers(raw, timestampPattern);
     if (!markers.length) return { text: text2 };
+    return vttCuePayloadWithMarkers(raw, timestampPattern, markers, text2, cueStart, cueEnd);
+  }
+  function vttCuePayloadWithMarkers(raw, timestampPattern, markers, text2, cueStart, cueEnd) {
     const words = [];
     for (let index = 0; index < markers.length; index++) {
       const markerWord = vttMarkerWord(raw, timestampPattern, markers, index);
@@ -28529,6 +28744,21 @@ ${spelling}`);
       words.push(vttWordTiming(markerWord, cueStart, cueEnd));
     }
     return { text: text2, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
+  }
+  function vttTimestampMarkers(raw, timestampPattern) {
+    const markers = [];
+    raw.replace(timestampPattern, (match, rawTime, index) => {
+      appendVttTimestampMarker(markers, match, rawTime, index);
+      return match;
+    });
+    return markers;
+  }
+  function appendVttTimestampMarker(markers, match, rawTime, index) {
+    const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
+    if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
+  }
+  function vttCueTextWithoutMarkers(raw, timestampPattern) {
+    return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
   }
   function vttMarkerWord(raw, timestampPattern, markers, index) {
     const marker = markers[index];
@@ -28762,11 +28992,19 @@ ${spelling}`);
     };
   }
   function mergedYouTubeCueWords(current, next, merge) {
-    const currentWords = cueHasExactWordTimings(current) ? current.words : void 0;
-    const nextWords = cueHasExactWordTimings(next) ? next.words : void 0;
-    if (merge.progressive) return nextWords;
-    if (!canMergeYouTubeCueWords(currentWords, nextWords, next.text)) return void 0;
-    return [...currentWords, ...nextWords ? subtitleWordsAfterCompactOffset(nextWords, merge.overlap) : []];
+    const words = youtubeCueMergeWords(current, next);
+    if (merge.progressive) return words.next;
+    if (!canMergeYouTubeCueWords(words.current, words.next, next.text)) return void 0;
+    return [...words.current, ...trimmedNextYouTubeCueWords(words.next, merge.overlap)];
+  }
+  function youtubeCueMergeWords(current, next) {
+    return {
+      current: cueHasExactWordTimings(current) ? current.words : void 0,
+      next: cueHasExactWordTimings(next) ? next.words : void 0
+    };
+  }
+  function trimmedNextYouTubeCueWords(words, overlap) {
+    return words ? subtitleWordsAfterCompactOffset(words, overlap) : [];
   }
   function canMergeYouTubeCueWords(currentWords, nextWords, nextText) {
     return Boolean(currentWords && (nextWords || isTrailingPunctuationFragment(nextText)));
@@ -28789,12 +29027,20 @@ ${spelling}`);
   function joinYouTubeCaptionFragments(left, right) {
     const a = left.trim();
     const b = right.trim();
-    if (!a) return b;
-    if (!b) return a;
-    if (/^[、。，．！？!?））」』\]}]/u.test(b)) return `${a}${b}`;
-    if (/[\s「『（([{]$/u.test(a)) return `${a}${b}`;
-    if (shouldSpaceYouTubeCaptionFragments(a, b)) return `${a} ${b}`;
-    return `${a}${b}`;
+    const emptyJoin = emptyYouTubeCaptionFragmentJoin(a, b);
+    if (emptyJoin !== null) return emptyJoin;
+    return `${a}${youtubeCaptionFragmentSeparator(a, b)}${b}`;
+  }
+  function emptyYouTubeCaptionFragmentJoin(left, right) {
+    if (!left) return right;
+    return right ? null : left;
+  }
+  function youtubeCaptionFragmentSeparator(left, right) {
+    if (shouldJoinYouTubeCaptionFragmentsDirectly(left, right)) return "";
+    return shouldSpaceYouTubeCaptionFragments(left, right) ? " " : "";
+  }
+  function shouldJoinYouTubeCaptionFragmentsDirectly(left, right) {
+    return /^[、。，．！？!?））」』\]}]/u.test(right) || /[\s「『（([{]$/u.test(left);
   }
   function shouldSpaceYouTubeCaptionFragments(left, right) {
     return /[A-Za-z0-9]$/u.test(left) && /^[A-Za-z0-9]/u.test(right);
@@ -28832,19 +29078,21 @@ ${spelling}`);
   }
   function sliceByCompactOffset(text2, compactOffset) {
     if (compactOffset <= 0) return text2;
-    let seen = 0;
-    for (let index = 0; index < text2.length; ) {
-      const char = firstCodePoint(text2.slice(index));
-      if (!char) break;
-      index += char.length;
-      if (/\s/u.test(char)) continue;
-      seen += 1;
-      if (seen >= compactOffset) return text2.slice(index);
+    for (const step of compactTextOffsetSteps(text2)) {
+      if (step.seen >= compactOffset) return text2.slice(step.index);
     }
     return "";
   }
-  function firstCodePoint(text2) {
-    return Array.from(text2)[0] ?? "";
+  function compactTextOffsetSteps(text2) {
+    const steps = [];
+    let index = 0;
+    let seen = 0;
+    for (const char of Array.from(text2)) {
+      index += char.length;
+      if (/\s/u.test(char)) continue;
+      steps.push({ index, seen: ++seen });
+    }
+    return steps;
   }
   function parseYouTubeSrv3WordNodes(element2, cueStart, cueEnd) {
     const nodes = Array.from(element2.querySelectorAll("s"));
@@ -28878,12 +29126,15 @@ ${spelling}`);
     };
   }
   function readAssSubtitleLine(line, state) {
-    if (shouldIgnoreAssLine(line)) return;
-    if (updateAssSectionState(line, state)) return;
-    if (!shouldReadAssDialogueLine(line, state)) return;
-    if (readAssFormatLine(line, state)) return;
+    if (!shouldParseAssCueLine(line, state)) return;
     const cue = readAssDialogueCue(line, state.format);
     if (cue) state.cues.push(cue);
+  }
+  function shouldParseAssCueLine(line, state) {
+    if (shouldIgnoreAssLine(line)) return false;
+    if (updateAssSectionState(line, state)) return false;
+    if (!shouldReadAssDialogueLine(line, state)) return false;
+    return !readAssFormatLine(line, state);
   }
   function shouldReadAssDialogueLine(line, state) {
     return state.inEvents || /^Dialogue:/i.test(line);
@@ -28990,23 +29241,26 @@ ${spelling}`);
   function computeSubtitleDrawerLayout(options) {
     const margin = TRANSCRIPT_PANEL_MARGIN;
     const size = options.size ?? {};
-    if (options.compactPanel) {
-      const height = clampNumber$1(
-        size.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46),
-        220,
-        Math.max(220, options.viewportHeight - margin * 3)
-      );
-      return {
-        placement: "bottom",
-        left: margin,
-        top: Math.max(margin, options.viewportHeight - height - margin),
-        width: options.viewportWidth - margin * 2,
-        height,
-        viewportWidth: options.viewportWidth,
-        viewportHeight: options.viewportHeight,
-        margin
-      };
-    }
+    return options.compactPanel ? compactSubtitleDrawerLayout(options, size, margin) : sideSubtitleDrawerLayout(options, size, margin);
+  }
+  function compactSubtitleDrawerLayout(options, size, margin) {
+    const height = clampNumber$1(
+      size.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46),
+      220,
+      Math.max(220, options.viewportHeight - margin * 3)
+    );
+    return {
+      placement: "bottom",
+      left: margin,
+      top: Math.max(margin, options.viewportHeight - height - margin),
+      width: options.viewportWidth - margin * 2,
+      height,
+      viewportWidth: options.viewportWidth,
+      viewportHeight: options.viewportHeight,
+      margin
+    };
+  }
+  function sideSubtitleDrawerLayout(options, size, margin) {
     const top = clampNumber$1(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
     const width = clampNumber$1(
       size.sideWidth ?? Math.min(460, options.viewportWidth * 0.32),
@@ -29129,10 +29383,19 @@ ${spelling}`);
     });
   }
   function pageSubtitleTitle(root) {
-    var _a, _b;
     const doc = root instanceof Document ? root : root.ownerDocument ?? document;
-    const candidate = ((_a = doc.querySelector('meta[property="og:title"], meta[name="twitter:title"]')) == null ? void 0 : _a.content) || ((_b = doc.querySelector("h1")) == null ? void 0 : _b.textContent) || doc.title || "";
-    return cleanSubtitleTitle(candidate);
+    return cleanSubtitleTitle(pageSubtitleTitleCandidate(doc));
+  }
+  function pageSubtitleTitleCandidate(doc) {
+    return openGraphSubtitleTitle(doc) || headingSubtitleTitle(doc) || doc.title || "";
+  }
+  function openGraphSubtitleTitle(doc) {
+    var _a;
+    return ((_a = doc.querySelector('meta[property="og:title"], meta[name="twitter:title"]')) == null ? void 0 : _a.content) ?? "";
+  }
+  function headingSubtitleTitle(doc) {
+    var _a;
+    return ((_a = doc.querySelector("h1")) == null ? void 0 : _a.textContent) ?? "";
   }
   function resolveSubtitleSourceUrl(value) {
     try {
@@ -29527,13 +29790,18 @@ ${spelling}`);
   }
   function applyYouTubePlayerContainerInset(element2, side, width, inset, height = 0) {
     if (side === "bottom") {
-      if (height) {
-        setStylePropertyIfChanged$1(element2, "height", `${height}px`);
-        setStylePropertyIfChanged$1(element2, "max-height", `${height}px`);
-        setStylePropertyIfChanged$1(element2, "min-height", "0px");
-      }
+      applyBottomYouTubePlayerContainerInset(element2, height);
       return;
     }
+    applySideYouTubePlayerContainerInset(element2, side, width, inset);
+  }
+  function applyBottomYouTubePlayerContainerInset(element2, height) {
+    if (!height) return;
+    setStylePropertyIfChanged$1(element2, "height", `${height}px`);
+    setStylePropertyIfChanged$1(element2, "max-height", `${height}px`);
+    setStylePropertyIfChanged$1(element2, "min-height", "0px");
+  }
+  function applySideYouTubePlayerContainerInset(element2, side, width, inset) {
     const widthValue = `${width}px`;
     setStylePropertyIfChanged$1(element2, "width", widthValue);
     setStylePropertyIfChanged$1(element2, "max-width", widthValue);
@@ -29557,13 +29825,19 @@ ${spelling}`);
   }
   function requestYouTubePlayerResize(width, height) {
     if (!isYouTubePage$1()) return;
-    const player = document.querySelector("#movie_player");
+    const player = youtubeMoviePlayer();
     try {
-      if ((player == null ? void 0 : player.setSize) && width > 0 && height > 0) player.setSize(Math.round(width), Math.round(height));
+      if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
     } catch {
     }
     dispatchWindowEvent(createWindowEvent("resize"));
     window.setTimeout(() => dispatchWindowEvent(createWindowEvent("resize")), 0);
+  }
+  function youtubeMoviePlayer() {
+    return document.querySelector("#movie_player");
+  }
+  function canResizeYouTubePlayer(player, width, height) {
+    return Boolean((player == null ? void 0 : player.setSize) && width > 0 && height > 0);
   }
   function clearYouTubePlayerContainerInset(element2) {
     for (const property of ["width", "max-width", "min-width", "height", "max-height", "min-height", "margin-left", "margin-right"]) {
@@ -29729,15 +30003,21 @@ ${spelling}`);
   function activateYouTubeCaptionTrack(track) {
     var _a;
     if (!isYouTubePage()) return;
-    const player = document.querySelector("#movie_player");
+    const player = youtubeCaptionPlayer();
     if (!(player == null ? void 0 : player.setOption)) return;
     try {
       (_a = player.loadModule) == null ? void 0 : _a.call(player, "captions");
-      const candidate = findMatchingYouTubePlayerTrack(track, player) ?? track.youtubeTrack;
-      if (candidate) player.setOption("captions", "track", candidate);
+      setYouTubeCaptionTrack(player, findMatchingYouTubePlayerTrack(track, player) ?? track.youtubeTrack);
       player.setOption("captions", "reload", true);
     } catch {
     }
+  }
+  function youtubeCaptionPlayer() {
+    return document.querySelector("#movie_player");
+  }
+  function setYouTubeCaptionTrack(player, candidate) {
+    var _a;
+    if (candidate) (_a = player.setOption) == null ? void 0 : _a.call(player, "captions", "track", candidate);
   }
   function getYouTubeVideoId() {
     var _a;
@@ -29788,23 +30068,51 @@ ${spelling}`);
     return { label: `${label}${language ? ` (${language})` : ""}${autoSuffix}`, language, autoGenerated, url: url.toString(), raw: track };
   }
   function normalizedYouTubeCaptionUrl(record) {
-    const rawUrl = typeof record.url === "string" ? record.url : typeof record.baseUrl === "string" ? record.baseUrl : "";
+    const rawUrl = rawYouTubeCaptionUrl(record);
     if (!rawUrl) return null;
     const url = new URL(rawUrl, location.href);
     url.searchParams.set("fmt", "srv3");
-    const clientName = readYouTubeClientName();
-    if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
+    applyYouTubeCaptionClientName(url, readYouTubeClientName());
     return url;
   }
+  function rawYouTubeCaptionUrl(record) {
+    return typeof record.url === "string" ? record.url : typeof record.baseUrl === "string" ? record.baseUrl : "";
+  }
+  function applyYouTubeCaptionClientName(url, clientName) {
+    if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
+  }
   function youtubeCaptionTrackLabel(record, language) {
-    var _a, _b, _c;
-    return ((_a = record.name) == null ? void 0 : _a.simpleText) ?? ((_c = (_b = record.name) == null ? void 0 : _b.runs) == null ? void 0 : _c.map((run) => run.text ?? "").join("")) ?? record.displayName ?? record.languageName ?? language ?? "YouTube subtitles";
+    return firstYouTubeCaptionTrackLabel(record, language) || "YouTube subtitles";
+  }
+  function firstYouTubeCaptionTrackLabel(record, language) {
+    return [
+      simpleYouTubeCaptionName(record),
+      runYouTubeCaptionName(record),
+      record.displayName,
+      record.languageName,
+      language
+    ].find((label) => Boolean(label)) ?? "";
+  }
+  function simpleYouTubeCaptionName(record) {
+    var _a;
+    return ((_a = record.name) == null ? void 0 : _a.simpleText) ?? "";
+  }
+  function runYouTubeCaptionName(record) {
+    var _a, _b;
+    return ((_b = (_a = record.name) == null ? void 0 : _a.runs) == null ? void 0 : _b.map((run) => run.text ?? "").join("")) ?? "";
   }
   function youtubeCaptionAutoSuffix(autoGenerated, label) {
     return autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
   }
   function isAutoGeneratedYouTubeCaptionTrack(track, label = "") {
-    return /asr/i.test(track.kind ?? "") || /^a\./i.test(track.vssId ?? "") || /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${label} ${track.languageCode ?? ""}`);
+    return youtubeAutoGeneratedSignals(track, label).some((signal) => signal.matches(signal.value));
+  }
+  function youtubeAutoGeneratedSignals(track, label) {
+    return [
+      { value: track.kind ?? "", matches: (value) => /asr/i.test(value) },
+      { value: track.vssId ?? "", matches: (value) => /^a\./i.test(value) },
+      { value: `${label} ${track.languageCode ?? ""}`, matches: (value) => /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(value) }
+    ];
   }
   function findMatchingYouTubePlayerTrack(track, player) {
     var _a, _b, _c;
@@ -29919,11 +30227,20 @@ ${spelling}`);
     return readYouTubePlayerResponseCandidate(record.player_response ?? record.raw_player_response) ?? candidate;
   }
   function isMatchingYouTubePlayerResponse(value, videoId) {
-    var _a, _b, _c;
-    if (!value || typeof value !== "object") return false;
-    const response = value;
+    const response = youtubePlayerResponseRecord(value);
+    return Boolean(response && hasYouTubeCaptionTracks(response) && youtubePlayerResponseMatchesVideo(response, videoId));
+  }
+  function youtubePlayerResponseRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function hasYouTubeCaptionTracks(response) {
+    var _a, _b;
+    return Boolean((_b = (_a = response.captions) == null ? void 0 : _a.playerCaptionsTracklistRenderer) == null ? void 0 : _b.captionTracks);
+  }
+  function youtubePlayerResponseMatchesVideo(response, videoId) {
+    var _a;
     const responseVideoId = (_a = response.videoDetails) == null ? void 0 : _a.videoId;
-    return Boolean((_c = (_b = response.captions) == null ? void 0 : _b.playerCaptionsTracklistRenderer) == null ? void 0 : _c.captionTracks) && (!videoId || !responseVideoId || responseVideoId === videoId);
+    return !videoId || !responseVideoId || responseVideoId === videoId;
   }
   function extractJsonObject(text2, start) {
     const objectStart = text2.indexOf("{", start);
@@ -30203,15 +30520,16 @@ ${spelling}`);
     return Boolean(input2.hasParser && input2.lastRenderedText === input2.text && input2.lastRenderedHtml);
   }
   function renderSubtitlePrimaryHtml(input2, mode) {
-    if (isParsedSubtitleRenderMode(mode)) return input2.parsedHtml ?? "";
-    if (mode === "karaoke") return renderSubtitleKaraokeCue(input2.cue, input2.time);
-    if (mode === "cached-parser") return input2.lastRenderedHtml;
-    if (mode === "loading-parser") return `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input2.text)}</span>`;
-    return escapeWithBreaks(input2.text);
+    return SUBTITLE_PRIMARY_RENDERERS[mode](input2);
   }
-  function isParsedSubtitleRenderMode(mode) {
-    return mode === "parsed-karaoke" || mode === "parsed";
-  }
+  const SUBTITLE_PRIMARY_RENDERERS = {
+    "parsed-karaoke": (input2) => input2.parsedHtml ?? "",
+    parsed: (input2) => input2.parsedHtml ?? "",
+    karaoke: (input2) => renderSubtitleKaraokeCue(input2.cue, input2.time),
+    "cached-parser": (input2) => input2.lastRenderedHtml,
+    "loading-parser": (input2) => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input2.text)}</span>`,
+    plain: (input2) => escapeWithBreaks(input2.text)
+  };
   function nextRenderedPrimaryCache(input2, karaokeActive) {
     if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
     return karaokeActive ? { text: input2.text, html: "" } : void 0;
@@ -30257,20 +30575,33 @@ ${spelling}`);
     return Math.min(options.fallbackRows ?? 6, options.rowCount);
   }
   function addVisibleIndexes(indexes, options) {
-    var _a;
-    const scrollerRect = (_a = options.scroller) == null ? void 0 : _a.getBoundingClientRect();
-    if (!options.scroller || !scrollerRect) return;
-    for (const row of Array.from(options.scroller.querySelectorAll(".jpdb-subtitle-list-row"))) {
-      const index = visibleTranscriptRowIndex(row, scrollerRect, options.rowCount);
-      if (index !== null) indexes.add(index);
+    const rows = visibleTranscriptRows(options);
+    if (!rows) return;
+    for (const row of rows.elements) {
+      addVisibleTranscriptRowIndex(indexes, row, rows.scrollerRect, options);
       if (indexes.size >= options.maxRows) break;
     }
   }
+  function visibleTranscriptRows(options) {
+    var _a;
+    const scrollerRect = (_a = options.scroller) == null ? void 0 : _a.getBoundingClientRect();
+    return options.scroller && scrollerRect ? { elements: Array.from(options.scroller.querySelectorAll(".jpdb-subtitle-list-row")), scrollerRect } : null;
+  }
+  function addVisibleTranscriptRowIndex(indexes, row, scrollerRect, options) {
+    const index = visibleTranscriptRowIndex(row, scrollerRect, options.rowCount);
+    if (index !== null) indexes.add(index);
+  }
   function visibleTranscriptRowIndex(row, scrollerRect, rowCount) {
     const rect = row.getBoundingClientRect();
-    if (rect.bottom < scrollerRect.top || rect.top > scrollerRect.bottom) return null;
+    if (!isTranscriptRowVisible(rect, scrollerRect)) return null;
     const index = Number(row.dataset.rowIndex);
-    return Number.isInteger(index) && index >= 0 && index < rowCount ? index : null;
+    return validTranscriptRowIndex(index, rowCount) ? index : null;
+  }
+  function isTranscriptRowVisible(rect, scrollerRect) {
+    return rect.bottom >= scrollerRect.top && rect.top <= scrollerRect.bottom;
+  }
+  function validTranscriptRowIndex(index, rowCount) {
+    return Number.isInteger(index) && index >= 0 && index < rowCount;
   }
   function addBackgroundIndexes(indexes, options) {
     let nextCursor = options.cursor;
@@ -30290,17 +30621,14 @@ ${spelling}`);
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
   const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
   function readPageCaptionText(video, readerRoot) {
-    const direct = collectCaptionTexts(
-      [...document.querySelectorAll(CAPTION_SELECTORS)],
-      video,
-      readerRoot,
-      false
-    );
-    if (direct || !video || !isYouTubePage()) {
-      if (direct || !video) return direct;
-    } else {
-      return readHiddenYouTubeCaptionText(readerRoot);
-    }
+    const direct = readDirectPageCaptionText(video, readerRoot);
+    if (direct || !video) return direct;
+    return isYouTubePage() ? readHiddenYouTubeCaptionText(readerRoot) : readNearbyPageCaptionText(video, readerRoot);
+  }
+  function readDirectPageCaptionText(video, readerRoot) {
+    return collectCaptionTexts([...document.querySelectorAll(CAPTION_SELECTORS)], video, readerRoot, false);
+  }
+  function readNearbyPageCaptionText(video, readerRoot) {
     return collectCaptionTexts(
       [...document.querySelectorAll("span, p, div")],
       video,
@@ -30323,7 +30651,7 @@ ${spelling}`);
   function hiddenYouTubeCaptionLine(element2, readerRoot) {
     if (isCaptionElementExcluded(element2, readerRoot)) return "";
     const text2 = normalizeCaptionText(element2.innerText || element2.textContent || "");
-    return text2 && /[\u3040-\u30ff\u3400-\u9fff]/.test(text2) ? text2 : "";
+    return isJapaneseCaptionText(text2) ? text2 : "";
   }
   function collectCaptionTexts(elements, video, readerRoot, nearVideoOnly = false) {
     const lines = [];
@@ -30343,12 +30671,13 @@ ${spelling}`);
     return text2 && !seen.has(text2) ? text2 : "";
   }
   function isLikelyCaptionElement(element2, video, readerRoot, nearVideoOnly = false) {
-    if (isCaptionElementExcluded(element2, readerRoot)) return false;
-    const text2 = normalizeCaptionText(element2.innerText || element2.textContent || "");
-    if (!isCaptionTextShape(element2, text2)) return false;
+    if (!isCaptionCandidateElement(element2, readerRoot)) return false;
     const rect = element2.getBoundingClientRect();
-    if (!isVisibleCaptionRect(element2, rect)) return false;
-    return matchesCaptionVideoScope(rect, video, nearVideoOnly);
+    return isVisibleCaptionRect(element2, rect) && matchesCaptionVideoScope(rect, video, nearVideoOnly);
+  }
+  function isCaptionCandidateElement(element2, readerRoot) {
+    if (isCaptionElementExcluded(element2, readerRoot)) return false;
+    return isCaptionTextShape(element2, normalizeCaptionText(element2.innerText || element2.textContent || ""));
   }
   function matchesCaptionVideoScope(rect, video, nearVideoOnly = false) {
     if (!video) return !nearVideoOnly;
@@ -30375,7 +30704,19 @@ ${spelling}`);
   }
   function isCaptionTextShape(element2, text2) {
     const allowsChildText = element2.matches(CAPTION_CONTAINER_SELECTORS);
-    return text2.length >= 2 && text2.length <= 180 && /[\u3040-\u30ff\u3400-\u9fff]/.test(text2) && text2.split("\n").length <= 4 && (allowsChildText || ![...element2.children].some((child) => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? "")));
+    if (!hasCaptionTextLength(text2)) return false;
+    if (!isJapaneseCaptionText(text2)) return false;
+    if (text2.split("\n").length > 4) return false;
+    return allowsChildText || !hasJapaneseCaptionChildText(element2);
+  }
+  function hasCaptionTextLength(text2) {
+    return text2.length >= 2 && text2.length <= 180;
+  }
+  function isJapaneseCaptionText(text2) {
+    return Boolean(text2 && /[\u3040-\u30ff\u3400-\u9fff]/.test(text2));
+  }
+  function hasJapaneseCaptionChildText(element2) {
+    return [...element2.children].some((child) => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ""));
   }
   function isVisibleCaptionRect(element2, rect) {
     if (!hasVisibleCaptionRectBounds(rect)) return false;
@@ -30408,9 +30749,6 @@ ${spelling}`);
     track.language = source.language;
     track.sourceKey = source.sourceKey;
     return true;
-  }
-  function cachedSubtitleTrackCues(track) {
-    return (track == null ? void 0 : track.cues) ?? [];
   }
   function shouldLogYouTubeTrackDiscovery(added, updatedSelectedTrack) {
     return Boolean(added || updatedSelectedTrack);
@@ -30510,6 +30848,28 @@ ${spelling}`);
   }
   function trackPanelSummaryText(autoDetected) {
     return autoDetected ? `${autoDetected} auto-detected option${autoDetected === 1 ? "" : "s"}` : "Auto-detected YouTube/native tracks will appear here.";
+  }
+  function shouldReplaceLoadedCue(next, current) {
+    return Boolean(next && next !== current);
+  }
+  function shouldClearLoadedCue(next, current, time) {
+    return Boolean(!next && current && time > current.end + 0.12);
+  }
+  function loadedTrackState(cues) {
+    return cues.length ? "ready" : "waiting";
+  }
+  function subtitleClipboardText(primary, secondary) {
+    return [primary == null ? void 0 : primary.text.trim(), secondary == null ? void 0 : secondary.text.trim()].filter(Boolean).join("\n");
+  }
+  function fittedSubtitleFontSize(element2, fitted, minimum, apply) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      if (!subtitleElementOverflows(element2)) return fitted;
+      const next = nextSubtitleFontSize(element2, fitted, minimum);
+      if (next >= fitted) break;
+      fitted = next;
+      apply(fitted);
+    }
+    return fitted;
   }
   class SubtitlePlayerController {
     constructor(options) {
@@ -30710,24 +31070,37 @@ ${spelling}`);
       }, 120);
     }
     discoverVideo() {
-      const settings = this.options.getSettings();
-      if (!settings.subtitlePlayerEnabled || !settings.subtitleAutoDetect) {
+      if (!this.shouldDiscoverVideo()) {
         this.refresh();
         return;
       }
-      const candidate = [...document.querySelectorAll("video")].map((video) => video).filter((video) => video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
-      if (candidate && candidate !== this.video) {
-        this.video = candidate;
-        this.clearTransientSubtitleState();
-        this.removeStaleNativeTracks(candidate);
-        this.attachTextTracks(candidate);
-        this.observeVideoLayout(candidate);
-        log$3.info("Subtitle video detected", videoSummary(candidate));
-      }
+      this.discoverEnabledVideo();
+    }
+    shouldDiscoverVideo() {
+      const settings = this.options.getSettings();
+      return settings.subtitlePlayerEnabled && settings.subtitleAutoDetect;
+    }
+    discoverEnabledVideo() {
+      const candidate = this.discoverVideoCandidate();
+      if (candidate && candidate !== this.video) this.useDiscoveredVideoCandidate(candidate);
       this.syncSubtitleSourceContext(candidate ?? this.video);
       this.discoverPageSubtitleTracks();
       void this.discoverYouTubeTracksThrottled(true);
       this.refresh();
+    }
+    discoverVideoCandidate() {
+      return Array.from(document.querySelectorAll("video")).filter((video) => this.isSubtitleVideoCandidate(video)).sort((a, b) => videoElementArea(b) - videoElementArea(a))[0];
+    }
+    isSubtitleVideoCandidate(video) {
+      return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
+    }
+    useDiscoveredVideoCandidate(candidate) {
+      this.video = candidate;
+      this.clearTransientSubtitleState();
+      this.removeStaleNativeTracks(candidate);
+      this.attachTextTracks(candidate);
+      this.observeVideoLayout(candidate);
+      log$3.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
       var _a, _b;
@@ -30820,19 +31193,28 @@ ${spelling}`);
     }
     discoverPageSubtitleTracks() {
       const sources = collectPageSubtitleSources(document);
+      const removed = this.removeStalePageSubtitleTracks(sources);
+      if (!sources.length) return;
+      const changes = this.addOrUpdatePageSubtitleTracks(sources, removed);
+      this.finishPageSubtitleTrackDiscovery(changes);
+    }
+    removeStalePageSubtitleTracks(sources) {
       const sourceKeys = new Set(sources.map((source) => source.sourceKey));
       const sourceUrls = new Set(sources.map((source) => normalizedSubtitleUrl(source.url)));
-      const removed = this.removeSubtitleTracks((track) => track.kind === "remote" && !sourceKeys.has(track.sourceKey ?? "") && !(track.url && sourceUrls.has(normalizedSubtitleUrl(track.url))), "page-source-refresh");
-      if (!sources.length) return;
-      let added = 0;
-      let updated = 0;
+      return this.removeSubtitleTracks((track) => track.kind === "remote" && !sourceKeys.has(track.sourceKey ?? "") && !(track.url && sourceUrls.has(normalizedSubtitleUrl(track.url))), "page-source-refresh");
+    }
+    addOrUpdatePageSubtitleTracks(sources, removed) {
+      const changes = { added: 0, updated: 0, removed };
       for (const source of sources) {
         const result = this.addOrUpdatePageSubtitleTrack(source);
-        added += result.added;
-        updated += result.updated;
+        changes.added += result.added;
+        changes.updated += result.updated;
       }
-      if (added || updated || removed) {
-        log$3.debug("Page subtitle files discovered", { added, updated, removed, total: this.tracks.length });
+      return changes;
+    }
+    finishPageSubtitleTrackDiscovery(changes) {
+      if (changes.added || changes.updated || changes.removed) {
+        log$3.debug("Page subtitle files discovered", { ...changes, total: this.tracks.length });
         this.renderTrackPanel();
         this.syncControls();
       }
@@ -30879,20 +31261,26 @@ ${spelling}`);
       return isEnglishSubtitleTrack(option) && (!this.secondaryTrackId || shouldReplaceWaitingNativeTrack(secondary, option, this.secondaryCues));
     }
     maybeAutoSelectNativeTrack(option) {
-      if (!option.track) return;
-      if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) {
-        const requestId = this.beginTrackSelection("primary");
-        this.selectedTrackId = option.id;
-        ensureTextTrackReadable(option.track);
-        void this.loadNativeTrackCues(option, "primary", requestId);
-        log$3.debug("Auto-selected Japanese native subtitle track", { id: option.id, label: option.label });
-      } else if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) {
-        const requestId = this.beginTrackSelection("secondary");
-        this.secondaryTrackId = option.id;
-        ensureTextTrackReadable(option.track);
-        void this.loadNativeTrackCues(option, "secondary", requestId);
-        log$3.debug("Auto-selected secondary native subtitle track", { id: option.id, label: option.label });
-      }
+      const track = option.track;
+      if (!track) return;
+      const role = this.autoSelectableNativeTrackRole(option);
+      if (role) this.autoSelectNativeTrack(option, track, role);
+    }
+    autoSelectableNativeTrackRole(option) {
+      if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) return "primary";
+      if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) return "secondary";
+      return null;
+    }
+    autoSelectNativeTrack(option, track, role) {
+      const requestId = this.beginTrackSelection(role);
+      this.setSelectedNativeTrackId(role, option.id);
+      ensureTextTrackReadable(track);
+      void this.loadNativeTrackCues(option, role, requestId);
+      log$3.debug(`Auto-selected ${role === "primary" ? "Japanese" : "secondary"} native subtitle track`, { id: option.id, label: option.label });
+    }
+    setSelectedNativeTrackId(role, id) {
+      if (role === "primary") this.selectedTrackId = id;
+      else this.secondaryTrackId = id;
     }
     async loadNativeTrackCues(option, role, requestId) {
       const track = option.track;
@@ -30915,22 +31303,28 @@ ${spelling}`);
     }
     updateFromNativeTrack(track) {
       var _a;
-      const primary = this.tracks.find((item) => item.id === this.selectedTrackId);
-      const secondary = this.tracks.find((item) => item.id === this.secondaryTrackId);
       const active = (_a = track.activeCues) == null ? void 0 : _a[0];
       if (!active) return;
+      this.updatePrimaryNativeTrackCue(track, active);
+      this.updateSecondaryNativeTrackCue(track, active);
+      this.render();
+      this.renderTranscriptPanel();
+      this.syncControls();
+    }
+    updatePrimaryNativeTrackCue(track, active) {
+      const primary = this.tracks.find((item) => item.id === this.selectedTrackId);
       if ((primary == null ? void 0 : primary.track) === track) {
         this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
         if (!this.cues.length) this.cues = readTextTrackCues(track);
         void this.autoCopyCurrentCue();
       }
+    }
+    updateSecondaryNativeTrackCue(track, active) {
+      const secondary = this.tracks.find((item) => item.id === this.secondaryTrackId);
       if ((secondary == null ? void 0 : secondary.track) === track) {
         this.secondaryCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active), transcriptEligible: false }])[0];
         if (!this.secondaryCues.length) this.secondaryCues = readTextTrackCues(track);
       }
-      this.render();
-      this.renderTranscriptPanel();
-      this.syncControls();
     }
     tick() {
       const settings = this.options.getSettings();
@@ -30938,12 +31332,15 @@ ${spelling}`);
       window.setTimeout(() => this.tick(), 250);
     }
     tickSubtitlePlayer(settings) {
-      if (this.syncSubtitleSourceContext(this.video)) this.refreshDiscoveredSubtitleTracks();
-      if (this.shouldRefreshYouTubeTracks()) void this.discoverYouTubeTracksThrottled();
+      this.refreshSubtitleSourcesForTick();
       this.refreshNativeCueLists();
       this.updateFromLoadedCues();
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
+    }
+    refreshSubtitleSourcesForTick() {
+      if (this.syncSubtitleSourceContext(this.video)) this.refreshDiscoveredSubtitleTracks();
+      if (this.shouldRefreshYouTubeTracks()) void this.discoverYouTubeTracksThrottled();
     }
     refreshDiscoveredSubtitleTracks() {
       this.discoverPageSubtitleTracks();
@@ -30994,27 +31391,30 @@ ${spelling}`);
       const time = this.video.currentTime;
       const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : void 0;
       const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : void 0;
-      const primaryChanged = this.updateLoadedPrimaryCue(cue, time);
-      const secondaryChanged = this.updateLoadedSecondaryCue(secondary);
-      const changed = primaryChanged || secondaryChanged;
-      if (changed) {
-        this.render();
-        this.renderTranscriptPanel();
-        this.syncControls();
-        this.warmParseAroundActiveCue();
-        void this.autoCopyCurrentCue();
-      }
+      if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
+    }
+    updateLoadedCueState(cue, secondary, time) {
+      return this.updateLoadedPrimaryCue(cue, time) || this.updateLoadedSecondaryCue(secondary);
+    }
+    afterLoadedCueStateChanged() {
+      this.render();
+      this.renderTranscriptPanel();
+      this.syncControls();
+      this.warmParseAroundActiveCue();
+      void this.autoCopyCurrentCue();
     }
     updateLoadedPrimaryCue(cue, time) {
-      if (cue && cue !== this.currentCue) {
-        this.currentCue = cue;
-        return true;
-      }
-      if (!cue && this.currentCue && time > this.currentCue.end + 0.12) {
-        this.currentCue = void 0;
-        return true;
-      }
+      if (shouldReplaceLoadedCue(cue, this.currentCue)) return this.replaceLoadedPrimaryCue(cue);
+      if (shouldClearLoadedCue(cue, this.currentCue, time)) return this.clearLoadedPrimaryCue();
       return false;
+    }
+    replaceLoadedPrimaryCue(cue) {
+      this.currentCue = cue;
+      return true;
+    }
+    clearLoadedPrimaryCue() {
+      this.currentCue = void 0;
+      return true;
     }
     updateLoadedSecondaryCue(secondary) {
       if (secondary === this.secondaryCue) return false;
@@ -31022,14 +31422,25 @@ ${spelling}`);
       return true;
     }
     updateFromDomCaptions() {
-      if (this.cues.length) return;
+      const fallback = this.domCaptionFallback();
+      if (!fallback) return;
+      this.applyDomCaptionFallback(fallback.text, fallback.selected);
+    }
+    domCaptionFallback() {
+      if (this.cues.length) return null;
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
-      if (!this.canUseDomCaptionFallback(selected)) return;
-      if (!this.options.getSettings().subtitleOverlayVisible) return;
+      if (!this.shouldUseDomCaptionFallback(selected)) return null;
       const text2 = readPageCaptionText(this.video, this.root);
-      if (!text2) return this.clearDomCaptionFallbackIfExpired();
-      if (!this.isDomCaptionStable(text2, performance.now())) return;
-      this.applyDomCaptionFallback(text2, selected);
+      if (!text2) {
+        this.clearDomCaptionFallbackIfExpired();
+        return null;
+      }
+      if (!this.isDomCaptionStable(text2, performance.now())) return null;
+      return { text: text2, selected };
+    }
+    shouldUseDomCaptionFallback(selected) {
+      if (!this.canUseDomCaptionFallback(selected)) return false;
+      return this.options.getSettings().subtitleOverlayVisible;
     }
     canUseDomCaptionFallback(selected) {
       if (isYouTubePage()) return Boolean(this.selectedTrackId);
@@ -31106,14 +31517,22 @@ ${spelling}`);
       return settings.subtitleSecondaryVisible && ((_a = this.secondaryCue) == null ? void 0 : _a.text) ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred) : "";
     }
     applyRenderedPrimarySubtitle(primary, text2) {
+      this.applyRenderedPrimaryKaraoke(primary);
+      this.fitSubtitleTextToVideo();
+      this.cacheRenderedPrimarySubtitle(primary);
+      this.requestParsedPrimaryIfNeeded(primary, text2);
+    }
+    applyRenderedPrimaryKaraoke(primary) {
       var _a;
       const activeCue = this.currentCue;
       if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, ((_a = this.video) == null ? void 0 : _a.currentTime) ?? activeCue.start);
-      this.fitSubtitleTextToVideo();
-      if (primary.nextRenderedPrimary) {
-        this.lastRenderedPrimaryText = primary.nextRenderedPrimary.text;
-        this.lastRenderedPrimaryHtml = primary.nextRenderedPrimary.html;
-      }
+    }
+    cacheRenderedPrimarySubtitle(primary) {
+      if (!primary.nextRenderedPrimary) return;
+      this.lastRenderedPrimaryText = primary.nextRenderedPrimary.text;
+      this.lastRenderedPrimaryHtml = primary.nextRenderedPrimary.html;
+    }
+    requestParsedPrimaryIfNeeded(primary, text2) {
       if (primary.shouldRequestParse) void this.renderParsedPrimary(text2);
     }
     async renderParsedPrimary(text2) {
@@ -31236,29 +31655,27 @@ ${spelling}`);
     }
     fitSubtitleFontSize(fitted, minimum) {
       if (!this.root || !this.subtitleEl) return fitted;
-      for (let attempt = 0; attempt < 10; attempt++) {
-        if (!subtitleElementOverflows(this.subtitleEl)) return fitted;
-        const next = nextSubtitleFontSize(this.subtitleEl, fitted, minimum);
-        if (next >= fitted) break;
-        fitted = next;
-        this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
-      }
-      return fitted;
+      return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, (value) => {
+        var _a;
+        (_a = this.root) == null ? void 0 : _a.style.setProperty("--subtitle-font-size", `${value}px`);
+      });
     }
     applyKaraokeStateToPrimary(cue, time) {
-      var _a;
-      const primary = (_a = this.subtitleEl) == null ? void 0 : _a.querySelector(".jpdb-subtitle-primary");
-      if (!primary) return;
-      if (!cueHasExactWordTimings(cue)) return;
-      const words = cue.words;
-      if (!words.length) return;
-      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
-      if (!wordElements.length) return;
-      const progress = karaokeCharacterProgress(cue, words, time);
+      const state = this.primaryKaraokeState(cue);
+      if (!state) return;
+      const progress = karaokeCharacterProgress(cue, state.words, time);
       let cursor = 0;
-      for (const element2 of wordElements) {
+      for (const element2 of state.wordElements) {
         cursor = applyKaraokeClassToWordElement(element2, cursor, progress);
       }
+    }
+    primaryKaraokeState(cue) {
+      var _a;
+      const primary = (_a = this.subtitleEl) == null ? void 0 : _a.querySelector(".jpdb-subtitle-primary");
+      if (!primary || !cueHasExactWordTimings(cue)) return null;
+      const words = cue.words;
+      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
+      return words.length && wordElements.length ? { words, wordElements } : null;
     }
     handleClick(event) {
       const target = event.target.closest("[data-action]");
@@ -31298,10 +31715,16 @@ ${spelling}`);
     }
     shouldAutoIdleControls() {
       const settings = this.options.getSettings();
-      if (!this.root || settings.subtitleControlsMode !== "auto") return false;
-      if (this.hasActiveSubtitleUi()) return false;
-      if (!this.hasSubtitleIdleSurface()) return false;
+      if (!this.hasAutoIdleMode(settings)) return false;
+      if (!this.canIdleSubtitleControls()) return false;
       return !this.video || this.videoIsLargeEnoughForIdleControls();
+    }
+    hasAutoIdleMode(settings) {
+      return Boolean(this.root && settings.subtitleControlsMode === "auto");
+    }
+    canIdleSubtitleControls() {
+      if (this.hasActiveSubtitleUi()) return false;
+      return this.hasSubtitleIdleSurface();
     }
     hasActiveSubtitleUi() {
       var _a, _b;
@@ -31383,17 +31806,17 @@ ${spelling}`);
       this.renderTranscriptPanel();
     }
     async copySubtitle(index) {
-      var _a;
-      const rowIndex = Number.isInteger(index) ? index : void 0;
-      const cue = rowIndex !== void 0 ? this.cues[rowIndex] : this.currentCue;
-      const secondary = rowIndex !== void 0 && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
-      const text2 = [cue == null ? void 0 : cue.text.trim(), secondary == null ? void 0 : secondary.text.trim()].filter(Boolean).join("\n");
+      const text2 = this.subtitleCopyText(Number.isInteger(index) ? index : void 0);
       if (!text2) return;
-      await ((_a = navigator.clipboard) == null ? void 0 : _a.writeText(text2).catch((error) => log$3.warn("Subtitle clipboard copy failed", error)));
+      await this.writeSubtitleClipboard(text2, "Subtitle clipboard copy failed");
       log$3.debug("Subtitle copied", { length: text2.length });
     }
+    subtitleCopyText(rowIndex) {
+      const cue = rowIndex !== void 0 ? this.cues[rowIndex] : this.currentCue;
+      const secondary = rowIndex !== void 0 && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
+      return subtitleClipboardText(cue, secondary);
+    }
     async copyTranscriptRow(index) {
-      var _a;
       const row = Number.isFinite(index) ? this.transcriptRows()[index] : void 0;
       if (!row) return;
       if (row.cueIndex >= 0) {
@@ -31401,10 +31824,14 @@ ${spelling}`);
         return;
       }
       const secondary = findAlignedCue(this.secondaryCues, row.cue);
-      const text2 = [row.cue.text.trim(), secondary == null ? void 0 : secondary.text.trim()].filter(Boolean).join("\n");
+      const text2 = subtitleClipboardText(row.cue, secondary);
       if (!text2) return;
-      await ((_a = navigator.clipboard) == null ? void 0 : _a.writeText(text2).catch((error) => log$3.warn("Subtitle clipboard copy failed", error)));
+      await this.writeSubtitleClipboard(text2, "Subtitle clipboard copy failed");
       log$3.debug("Subtitle transcript row copied", { length: text2.length });
+    }
+    async writeSubtitleClipboard(text2, failureMessage) {
+      var _a;
+      await ((_a = navigator.clipboard) == null ? void 0 : _a.writeText(text2).catch((error) => log$3.warn(failureMessage, error)));
     }
     async autoCopyCurrentCue() {
       var _a, _b;
@@ -31468,35 +31895,42 @@ ${spelling}`);
       (_a = this.root) == null ? void 0 : _a.classList.remove("jpdb-subtitle-hidden");
     }
     async loadPrimaryTrackSelection(id, requestId) {
-      let selected = this.tracks.find((option) => option.id === id);
-      let currentTrackId = id;
-      if (selected) this.markTrackLoading(selected);
-      let nextCues = cachedSubtitleTrackCues(selected);
-      if (selected) {
-        this.setNativeTrackModes();
-        const loaded = await loadSubtitleTrackCues(selected, {
-          ...TRACK_LOAD_OPTIONS,
-          tracks: this.tracks,
-          transcriptEligible: true
-        });
-        if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return null;
-        selected = loaded.track;
-        currentTrackId = loaded.track.id;
-        if (currentTrackId !== this.selectedTrackId) this.selectedTrackId = currentTrackId;
-        nextCues = loaded.cues;
-      }
-      if (!this.isTrackSelectionCurrent("primary", requestId, currentTrackId)) return null;
-      return { track: selected, trackId: currentTrackId, cues: nextCues };
+      return this.loadTrackSelection({ id, requestId, role: "primary", transcriptEligible: true });
     }
     markTrackLoading(track) {
       track.loadingState = "loading";
       this.renderTrackPanel();
     }
+    async loadTrackSelection(request) {
+      const selected = this.tracks.find((option) => option.id === request.id);
+      if (!selected) return this.currentTrackSelection(request.role, request.requestId, request.id, void 0, []);
+      this.markTrackLoading(selected);
+      this.setNativeTrackModes();
+      const loaded = await loadSubtitleTrackCues(selected, {
+        ...TRACK_LOAD_OPTIONS,
+        tracks: this.tracks,
+        transcriptEligible: request.transcriptEligible
+      });
+      return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+    }
+    loadedTrackSelection(request, selected, cues) {
+      if (!this.isTrackSelectionCurrent(request.role, request.requestId, request.id)) return null;
+      const trackId = selected.id;
+      this.setSelectedTrackId(request.role, trackId);
+      return this.currentTrackSelection(request.role, request.requestId, trackId, selected, cues);
+    }
+    currentTrackSelection(role, requestId, trackId, track, cues) {
+      return this.isTrackSelectionCurrent(role, requestId, trackId) ? { track, trackId, cues } : null;
+    }
+    setSelectedTrackId(role, trackId) {
+      if (role === "primary") this.selectedTrackId = trackId;
+      else this.secondaryTrackId = trackId;
+    }
     applyPrimaryTrackSelection(selection) {
       this.cues = selection.cues;
       if (selection.trackId !== this.selectedTrackId) this.selectedTrackId = selection.trackId;
       this.applyYouTubeCaptionFallback(selection.track, selection.trackId);
-      if (selection.track) selection.track.loadingState = this.cues.length ? "ready" : "waiting";
+      if (selection.track) selection.track.loadingState = loadedTrackState(this.cues);
     }
     applyYouTubeCaptionFallback(track, trackId) {
       if ((track == null ? void 0 : track.kind) !== "youtube") {
@@ -31547,30 +31981,12 @@ ${spelling}`);
       }
     }
     async loadSecondaryTrackSelection(id, requestId) {
-      let selected = this.tracks.find((option) => option.id === id);
-      let currentTrackId = id;
-      if (selected) this.markTrackLoading(selected);
-      let nextCues = cachedSubtitleTrackCues(selected);
-      if (selected) {
-        this.setNativeTrackModes();
-        const loaded = await loadSubtitleTrackCues(selected, {
-          ...TRACK_LOAD_OPTIONS,
-          tracks: this.tracks,
-          transcriptEligible: false
-        });
-        if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return null;
-        selected = loaded.track;
-        currentTrackId = loaded.track.id;
-        if (currentTrackId !== this.secondaryTrackId) this.secondaryTrackId = currentTrackId;
-        nextCues = loaded.cues;
-      }
-      if (!this.isTrackSelectionCurrent("secondary", requestId, currentTrackId)) return null;
-      return { track: selected, trackId: currentTrackId, cues: nextCues };
+      return this.loadTrackSelection({ id, requestId, role: "secondary", transcriptEligible: false });
     }
     applySecondaryTrackSelection(selection) {
       this.secondaryCues = selection.cues;
       if (selection.trackId !== this.secondaryTrackId) this.secondaryTrackId = selection.trackId;
-      if (selection.track) selection.track.loadingState = this.secondaryCues.length ? "ready" : "waiting";
+      if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
     }
     finishSecondaryTrackSelection(id, selected) {
       this.setNativeTrackModes();
@@ -31975,12 +32391,21 @@ ${spelling}`);
       this.openTracksPanel();
     }
     renderTranscriptPanel(force = false) {
-      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
+      const panel = this.renderableTranscriptPanel();
+      if (!panel) return;
       const state = this.transcriptPanelRenderState();
-      if (!force && this.refreshExistingTranscriptPanel(state)) return;
+      if (this.canRefreshTranscriptPanel(force, state)) return;
       this.lastTranscriptSignature = state.signature;
-      setInnerHtml(this.transcriptPanel, this.renderTranscriptPanelHtml(state));
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
       this.afterTranscriptPanelRender(state);
+    }
+    renderableTranscriptPanel() {
+      if (!this.transcriptPanel || this.transcriptPanel.hidden) return null;
+      return this.panelMode === "lines" ? this.transcriptPanel : null;
+    }
+    canRefreshTranscriptPanel(force, state) {
+      if (force) return false;
+      return this.refreshExistingTranscriptPanel(state);
     }
     transcriptPanelRenderState() {
       var _a;
@@ -32137,25 +32562,30 @@ ${spelling}`);
     }
     activeTranscriptRowIndex(rows = this.transcriptRows(), activeCueIndex = this.activeTranscriptIndex()) {
       if (!rows.length) return -1;
-      if (this.currentCue) {
-        const exact = rows.findIndex((row) => row.cue === this.currentCue);
-        if (exact >= 0) return exact;
-      }
+      const exact = this.currentTranscriptRowIndex(rows);
+      if (exact >= 0) return exact;
       if (activeCueIndex >= 0) return rows.findIndex((row) => row.cueIndex === activeCueIndex);
       return this.cues.length ? -1 : 0;
     }
+    currentTranscriptRowIndex(rows) {
+      return this.currentCue ? rows.findIndex((row) => row.cue === this.currentCue) : -1;
+    }
     async hydrateTranscriptRows(preferredIndex) {
-      if (!this.canHydrateTranscriptRows()) return;
-      const settings = this.options.getSettings();
-      if (!canParseSubtitleTranscriptRows(settings)) return;
-      const rows = this.transcriptRows();
-      if (!rows.length) return;
+      const request = this.transcriptHydrationRequest();
+      if (!request) return;
       const serial = ++this.transcriptHydrationSerial;
-      const indexes = this.transcriptHydrationIndexes(preferredIndex, rows.length);
+      const indexes = this.transcriptHydrationIndexes(preferredIndex, request.rows.length);
       for (const index of indexes) {
         if (serial !== this.transcriptHydrationSerial) return;
-        await this.hydrateTranscriptRow(index, settings, rows);
+        await this.hydrateTranscriptRow(index, request.settings, request.rows);
       }
+    }
+    transcriptHydrationRequest() {
+      if (!this.canHydrateTranscriptRows()) return null;
+      const settings = this.options.getSettings();
+      if (!canParseSubtitleTranscriptRows(settings)) return null;
+      const rows = this.transcriptRows();
+      return rows.length ? { settings, rows } : null;
     }
     canHydrateTranscriptRows() {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && this.panelMode === "lines");
@@ -32177,25 +32607,29 @@ ${spelling}`);
       return plan.indexes;
     }
     async hydrateTranscriptRow(index, settings, rows = this.transcriptRows()) {
+      const hydration = this.transcriptRowHydrationTarget(index, settings, rows);
+      if (!hydration) return;
+      const cached = this.parsedHtmlCache.get(hydration.key);
+      if (cached) return this.applyCachedTranscriptRowHtml(hydration, cached);
+      try {
+        const html = await this.parseCueHtml(hydration.cue.text, settings);
+        this.updateTranscriptRowsForParseKey(hydration.key, html);
+      } catch (error) {
+        hydration.target.dataset.parsedKey = hydration.key;
+        log$3.debug("Transcript row parse failed quietly", { index, length: hydration.cue.text.length }, error);
+      }
+    }
+    transcriptRowHydrationTarget(index, settings, rows) {
       var _a, _b;
       const cue = (_a = rows[index]) == null ? void 0 : _a.cue;
       const target = (_b = this.transcriptPanel) == null ? void 0 : _b.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
-      if (!cue || !target) return;
+      if (!cue || !target) return null;
       const key = this.parseCacheKey(cue.text, settings);
-      if (target.dataset.parsedKey === key) return;
-      const cached = this.parsedHtmlCache.get(key);
-      if (cached) {
-        target.dataset.parsedKey = key;
-        setInnerHtml(target, cached);
-        return;
-      }
-      try {
-        const html = await this.parseCueHtml(cue.text, settings);
-        this.updateTranscriptRowsForParseKey(key, html);
-      } catch (error) {
-        target.dataset.parsedKey = key;
-        log$3.debug("Transcript row parse failed quietly", { index, length: cue.text.length }, error);
-      }
+      return target.dataset.parsedKey === key ? null : { cue, target, key };
+    }
+    applyCachedTranscriptRowHtml(hydration, html) {
+      hydration.target.dataset.parsedKey = hydration.key;
+      setInnerHtml(hydration.target, html);
     }
     scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)) {
       const settings = this.options.getSettings();
@@ -32399,17 +32833,22 @@ ${spelling}`);
     clearPrimaryTrack() {
       this.suppressYouTubeAutoSelectForCurrentVideo();
       this.resetPrimarySubtitleState();
+      this.clearPrimaryTrackLoadingStates();
+      this.setNativeTrackModes();
+      this.render();
+      this.refreshOpenTranscriptPanelAfterPrimaryClear();
+      this.syncControls();
+      log$3.info("Primary subtitle track cleared");
+    }
+    clearPrimaryTrackLoadingStates() {
       for (const track of this.tracks) {
         if (track.loadingState && track.id !== this.secondaryTrackId) track.loadingState = "idle";
       }
-      this.setNativeTrackModes();
-      this.render();
-      if (this.transcriptPanel && !this.transcriptPanel.hidden) {
-        this.panelMode = "tracks";
-        this.renderTrackPanel();
-      }
-      this.syncControls();
-      log$3.info("Primary subtitle track cleared");
+    }
+    refreshOpenTranscriptPanelAfterPrimaryClear() {
+      if (!this.isTranscriptPanelOpen()) return;
+      this.panelMode = "tracks";
+      this.renderTrackPanel();
     }
     suppressYouTubeAutoSelectForCurrentVideo() {
       if (!isYouTubePage()) return;
@@ -32676,6 +33115,10 @@ ${spelling}`);
       textTracks: video.textTracks.length
     };
   }
+  function videoElementArea(video) {
+    const rect = video.getBoundingClientRect();
+    return rect.width * rect.height;
+  }
   function safeHost(value) {
     try {
       return new URL(value, location.href).host;
@@ -32826,22 +33269,29 @@ ${spelling}`);
     }
     request(shownCount) {
       const now = performance.now();
-      if (now - this.lastRequest < 1200) return;
+      if (!this.canRequest(now)) return;
       this.lastRequest = now;
       const previousScrollTop = window.scrollY;
       const scrollTarget = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
       dispatchWindowEvent(createWindowEvent("scroll"));
-      if (shownCount < 12 && !/jsdom/i.test(navigator.userAgent)) {
-        try {
-          window.scrollTo({ top: scrollTarget, behavior: "auto" });
-        } catch {
-        }
-        dispatchWindowEvent(createWindowEvent("scroll"));
-        try {
-          window.scrollTo({ top: previousScrollTop, behavior: "auto" });
-        } catch {
-        }
-      }
+      if (shouldNudgeYouTubeReplacementScan(shownCount)) nudgeYouTubeReplacementScan(scrollTarget, previousScrollTop);
+    }
+    canRequest(now) {
+      return now - this.lastRequest >= 1200;
+    }
+  }
+  function shouldNudgeYouTubeReplacementScan(shownCount) {
+    return shownCount < 12 && !/jsdom/i.test(navigator.userAgent);
+  }
+  function nudgeYouTubeReplacementScan(scrollTarget, previousScrollTop) {
+    scrollYouTubeReplacementScan(scrollTarget);
+    dispatchWindowEvent(createWindowEvent("scroll"));
+    scrollYouTubeReplacementScan(previousScrollTop);
+  }
+  function scrollYouTubeReplacementScan(top) {
+    try {
+      window.scrollTo({ top, behavior: "auto" });
+    } catch {
     }
   }
   class YoutubeImmersionFilter {
@@ -33022,10 +33472,12 @@ ${spelling}`);
     updateNoticeSummary(filteredCount, shownCount) {
       var _a;
       const summary = (_a = this.bar) == null ? void 0 : _a.querySelector('[data-role="summary"]');
-      if (summary) {
-        summary.textContent = this.revealed ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? "" : "s"}` : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? "" : "s"}`;
-        summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : "";
-      }
+      if (!summary) return;
+      summary.textContent = this.noticeSummaryText(filteredCount);
+      summary.title = youtubeNoticeTitle(shownCount);
+    }
+    noticeSummaryText(filteredCount) {
+      return this.revealed ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? "" : "s"}` : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? "" : "s"}`;
     }
     updateNoticeActions(settings) {
       var _a, _b;
@@ -33063,6 +33515,9 @@ ${spelling}`);
       this.bar = void 0;
       log$2.debug("YouTube filter cleared");
     }
+  }
+  function youtubeNoticeTitle(shownCount) {
+    return shownCount ? `${shownCount} Japanese-looking items stayed visible.` : "";
   }
   function mutationInsideReaderRoot(mutation) {
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
@@ -35879,7 +36334,7 @@ ${spelling}`);
       return overrideQuery || card.reading || card.spelling;
     }
     async showKanjiCard(card, kanji, sentence, anchor, options = {}) {
-      if (!isKanjiCharacter(kanji)) return;
+      if (!isKanjiCharacter$1(kanji)) return;
       const navigation = options.navigation ?? "reset";
       this.updateKanjiNavigation(card, kanji, sentence, navigation);
       log$1.debug("Rendering kanji card", { term: card.spelling, kanji });

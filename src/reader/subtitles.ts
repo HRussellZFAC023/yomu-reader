@@ -104,6 +104,15 @@ interface LoadedSubtitleTrackSelection {
     cues: SubtitleCue[];
 }
 
+type SubtitleTrackSelectionRole = 'primary' | 'secondary';
+
+interface SubtitleTrackSelectionLoadRequest {
+    id: string;
+    requestId: number;
+    role: SubtitleTrackSelectionRole;
+    transcriptEligible: boolean;
+}
+
 interface SubtitleMenuState {
     hasLines: boolean;
     hasSecondary: boolean;
@@ -126,10 +135,6 @@ function updatePageSubtitleTrack(track: SubtitleTrackOption, source: PageSubtitl
     track.language = source.language;
     track.sourceKey = source.sourceKey;
     return true;
-}
-
-function cachedSubtitleTrackCues(track: SubtitleTrackOption | undefined): SubtitleCue[] {
-    return track?.cues ?? [];
 }
 
 function shouldLogYouTubeTrackDiscovery(added: number, updatedSelectedTrack: boolean): boolean {
@@ -235,6 +240,12 @@ interface TranscriptPanelRenderState {
     signature: string;
 }
 
+interface TranscriptRowHydrationTarget {
+    cue: SubtitleCue;
+    target: HTMLElement;
+    key: string;
+}
+
 interface TrackPanelRenderState {
     tracks: SubtitleTrackOption[];
     autoDetected: number;
@@ -264,6 +275,33 @@ function trackPanelSummaryText(autoDetected: number): string {
     return autoDetected
         ? `${autoDetected} auto-detected option${autoDetected === 1 ? '' : 's'}`
         : 'Auto-detected YouTube/native tracks will appear here.';
+}
+
+function shouldReplaceLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined): next is SubtitleCue {
+    return Boolean(next && next !== current);
+}
+
+function shouldClearLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined, time: number): boolean {
+    return Boolean(!next && current && time > current.end + 0.12);
+}
+
+function loadedTrackState(cues: SubtitleCue[]): SubtitleTrackLoadingState {
+    return cues.length ? 'ready' : 'waiting';
+}
+
+function subtitleClipboardText(primary: SubtitleCue | undefined, secondary: SubtitleCue | undefined): string {
+    return [primary?.text.trim(), secondary?.text.trim()].filter(Boolean).join('\n');
+}
+
+function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number, apply: (value: number) => void): number {
+    for (let attempt = 0; attempt < 10; attempt++) {
+        if (!subtitleElementOverflows(element)) return fitted;
+        const next = nextSubtitleFontSize(element, fitted, minimum);
+        if (next >= fitted) break;
+        fitted = next;
+        apply(fitted);
+    }
+    return fitted;
 }
 
 export class SubtitlePlayerController {
@@ -459,29 +497,44 @@ export class SubtitlePlayerController {
     }
 
     private discoverVideo(): void {
-        const settings = this.options.getSettings();
-        if (!settings.subtitlePlayerEnabled || !settings.subtitleAutoDetect) {
+        if (!this.shouldDiscoverVideo()) {
             this.refresh();
             return;
         }
+        this.discoverEnabledVideo();
+    }
 
-        const candidate = [...document.querySelectorAll('video')]
-            .map(video => video as HTMLVideoElement)
-            .filter(video => video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120)
-            .sort((a, b) => (b.getBoundingClientRect().width * b.getBoundingClientRect().height) - (a.getBoundingClientRect().width * a.getBoundingClientRect().height))[0];
+    private shouldDiscoverVideo(): boolean {
+        const settings = this.options.getSettings();
+        return settings.subtitlePlayerEnabled && settings.subtitleAutoDetect;
+    }
 
-        if (candidate && candidate !== this.video) {
-            this.video = candidate;
-            this.clearTransientSubtitleState();
-            this.removeStaleNativeTracks(candidate);
-            this.attachTextTracks(candidate);
-            this.observeVideoLayout(candidate);
-            log.info('Subtitle video detected', videoSummary(candidate));
-        }
+    private discoverEnabledVideo(): void {
+        const candidate = this.discoverVideoCandidate();
+        if (candidate && candidate !== this.video) this.useDiscoveredVideoCandidate(candidate);
         this.syncSubtitleSourceContext(candidate ?? this.video);
         this.discoverPageSubtitleTracks();
         void this.discoverYouTubeTracksThrottled(true);
         this.refresh();
+    }
+
+    private discoverVideoCandidate(): HTMLVideoElement | undefined {
+        return Array.from(document.querySelectorAll<HTMLVideoElement>('video'))
+            .filter(video => this.isSubtitleVideoCandidate(video))
+            .sort((a, b) => videoElementArea(b) - videoElementArea(a))[0];
+    }
+
+    private isSubtitleVideoCandidate(video: HTMLVideoElement): boolean {
+        return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
+    }
+
+    private useDiscoveredVideoCandidate(candidate: HTMLVideoElement): void {
+        this.video = candidate;
+        this.clearTransientSubtitleState();
+        this.removeStaleNativeTracks(candidate);
+        this.attachTextTracks(candidate);
+        this.observeVideoLayout(candidate);
+        log.info('Subtitle video detected', videoSummary(candidate));
     }
 
     private attachTextTracks(video: HTMLVideoElement): void {
@@ -585,23 +638,34 @@ export class SubtitlePlayerController {
 
     private discoverPageSubtitleTracks(): void {
         const sources = collectPageSubtitleSources(document);
-        const sourceKeys = new Set(sources.map(source => source.sourceKey));
-        const sourceUrls = new Set(sources.map(source => normalizedSubtitleUrl(source.url)));
-        const removed = this.removeSubtitleTracks(track => track.kind === 'remote'
-            && !sourceKeys.has(track.sourceKey ?? '')
-            && !(track.url && sourceUrls.has(normalizedSubtitleUrl(track.url))), 'page-source-refresh');
+        const removed = this.removeStalePageSubtitleTracks(sources);
         if (!sources.length) return;
 
-        let added = 0;
-        let updated = 0;
+        const changes = this.addOrUpdatePageSubtitleTracks(sources, removed);
+        this.finishPageSubtitleTrackDiscovery(changes);
+    }
+
+    private removeStalePageSubtitleTracks(sources: PageSubtitleSource[]): number {
+        const sourceKeys = new Set(sources.map(source => source.sourceKey));
+        const sourceUrls = new Set(sources.map(source => normalizedSubtitleUrl(source.url)));
+        return this.removeSubtitleTracks(track => track.kind === 'remote'
+            && !sourceKeys.has(track.sourceKey ?? '')
+            && !(track.url && sourceUrls.has(normalizedSubtitleUrl(track.url))), 'page-source-refresh');
+    }
+
+    private addOrUpdatePageSubtitleTracks(sources: PageSubtitleSource[], removed: number): { added: number; updated: number; removed: number } {
+        const changes = { added: 0, updated: 0, removed };
         for (const source of sources) {
             const result = this.addOrUpdatePageSubtitleTrack(source);
-            added += result.added;
-            updated += result.updated;
+            changes.added += result.added;
+            changes.updated += result.updated;
         }
+        return changes;
+    }
 
-        if (added || updated || removed) {
-            log.debug('Page subtitle files discovered', { added, updated, removed, total: this.tracks.length });
+    private finishPageSubtitleTrackDiscovery(changes: { added: number; updated: number; removed: number }): void {
+        if (changes.added || changes.updated || changes.removed) {
+            log.debug('Page subtitle files discovered', { ...changes, total: this.tracks.length });
             this.renderTrackPanel();
             this.syncControls();
         }
@@ -657,20 +721,29 @@ export class SubtitlePlayerController {
     }
 
     private maybeAutoSelectNativeTrack(option: SubtitleTrackOption): void {
-        if (!option.track) return;
-        if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) {
-            const requestId = this.beginTrackSelection('primary');
-            this.selectedTrackId = option.id;
-            ensureTextTrackReadable(option.track);
-            void this.loadNativeTrackCues(option, 'primary', requestId);
-            log.debug('Auto-selected Japanese native subtitle track', { id: option.id, label: option.label });
-        } else if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) {
-            const requestId = this.beginTrackSelection('secondary');
-            this.secondaryTrackId = option.id;
-            ensureTextTrackReadable(option.track);
-            void this.loadNativeTrackCues(option, 'secondary', requestId);
-            log.debug('Auto-selected secondary native subtitle track', { id: option.id, label: option.label });
-        }
+        const track = option.track;
+        if (!track) return;
+        const role = this.autoSelectableNativeTrackRole(option);
+        if (role) this.autoSelectNativeTrack(option, track, role);
+    }
+
+    private autoSelectableNativeTrackRole(option: SubtitleTrackOption): 'primary' | 'secondary' | null {
+        if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) return 'primary';
+        if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) return 'secondary';
+        return null;
+    }
+
+    private autoSelectNativeTrack(option: SubtitleTrackOption, track: TextTrack, role: 'primary' | 'secondary'): void {
+        const requestId = this.beginTrackSelection(role);
+        this.setSelectedNativeTrackId(role, option.id);
+        ensureTextTrackReadable(track);
+        void this.loadNativeTrackCues(option, role, requestId);
+        log.debug(`Auto-selected ${role === 'primary' ? 'Japanese' : 'secondary'} native subtitle track`, { id: option.id, label: option.label });
+    }
+
+    private setSelectedNativeTrackId(role: 'primary' | 'secondary', id: string): void {
+        if (role === 'primary') this.selectedTrackId = id;
+        else this.secondaryTrackId = id;
     }
 
     private async loadNativeTrackCues(option: SubtitleTrackOption, role: 'primary' | 'secondary', requestId: number): Promise<void> {
@@ -696,23 +769,30 @@ export class SubtitlePlayerController {
     }
 
     private updateFromNativeTrack(track: TextTrack): void {
-        const primary = this.tracks.find(item => item.id === this.selectedTrackId);
-        const secondary = this.tracks.find(item => item.id === this.secondaryTrackId);
         const active = track.activeCues?.[0] as VTTCue | TextTrackCue | undefined;
         if (!active) return;
+        this.updatePrimaryNativeTrackCue(track, active);
+        this.updateSecondaryNativeTrackCue(track, active);
+        this.render();
+        this.renderTranscriptPanel();
+        this.syncControls();
+    }
 
+    private updatePrimaryNativeTrackCue(track: TextTrack, active: VTTCue | TextTrackCue): void {
+        const primary = this.tracks.find(item => item.id === this.selectedTrackId);
         if (primary?.track === track) {
             this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
             if (!this.cues.length) this.cues = readTextTrackCues(track);
             void this.autoCopyCurrentCue();
         }
+    }
+
+    private updateSecondaryNativeTrackCue(track: TextTrack, active: VTTCue | TextTrackCue): void {
+        const secondary = this.tracks.find(item => item.id === this.secondaryTrackId);
         if (secondary?.track === track) {
             this.secondaryCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active), transcriptEligible: false }])[0];
             if (!this.secondaryCues.length) this.secondaryCues = readTextTrackCues(track);
         }
-        this.render();
-        this.renderTranscriptPanel();
-        this.syncControls();
     }
 
     private tick(): void {
@@ -722,12 +802,16 @@ export class SubtitlePlayerController {
     }
 
     private tickSubtitlePlayer(settings: ReaderSettings): void {
-        if (this.syncSubtitleSourceContext(this.video)) this.refreshDiscoveredSubtitleTracks();
-        if (this.shouldRefreshYouTubeTracks()) void this.discoverYouTubeTracksThrottled();
+        this.refreshSubtitleSourcesForTick();
         this.refreshNativeCueLists();
         this.updateFromLoadedCues();
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
+    }
+
+    private refreshSubtitleSourcesForTick(): void {
+        if (this.syncSubtitleSourceContext(this.video)) this.refreshDiscoveredSubtitleTracks();
+        if (this.shouldRefreshYouTubeTracks()) void this.discoverYouTubeTracksThrottled();
     }
 
     private refreshDiscoveredSubtitleTracks(): void {
@@ -782,28 +866,35 @@ export class SubtitlePlayerController {
         const time = this.video.currentTime;
         const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : undefined;
         const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : undefined;
-        const primaryChanged = this.updateLoadedPrimaryCue(cue, time);
-        const secondaryChanged = this.updateLoadedSecondaryCue(secondary);
-        const changed = primaryChanged || secondaryChanged;
-        if (changed) {
-            this.render();
-            this.renderTranscriptPanel();
-            this.syncControls();
-            this.warmParseAroundActiveCue();
-            void this.autoCopyCurrentCue();
-        }
+        if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
+    }
+
+    private updateLoadedCueState(cue: SubtitleCue | undefined, secondary: SubtitleCue | undefined, time: number): boolean {
+        return this.updateLoadedPrimaryCue(cue, time) || this.updateLoadedSecondaryCue(secondary);
+    }
+
+    private afterLoadedCueStateChanged(): void {
+        this.render();
+        this.renderTranscriptPanel();
+        this.syncControls();
+        this.warmParseAroundActiveCue();
+        void this.autoCopyCurrentCue();
     }
 
     private updateLoadedPrimaryCue(cue: SubtitleCue | undefined, time: number): boolean {
-        if (cue && cue !== this.currentCue) {
-            this.currentCue = cue;
-            return true;
-        }
-        if (!cue && this.currentCue && time > this.currentCue.end + 0.12) {
-            this.currentCue = undefined;
-            return true;
-        }
+        if (shouldReplaceLoadedCue(cue, this.currentCue)) return this.replaceLoadedPrimaryCue(cue);
+        if (shouldClearLoadedCue(cue, this.currentCue, time)) return this.clearLoadedPrimaryCue();
         return false;
+    }
+
+    private replaceLoadedPrimaryCue(cue: SubtitleCue): boolean {
+        this.currentCue = cue;
+        return true;
+    }
+
+    private clearLoadedPrimaryCue(): boolean {
+        this.currentCue = undefined;
+        return true;
     }
 
     private updateLoadedSecondaryCue(secondary: SubtitleCue | undefined): boolean {
@@ -813,15 +904,28 @@ export class SubtitlePlayerController {
     }
 
     private updateFromDomCaptions(): void {
-        if (this.cues.length) return;
-        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
-        if (!this.canUseDomCaptionFallback(selected)) return;
-        if (!this.options.getSettings().subtitleOverlayVisible) return;
-        const text = readPageCaptionText(this.video, this.root);
-        if (!text) return this.clearDomCaptionFallbackIfExpired();
-        if (!this.isDomCaptionStable(text, performance.now())) return;
+        const fallback = this.domCaptionFallback();
+        if (!fallback) return;
+        this.applyDomCaptionFallback(fallback.text, fallback.selected);
+    }
 
-        this.applyDomCaptionFallback(text, selected);
+    private domCaptionFallback(): { text: string; selected: SubtitleTrackOption | undefined } | null {
+        if (this.cues.length) return null;
+        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
+        if (!this.shouldUseDomCaptionFallback(selected)) return null;
+        const text = readPageCaptionText(this.video, this.root);
+        if (!text) {
+            this.clearDomCaptionFallbackIfExpired();
+            return null;
+        }
+        if (!this.isDomCaptionStable(text, performance.now())) return null;
+
+        return { text, selected };
+    }
+
+    private shouldUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
+        if (!this.canUseDomCaptionFallback(selected)) return false;
+        return this.options.getSettings().subtitleOverlayVisible;
     }
 
     private canUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
@@ -903,13 +1007,24 @@ export class SubtitlePlayerController {
     }
 
     private applyRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>, text: string): void {
+        this.applyRenderedPrimaryKaraoke(primary);
+        this.fitSubtitleTextToVideo();
+        this.cacheRenderedPrimarySubtitle(primary);
+        this.requestParsedPrimaryIfNeeded(primary, text);
+    }
+
+    private applyRenderedPrimaryKaraoke(primary: ReturnType<typeof renderSubtitlePrimary>): void {
         const activeCue = this.currentCue;
         if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video?.currentTime ?? activeCue.start);
-        this.fitSubtitleTextToVideo();
-        if (primary.nextRenderedPrimary) {
-            this.lastRenderedPrimaryText = primary.nextRenderedPrimary.text;
-            this.lastRenderedPrimaryHtml = primary.nextRenderedPrimary.html;
-        }
+    }
+
+    private cacheRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>): void {
+        if (!primary.nextRenderedPrimary) return;
+        this.lastRenderedPrimaryText = primary.nextRenderedPrimary.text;
+        this.lastRenderedPrimaryHtml = primary.nextRenderedPrimary.html;
+    }
+
+    private requestParsedPrimaryIfNeeded(primary: ReturnType<typeof renderSubtitlePrimary>, text: string): void {
         if (primary.shouldRequestParse) void this.renderParsedPrimary(text);
     }
 
@@ -1048,30 +1163,28 @@ export class SubtitlePlayerController {
 
     private fitSubtitleFontSize(fitted: number, minimum: number): number {
         if (!this.root || !this.subtitleEl) return fitted;
-        for (let attempt = 0; attempt < 10; attempt++) {
-            if (!subtitleElementOverflows(this.subtitleEl)) return fitted;
-            const next = nextSubtitleFontSize(this.subtitleEl, fitted, minimum);
-            if (next >= fitted) break;
-            fitted = next;
-            this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
-        }
-        return fitted;
+        return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, value => {
+            this.root?.style.setProperty('--subtitle-font-size', `${value}px`);
+        });
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
-        const primary = this.subtitleEl?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
-        if (!primary) return;
-        if (!cueHasExactWordTimings(cue)) return;
-        const words = cue.words;
-        if (!words.length) return;
-        const wordElements = Array.from(primary.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        if (!wordElements.length) return;
+        const state = this.primaryKaraokeState(cue);
+        if (!state) return;
 
-        const progress = karaokeCharacterProgress(cue, words, time);
+        const progress = karaokeCharacterProgress(cue, state.words, time);
         let cursor = 0;
-        for (const element of wordElements) {
+        for (const element of state.wordElements) {
             cursor = applyKaraokeClassToWordElement(element, cursor, progress);
         }
+    }
+
+    private primaryKaraokeState(cue: SubtitleCue): { words: SubtitleWordTiming[]; wordElements: HTMLElement[] } | null {
+        const primary = this.subtitleEl?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        if (!primary || !cueHasExactWordTimings(cue)) return null;
+        const words = cue.words;
+        const wordElements = Array.from(primary.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        return words.length && wordElements.length ? { words, wordElements } : null;
     }
 
     private handleClick(event: MouseEvent): void {
@@ -1117,10 +1230,18 @@ export class SubtitlePlayerController {
 
     private shouldAutoIdleControls(): boolean {
         const settings = this.options.getSettings();
-        if (!this.root || settings.subtitleControlsMode !== 'auto') return false;
-        if (this.hasActiveSubtitleUi()) return false;
-        if (!this.hasSubtitleIdleSurface()) return false;
+        if (!this.hasAutoIdleMode(settings)) return false;
+        if (!this.canIdleSubtitleControls()) return false;
         return !this.video || this.videoIsLargeEnoughForIdleControls();
+    }
+
+    private hasAutoIdleMode(settings: ReaderSettings): boolean {
+        return Boolean(this.root && settings.subtitleControlsMode === 'auto');
+    }
+
+    private canIdleSubtitleControls(): boolean {
+        if (this.hasActiveSubtitleUi()) return false;
+        return this.hasSubtitleIdleSurface();
     }
 
     private hasActiveSubtitleUi(): boolean {
@@ -1216,13 +1337,16 @@ export class SubtitlePlayerController {
     }
 
     private async copySubtitle(index?: number): Promise<void> {
-        const rowIndex = Number.isInteger(index) ? index as number : undefined;
+        const text = this.subtitleCopyText(Number.isInteger(index) ? index as number : undefined);
+        if (!text) return;
+        await this.writeSubtitleClipboard(text, 'Subtitle clipboard copy failed');
+        log.debug('Subtitle copied', { length: text.length });
+    }
+
+    private subtitleCopyText(rowIndex: number | undefined): string {
         const cue = rowIndex !== undefined ? this.cues[rowIndex] : this.currentCue;
         const secondary = rowIndex !== undefined && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
-        const text = [cue?.text.trim(), secondary?.text.trim()].filter(Boolean).join('\n');
-        if (!text) return;
-        await navigator.clipboard?.writeText(text).catch(error => log.warn('Subtitle clipboard copy failed', error));
-        log.debug('Subtitle copied', { length: text.length });
+        return subtitleClipboardText(cue, secondary);
     }
 
     private async copyTranscriptRow(index: number): Promise<void> {
@@ -1233,10 +1357,14 @@ export class SubtitlePlayerController {
             return;
         }
         const secondary = findAlignedCue(this.secondaryCues, row.cue);
-        const text = [row.cue.text.trim(), secondary?.text.trim()].filter(Boolean).join('\n');
+        const text = subtitleClipboardText(row.cue, secondary);
         if (!text) return;
-        await navigator.clipboard?.writeText(text).catch(error => log.warn('Subtitle clipboard copy failed', error));
+        await this.writeSubtitleClipboard(text, 'Subtitle clipboard copy failed');
         log.debug('Subtitle transcript row copied', { length: text.length });
+    }
+
+    private async writeSubtitleClipboard(text: string, failureMessage: string): Promise<void> {
+        await navigator.clipboard?.writeText(text).catch(error => log.warn(failureMessage, error));
     }
 
     private async autoCopyCurrentCue(): Promise<void> {
@@ -1305,25 +1433,7 @@ export class SubtitlePlayerController {
     }
 
     private async loadPrimaryTrackSelection(id: string, requestId: number): Promise<LoadedSubtitleTrackSelection | null> {
-        let selected = this.tracks.find(option => option.id === id);
-        let currentTrackId = id;
-        if (selected) this.markTrackLoading(selected);
-        let nextCues = cachedSubtitleTrackCues(selected);
-        if (selected) {
-            this.setNativeTrackModes();
-            const loaded = await loadSubtitleTrackCues(selected, {
-                ...TRACK_LOAD_OPTIONS,
-                tracks: this.tracks,
-                transcriptEligible: true,
-            });
-            if (!this.isTrackSelectionCurrent('primary', requestId, currentTrackId)) return null;
-            selected = loaded.track;
-            currentTrackId = loaded.track.id;
-            if (currentTrackId !== this.selectedTrackId) this.selectedTrackId = currentTrackId;
-            nextCues = loaded.cues;
-        }
-        if (!this.isTrackSelectionCurrent('primary', requestId, currentTrackId)) return null;
-        return { track: selected, trackId: currentTrackId, cues: nextCues };
+        return this.loadTrackSelection({ id, requestId, role: 'primary', transcriptEligible: true });
     }
 
     private markTrackLoading(track: SubtitleTrackOption): void {
@@ -1331,11 +1441,50 @@ export class SubtitlePlayerController {
         this.renderTrackPanel();
     }
 
+    private async loadTrackSelection(request: SubtitleTrackSelectionLoadRequest): Promise<LoadedSubtitleTrackSelection | null> {
+        const selected = this.tracks.find(option => option.id === request.id);
+        if (!selected) return this.currentTrackSelection(request.role, request.requestId, request.id, undefined, []);
+        this.markTrackLoading(selected);
+        this.setNativeTrackModes();
+        const loaded = await loadSubtitleTrackCues(selected, {
+            ...TRACK_LOAD_OPTIONS,
+            tracks: this.tracks,
+            transcriptEligible: request.transcriptEligible,
+        });
+        return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+    }
+
+    private loadedTrackSelection(
+        request: SubtitleTrackSelectionLoadRequest,
+        selected: SubtitleTrackOption,
+        cues: SubtitleCue[],
+    ): LoadedSubtitleTrackSelection | null {
+        if (!this.isTrackSelectionCurrent(request.role, request.requestId, request.id)) return null;
+        const trackId = selected.id;
+        this.setSelectedTrackId(request.role, trackId);
+        return this.currentTrackSelection(request.role, request.requestId, trackId, selected, cues);
+    }
+
+    private currentTrackSelection(
+        role: SubtitleTrackSelectionRole,
+        requestId: number,
+        trackId: string,
+        track: SubtitleTrackOption | undefined,
+        cues: SubtitleCue[],
+    ): LoadedSubtitleTrackSelection | null {
+        return this.isTrackSelectionCurrent(role, requestId, trackId) ? { track, trackId, cues } : null;
+    }
+
+    private setSelectedTrackId(role: SubtitleTrackSelectionRole, trackId: string): void {
+        if (role === 'primary') this.selectedTrackId = trackId;
+        else this.secondaryTrackId = trackId;
+    }
+
     private applyPrimaryTrackSelection(selection: LoadedSubtitleTrackSelection): void {
         this.cues = selection.cues;
         if (selection.trackId !== this.selectedTrackId) this.selectedTrackId = selection.trackId;
         this.applyYouTubeCaptionFallback(selection.track, selection.trackId);
-        if (selection.track) selection.track.loadingState = this.cues.length ? 'ready' : 'waiting';
+        if (selection.track) selection.track.loadingState = loadedTrackState(this.cues);
     }
 
     private applyYouTubeCaptionFallback(track: SubtitleTrackOption | undefined, trackId: string): void {
@@ -1392,31 +1541,13 @@ export class SubtitlePlayerController {
     }
 
     private async loadSecondaryTrackSelection(id: string, requestId: number): Promise<LoadedSubtitleTrackSelection | null> {
-        let selected = this.tracks.find(option => option.id === id);
-        let currentTrackId = id;
-        if (selected) this.markTrackLoading(selected);
-        let nextCues = cachedSubtitleTrackCues(selected);
-        if (selected) {
-            this.setNativeTrackModes();
-            const loaded = await loadSubtitleTrackCues(selected, {
-                ...TRACK_LOAD_OPTIONS,
-                tracks: this.tracks,
-                transcriptEligible: false,
-            });
-            if (!this.isTrackSelectionCurrent('secondary', requestId, currentTrackId)) return null;
-            selected = loaded.track;
-            currentTrackId = loaded.track.id;
-            if (currentTrackId !== this.secondaryTrackId) this.secondaryTrackId = currentTrackId;
-            nextCues = loaded.cues;
-        }
-        if (!this.isTrackSelectionCurrent('secondary', requestId, currentTrackId)) return null;
-        return { track: selected, trackId: currentTrackId, cues: nextCues };
+        return this.loadTrackSelection({ id, requestId, role: 'secondary', transcriptEligible: false });
     }
 
     private applySecondaryTrackSelection(selection: LoadedSubtitleTrackSelection): void {
         this.secondaryCues = selection.cues;
         if (selection.trackId !== this.secondaryTrackId) this.secondaryTrackId = selection.trackId;
-        if (selection.track) selection.track.loadingState = this.secondaryCues.length ? 'ready' : 'waiting';
+        if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
     }
 
     private finishSecondaryTrackSelection(id: string, selected: SubtitleTrackOption | undefined): void {
@@ -1864,12 +1995,23 @@ export class SubtitlePlayerController {
     }
 
     private renderTranscriptPanel(force = false): void {
-        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
+        const panel = this.renderableTranscriptPanel();
+        if (!panel) return;
         const state = this.transcriptPanelRenderState();
-        if (!force && this.refreshExistingTranscriptPanel(state)) return;
+        if (this.canRefreshTranscriptPanel(force, state)) return;
         this.lastTranscriptSignature = state.signature;
-        setInnerHtml(this.transcriptPanel, this.renderTranscriptPanelHtml(state));
+        setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
         this.afterTranscriptPanelRender(state);
+    }
+
+    private renderableTranscriptPanel(): HTMLElement | null {
+        if (!this.transcriptPanel || this.transcriptPanel.hidden) return null;
+        return this.panelMode === 'lines' ? this.transcriptPanel : null;
+    }
+
+    private canRefreshTranscriptPanel(force: boolean, state: TranscriptPanelRenderState): boolean {
+        if (force) return false;
+        return this.refreshExistingTranscriptPanel(state);
     }
 
     private transcriptPanelRenderState(): TranscriptPanelRenderState {
@@ -2049,26 +2191,33 @@ export class SubtitlePlayerController {
 
     private activeTranscriptRowIndex(rows = this.transcriptRows(), activeCueIndex = this.activeTranscriptIndex()): number {
         if (!rows.length) return -1;
-        if (this.currentCue) {
-            const exact = rows.findIndex(row => row.cue === this.currentCue);
-            if (exact >= 0) return exact;
-        }
+        const exact = this.currentTranscriptRowIndex(rows);
+        if (exact >= 0) return exact;
         if (activeCueIndex >= 0) return rows.findIndex(row => row.cueIndex === activeCueIndex);
         return this.cues.length ? -1 : 0;
     }
 
+    private currentTranscriptRowIndex(rows: TranscriptRow[]): number {
+        return this.currentCue ? rows.findIndex(row => row.cue === this.currentCue) : -1;
+    }
+
     private async hydrateTranscriptRows(preferredIndex: number): Promise<void> {
-        if (!this.canHydrateTranscriptRows()) return;
-        const settings = this.options.getSettings();
-        if (!canParseSubtitleTranscriptRows(settings)) return;
-        const rows = this.transcriptRows();
-        if (!rows.length) return;
+        const request = this.transcriptHydrationRequest();
+        if (!request) return;
         const serial = ++this.transcriptHydrationSerial;
-        const indexes = this.transcriptHydrationIndexes(preferredIndex, rows.length);
+        const indexes = this.transcriptHydrationIndexes(preferredIndex, request.rows.length);
         for (const index of indexes) {
             if (serial !== this.transcriptHydrationSerial) return;
-            await this.hydrateTranscriptRow(index, settings, rows);
+            await this.hydrateTranscriptRow(index, request.settings, request.rows);
         }
+    }
+
+    private transcriptHydrationRequest(): { settings: ReaderSettings; rows: TranscriptRow[] } | null {
+        if (!this.canHydrateTranscriptRows()) return null;
+        const settings = this.options.getSettings();
+        if (!canParseSubtitleTranscriptRows(settings)) return null;
+        const rows = this.transcriptRows();
+        return rows.length ? { settings, rows } : null;
     }
 
     private canHydrateTranscriptRows(): boolean {
@@ -2092,26 +2241,32 @@ export class SubtitlePlayerController {
     }
 
     private async hydrateTranscriptRow(index: number, settings: ReaderSettings, rows = this.transcriptRows()): Promise<void> {
-        const cue = rows[index]?.cue;
-        const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
-        if (!cue || !target) return;
-        const key = this.parseCacheKey(cue.text, settings);
-        if (target.dataset.parsedKey === key) return;
+        const hydration = this.transcriptRowHydrationTarget(index, settings, rows);
+        if (!hydration) return;
 
-        const cached = this.parsedHtmlCache.get(key);
-        if (cached) {
-            target.dataset.parsedKey = key;
-            setInnerHtml(target, cached);
-            return;
-        }
+        const cached = this.parsedHtmlCache.get(hydration.key);
+        if (cached) return this.applyCachedTranscriptRowHtml(hydration, cached);
 
         try {
-            const html = await this.parseCueHtml(cue.text, settings);
-            this.updateTranscriptRowsForParseKey(key, html);
+            const html = await this.parseCueHtml(hydration.cue.text, settings);
+            this.updateTranscriptRowsForParseKey(hydration.key, html);
         } catch (error) {
-            target.dataset.parsedKey = key;
-            log.debug('Transcript row parse failed quietly', { index, length: cue.text.length }, error);
+            hydration.target.dataset.parsedKey = hydration.key;
+            log.debug('Transcript row parse failed quietly', { index, length: hydration.cue.text.length }, error);
         }
+    }
+
+    private transcriptRowHydrationTarget(index: number, settings: ReaderSettings, rows: TranscriptRow[]): TranscriptRowHydrationTarget | null {
+        const cue = rows[index]?.cue;
+        const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
+        if (!cue || !target) return null;
+        const key = this.parseCacheKey(cue.text, settings);
+        return target.dataset.parsedKey === key ? null : { cue, target, key };
+    }
+
+    private applyCachedTranscriptRowHtml(hydration: TranscriptRowHydrationTarget, html: string): void {
+        hydration.target.dataset.parsedKey = hydration.key;
+        setInnerHtml(hydration.target, html);
     }
 
     private scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)): void {
@@ -2343,17 +2498,24 @@ export class SubtitlePlayerController {
     private clearPrimaryTrack(): void {
         this.suppressYouTubeAutoSelectForCurrentVideo();
         this.resetPrimarySubtitleState();
+        this.clearPrimaryTrackLoadingStates();
+        this.setNativeTrackModes();
+        this.render();
+        this.refreshOpenTranscriptPanelAfterPrimaryClear();
+        this.syncControls();
+        log.info('Primary subtitle track cleared');
+    }
+
+    private clearPrimaryTrackLoadingStates(): void {
         for (const track of this.tracks) {
             if (track.loadingState && track.id !== this.secondaryTrackId) track.loadingState = 'idle';
         }
-        this.setNativeTrackModes();
-        this.render();
-        if (this.transcriptPanel && !this.transcriptPanel.hidden) {
-            this.panelMode = 'tracks';
-            this.renderTrackPanel();
-        }
-        this.syncControls();
-        log.info('Primary subtitle track cleared');
+    }
+
+    private refreshOpenTranscriptPanelAfterPrimaryClear(): void {
+        if (!this.isTranscriptPanelOpen()) return;
+        this.panelMode = 'tracks';
+        this.renderTrackPanel();
     }
 
     private suppressYouTubeAutoSelectForCurrentVideo(): void {
@@ -2664,6 +2826,11 @@ function videoSummary(video: HTMLVideoElement): Record<string, unknown> {
         height: video.videoHeight || video.clientHeight,
         textTracks: video.textTracks.length,
     };
+}
+
+function videoElementArea(video: HTMLVideoElement): number {
+    const rect = video.getBoundingClientRect();
+    return rect.width * rect.height;
 }
 
 function safeHost(value: string): string {

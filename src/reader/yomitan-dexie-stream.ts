@@ -11,6 +11,17 @@ interface DexieStreamState {
     escaped: boolean;
 }
 
+interface DexieTableRowCount {
+    name: string;
+    rowCount: number;
+}
+
+interface DexieRowReadStep {
+    done: boolean;
+    progress: boolean;
+    nextIndex: number;
+}
+
 export async function readDexieTableRowCounts(file: File): Promise<Partial<Record<string, number>>> {
     const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
     const tables = readDexieTablesArray(head);
@@ -30,11 +41,18 @@ function readDexieTablesArray(head: string): unknown[] | null {
 function dexieTableRowCounts(tables: unknown[]): Partial<Record<string, number>> {
     const counts: Partial<Record<string, number>> = {};
     for (const table of tables) {
-        if (!table || typeof table !== 'object') continue;
-        const record = table as Record<string, unknown>;
-        if (typeof record.name === 'string' && typeof record.rowCount === 'number') counts[record.name] = record.rowCount;
+        const count = dexieTableRowCount(table);
+        if (count) counts[count.name] = count.rowCount;
     }
     return counts;
+}
+
+function dexieTableRowCount(table: unknown): DexieTableRowCount | null {
+    if (!table || typeof table !== 'object') return null;
+    const record = table as Record<string, unknown>;
+    return typeof record.name === 'string' && typeof record.rowCount === 'number'
+        ? { name: record.name, rowCount: record.rowCount }
+        : null;
 }
 
 export async function streamDexieTables(
@@ -141,16 +159,31 @@ async function readDexieRows(
     handlers: Partial<Record<string, DexieRowHandler>>,
 ): Promise<boolean> {
     let progress = false;
-    for (let index = 0; index < state.buffer.length; index++) {
-        const action = readDexieRowCharacter(state, index);
-        if (action === 'continue') continue;
-        const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
-        if (result.done) return true;
-        progress = result.progress;
-        if (result.restart) index = -1;
+    let index = 0;
+    while (index < state.buffer.length) {
+        const step = await readDexieRowStep(state, handlers, index, progress);
+        if (step.done) return true;
+        progress = step.progress;
+        index = step.nextIndex;
     }
     if (!progress) compactDexieRowBuffer(state);
     return progress;
+}
+
+async function readDexieRowStep(
+    state: DexieStreamState,
+    handlers: Partial<Record<string, DexieRowHandler>>,
+    index: number,
+    progress: boolean,
+): Promise<DexieRowReadStep> {
+    const action = readDexieRowCharacter(state, index);
+    if (action === 'continue') return { done: false, progress, nextIndex: index + 1 };
+    const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
+    return {
+        done: result.done,
+        progress: result.progress,
+        nextIndex: result.restart ? 0 : index + 1,
+    };
 }
 
 async function applyDexieRowReadAction(
@@ -202,14 +235,20 @@ async function finishDexieRow(state: DexieStreamState, handlers: Partial<Record<
 }
 
 function advanceStringState(state: DexieStreamState, char: string): boolean {
-    if (state.inString) {
-        if (state.escaped) state.escaped = false;
-        else if (char === '\\') state.escaped = true;
-        else if (char === '"') state.inString = false;
-        return true;
-    }
+    if (state.inString) return advanceOpenStringState(state, char);
+    return enterStringState(state, char);
+}
+
+function enterStringState(state: DexieStreamState, char: string): boolean {
     if (char !== '"') return false;
     state.inString = true;
+    return true;
+}
+
+function advanceOpenStringState(state: DexieStreamState, char: string): boolean {
+    if (state.escaped) state.escaped = false;
+    else if (char === '\\') state.escaped = true;
+    else if (char === '"') state.inString = false;
     return true;
 }
 

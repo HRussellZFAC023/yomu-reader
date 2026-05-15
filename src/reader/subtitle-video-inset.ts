@@ -162,13 +162,20 @@ function youtubePlayerContainers(): HTMLElement[] {
 
 function applyYouTubePlayerContainerInset(element: HTMLElement, side: SubtitleVideoInsetSide, width: number, inset: number, height = 0): void {
     if (side === 'bottom') {
-        if (height) {
-            setStylePropertyIfChanged(element, 'height', `${height}px`);
-            setStylePropertyIfChanged(element, 'max-height', `${height}px`);
-            setStylePropertyIfChanged(element, 'min-height', '0px');
-        }
+        applyBottomYouTubePlayerContainerInset(element, height);
         return;
     }
+    applySideYouTubePlayerContainerInset(element, side, width, inset);
+}
+
+function applyBottomYouTubePlayerContainerInset(element: HTMLElement, height: number): void {
+    if (!height) return;
+    setStylePropertyIfChanged(element, 'height', `${height}px`);
+    setStylePropertyIfChanged(element, 'max-height', `${height}px`);
+    setStylePropertyIfChanged(element, 'min-height', '0px');
+}
+
+function applySideYouTubePlayerContainerInset(element: HTMLElement, side: Exclude<SubtitleVideoInsetSide, 'bottom'>, width: number, inset: number): void {
     const widthValue = `${width}px`;
     setStylePropertyIfChanged(element, 'width', widthValue);
     setStylePropertyIfChanged(element, 'max-width', widthValue);
@@ -195,16 +202,26 @@ function youtubeVisiblePlayerRect(): DOMRect | undefined {
 
 function requestYouTubePlayerResize(width: number, height: number): void {
     if (!isYouTubePage()) return;
-    const player = document.querySelector('#movie_player') as {
-        setSize?: (width: number, height: number) => void;
-    } | null;
+    const player = youtubeMoviePlayer();
     try {
-        if (player?.setSize && width > 0 && height > 0) player.setSize(Math.round(width), Math.round(height));
+        if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
     } catch {
         // YouTube's player API is private and best-effort.
     }
     dispatchWindowEvent(createWindowEvent('resize'));
     window.setTimeout(() => dispatchWindowEvent(createWindowEvent('resize')), 0);
+}
+
+function youtubeMoviePlayer(): { setSize?: (width: number, height: number) => void } | null {
+    return document.querySelector('#movie_player') as { setSize?: (width: number, height: number) => void } | null;
+}
+
+function canResizeYouTubePlayer(
+    player: { setSize?: (width: number, height: number) => void } | null,
+    width: number,
+    height: number,
+): player is { setSize: (width: number, height: number) => void } {
+    return Boolean(player?.setSize && width > 0 && height > 0);
 }
 
 function clearYouTubePlayerContainerInset(element: HTMLElement): void {

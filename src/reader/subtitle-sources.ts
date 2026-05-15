@@ -90,11 +90,19 @@ function dedupeSubtitleSources(sources: PageSubtitleSource[]): PageSubtitleSourc
 
 function pageSubtitleTitle(root: ParentNode): string {
     const doc = root instanceof Document ? root : root.ownerDocument ?? document;
-    const candidate = doc.querySelector<HTMLMetaElement>('meta[property="og:title"], meta[name="twitter:title"]')?.content
-        || doc.querySelector<HTMLElement>('h1')?.textContent
-        || doc.title
-        || '';
-    return cleanSubtitleTitle(candidate);
+    return cleanSubtitleTitle(pageSubtitleTitleCandidate(doc));
+}
+
+function pageSubtitleTitleCandidate(doc: Document): string {
+    return openGraphSubtitleTitle(doc) || headingSubtitleTitle(doc) || doc.title || '';
+}
+
+function openGraphSubtitleTitle(doc: Document): string {
+    return doc.querySelector<HTMLMetaElement>('meta[property="og:title"], meta[name="twitter:title"]')?.content ?? '';
+}
+
+function headingSubtitleTitle(doc: Document): string {
+    return doc.querySelector<HTMLElement>('h1')?.textContent ?? '';
 }
 
 function resolveSubtitleSourceUrl(value: string): string {

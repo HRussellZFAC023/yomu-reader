@@ -71,17 +71,29 @@ export function japaneseRunAt(text: string, offset: number): { start: number; en
     const index = japaneseRunIndexAt(text, offset);
     if (index === null) return null;
 
-    let start = index;
-    let end = index + 1;
-    while (start > 0 && JAPANESE_RUN_RE.test(text[start - 1])) start--;
-    while (end < text.length && JAPANESE_RUN_RE.test(text[end])) end++;
-    return { start, end, offset: index };
+    return {
+        start: japaneseRunStart(text, index),
+        end: japaneseRunEnd(text, index),
+        offset: index,
+    };
 }
 
 function japaneseRunIndexAt(text: string, offset: number): number | null {
     let index = Math.min(Math.max(offset, 0), text.length - 1);
     if (!isJapaneseCharacterAt(text, index) && index > 0 && isJapaneseCharacterAt(text, index - 1)) index--;
     return isJapaneseCharacterAt(text, index) ? index : null;
+}
+
+function japaneseRunStart(text: string, index: number): number {
+    let start = index;
+    while (start > 0 && isJapaneseCharacterAt(text, start - 1)) start--;
+    return start;
+}
+
+function japaneseRunEnd(text: string, index: number): number {
+    let end = index + 1;
+    while (end < text.length && isJapaneseCharacterAt(text, end)) end++;
+    return end;
 }
 
 function isJapaneseCharacterAt(text: string, index: number): boolean {

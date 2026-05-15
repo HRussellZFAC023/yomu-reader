@@ -49,20 +49,39 @@ function fallbackHydrationRows(options: TranscriptHydrationPlanOptions): number 
 }
 
 function addVisibleIndexes(indexes: Set<number>, options: TranscriptHydrationPlanOptions): void {
-    const scrollerRect = options.scroller?.getBoundingClientRect();
-    if (!options.scroller || !scrollerRect) return;
-    for (const row of Array.from(options.scroller.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'))) {
-        const index = visibleTranscriptRowIndex(row, scrollerRect, options.rowCount);
-        if (index !== null) indexes.add(index);
+    const rows = visibleTranscriptRows(options);
+    if (!rows) return;
+    for (const row of rows.elements) {
+        addVisibleTranscriptRowIndex(indexes, row, rows.scrollerRect, options);
         if (indexes.size >= options.maxRows) break;
     }
 }
 
+function visibleTranscriptRows(options: TranscriptHydrationPlanOptions): { elements: HTMLElement[]; scrollerRect: DOMRect } | null {
+    const scrollerRect = options.scroller?.getBoundingClientRect();
+    return options.scroller && scrollerRect
+        ? { elements: Array.from(options.scroller.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row')), scrollerRect }
+        : null;
+}
+
+function addVisibleTranscriptRowIndex(indexes: Set<number>, row: HTMLElement, scrollerRect: DOMRect, options: TranscriptHydrationPlanOptions): void {
+    const index = visibleTranscriptRowIndex(row, scrollerRect, options.rowCount);
+    if (index !== null) indexes.add(index);
+}
+
 function visibleTranscriptRowIndex(row: HTMLElement, scrollerRect: DOMRect, rowCount: number): number | null {
     const rect = row.getBoundingClientRect();
-    if (rect.bottom < scrollerRect.top || rect.top > scrollerRect.bottom) return null;
+    if (!isTranscriptRowVisible(rect, scrollerRect)) return null;
     const index = Number(row.dataset.rowIndex);
-    return Number.isInteger(index) && index >= 0 && index < rowCount ? index : null;
+    return validTranscriptRowIndex(index, rowCount) ? index : null;
+}
+
+function isTranscriptRowVisible(rect: DOMRect, scrollerRect: DOMRect): boolean {
+    return rect.bottom >= scrollerRect.top && rect.top <= scrollerRect.bottom;
+}
+
+function validTranscriptRowIndex(index: number, rowCount: number): boolean {
+    return Number.isInteger(index) && index >= 0 && index < rowCount;
 }
 
 function addBackgroundIndexes(indexes: Set<number>, options: TranscriptHydrationPlanOptions): number {

@@ -17,6 +17,8 @@ interface StructuredImageMetrics {
     usedWidth: number;
 }
 
+type DirectGlossaryRecordRenderer = (record: Record<string, unknown>, context: StructuredRenderContext) => string | null;
+
 const STRUCTURED_CONTENT_TAGS = new Set([
     'br',
     'ruby',
@@ -124,11 +126,38 @@ function renderGlossaryArray(value: unknown[], context: StructuredRenderContext)
 }
 
 function renderGlossaryRecord(record: Record<string, unknown>, context: StructuredRenderContext): string {
-    if (typeof record.text === 'string') return escapeHtml(record.text);
-    if (record.type === 'structured-content') return renderStructuredContent(record, context);
-    if (isStructuredImageRecord(record)) return renderStructuredImage(record, context.dictionary);
-    if (record.type === 'text' && 'content' in record) return renderGlossaryValue(record.content, context);
-    return renderTaggedGlossaryRecord(record, context);
+    return renderDirectGlossaryRecord(record, context) ?? renderTaggedGlossaryRecord(record, context);
+}
+
+const DIRECT_GLOSSARY_RECORD_RENDERERS: DirectGlossaryRecordRenderer[] = [
+    renderTextGlossaryRecord,
+    renderStructuredContentGlossaryRecord,
+    renderImageGlossaryRecord,
+    renderTextContentGlossaryRecord,
+];
+
+function renderDirectGlossaryRecord(record: Record<string, unknown>, context: StructuredRenderContext): string | null {
+    for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
+        const html = render(record, context);
+        if (html !== null) return html;
+    }
+    return null;
+}
+
+function renderTextGlossaryRecord(record: Record<string, unknown>): string | null {
+    return typeof record.text === 'string' ? escapeHtml(record.text) : null;
+}
+
+function renderStructuredContentGlossaryRecord(record: Record<string, unknown>, context: StructuredRenderContext): string | null {
+    return record.type === 'structured-content' ? renderStructuredContent(record, context) : null;
+}
+
+function renderImageGlossaryRecord(record: Record<string, unknown>, context: StructuredRenderContext): string | null {
+    return isStructuredImageRecord(record) ? renderStructuredImage(record, context.dictionary) : null;
+}
+
+function renderTextContentGlossaryRecord(record: Record<string, unknown>, context: StructuredRenderContext): string | null {
+    return record.type === 'text' && 'content' in record ? renderGlossaryValue(record.content, context) : null;
 }
 
 function renderStructuredContent(record: Record<string, unknown>, context: StructuredRenderContext): string {
@@ -139,13 +168,17 @@ function renderStructuredContent(record: Record<string, unknown>, context: Struc
 function renderTaggedGlossaryRecord(record: Record<string, unknown>, context: StructuredRenderContext): string {
     const tag = structuredRecordTag(record);
     if (!tag) return renderRecordValues(record, context);
+    return renderKnownTaggedGlossaryRecord(record, tag, context)
+        ?? structuredFallbackContent(record, taggedRecordContent(record, tag, context));
+}
+
+function renderKnownTaggedGlossaryRecord(record: Record<string, unknown>, tag: string, context: StructuredRenderContext): string | null {
     if (tag === 'a') return renderStructuredLink(record, context);
     if (tag === 'img') return renderStructuredImage(record, context.dictionary);
-
     const content = taggedRecordContent(record, tag, context);
     if (tag === 'table') return renderStructuredTable(record, content, context.dictionary);
     if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record, tag, content, context.dictionary);
-    return structuredFallbackContent(record, content);
+    return null;
 }
 
 function taggedRecordContent(record: Record<string, unknown>, tag: string, context: StructuredRenderContext): string {
@@ -236,12 +269,15 @@ function isStructuredAttributeValue(value: unknown): value is string | number | 
 }
 
 function renderDirectDataAttributes(record: Record<string, unknown>): string {
-    const attrs: string[] = [];
-    for (const [key, value] of Object.entries(record)) {
-        if (!key.startsWith('data-') || (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean')) continue;
-        attrs.push(` ${key}="${escapeHtml(String(value))}"`);
-    }
-    return attrs.join('');
+    return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join('');
+}
+
+function renderDirectDataAttribute([key, value]: [string, unknown]): string {
+    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : '';
+}
+
+function isDirectDataAttribute(key: string, value: unknown): value is string | number | boolean {
+    return key.startsWith('data-') && isStructuredAttributeValue(value);
 }
 
 function renderStructuredStyle(value: unknown): string {
@@ -289,13 +325,25 @@ interface StructuredLinkModel {
 
 function structuredLinkModel(record: Record<string, unknown>, context: StructuredRenderContext): StructuredLinkModel {
     const rawHref = typeof record.href === 'string' ? record.href : '';
-    const searchReference = context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
-    const href = searchReference ? '#jpdb-reader-dictionary-lookup' : normalizeStructuredHref(rawHref);
+    const searchReference = structuredLinkSearchReference(rawHref, context);
+    const href = structuredLinkHref(rawHref, searchReference);
     return {
         href,
-        external: href ? !href.startsWith(locationOrigin()) && !href.startsWith('#') : false,
+        external: isExternalStructuredHref(href),
         searchReference,
     };
+}
+
+function structuredLinkSearchReference(rawHref: string, context: StructuredRenderContext): StructuredSearchReference | null {
+    return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
+}
+
+function structuredLinkHref(rawHref: string, searchReference: StructuredSearchReference | null): string {
+    return searchReference ? '#jpdb-reader-dictionary-lookup' : normalizeStructuredHref(rawHref);
+}
+
+function isExternalStructuredHref(href: string): boolean {
+    return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith('#'));
 }
 
 function structuredLinkAttrs(link: StructuredLinkModel, dictionary: string, lang: unknown): string {
@@ -348,11 +396,21 @@ function renderStructuredImageLink(record: Record<string, unknown>, dictionary: 
 }
 
 function renderStructuredImageAttributes(record: Record<string, unknown>, dictionary: string, path: string): string {
-    const dictionaryAttr = dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : '';
     return [
         ` class="gloss-image-link"`,
-        dictionaryAttr,
-        path ? ` data-path="${escapeHtml(path)}"` : '',
+        dictionaryAttribute(dictionary),
+        structuredImagePathAttribute(path),
+        ...structuredImageStateAttributes(record),
+        ...structuredImageOptionalAttributes(record),
+    ].join('');
+}
+
+function structuredImagePathAttribute(path: string): string {
+    return path ? ` data-path="${escapeHtml(path)}"` : '';
+}
+
+function structuredImageStateAttributes(record: Record<string, unknown>): string[] {
+    return [
         ` data-image-load-state="unloaded"`,
         ` data-has-aspect-ratio="true"`,
         ` data-image-rendering="${escapeHtml(structuredImageRendering(record))}"`,
@@ -360,9 +418,14 @@ function renderStructuredImageAttributes(record: Record<string, unknown>, dictio
         structuredImageBooleanAttribute(record, 'background', true),
         structuredImageBooleanAttribute(record, 'collapsed', false),
         structuredImageBooleanAttribute(record, 'collapsible', true),
+    ];
+}
+
+function structuredImageOptionalAttributes(record: Record<string, unknown>): string[] {
+    return [
         typeof record.verticalAlign === 'string' ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : '',
         typeof record.sizeUnits === 'string' ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : '',
-    ].join('');
+    ];
 }
 
 function structuredImageBooleanAttribute(record: Record<string, unknown>, key: string, fallback: boolean): string {
@@ -437,17 +500,21 @@ function normalizeStructuredHref(href: string): string {
 
 function parseStructuredSearchReference(href: string): StructuredSearchReference | null {
     if (!href.startsWith('?')) return null;
+    const params = structuredSearchParams(href);
+    return params ? structuredSearchReferenceFromParams(params) : null;
+}
+
+function structuredSearchParams(href: string): URLSearchParams | null {
     try {
-        const params = new URLSearchParams(href.slice(1));
-        const query = (params.get('query') ?? '').trim();
-        if (!query) return null;
-        return {
-            query,
-            reading: (params.get('primary_reading') ?? '').trim(),
-        };
+        return new URLSearchParams(href.slice(1));
     } catch {
         return null;
     }
+}
+
+function structuredSearchReferenceFromParams(params: URLSearchParams): StructuredSearchReference | null {
+    const query = (params.get('query') ?? '').trim();
+    return query ? { query, reading: (params.get('primary_reading') ?? '').trim() } : null;
 }
 
 function locationOrigin(): string {

@@ -12,17 +12,18 @@ const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
 const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
 
 export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement): string {
-    const direct = collectCaptionTexts(
-        [...document.querySelectorAll<HTMLElement>(CAPTION_SELECTORS)],
-        video,
-        readerRoot,
-        false,
-    );
-    if (direct || !video || !isYouTubePage()) {
-        if (direct || !video) return direct;
-    } else {
-        return readHiddenYouTubeCaptionText(readerRoot);
-    }
+    const direct = readDirectPageCaptionText(video, readerRoot);
+    if (direct || !video) return direct;
+    return isYouTubePage()
+        ? readHiddenYouTubeCaptionText(readerRoot)
+        : readNearbyPageCaptionText(video, readerRoot);
+}
+
+function readDirectPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement): string {
+    return collectCaptionTexts([...document.querySelectorAll<HTMLElement>(CAPTION_SELECTORS)], video, readerRoot, false);
+}
+
+function readNearbyPageCaptionText(video: HTMLVideoElement, readerRoot?: HTMLElement): string {
     return collectCaptionTexts(
         [...document.querySelectorAll<HTMLElement>('span, p, div')],
         video,
@@ -47,7 +48,7 @@ function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement): string {
 function hiddenYouTubeCaptionLine(element: HTMLElement, readerRoot?: HTMLElement): string {
     if (isCaptionElementExcluded(element, readerRoot)) return '';
     const text = normalizeCaptionText(element.innerText || element.textContent || '');
-    return text && /[\u3040-\u30ff\u3400-\u9fff]/.test(text) ? text : '';
+    return isJapaneseCaptionText(text) ? text : '';
 }
 
 function collectCaptionTexts(elements: HTMLElement[], video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): string {
@@ -70,13 +71,14 @@ function unseenCaptionText(element: HTMLElement, seen: Set<string>): string {
 }
 
 function isLikelyCaptionElement(element: HTMLElement, video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): boolean {
-    if (isCaptionElementExcluded(element, readerRoot)) return false;
-    const text = normalizeCaptionText(element.innerText || element.textContent || '');
-    if (!isCaptionTextShape(element, text)) return false;
-
+    if (!isCaptionCandidateElement(element, readerRoot)) return false;
     const rect = element.getBoundingClientRect();
-    if (!isVisibleCaptionRect(element, rect)) return false;
-    return matchesCaptionVideoScope(rect, video, nearVideoOnly);
+    return isVisibleCaptionRect(element, rect) && matchesCaptionVideoScope(rect, video, nearVideoOnly);
+}
+
+function isCaptionCandidateElement(element: HTMLElement, readerRoot?: HTMLElement): boolean {
+    if (isCaptionElementExcluded(element, readerRoot)) return false;
+    return isCaptionTextShape(element, normalizeCaptionText(element.innerText || element.textContent || ''));
 }
 
 function matchesCaptionVideoScope(rect: DOMRect, video?: HTMLVideoElement, nearVideoOnly = false): boolean {
@@ -108,11 +110,22 @@ function isCaptionElementExcluded(element: HTMLElement, readerRoot?: HTMLElement
 
 function isCaptionTextShape(element: HTMLElement, text: string): boolean {
     const allowsChildText = element.matches(CAPTION_CONTAINER_SELECTORS);
-    return text.length >= 2
-        && text.length <= 180
-        && /[\u3040-\u30ff\u3400-\u9fff]/.test(text)
-        && text.split('\n').length <= 4
-        && (allowsChildText || ![...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? '')));
+    if (!hasCaptionTextLength(text)) return false;
+    if (!isJapaneseCaptionText(text)) return false;
+    if (text.split('\n').length > 4) return false;
+    return allowsChildText || !hasJapaneseCaptionChildText(element);
+}
+
+function hasCaptionTextLength(text: string): boolean {
+    return text.length >= 2 && text.length <= 180;
+}
+
+function isJapaneseCaptionText(text: string): boolean {
+    return Boolean(text && /[\u3040-\u30ff\u3400-\u9fff]/.test(text));
+}
+
+function hasJapaneseCaptionChildText(element: HTMLElement): boolean {
+    return [...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ''));
 }
 
 function isVisibleCaptionRect(element: HTMLElement, rect: DOMRect): boolean {

@@ -88,6 +88,43 @@ function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter 
     };
 }
 
+function missingStarterDictionaries(summary: DictionarySummary): typeof RECOMMENDED_JAPANESE_DICTIONARIES {
+    return RECOMMENDED_JAPANESE_DICTIONARIES
+        .filter(dictionary => STARTER_DICTIONARY_IDS.includes(dictionary.id))
+        .filter(dictionary => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
+}
+
+function shouldDownloadStarterDictionaries(missing: typeof RECOMMENDED_JAPANESE_DICTIONARIES, summary: DictionarySummary, force: boolean): boolean {
+    return Boolean(missing.length && (force || summary.terms <= 0));
+}
+
+function focusPreviewAudioSource(form: HTMLFormElement, button: HTMLButtonElement | null, previewSettings: ReaderSettings): void {
+    const row = button?.closest<HTMLElement>('[data-audio-source-row]');
+    if (!row) return;
+    const source = previewSettings.audioSources[sourceRowIndex(form, row)];
+    if (!source) return;
+    previewSettings.audioSources = [{ ...source, enabled: true }];
+    previewSettings.audioEnableDefaultSources = false;
+}
+
+function sourceRowIndex(form: HTMLFormElement, row: HTMLElement): number {
+    return Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
+}
+
+function recommendedDictionaryForControl(control: HTMLElement | null | undefined): (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number] {
+    const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : undefined;
+    if (!dictionary) throw new Error('Recommended dictionary not found.');
+    return dictionary;
+}
+
+function disableRecommendedDictionaryControl(control: HTMLElement | null | undefined): void {
+    control?.setAttribute('disabled', 'true');
+}
+
+function recommendedDictionaryDownloadStatus(control: HTMLElement | null | undefined, dictionaryName: string): string {
+    return `${control?.dataset.installed === 'true' ? 'Updating' : 'Downloading'} ${dictionaryName}...`;
+}
+
 function settingsActionButton(control: HTMLElement | null | undefined): HTMLButtonElement | null {
     return control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button') ?? null;
 }
@@ -403,26 +440,29 @@ export class SettingsDialogController {
 
     private async downloadStarterDictionaries(onProgress?: (message: string) => void, force = false): Promise<boolean> {
         const summary = await this.dependencies.dictionaries.summary();
-        const missing = RECOMMENDED_JAPANESE_DICTIONARIES
-            .filter(dictionary => STARTER_DICTIONARY_IDS.includes(dictionary.id))
-            .filter(dictionary => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
-        if (!missing.length || (!force && summary.terms > 0)) return false;
+        const missing = missingStarterDictionaries(summary);
+        if (!shouldDownloadStarterDictionaries(missing, summary, force)) return false;
 
         let importedEntries = 0;
         for (const [index, dictionary] of missing.entries()) {
-            onProgress?.(`Downloading ${dictionary.name} (${index + 1}/${missing.length})...`);
-            log.info('Downloading starter dictionary', { dictionary: dictionary.name, index: index + 1, total: missing.length });
-            const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => onProgress?.(message));
-            importedEntries += imported.entries;
-            this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, imported.dictionaries, imported.dictionaryTypes ?? {});
-            this.settings.localDictionariesEnabled = true;
-            await saveSettings(this.settings);
-            await this.dependencies.refreshDictionaryStyles();
-            this.dependencies.scheduleDictionaryRescan();
+            importedEntries += await this.downloadStarterDictionary(dictionary, index, missing.length, onProgress);
         }
         onProgress?.(`Dictionary ready: ${importedEntries.toLocaleString()} records imported.`);
         log.info('Starter dictionaries downloaded', { dictionaries: missing.length, importedEntries });
         return true;
+    }
+
+    private async downloadStarterDictionary(
+        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
+        index: number,
+        total: number,
+        onProgress?: (message: string) => void,
+    ): Promise<number> {
+        onProgress?.(`Downloading ${dictionary.name} (${index + 1}/${total})...`);
+        log.info('Downloading starter dictionary', { dictionary: dictionary.name, index: index + 1, total });
+        const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => onProgress?.(message));
+        await this.persistDictionaryImport(imported);
+        return imported.entries;
     }
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
@@ -430,14 +470,18 @@ export class SettingsDialogController {
         const setStatus = settingsStatusSetter(status);
 
         try {
-            if (this.handleSettingsEditorAction(form, action, control)) return;
-            if (await this.handleSettingsAudioAction(form, action, control)) return;
-            if (await this.handleSettingsDictionaryAction(form, action, control, setStatus)) return;
-            if (await this.handleSettingsImportExportAction(form, action, setStatus)) return;
-            await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
+            await this.runSettingsAction(form, action, control, setStatus);
         } catch (error) {
             handleSettingsActionError(action, control, setStatus, error);
         }
+    }
+
+    private async runSettingsAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
+        const handled = this.handleSettingsEditorAction(form, action, control)
+            || await this.handleSettingsAudioAction(form, action, control)
+            || await this.handleSettingsDictionaryAction(form, action, control, setStatus)
+            || await this.handleSettingsImportExportAction(form, action, setStatus);
+        if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
 
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -479,15 +523,7 @@ export class SettingsDialogController {
         const button = settingsActionButton(control);
         const previous = this.settings;
         const previewSettings = readFormSettings(new FormData(form), this.settings);
-        const row = button?.closest<HTMLElement>('[data-audio-source-row]');
-        if (row) {
-            const rowIndex = Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
-            const source = previewSettings.audioSources[rowIndex];
-            if (source) {
-                previewSettings.audioSources = [{ ...source, enabled: true }];
-                previewSettings.audioEnableDefaultSources = false;
-            }
-        }
+        focusPreviewAudioSource(form, button, previewSettings);
         this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
         button?.setAttribute('disabled', 'true');
         try {
@@ -635,10 +671,7 @@ export class SettingsDialogController {
         const file = await pickFile(form, 'dictionary');
         if (!file) return;
         const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
-        await saveSettings(this.settings);
-        await this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
+        await this.persistDictionaryImport(summary);
         setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? '' : 's'}.`);
         log.info('Dictionary file imported', summary);
         await this.refreshDictionaryStatus(form);
@@ -646,22 +679,25 @@ export class SettingsDialogController {
     }
 
     private async downloadRecommendedDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
-        const dictionaryId = control?.dataset.dictionaryId;
-        const dictionary = dictionaryId ? findRecommendedDictionary(dictionaryId) : undefined;
-        if (!dictionary) throw new Error('Recommended dictionary not found.');
-        control?.setAttribute('disabled', 'true');
-        setStatus(`${control?.dataset.installed === 'true' ? 'Updating' : 'Downloading'} ${dictionary.name}...`);
+        const dictionary = recommendedDictionaryForControl(control);
+        disableRecommendedDictionaryControl(control);
+        setStatus(recommendedDictionaryDownloadStatus(control, dictionary.name));
         log.info('Downloading selected dictionary', { dictionary: dictionary.name });
         const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
         if (!summary) return;
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
-        await saveSettings(this.settings);
-        await this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
+        await this.persistDictionaryImport(summary);
         setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
         log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
+    }
+
+    private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
+        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
+        this.settings.localDictionariesEnabled = true;
+        await saveSettings(this.settings);
+        await this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
     }
 
     private async downloadRecommendedDictionary(

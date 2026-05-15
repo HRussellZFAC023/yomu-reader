@@ -411,19 +411,12 @@ export class YomitanDictionaryStore {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
             const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
-            const results = topTerms.size
-                ? await this.entriesForRandomExpressions(topTerms, limit, preferences)
-                : await this.listRandomCommonTerms(db, limit, rank);
-            if (!topTerms.size && !results.length) {
+            const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences);
+            if (this.shouldFallbackToRandomTerms(topTerms, results)) {
                 log.debug('No common dictionary terms found, falling back to fully random terms');
                 return await this.listRandomTerms(limit, preferences);
             }
-            log.debug('Random top term listing completed', {
-                limit,
-                frequencyCandidates: topTerms.size,
-                results: results.length,
-                fallback: topTerms.size ? 'frequency' : 'common-tags',
-            });
+            this.logRandomTopTermsComplete(limit, topTerms, results);
             return results;
         } catch (error) {
             log.warn('Random top term listing failed', { limit, error });
@@ -431,6 +424,31 @@ export class YomitanDictionaryStore {
         } finally {
             done();
         }
+    }
+
+    private async randomTopTermResults(
+        db: IDBDatabase,
+        topTerms: Map<string, number>,
+        limit: number,
+        rank: Map<string, DictionaryPreference>,
+        preferences: DictionaryPreference[],
+    ): Promise<YomitanTermEntry[]> {
+        return topTerms.size
+            ? await this.entriesForRandomExpressions(topTerms, limit, preferences)
+            : await this.listRandomCommonTerms(db, limit, rank);
+    }
+
+    private shouldFallbackToRandomTerms(topTerms: Map<string, number>, results: YomitanTermEntry[]): boolean {
+        return !topTerms.size && !results.length;
+    }
+
+    private logRandomTopTermsComplete(limit: number, topTerms: Map<string, number>, results: YomitanTermEntry[]): void {
+        log.debug('Random top term listing completed', {
+            limit,
+            frequencyCandidates: topTerms.size,
+            results: results.length,
+            fallback: topTerms.size ? 'frequency' : 'common-tags',
+        });
     }
 
     private async collectTopFrequencyTerms(db: IDBDatabase, maxRank: number, rank: Map<string, DictionaryPreference>): Promise<Map<string, number>> {
@@ -1349,9 +1367,8 @@ function normalizeZipKanjiMetaRow(row: unknown, dictionary: string): YomitanMeta
 }
 
 function normalizeDexieTermRow(row: unknown): YomitanTermEntry | null {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== 'object') return null;
-    const record = candidate as Partial<YomitanTermEntry>;
+    const record = dexieRowRecord<YomitanTermEntry>(row);
+    if (!record) return null;
     if (typeof record.expression !== 'string' || typeof record.dictionary !== 'string') return null;
     return {
         expression: record.expression,
@@ -1393,11 +1410,8 @@ function termLookupDedupKey(entry: YomitanTermEntry): string {
 }
 
 function normalizeDexieKanjiRow(row: unknown): YomitanKanjiEntry | null {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== 'object') return null;
-    const record = candidate as Partial<YomitanKanjiEntry>;
-    if (typeof record.character !== 'string' || typeof record.dictionary !== 'string') return null;
-    return {
+    const record = dexieKanjiRecord(row);
+    return record ? {
         character: record.character,
         onyomi: dexieStringList(record.onyomi),
         kunyomi: dexieStringList(record.kunyomi),
@@ -1405,7 +1419,14 @@ function normalizeDexieKanjiRow(row: unknown): YomitanKanjiEntry | null {
         meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
         stats: record.stats,
         dictionary: record.dictionary,
-    };
+    } : null;
+}
+
+function dexieKanjiRecord(row: unknown): (Partial<YomitanKanjiEntry> & Pick<YomitanKanjiEntry, 'character' | 'dictionary'>) | null {
+    const record = dexieRowRecord<YomitanKanjiEntry>(row);
+    return record && typeof record.character === 'string' && typeof record.dictionary === 'string'
+        ? record as Partial<YomitanKanjiEntry> & Pick<YomitanKanjiEntry, 'character' | 'dictionary'>
+        : null;
 }
 
 function dexieStringList(value: unknown): string[] {
@@ -1413,20 +1434,30 @@ function dexieStringList(value: unknown): string[] {
 }
 
 function normalizeDexieTermMetaRow(row: unknown): YomitanMetaEntry | null {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== 'object') return null;
-    const record = candidate as Partial<YomitanMetaEntry>;
-    return typeof record.expression === 'string' && typeof record.mode === 'string' && typeof record.dictionary === 'string'
+    const record = dexieTermMetaRecord(row);
+    return record
         ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary }
         : null;
 }
 
 function normalizeDexieKanjiMetaRow(row: unknown): YomitanMetaEntry | null {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== 'object') return null;
-    const record = candidate as Partial<YomitanMetaEntry>;
-    return typeof record.character === 'string' && typeof record.mode === 'string' && typeof record.dictionary === 'string'
+    const record = dexieKanjiMetaRecord(row);
+    return record
         ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary }
+        : null;
+}
+
+function dexieTermMetaRecord(row: unknown): (Partial<YomitanMetaEntry> & { expression: string; mode: string; dictionary: string }) | null {
+    const record = dexieRowRecord<YomitanMetaEntry>(row);
+    return record && typeof record.expression === 'string' && typeof record.mode === 'string' && typeof record.dictionary === 'string'
+        ? record as Partial<YomitanMetaEntry> & { expression: string; mode: string; dictionary: string }
+        : null;
+}
+
+function dexieKanjiMetaRecord(row: unknown): (Partial<YomitanMetaEntry> & { character: string; mode: string; dictionary: string }) | null {
+    const record = dexieRowRecord<YomitanMetaEntry>(row);
+    return record && typeof record.character === 'string' && typeof record.mode === 'string' && typeof record.dictionary === 'string'
+        ? record as Partial<YomitanMetaEntry> & { character: string; mode: string; dictionary: string }
         : null;
 }
 
@@ -1449,10 +1480,7 @@ function normalizeDexieDictionaryRow(row: unknown): YomitanDictionaryInfo | null
 }
 
 function dexieDictionaryRecord(row: unknown): (Partial<YomitanDictionaryInfo> & { title?: unknown; revision?: unknown }) | null {
-    const candidate = unwrapDexieRow(row);
-    return candidate && typeof candidate === 'object'
-        ? candidate as Partial<YomitanDictionaryInfo> & { title?: unknown; revision?: unknown }
-        : null;
+    return dexieRowRecord<YomitanDictionaryInfo>(row) as (Partial<YomitanDictionaryInfo> & { title?: unknown; revision?: unknown }) | null;
 }
 
 function dictionaryInfoEnabled(value: unknown): boolean {
@@ -1487,6 +1515,11 @@ function unwrapDexieRow(row: unknown): unknown {
         return Array.isArray(value) ? value.find(item => item && typeof item === 'object' && !Array.isArray(item)) : value;
     }
     return row;
+}
+
+function dexieRowRecord<T>(row: unknown): Partial<T> | null {
+    const candidate = unwrapDexieRow(row);
+    return candidate && typeof candidate === 'object' ? candidate as Partial<T> : null;
 }
 
 function isReaderDictionaryExport(value: unknown): value is ReaderDictionaryExport {
@@ -1602,36 +1635,48 @@ function requestBlobViaUserscript(
 
 async function requestBlobViaFetch(url: string, done: () => void): Promise<Blob> {
     const downloadUrl = dictionaryDownloadUrl(url);
-    if (!downloadUrl) {
-        done();
-        throw new Error('Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
-    }
+    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done);
     try {
-        log.debug('Dictionary download using fetch', { host: safeHost(url), proxied: downloadUrl !== url });
-        const response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
-        if (!response.ok) {
-            log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status: response.status });
-            throw new Error(`Dictionary download failed (${response.status}).`);
-        }
-        const blob = await response.blob();
-        log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
-        done();
-        return blob;
+        return await fetchDictionaryBlob(url, downloadUrl, done);
     } catch (error) {
-        const host = safeHost(url);
-        if (error instanceof Error) {
-            if (error.name === 'TypeError') {
-                log.warn('Dictionary download failed due cross-origin restriction', { host, downloadUrl });
-                done();
-                throw new Error('Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
-            }
-            log.warn('Dictionary download fetch failed', { host, error });
-        } else {
-            log.warn('Dictionary download fetch failed', { host, error });
-        }
-        done();
-        throw error;
+        return handleDictionaryFetchError(url, downloadUrl, error, done);
     }
+}
+
+function throwMissingDictionaryDownloadBridge(done: () => void): never {
+    done();
+    throw new Error('Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
+}
+
+async function fetchDictionaryBlob(url: string, downloadUrl: string, done: () => void): Promise<Blob> {
+    log.debug('Dictionary download using fetch', { host: safeHost(url), proxied: downloadUrl !== url });
+    const response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+    if (!response.ok) throwDictionaryHttpError(url, response.status);
+    const blob = await response.blob();
+    log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
+    done();
+    return blob;
+}
+
+function throwDictionaryHttpError(url: string, status: number): never {
+    log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status });
+    throw new Error(`Dictionary download failed (${status}).`);
+}
+
+function handleDictionaryFetchError(url: string, downloadUrl: string, error: unknown, done: () => void): never {
+    const host = safeHost(url);
+    if (isDictionaryCorsError(error)) {
+        log.warn('Dictionary download failed due cross-origin restriction', { host, downloadUrl });
+        done();
+        throw new Error('Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
+    }
+    log.warn('Dictionary download fetch failed', { host, error });
+    done();
+    throw error;
+}
+
+function isDictionaryCorsError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'TypeError';
 }
 
 function dictionaryDownloadUrl(url: string): string | null {
