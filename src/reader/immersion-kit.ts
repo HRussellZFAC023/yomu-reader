@@ -137,19 +137,13 @@ export class ImmersionKitClient {
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
         const query = term.trim();
-        if (!query || !settings.immersionKitEnabled) return [];
+        if (!canSearchImmersionKit(query, settings)) return [];
 
         const cacheKey = this.searchCacheKey(query, settings);
         const cached = this.cache.get(cacheKey);
-        if (cached) {
-            log.debug('Search cache hit', { query, examples: cached.length });
-            return cached;
-        }
+        if (cached) return cached;
         const inflight = this.inflight.get(cacheKey);
-        if (inflight) {
-            log.debug('Search joined in-flight request', { query });
-            return inflight;
-        }
+        if (inflight) return inflight;
 
         const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
         const promise = requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs)
@@ -158,7 +152,6 @@ export class ImmersionKitClient {
 
                 const result = examples;
                 this.cache.set(cacheKey, result);
-                log.debug('Search completed', { query, rawExamples: examples.length, returned: result.length });
                 return result;
             })
             .finally(() => {
@@ -220,13 +213,11 @@ export class ImmersionKitClient {
 
     preload(term: string, settings: ReaderSettings): void {
         const query = term.trim();
-        if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
+        if (!canSearchImmersionKit(query, settings) || this.preloadKeys.has(query)) return;
         this.preloadKeys.add(query);
-        log.debug('Preload queued', { query });
 
         void this.search(query, settings)
             .then(examples => {
-                log.debug('Preload search completed', { query, examples: examples.length });
                 for (const example of examples.slice(0, 1)) {
                     const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
                     if (imageUrls.length) {
@@ -252,21 +243,23 @@ export class ImmersionKitClient {
     }
 
     async fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string> {
-        const urls = Array.isArray(url) ? url : [url];
+        const urls = urlCandidates(url);
         const key = urls.join('\u0001');
         return this.mediaBlobUrlCache.getOrCreate(key, async () => {
             const blob = await requestFirstBlob(url, timeoutMs);
             const blobUrl = await createPageMediaUrl(blob);
-            log.debug('Media URL created', { host: safeHost(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith('data:') });
             return blobUrl;
         });
     }
 
     async fetchDataUrl(url: string | string[], timeoutMs: number): Promise<string> {
         const blob = await requestFirstBlob(url, timeoutMs);
-        log.debug('Data URL media fetched', { host: safeHost(url), size: blob.size, type: blob.type });
         return blobToDataUrl(blob);
     }
+}
+
+function canSearchImmersionKit(query: string, settings: ReaderSettings): boolean {
+    return Boolean(query && settings.immersionKitEnabled);
 }
 
 function collectExamples(value: unknown): unknown[] {
@@ -436,9 +429,13 @@ function uniqueStrings(values: string[]): string[] {
 
 function absoluteMediaUrl(value: string): string {
     if (!value) return '';
-    if (/^https?:\/\//i.test(value) || value.startsWith('data:')) return value;
+    if (isAbsoluteMediaUrl(value)) return value;
     if (value.startsWith('media/')) return `${OBJECT_STORE_BASE}/${value.split('/').map(encodeURIComponent).join('/')}`;
     return '';
+}
+
+function isAbsoluteMediaUrl(value: string): boolean {
+    return /^https?:\/\//i.test(value) || value.startsWith('data:');
 }
 
 function sentenceLength(sentence: string): number {
@@ -460,9 +457,8 @@ function normalizeForSurfaceMatch(value: string): string {
 }
 
 async function requestJson(url: string | string[], timeoutMs: number): Promise<unknown> {
-    const urls = Array.isArray(url) ? url : [url];
     let lastError: unknown;
-    for (const candidate of urls) {
+    for (const candidate of urlCandidates(url)) {
         try {
             return await requestJsonCandidate(candidate, timeoutMs);
         } catch (error) {
@@ -470,7 +466,15 @@ async function requestJson(url: string | string[], timeoutMs: number): Promise<u
             log.debug('JSON candidate failed; trying next', { host: safeHost(candidate) }, error);
         }
     }
-    throw lastError instanceof Error ? lastError : new Error('Immersion Kit request failed.');
+    throw requestError(lastError, 'Immersion Kit request failed.');
+}
+
+function urlCandidates(url: string | string[]): string[] {
+    return Array.isArray(url) ? url : [url];
+}
+
+function requestError(error: unknown, fallback: string): Error {
+    return error instanceof Error ? error : new Error(fallback);
 }
 
 function requestJsonCandidate(url: string, timeoutMs: number): Promise<unknown> {
@@ -626,7 +630,7 @@ function requestImmersionBlobViaFetch(requestUrl: string, timeoutMs: number): Pr
 }
 
 async function requestFirstBlob(urls: string | string[], timeoutMs: number): Promise<Blob> {
-    const candidates = prioritizeMediaCandidates(Array.isArray(urls) ? urls : [urls]).slice(0, MEDIA_CANDIDATE_LIMIT);
+    const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
     let lastError: unknown;
     for (const url of candidates) {
         try {
@@ -636,7 +640,7 @@ async function requestFirstBlob(urls: string | string[], timeoutMs: number): Pro
             log.debugThrottled('media-candidate-failed', 5000, 'Media candidate failed; trying next', { host: safeHost(url), candidates: candidates.length }, error);
         }
     }
-    throw lastError instanceof Error ? lastError : new Error('No Immersion Kit media candidate could be loaded.');
+    throw requestError(lastError, 'No Immersion Kit media candidate could be loaded.');
 }
 
 function prioritizeMediaCandidates(urls: string[]): string[] {

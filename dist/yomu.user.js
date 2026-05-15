@@ -2377,7 +2377,6 @@
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     if (!safeTokens.length) return;
     target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
-    log$G.debugThrottled("apply-text-node", 1e3, "Applied tokens to text node", { tokens: safeTokens.length, textLength: text2.length, parent: nodeLabel(target.parent) });
   }
   function renderTokenizedTextFragment(target, tokens, settings) {
     const fragment2 = document.createDocumentFragment();
@@ -2706,23 +2705,13 @@
   }
   function createTrustedHtmlPolicy(factory) {
     var _a, _b;
-    const existing = ((_a = factory.getPolicy) == null ? void 0 : _a.call(factory, "yomu-reader")) ?? null;
+    const existing = (_a = factory.getPolicy) == null ? void 0 : _a.call(factory, "yomu-reader");
     if (existing) return existing;
     try {
       return ((_b = factory.createPolicy) == null ? void 0 : _b.call(factory, "yomu-reader", { createHTML: (html) => html })) ?? null;
     } catch {
       return null;
     }
-  }
-  function nodeLabel(node) {
-    if (node.nodeType === Node.TEXT_NODE) return "#text";
-    if (node.nodeType !== Node.ELEMENT_NODE) return node.nodeName.toLowerCase();
-    return elementNodeLabel(node);
-  }
-  function elementNodeLabel(element2) {
-    const id = element2.id ? `#${element2.id}` : "";
-    const classes = element2.classList.length ? `.${[...element2.classList].slice(0, 3).join(".")}` : "";
-    return `${element2.tagName.toLowerCase()}${id}${classes}`;
   }
   function isVisible(element2) {
     const rect = element2.getBoundingClientRect();
@@ -2772,7 +2761,14 @@
     return { style, rect, compactLength: compactLength2, fontSize, lineHeight, prose: isLikelyProseElement(element2) };
   }
   function fragileByCompactLayout(text2, style, rect) {
-    return rect.width > 0 && text2.length <= 12 && rect.width < 180 && (style.textAlign === "center" || style.whiteSpace !== "normal");
+    if (!hasCompactLayoutShape(text2, rect)) return false;
+    return hasCompactLayoutAlignment(style);
+  }
+  function hasCompactLayoutShape(text2, rect) {
+    return rect.width > 0 && text2.length <= 12 && rect.width < 180;
+  }
+  function hasCompactLayoutAlignment(style) {
+    return style.textAlign === "center" || style.whiteSpace !== "normal";
   }
   function fragileByInlineControl(text2, style, rect) {
     return text2.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
@@ -2789,7 +2785,14 @@
     return compactLength2 <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35);
   }
   function fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose) {
-    return !prose && centered && compactLength2 <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600);
+    if (!isCompactCenteredNonProse(prose, centered, compactLength2)) return false;
+    return hasProminentCenteredTypography(style, fontSize);
+  }
+  function isCompactCenteredNonProse(prose, centered, compactLength2) {
+    return !prose && centered && compactLength2 <= 30;
+  }
+  function hasProminentCenteredTypography(style, fontSize) {
+    return fontSize >= 17 || Number(style.fontWeight) >= 600;
   }
   function isReadableArticleHeading(element2, compactLength2) {
     return compactLength2 >= 4 && Boolean(element2.closest('article, main, [role="main"]'));
@@ -2862,7 +2865,7 @@
     const link = element2.closest("a[href]");
     if (!link) return false;
     if (isLikelyProseLink(link, element2)) return false;
-    return isExplicitControlLink(link) || linkHasControlMedia(link) || linkHasControlShape(link, text2);
+    return [isExplicitControlLink(link), linkHasControlMedia(link), linkHasControlShape(link, text2)].some(Boolean);
   }
   function isLikelyProseLink(link, element2) {
     return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
@@ -5285,8 +5288,10 @@
     }
   };
   function resolveUiLanguage(language) {
-    if (language === "ja") return "ja";
-    if (language === "en") return "en";
+    if (language !== "auto") return language;
+    return automaticUiLanguage();
+  }
+  function automaticUiLanguage() {
     return typeof navigator !== "undefined" && /^ja\b/i.test(navigator.language) ? "ja" : "en";
   }
   function uiText(language, key) {
@@ -15001,24 +15006,17 @@ ${entry.reading}`;
     }
     async search(term, settings) {
       const query = term.trim();
-      if (!query || !settings.immersionKitEnabled) return [];
+      if (!canSearchImmersionKit(query, settings)) return [];
       const cacheKey = this.searchCacheKey(query, settings);
       const cached = this.cache.get(cacheKey);
-      if (cached) {
-        log$p.debug("Search cache hit", { query, examples: cached.length });
-        return cached;
-      }
+      if (cached) return cached;
       const inflight = this.inflight.get(cacheKey);
-      if (inflight) {
-        log$p.debug("Search joined in-flight request", { query });
-        return inflight;
-      }
+      if (inflight) return inflight;
       const done = log$p.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = requestJson$2(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs).then((data) => {
         const examples = filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings));
         const result = examples;
         this.cache.set(cacheKey, result);
-        log$p.debug("Search completed", { query, rawExamples: examples.length, returned: result.length });
         return result;
       }).finally(() => {
         this.inflight.delete(cacheKey);
@@ -15070,11 +15068,9 @@ ${entry.reading}`;
     }
     preload(term, settings) {
       const query = term.trim();
-      if (!query || !settings.immersionKitEnabled || this.preloadKeys.has(query)) return;
+      if (!canSearchImmersionKit(query, settings) || this.preloadKeys.has(query)) return;
       this.preloadKeys.add(query);
-      log$p.debug("Preload queued", { query });
       void this.search(query, settings).then((examples) => {
-        log$p.debug("Preload search completed", { query, examples: examples.length });
         for (const example of examples.slice(0, 1)) {
           const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
           if (imageUrls.length) {
@@ -15093,20 +15089,21 @@ ${entry.reading}`;
       }).catch((error) => log$p.debug("Preload search failed quietly", { query }, error));
     }
     async fetchBlobUrl(url, timeoutMs) {
-      const urls = Array.isArray(url) ? url : [url];
+      const urls = urlCandidates(url);
       const key = urls.join("");
       return this.mediaBlobUrlCache.getOrCreate(key, async () => {
         const blob = await requestFirstBlob(url, timeoutMs);
         const blobUrl = await createPageMediaUrl(blob);
-        log$p.debug("Media URL created", { host: safeHost$4(url), size: blob.size, type: blob.type, viaDataUrl: blobUrl.startsWith("data:") });
         return blobUrl;
       });
     }
     async fetchDataUrl(url, timeoutMs) {
       const blob = await requestFirstBlob(url, timeoutMs);
-      log$p.debug("Data URL media fetched", { host: safeHost$4(url), size: blob.size, type: blob.type });
       return blobToDataUrl$1(blob);
     }
+  }
+  function canSearchImmersionKit(query, settings) {
+    return Boolean(query && settings.immersionKitEnabled);
   }
   function collectExamples(value) {
     if (Array.isArray(value)) return value;
@@ -15235,9 +15232,12 @@ ${entry.reading}`;
   }
   function absoluteMediaUrl(value) {
     if (!value) return "";
-    if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+    if (isAbsoluteMediaUrl(value)) return value;
     if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
     return "";
+  }
+  function isAbsoluteMediaUrl(value) {
+    return /^https?:\/\//i.test(value) || value.startsWith("data:");
   }
   function sentenceLength(sentence) {
     return Array.from(sentence.replace(/\s+/g, "")).length;
@@ -15254,9 +15254,8 @@ ${entry.reading}`;
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
   async function requestJson$2(url, timeoutMs) {
-    const urls = Array.isArray(url) ? url : [url];
     let lastError;
-    for (const candidate of urls) {
+    for (const candidate of urlCandidates(url)) {
       try {
         return await requestJsonCandidate(candidate, timeoutMs);
       } catch (error) {
@@ -15264,7 +15263,13 @@ ${entry.reading}`;
         log$p.debug("JSON candidate failed; trying next", { host: safeHost$4(candidate) }, error);
       }
     }
-    throw lastError instanceof Error ? lastError : new Error("Immersion Kit request failed.");
+    throw requestError(lastError, "Immersion Kit request failed.");
+  }
+  function urlCandidates(url) {
+    return Array.isArray(url) ? url : [url];
+  }
+  function requestError(error, fallback) {
+    return error instanceof Error ? error : new Error(fallback);
   }
   function requestJsonCandidate(url, timeoutMs) {
     const userscriptRequest = getUserscriptHttpRequest();
@@ -15400,7 +15405,7 @@ ${entry.reading}`;
     });
   }
   async function requestFirstBlob(urls, timeoutMs) {
-    const candidates = prioritizeMediaCandidates(Array.isArray(urls) ? urls : [urls]).slice(0, MEDIA_CANDIDATE_LIMIT);
+    const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
     let lastError;
     for (const url of candidates) {
       try {
@@ -15410,7 +15415,7 @@ ${entry.reading}`;
         log$p.debugThrottled("media-candidate-failed", 5e3, "Media candidate failed; trying next", { host: safeHost$4(url), candidates: candidates.length }, error);
       }
     }
-    throw lastError instanceof Error ? lastError : new Error("No Immersion Kit media candidate could be loaded.");
+    throw requestError(lastError, "No Immersion Kit media candidate could be loaded.");
   }
   function prioritizeMediaCandidates(urls) {
     return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));

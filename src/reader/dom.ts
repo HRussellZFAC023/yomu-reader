@@ -720,7 +720,6 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     if (!safeTokens.length) return;
 
     target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
-    log.debugThrottled('apply-text-node', 1000, 'Applied tokens to text node', { tokens: safeTokens.length, textLength: text.length, parent: nodeLabel(target.parent) });
 }
 
 function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): DocumentFragment {
@@ -1188,25 +1187,13 @@ function trustedHtml(value: string): string | unknown {
 }
 
 function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (value: string) => unknown } | null {
-    const existing = factory.getPolicy?.('yomu-reader') ?? null;
+    const existing = factory.getPolicy?.('yomu-reader');
     if (existing) return existing;
     try {
         return factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
     } catch {
         return null;
     }
-}
-
-function nodeLabel(node: Node): string {
-    if (node.nodeType === Node.TEXT_NODE) return '#text';
-    if (node.nodeType !== Node.ELEMENT_NODE) return node.nodeName.toLowerCase();
-    return elementNodeLabel(node as Element);
-}
-
-function elementNodeLabel(element: Element): string {
-    const id = element.id ? `#${element.id}` : '';
-    const classes = element.classList.length ? `.${[...element.classList].slice(0, 3).join('.')}` : '';
-    return `${element.tagName.toLowerCase()}${id}${classes}`;
 }
 
 function isVisible(element: HTMLElement): boolean {
@@ -1277,10 +1264,16 @@ function fragileTextMetrics(element: HTMLElement, text: string): {
 }
 
 function fragileByCompactLayout(text: string, style: CSSStyleDeclaration, rect: DOMRect): boolean {
-    return rect.width > 0
-        && text.length <= 12
-        && rect.width < 180
-        && (style.textAlign === 'center' || style.whiteSpace !== 'normal');
+    if (!hasCompactLayoutShape(text, rect)) return false;
+    return hasCompactLayoutAlignment(style);
+}
+
+function hasCompactLayoutShape(text: string, rect: DOMRect): boolean {
+    return rect.width > 0 && text.length <= 12 && rect.width < 180;
+}
+
+function hasCompactLayoutAlignment(style: CSSStyleDeclaration): boolean {
+    return style.textAlign === 'center' || style.whiteSpace !== 'normal';
 }
 
 function fragileByInlineControl(text: string, style: CSSStyleDeclaration, rect: DOMRect): boolean {
@@ -1314,7 +1307,16 @@ function fragileCenteredNonProseTypography(
     fontSize: number,
     prose: boolean,
 ): boolean {
-    return !prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600);
+    if (!isCompactCenteredNonProse(prose, centered, compactLength)) return false;
+    return hasProminentCenteredTypography(style, fontSize);
+}
+
+function isCompactCenteredNonProse(prose: boolean, centered: boolean, compactLength: number): boolean {
+    return !prose && centered && compactLength <= 30;
+}
+
+function hasProminentCenteredTypography(style: CSSStyleDeclaration, fontSize: number): boolean {
+    return fontSize >= 17 || Number(style.fontWeight) >= 600;
 }
 
 function isReadableArticleHeading(element: HTMLElement, compactLength: number): boolean {
@@ -1401,7 +1403,7 @@ function isInsideControlLikeLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link) return false;
     if (isLikelyProseLink(link, element)) return false;
-    return isExplicitControlLink(link) || linkHasControlMedia(link) || linkHasControlShape(link, text);
+    return [isExplicitControlLink(link), linkHasControlMedia(link), linkHasControlShape(link, text)].some(Boolean);
 }
 
 function isLikelyProseLink(link: HTMLElement, element: HTMLElement): boolean {
