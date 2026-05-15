@@ -25,11 +25,11 @@ export default defineConfig({
         nav: [
             { text: 'Start', link: '/getting-started' },
             { text: 'Features', link: '/features' },
-            { text: 'Player', link: videoPlayerUrl, target: '_self' },
-            { text: 'New tab', link: '/newtab/index.html', target: '_self' },
+            { text: 'New Tab', link: '/newtab/index.html', target: '_self' },
             {
                 text: 'More',
                 items: [
+                    { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Support', link: '/support' },
                     { text: 'Changelog', link: '/changelog' },
