@@ -149,22 +149,28 @@ function parsedReviewDocument(doc: Document, href: string): ParsedReviewDocument
     const url = safeUrl(href);
     const { cardValue, response } = reviewRequestState(doc, url);
     const cardState = parseJpdbReviewCardValue(cardValue, response);
-    const kindLabel = cleanText(doc.querySelector<HTMLElement>('.kind')?.textContent ?? '');
-    const sentenceElement = doc.querySelector<HTMLElement>('.card-sentence .sentence, .sentence, .plain');
-    const sentence = cleanText(sentenceElement?.textContent ?? '');
-    const highlighted = cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? '');
-    const { kanji, isKanji } = reviewKindInfo(doc, cardState, kindLabel, highlighted);
+    const text = reviewDocumentText(doc);
+    const { kanji, isKanji } = reviewKindInfo(doc, cardState, text.kindLabel, text.highlighted);
     const phase = reviewPhase(doc, url, cardState.phase);
-    const keyword = sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? '');
-    const fields = reviewCardTextFields(doc, isKanji, sentence, highlighted, kanji, keyword);
+    const fields = reviewCardTextFields(doc, isKanji, text.sentence, text.highlighted, kanji, text.keyword);
     return {
         cardValue,
         phase,
         kind: isKanji ? 'kanji' : 'vocabulary',
-        keyword,
-        sentence,
+        keyword: text.keyword,
+        sentence: text.sentence,
         kanji,
         ...fields,
+    };
+}
+
+function reviewDocumentText(doc: Document): { kindLabel: string; sentence: string; highlighted: string; keyword: string } {
+    const sentenceElement = doc.querySelector<HTMLElement>('.card-sentence .sentence, .sentence, .plain');
+    return {
+        kindLabel: cleanText(doc.querySelector<HTMLElement>('.kind')?.textContent ?? ''),
+        sentence: cleanText(sentenceElement?.textContent ?? ''),
+        highlighted: cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? ''),
+        keyword: sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? ''),
     };
 }
 
@@ -234,11 +240,14 @@ function reviewKindInfo(
     highlighted: string,
 ): { kanji: string; isKanji: boolean } {
     const kanji = cardState.kanji || firstKanji(doc.querySelector<HTMLElement>('.kanji, a.kanji.plain')?.textContent ?? '');
-    const pageHasKanjiCard = Boolean(kanji && !highlighted && doc.querySelector('.kanji'));
     return {
         kanji,
-        isKanji: cardState.isKanji || /kanji/i.test(kindLabel) || pageHasKanjiCard,
+        isKanji: cardState.isKanji || /kanji/i.test(kindLabel) || pageHasKanjiCard(doc, kanji, highlighted),
     };
+}
+
+function pageHasKanjiCard(doc: Document, kanji: string, highlighted: string): boolean {
+    return Boolean(kanji && !highlighted && doc.querySelector('.kanji'));
 }
 
 function reviewPhase(doc: Document, url: URL | null, phase: ReturnType<typeof parseJpdbReviewCardValue>['phase']): JpdbReviewBridgeCard['phase'] {

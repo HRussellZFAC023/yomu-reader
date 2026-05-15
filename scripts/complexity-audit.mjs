@@ -13,6 +13,15 @@ const TARGETS = [
     path.join(ROOT, 'vite.config.ts'),
 ];
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'dist-reader', 'docs/.vitepress/dist', 'qa-artifacts']);
+const FUNCTION_LIKE_CHECKS = [
+    ts.isFunctionDeclaration,
+    ts.isFunctionExpression,
+    ts.isArrowFunction,
+    ts.isMethodDeclaration,
+    ts.isGetAccessorDeclaration,
+    ts.isSetAccessorDeclaration,
+    ts.isConstructorDeclaration,
+];
 
 const files = [];
 for (const target of TARGETS) {
@@ -79,13 +88,7 @@ function collectComplexity(node, source, file, output) {
 }
 
 function isFunctionLike(node) {
-    return ts.isFunctionDeclaration(node)
-        || ts.isFunctionExpression(node)
-        || ts.isArrowFunction(node)
-        || ts.isMethodDeclaration(node)
-        || ts.isGetAccessorDeclaration(node)
-        || ts.isSetAccessorDeclaration(node)
-        || ts.isConstructorDeclaration(node);
+    return FUNCTION_LIKE_CHECKS.some(check => check(node));
 }
 
 function functionName(node) {

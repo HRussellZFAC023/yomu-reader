@@ -139,15 +139,7 @@ export class ImmersionKitClient {
         const query = term.trim();
         if (!query || !settings.immersionKitEnabled) return [];
 
-        const cacheKey = JSON.stringify({
-            query,
-            limit: SEARCH_EXAMPLE_LIMIT,
-            min: this.minimumSentenceLength(settings),
-            max: settings.immersionKitMaxLength,
-            category: settings.immersionKitCategory,
-            sort: this.effectiveSort(settings),
-            exact: settings.immersionKitExactMatch,
-        });
+        const cacheKey = this.searchCacheKey(query, settings);
         const cached = this.cache.get(cacheKey);
         if (cached) {
             log.debug('Search cache hit', { query, examples: cached.length });
@@ -159,23 +151,10 @@ export class ImmersionKitClient {
             return inflight;
         }
 
-        const params = new URLSearchParams({
-            q: query,
-            limit: String(SEARCH_EXAMPLE_LIMIT),
-            sort: this.apiSort(settings),
-        });
-        if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
-        if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
-
         const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-        const promise = requestJson(apiUrls(`/search?${params}`), settings.audioTimeoutMs)
+        const promise = requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs)
             .then(data => {
-                const examples = collectExamples(data)
-                    .map(normalizeExample)
-                    .filter((example): example is ImmersionKitExample => Boolean(example))
-                    .filter(example => sentenceLength(example.sentence) >= this.minimumSentenceLength(settings))
-                    .filter(example => !settings.immersionKitMaxLength || sentenceLength(example.sentence) <= settings.immersionKitMaxLength)
-                    .filter(example => !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query));
+                const examples = filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings));
 
                 const result = examples;
                 this.cache.set(cacheKey, result);
@@ -188,6 +167,29 @@ export class ImmersionKitClient {
             });
         this.inflight.set(cacheKey, promise);
         return promise;
+    }
+
+    private searchCacheKey(query: string, settings: ReaderSettings): string {
+        return JSON.stringify({
+            query,
+            limit: SEARCH_EXAMPLE_LIMIT,
+            min: this.minimumSentenceLength(settings),
+            max: settings.immersionKitMaxLength,
+            category: settings.immersionKitCategory,
+            sort: this.effectiveSort(settings),
+            exact: settings.immersionKitExactMatch,
+        });
+    }
+
+    private searchParams(query: string, settings: ReaderSettings): URLSearchParams {
+        const params = new URLSearchParams({
+            q: query,
+            limit: String(SEARCH_EXAMPLE_LIMIT),
+            sort: this.apiSort(settings),
+        });
+        if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
+        if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
+        return params;
     }
 
     private effectiveSort(settings: ReaderSettings): string {
@@ -281,10 +283,28 @@ function collectExamples(value: unknown): unknown[] {
     if (Array.isArray(value)) return value;
     if (!value || typeof value !== 'object') return [];
     const record = value as Record<string, unknown>;
-    if (Array.isArray(record.examples)) return record.examples;
-    if (Array.isArray(record.results)) return record.results;
-    if (Array.isArray(record.data)) return record.data;
-    return [];
+    return firstArrayField(record, ['examples', 'results', 'data']);
+}
+
+function firstArrayField(record: Record<string, unknown>, keys: string[]): unknown[] {
+    return keys.map(key => record[key]).find(Array.isArray) ?? [];
+}
+
+function filterSearchExamples(data: unknown, query: string, settings: ReaderSettings, minLength: number): ImmersionKitExample[] {
+    return collectExamples(data)
+        .map(normalizeExample)
+        .filter((example): example is ImmersionKitExample => Boolean(example))
+        .filter(example => isSearchExampleInRange(example, settings, minLength))
+        .filter(example => isSearchExampleSurfaceMatch(example, query));
+}
+
+function isSearchExampleInRange(example: ImmersionKitExample, settings: ReaderSettings, minLength: number): boolean {
+    const length = sentenceLength(example.sentence);
+    return length >= minLength && (!settings.immersionKitMaxLength || length <= settings.immersionKitMaxLength);
+}
+
+function isSearchExampleSurfaceMatch(example: ImmersionKitExample, query: string): boolean {
+    return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
 }
 
 function normalizeExample(value: unknown): ImmersionKitExample | null {
@@ -608,8 +628,14 @@ function isObjectStoreMediaUrl(url: string): boolean {
 
 function isErrorDocumentBlob(blob: Blob): boolean {
     const type = blob.type.toLowerCase();
-    if (type.startsWith('image/') || type.startsWith('audio/') || type.startsWith('video/')) return false;
-    return type.includes('xml') || type.includes('html') || type.includes('json') || type.startsWith('text/');
+    if (isMediaBlobType(type)) return false;
+    return ERROR_DOCUMENT_TYPE_MARKERS.some(marker => type.includes(marker)) || type.startsWith('text/');
+}
+
+const ERROR_DOCUMENT_TYPE_MARKERS = ['xml', 'html', 'json'];
+
+function isMediaBlobType(type: string): boolean {
+    return ['image/', 'audio/', 'video/'].some(prefix => type.startsWith(prefix));
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

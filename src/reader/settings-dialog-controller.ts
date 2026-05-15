@@ -88,6 +88,14 @@ function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter 
     };
 }
 
+function settingsActionButton(control: HTMLElement | null | undefined): HTMLButtonElement | null {
+    return control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button') ?? null;
+}
+
+function selectedSettingsPanel(control: HTMLElement | null | undefined): string {
+    return control?.dataset.panel ?? 'basics';
+}
+
 function handleSettingsActionError(
     action: string,
     control: HTMLElement | null | undefined,
@@ -426,17 +434,22 @@ export class SettingsDialogController {
             if (await this.handleSettingsAudioAction(form, action, control)) return;
             if (await this.handleSettingsDictionaryAction(form, action, control, setStatus)) return;
             if (await this.handleSettingsImportExportAction(form, action, setStatus)) return;
-            if (await this.handleSettingsConnectionAction(form, action, control)) return;
-            await this.handleSettingsSupportAction(action, setStatus);
+            await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
         } catch (error) {
             handleSettingsActionError(action, control, setStatus, error);
         }
     }
 
+    private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
+        if (await this.handleSettingsConnectionAction(form, action, control)) return true;
+        return await this.handleSettingsSupportAction(action, setStatus);
+    }
+
     private handleSettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {
         if (action === 'settings-panel') {
-            log.debug('Settings panel selected', { panel: control?.dataset.panel ?? 'basics' });
-            activateSettingsPanel(form, control?.dataset.panel ?? 'basics');
+            const panel = selectedSettingsPanel(control);
+            log.debug('Settings panel selected', { panel });
+            activateSettingsPanel(form, panel);
             return true;
         }
         if (isDictionarySourceOrderAction(action)) {
@@ -463,7 +476,7 @@ export class SettingsDialogController {
     private async handleSettingsAudioAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
         if (action !== 'preview-audio') return false;
 
-        const button = control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button');
+        const button = settingsActionButton(control);
         const previous = this.settings;
         const previewSettings = readFormSettings(new FormData(form), this.settings);
         const row = button?.closest<HTMLElement>('[data-audio-source-row]');
@@ -546,7 +559,7 @@ export class SettingsDialogController {
         if (action !== 'test-anki') return false;
         const ankiStatus = form.querySelector<HTMLElement>('[data-anki-status]');
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        const button = control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button');
+        const button = settingsActionButton(control);
         const setAnkiStatus = (message: string, tone: 'pending' | 'success' | 'error') => {
             if (!ankiStatus) return;
             ankiStatus.textContent = message;
@@ -560,13 +573,10 @@ export class SettingsDialogController {
             const connected = await this.dependencies.anki.isConnected();
             if (!connected) throw new Error(uiText(language, 'ankiUnreachable'));
             await this.dependencies.anki.ensureDeckAndModel();
-            const readyMessage = resolveUiLanguage(language) === 'ja'
-                ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。`
-                : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
-            setAnkiStatus(readyMessage, 'success');
+            setAnkiStatus(this.ankiReadyMessage(language), 'success');
             log.info('Anki settings test succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
         } catch (error) {
-            const message = error instanceof Error ? error.message : uiText(language, 'ankiUnreachable');
+            const message = this.ankiConnectionErrorMessage(error, language);
             log.warn('Anki settings test failed', error);
             setAnkiStatus(message, 'error');
             this.dependencies.toast(message);
@@ -575,6 +585,16 @@ export class SettingsDialogController {
             button?.removeAttribute('disabled');
         }
         return true;
+    }
+
+    private ankiReadyMessage(language: InterfaceLanguage): string {
+        return resolveUiLanguage(language) === 'ja'
+            ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。`
+            : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+    }
+
+    private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {
+        return error instanceof Error ? error.message : uiText(language, 'ankiUnreachable');
     }
 
     private async handleSettingsSupportAction(action: string, setStatus: SettingsStatusSetter): Promise<boolean> {

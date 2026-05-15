@@ -92,8 +92,12 @@ function glossaryRecordToText(record: Record<string, unknown>): string {
     if ('content' in record) return glossaryValueToText(record.content);
     const values = glossaryRecordTextValues(record);
     if (values.length) return values.join(' ');
-    if ('path' in record) return String(record.description || record.alt || '');
+    if ('path' in record) return glossaryPathRecordText(record);
     return '';
+}
+
+function glossaryPathRecordText(record: Record<string, unknown>): string {
+    return String(record.description || record.alt || '');
 }
 
 export function renderStructuredGlossaryHtml(value: unknown, dictionary = '', options: GlossaryRenderOptions = {}): string {
@@ -105,10 +109,14 @@ export function renderStructuredGlossaryHtml(value: unknown, dictionary = '', op
 
 function renderGlossaryValue(value: unknown, context: StructuredRenderContext): string {
     if (value == null) return '';
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return escapeHtml(String(value));
+    if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
     if (!isRecord(value)) return '';
     return renderGlossaryRecord(value, context);
+}
+
+function isStructuredPrimitive(value: unknown): value is string | number | boolean {
+    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 }
 
 function renderGlossaryArray(value: unknown[], context: StructuredRenderContext): string {
@@ -237,9 +245,9 @@ function renderDirectDataAttributes(record: Record<string, unknown>): string {
 }
 
 function renderStructuredStyle(value: unknown): string {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+    const style = structuredStyleRecord(value);
+    if (!style) return '';
     const declarations: string[] = [];
-    const style = value as Record<string, unknown>;
     const decoration = structuredTextDecoration(style.textDecorationLine);
     if (decoration) declarations.push(decoration);
 
@@ -248,6 +256,10 @@ function renderStructuredStyle(value: unknown): string {
         if (declaration) declarations.push(declaration);
     }
     return declarations.join('');
+}
+
+function structuredStyleRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
 function structuredTextDecoration(value: unknown): string {
@@ -290,13 +302,37 @@ function structuredLinkAttrs(link: StructuredLinkModel, dictionary: string, lang
     return [
         ' class="gloss-link"',
         ` data-external="${link.external}"`,
-        dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : '',
-        link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : '',
-        link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : '',
-        link.href ? ` href="${escapeHtml(link.href)}"` : '',
-        link.external ? ' target="_blank" rel="noopener noreferrer"' : '',
-        typeof lang === 'string' ? ` lang="${escapeHtml(lang)}"` : '',
+        dictionaryAttribute(dictionary),
+        searchReferenceQueryAttribute(link),
+        searchReferenceReadingAttribute(link),
+        hrefAttribute(link.href),
+        externalLinkAttributes(link.external),
+        langAttribute(lang),
     ].join('');
+}
+
+function dictionaryAttribute(dictionary: string): string {
+    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : '';
+}
+
+function searchReferenceQueryAttribute(link: StructuredLinkModel): string {
+    return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : '';
+}
+
+function searchReferenceReadingAttribute(link: StructuredLinkModel): string {
+    return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : '';
+}
+
+function hrefAttribute(href: string): string {
+    return href ? ` href="${escapeHtml(href)}"` : '';
+}
+
+function externalLinkAttributes(external: boolean): string {
+    return external ? ' target="_blank" rel="noopener noreferrer"' : '';
+}
+
+function langAttribute(lang: unknown): string {
+    return typeof lang === 'string' ? ` lang="${escapeHtml(lang)}"` : '';
 }
 
 function renderStructuredImage(record: Record<string, unknown>, dictionary: string): string {

@@ -1561,12 +1561,28 @@ function moveSourceRowToSlot(slot: SourceRowDropSlot): void {
     const rows = Array.from(slot.container.querySelectorAll<HTMLElement>('[data-source-row]'));
     const from = rows.indexOf(slot.dragged);
     const target = rows.indexOf(slot.target);
-    if (from < 0 || target < 0) return;
-    const targetIndex = slot.position === 'before' ? target : target + 1;
-    const adjustedTargetIndex = from < targetIndex ? targetIndex - 1 : targetIndex;
+    if (!hasSourceRowIndexes(from, target)) return;
+    const targetIndex = sourceRowSlotTargetIndex(slot.position, target);
+    const adjustedTargetIndex = adjustedSourceRowTargetIndex(from, targetIndex);
     if (from === adjustedTargetIndex) return;
-    slot.container.insertBefore(slot.dragged, rows[targetIndex] ?? null);
+    slot.container.insertBefore(slot.dragged, sourceRowInsertBefore(rows, targetIndex));
     syncSourceRowOrder(slot.container);
+}
+
+function hasSourceRowIndexes(from: number, target: number): boolean {
+    return from >= 0 && target >= 0;
+}
+
+function sourceRowSlotTargetIndex(position: SourceRowDropSlot['position'], target: number): number {
+    return position === 'before' ? target : target + 1;
+}
+
+function adjustedSourceRowTargetIndex(from: number, targetIndex: number): number {
+    return from < targetIndex ? targetIndex - 1 : targetIndex;
+}
+
+function sourceRowInsertBefore(rows: HTMLElement[], targetIndex: number): HTMLElement | null {
+    return rows[targetIndex] ?? null;
 }
 
 function sourceRowDropSlotLog(slot: SourceRowDropSlot): { from: number; to: number; position: SourceRowDropSlot['position'] } {
@@ -1586,12 +1602,20 @@ function isInteractiveDragTarget(target: EventTarget | null): boolean {
 
 function moveSourceRow(container: HTMLElement, index: number, targetIndex: number): void {
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
-    if (index < 0 || targetIndex < 0 || index >= rows.length || targetIndex >= rows.length || index === targetIndex) return;
+    if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
     const row = rows[index];
     const target = rows[targetIndex];
     if (targetIndex < index) container.insertBefore(row, target);
     else container.insertBefore(row, target.nextSibling);
     syncSourceRowOrder(container);
+}
+
+function canMoveSourceRow(index: number, targetIndex: number, rowCount: number): boolean {
+    return index >= 0
+        && targetIndex >= 0
+        && index < rowCount
+        && targetIndex < rowCount
+        && index !== targetIndex;
 }
 
 function syncSourceRowOrder(container: HTMLElement): void {
@@ -1876,7 +1900,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const colorSource = (key: string, fallback: ReaderColorSource) =>
         readOption(get(key), ['auto', 'status', 'jpdb', 'anki', 'pitch', 'off'] as const, fallback);
     const reader: SettingsFormReader = { get, has, number, colorSource };
-    const jpdbDefinitionsRowPresent = has('jpdbDefinitions.name') || has('jpdbDefinitions.priority') || has('jpdbDefinitions.enabled');
+    const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
     const settings: ReaderSettings = {
@@ -1920,6 +1944,10 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiEnabled: settings.ankiEnabled,
     });
     return settings;
+}
+
+function hasJpdbDefinitionsRow(has: (key: string) => boolean): boolean {
+    return has('jpdbDefinitions.name') || has('jpdbDefinitions.priority') || has('jpdbDefinitions.enabled');
 }
 
 function readJpdbFormSettings(reader: SettingsFormReader, current: ReaderSettings, definitionsRowPresent: boolean): Partial<ReaderSettings> {
@@ -2267,13 +2295,22 @@ function shouldSkipAudioSourceRow(source: AudioSourceSetting, builtInTypes: Set<
 }
 
 export function getReaderSettingsExport(value: unknown): ReaderSettings | null {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as { formatName?: string; settings?: unknown };
-    return (record.formatName === 'yomu-reader-settings' || record.formatName === 'jpdb-popup-reader-settings')
-        && record.settings
-        && typeof record.settings === 'object'
-        ? record.settings as ReaderSettings
-        : null;
+    const record = readerSettingsExportRecord(value);
+    return record && isReaderSettingsExport(record) ? record.settings as ReaderSettings : null;
+}
+
+function readerSettingsExportRecord(value: unknown): { formatName?: string; settings?: unknown } | null {
+    return value && typeof value === 'object' ? value as { formatName?: string; settings?: unknown } : null;
+}
+
+function isReaderSettingsExport(record: { formatName?: string; settings?: unknown }): boolean {
+    return isReaderSettingsExportFormat(record.formatName)
+        && Boolean(record.settings)
+        && typeof record.settings === 'object';
+}
+
+function isReaderSettingsExportFormat(formatName: string | undefined): boolean {
+    return formatName === 'yomu-reader-settings' || formatName === 'jpdb-popup-reader-settings';
 }
 
 export function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Promise<File | null> {

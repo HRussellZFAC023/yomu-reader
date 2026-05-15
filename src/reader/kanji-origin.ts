@@ -95,11 +95,7 @@ export class KanjiOriginClient {
             log.debug('Kanji origin lookup skipped', { kanji, enabled: settings.kanjiOriginsEnabled });
             return Promise.resolve(null);
         }
-        const cacheKey = [
-            key,
-            settings.kanjiOriginKanjiMapEnabled ? 'map' : '',
-            settings.kanjiOriginWiktionaryEnabled ? 'wikt' : '',
-        ].join(':');
+        const cacheKey = kanjiOriginCacheKey(key, settings);
         let promise = this.cache.get(cacheKey);
         if (!promise) {
             log.debug('Kanji origin cache miss', { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
@@ -128,6 +124,14 @@ export class KanjiOriginClient {
         done();
         return result;
     }
+}
+
+function kanjiOriginCacheKey(kanji: string, settings: ReaderSettings): string {
+    return [
+        kanji,
+        settings.kanjiOriginKanjiMapEnabled ? 'map' : '',
+        settings.kanjiOriginWiktionaryEnabled ? 'wikt' : '',
+    ].join(':');
 }
 
 export async function fetchKanjiMapInfo(kanji: string): Promise<KanjiMapKanjiInfo | undefined> {
@@ -488,13 +492,22 @@ function readKanjiMapRadical(kanjiAlive: Record<string, unknown> | undefined, ji
     return {
         symbol: basics.symbol,
         forms: stringArray(jishoRadical?.forms),
-        name: stringValue(name?.romaji) || stringValue(kanjiAlive?.rad_name),
-        reading: stringValue(name?.hiragana) || stringValue(kanjiAlive?.rad_name_ja),
+        ...readKanjiMapRadicalNames(kanjiAlive, name),
         meaning: basics.meaning,
         strokes: normalizeNumber(aliveRadical?.strokes ?? kanjiAlive?.rad_stroke) ?? '',
         position: stringValue(position?.hiragana) || stringValue(kanjiAlive?.rad_position_ja),
         image: basics.image,
         animation: basics.animation,
+    };
+}
+
+function readKanjiMapRadicalNames(
+    kanjiAlive: Record<string, unknown> | undefined,
+    name: Record<string, unknown> | undefined,
+): Pick<KanjiMapRadicalInfo, 'name' | 'reading'> {
+    return {
+        name: stringValue(name?.romaji) || stringValue(kanjiAlive?.rad_name),
+        reading: stringValue(name?.hiragana) || stringValue(kanjiAlive?.rad_name_ja),
     };
 }
 

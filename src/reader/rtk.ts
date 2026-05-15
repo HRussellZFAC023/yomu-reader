@@ -84,12 +84,10 @@ export class RtkClient {
 export function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const keywordElement = doc.querySelector('h2 code');
-    const keyword = keywordElement?.textContent?.trim() ?? '';
+    const keyword = rtkKeywordText(keywordElement);
     if (!keyword) return null;
 
-    const yomiText = doc.querySelector('h3')?.textContent ?? '';
-    const onYomi = yomiText.match(/On-Yomi:\s*([^—]+)/)?.[1]?.trim() ?? '';
-    const kunYomi = yomiText.match(/Kun-Yomi:\s*(.+)/)?.[1]?.trim() ?? '';
+    const { onYomi, kunYomi } = rtkReadings(doc);
     const elements = textAfterHeading(doc, 'Elements:');
     const heisigStory = textAfterHeading(doc, 'Heisig story:');
     const heisigComment = textAfterHeading(doc, 'Heisig comment:');
@@ -98,7 +96,7 @@ export function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
     return {
         kanji,
         keyword,
-        frameNumber: keywordElement?.getAttribute('title')?.trim() ?? '',
+        frameNumber: rtkFrameNumber(keywordElement),
         onYomi,
         kunYomi,
         elements,
@@ -109,19 +107,40 @@ export function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
     };
 }
 
+function rtkKeywordText(keywordElement: Element | null): string {
+    return keywordElement?.textContent?.trim() ?? '';
+}
+
+function rtkReadings(doc: Document): { onYomi: string; kunYomi: string } {
+    const yomiText = doc.querySelector('h3')?.textContent ?? '';
+    return {
+        onYomi: yomiText.match(/On-Yomi:\s*([^—]+)/)?.[1]?.trim() ?? '',
+        kunYomi: yomiText.match(/Kun-Yomi:\s*(.+)/)?.[1]?.trim() ?? '',
+    };
+}
+
+function rtkFrameNumber(keywordElement: Element | null): string {
+    return keywordElement?.getAttribute('title')?.trim() ?? '';
+}
+
 export function parseRtkSearchIndex(script: string): Map<string, string> {
     const entries = new Map<string, string>();
     const collisions = new Set<string>();
     const entryRe = /"kanji"\s*:\s*"([^"]+)"[\s\S]*?"keyword"\s*:\s*"([^"]+)"/g;
     let match: RegExpExecArray | null;
     while ((match = entryRe.exec(script))) {
-        const kanji = Array.from(match[1] ?? '').find(character => KANJI_RE.test(character)) ?? '';
-        const keyword = match[2] ?? '';
-        if (!kanji || !keyword) continue;
-        addRtkKeywordIndexEntry(entries, collisions, rtkElementKey(keyword), kanji);
-        addRtkKeywordIndexEntry(entries, collisions, compactRtkElementKey(keyword), kanji);
+        const entry = rtkSearchIndexEntry(match);
+        if (!entry) continue;
+        addRtkKeywordIndexEntry(entries, collisions, rtkElementKey(entry.keyword), entry.kanji);
+        addRtkKeywordIndexEntry(entries, collisions, compactRtkElementKey(entry.keyword), entry.kanji);
     }
     return entries;
+}
+
+function rtkSearchIndexEntry(match: RegExpExecArray): { kanji: string; keyword: string } | null {
+    const kanji = Array.from(match[1] ?? '').find(character => KANJI_RE.test(character)) ?? '';
+    const keyword = match[2] ?? '';
+    return kanji && keyword ? { kanji, keyword } : null;
 }
 
 function addRtkKeywordIndexEntry(entries: Map<string, string>, collisions: Set<string>, key: string, kanji: string): void {

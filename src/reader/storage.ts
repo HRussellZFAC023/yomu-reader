@@ -369,9 +369,17 @@ function parseFactoryResetSignal(value: unknown): FactoryResetSignal | null {
     return {
         id: record.id,
         phase: record.phase,
-        at: typeof record.at === 'number' && Number.isFinite(record.at) ? record.at : Date.now(),
-        href: typeof record.href === 'string' ? record.href : '',
+        at: factoryResetSignalTime(record.at),
+        href: factoryResetSignalHref(record.href),
     };
+}
+
+function factoryResetSignalTime(value: unknown): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : Date.now();
+}
+
+function factoryResetSignalHref(value: unknown): string {
+    return typeof value === 'string' ? value : '';
 }
 
 function isFactoryResetSignalRecord(value: unknown): value is Partial<FactoryResetSignal> & { id: string } {

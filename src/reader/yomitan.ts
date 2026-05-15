@@ -1431,15 +1431,14 @@ function normalizeDexieKanjiMetaRow(row: unknown): YomitanMetaEntry | null {
 }
 
 function normalizeDexieDictionaryRow(row: unknown): YomitanDictionaryInfo | null {
-    const candidate = unwrapDexieRow(row);
-    if (!candidate || typeof candidate !== 'object') return null;
-    const record = candidate as Partial<YomitanDictionaryInfo> & { title?: unknown; revision?: unknown };
+    const record = dexieDictionaryRecord(row);
+    if (!record) return null;
     if (typeof record.title !== 'string') return null;
     return {
         title: record.title,
         alias: dictionaryAlias(record, record.title),
-        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
-        priority: Number.isFinite(Number(record.priority)) ? Number(record.priority) : 0,
+        enabled: dictionaryInfoEnabled(record.enabled),
+        priority: dictionaryInfoPriority(record.priority),
         counts: record.counts as Record<string, unknown> | undefined,
         type: dictionaryInfoType(record.type),
         styles: stringField(record.styles) ?? '',
@@ -1447,6 +1446,21 @@ function normalizeDexieDictionaryRow(row: unknown): YomitanDictionaryInfo | null
         downloadUrl: stringField(record.downloadUrl),
         importDate: numberField(record.importDate),
     };
+}
+
+function dexieDictionaryRecord(row: unknown): (Partial<YomitanDictionaryInfo> & { title?: unknown; revision?: unknown }) | null {
+    const candidate = unwrapDexieRow(row);
+    return candidate && typeof candidate === 'object'
+        ? candidate as Partial<YomitanDictionaryInfo> & { title?: unknown; revision?: unknown }
+        : null;
+}
+
+function dictionaryInfoEnabled(value: unknown): boolean {
+    return typeof value === 'boolean' ? value : true;
+}
+
+function dictionaryInfoPriority(value: unknown): number {
+    return Number.isFinite(Number(value)) ? Number(value) : 0;
 }
 
 function dictionaryAlias(record: Partial<YomitanDictionaryInfo>, fallback: string): string {
@@ -1476,14 +1490,22 @@ function unwrapDexieRow(row: unknown): unknown {
 }
 
 function isReaderDictionaryExport(value: unknown): value is ReaderDictionaryExport {
-    return !!value
-        && typeof value === 'object'
-        && ['yomu-yomitan-dictionaries', 'jpdb-reader-yomitan-dictionaries'].includes((value as { formatName?: string }).formatName ?? '')
-        && (
-            Array.isArray((value as { entries?: unknown }).entries)
-            || Array.isArray((value as { terms?: unknown }).terms)
-            || Array.isArray((value as { kanji?: unknown }).kanji)
-        );
+    const record = readerDictionaryExportRecord(value);
+    return Boolean(record && isReaderDictionaryExportFormat(record) && hasReaderDictionaryExportRows(record));
+}
+
+function readerDictionaryExportRecord(value: unknown): (Partial<ReaderDictionaryExport> & { formatName?: unknown }) | null {
+    return value && typeof value === 'object' ? value as Partial<ReaderDictionaryExport> & { formatName?: unknown } : null;
+}
+
+function isReaderDictionaryExportFormat(record: { formatName?: unknown }): boolean {
+    return record.formatName === 'yomu-yomitan-dictionaries' || record.formatName === 'jpdb-reader-yomitan-dictionaries';
+}
+
+function hasReaderDictionaryExportRows(record: Partial<ReaderDictionaryExport>): boolean {
+    return Array.isArray(record.entries)
+        || Array.isArray(record.terms)
+        || Array.isArray(record.kanji);
 }
 
 function filenameFromUrl(url: string): string {
@@ -1516,9 +1538,18 @@ function safeHost(url: string): string {
 async function requestBlob(url: string, onProgress?: (message: string) => void): Promise<Blob> {
     const done = log.time('Dictionary download', { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        log.debug('Dictionary download using userscript request', { host: safeHost(url) });
-        return new Promise((resolve, reject) => {
+    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress);
+    return await requestBlobViaFetch(url, done);
+}
+
+function requestBlobViaUserscript(
+    url: string,
+    userscriptRequest: NonNullable<ReturnType<typeof getUserscriptHttpRequest>>,
+    done: () => void,
+    onProgress?: (message: string) => void,
+): Promise<Blob> {
+    log.debug('Dictionary download using userscript request', { host: safeHost(url) });
+    return new Promise((resolve, reject) => {
             const handleLoad = (response: UserscriptHttpResponse) => {
                 if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
                     log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: response.response.size });
@@ -1567,8 +1598,9 @@ async function requestBlob(url: string, onProgress?: (message: string) => void):
                 });
             }
         });
-    }
+}
 
+async function requestBlobViaFetch(url: string, done: () => void): Promise<Blob> {
     const downloadUrl = dictionaryDownloadUrl(url);
     if (!downloadUrl) {
         done();

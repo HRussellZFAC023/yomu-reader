@@ -31,26 +31,43 @@ export function formatMetaFrequency(value: unknown): string {
 }
 
 function metaFrequencyDisplayValue(value: unknown): string | null {
-    if (typeof value === 'number' || typeof value === 'string') return String(value);
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Record<string, unknown>;
-    return scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
+    const primitive = primitiveMetaValue(value);
+    if (primitive !== null) return primitive;
+    const record = objectRecord(value);
+    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
 }
 
 function scalarMetaValue(value: unknown): string | null {
-    if (typeof value === 'number' || typeof value === 'string') return String(value);
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Record<string, unknown>;
-    return scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
+    const primitive = primitiveMetaValue(value);
+    if (primitive !== null) return primitive;
+    const record = objectRecord(value);
+    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+}
+
+function primitiveMetaValue(value: unknown): string | null {
+    return typeof value === 'number' || typeof value === 'string' ? String(value) : null;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
+
+function nestedMetaValue(record: Record<string, unknown>): unknown {
+    return record.displayValue ?? record.frequency ?? record.value;
 }
 
 export function formatMetaPitch(value: unknown): string {
-    if (!value || typeof value !== 'object') return '';
-    const record = value as Record<string, unknown>;
-    const positions = Array.isArray(record.pitches) ? record.pitches : Array.isArray(record.positions) ? record.positions : [];
+    const record = objectRecord(value);
+    if (!record) return '';
+    const positions = metaPitchPositions(record);
     if (positions.length) return positions.slice(0, 4).map(String).join(', ');
     if (typeof record.position === 'number') return String(record.position);
     return '';
+}
+
+function metaPitchPositions(record: Record<string, unknown>): unknown[] {
+    if (Array.isArray(record.pitches)) return record.pitches;
+    return Array.isArray(record.positions) ? record.positions : [];
 }
 
 export function renderSpellingForKanjiNavigation(spelling: string, language: InterfaceLanguage): string {
@@ -1097,26 +1114,53 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
         ['Heisig', info.heisig],
         ['Old forms', info.oldForms.join(', ')],
     ].filter(([, value]) => Boolean(value?.trim()));
+    const factSection = renderJpdbKanjiFactSection(facts);
+    const readingsSection = renderJpdbKanjiReadings(info);
+    const componentSection = renderJpdbKanjiComponents(info, language);
+    const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'readingsComponents')}</summary>
             <div class="jpdb-reader-local-entry">
-                ${facts.length ? `<div class="jpdb-reader-kanji-facts">
-                    ${facts.map(([label, value]) => `<span><small>${escapeHtml(label)}</small>${escapeHtml(value)}</span>`).join('')}
-                </div>` : ''}
-                ${info.readings.length ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.readings.slice(0, 8).map(reading => `<span>${escapeHtml(reading.reading)}${reading.share ? ` ${escapeHtml(reading.share)}` : ''}</span>`).join('')}
-                </div>` : ''}
-                ${info.components.length ? `<div class="jpdb-reader-component-grid">
-                    ${info.components.map(component => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
-                        <strong>${escapeHtml(component.kanji)}</strong>
-                        <span>${escapeHtml(component.keyword)}</span>
-                    </button>`).join('')}
-                </div>` : ''}
-                ${info.mnemonic ? `<details><summary>${uiText(language, 'jpdbMnemonic')}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : ''}
+                ${factSection}
+                ${readingsSection}
+                ${componentSection}
+                ${mnemonicSection}
             </div>
         </details>
     `;
+}
+
+function expandedAttribute(initiallyExpanded: boolean): string {
+    return initiallyExpanded ? 'open' : '';
+}
+
+function renderJpdbKanjiFactSection(facts: string[][]): string {
+    if (!facts.length) return '';
+    return `<div class="jpdb-reader-kanji-facts">
+        ${facts.map(([label, value]) => `<span><small>${escapeHtml(label)}</small>${escapeHtml(value)}</span>`).join('')}
+    </div>`;
+}
+
+function renderJpdbKanjiReadings(info: JpdbKanjiInfo): string {
+    if (!info.readings.length) return '';
+    return `<div class="jpdb-reader-kanji-readings">
+        ${info.readings.slice(0, 8).map(reading => `<span>${escapeHtml(reading.reading)}${reading.share ? ` ${escapeHtml(reading.share)}` : ''}</span>`).join('')}
+    </div>`;
+}
+
+function renderJpdbKanjiComponents(info: JpdbKanjiInfo, language: InterfaceLanguage): string {
+    if (!info.components.length) return '';
+    return `<div class="jpdb-reader-component-grid">
+        ${info.components.map(component => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
+            <strong>${escapeHtml(component.kanji)}</strong>
+            <span>${escapeHtml(component.keyword)}</span>
+        </button>`).join('')}
+    </div>`;
+}
+
+function renderJpdbKanjiMnemonic(info: JpdbKanjiInfo, language: InterfaceLanguage): string {
+    return info.mnemonic ? `<details><summary>${uiText(language, 'jpdbMnemonic')}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : '';
 }
 
 export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, language: InterfaceLanguage): string {
@@ -1216,9 +1260,8 @@ function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[])
 }
 
 function readPitchPosition(value: unknown, reading: string): number | null {
-    if (!value || typeof value !== 'object') return pitchPositionFromValue(value);
-
-    const record = value as Record<string, unknown>;
+    const record = objectRecord(value);
+    if (!record) return pitchPositionFromValue(value);
     if (!pitchMetadataReadingMatches(record, reading)) return null;
 
     const direct = pitchPositionFromValue(record.position);

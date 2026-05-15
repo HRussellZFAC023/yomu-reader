@@ -128,6 +128,26 @@ function updatePageSubtitleTrack(track: SubtitleTrackOption, source: PageSubtitl
     return true;
 }
 
+function cachedSubtitleTrackCues(track: SubtitleTrackOption | undefined): SubtitleCue[] {
+    return track?.cues ?? [];
+}
+
+function shouldLogYouTubeTrackDiscovery(added: number, updatedSelectedTrack: boolean): boolean {
+    return Boolean(added || updatedSelectedTrack);
+}
+
+function secondarySubtitleToggleLabel(settings: ReaderSettings): string {
+    return settings.subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off';
+}
+
+function canParseSubtitleTranscriptRows(settings: ReaderSettings): boolean {
+    return Boolean(settings.apiKey || settings.localDictionariesEnabled);
+}
+
+function shouldApplyParsedTranscriptHtml(target: HTMLElement, key: string): boolean {
+    return target.dataset.parseKey === key && target.dataset.parsedKey !== key;
+}
+
 function subtitleMinimumFontSize(root: HTMLElement): number {
     const rootRect = root.getBoundingClientRect();
     return rootRect.width < 420 || rootRect.height < 260 ? 11 : 14;
@@ -726,14 +746,14 @@ export class SubtitlePlayerController {
     private refreshNativeCueLists(): void {
         const primary = this.tracks.find(item => item.id === this.selectedTrackId);
         const secondary = this.tracks.find(item => item.id === this.secondaryTrackId);
-        if (primary?.track) {
-            const cues = readTextTrackCues(primary.track);
-            if (cues.length && cues.length !== this.cues.length) this.cues = cues;
-        }
-        if (secondary?.track) {
-            const cues = readTextTrackCues(secondary.track);
-            if (cues.length && cues.length !== this.secondaryCues.length) this.secondaryCues = cues;
-        }
+        this.refreshNativeCueList(primary, this.cues.length, cues => { this.cues = cues; });
+        this.refreshNativeCueList(secondary, this.secondaryCues.length, cues => { this.secondaryCues = cues; });
+    }
+
+    private refreshNativeCueList(track: SubtitleTrackOption | undefined, currentLength: number, assign: (cues: SubtitleCue[]) => void): void {
+        if (!track?.track) return;
+        const cues = readTextTrackCues(track.track);
+        if (cues.length && cues.length !== currentLength) assign(cues);
     }
 
     private alignToVideo(): void {
@@ -1022,14 +1042,20 @@ export class SubtitlePlayerController {
         const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
         if (!primary) return;
         const minimum = subtitleMinimumFontSize(this.root);
+        fitted = this.fitSubtitleFontSize(fitted, minimum);
+        this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
+    }
+
+    private fitSubtitleFontSize(fitted: number, minimum: number): number {
+        if (!this.root || !this.subtitleEl) return fitted;
         for (let attempt = 0; attempt < 10; attempt++) {
-            if (!subtitleElementOverflows(this.subtitleEl)) return;
+            if (!subtitleElementOverflows(this.subtitleEl)) return fitted;
             const next = nextSubtitleFontSize(this.subtitleEl, fitted, minimum);
             if (next >= fitted) break;
             fitted = next;
             this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
         }
-        this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
+        return fitted;
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
@@ -1282,7 +1308,7 @@ export class SubtitlePlayerController {
         let selected = this.tracks.find(option => option.id === id);
         let currentTrackId = id;
         if (selected) this.markTrackLoading(selected);
-        let nextCues = selected?.cues ?? [];
+        let nextCues = cachedSubtitleTrackCues(selected);
         if (selected) {
             this.setNativeTrackModes();
             const loaded = await loadSubtitleTrackCues(selected, {
@@ -1369,7 +1395,7 @@ export class SubtitlePlayerController {
         let selected = this.tracks.find(option => option.id === id);
         let currentTrackId = id;
         if (selected) this.markTrackLoading(selected);
-        let nextCues = selected?.cues ?? [];
+        let nextCues = cachedSubtitleTrackCues(selected);
         if (selected) {
             this.setNativeTrackModes();
             const loaded = await loadSubtitleTrackCues(selected, {
@@ -1499,7 +1525,7 @@ export class SubtitlePlayerController {
     }
 
     private finishYouTubeTrackDiscovery(discovered: number, added: number, updatedSelectedTrack: boolean): void {
-        if (added || updatedSelectedTrack) {
+        if (shouldLogYouTubeTrackDiscovery(added, updatedSelectedTrack)) {
             log.debug('YouTube caption tracks discovered', { discovered, added, updatedSelectedTrack, total: this.tracks.length });
         }
         const autoTrack = this.findAutoYouTubeTrack();
@@ -1507,13 +1533,17 @@ export class SubtitlePlayerController {
             void this.selectTrack(autoTrack.id);
             return;
         }
-        if (updatedSelectedTrack && this.selectedTrackId) {
+        if (this.shouldReloadUpdatedSelectedTrack(updatedSelectedTrack)) {
             void this.selectTrack(this.selectedTrackId);
             return;
         }
         if (!added) return;
         this.renderTrackPanel();
         this.syncControls();
+    }
+
+    private shouldReloadUpdatedSelectedTrack(updatedSelectedTrack: boolean): boolean {
+        return updatedSelectedTrack && Boolean(this.selectedTrackId);
     }
 
     private findAutoYouTubeTrack(): SubtitleTrackOption | undefined {
@@ -1526,21 +1556,33 @@ export class SubtitlePlayerController {
 
     private syncControls(): void {
         const settings = this.options.getSettings();
-        const hasLines = Boolean(this.cues.length || this.currentCue?.text);
-        const menuOpen = Boolean(this.menuEl && !this.menuEl.hidden);
+        const hasLines = this.hasVisibleSubtitleLines();
+        const menuOpen = this.isSubtitleMenuOpen();
         this.root?.classList.toggle('jpdb-subtitle-menu-open', menuOpen);
         this.root?.classList.toggle('jpdb-subtitle-panel-open', !this.transcriptPanel?.hidden);
         this.root?.classList.toggle('jpdb-subtitle-has-lines', hasLines);
-        this.root?.classList.toggle('jpdb-subtitle-has-track', Boolean(this.selectedTrackId || hasLines));
+        this.root?.classList.toggle('jpdb-subtitle-has-track', this.hasSelectedTrackOrLines(hasLines));
         this.syncTranscriptPlacementClass();
         if (menuOpen) this.renderMenu();
         const secondaryToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle-secondary"]');
-        if (secondaryToggle) secondaryToggle.textContent = settings.subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off';
+        if (secondaryToggle) secondaryToggle.textContent = secondarySubtitleToggleLabel(settings);
         this.syncSubtitleToggle(settings);
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
         this.syncStatus();
         this.setNativeTrackModes();
+    }
+
+    private hasVisibleSubtitleLines(): boolean {
+        return Boolean(this.cues.length || this.currentCue?.text);
+    }
+
+    private isSubtitleMenuOpen(): boolean {
+        return Boolean(this.menuEl && !this.menuEl.hidden);
+    }
+
+    private hasSelectedTrackOrLines(hasLines: boolean): boolean {
+        return Boolean(this.selectedTrackId || hasLines);
     }
 
     private syncStatus(): void {
@@ -1563,13 +1605,20 @@ export class SubtitlePlayerController {
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {
-        const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.fullscreen);
+        const panelOpen = this.isTranscriptPanelDockedOpen();
         for (const action of ['previous', 'next'] as const) {
             const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
             if (railButton) syncLineNavigationButton(railButton, hasLines, Boolean(this.video), panelOpen);
-            const panelButtons = Array.from(this.transcriptPanel?.querySelectorAll<HTMLButtonElement>(`.jpdb-subtitle-panel-nav [data-action="${action}"]`) ?? []);
-            for (const button of panelButtons) syncLineNavigationButton(button, hasLines, Boolean(this.video), false);
+            for (const button of this.panelLineNavigationButtons(action)) syncLineNavigationButton(button, hasLines, Boolean(this.video), false);
         }
+    }
+
+    private isTranscriptPanelDockedOpen(): boolean {
+        return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.fullscreen);
+    }
+
+    private panelLineNavigationButtons(action: 'previous' | 'next'): HTMLButtonElement[] {
+        return Array.from(this.transcriptPanel?.querySelectorAll<HTMLButtonElement>(`.jpdb-subtitle-panel-nav [data-action="${action}"]`) ?? []);
     }
 
     private syncDrawerButtons(hasLines: boolean): void {
@@ -1682,10 +1731,24 @@ export class SubtitlePlayerController {
 
     private renderSubtitleMenuButtons(state: SubtitleMenuState): string {
         return [
-            state.hasLines || state.hasTracks ? `<button type="button" data-action="panel">${state.panelOpen ? 'Close subtitle drawer' : 'Open subtitle drawer'}</button>` : '',
-            state.hasLines ? `<button type="button" data-action="copy">Copy current line</button>` : '',
-            state.hasSecondary ? `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${state.secondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>` : '',
+            this.renderPanelMenuButton(state),
+            this.renderCopyLineMenuButton(state),
+            this.renderSecondaryMenuButton(state),
         ].join('');
+    }
+
+    private renderPanelMenuButton(state: SubtitleMenuState): string {
+        if (!state.hasLines && !state.hasTracks) return '';
+        return `<button type="button" data-action="panel">${state.panelOpen ? 'Close subtitle drawer' : 'Open subtitle drawer'}</button>`;
+    }
+
+    private renderCopyLineMenuButton(state: SubtitleMenuState): string {
+        return state.hasLines ? '<button type="button" data-action="copy">Copy current line</button>' : '';
+    }
+
+    private renderSecondaryMenuButton(state: SubtitleMenuState): string {
+        if (!state.hasSecondary) return '';
+        return `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${state.secondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>`;
     }
 
     private toggleMenu(): void {
@@ -1726,7 +1789,7 @@ export class SubtitlePlayerController {
 
     private toggleTranscriptPanel(): void {
         if (!this.transcriptPanel) return;
-        if (!this.cues.length && !this.currentCue?.text) {
+        if (!this.hasTranscriptSurface()) {
             this.toggleTrackPanel();
             return;
         }
@@ -1735,18 +1798,23 @@ export class SubtitlePlayerController {
         this.transcriptPanel.hidden = !shouldOpen;
         this.options.getSettings().subtitleTranscriptVisible = shouldOpen;
         this.options.onSettingsChange();
-        if (!this.transcriptPanel.hidden && this.menuEl) this.menuEl.hidden = true;
+        this.closeMenuForOpenTranscriptPanel();
         this.renderTranscriptPanel(true);
         this.positionTranscriptPanel();
         this.syncPanelState();
     }
 
+    private closeMenuForOpenTranscriptPanel(): void {
+        if (!this.transcriptPanel || this.transcriptPanel.hidden || !this.menuEl) return;
+        this.menuEl.hidden = true;
+    }
+
     private refreshTranscriptPanelAfterTrackChange(): void {
-        if (this.options.getSettings().subtitleTranscriptVisible && this.hasTranscriptSurface()) {
+        if (this.shouldRestoreTranscriptPanel()) {
             this.openLinesPanel();
             return;
         }
-        if (!this.transcriptPanel || this.transcriptPanel.hidden) return;
+        if (!this.isTranscriptPanelOpen()) return;
         if (this.panelMode === 'lines') {
             if (this.hasTranscriptSurface()) this.renderTranscriptPanel(true);
             else this.closeTranscriptPanel();
@@ -1755,6 +1823,14 @@ export class SubtitlePlayerController {
         this.renderTrackPanel();
         this.positionTranscriptPanel();
         this.syncPanelState();
+    }
+
+    private shouldRestoreTranscriptPanel(): boolean {
+        return this.options.getSettings().subtitleTranscriptVisible && this.hasTranscriptSurface();
+    }
+
+    private isTranscriptPanelOpen(): boolean {
+        return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
     }
 
     private openTracksPanel(): void {
@@ -1984,7 +2060,7 @@ export class SubtitlePlayerController {
     private async hydrateTranscriptRows(preferredIndex: number): Promise<void> {
         if (!this.canHydrateTranscriptRows()) return;
         const settings = this.options.getSettings();
-        if (!settings.apiKey && !settings.localDictionariesEnabled) return;
+        if (!canParseSubtitleTranscriptRows(settings)) return;
         const rows = this.transcriptRows();
         if (!rows.length) return;
         const serial = ++this.transcriptHydrationSerial;
@@ -2123,12 +2199,20 @@ export class SubtitlePlayerController {
     }
 
     private updateTranscriptRowsForParseKey(key: string, html: string): void {
-        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'lines') return;
-        for (const target of Array.from(this.transcriptPanel.querySelectorAll<HTMLElement>('[data-transcript-text]'))) {
-            if (target.dataset.parseKey !== key || target.dataset.parsedKey === key) continue;
+        const panel = this.updatableTranscriptPanel();
+        if (!panel) return;
+        for (const target of Array.from(panel.querySelectorAll<HTMLElement>('[data-transcript-text]'))) {
+            if (!shouldApplyParsedTranscriptHtml(target, key)) continue;
             target.dataset.parsedKey = key;
             setInnerHtml(target, html);
         }
+    }
+
+    private updatableTranscriptPanel(): HTMLElement | null {
+        if (!this.transcriptPanel) return null;
+        if (this.transcriptPanel.hidden) return null;
+        if (this.panelMode !== 'lines') return null;
+        return this.transcriptPanel;
     }
 
     private renderTrackPanel(): void {
@@ -2279,17 +2363,24 @@ export class SubtitlePlayerController {
 
     private clearSecondaryTrack(): void {
         this.resetSecondarySubtitleState();
+        this.clearSecondaryTrackLoadingStates();
+        this.setNativeTrackModes();
+        this.render();
+        this.refreshOpenTranscriptPanelAfterSecondaryClear();
+        this.syncControls();
+        log.info('Secondary subtitle track cleared');
+    }
+
+    private clearSecondaryTrackLoadingStates(): void {
         for (const track of this.tracks) {
             if (track.loadingState && track.id !== this.selectedTrackId) track.loadingState = 'idle';
         }
-        this.setNativeTrackModes();
-        this.render();
-        if (this.transcriptPanel && !this.transcriptPanel.hidden) {
-            if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
-            else this.renderTrackPanel();
-        }
-        this.syncControls();
-        log.info('Secondary subtitle track cleared');
+    }
+
+    private refreshOpenTranscriptPanelAfterSecondaryClear(): void {
+        if (!this.isTranscriptPanelOpen()) return;
+        if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
+        else this.renderTrackPanel();
     }
 
     private positionTranscriptPanel(): void {

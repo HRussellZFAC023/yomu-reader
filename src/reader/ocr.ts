@@ -529,11 +529,7 @@ export class ImageOcrController {
         const state = this.states.get(image);
         if (!state) return;
         const rect = image.getBoundingClientRect();
-        const visible = rect.width > 0
-            && rect.height > 0
-            && rect.bottom >= 0
-            && rect.top <= window.innerHeight
-            && !isImageOccludedByVideo(image, rect);
+        const visible = isImageVisibleForOcr(image, rect);
         state.overlay.hidden = !visible;
         if (!visible) return;
         state.overlay.style.left = `${rect.left}px`;
@@ -738,14 +734,25 @@ function normalizeOcrRegionResults(regions: unknown[], width: number, height: nu
 }
 
 function normalizeSingleOcrRegionResults(region: unknown, width: number, height: number): OcrLine[] {
-    if (!region || typeof region !== 'object') return [];
-    const regionRecord = region as Record<string, unknown>;
+    const regionRecord = asRecord(region);
+    if (!regionRecord) return [];
     const regionBox = normalizeOcrRegion(regionRecord, width, height);
-    const scaleWidth = regionBox?.width ?? width;
-    const scaleHeight = regionBox?.height ?? height;
+    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
     if (!Array.isArray(regionRecord.results)) return [];
     const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-    return regionBox ? lines.map(line => offsetLineToRegion(line, regionBox, width, height)).filter((line): line is OcrLine => Boolean(line)) : lines;
+    return offsetRegionLines(lines, regionBox, width, height);
+}
+
+function ocrRegionScale(regionBox: OcrRect | null, width: number, height: number): { scaleWidth: number; scaleHeight: number } {
+    return {
+        scaleWidth: regionBox?.width ?? width,
+        scaleHeight: regionBox?.height ?? height,
+    };
+}
+
+function offsetRegionLines(lines: OcrLine[], regionBox: OcrRect | null, width: number, height: number): OcrLine[] {
+    if (!regionBox) return lines;
+    return lines.map(line => offsetLineToRegion(line, regionBox, width, height)).filter((line): line is OcrLine => Boolean(line));
 }
 
 function japaneseOcrResult(width: number, height: number, lines: OcrLine[]): OcrResult | null {
@@ -1107,16 +1114,20 @@ function googleLensUploadBox(value: unknown, width: number, height: number): Ocr
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Record<string, unknown>;
+    const record = asRecord(value);
+    if (!record) return null;
     const text = simpleLineText(record);
-    const box = normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+    const box = simpleLineBox(record, width, height);
     if (!text || !box) return null;
     return { text, box, vertical: simpleLineIsVertical(record) };
 }
 
 function simpleLineText(record: Record<string, unknown>): string {
     return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+}
+
+function simpleLineBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
 }
 
 function simpleLineIsVertical(record: Record<string, unknown>): boolean {
@@ -1271,11 +1282,20 @@ function structuredOcrVertical(record: Record<string, unknown>): boolean {
 }
 
 function normalizeStructuredOcrLine(item: unknown, width: number, height: number, inheritedVertical: boolean): OcrLine | null {
-    const lineRecord = item as Record<string, unknown>;
-    const text = stringFrom(lineRecord?.content ?? lineRecord?.text ?? lineRecord?.word);
-    const box = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
+    const lineRecord = asRecord(item);
+    if (!lineRecord) return null;
+    const text = structuredOcrLineText(lineRecord);
+    const box = structuredOcrLineBox(lineRecord, width, height);
     if (!text || !box) return null;
     return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+}
+
+function structuredOcrLineText(record: Record<string, unknown>): string {
+    return stringFrom(record.content ?? record.text ?? record.word);
+}
+
+function structuredOcrLineBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
 }
 
 function structuredOcrLineVertical(record: Record<string, unknown>, inheritedVertical: boolean): boolean {
@@ -1306,13 +1326,20 @@ function readOcrRegion(record: Record<string, unknown>): OcrRegionParts | null {
     const position = record.position as Record<string, unknown> | undefined;
     const size = record.size as Record<string, unknown> | undefined;
     if (!position || !size) return null;
-    const left = numberFrom(position.left);
-    const top = numberFrom(position.top);
-    const regionWidth = numberFrom(size.width);
-    const regionHeight = numberFrom(size.height);
-    return left === null || top === null || regionWidth === null || regionHeight === null
-        ? null
-        : { left, top, width: regionWidth, height: regionHeight };
+    return completeOcrRegionParts({
+        left: numberFrom(position.left),
+        top: numberFrom(position.top),
+        width: numberFrom(size.width),
+        height: numberFrom(size.height),
+    });
+}
+
+function completeOcrRegionParts(parts: { left: number | null; top: number | null; width: number | null; height: number | null }): OcrRegionParts | null {
+    if (parts.left === null) return null;
+    if (parts.top === null) return null;
+    if (parts.width === null) return null;
+    if (parts.height === null) return null;
+    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
 }
 
 function scaleOcrRegion(region: OcrRegionParts, width: number, height: number): OcrRect {
@@ -1380,12 +1407,24 @@ function normalizePointBox(record: Record<string, unknown>, width: number, heigh
     const xs = points.map(point => numberFrom(point?.x)).filter((item): item is number => item !== null);
     const ys = points.map(point => numberFrom(point?.y)).filter((item): item is number => item !== null);
     if (!xs.length || !ys.length) return null;
-    const percent = xs.every(value => value >= 0 && value <= 1) && ys.every(value => value >= 0 && value <= 1);
-    const scaledXs = percent ? xs.map(value => value * width) : xs;
-    const scaledYs = percent ? ys.map(value => value * height) : ys;
+    const percent = coordinatesAreFractional(xs, ys);
+    const scaledXs = scaleCoordinates(xs, width, percent);
+    const scaledYs = scaleCoordinates(ys, height, percent);
     const left = Math.min(...scaledXs);
     const top = Math.min(...scaledYs);
     return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+}
+
+function coordinatesAreFractional(xs: number[], ys: number[]): boolean {
+    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
+}
+
+function isFractionalCoordinate(value: number): boolean {
+    return value >= 0 && value <= 1;
+}
+
+function scaleCoordinates(values: number[], scale: number, enabled: boolean): number[] {
+    return enabled ? values.map(value => value * scale) : values;
 }
 
 function boxFromNumbers(
@@ -1466,6 +1505,14 @@ function isVisibleOcrImage(image: HTMLImageElement): boolean {
         && style.display !== 'none'
         && Number(style.opacity || '1') > 0
         && !isInsideHiddenAncestor(image);
+}
+
+function isImageVisibleForOcr(image: HTMLImageElement, rect: DOMRect): boolean {
+    return rect.width > 0
+        && rect.height > 0
+        && rect.bottom >= 0
+        && rect.top <= window.innerHeight
+        && !isImageOccludedByVideo(image, rect);
 }
 
 function isInsideHiddenAncestor(element: Element): boolean {
@@ -1625,27 +1672,30 @@ function decodeProtoMessage(bytes: Uint8Array): ProtoField[] {
         const field = Number(tag >> 3n);
         const wire = Number(tag & 7n);
         if (!field) break;
-        if (wire === 0) {
-            const [value, afterValue] = readVarint(bytes, offset);
-            offset = afterValue;
-            fields.push({ field, wire, value });
-        } else if (wire === 1) {
-            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-            offset += 8;
-        } else if (wire === 2) {
-            const [length, afterLength] = readVarint(bytes, offset);
-            offset = afterLength;
-            const end = offset + Number(length);
-            fields.push({ field, wire, value: bytes.slice(offset, end) });
-            offset = end;
-        } else if (wire === 5) {
-            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-            offset += 4;
-        } else {
-            break;
-        }
+        const decoded = readProtoWireValue(bytes, offset, wire);
+        if (!decoded) break;
+        fields.push({ field, wire, value: decoded.value });
+        offset = decoded.offset;
     }
     return fields;
+}
+
+function readProtoWireValue(bytes: Uint8Array, offset: number, wire: number): { value: ProtoField['value']; offset: number } | null {
+    if (wire === 0) {
+        const [value, afterValue] = readVarint(bytes, offset);
+        return { value, offset: afterValue };
+    }
+    if (wire === 1) return { value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true), offset: offset + 8 };
+    if (wire === 2) return readProtoLengthDelimitedValue(bytes, offset);
+    if (wire === 5) return { value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true), offset: offset + 4 };
+    return null;
+}
+
+function readProtoLengthDelimitedValue(bytes: Uint8Array, offset: number): { value: Uint8Array; offset: number } {
+    const [length, afterLength] = readVarint(bytes, offset);
+    const start = afterLength;
+    const end = start + Number(length);
+    return { value: bytes.slice(start, end), offset: end };
 }
 
 function readVarint(bytes: Uint8Array, offset: number): [bigint, number] {
@@ -1903,10 +1953,14 @@ function imageSummary(image: HTMLImageElement): Record<string, unknown> {
 }
 
 function inlineProviderLabel(settings: ReaderSettings): string {
-    if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) return `local-service:${settings.ocrEngine || 'auto'}`;
+    if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) return `local-service:${ocrEngineLabel(settings)}`;
     if (settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim()) return 'cloud-vision';
     if (settings.ocrProvider === 'google-lens') return 'google-lens';
     return settings.ocrProvider;
+}
+
+function ocrEngineLabel(settings: ReaderSettings): string {
+    return settings.ocrEngine || 'auto';
 }
 
 function safeHost(value: string): string {

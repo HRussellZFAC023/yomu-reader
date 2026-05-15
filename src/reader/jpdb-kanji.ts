@@ -105,12 +105,23 @@ export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo |
     const keyword = sectionText(doc, 'Keyword') || metaKeyword(doc, kanji);
     if (!keyword) return null;
 
-    const infoRows = infoTableRows(doc);
+    const parsed = parsedJpdbKanjiPage(doc, kanji);
     const actions = kanjiActions(doc, kanji);
     const visibleActions = actions.filter(isVisibleKanjiAction);
     return {
         kanji,
         keyword,
+        ...parsed,
+        mnemonic: sectionText(doc, 'Mnemonic'),
+        actions,
+        loggedIn: isLoggedIn(doc),
+        kanjiReviewsEnabled: visibleActions.length > 0,
+    };
+}
+
+function parsedJpdbKanjiPage(doc: Document, kanji: string): Pick<JpdbKanjiInfo, 'frequency' | 'type' | 'kanken' | 'heisig' | 'oldForms' | 'readings' | 'components' | 'usedInKanji' | 'vocabulary'> {
+    const infoRows = infoTableRows(doc);
+    return {
         frequency: infoRows.get('Frequency') ?? '',
         type: infoRows.get('Type') ?? '',
         kanken: infoRows.get('Kanken') ?? '',
@@ -119,11 +130,7 @@ export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo |
         readings: readings(doc),
         components: components(doc),
         usedInKanji: usedInKanji(doc),
-        mnemonic: sectionText(doc, 'Mnemonic'),
         vocabulary: vocabulary(doc).slice(0, 8),
-        actions,
-        loggedIn: isLoggedIn(doc),
-        kanjiReviewsEnabled: visibleActions.length > 0,
     };
 }
 
@@ -133,12 +140,18 @@ export function visibleJpdbKanjiActions(info: JpdbKanjiInfo | null): JpdbKanjiAc
 }
 
 export function jpdbKanjiActionClass(action: JpdbKanjiAction): string {
-    if (action.role === 'mine' || action.role === 'review') return 'add';
-    if (action.role === 'known' || action.role === 'neverforget') return 'nf';
-    if (action.role === 'blacklist') return 'blacklist';
-    if (action.role === 'forget') return 'nf danger';
-    return '';
+    return KANJI_ACTION_CLASS_BY_ROLE[action.role] ?? '';
 }
+
+const KANJI_ACTION_CLASS_BY_ROLE: Record<JpdbKanjiAction['role'], string> = {
+    mine: 'add',
+    review: 'add',
+    known: 'nf',
+    neverforget: 'nf',
+    blacklist: 'blacklist',
+    forget: 'nf danger',
+    other: '',
+};
 
 function isVisibleKanjiAction(action: JpdbKanjiAction): boolean {
     return action.enabled && action.role !== 'other';

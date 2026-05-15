@@ -442,16 +442,22 @@ function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
         if (remaining <= 0) break;
         const collected = collectFragmentTextTargetsIn(root, remaining, true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
         for (const target of collected) {
-            const firstNode = target.fragments[0]?.node;
-            if (!firstNode || seen.has(firstNode)) continue;
-            seen.add(firstNode);
-            targets.push({ ...target, parserId: 'generic-prose-parser' });
+            if (!appendGenericProseTarget(targets, seen, target)) continue;
             if (targets.length >= limit) break;
         }
     }
 
     log.debugThrottled('generic-prose-targets', 2500, 'Collected generic prose targets', { roots: roots.length, targets: targets.length });
     return targets;
+}
+
+function appendGenericProseTarget(targets: FragmentTextTarget[], seen: Set<Text>, target: FragmentTextTarget): boolean {
+    const firstNode = target.fragments[0]?.node;
+    if (!firstNode) return false;
+    if (seen.has(firstNode)) return false;
+    seen.add(firstNode);
+    targets.push({ ...target, parserId: 'generic-prose-parser' });
+    return true;
 }
 
 function isUsefulGenericProseRoot(root: HTMLElement): boolean {

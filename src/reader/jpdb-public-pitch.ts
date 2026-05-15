@@ -45,14 +45,25 @@ export function parseJpdbPublicPitchHtml(html: string, spelling = '', reading = 
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const roots = Array.from(doc.querySelectorAll('.result.vocabulary'));
     const matchingRoots = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
-    const hasRequestedIdentity = Boolean(cleanText(spelling) || cleanText(reading));
-    const candidates: ParentNode[] = matchingRoots.length
-        ? matchingRoots
-        : (!hasRequestedIdentity && roots.length === 1) || documentMatchesVocabulary(doc, spelling, reading)
-            ? [roots[0] ?? doc]
-            : [];
+    const candidates = pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading);
     const patterns = candidates.flatMap(readPitchPatterns).filter(Boolean);
     return unique(patterns);
+}
+
+function pitchCandidateRoots(
+    doc: Document,
+    roots: Element[],
+    matchingRoots: Element[],
+    spelling: string,
+    reading: string,
+): ParentNode[] {
+    if (matchingRoots.length) return matchingRoots;
+    return canUseGenericPitchRoot(doc, roots, spelling, reading) ? [roots[0] ?? doc] : [];
+}
+
+function canUseGenericPitchRoot(doc: Document, roots: Element[], spelling: string, reading: string): boolean {
+    return (!hasRequestedVocabularyIdentity(spelling, reading) && roots.length === 1)
+        || documentMatchesVocabulary(doc, spelling, reading);
 }
 
 function readPitchPatterns(root: ParentNode): string[] {
@@ -115,9 +126,28 @@ function vocabularyIdentityMatches(identity: { expression: string; reading: stri
     const canonicalReading = cleanText(identity.reading);
     const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
     if (!requested.size) return true;
-    if (!requested.has(expression) && !requested.has(canonicalReading)) return false;
+    if (!identityIntersectsRequest(requested, expression, canonicalReading)) return false;
     if (!requestedReading) return true;
-    return canonicalReading === requestedReading || expression === requestedReading || expression === requestedSpelling;
+    return identityMatchesRequestedReading(expression, canonicalReading, requestedSpelling, requestedReading);
+}
+
+function hasRequestedVocabularyIdentity(spelling: string, reading: string): boolean {
+    return Boolean(cleanText(spelling) || cleanText(reading));
+}
+
+function identityIntersectsRequest(requested: Set<string>, expression: string, canonicalReading: string): boolean {
+    return requested.has(expression) || requested.has(canonicalReading);
+}
+
+function identityMatchesRequestedReading(
+    expression: string,
+    canonicalReading: string,
+    requestedSpelling: string,
+    requestedReading: string,
+): boolean {
+    return canonicalReading === requestedReading
+        || expression === requestedReading
+        || expression === requestedSpelling;
 }
 
 function splitMorae(value: string): string[] {

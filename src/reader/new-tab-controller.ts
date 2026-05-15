@@ -110,6 +110,26 @@ function renderNewTabImmersionImage(imageUrl: string): HTMLElement | null {
     );
 }
 
+function shouldResolveInitialWordIndex(poolChanged: boolean, preferStoredWord: boolean): boolean {
+    return poolChanged || preferStoredWord;
+}
+
+function isReviewSource(source: JPDBCard['reviewSource']): boolean {
+    return source === 'anki' || source === 'jpdb-api' || source === 'jpdb-live';
+}
+
+function isPositiveJpdbCard(card: JPDBCard): boolean {
+    return card.source === 'jpdb' && card.vid > 0 && card.sid > 0;
+}
+
+function newTabKanjiKeyword(card: JPDBCard, fullInfo: JpdbKanjiInfo | null, rtk: RtkInfo | null, localMeanings: string[]): string {
+    return fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || firstCardMeaning(card);
+}
+
+function oldFormsFact(fullInfo: JpdbKanjiInfo | null): string {
+    return fullInfo?.oldForms.length ? fullInfo.oldForms.join(', ') : '';
+}
+
 interface NewTabLoadResult {
     cards: JPDBCard[];
     sourceLabel: string;
@@ -781,7 +801,7 @@ export class NewTabController {
 
     private applyWords(root: HTMLElement, preferStoredWord: boolean): void {
         this.syncMode(root);
-        if (!this.allWords.length && this.dictionarySetupRequired) {
+        if (this.shouldRenderDictionarySetup()) {
             this.renderDictionarySetup(root);
             return;
         }
@@ -790,9 +810,13 @@ export class NewTabController {
         const poolChanged = poolSignature !== this.visiblePoolSignature;
         if (poolChanged) this.replaceVisibleWordPool(baseWords, poolSignature);
         if (!this.ensureVisibleWords(root)) return;
-        if (poolChanged || preferStoredWord) this.index = this.resolveInitialIndex(preferStoredWord);
+        if (shouldResolveInitialWordIndex(poolChanged, preferStoredWord)) this.index = this.resolveInitialIndex(preferStoredWord);
         this.index = Math.max(0, Math.min(this.index, this.visibleWords.length - 1));
         this.renderWord(root, this.visibleWords[this.index]);
+    }
+
+    private shouldRenderDictionarySetup(): boolean {
+        return !this.allWords.length && this.dictionarySetupRequired;
     }
 
     private studyPoolForCurrentMode(): JPDBCard[] {
@@ -869,14 +893,22 @@ export class NewTabController {
         const slots = this.studySlots(root);
         const state = primaryCardState(card.cardState);
 
-        if (this.state.mode === 'kanji') this.renderKanjiPrompt(slots, card, state);
-        else this.renderWordPrompt(slots, card, state);
+        this.renderPromptForMode(slots, card, state);
 
         if (slots.count) slots.count.textContent = `${this.index + 1} / ${this.visibleWords.length}`;
-        if (slots.reveal) slots.reveal.textContent = this.state.revealAnswer ? 'Hide' : 'Reveal';
+        if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
         this.renderControls(slots, card);
         this.renderInstallCta(root);
         if (slots.status) slots.status.textContent = this.sourceLabel;
+    }
+
+    private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
+        if (this.state.mode === 'kanji') this.renderKanjiPrompt(slots, card, state);
+        else this.renderWordPrompt(slots, card, state);
+    }
+
+    private revealButtonLabel(): string {
+        return this.state.revealAnswer ? 'Hide' : 'Reveal';
     }
 
     private studySlots(root: HTMLElement): NewTabStudySlots {
@@ -1010,14 +1042,27 @@ export class NewTabController {
     }
 
     private async renderImmersionExample(slots: NewTabStudySlots, card: JPDBCard): Promise<void> {
-        if (!this.state.revealAnswer || !slots.meaning || !this.dependencies.getSettings().immersionKitEnabled) return;
+        const meaning = slots.meaning;
+        if (!this.canRenderImmersionExample(meaning)) return;
         const key = cardKey(card);
         const examples = await this.loadImmersionExamples(card);
-        if (!examples.length || cardKey(this.visibleWords[this.index]) !== key || !slots.meaning.isConnected) return;
+        if (!this.canAppendImmersionExample(meaning, key, examples)) return;
         const index = this.normalizedImmersionExampleIndex(key, examples);
-        slots.meaning.append(this.renderNewTabImmersionCard(card, examples, index));
-        void this.dependencies.parseContent?.(slots.meaning);
-        this.loadNewTabImmersionImage(slots.meaning, examples[index]);
+        meaning.append(this.renderNewTabImmersionCard(card, examples, index));
+        void this.dependencies.parseContent?.(meaning);
+        this.loadNewTabImmersionImage(meaning, examples[index]);
+    }
+
+    private canRenderImmersionExample(meaning: HTMLElement | null): meaning is HTMLElement {
+        return this.state.revealAnswer
+            && Boolean(meaning)
+            && this.dependencies.getSettings().immersionKitEnabled;
+    }
+
+    private canAppendImmersionExample(meaning: HTMLElement, key: string, examples: ImmersionKitExample[]): boolean {
+        return Boolean(examples.length)
+            && cardKey(this.visibleWords[this.index]) === key
+            && meaning.isConnected;
     }
 
     private renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement {
@@ -1288,15 +1333,14 @@ export class NewTabController {
     }
 
     private newTabKanjiFacts(card: JPDBCard, fullInfo: JpdbKanjiInfo | null, rtk: RtkInfo | null, localMeanings: string[]): [string, string][] {
-        const keyword = fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || firstCardMeaning(card);
         return compactFacts([
-            fact('Keyword', keyword),
+            fact('Keyword', newTabKanjiKeyword(card, fullInfo, rtk, localMeanings)),
             fact('Type', fullInfo?.type),
             fact('Frequency', fullInfo?.frequency),
             fact('Word frequency', card.frequencyRank ? `#${card.frequencyRank}` : ''),
             fact('Kanken', fullInfo?.kanken),
             fact('Heisig', heisigFact(fullInfo, rtk)),
-            fact('Old forms', fullInfo?.oldForms.length ? fullInfo.oldForms.join(', ') : ''),
+            fact('Old forms', oldFormsFact(fullInfo)),
         ]);
     }
 
@@ -1426,13 +1470,16 @@ export class NewTabController {
         if (slots.meaning) slots.meaning.textContent = '';
         if (slots.count) slots.count.textContent = '';
         if (slots.status) slots.status.textContent = '';
-        if (slots.controls) {
-            replaceChildrenWith(slots.controls,
-                el('button', { type: 'button', dataset: { newtabAction: 'previous' } }, 'Previous'),
-                el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
-                el('button', { type: 'button', dataset: { newtabAction: 'next' } }, 'Next'),
-            );
-        }
+        this.renderEmptyControls(slots.controls);
+    }
+
+    private renderEmptyControls(controls: HTMLElement | null): void {
+        if (!controls) return;
+        replaceChildrenWith(controls,
+            el('button', { type: 'button', dataset: { newtabAction: 'previous' } }, 'Previous'),
+            el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
+            el('button', { type: 'button', dataset: { newtabAction: 'next' } }, 'Next'),
+        );
     }
 
     private renderDictionarySetup(root: HTMLElement): void {
@@ -1450,12 +1497,15 @@ export class NewTabController {
         if (slots.meaning) slots.meaning.textContent = 'It stays in this browser and is ready whenever a new tab opens.';
         if (slots.count) slots.count.textContent = '';
         if (slots.status) slots.status.textContent = '';
-        if (slots.controls) {
-            replaceChildrenWith(slots.controls,
-                el('button', { type: 'button', dataset: { newtabAction: 'load-dictionary' } }, 'Add dictionary'),
-            );
-        }
+        this.renderDictionarySetupControls(slots.controls);
         this.scheduleDictionarySetupRetry(root);
+    }
+
+    private renderDictionarySetupControls(controls: HTMLElement | null): void {
+        if (!controls) return;
+        replaceChildrenWith(controls,
+            el('button', { type: 'button', dataset: { newtabAction: 'load-dictionary' } }, 'Add dictionary'),
+        );
     }
 
     private async installStarterDictionary(root: HTMLElement): Promise<void> {
@@ -1524,11 +1574,9 @@ export class NewTabController {
     }
 
     private isReviewCard(card: JPDBCard): boolean {
-        return card.reviewSource === 'anki'
-            || card.reviewSource === 'jpdb-api'
-            || card.reviewSource === 'jpdb-live'
+        return isReviewSource(card.reviewSource)
             || card.source === 'anki'
-            || (card.source === 'jpdb' && card.vid > 0 && card.sid > 0);
+            || isPositiveJpdbCard(card);
     }
 
     private async performJpdbKanjiAction(root: HTMLElement, actionId: string): Promise<void> {
@@ -1612,15 +1660,24 @@ export class NewTabController {
 
     private applyJpdbBridgeStatus(status: JpdbReviewBridgeStatus): void {
         this.liveJpdbStatus = status;
-        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
-        if (!root || !(this.state.source === 'jpdb' || this.state.source === 'auto')) return;
+        const root = this.jpdbBridgeRoot();
+        if (!root) return;
         if (!status.card) return;
         const card = this.cardFromLiveJpdb(status.card);
         if (!card) return;
+        this.upsertLiveJpdbCard(card);
+        this.applyWords(root, false);
+    }
+
+    private jpdbBridgeRoot(): HTMLElement | null {
+        if (this.state.source !== 'jpdb' && this.state.source !== 'auto') return null;
+        return document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+    }
+
+    private upsertLiveJpdbCard(card: JPDBCard): void {
         const existingIndex = this.allWords.findIndex(item => item.reviewSource === 'jpdb-live');
         if (existingIndex >= 0) this.allWords.splice(existingIndex, 1, card);
         else this.allWords.unshift(card);
-        this.applyWords(root, false);
     }
 
     private liveCardFromBridge(): JPDBCard | null {

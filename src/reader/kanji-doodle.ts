@@ -14,20 +14,22 @@ const log = Logger.scope('KanjiDoodle');
 
 type KanjiDoodleRoot = HTMLElement & { __yomuKanjiDoodleCleanup?: () => void };
 
+interface KanjiDoodleElements {
+    stage: HTMLElement;
+    canvas: HTMLCanvasElement;
+    ghost: HTMLElement;
+}
+
 export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage, options: KanjiDoodleOptions = {}): void {
     const root = popover as KanjiDoodleRoot;
     root.__yomuKanjiDoodleCleanup?.();
     delete root.__yomuKanjiDoodleCleanup;
 
-    const stage = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-stage');
-    const canvas = popover.querySelector<HTMLCanvasElement>('.jpdb-reader-doodle-canvas');
-    const ghost = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
+    const elements = kanjiDoodleElements(popover);
     const clear = popover.querySelector<HTMLButtonElement>('[data-doodle-clear]');
     const trace = popover.querySelector<HTMLButtonElement>('[data-doodle-trace]');
-    if (!stage || !canvas || !ghost) {
-        log.debug('Kanji doodle install skipped', { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
-        return;
-    }
+    if (!elements) return;
+    const { stage, canvas, ghost } = elements;
 
     const context = canvas.getContext('2d');
     if (!context) {
@@ -180,4 +182,13 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
     requestAnimationFrame(resize);
     requestAnimationFrame(disconnectWhenDetached);
+}
+
+function kanjiDoodleElements(popover: HTMLElement): KanjiDoodleElements | null {
+    const stage = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-stage');
+    const canvas = popover.querySelector<HTMLCanvasElement>('.jpdb-reader-doodle-canvas');
+    const ghost = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
+    if (stage && canvas && ghost) return { stage, canvas, ghost };
+    log.debug('Kanji doodle install skipped', { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
+    return null;
 }

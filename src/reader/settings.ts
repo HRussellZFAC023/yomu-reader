@@ -83,6 +83,14 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
 ];
 
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
+const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
+const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status']);
+const OCR_ENGINE_ALIASES = new Map<string, string>([
+    ['MangaOcrAdapter', 'MangaOCR'],
+    ['PpOcrAdapter', 'PaddleOCR'],
+    ['AppleVisionAdapter', 'AppleVision'],
+    ['Google Lens', 'auto'],
+]);
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
@@ -606,9 +614,7 @@ function normalizeWordHighlightMode(value: unknown): WordHighlightMode {
 }
 
 function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource): ReaderColorSource {
-    return value === 'auto' || value === 'status' || value === 'jpdb' || value === 'anki' || value === 'pitch' || value === 'off'
-        ? value
-        : fallback;
+    return READER_COLOR_SOURCES.has(value as ReaderColorSource) ? value as ReaderColorSource : fallback;
 }
 
 function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
@@ -656,8 +662,12 @@ export function effectiveSubtitleColorSource(settings: ReaderSettings, source: R
 
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
-    if (settings.furiganaMode === 'all' || settings.furiganaMode === 'difficult-kanji' || settings.furiganaMode === 'known-status') return settings.furiganaMode;
+    if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
     return hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'difficult-kanji';
+}
+
+function isExplicitFuriganaMode(value: FuriganaMode): value is Exclude<FuriganaMode, 'auto' | 'off'> {
+    return EXPLICIT_FURIGANA_MODES.has(value);
 }
 
 export function sanitizeAccentColor(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
@@ -680,7 +690,7 @@ export function accentToRgba(color: string, alpha: number): string {
 export function applyUrlBootstrapSettings(settings: ReaderSettings, search = location.search): ReaderSettings {
     const params = new URLSearchParams(search);
     const bootstrap = urlBootstrapSettings(params);
-    if (!bootstrap.apiKey && !bootstrap.audio && !bootstrap.ocr) return settings;
+    if (!hasUrlBootstrapSettings(bootstrap)) return settings;
     log.info('Applying URL bootstrap settings', {
         hasApiKey: Boolean(bootstrap.apiKey),
         hasAudio: Boolean(bootstrap.audio),
@@ -689,11 +699,19 @@ export function applyUrlBootstrapSettings(settings: ReaderSettings, search = loc
 
     return {
         ...settings,
-        apiKey: bootstrap.apiKey || settings.apiKey,
+        apiKey: bootstrapValue(bootstrap.apiKey, settings.apiKey),
         audioSources: bootstrapAudioSources(settings, bootstrap.audio),
-        audioSourceUrl: bootstrap.audio || settings.audioSourceUrl,
-        ocrEndpointUrl: bootstrap.ocr || settings.ocrEndpointUrl,
+        audioSourceUrl: bootstrapValue(bootstrap.audio, settings.audioSourceUrl),
+        ocrEndpointUrl: bootstrapValue(bootstrap.ocr, settings.ocrEndpointUrl),
     };
+}
+
+function hasUrlBootstrapSettings(bootstrap: { apiKey: string; audio: string; ocr: string }): boolean {
+    return Boolean(bootstrap.apiKey || bootstrap.audio || bootstrap.ocr);
+}
+
+function bootstrapValue<T extends string | undefined>(value: string, fallback: T): string | T {
+    return value || fallback;
 }
 
 function urlBootstrapSettings(params: URLSearchParams): { apiKey: string; audio: string; ocr: string } {
@@ -725,13 +743,12 @@ const OCR_PROVIDER_ALIASES: Record<string, OcrProvider> = {
 const OCR_PROVIDERS = new Set<OcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
 
 export function normalizeOcrEngine(value: unknown): string {
-    if (typeof value !== 'string' || !value.trim()) return DEFAULT_SETTINGS.ocrEngine;
-    const normalized = value.trim();
-    if (normalized === 'MangaOcrAdapter') return 'MangaOCR';
-    if (normalized === 'PpOcrAdapter') return 'PaddleOCR';
-    if (normalized === 'AppleVisionAdapter') return 'AppleVision';
-    if (normalized === 'Google Lens') return 'auto';
-    return normalized;
+    const normalized = normalizedOcrEngineInput(value);
+    return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_SETTINGS.ocrEngine;
+}
+
+function normalizedOcrEngineInput(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
 }
 
 export async function loadSettings(): Promise<ReaderSettings> {
@@ -765,10 +782,14 @@ export function matchesShortcut(event: KeyboardEvent, shortcut = ''): boolean {
     const eventKey = normalizeEventKey(event.key).toLowerCase();
 
     return eventKey === key
-        && event.altKey === parts.modifiers.has('alt')
-        && event.ctrlKey === parts.modifiers.has('ctrl')
-        && event.metaKey === parts.modifiers.has('meta')
-        && event.shiftKey === parts.modifiers.has('shift');
+        && shortcutModifiersMatch(event, parts.modifiers);
+}
+
+function shortcutModifiersMatch(event: KeyboardEvent, modifiers: Set<string>): boolean {
+    return event.altKey === modifiers.has('alt')
+        && event.ctrlKey === modifiers.has('ctrl')
+        && event.metaKey === modifiers.has('meta')
+        && event.shiftKey === modifiers.has('shift');
 }
 
 export function formatShortcutEvent(event: KeyboardEvent): string {
@@ -861,15 +882,29 @@ export function isAudioSourceType(value: unknown): value is AudioSourceType {
 }
 
 export function normalizeAudioSource(value: unknown): AudioSourceSetting | null {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown };
+    const record = audioSourceRecord(value);
+    if (!record) return null;
     if (!isAudioSourceType(record.type)) return null;
     return {
         type: record.type,
-        url: typeof record.url === 'string' ? record.url : '',
-        voice: typeof record.voice === 'string' ? record.voice : '',
-        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+        url: audioSourceText(record.url),
+        voice: audioSourceText(record.voice),
+        enabled: audioSourceEnabled(record.enabled),
     };
+}
+
+function audioSourceRecord(value: unknown): Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown } | null {
+    return value && typeof value === 'object'
+        ? value as Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown }
+        : null;
+}
+
+function audioSourceText(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+}
+
+function audioSourceEnabled(value: unknown): boolean {
+    return typeof value === 'boolean' ? value : true;
 }
 
 export function normalizeAudioSources(value: unknown, legacyUrl?: string): AudioSourceSetting[] {
@@ -912,7 +947,7 @@ export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): 
 }
 
 export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = false): DictionaryLookupLink[] {
-    const builtIns = defaultDictionaryLookupLinks(preferJpdb ? 'jpdb' : 'local');
+    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
     if (!Array.isArray(value)) return builtIns;
 
     const normalized: DictionaryLookupLink[] = [];
@@ -929,11 +964,19 @@ export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = fals
         if (link) add(link);
     }
 
+    appendMissingBuiltInLookupLinks(builtIns, seen, add);
+
+    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+}
+
+function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
+    return preferJpdb ? 'jpdb' : 'local';
+}
+
+function appendMissingBuiltInLookupLinks(builtIns: DictionaryLookupLink[], seen: Set<string>, add: (link: DictionaryLookupLink) => void): void {
     for (const builtIn of builtIns) {
         if (!seen.has(builtIn.id)) add(builtIn);
     }
-
-    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
 }
 
 export function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | null {

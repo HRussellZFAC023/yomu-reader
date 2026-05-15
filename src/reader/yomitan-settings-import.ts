@@ -59,11 +59,22 @@ function applyAudioSettings(settings: YomitanSettingsImport['settings'], audio: 
 }
 
 function applyGeneralSettings(settings: YomitanSettingsImport['settings'], general: Record<string, unknown> | undefined): void {
-    if (general?.popupTheme === 'dark' || general?.popupTheme === 'light') settings.theme = general.popupTheme;
-    if (typeof general?.popupHeight === 'number' && general.popupHeight > 0) {
-        settings.subtitleBottomOffset = Math.max(6, Math.min(24, Math.round(general.popupVerticalOffset as number || 12)));
-    }
+    const theme = importedPopupTheme(general);
+    if (theme) settings.theme = theme;
+    if (hasPositiveNumber(general?.popupHeight)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
     if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+}
+
+function importedPopupTheme(general: Record<string, unknown> | undefined): 'dark' | 'light' | '' {
+    return general?.popupTheme === 'dark' || general?.popupTheme === 'light' ? general.popupTheme : '';
+}
+
+function hasPositiveNumber(value: unknown): boolean {
+    return typeof value === 'number' && value > 0;
+}
+
+function importedPopupVerticalOffset(general: Record<string, unknown> | undefined): number {
+    return Math.max(6, Math.min(24, Math.round(Number(general?.popupVerticalOffset) || 12)));
 }
 
 function applyScanningSettings(settings: YomitanSettingsImport['settings'], scanning: Record<string, unknown> | undefined): void {

@@ -54,32 +54,28 @@ async function handleRequest(req, res) {
 }
 
 async function routeRequest(url, res) {
+    const handler = fixedRouteHandler(url.pathname);
+    if (handler) {
+        await handler(res);
+        return;
+    }
     if (isProxyPath(url.pathname)) {
         await proxy(url, res);
         return;
     }
-    if (url.pathname === metadataPath) {
-        await serveMetadata(res);
-        return;
-    }
-    if (url.pathname === runtimePath) {
-        await serveRuntime(res);
-        return;
-    }
-    if (url.pathname === versionPath) {
-        await serveVersion(res);
-        return;
-    }
-    if (isUserscriptPath(url.pathname)) {
-        await serveUserscript(res);
-        return;
-    }
-    if (url.pathname === '/') {
-        send(res, 200, devIndex(), 'text/html; charset=utf-8');
-        return;
-    }
     await serveStaticPath(url.pathname, res);
 }
+
+function fixedRouteHandler(pathname) {
+    return FIXED_ROUTES.get(pathname) ?? (isUserscriptPath(pathname) ? serveUserscript : undefined);
+}
+
+const FIXED_ROUTES = new Map([
+    [metadataPath, serveMetadata],
+    [runtimePath, serveRuntime],
+    [versionPath, serveVersion],
+    ['/', serveIndex],
+]);
 
 function isProxyPath(pathname) {
     return pathname === '/__jpdb-reader-audio-proxy'
@@ -96,6 +92,10 @@ async function serveStaticPath(pathname, res) {
     send(res, 200, await readFile(filePath), contentType(filePath));
 }
 
+async function serveIndex(res) {
+    send(res, 200, devIndex(), 'text/html; charset=utf-8');
+}
+
 function sendRequestError(res, error) {
     const status = error?.code === 'ENOENT' ? 404 : 500;
     send(res, status, status === 404 ? 'Not found' : String(error?.message || error));
@@ -106,15 +106,31 @@ server.on('error', error => {
     shutdown(1);
 });
 
-server.listen(port, host, () => {
+server.listen(port, host, logDevServerReady);
+
+function logDevServerReady() {
     if (port !== preferredPort) console.log(`[dev] Port ${preferredPort} is busy; using ${port}.`);
-    console.log(`[dev] Install userscript: ${origin}/yomu.user.js`);
-    console.log(`[dev] Runtime bundle:     ${origin}${runtimePath}`);
-    console.log(`[dev] Auto reload:        ${autoReload ? 'on' : 'off'}`);
-    console.log(`[dev] Console logging:    ${loggingEnabled ? 'on' : 'off'}${loggingEnabled ? '' : ' (set YOMU_ENABLE_LOGS=1 to enable)'}`);
-    console.log(`[dev] Page injection:     ${pageInjectionEnabled ? 'on' : 'off'}${pageInjectionEnabled ? '' : ' (set YOMU_DEV_PAGE_INJECTION=1 to enable)'}`);
-    console.log(`[dev] Local app:          ${origin}/newtab/`);
-});
+    for (const line of devServerReadyLines()) console.log(line);
+}
+
+function devServerReadyLines() {
+    return [
+        `[dev] Install userscript: ${origin}/yomu.user.js`,
+        `[dev] Runtime bundle:     ${origin}${runtimePath}`,
+        `[dev] Auto reload:        ${onOff(autoReload)}`,
+        `[dev] Console logging:    ${onOffWithHint(loggingEnabled, 'YOMU_ENABLE_LOGS=1')}`,
+        `[dev] Page injection:     ${onOffWithHint(pageInjectionEnabled, 'YOMU_DEV_PAGE_INJECTION=1')}`,
+        `[dev] Local app:          ${origin}/newtab/`,
+    ];
+}
+
+function onOff(value) {
+    return value ? 'on' : 'off';
+}
+
+function onOffWithHint(value, hint) {
+    return value ? 'on' : `off (set ${hint} to enable)`;
+}
 
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));

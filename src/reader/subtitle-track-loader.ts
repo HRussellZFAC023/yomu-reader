@@ -30,15 +30,23 @@ export async function loadSubtitleTrackCues<T extends SubtitleTrackLoadable>(
 ): Promise<{ track: T; cues: SubtitleCue[] }> {
     if (track.track) return loadNativeTrackCues(track);
 
-    if (track.kind === 'remote' && track.url) {
+    if (isRemoteSubtitleTrack(track)) {
         const cues = await loadRemoteTrackCues(track, options);
         track.cues = cues;
         return { track, cues };
     }
 
-    if (track.kind === 'youtube' && track.url) return loadYouTubeTrackWithFallback(track, options);
+    if (isYouTubeSubtitleTrack(track)) return loadYouTubeTrackWithFallback(track, options);
 
     return { track, cues: track.cues ?? [] };
+}
+
+function isRemoteSubtitleTrack(track: SubtitleTrackLoadable): boolean {
+    return track.kind === 'remote' && Boolean(track.url);
+}
+
+function isYouTubeSubtitleTrack(track: SubtitleTrackLoadable): boolean {
+    return track.kind === 'youtube' && Boolean(track.url);
 }
 
 async function loadNativeTrackCues<T extends SubtitleTrackLoadable>(track: T): Promise<{ track: T; cues: SubtitleCue[] }> {

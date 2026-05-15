@@ -616,9 +616,9 @@ export class JpdbExtensionsController {
         const target = event.target as HTMLElement;
         const action = immersionPanelAction(target);
         const media = target.closest<HTMLElement>('.jpdb-reader-example-media');
-        if (!action && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
+        if (!shouldHandleImmersionPanelMediaClick(action, media, this.options.getSettings().immersionKitPlayOnImageClick)) return;
         event.preventDefault();
-        if (!action || action === 'audio') {
+        if (shouldPlayImmersionPanelAudio(action)) {
             this.playImmersionContextAudio(context);
             return;
         }
@@ -997,16 +997,13 @@ export function parseUchisenImages(html: string): UchisenImage[] {
     if (!html.trim()) return [];
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const images: UchisenImage[] = [];
-    const mainLoader = doc.querySelector<HTMLElement>('.kanji_image_loader[data-large]');
-    const mainImage = mainLoader?.getAttribute('data-large') || doc.querySelector<HTMLImageElement>('#full_kanji_image')?.getAttribute('src') || '';
+    const mainImage = mainUchisenImageUrl(doc);
     const mainStory = cleanText(doc.querySelector('#mnemonic_story')?.textContent ?? '');
     if (mainImage) images.push({ url: canonicalUchisenUrl(mainImage), story: mainStory || 'No story available' });
 
     doc.querySelectorAll<HTMLElement>('.mnemonic_card').forEach(card => {
-        const rawUrl = card.querySelector<HTMLInputElement>('input.image_url')?.value.trim() ?? '';
-        const rawStory = card.querySelector<HTMLInputElement>('input.story')?.value ?? '';
-        const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, ' '));
-        if (rawUrl) images.push({ url: canonicalUchisenUrl(rawUrl), story: story || mainStory || 'No story available' });
+        const image = uchisenCardImage(card, mainStory);
+        if (image) images.push(image);
     });
 
     const seen = new Set<string>();
@@ -1015,6 +1012,28 @@ export function parseUchisenImages(html: string): UchisenImage[] {
         seen.add(item.url);
         return true;
     });
+}
+
+function mainUchisenImageUrl(doc: Document): string {
+    const mainLoader = doc.querySelector<HTMLElement>('.kanji_image_loader[data-large]');
+    return mainLoader?.getAttribute('data-large')
+        || doc.querySelector<HTMLImageElement>('#full_kanji_image')?.getAttribute('src')
+        || '';
+}
+
+function uchisenCardImage(card: HTMLElement, mainStory: string): UchisenImage | null {
+    const rawUrl = card.querySelector<HTMLInputElement>('input.image_url')?.value.trim() ?? '';
+    if (!rawUrl) return null;
+    return {
+        url: canonicalUchisenUrl(rawUrl),
+        story: uchisenCardStory(card, mainStory),
+    };
+}
+
+function uchisenCardStory(card: HTMLElement, mainStory: string): string {
+    const rawStory = card.querySelector<HTMLInputElement>('input.story')?.value ?? '';
+    const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, ' '));
+    return story || mainStory || 'No story available';
 }
 
 export async function loadUchisenImages(kanji: string): Promise<UchisenImage[]> {
@@ -1354,13 +1373,34 @@ function findKanjiSectionAnchor(): HTMLElement | null {
     if (existingDoodle?.isConnected) return existingDoodle;
     const existingAddon = lastConnectedElement([RTK_ID, UCHISEN_ID, TERM_ADDONS_ID, JPDB_KANJI_ID]);
     if (existingAddon) return existingAddon;
+    return mnemonicSectionAnchor() ?? firstKanjiFallbackAnchor();
+}
+
+function shouldHandleImmersionPanelMediaClick(action: string, media: HTMLElement | null, playOnImageClick: boolean): boolean {
+    return Boolean(action || (media && playOnImageClick));
+}
+
+function shouldPlayImmersionPanelAudio(action: string): boolean {
+    return !action || action === 'audio';
+}
+
+function mnemonicSectionAnchor(): HTMLElement | null {
     const labels = Array.from(document.querySelectorAll<HTMLElement>('h6.subsection-label'));
     const mnemonic = labels.find(label => label.textContent?.trim().toLowerCase().startsWith('mnemonic'));
-    if (mnemonic?.nextElementSibling instanceof HTMLElement) return mnemonic.nextElementSibling;
-    return document.querySelector<HTMLElement>('.mnemonic')?.closest<HTMLElement>('.subsection')
-        ?? document.querySelector<HTMLElement>('.result.kanji')
-        ?? document.querySelector<HTMLElement>('.answer-box')
-        ?? document.querySelector<HTMLElement>('main');
+    return mnemonic?.nextElementSibling instanceof HTMLElement ? mnemonic.nextElementSibling : null;
+}
+
+function firstKanjiFallbackAnchor(): HTMLElement | null {
+    return firstElement([
+        document.querySelector<HTMLElement>('.mnemonic')?.closest<HTMLElement>('.subsection') ?? null,
+        document.querySelector<HTMLElement>('.result.kanji'),
+        document.querySelector<HTMLElement>('.answer-box'),
+        document.querySelector<HTMLElement>('main'),
+    ]);
+}
+
+function firstElement(elements: Array<HTMLElement | null>): HTMLElement | null {
+    return elements.find(Boolean) ?? null;
 }
 
 function ensureTermAddonSlot(name: string): HTMLElement | null {

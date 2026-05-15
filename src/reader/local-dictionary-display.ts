@@ -75,9 +75,14 @@ export function dictionaryPreferencePriority(settings: ReaderSettings, dictionar
 function metaFrequencyRank(value: unknown): number {
     if (typeof value === 'number') return value;
     if (typeof value === 'string') return numericFrequencyRank(value);
-    if (!value || typeof value !== 'object') return Number.POSITIVE_INFINITY;
+    const nested = nestedMetaFrequencyValue(value);
+    return nested === undefined ? Number.POSITIVE_INFINITY : metaFrequencyRank(nested);
+}
+
+function nestedMetaFrequencyValue(value: unknown): unknown | undefined {
+    if (!value || typeof value !== 'object') return undefined;
     const record = value as Record<string, unknown>;
-    return metaFrequencyRank(record.frequency ?? record.value ?? record.displayValue);
+    return record.frequency ?? record.value ?? record.displayValue;
 }
 
 function numericFrequencyRank(value: string): number {

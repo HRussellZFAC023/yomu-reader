@@ -213,13 +213,26 @@ function compareGrammarHints(a: GrammarHint, b: GrammarHint): number {
 }
 
 function isDuplicateGrammarHint(existing: GrammarHint, next: GrammarHint): boolean {
-    if (existing.match === next.match && existing.index === next.index) return true;
+    if (sameGrammarHintLocation(existing, next)) return true;
     const existingHanabira = existing.ruleId.startsWith('hanabira-');
     const nextHanabira = next.ruleId.startsWith('hanabira-');
-    if (existingHanabira === nextHanabira || !grammarHintRangesOverlap(existing, next)) return false;
-    const hanabira = existingHanabira ? existing : next;
-    const local = existingHanabira ? next : existing;
+    if (!differentGrammarSourcesOverlap(existing, next, existingHanabira, nextHanabira)) return false;
+    const { hanabira, local } = splitHanabiraLocalHints(existing, next, existingHanabira);
     return hanabiraHintContainsLocalText(hanabira, local);
+}
+
+function sameGrammarHintLocation(existing: GrammarHint, next: GrammarHint): boolean {
+    return existing.match === next.match && existing.index === next.index;
+}
+
+function differentGrammarSourcesOverlap(existing: GrammarHint, next: GrammarHint, existingHanabira: boolean, nextHanabira: boolean): boolean {
+    return existingHanabira !== nextHanabira && grammarHintRangesOverlap(existing, next);
+}
+
+function splitHanabiraLocalHints(existing: GrammarHint, next: GrammarHint, existingHanabira: boolean): { hanabira: GrammarHint; local: GrammarHint } {
+    return existingHanabira
+        ? { hanabira: existing, local: next }
+        : { hanabira: next, local: existing };
 }
 
 function hanabiraHintContainsLocalText(hanabira: GrammarHint, local: GrammarHint): boolean {
