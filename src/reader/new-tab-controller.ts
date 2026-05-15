@@ -228,8 +228,6 @@ export class NewTabController {
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
     private dictionarySetupRequired = false;
-    private dictionarySetupRetryTimer: number | undefined;
-    private dictionarySetupRetryAttempts = 0;
     private loadGeneration = 0;
     private rootEventController: AbortController | undefined;
 
@@ -296,7 +294,6 @@ export class NewTabController {
     }
 
     destroy(): void {
-        this.clearDictionarySetupRetry();
         this.stateChannel.close();
         this.unsubscribeJpdbBridge();
         this.rootEventController?.abort();
@@ -313,7 +310,6 @@ export class NewTabController {
         this.sourceLabel = '';
         this.visiblePoolSignature = '';
         this.dictionarySetupRequired = false;
-        this.clearDictionarySetupRetry();
         this.liveCards.clear();
         this.keywordCache.clear();
         this.kanjiInfoCache.clear();
@@ -618,7 +614,6 @@ export class NewTabController {
             await this.renderEmptyWordLoad(root);
             return;
         }
-        this.clearDictionarySetupRetry();
         delete root.dataset.standaloneNewtab;
         this.applyWords(root, preferStoredWord);
     }
@@ -652,26 +647,6 @@ export class NewTabController {
             return;
         }
         this.renderEmpty(root, 'よむ', 'Could not load words.');
-    }
-
-    private scheduleDictionarySetupRetry(root: HTMLElement): void {
-        if (this.dictionarySetupRetryTimer !== undefined || this.dictionarySetupRetryAttempts >= 8) return;
-        const delay = Math.min(1000 + this.dictionarySetupRetryAttempts * 500, 3500);
-        this.dictionarySetupRetryTimer = window.setTimeout(() => {
-            this.dictionarySetupRetryTimer = undefined;
-            if (!root.isConnected || !this.dictionarySetupRequired || this.allWords.length) return;
-            this.dependencies.dictionaries.invalidateCaches();
-            this.dictionarySetupRetryAttempts += 1;
-            void this.loadWordsInto(root, true);
-        }, delay);
-    }
-
-    private clearDictionarySetupRetry(): void {
-        if (this.dictionarySetupRetryTimer !== undefined) {
-            window.clearTimeout(this.dictionarySetupRetryTimer);
-            this.dictionarySetupRetryTimer = undefined;
-        }
-        this.dictionarySetupRetryAttempts = 0;
     }
 
     private async loadWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
@@ -1524,13 +1499,12 @@ export class NewTabController {
         this.enterDictionarySetupMode(root);
         this.syncThemeToggle(root);
         const slots = this.studySlots(root);
-        this.renderPromptSlot(slots.prompt, 'Download a dictionary');
-        setOptionalText(slots.answer, 'Open Settings, choose Dictionaries, then download JMdict or import a Yomitan ZIP.');
-        setOptionalText(slots.meaning, 'The dictionary stays local in this browser; userscript storage is used when the browser needs that fallback.');
+        this.renderPromptSlot(slots.prompt, 'Start with a dictionary');
+        setOptionalText(slots.answer, 'Add a dictionary to turn this page into study cards.');
+        setOptionalText(slots.meaning, 'It stays in this browser and is ready whenever a new tab opens.');
         setOptionalText(slots.count, '');
         setOptionalText(slots.status, '');
         this.renderDictionarySetupControls(slots.controls);
-        this.scheduleDictionarySetupRetry(root);
     }
 
     private enterDictionarySetupMode(root: HTMLElement): void {
@@ -1543,7 +1517,7 @@ export class NewTabController {
     private renderDictionarySetupControls(controls: HTMLElement | null): void {
         if (!controls) return;
         replaceChildrenWith(controls,
-            el('button', { type: 'button', dataset: { newtabAction: 'load-dictionary' } }, 'Open dictionary settings'),
+            el('button', { type: 'button', dataset: { newtabAction: 'load-dictionary' } }, 'Add dictionary'),
         );
     }
 

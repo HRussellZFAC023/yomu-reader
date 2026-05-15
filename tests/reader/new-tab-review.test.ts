@@ -10,6 +10,7 @@ import { definitionSourceRows } from '../../src/reader/source-sections';
 import type { JPDBCard } from '../../src/reader/types';
 
 afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
 });
 
@@ -649,6 +650,39 @@ describe('new tab review helpers', () => {
         root.querySelector<HTMLButtonElement>('[data-newtab-action="load-dictionary"]')?.click();
 
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Download a dictionary');
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
+    });
+
+    it('does not retry empty dictionary setup in a loading loop', () => {
+        vi.useFakeTimers();
+        const invalidateCaches = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+            } as never,
+            parser: {} as never,
+            dictionaries: { invalidateCaches } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+
+        (controller as unknown as { renderDictionarySetup(root: HTMLElement): void }).renderDictionarySetup(root);
+        vi.advanceTimersByTime(30_000);
+
+        expect(invalidateCaches).not.toHaveBeenCalled();
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
     });
 });
