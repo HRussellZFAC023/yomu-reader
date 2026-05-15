@@ -283,27 +283,46 @@ function contextStorageKey(term: string): string {
 }
 
 function parseStoredMiningContext(value: unknown, expectedTerm: string, now = Date.now()): StoredMiningContext | null {
-    if (!isRecord(value)) return null;
-    if (text(value.term) !== expectedTerm) return null;
-    if (!isMiningSourceKind(value.sourceKind)) return null;
-
-    const updatedAt = Number(value.updatedAt);
-    if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
-        log.debug('Mining context cache entry expired', { term: expectedTerm, updatedAt });
-        return null;
-    }
+    const record = storedMiningContextRecord(value, expectedTerm);
+    if (!record) return null;
+    const sourceKind = storedMiningSourceKind(record.sourceKind);
+    if (!sourceKind) return null;
+    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, expectedTerm, now);
+    if (updatedAt === null) return null;
 
     const context = createStoredMiningContext(expectedTerm, {
-        sentence: text(value.sentence),
-        sourceKind: value.sourceKind,
-        sourceTitle: text(value.sourceTitle),
-        sourceUrl: text(value.sourceUrl),
-        imageUrl: optionalText(value.imageUrl),
-        immersionIndex: optionalNumber(value.immersionIndex),
-        immersionTotal: optionalNumber(value.immersionTotal),
+        sentence: text(record.sentence),
+        sourceKind,
+        sourceTitle: text(record.sourceTitle),
+        sourceUrl: text(record.sourceUrl),
+        imageUrl: optionalText(record.imageUrl),
+        immersionIndex: optionalNumber(record.immersionIndex),
+        immersionTotal: optionalNumber(record.immersionTotal),
     }, updatedAt);
 
     return context;
+}
+
+function storedMiningContextRecord(value: unknown, expectedTerm: string): Record<string, unknown> | null {
+    if (!isRecord(value)) return null;
+    return text(value.term) === expectedTerm ? value : null;
+}
+
+function storedMiningSourceKind(value: unknown): MiningSourceKind | null {
+    return isMiningSourceKind(value) ? value : null;
+}
+
+function storedMiningContextUpdatedAt(value: unknown, expectedTerm: string, now: number): number | null {
+    const updatedAt = Number(value);
+    if (!isStoredMiningContextFresh(updatedAt, now)) {
+        log.debug('Mining context cache entry expired', { term: expectedTerm, updatedAt });
+        return null;
+    }
+    return updatedAt;
+}
+
+function isStoredMiningContextFresh(updatedAt: number, now: number): boolean {
+    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
 }
 
 function isMiningSourceKind(value: unknown): value is MiningSourceKind {

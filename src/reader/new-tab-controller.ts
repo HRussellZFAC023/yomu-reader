@@ -2,7 +2,7 @@ import type { AnkiConnectClient } from './anki';
 import { primaryCardState } from './card-state';
 import { APP_NAME, SUPPORT_LINKS } from './constants';
 import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
-import { el, fragment, replaceChildrenWith } from './dom-builder';
+import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import type { ImmersionKitClient, ImmersionKitExample } from './immersion-kit';
 import type { JpdbClient } from './jpdb';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
@@ -80,14 +80,26 @@ function renderNewTabImmersionSentence(card: JPDBCard, example: ImmersionKitExam
 }
 
 function renderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): HTMLElement | null {
-    if (!settings.immersionKitShowTranslation || !example.translation) return null;
-    return el('div', {
+    if (!shouldRenderNewTabImmersionTranslation(example, settings)) return null;
+    return el('div', newTabImmersionTranslationAttributes(settings), example.translation);
+}
+
+function shouldRenderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): boolean {
+    return settings.immersionKitShowTranslation && Boolean(example.translation);
+}
+
+function newTabImmersionTranslationAttributes(settings: ReaderSettings): DomAttrs {
+    return {
         class: 'jpdb-reader-example-translation jpdb-reader-parseable',
         dataset: newTabImmersionTranslationDataset(settings),
-        role: settings.immersionKitRevealTranslationOnClick ? 'button' : undefined,
-        tabindex: settings.immersionKitRevealTranslationOnClick ? '0' : undefined,
-        'aria-label': settings.immersionKitRevealTranslationOnClick ? 'Reveal translation' : undefined,
-    }, example.translation);
+        ...newTabImmersionTranslationRevealAttributes(settings),
+    };
+}
+
+function newTabImmersionTranslationRevealAttributes(settings: ReaderSettings): DomAttrs {
+    return settings.immersionKitRevealTranslationOnClick
+        ? { role: 'button', tabindex: '0', 'aria-label': 'Reveal translation' }
+        : {};
 }
 
 function newTabImmersionTranslationDataset(settings: ReaderSettings): Record<string, boolean> | undefined {
@@ -134,6 +146,12 @@ interface NewTabLoadResult {
     cards: JPDBCard[];
     sourceLabel: string;
     needsDictionarySetup: boolean;
+}
+
+interface NewTabLoadAccumulator {
+    cards: JPDBCard[];
+    labels: string[];
+    dictionarySetupRequired: boolean;
 }
 
 type NewTabWordSource = Exclude<ReaderSettings['newTabSource'], 'auto'>;
@@ -657,28 +675,30 @@ export class NewTabController {
     }
 
     private async loadWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
-        const sourceOrder = this.wordSourceOrder();
-        const labels: string[] = [];
-        const cards: JPDBCard[] = [];
-        let dictionarySetupRequired = false;
+        const accumulator = await this.loadConfiguredWordSources(onProgress);
+        await this.loadAutoDictionaryWordsIfNeeded(accumulator, onProgress);
+        return newTabLoadResult(accumulator);
+    }
 
-        for (const item of sourceOrder) {
-            const result = await this.loadWordsFromSource(item, onProgress);
-            dictionarySetupRequired ||= result.needsDictionarySetup;
-            appendLoadedWords(result, cards, labels);
+    private async loadConfiguredWordSources(onProgress?: (message: string) => void): Promise<NewTabLoadAccumulator> {
+        const accumulator = emptyNewTabLoadAccumulator();
+        for (const source of this.wordSourceOrder()) {
+            await this.appendLoadedWordsFromSource(accumulator, source, onProgress);
         }
+        return accumulator;
+    }
 
-        if (this.state.source === 'auto' && cards.length === 0) {
-            const result = await this.loadDictionaryWords(onProgress);
-            dictionarySetupRequired ||= result.needsDictionarySetup;
-            appendLoadedWords(result, cards, labels);
-        }
+    private async appendLoadedWordsFromSource(accumulator: NewTabLoadAccumulator, source: NewTabWordSource, onProgress?: (message: string) => void): Promise<void> {
+        appendNewTabLoadResult(accumulator, await this.loadWordsFromSource(source, onProgress));
+    }
 
-        return {
-            cards,
-            sourceLabel: labels.length ? labels.join(' + ') : 'No source',
-            needsDictionarySetup: cards.length === 0 && dictionarySetupRequired,
-        };
+    private async loadAutoDictionaryWordsIfNeeded(accumulator: NewTabLoadAccumulator, onProgress?: (message: string) => void): Promise<void> {
+        if (!this.shouldLoadAutoDictionaryWords(accumulator)) return;
+        appendNewTabLoadResult(accumulator, await this.loadDictionaryWords(onProgress));
+    }
+
+    private shouldLoadAutoDictionaryWords(accumulator: NewTabLoadAccumulator): boolean {
+        return this.state.source === 'auto' && accumulator.cards.length === 0;
     }
 
     private wordSourceOrder(): readonly NewTabWordSource[] {
@@ -1257,9 +1277,23 @@ export class NewTabController {
 
     private applyEnrichedKanjiSvg(answer: HTMLElement | null, svgMarkup: string | undefined): void {
         if (!answer || !svgMarkup) return;
-        const svg = answer.querySelector<HTMLElement>('[data-newtab-kanji-svg]');
-        const ghost = answer.querySelector<HTMLElement>('[data-newtab-doodle-ghost]');
+        const mounts = this.enrichedKanjiSvgMounts(answer);
+        this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
+        this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
+    }
+
+    private enrichedKanjiSvgMounts(answer: HTMLElement): { svg: HTMLElement | null; ghost: HTMLElement | null } {
+        return {
+            svg: answer.querySelector<HTMLElement>('[data-newtab-kanji-svg]'),
+            ghost: answer.querySelector<HTMLElement>('[data-newtab-doodle-ghost]'),
+        };
+    }
+
+    private applyRevealedKanjiSvg(svg: HTMLElement | null, svgMarkup: string): void {
         if (this.state.revealAnswer && svg) setInnerHtml(svg, svgMarkup);
+    }
+
+    private applyDoodleGhostSvg(ghost: HTMLElement | null, svgMarkup: string): void {
         if (ghost) setInnerHtml(ghost, svgMarkup);
     }
 
@@ -1457,20 +1491,27 @@ export class NewTabController {
     }
 
     private renderEmpty(root: HTMLElement, prompt: string, message: string): void {
+        this.enterEmptyMode(root);
+        const slots = this.studySlots(root);
+        this.renderPromptSlot(slots.prompt, prompt);
+        setOptionalText(slots.answer, message);
+        setOptionalText(slots.meaning, '');
+        setOptionalText(slots.count, '');
+        setOptionalText(slots.status, '');
+        this.renderEmptyControls(slots.controls);
+    }
+
+    private enterEmptyMode(root: HTMLElement): void {
         root.classList.add('jpdb-reader-newtab-revealed');
         root.classList.add('jpdb-reader-newtab-empty-mode');
         root.classList.remove('jpdb-reader-newtab-setup-mode', 'jpdb-reader-newtab-review-mode');
         root.querySelector<HTMLElement>('[data-newtab-study]')?.removeAttribute('data-newtab-card');
-        const slots = this.studySlots(root);
-        if (slots.prompt) {
-            delete slots.prompt.dataset.newtabExpression;
-            slots.prompt.textContent = prompt;
-        }
-        if (slots.answer) slots.answer.textContent = message;
-        if (slots.meaning) slots.meaning.textContent = '';
-        if (slots.count) slots.count.textContent = '';
-        if (slots.status) slots.status.textContent = '';
-        this.renderEmptyControls(slots.controls);
+    }
+
+    private renderPromptSlot(promptSlot: HTMLElement | null, prompt: string): void {
+        if (!promptSlot) return;
+        delete promptSlot.dataset.newtabExpression;
+        promptSlot.textContent = prompt;
     }
 
     private renderEmptyControls(controls: HTMLElement | null): void {
@@ -1483,22 +1524,23 @@ export class NewTabController {
     }
 
     private renderDictionarySetup(root: HTMLElement): void {
+        this.enterDictionarySetupMode(root);
+        this.syncThemeToggle(root);
+        const slots = this.studySlots(root);
+        this.renderPromptSlot(slots.prompt, 'Start with a dictionary');
+        setOptionalText(slots.answer, 'Add a dictionary to turn this page into study cards.');
+        setOptionalText(slots.meaning, 'It stays in this browser and is ready whenever a new tab opens.');
+        setOptionalText(slots.count, '');
+        setOptionalText(slots.status, '');
+        this.renderDictionarySetupControls(slots.controls);
+        this.scheduleDictionarySetupRetry(root);
+    }
+
+    private enterDictionarySetupMode(root: HTMLElement): void {
         root.classList.add('jpdb-reader-newtab-revealed');
         root.classList.add('jpdb-reader-newtab-setup-mode');
         root.classList.remove('jpdb-reader-newtab-empty-mode', 'jpdb-reader-newtab-review-mode', 'jpdb-reader-newtab-kanji-mode');
-        this.syncThemeToggle(root);
         root.querySelector<HTMLElement>('[data-newtab-study]')?.removeAttribute('data-newtab-card');
-        const slots = this.studySlots(root);
-        if (slots.prompt) {
-            delete slots.prompt.dataset.newtabExpression;
-            slots.prompt.textContent = 'Start with a dictionary';
-        }
-        if (slots.answer) slots.answer.textContent = 'Add a dictionary to turn this page into study cards.';
-        if (slots.meaning) slots.meaning.textContent = 'It stays in this browser and is ready whenever a new tab opens.';
-        if (slots.count) slots.count.textContent = '';
-        if (slots.status) slots.status.textContent = '';
-        this.renderDictionarySetupControls(slots.controls);
-        this.scheduleDictionarySetupRetry(root);
     }
 
     private renderDictionarySetupControls(controls: HTMLElement | null): void {
@@ -1541,30 +1583,28 @@ export class NewTabController {
 
     private renderControls(slots: NewTabStudySlots, card: JPDBCard): void {
         if (!slots.controls) return;
-        if (!this.isReviewCard(card)) {
-            replaceChildrenWith(slots.controls,
-                el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': 'Previous word' }, 'Previous'),
-                el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, this.state.revealAnswer ? 'Hide' : 'Reveal'),
-                el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': 'Next word' }, 'Next'),
-            );
-            return;
-        }
+        replaceChildrenWith(slots.controls, this.controlButtonsForCard(card));
+    }
 
-        if (!this.state.revealAnswer) {
-            replaceChildrenWith(slots.controls,
-                el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': 'Previous word' }, 'Previous'),
-                el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, 'Reveal'),
-                el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': 'Next word' }, 'Next'),
-            );
-            return;
-        }
+    private controlButtonsForCard(card: JPDBCard): HTMLElement[] {
+        if (!this.isReviewCard(card)) return this.navigationControlButtons(this.state.revealAnswer ? 'Hide' : 'Reveal');
+        if (!this.state.revealAnswer) return this.navigationControlButtons('Reveal');
+        return this.gradeControlButtons();
+    }
 
+    private navigationControlButtons(revealLabel: string): HTMLElement[] {
+        return [
+            el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': 'Previous word' }, 'Previous'),
+            el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel),
+            el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': 'Next word' }, 'Next'),
+        ];
+    }
+
+    private gradeControlButtons(): HTMLElement[] {
         const grades: Array<[JPDBGrade, string]> = this.dependencies.getSettings().twoButtonReviews
             ? [['fail', 'Fail'], ['pass', 'Pass']]
             : [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']];
-        replaceChildrenWith(slots.controls, grades.map(([grade, label]) =>
-            el('button', { type: 'button', dataset: { newtabAction: 'grade', grade } }, label),
-        ));
+        return grades.map(([grade, label]) => el('button', { type: 'button', dataset: { newtabAction: 'grade', grade } }, label));
     }
 
     private renderInstallCta(root: HTMLElement): void {
@@ -1624,18 +1664,26 @@ export class NewTabController {
     }
 
     private async submitGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        if (card.reviewSource === 'jpdb-live') {
-            this.dependencies.jpdbReviewBridge.grade(grade);
-            this.dependencies.jpdbReviewBridge.requestCurrent();
-            return;
-        }
-        if (card.source === 'anki' || card.reviewSource === 'anki') {
-            await this.submitAnkiGrade(card, grade);
-            return;
-        }
-        if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api') {
-            await this.dependencies.jpdb.reviewCard(card, grade);
-        }
+        if (this.submitLiveJpdbGrade(card, grade)) return;
+        if (await this.submitAnkiGradeIfNeeded(card, grade)) return;
+        await this.submitJpdbApiGradeIfNeeded(card, grade);
+    }
+
+    private submitLiveJpdbGrade(card: JPDBCard, grade: JPDBGrade): boolean {
+        if (card.reviewSource !== 'jpdb-live') return false;
+        this.dependencies.jpdbReviewBridge.grade(grade);
+        this.dependencies.jpdbReviewBridge.requestCurrent();
+        return true;
+    }
+
+    private async submitAnkiGradeIfNeeded(card: JPDBCard, grade: JPDBGrade): Promise<boolean> {
+        if (card.source !== 'anki' && card.reviewSource !== 'anki') return false;
+        await this.submitAnkiGrade(card, grade);
+        return true;
+    }
+
+    private async submitJpdbApiGradeIfNeeded(card: JPDBCard, grade: JPDBGrade): Promise<void> {
+        if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api') await this.dependencies.jpdb.reviewCard(card, grade);
     }
 
     private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
@@ -1807,16 +1855,45 @@ function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: 
     labels.push(result.sourceLabel);
 }
 
+function emptyNewTabLoadAccumulator(): NewTabLoadAccumulator {
+    return { cards: [], labels: [], dictionarySetupRequired: false };
+}
+
+function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, result: NewTabLoadResult): void {
+    accumulator.dictionarySetupRequired ||= result.needsDictionarySetup;
+    appendLoadedWords(result, accumulator.cards, accumulator.labels);
+}
+
+function newTabLoadResult(accumulator: NewTabLoadAccumulator): NewTabLoadResult {
+    return {
+        cards: accumulator.cards,
+        sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : 'No source',
+        needsDictionarySetup: accumulator.cards.length === 0 && accumulator.dictionarySetupRequired,
+    };
+}
+
+function setOptionalText(element: HTMLElement | null, text: string): void {
+    if (element) element.textContent = text;
+}
+
 function dedupeWords(cards: JPDBCard[]): JPDBCard[] {
     const seen = new Map<string, JPDBCard>();
     for (const card of cards) {
-        const key = card.reviewSource === 'jpdb-live'
-            ? `jpdb-live\n${card.jpdbReviewId ?? card.spelling}`
-            : `${card.spelling}\n${card.reading}`;
+        const key = dedupeWordKey(card);
         const existing = seen.get(key);
-        if (!existing || sourcePriority(card) < sourcePriority(existing)) seen.set(key, card);
+        if (shouldReplaceDedupeWord(card, existing)) seen.set(key, card);
     }
     return [...seen.values()];
+}
+
+function dedupeWordKey(card: JPDBCard): string {
+    return card.reviewSource === 'jpdb-live'
+        ? `jpdb-live\n${card.jpdbReviewId ?? card.spelling}`
+        : `${card.spelling}\n${card.reading}`;
+}
+
+function shouldReplaceDedupeWord(card: JPDBCard, existing: JPDBCard | undefined): boolean {
+    return !existing || sourcePriority(card) < sourcePriority(existing);
 }
 
 function sourcePriority(card: JPDBCard): number {
@@ -1939,15 +2016,21 @@ function isNewTabStudyInteractiveTarget(target: HTMLElement): boolean {
 
 function hasYomuRuntime(): boolean {
     const runtime = globalThis as { GM_info?: unknown; __YOMU_READER_RUNTIME__?: unknown; __yomuDemoApp?: unknown; __yomuReaderAppInitialized?: unknown };
-    const marker = typeof document !== 'undefined'
+    return hasDirectYomuRuntime(runtime) || hasDemoYomuRuntime(runtime, yomuRuntimeOwnerMarker());
+}
+
+function hasDirectYomuRuntime(runtime: { GM_info?: unknown; __YOMU_READER_RUNTIME__?: unknown; __yomuDemoApp?: unknown }): boolean {
+    return Boolean(runtime.GM_info || runtime.__YOMU_READER_RUNTIME__ || runtime.__yomuDemoApp);
+}
+
+function hasDemoYomuRuntime(runtime: { __yomuReaderAppInitialized?: unknown }, marker: HTMLElement | null): boolean {
+    return Boolean(runtime.__yomuReaderAppInitialized && marker?.dataset.yomuRuntimeKind === 'demo');
+}
+
+function yomuRuntimeOwnerMarker(): HTMLElement | null {
+    return typeof document !== 'undefined'
         ? document.getElementById('jpdb-reader-runtime-owner') as HTMLElement | null
         : null;
-    return Boolean(
-        runtime.GM_info
-        || runtime.__YOMU_READER_RUNTIME__
-        || runtime.__yomuDemoApp
-        || (runtime.__yomuReaderAppInitialized && marker?.dataset.yomuRuntimeKind === 'demo')
-    );
 }
 
 function shouldShowInStudyQueue(card: JPDBCard): boolean {
@@ -1988,14 +2071,24 @@ function doodlePreviewDataUrl(canvas: HTMLCanvasElement): string {
     snapshot.width = canvas.width;
     snapshot.height = canvas.height;
     const context = snapshot.getContext('2d');
-    if (!context || typeof context.fillRect !== 'function' || typeof context.drawImage !== 'function') {
-        return canvas.toDataURL('image/png');
-    }
-    const stage = canvas.closest<HTMLElement>('.jpdb-reader-doodle-stage');
-    context.fillStyle = getComputedStyle(stage ?? canvas).backgroundColor || '#181b20';
+    if (!canPaintDoodlePreview(context)) return canvas.toDataURL('image/png');
+    paintDoodlePreview(context, snapshot, canvas);
+    return snapshot.toDataURL('image/png');
+}
+
+function canPaintDoodlePreview(context: CanvasRenderingContext2D | null): context is CanvasRenderingContext2D {
+    return Boolean(context && typeof context.fillRect === 'function' && typeof context.drawImage === 'function');
+}
+
+function paintDoodlePreview(context: CanvasRenderingContext2D, snapshot: HTMLCanvasElement, canvas: HTMLCanvasElement): void {
+    context.fillStyle = doodlePreviewBackground(canvas);
     context.fillRect(0, 0, snapshot.width, snapshot.height);
     context.drawImage(canvas, 0, 0);
-    return snapshot.toDataURL('image/png');
+}
+
+function doodlePreviewBackground(canvas: HTMLCanvasElement): string {
+    const stage = canvas.closest<HTMLElement>('.jpdb-reader-doodle-stage');
+    return getComputedStyle(stage ?? canvas).backgroundColor || '#181b20';
 }
 
 function passingNewTabGrade(grade: JPDBGrade): boolean {
@@ -2008,20 +2101,36 @@ function liveJpdbCardFromBridgeCard(card: JpdbReviewBridgeCard, spelling: string
         sid: 0,
         rid: 0,
         spelling,
-        reading: card.reading || spelling,
+        reading: liveJpdbCardReading(card, spelling),
         frequencyRank: null,
         partOfSpeech: [],
         meanings: [{
-            glosses: card.kind === 'kanji' ? [card.keyword || card.prompt].filter(Boolean) : [],
+            glosses: liveJpdbCardGlosses(card),
             partOfSpeech: [],
         }],
         cardState: ['due'],
         pitchAccent: [],
         wordWithReading: null,
         source: 'jpdb',
-        sentence: card.sentence || card.prompt,
+        sentence: liveJpdbCardSentence(card),
         reviewSource: 'jpdb-live',
         jpdbReviewId: card.id,
-        kanjiKeyword: card.keyword || card.prompt,
+        kanjiKeyword: liveJpdbCardKeyword(card),
     };
+}
+
+function liveJpdbCardReading(card: JpdbReviewBridgeCard, spelling: string): string {
+    return card.reading || spelling;
+}
+
+function liveJpdbCardGlosses(card: JpdbReviewBridgeCard): string[] {
+    return card.kind === 'kanji' ? [liveJpdbCardKeyword(card)].filter(Boolean) : [];
+}
+
+function liveJpdbCardSentence(card: JpdbReviewBridgeCard): string {
+    return card.sentence || card.prompt;
+}
+
+function liveJpdbCardKeyword(card: JpdbReviewBridgeCard): string {
+    return card.keyword || card.prompt;
 }

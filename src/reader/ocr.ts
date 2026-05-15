@@ -5,6 +5,7 @@ import type { JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
 type LookupText = (text: string, sentence?: string) => Promise<void> | void;
+type OcrRecognizer = (image: HTMLImageElement, settings: ReaderSettings) => Promise<OcrResult | null>;
 
 export interface OcrRect {
     left: number;
@@ -12,6 +13,8 @@ export interface OcrRect {
     width: number;
     height: number;
 }
+
+type NullableOcrRect = { left: number | null; top: number | null; width: number | null; height: number | null };
 
 export interface OcrLine {
     text: string;
@@ -53,6 +56,21 @@ const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 const log = Logger.scope('OCR');
+const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
+    'local-service': recognizeViaLocalService,
+    'cloud-vision': recognizeViaCloudVision,
+    'google-lens': recognizeViaGoogleLens,
+};
+const OCR_PROVIDER_CONFIGURED: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => boolean>> = {
+    'local-service': settings => Boolean(settings.ocrEndpointUrl.trim()),
+    'cloud-vision': settings => Boolean(settings.ocrCloudVisionApiKey.trim()),
+    'google-lens': () => true,
+};
+const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => string | null>> = {
+    'local-service': localServiceProviderLabel,
+    'cloud-vision': cloudVisionProviderLabel,
+    'google-lens': googleLensProviderLabel,
+};
 
 function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
     return state.autoSkipped && !userRequested;
@@ -62,6 +80,10 @@ function updateOcrRequestFlags(state: ImageState, image: HTMLImageElement, userR
     state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
     state.manualRequested ||= userRequested;
     if (userRequested) state.autoSkipped = false;
+}
+
+function isOcrImageStateIdle(state: ImageState): boolean {
+    return !state.result && !state.loading && !state.autoSkipped;
 }
 
 function showOcrReadingStatus(state: ImageState): void {
@@ -206,12 +228,13 @@ export class ImageOcrController {
     }
 
     private shouldAutoEnqueueImage(image: HTMLImageElement, state: ImageState, settings: ReaderSettings): boolean {
-        return settings.ocrAutoScanImages
-            && this.options.shouldAutoScan?.() !== false
-            && !state.result
-            && !state.loading
-            && !state.autoSkipped
+        return this.canAutoScanImage(settings)
+            && isOcrImageStateIdle(state)
             && isNearViewport(image, settings.ocrPrefetchMargin);
+    }
+
+    private canAutoScanImage(settings: ReaderSettings): boolean {
+        return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
     }
 
     toggle(): void {
@@ -289,10 +312,18 @@ export class ImageOcrController {
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         const state = this.states.get(image) ?? this.ensureState(image);
-        if (shouldSkipOcrRequest(state, userRequested)) return;
+        if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
+        this.queueOcrRequest(image, state, userRequested);
+    }
+
+    private shouldQueueOcrRequest(state: ImageState, image: HTMLImageElement, userRequested: boolean): boolean {
+        if (shouldSkipOcrRequest(state, userRequested)) return false;
         updateOcrRequestFlags(state, image, userRequested);
-        if (this.renderExistingOcrResult(state, userRequested)) return;
-        if (state.loading) return;
+        if (this.renderExistingOcrResult(state, userRequested)) return false;
+        return !state.loading;
+    }
+
+    private queueOcrRequest(image: HTMLImageElement, state: ImageState, userRequested: boolean): void {
         this.queueImageForOcr(image);
         if (userRequested) showOcrReadingStatus(state);
         log.debug('OCR image queued', { userRequested, queue: this.queue.length, image: imageSummary(image) });
@@ -393,10 +424,8 @@ export class ImageOcrController {
     }
 
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
-        if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) return recognizeViaLocalService(image, settings);
-        if (settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim()) return recognizeViaCloudVision(image, settings);
-        if (settings.ocrProvider === 'google-lens') return recognizeViaGoogleLens(image, settings);
-        return Promise.resolve(null);
+        const recognizer = ocrRecognizer(settings);
+        return recognizer ? recognizer(image, settings) : Promise.resolve(null);
     }
 
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
@@ -585,14 +614,6 @@ export class ImageOcrController {
         const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
         const top = clampNumber(!vertical ? baselineAlignedTop : centeredTop, 0, Math.max(0, imageHeight - frameHeight));
 
-        if (vertical) {
-            element.style.left = `${left}px`;
-            element.style.top = `${top}px`;
-            element.style.width = `${frameWidth}px`;
-            element.style.height = `${frameHeight}px`;
-            return;
-        }
-
         element.style.left = `${left}px`;
         element.style.top = `${top}px`;
         element.style.width = `${frameWidth}px`;
@@ -711,12 +732,25 @@ function ocrResultDimensions(record: Record<string, unknown>, fallbackWidth: num
 }
 
 function collectGenericOcrLines(record: Record<string, unknown>, width: number, height: number): OcrLine[] {
-    const rawLines = Array.isArray(record.lines) ? record.lines : Array.isArray(record.regions) ? record.regions : undefined;
     const lines: OcrLine[] = [];
-    if (rawLines) lines.push(...normalizeSimpleLines(rawLines, width, height));
-    if (Array.isArray(record.results)) lines.push(...normalizeStructuredOcrResults(record.results, width, height));
-    if (Array.isArray(record.ocr_regions)) lines.push(...normalizeOcrRegionResults(record.ocr_regions, width, height));
+    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
     return lines;
+}
+
+function genericRawLines(record: Record<string, unknown>): unknown {
+    return Array.isArray(record.lines) ? record.lines : record.regions;
+}
+
+function appendGenericOcrLines(
+    lines: OcrLine[],
+    value: unknown,
+    width: number,
+    height: number,
+    normalize: (values: unknown[], width: number, height: number) => OcrLine[],
+): void {
+    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
 }
 
 function normalizeSimpleLines(values: unknown[], width: number, height: number): OcrLine[] {
@@ -758,6 +792,12 @@ function offsetRegionLines(lines: OcrLine[], regionBox: OcrRect | null, width: n
 function japaneseOcrResult(width: number, height: number, lines: OcrLine[]): OcrResult | null {
     const japaneseLines = lines.filter(line => line.text.length > 0 && HAS_JAPANESE.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+}
+
+function japaneseOcrLine(text: string, box: OcrRect | null): OcrLine | null {
+    return text && box && HAS_JAPANESE.test(text)
+        ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
+        : null;
 }
 
 export function readFallbackOcrResult(image: HTMLImageElement, _includeAccessibleText = false): OcrResult | null {
@@ -867,6 +907,15 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
     return normalizeOcrResult(response, payload.width, payload.height);
 }
 
+function ocrRecognizer(settings: ReaderSettings): OcrRecognizer | null {
+    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
+    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
+}
+
+function isOcrProviderConfigured(settings: ReaderSettings): boolean {
+    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
+}
+
 async function recognizeViaCloudVision(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
     log.debug('Recognizing image via Cloud Vision');
     const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
@@ -947,17 +996,31 @@ async function imageBlobToCanvas(image: HTMLImageElement, maxPixels: number): Pr
 }
 
 function drawImageToCanvas(image: HTMLImageElement, maxPixels: number): HTMLCanvasElement {
+    const size = loadedImageSize(image);
+    const canvas = scaledCanvas(size, maxPixels);
+    drawableCanvasContext(canvas).drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+function loadedImageSize(image: HTMLImageElement): { width: number; height: number } {
     const width = image.naturalWidth || image.width;
     const height = image.naturalHeight || image.height;
     if (!width || !height) throw new Error('Image is not loaded yet.');
-    const scale = Math.min(1, Math.sqrt(Math.max(160000, maxPixels) / (width * height)));
+    return { width, height };
+}
+
+function scaledCanvas(size: { width: number; height: number }, maxPixels: number): HTMLCanvasElement {
+    const scale = Math.min(1, Math.sqrt(Math.max(160000, maxPixels) / (size.width * size.height)));
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.width = Math.max(1, Math.round(size.width * scale));
+    canvas.height = Math.max(1, Math.round(size.height * scale));
+    return canvas;
+}
+
+function drawableCanvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas unavailable.');
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
+    return context;
 }
 
 function assertCanvasReadable(canvas: HTMLCanvasElement): void {
@@ -1192,9 +1255,7 @@ function normalizeCloudVisionTextAnnotation(item: unknown, width: number, height
     if (!isRecord(item)) return null;
     const text = cleanOcrText(item.description);
     const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
-    return text && box && HAS_JAPANESE.test(text)
-        ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
-        : null;
+    return japaneseOcrLine(text, box);
 }
 
 function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
@@ -1219,21 +1280,29 @@ function cloudVisionWordSymbols(word: unknown): unknown[] {
 }
 
 function appendCloudVisionSymbol(accumulator: CloudVisionLineAccumulator, symbol: unknown, lines: OcrLine[], width: number, height: number): void {
-    if (!isRecord(symbol)) return;
-    accumulator.text += String(symbol.text ?? '');
-    const box = normalizeCloudVisionVertices((symbol.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
-    if (box) accumulator.boxes.push(box);
-    const breakType = cloudVisionDetectedBreak(symbol);
+    const record = cloudVisionSymbolRecord(symbol);
+    if (!record) return;
+    accumulator.text += String(record.text ?? '');
+    appendCloudVisionSymbolBox(accumulator, record, width, height);
+    const breakType = cloudVisionDetectedBreak(record);
     if (isCloudVisionSpaceBreak(breakType)) accumulator.text += ' ';
     if (isCloudVisionLineBreak(breakType)) pushCloudVisionLine(accumulator, lines);
+}
+
+function cloudVisionSymbolRecord(symbol: unknown): Record<string, unknown> | null {
+    return isRecord(symbol) ? symbol : null;
+}
+
+function appendCloudVisionSymbolBox(accumulator: CloudVisionLineAccumulator, symbol: Record<string, unknown>, width: number, height: number): void {
+    const box = normalizeCloudVisionVertices((symbol.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
+    if (box) accumulator.boxes.push(box);
 }
 
 function pushCloudVisionLine(accumulator: CloudVisionLineAccumulator, lines: OcrLine[]): void {
     const value = cleanOcrText(accumulator.text);
     const box = unionBoxes(accumulator.boxes);
-    if (value && box && HAS_JAPANESE.test(value)) {
-        lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
-    }
+    const line = japaneseOcrLine(value, box);
+    if (line) lines.push(line);
     accumulator.text = '';
     accumulator.boxes = [];
 }
@@ -1388,15 +1457,21 @@ function normalizePositionDimensionsBox(record: Record<string, unknown>, width: 
 }
 
 function normalizeDirectBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
-    const box = {
+    const box = directBoxNumbers(record);
+    return boxFromNumbers(box, width, height, directBoxScale(box));
+}
+
+function directBoxNumbers(record: Record<string, unknown>): NullableOcrRect {
+    return {
         left: numberFrom(record.left ?? record.x),
         top: numberFrom(record.top ?? record.y),
         width: numberFrom(record.width ?? record.w),
         height: numberFrom(record.height ?? record.h),
     };
-    const values = Object.values(box);
-    const scale = values.every(value => value !== null && value <= 1) ? 'fraction' : 'pixels';
-    return boxFromNumbers(box, width, height, scale);
+}
+
+function directBoxScale(box: NullableOcrRect): 'fraction' | 'pixels' {
+    return Object.values(box).every(value => value !== null && value <= 1) ? 'fraction' : 'pixels';
 }
 
 function normalizePointBox(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
@@ -1953,10 +2028,23 @@ function imageSummary(image: HTMLImageElement): Record<string, unknown> {
 }
 
 function inlineProviderLabel(settings: ReaderSettings): string {
-    if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) return `local-service:${ocrEngineLabel(settings)}`;
-    if (settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim()) return 'cloud-vision';
-    if (settings.ocrProvider === 'google-lens') return 'google-lens';
-    return settings.ocrProvider;
+    return configuredOcrProviderLabel(settings) ?? settings.ocrProvider;
+}
+
+function configuredOcrProviderLabel(settings: ReaderSettings): string | null {
+    return OCR_PROVIDER_LABELS[settings.ocrProvider]?.(settings) ?? null;
+}
+
+function localServiceProviderLabel(settings: ReaderSettings): string | null {
+    return settings.ocrEndpointUrl.trim() ? `local-service:${ocrEngineLabel(settings)}` : null;
+}
+
+function cloudVisionProviderLabel(settings: ReaderSettings): string | null {
+    return settings.ocrCloudVisionApiKey.trim() ? 'cloud-vision' : null;
+}
+
+function googleLensProviderLabel(_settings: ReaderSettings): string {
+    return 'google-lens';
 }
 
 function ocrEngineLabel(settings: ReaderSettings): string {
