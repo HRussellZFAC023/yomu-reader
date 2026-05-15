@@ -1,4 +1,4 @@
-import type { AnkiConnectClient } from './anki';
+import { canUseMobileAnkiHandoff, type AnkiConnectClient } from './anki';
 import { Logger } from './logger';
 import type { CardState, JPDBCard, ReaderSettings } from './types';
 
@@ -28,7 +28,7 @@ interface AnkiNoteCardFields {
 }
 
 export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit = 80): Promise<JPDBCard[]> {
-    if (!settings.ankiEnabled || Date.now() < unavailableUntil) return [];
+    if (!settings.ankiEnabled || canUseMobileAnkiHandoff(settings) || Date.now() < unavailableUntil) return [];
 
     try {
         const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });

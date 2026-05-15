@@ -26,15 +26,17 @@ export interface SubtitleDrawerLayoutOptions {
     viewportHeight: number;
     anchorTop?: number;
     compactPanel: boolean;
+    preferredPlacement?: ReaderSettings['subtitleTranscriptPlacement'];
     size?: TranscriptPanelSize;
 }
 
 export function computeSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions): TranscriptPanelLayout {
     const margin = TRANSCRIPT_PANEL_MARGIN;
     const size = options.size ?? {};
-    return options.compactPanel
+    const preferredPlacement = options.preferredPlacement ?? 'right';
+    return options.compactPanel || preferredPlacement === 'bottom'
         ? compactSubtitleDrawerLayout(options, size, margin)
-        : sideSubtitleDrawerLayout(options, size, margin);
+        : sideSubtitleDrawerLayout(options, size, margin, preferredPlacement);
 }
 
 function compactSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size: TranscriptPanelSize, margin: number): TranscriptPanelLayout {
@@ -55,16 +57,22 @@ function compactSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size:
     };
 }
 
-function sideSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size: TranscriptPanelSize, margin: number): TranscriptPanelLayout {
+function sideSubtitleDrawerLayout(
+    options: SubtitleDrawerLayoutOptions,
+    size: TranscriptPanelSize,
+    margin: number,
+    preferredPlacement: ReaderSettings['subtitleTranscriptPlacement'],
+): TranscriptPanelLayout {
     const top = clampNumber(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
     const width = clampNumber(
         size.sideWidth ?? Math.min(460, options.viewportWidth * 0.32),
         340,
         Math.max(340, options.viewportWidth - margin * 3),
     );
+    const placement = preferredPlacement === 'left' ? 'left' : 'right';
     return {
-        placement: 'right',
-        left: Math.max(margin, options.viewportWidth - width - margin),
+        placement,
+        left: placement === 'left' ? margin : Math.max(margin, options.viewportWidth - width - margin),
         top,
         width,
         height: Math.max(260, options.viewportHeight - top - margin),
@@ -76,7 +84,7 @@ function sideSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size: Tr
 }
 
 export function shouldUseCompactSubtitleDrawer(viewportWidth: number): boolean {
-    return viewportWidth < 900 || Boolean(window.matchMedia?.('(pointer: coarse)').matches);
+    return viewportWidth < 700;
 }
 
 export function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelLayout): void {

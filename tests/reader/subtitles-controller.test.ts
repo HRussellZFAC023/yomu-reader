@@ -9,6 +9,51 @@ describe('SubtitlePlayerController', () => {
         document.body.innerHTML = '';
     });
 
+    it('renders one rail toggle for the subtitle side panel', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        (controller as unknown as { install: () => void }).install();
+        const actions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-rail button')]
+            .map(button => button.dataset.action);
+
+        expect(actions).toEqual(['previous', 'next', 'panel']);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
+    });
+
+    it('destroys the mounted subtitle runtime and stops its timer', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        controller.init();
+        expect(document.querySelector('.jpdb-subtitle-player')).not.toBeNull();
+
+        controller.destroy();
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
+    });
+
     it('ignores stale secondary cues after moving the same track to Japanese', async () => {
         vi.useFakeTimers();
         const scrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');

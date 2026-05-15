@@ -87,7 +87,7 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 
 - Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
-- Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](/video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
+- Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](https://hrussellzfac023.github.io/yomu-reader/video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
 - Anki: enable Anki mining. Desktop uses AnkiConnect; iPhone, iPad, and Android use the mobile Anki handoff when direct AnkiConnect is not available.
 - New tab: use the よむ new-tab URL as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).

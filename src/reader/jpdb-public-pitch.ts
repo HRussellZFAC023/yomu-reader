@@ -203,7 +203,7 @@ function requestText(url: string, proxyUrl = ''): Promise<string> {
         });
     }
 
-    return fetchWithCorsFallbacks(url, proxyUrl, { timeoutMs: REQUEST_TIMEOUT_MS }).then(response => {
+    return fetchWithCorsFallbacks(url, proxyUrl, { credentials: 'omit', redirect: 'follow', timeoutMs: REQUEST_TIMEOUT_MS }).then(response => {
         if (!response.ok) throw new Error(`Public JPDB pitch request failed (${response.status}).`);
         return response.text();
     });

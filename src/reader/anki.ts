@@ -154,6 +154,7 @@ export class AnkiConnectClient {
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         const empty = emptyAnkiLookupResult();
+        if (canUseMobileAnkiHandoff(this.getSettings())) return empty;
         if (this.isLookupCoolingDown()) return empty;
         const cacheKey = `${card.spelling}|${card.reading}`;
         const cached = this.readLookupCache(cacheKey);
@@ -603,9 +604,17 @@ function iosAnkiMobileUrl(note: AnkiNote): string {
     params.set('dupes', '1');
     if (note.tags?.length) params.set('tags', note.tags.join(' '));
     Object.entries(note.fields).forEach(([field, value]) => {
-        if (field !== 'Image') params.set(`fld${field}`, stripForMobileHandoff(value));
+        const handoffValue = iosAnkiMobileFieldValue(field, value);
+        if (handoffValue !== null) params.set(`fld${field}`, handoffValue);
     });
     return `anki://x-callback-url/addnote?${params.toString()}`;
+}
+
+function iosAnkiMobileFieldValue(field: string, value: string): string | null {
+    if (field !== 'Image') return value;
+    const trimmed = value.trim();
+    if (!trimmed || /^data:/i.test(trimmed)) return null;
+    return trimmed;
 }
 
 function androidAnkiDroidIntentUrl(note: AnkiNote): string {
@@ -623,6 +632,7 @@ function androidAnkiDroidIntentUrl(note: AnkiNote): string {
         'package=com.ichi2.anki',
         `S.android.intent.extra.SUBJECT=${encodeURIComponent(front)}`,
         `S.android.intent.extra.TEXT=${encodeURIComponent(back)}`,
+        `S.browser_fallback_url=${encodeURIComponent('https://play.google.com/store/apps/details?id=com.ichi2.anki')}`,
         'end',
     ].join(';');
 }

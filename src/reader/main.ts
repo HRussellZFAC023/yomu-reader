@@ -732,6 +732,7 @@ export class ReaderApp {
         this.factoryReset.destroy();
         this.abortController.abort();
         this.autoScanObserver?.disconnect();
+        this.subtitles.destroy();
         window.clearTimeout(this.autoScanTimer);
         window.clearTimeout(this.asbScanTimer);
         window.clearTimeout(this.selectionTimer);

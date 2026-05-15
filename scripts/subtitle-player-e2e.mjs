@@ -359,23 +359,32 @@ async function openTracksPanel(page) {
         return Boolean(panel && !panel.hidden && tracks);
     });
     if (alreadyOpenTracks) return;
-    await page.locator('.jpdb-subtitle-rail [data-action="tracks"]').click({ force: true });
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
     await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+    const alreadyOpenAfterToggle = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const tracks = panel?.querySelector('[data-action="panel-tracks"][aria-pressed="true"]');
+        return Boolean(panel && !panel.hidden && tracks);
+    });
+    if (!alreadyOpenAfterToggle) {
+        await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click({ force: true });
+        await waitForDrawerMode(page, 'tracks');
+    }
 }
 
 async function openLinesOrTracksPanel(page) {
-    const canOpenLines = await page.locator('.jpdb-subtitle-rail [data-action="list"]').evaluate(button => {
+    const canOpenPanel = await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => {
         const element = button;
         return !element.hidden && !(element instanceof HTMLButtonElement && element.disabled) && getComputedStyle(element).display !== 'none';
     }).catch(() => false);
-    if (canOpenLines) {
+    if (canOpenPanel) {
         const alreadyOpenLines = await page.evaluate(() => {
             const panel = document.querySelector('.jpdb-subtitle-list');
             const lines = panel?.querySelector('[data-action="panel-lines"][aria-pressed="true"]');
             return Boolean(panel && !panel.hidden && lines);
         });
         if (alreadyOpenLines) return;
-        await page.locator('.jpdb-subtitle-rail [data-action="list"]').click({ force: true });
+        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
     } else {
         await openTracksPanel(page);
         return;

@@ -2261,8 +2261,8 @@ async function auditVideoFixture(browser, server) {
             action: button.getAttribute('data-action') ?? '',
             label: button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim() ?? '',
         }));
-        return buttons.some(button => button.action === 'list')
-            && buttons.some(button => button.action === 'tracks');
+        return buttons.filter(button => button.action === 'panel').length === 1
+            && !buttons.some(button => button.action === 'toggle' || button.action === 'list' || button.action === 'tracks');
     }, 4000, 'subtitle icon controls are missing').catch(async error => {
         const detail = await page.evaluate(() => ({
             railHtml: document.querySelector('.jpdb-subtitle-rail')?.outerHTML ?? '',
@@ -2305,7 +2305,7 @@ async function auditVideoFixture(browser, server) {
         video.dispatchEvent(new Event('timeupdate'));
         for (const track of video.textTracks) track.dispatchEvent(new Event('cuechange'));
     });
-    await page.locator('.jpdb-subtitle-rail button[data-action="list"]').click({ force: true });
+    await page.locator('.jpdb-subtitle-rail button[data-action="panel"]').click({ force: true });
     await waitForAudit(page, () => {
         const panel = document.querySelector('.jpdb-subtitle-list');
         return panel && !panel.hasAttribute('hidden') && panel.textContent?.includes('Subtitles') && panel.querySelector('.jpdb-subtitle-list-row.active');

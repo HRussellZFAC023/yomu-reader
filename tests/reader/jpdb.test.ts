@@ -11,7 +11,7 @@ import { CardRenderDataLoader } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
 import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
-import { renderJpdbDefinitionSource } from '../../src/reader/definition-source-render';
+import { renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
 import { FloatingButtonController } from '../../src/reader/floating-button';
 import { buildHanabiraGrammarIndex, detectHanabiraGrammarHintsFromIndex } from '../../src/reader/hanabira-grammar';
@@ -20,7 +20,7 @@ import { ImmersionPopoverController } from '../../src/reader/immersion-popover-c
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb';
 import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
 import { isKanjiReviewBack, isKanjiReviewFront, parseJpdbReviewCardValue } from '../../src/reader/jpdb-page-targets';
-import { parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../src/reader/jpdb-kanji';
+import { JpdbKanjiClient, parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../src/reader/jpdb-kanji';
 import { JpdbVocabularyClient, parseJpdbVocabularyHtml } from '../../src/reader/jpdb-vocabulary';
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../src/reader/kanji-origin';
@@ -33,14 +33,14 @@ import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { installSheetHandle } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
-import { proxyUrlCandidates } from '../../src/reader/proxy-fetch';
+import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderKanjiOrigins, renderPitch, renderRtkInfo, summarizeLearnerGlossary } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { ReaderApp } from '../../src/reader/main';
 import { ReaderParser, fallbackLookupTermAtOffset } from '../../src/reader/reader-parser';
 import { parseRtkSearchIndex } from '../../src/reader/rtk';
 import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, effectiveWordHighlightMode, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings';
-import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderSettingsForm, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
+import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/source-sections';
 import { detectGrammarHints, renderGrammarHints } from '../../src/reader/study-tools';
@@ -50,7 +50,7 @@ import { computeSubtitleDrawerLayout } from '../../src/reader/subtitle-layout';
 import { collectPageSubtitleSources } from '../../src/reader/subtitle-sources';
 import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitle-video-inset';
 import { getYouTubeCaptionTracks, loadYouTubeTrackCues } from '../../src/reader/subtitle-youtube';
-import { parseUchisenImages } from '../../src/reader/uchisen';
+import { loadUchisenImages, parseUchisenImages } from '../../src/reader/uchisen';
 import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
@@ -58,6 +58,7 @@ import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transc
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
 import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
 import { yomitanZipBlob } from './zip-fixture';
+import { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
 
 const card: JPDBCard = {
     vid: 1,
@@ -93,15 +94,32 @@ async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 
     await assertion();
 }
 
-function dispatchPointerEvent(target: EventTarget, type: string, clientY: number): void {
+function dispatchPointerEvent(target: EventTarget, type: string, clientY: number, pointerType = 'mouse'): void {
     const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
     Object.defineProperties(event, {
         button: { value: 0 },
         clientY: { value: clientY },
         pointerId: { value: 1 },
-        pointerType: { value: 'mouse' },
+        pointerType: { value: pointerType },
     });
     target.dispatchEvent(event);
+}
+
+function mockSourceRowRects(rows: HTMLElement[], rowHeight = 40, rowGap = 8): void {
+    rows.forEach((row, index) => {
+        const top = index * (rowHeight + rowGap);
+        row.getBoundingClientRect = () => ({
+            x: 0,
+            y: top,
+            top,
+            left: 0,
+            right: 300,
+            bottom: top + rowHeight,
+            width: 300,
+            height: rowHeight,
+            toJSON: () => ({}),
+        });
+    });
 }
 
 function withPointerTextLookupMock<T>(
@@ -637,6 +655,7 @@ describe('reader helpers', () => {
 
     it('recognizes hosted Yomu app pages where first-run welcome should stay hidden', () => {
         expect(isYomuHostedAppUrl('https://hrussellzfac023.github.io/yomu-reader/')).toBe(true);
+        expect(isYomuHostedAppUrl('https://hrussellzfac023.github.io/yomu-reader/video-player/')).toBe(true);
         expect(isYomuHostedAppUrl('https://hrussellzfac023.github.io/yomu-reader/video-player/index.html')).toBe(true);
         expect(isYomuHostedAppUrl('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html')).toBe(true);
         expect(isYomuHostedAppUrl('http://127.0.0.1:5175/yomu-reader/')).toBe(true);
@@ -789,6 +808,23 @@ describe('reader helpers', () => {
             expect(settings.popoverWidth).toBe(280);
             expect(settings.popoverHeight).toBe(900);
             expect(settings.popoverHeightMode).toBe(DEFAULT_SETTINGS.popoverHeightMode);
+        } finally {
+            if (previous === null) localStorage.removeItem(storageKey);
+            else localStorage.setItem(storageKey, previous);
+        }
+    });
+
+    it('defaults legacy settings without a proxy URL to the hosted public proxy', async () => {
+        const storageKey = 'jpdb-popup-reader-settings';
+        const previous = localStorage.getItem(storageKey);
+        const legacySettings: Record<string, unknown> = { ...DEFAULT_SETTINGS };
+        delete legacySettings.corsProxyUrl;
+        localStorage.setItem(storageKey, JSON.stringify(legacySettings));
+
+        try {
+            const settings = await loadSettings();
+
+            expect(settings.corsProxyUrl).toBe(DEFAULT_SETTINGS.corsProxyUrl);
         } finally {
             if (previous === null) localStorage.removeItem(storageKey);
             else localStorage.setItem(storageKey, previous);
@@ -1321,24 +1357,144 @@ describe('reader helpers', () => {
         });
     });
 
+    it('uses editable dictionary display names in definition and compact source UI', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            localDictionaryShowKanji: true,
+            dictionaryPreferences: [
+                {
+                    name: 'JITINDEX <1-1-2020>',
+                    alias: 'Jitendex',
+                    enabled: true,
+                    priority: 0,
+                    type: 'terms' as const,
+                },
+                {
+                    name: 'KANJIDIC <raw export>',
+                    alias: 'Kanji names',
+                    enabled: true,
+                    priority: 0,
+                    type: 'kanji' as const,
+                },
+            ],
+        };
+        const dictionaryLabel = (name: string) => settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
+        const html = renderLocalDefinitionSourcesSection(
+            ['JITINDEX <1-1-2020>'],
+            new Map([['JITINDEX <1-1-2020>', [{
+                expression: '読む',
+                reading: 'よむ',
+                glossary: ['to read'],
+                dictionary: 'JITINDEX <1-1-2020>',
+            }]]]),
+            settings,
+            () => 'data-test-source',
+            dictionaryLabel,
+            card,
+        );
+
+        expect(html).toContain('<span>Jitendex</span>');
+        expect(html).toContain('data-dictionary="JITINDEX &lt;1-1-2020&gt;"');
+
+        document.body.innerHTML = `<form>${renderKanjiSourceRows(settings)}</form>`;
+        const rawName = document.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.1.name"]');
+        const compactRow = rawName?.closest<HTMLElement>('[data-dictionary-source-row]');
+
+        expect(rawName?.value).toBe('KANJIDIC <raw export>');
+        expect(compactRow?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent).toBe('Kanji names');
+    });
+
+    it('keeps recommended dictionary downloads as in-reader import buttons', () => {
+        const html = renderRecommendedDictionaries([]);
+        document.body.innerHTML = `<form>${html}</form>`;
+        const dictionary = findRecommendedDictionary('jmdict')!;
+        const button = document.querySelector<HTMLButtonElement>('[data-action="download-recommended-dictionary"][data-dictionary-id="jmdict"]');
+        const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-recommended-name a'));
+
+        expect(button?.tagName).toBe('BUTTON');
+        expect(button?.getAttribute('href')).toBeNull();
+        expect(button?.textContent).toContain('Download & import');
+        expect(links.some(link => link.href === dictionary.downloadUrl)).toBe(false);
+    });
+
+    it('includes support, donation, issue, and Discord entries in settings help', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="support"]')?.href).toContain('/support');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="issues"]')?.href).toContain('/issues');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="donate"]')?.href).toContain('paypal.me');
+        expect(form.querySelector<HTMLElement>('[data-help-link="discord"]')?.textContent).toContain('henry281199');
+    });
+
+    it('reorders dictionary source rows with a desktop pointer drag', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [{
+                name: 'Jitendex',
+                alias: 'Jitendex',
+                enabled: true,
+                priority: 4,
+                type: 'terms' as const,
+            }],
+        };
+        document.body.innerHTML = `<form><div class="jpdb-reader-dictionary-priorities" data-source-editor>${renderDictionarySourceRows(settings)}</div></form>`;
+        const form = document.querySelector('form')!;
+        installSourceRowDrag(form);
+        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
+        mockSourceRowRects(rows);
+
+        const firstId = rows[0].dataset.sourceId;
+        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
+        dispatchPointerEvent(handle, 'pointerdown', 4, 'mouse');
+        dispatchPointerEvent(form, 'pointermove', 240, 'mouse');
+        dispatchPointerEvent(form, 'pointerup', 240, 'mouse');
+
+        const reordered = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
+        expect(reordered.at(-1)?.dataset.sourceId).toBe(firstId);
+        expect(reordered.at(-1)?.querySelector<HTMLInputElement>('input[name$=".priority"]')?.value).toBe(String(reordered.length - 1));
+    });
+
+    it('reorders audio source rows while keeping form indexes readable', () => {
+        document.body.innerHTML = `<form><div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>${renderAudioSourceEditor(DEFAULT_AUDIO_SOURCES)}</div></form>`;
+        const form = document.querySelector('form')!;
+        installSourceRowDrag(form);
+        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
+        mockSourceRowRects(rows);
+
+        const firstType = rows[0].querySelector<HTMLSelectElement>('select[name$=".type"]')?.value;
+        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
+        dispatchPointerEvent(handle, 'pointerdown', 4, 'mouse');
+        dispatchPointerEvent(form, 'pointermove', 500, 'mouse');
+        dispatchPointerEvent(form, 'pointerup', 500, 'mouse');
+
+        const reordered = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
+        expect(reordered.at(-1)?.dataset.sourceId).toBe(`audio-${reordered.length - 1}`);
+        expect(reordered.at(-1)?.querySelector<HTMLSelectElement>(`select[name="audioSources.${reordered.length - 1}.type"]`)?.value).toBe(firstType);
+    });
+
+    it('reorders kanji source rows with iPad-style touch drag events tracked on the document', () => {
+        document.body.innerHTML = `<form><div class="jpdb-reader-kanji-priorities" data-source-editor>${renderKanjiSourceRows(DEFAULT_SETTINGS)}</div></form>`;
+        const form = document.querySelector('form')!;
+        installSourceRowDrag(form);
+        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
+        mockSourceRowRects(rows);
+
+        const firstId = rows[0].dataset.sourceId;
+        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
+        dispatchPointerEvent(handle, 'pointerdown', 4, 'touch');
+        dispatchPointerEvent(document, 'pointermove', 500, 'touch');
+        dispatchPointerEvent(document, 'pointerup', 500, 'touch');
+
+        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]')).at(-1)?.dataset.sourceId).toBe(firstId);
+    });
+
     it('reorders lookup pill rows through the drag handle', () => {
         document.body.innerHTML = `<form><div class="jpdb-reader-lookup-links" data-source-editor>${renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'))}</div></form>`;
         const form = document.querySelector('form')!;
         installSourceRowDrag(form);
         const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
-        rows.forEach((row, index) => {
-            row.getBoundingClientRect = () => ({
-                x: 0,
-                y: index * 48,
-                top: index * 48,
-                left: 0,
-                right: 300,
-                bottom: index * 48 + 40,
-                width: 300,
-                height: 40,
-                toJSON: () => ({}),
-            });
-        });
+        mockSourceRowRects(rows);
 
         const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
         dispatchPointerEvent(handle, 'pointerdown', 4);
@@ -1359,6 +1515,66 @@ describe('reader helpers', () => {
         expect(proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch', false)).toEqual([
             `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
         ]);
+    });
+
+    it('falls back from configured proxy HTTP failures for safe public GET requests', async () => {
+        const target = 'https://jpdb.io/search?q=%E5%9B%B3';
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.startsWith('https://yomu-proxy.example/fetch')) {
+                return Promise.resolve(new Response('blocked', { status: 403 }));
+            }
+            if (url.startsWith('https://api.allorigins.win/raw')) {
+                return Promise.resolve(new Response('ok', { status: 200 }));
+            }
+            return Promise.reject(new Error('unexpected fetch'));
+        });
+        vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const response = await fetchWithCorsFallbacks(target, 'https://yomu-proxy.example/fetch', { credentials: 'omit' });
+
+            expect(await response.text()).toBe('ok');
+            expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+                `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+            ]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not route credential-bearing JPDB API requests through configured or public proxies', async () => {
+        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not run')));
+        vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(fetchWithCorsFallbacks('https://jpdb.io/api/v1/lookup-vocabulary', 'https://yomu-proxy.example/fetch', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+                body: '{}',
+            })).rejects.toThrow(/configured proxy|userscript/i);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps the public Worker restricted to allowlisted public resource targets', () => {
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/kanji/%E5%9B%B3'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://uchisen.com/kanji/%E5%9B%B3'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://release-assets.githubusercontent.com/github-production-release-asset/123/asset-id?sig=github-signed'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://www.japanesepod101.com/learningcenter/reference/dictionary_post'))).toBe(true);
+
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/prioritize'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://example.com/dict.zip'))).toBe(false);
     });
 
     it('combines translation and grammar source ordering while keeping individual toggles', () => {
@@ -2930,6 +3146,21 @@ describe('reader helpers', () => {
         expect(layout.top).toBe(96);
     });
 
+    it('honors left drawer placement on wide viewports', () => {
+        const layout = computeSubtitleDrawerLayout({
+            viewportWidth: 1366,
+            viewportHeight: 900,
+            anchorTop: 84,
+            compactPanel: false,
+            preferredPlacement: 'left',
+            size: { sideWidth: 420 },
+        });
+
+        expect(layout.placement).toBe('left');
+        expect(layout.left).toBe(10);
+        expect(layout.width).toBe(420);
+    });
+
     it('uses a bottom-sheet drawer layout on compact viewports', () => {
         const layout = computeSubtitleDrawerLayout({
             viewportWidth: 720,
@@ -2976,7 +3207,10 @@ describe('reader helpers', () => {
                 expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('470px');
                 expect(container.style.width).toBe('1100px');
                 expect(container.style.maxWidth).toBe('1100px');
+                expect(container.style.height).toBe('619px');
+                expect(container.style.maxHeight).toBe('619px');
                 expect(container.style.minWidth).toBe('0px');
+                expect(container.style.minHeight).toBe('0px');
                 expect(container.style.marginRight).toBe('90px');
             } finally {
                 adapter.clear(video);
@@ -2986,8 +3220,47 @@ describe('reader helpers', () => {
             expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('');
             expect(container.style.width).toBe('1200px');
             expect(container.style.maxWidth).toBe('1200px');
+            expect(container.style.height).toBe('');
+            expect(container.style.maxHeight).toBe('');
             expect(container.style.minWidth).toBe('');
+            expect(container.style.minHeight).toBe('');
             expect(container.style.marginRight).toBe('');
+        });
+    });
+
+    it('keeps the hosted empty video frame at normal aspect ratio with a bottom drawer', () => {
+        withViewport(390, 844, () => {
+            document.body.innerHTML = '<section data-yomu-video-frame><video></video></section>';
+            const container = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+            const video = document.querySelector('video') as HTMLVideoElement;
+            Object.defineProperty(container, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(9, 116, 372, 209.25),
+            });
+            Object.defineProperty(video, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(10, 117, 370, 207.25),
+            });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    video,
+                    side: 'bottom',
+                    playerSize: 319,
+                    panelSize: 388,
+                    videoRect: new DOMRect(9, 116, 372, 209.25),
+                    margin: 10,
+                });
+
+                expect(container.style.height).toBe('209px');
+                expect(container.style.maxHeight).toBe('209px');
+            } finally {
+                adapter.clear(video);
+            }
+
+            expect(container.style.height).toBe('');
+            expect(container.style.maxHeight).toBe('');
         });
     });
 
@@ -3207,7 +3480,10 @@ describe('reader helpers', () => {
             ],
         });
         const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
-            expect(options.url).toBe('https://dict.test/alias.zip');
+            if (options.url !== 'https://dict.test/alias.zip') {
+                options.onerror?.(new Error(`Unexpected request: ${options.url}`));
+                return;
+            }
             options.onprogress?.({ lengthComputable: true, loaded: blob.size, total: blob.size });
             options.onload?.({ status: 200, response: blob });
         });
@@ -3223,7 +3499,10 @@ describe('reader helpers', () => {
             const summary = await store.importFromUrl('https://dict.test/alias.zip', 'alias.zip', message => progress.push(message));
 
             expect(request).toHaveBeenCalled();
-            expect(request.mock.calls[0]?.[0]).toMatchObject({
+            const dictionaryRequest = request.mock.calls
+                .map(call => call[0])
+                .find(options => options.url === 'https://dict.test/alias.zip');
+            expect(dictionaryRequest).toMatchObject({
                 method: 'GET',
                 url: 'https://dict.test/alias.zip',
                 responseType: 'blob',
@@ -3332,6 +3611,42 @@ describe('reader helpers', () => {
 
             expect(fetchMock).toHaveBeenCalledTimes(1);
             expect(summary).toMatchObject({ dictionaries: ['Proxy Dict'], terms: 1, entries: 1 });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('imports remote dictionary ZIPs through the configured public proxy when no userscript bridge is available', async () => {
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Hosted Proxy Dict', format: 3 },
+            'term_bank_1.json': [
+            ['読書', 'どくしょ', '', '', 10, ['reading books'], 1, ''],
+            ],
+        });
+        const sourceUrl = 'https://github.com/example/dictionaries/releases/latest/download/hosted.zip';
+        const proxyUrl = 'https://yomu-proxy.example/fetch';
+        const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(sourceUrl)}`);
+            expect(init).toMatchObject({ credentials: 'omit' });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                blob: () => Promise.resolve(blob),
+            } as Response);
+        });
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        vi.stubGlobal('GM', {});
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const store = new YomitanDictionaryStore(() => proxyUrl);
+            await store.clear();
+            const summary = await store.importFromUrl(sourceUrl, 'hosted.zip');
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(summary).toMatchObject({ dictionaries: ['Hosted Proxy Dict'], terms: 1, entries: 1 });
         } finally {
             vi.unstubAllGlobals();
         }
@@ -3777,6 +4092,114 @@ describe('reader helpers', () => {
         }
     });
 
+    it('opens AnkiMobile addnote URLs with full Yomu fields on iOS handoff', async () => {
+        const originalUserAgent = navigator.userAgent;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+            configurable: true,
+        });
+        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
+        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        vi.stubGlobal('location', locationStub);
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: true,
+                ankiDeck: 'Mobile Deck',
+                ankiModel: 'Yomu Japanese',
+                ankiTags: 'yomu mobile',
+            };
+            const client = new AnkiConnectClient(() => settings);
+            const noteId = await client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
+            }, '今日は本を読む。');
+            const params = new URL(locationStub.href).searchParams;
+
+            expect(noteId).toBeNull();
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"?');
+            expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
+            expect(params.get('type')).toBe('Yomu Japanese');
+            expect(params.get('deck')).toBe('Mobile Deck');
+            expect(params.get('tags')).toBe('yomu mobile');
+            expect(params.get('dupes')).toBe('1');
+            expect(params.get('fldExpression')).toBe('読む');
+            expect(params.get('fldSentence')).toContain('<span class="yomu-highlight">読む</span>');
+            expect(params.get('fldMeaning')).toContain('<div class="yomu-definition">');
+            expect(params.get('fldMeaning')).toContain('to read');
+            expect(params.get('fldImage')).toBeNull();
+        } finally {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('opens AnkiDroid ACTION_SEND intent handoff on Android without using AnkiConnect', async () => {
+        const originalUserAgent = navigator.userAgent;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+            configurable: true,
+        });
+        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
+        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        vi.stubGlobal('location', locationStub);
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true };
+            const client = new AnkiConnectClient(() => settings);
+            await client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。');
+            const textMatch = /S\.android\.intent\.extra\.TEXT=([^;]*)/.exec(locationStub.href);
+
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiDroid to add "読む"?');
+            expect(locationStub.href).toContain('intent:#Intent;action=android.intent.action.SEND;type=text/plain;package=com.ichi2.anki');
+            expect(locationStub.href).toContain('S.android.intent.extra.SUBJECT=%E8%AA%AD%E3%82%80');
+            expect(locationStub.href).toContain('S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ichi2.anki');
+            expect(textMatch).not.toBeNull();
+            expect(decodeURIComponent(textMatch?.[1] ?? '')).toContain('よむ');
+            expect(decodeURIComponent(textMatch?.[1] ?? '')).toContain('to read');
+            expect(decodeURIComponent(textMatch?.[1] ?? '')).not.toContain('<div');
+        } finally {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('skips existing-card AnkiConnect lookups when mobile handoff is active', async () => {
+        const originalUserAgent = navigator.userAgent;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+            configurable: true,
+        });
+        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true }));
+            await expect(client.findExistingCards(card)).resolves.toEqual({ state: 'not-in-deck', notes: [], primary: null });
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('finds local dictionary terms in text for JPDB-free parsing', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
@@ -4083,6 +4506,70 @@ describe('reader helpers', () => {
         expect(visibleJpdbKanjiActions(info)).toEqual([]);
     });
 
+    it('loads hosted new-tab JPDB kanji info through the configured public proxy', async () => {
+        const proxyUrl = 'https://yomu-proxy.example/fetch';
+        const target = 'https://jpdb.io/kanji/%E5%9B%B3';
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
+            return Promise.resolve(new Response(`
+                <meta name="description" content="Dictionary definition of kanji 図 — diagram">
+                <div class="result kanji">
+                    <h6 class="subsection-label">Keyword</h6><div class="subsection">diagram</div>
+                    <table class="cross-table"><tr><td>Frequency</td><td>1,234</td></tr></table>
+                </div>
+            `, { status: 200 }));
+        });
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new JpdbKanjiClient(() => proxyUrl);
+
+            await expect(client.lookup('図')).resolves.toMatchObject({
+                kanji: '図',
+                keyword: 'diagram',
+                frequency: '1,234',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not send logged-in JPDB kanji actions to configured or public proxies', async () => {
+        const proxyUrl = 'https://yomu-proxy.example/fetch';
+        const target = 'https://jpdb.io/kanji/%E8%AA%AD';
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
+            return Promise.resolve(new Response(`
+                <meta name="description" content="Dictionary definition of kanji 読 — read">
+                <div class="result kanji">
+                    <h6 class="subsection-label">Keyword</h6><div class="subsection">read</div>
+                    <div class="menu">
+                        <form action="/kanji/%E8%AA%AD" method="post">
+                            <input type="hidden" name="csrf" value="private-token">
+                            <button name="action" value="known">Mark known</button>
+                        </form>
+                    </div>
+                </div>
+            `, { status: 200 }));
+        });
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new JpdbKanjiClient(() => proxyUrl);
+            const info = await client.lookup('読');
+            const action = visibleJpdbKanjiActions(info)[0];
+
+            await expect(client.performAction(action.id)).rejects.toThrow(/configured proxy|userscript/i);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(fetchMock.mock.calls.map(([url]) => String(url)).join('\n')).not.toContain('private-token');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('parses and de-duplicates Uchisen mnemonic images', () => {
         const images = parseUchisenImages(`
             <div class="kanji_image_loader" data-large="/kanji/1/main.png"></div>
@@ -4101,6 +4588,29 @@ describe('reader helpers', () => {
             { url: 'https://ik.imagekit.io/uchisen/kanji/1/main.png', story: 'Main story' },
             { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg', story: 'A second story' },
         ]);
+    });
+
+    it('loads Uchisen mnemonic HTML through the configured public proxy', async () => {
+        const proxyUrl = 'https://yomu-proxy.example/fetch';
+        const target = 'https://uchisen.com/kanji/%E5%9B%B3';
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
+            return Promise.resolve(new Response(`
+                <div class="kanji_image_loader" data-large="generated_diagram.jpg"></div>
+                <div id="mnemonic_story">Picture the diagram.</div>
+            `, { status: 200 }));
+        });
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(loadUchisenImages('図', proxyUrl)).resolves.toEqual([
+                { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_diagram.jpg', story: 'Picture the diagram.' },
+            ]);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('detects JPDB kanji review card phases from the hidden card value', () => {
@@ -4148,6 +4658,7 @@ describe('reader helpers', () => {
         `, '読');
 
         expect(info?.strokeCount).toBe(1);
+        expect(info?.strokeShapes?.[0].length).toBeGreaterThan(2);
         expect(info?.svg).toContain('jpdb-reader-kanjivg-svg');
         expect(info?.svg).toContain('<text transform=');
         expect(info?.svg).not.toContain('onclick');

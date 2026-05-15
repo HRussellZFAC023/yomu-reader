@@ -31,7 +31,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR from embedded page metadata or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style results.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
-- Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/` for opening browser-supported local video and subtitle files without a desktop bridge.
+- Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/index.html` for opening browser-supported local video and subtitle files without a desktop bridge.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
 - Optional new-tab study page at `https://hrussellzfac023.github.io/yomu-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
 - Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
@@ -81,7 +81,7 @@ Anki mobile note: AnkiConnect is an Anki desktop add-on, so desktop mining still
 Open the hosted video player from the userscript menu or this URL:
 
 ```text
-https://hrussellzfac023.github.io/yomu-reader/video-player/
+https://hrussellzfac023.github.io/yomu-reader/video-player/index.html
 ```
 
 Drop a local video file into the page, add Japanese or native subtitle files, and よむ can read the resulting browser video/text tracks with the same overlay and transcript workflow used on streaming pages. The files stay local to the browser tab.
@@ -239,6 +239,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
 - [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg) for kanji stroke-order SVG data.
+- [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas) for the client-side stroke normalization and sampled-distance matching approach adapted for kanji drawing autograde.
 - [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) for radical images and structured kanji facts, used through runtime lookups and credited under CC BY 4.0.
 - [The Kanji Map](https://thekanjimap.com/) ([source](https://github.com/gabor-kovacs/the-kanji-map)) for the per-kanji JSON bridge and graph/presentation reference; its docs credit KanjiVG, Kanji Alive, Jisho-derived data, animCJK, and other upstreams.
 - [Genetic Kanji](http://www.genetickanji.com/query.asp?id=c22235), [Okjiten](https://okjiten.jp/index.html), and [Outlier Dictionary](https://www.outlier-linguistics.com/products/outlier-dictionary-of-chinese-characters) informed the kanji-source UX research as references only. Their content is not bundled or scraped by default without a clear API/license path.
@@ -258,6 +259,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 | --- | --- |
 | [よむ source code](https://github.com/HRussellZFAC023/yomu-reader) | GPL-3.0-or-later |
 | [KanjiVG](https://github.com/KanjiVG/kanjivg) | Creative Commons Attribution-ShareAlike 3.0 |
+| [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas) | MIT; stroke normalization and distance matching approach adapted with attribution |
 | [JMdict / JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) | JMdict data is EDRDG CC BY-SA 4.0; yomidevs packaging code is MIT; よむ downloads the ZIP into user browser storage rather than bundling it |
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |
 | [The Kanji Map](https://thekanjimap.com/) / [source](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms. よむ uses it as inspiration and fetches compact public per-kanji data at runtime when enabled. |

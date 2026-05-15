@@ -572,6 +572,7 @@ function normalizeNewTabJpdbReviewMode(value: unknown): ReaderSettings['newTabJp
 }
 
 function normalizeCorsProxyUrl(value: unknown): string {
+    if (value == null) return DEFAULT_SETTINGS.corsProxyUrl;
     const raw = typeof value === 'string' ? value.trim() : '';
     if (!raw) return '';
     try {
