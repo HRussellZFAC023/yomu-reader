@@ -7,6 +7,7 @@ import { CardActionController } from './card-action-controller';
 import { normalizeCardStates, primaryCardState } from './card-state';
 import { cardKey, waitForInstantData } from './card-utils';
 import { APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DictionaryStyleController } from './dictionary-styles';
 import {
     HAS_JAPANESE,
     appendToDocumentHead,
@@ -497,6 +498,14 @@ export class ReaderApp {
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
     private dictionaries = new YomitanDictionaryStore();
+    private dictionaryStyles = new DictionaryStyleController({
+        loadCss: () => this.settings.localDictionariesEnabled
+            ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences)
+            : Promise.resolve(''),
+        onUnavailable: error => log.warn('Dictionary styles unavailable', error),
+        onCleared: () => log.debug('Dictionary styles cleared'),
+        onRefreshed: bytes => log.debug('Dictionary styles refreshed', { bytes }),
+    });
     private cardActions = new CardActionController({
         getSettings: () => this.settings,
         jpdb: this.jpdb,
@@ -634,7 +643,6 @@ export class ReaderApp {
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
-    private dictionaryStyleElement?: HTMLStyleElement;
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private audioLoadingRequest = 0;
@@ -840,39 +848,7 @@ export class ReaderApp {
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
-        this.applyDictionaryStyleCss(await this.dictionaryStyleCss());
-    }
-
-    private async dictionaryStyleCss(): Promise<string> {
-        if (!this.settings.localDictionariesEnabled) return '';
-        return this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch(error => {
-            log.warn('Dictionary styles unavailable', error);
-            return '';
-        });
-    }
-
-    private applyDictionaryStyleCss(css: string): void {
-        const existing = this.dictionaryStyleElement ?? document.getElementById('jpdb-reader-yomitan-dictionary-styles') as HTMLStyleElement | null;
-        if (!css.trim()) {
-            this.clearDictionaryStyleElement(existing);
-            return;
-        }
-        this.upsertDictionaryStyleElement(existing, css);
-    }
-
-    private clearDictionaryStyleElement(existing: HTMLStyleElement | null): void {
-        existing?.remove();
-        this.dictionaryStyleElement = undefined;
-        log.debug('Dictionary styles cleared');
-    }
-
-    private upsertDictionaryStyleElement(existing: HTMLStyleElement | null, css: string): void {
-        const style = existing ?? document.createElement('style');
-        style.id = 'jpdb-reader-yomitan-dictionary-styles';
-        style.textContent = css;
-        if (!style.isConnected) appendToDocumentHead(style);
-        this.dictionaryStyleElement = style;
-        log.debug('Dictionary styles refreshed', { bytes: css.length });
+        await this.dictionaryStyles.refresh();
     }
 
     private scheduleDictionaryRescan(): void {
@@ -953,7 +929,7 @@ export class ReaderApp {
             }
         });
         
-        this.dictionaryStyleElement?.remove();
+        this.dictionaryStyles.remove();
         document.querySelectorAll('[data-jpdb-reader-root]').forEach(el => el.remove());
     }
 

@@ -12438,6 +12438,46 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       source: "fallback"
     };
   }
+  const DICTIONARY_STYLE_ID = "jpdb-reader-yomitan-dictionary-styles";
+  class DictionaryStyleController {
+    constructor(options) {
+      __publicField(this, "styleElement");
+      this.options = options;
+    }
+    async refresh() {
+      this.apply(await this.loadCss());
+    }
+    remove() {
+      var _a;
+      (_a = this.styleElement) == null ? void 0 : _a.remove();
+      this.styleElement = void 0;
+    }
+    async loadCss() {
+      var _a, _b;
+      try {
+        return await this.options.loadCss();
+      } catch (error) {
+        (_b = (_a = this.options).onUnavailable) == null ? void 0 : _b.call(_a, error);
+        return "";
+      }
+    }
+    apply(css) {
+      var _a, _b, _c, _d;
+      const existing = this.styleElement ?? document.getElementById(DICTIONARY_STYLE_ID);
+      if (!css.trim()) {
+        existing == null ? void 0 : existing.remove();
+        this.styleElement = void 0;
+        (_b = (_a = this.options).onCleared) == null ? void 0 : _b.call(_a);
+        return;
+      }
+      const style = existing ?? document.createElement("style");
+      style.id = DICTIONARY_STYLE_ID;
+      style.textContent = css;
+      if (!style.isConnected) appendToDocumentHead(style);
+      this.styleElement = style;
+      (_d = (_c = this.options).onRefreshed) == null ? void 0 : _d.call(_c, css.length);
+    }
+  }
   const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
   const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
@@ -31992,6 +32032,12 @@ ${spelling}`);
       __publicField(this, "anki", new AnkiConnectClient(() => this.settings));
       __publicField(this, "rtk", new RtkClient());
       __publicField(this, "dictionaries", new YomitanDictionaryStore());
+      __publicField(this, "dictionaryStyles", new DictionaryStyleController({
+        loadCss: () => this.settings.localDictionariesEnabled ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences) : Promise.resolve(""),
+        onUnavailable: (error) => log$1.warn("Dictionary styles unavailable", error),
+        onCleared: () => log$1.debug("Dictionary styles cleared"),
+        onRefreshed: (bytes) => log$1.debug("Dictionary styles refreshed", { bytes })
+      }));
       __publicField(this, "cardActions", new CardActionController({
         getSettings: () => this.settings,
         jpdb: this.jpdb,
@@ -32134,7 +32180,6 @@ ${spelling}`);
       __publicField(this, "settingsPreviewOriginalAccent");
       __publicField(this, "settingsPreviewOriginalLanguage");
       __publicField(this, "settingsPreviewOriginalTheme");
-      __publicField(this, "dictionaryStyleElement");
       __publicField(this, "lastAutoAudioKey", "");
       __publicField(this, "lastAutoAudioAt", 0);
       __publicField(this, "audioLoadingRequest", 0);
@@ -32317,35 +32362,7 @@ ${spelling}`);
       });
     }
     async refreshDictionaryStyles() {
-      this.applyDictionaryStyleCss(await this.dictionaryStyleCss());
-    }
-    async dictionaryStyleCss() {
-      if (!this.settings.localDictionariesEnabled) return "";
-      return this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch((error) => {
-        log$1.warn("Dictionary styles unavailable", error);
-        return "";
-      });
-    }
-    applyDictionaryStyleCss(css) {
-      const existing = this.dictionaryStyleElement ?? document.getElementById("jpdb-reader-yomitan-dictionary-styles");
-      if (!css.trim()) {
-        this.clearDictionaryStyleElement(existing);
-        return;
-      }
-      this.upsertDictionaryStyleElement(existing, css);
-    }
-    clearDictionaryStyleElement(existing) {
-      existing == null ? void 0 : existing.remove();
-      this.dictionaryStyleElement = void 0;
-      log$1.debug("Dictionary styles cleared");
-    }
-    upsertDictionaryStyleElement(existing, css) {
-      const style = existing ?? document.createElement("style");
-      style.id = "jpdb-reader-yomitan-dictionary-styles";
-      style.textContent = css;
-      if (!style.isConnected) appendToDocumentHead(style);
-      this.dictionaryStyleElement = style;
-      log$1.debug("Dictionary styles refreshed", { bytes: css.length });
+      await this.dictionaryStyles.refresh();
     }
     scheduleDictionaryRescan() {
       var _a;
@@ -32390,7 +32407,7 @@ ${spelling}`);
       log$1.debug("Floating puck refreshed", { enabled: this.settings.showFloatingButton });
     }
     destroy() {
-      var _a, _b, _c, _d, _e, _f;
+      var _a, _b, _c, _d, _e;
       this.isDestroyed = true;
       (_a = this.factoryResetUnsubscribe) == null ? void 0 : _a.call(this);
       this.factoryResetUnsubscribe = void 0;
@@ -32419,7 +32436,7 @@ ${spelling}`);
           el.remove();
         }
       });
-      (_f = this.dictionaryStyleElement) == null ? void 0 : _f.remove();
+      this.dictionaryStyles.remove();
       document.querySelectorAll("[data-jpdb-reader-root]").forEach((el) => el.remove());
     }
     setupAutoScan() {

@@ -1,6 +1,7 @@
 import { AudioPlayer } from './audio';
 import { AnkiConnectClient } from './anki';
 import { appendToDocumentHead } from './dom';
+import { DictionaryStyleController } from './dictionary-styles';
 import { ImmersionKitClient } from './immersion-kit';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient } from './jpdb-kanji';
@@ -42,7 +43,6 @@ class NewTabRuntime {
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private activeDialog?: HTMLElement;
     private activeBackdrop?: HTMLElement;
-    private dictionaryStyleElement?: HTMLStyleElement;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private newTab?: NewTabController;
@@ -56,6 +56,12 @@ class NewTabRuntime {
     private rtk = new RtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore();
+    private dictionaryStyles = new DictionaryStyleController({
+        loadCss: () => this.settings.localDictionariesEnabled
+            ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences)
+            : Promise.resolve(''),
+        onUnavailable: error => log.warn('Dictionary styles unavailable', error),
+    });
     private parser = new ReaderParser({
         getSettings: () => this.settings,
         jpdb: this.jpdb,
@@ -111,6 +117,7 @@ class NewTabRuntime {
 
     destroy(): void {
         this.newTab?.destroy();
+        this.dictionaryStyles.remove();
         this.dismiss();
     }
 
@@ -203,26 +210,7 @@ class NewTabRuntime {
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
-        const css = await this.dictionaryStyleCss();
-        const existing = this.dictionaryStyleElement ?? document.getElementById('jpdb-reader-yomitan-dictionary-styles') as HTMLStyleElement | null;
-        if (!css.trim()) {
-            existing?.remove();
-            this.dictionaryStyleElement = undefined;
-            return;
-        }
-        const style = existing ?? document.createElement('style');
-        style.id = 'jpdb-reader-yomitan-dictionary-styles';
-        style.textContent = css;
-        if (!style.isConnected) appendToDocumentHead(style);
-        this.dictionaryStyleElement = style;
-    }
-
-    private dictionaryStyleCss(): Promise<string> {
-        if (!this.settings.localDictionariesEnabled) return Promise.resolve('');
-        return this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch(error => {
-            log.warn('Dictionary styles unavailable', error);
-            return '';
-        });
+        await this.dictionaryStyles.refresh();
     }
 
     private async parseNewTabContent(root: HTMLElement): Promise<void> {
