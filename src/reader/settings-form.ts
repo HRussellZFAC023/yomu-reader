@@ -144,13 +144,25 @@ function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: stri
 }
 
 function jpdbRevealAudioSettings(settings: ReaderSettings): { wordEnabled: boolean; immersionEnabled: boolean; immersionDisabled: boolean } {
-    const wordEnabled = settings.audioEnabled && settings.jpdbWordAudioAutoPlayReviewAudio;
-    const immersionAvailable = settings.immersionKitEnabled && settings.jpdbImmersionKitEnabled;
+    const wordEnabled = jpdbWordReviewAudioEnabled(settings);
+    const immersionAvailable = jpdbImmersionReviewAudioAvailable(settings);
     return {
         wordEnabled,
-        immersionEnabled: immersionAvailable && !wordEnabled && settings.jpdbImmersionKitAutoPlayReviewAudio,
+        immersionEnabled: jpdbImmersionReviewAudioEnabled(settings, immersionAvailable, wordEnabled),
         immersionDisabled: !immersionAvailable || wordEnabled,
     };
+}
+
+function jpdbWordReviewAudioEnabled(settings: ReaderSettings): boolean {
+    return settings.audioEnabled && settings.jpdbWordAudioAutoPlayReviewAudio;
+}
+
+function jpdbImmersionReviewAudioAvailable(settings: ReaderSettings): boolean {
+    return settings.immersionKitEnabled && settings.jpdbImmersionKitEnabled;
+}
+
+function jpdbImmersionReviewAudioEnabled(settings: ReaderSettings, immersionAvailable: boolean, wordEnabled: boolean): boolean {
+    return immersionAvailable && !wordEnabled && settings.jpdbImmersionKitAutoPlayReviewAudio;
 }
 
 function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
@@ -1535,15 +1547,25 @@ interface SourceRowTouchDrag {
 }
 
 function sourceRowDropSlotFromRow(dragged: HTMLElement, target: HTMLElement | null, clientY: number): SourceRowDropSlot | null {
-    const container = dragged.closest<HTMLElement>('[data-source-editor]');
-    if (!target || !container || target === dragged || target.closest('[data-source-editor]') !== container) return null;
-    const rect = target.getBoundingClientRect();
+    const container = sourceRowDropContainer(dragged, target);
+    if (!container || !target) return null;
     return {
         container,
         dragged,
         target,
-        position: clientY < rect.top + rect.height / 2 ? 'before' : 'after',
+        position: sourceRowDropPosition(target, clientY),
     };
+}
+
+function sourceRowDropContainer(dragged: HTMLElement, target: HTMLElement | null): HTMLElement | null {
+    const container = dragged.closest<HTMLElement>('[data-source-editor]');
+    if (!target || !container || target === dragged) return null;
+    return target.closest('[data-source-editor]') === container ? container : null;
+}
+
+function sourceRowDropPosition(target: HTMLElement, clientY: number): 'before' | 'after' {
+    const rect = target.getBoundingClientRect();
+    return clientY < rect.top + rect.height / 2 ? 'before' : 'after';
 }
 
 function showSourceRowDropSlot(root: HTMLElement, slot: SourceRowDropSlot): void {

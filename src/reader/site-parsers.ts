@@ -20,6 +20,12 @@ export interface SiteParserProfile {
     matches(url: URL): boolean;
 }
 
+interface GenericProseCollection {
+    targets: FragmentTextTarget[];
+    seen: Set<Text>;
+    limit: number;
+}
+
 const COMMON_EXCLUDE = [
     '[role="dialog"]',
     '[aria-modal="true"]',
@@ -432,23 +438,37 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
 }
 
 function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
-    const roots = Array.from(document.querySelectorAll<HTMLElement>(GENERIC_PROSE_ROOTS))
-        .filter(root => isUsefulGenericProseRoot(root));
-    const targets: FragmentTextTarget[] = [];
-    const seen = new Set<Text>();
+    const roots = genericProseRoots();
+    const collection: GenericProseCollection = { targets: [], seen: new Set(), limit };
 
     for (const root of roots) {
-        const remaining = limit - targets.length;
-        if (remaining <= 0) break;
-        const collected = collectFragmentTextTargetsIn(root, remaining, true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
-        for (const target of collected) {
-            if (!appendGenericProseTarget(targets, seen, target)) continue;
-            if (targets.length >= limit) break;
-        }
+        collectGenericProseTargetsFromRoot(root, collection);
+        if (genericProseCollectionFull(collection)) break;
     }
 
-    log.debugThrottled('generic-prose-targets', 2500, 'Collected generic prose targets', { roots: roots.length, targets: targets.length });
-    return targets;
+    log.debugThrottled('generic-prose-targets', 2500, 'Collected generic prose targets', { roots: roots.length, targets: collection.targets.length });
+    return collection.targets;
+}
+
+function genericProseRoots(): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>(GENERIC_PROSE_ROOTS))
+        .filter(root => isUsefulGenericProseRoot(root));
+}
+
+function collectGenericProseTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
+    for (const target of collected) {
+        appendGenericProseTarget(collection.targets, collection.seen, target);
+        if (genericProseCollectionFull(collection)) break;
+    }
+}
+
+function genericProseRemaining(collection: GenericProseCollection): number {
+    return Math.max(0, collection.limit - collection.targets.length);
+}
+
+function genericProseCollectionFull(collection: GenericProseCollection): boolean {
+    return genericProseRemaining(collection) <= 0;
 }
 
 function appendGenericProseTarget(targets: FragmentTextTarget[], seen: Set<Text>, target: FragmentTextTarget): boolean {

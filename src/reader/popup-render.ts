@@ -520,6 +520,13 @@ const KNOWN_COMPONENT_ZONES: Array<[OriginComponentZone, Set<string>]> = [
 ];
 
 type OriginComponentZone = 'top' | 'upper' | 'left' | 'center' | 'right' | 'lower' | 'bottom';
+const COMPONENT_POSITION_ZONES: Array<[RegExp, OriginComponentZone]> = [
+    [/へん|left/, 'left'],
+    [/つくり|right/, 'right'],
+    [/かんむり|top|upper/, 'top'],
+    [/あし|した|bottom|lower/, 'bottom'],
+    [/かまえ|enclosure|surround/, 'center'],
+];
 
 const OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES = new Map<string, OriginComponentZone>([
     ['夫\u0000失', 'upper'],
@@ -589,20 +596,38 @@ function buildKanjiOriginGraphRenderModel(graph: KanjiOriginGraph | null): Origi
 }
 
 function originGraphBase(graph: KanjiOriginGraph | null): OriginGraphBase | null {
-    const nodes = graph?.nodes.filter(node => !node.id.startsWith('rtk:')) ?? [];
+    const nodes = originGraphRenderableNodes(graph);
     const nodeById = new Map(nodes.map(node => [node.id, node]));
-    const nodeIds = new Set(nodeById.keys());
-    const edges = graph?.edges.filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
-    if (nodes.length <= 1 || !edges.length) {
-        log.debug('Kanji origin graph render skipped', { nodes: nodes.length, edges: edges.length });
-        return null;
-    }
+    const edges = originGraphRenderableEdges(graph, nodeById);
+    if (shouldSkipOriginGraph(nodes, edges)) return skippedOriginGraphBase(nodes, edges);
     return {
         nodes,
         nodeById,
         edges,
-        current: nodes.find(node => node.kind === 'current') ?? nodes[0],
+        current: originGraphCurrentNode(nodes),
     };
+}
+
+function originGraphRenderableNodes(graph: KanjiOriginGraph | null): OriginGraphNode[] {
+    return graph?.nodes.filter(node => !node.id.startsWith('rtk:')) ?? [];
+}
+
+function originGraphRenderableEdges(graph: KanjiOriginGraph | null, nodeById: Map<string, OriginGraphNode>): OriginGraphEdge[] {
+    const nodeIds = new Set(nodeById.keys());
+    return graph?.edges.filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
+}
+
+function shouldSkipOriginGraph(nodes: OriginGraphNode[], edges: OriginGraphEdge[]): boolean {
+    return nodes.length <= 1 || !edges.length;
+}
+
+function skippedOriginGraphBase(nodes: OriginGraphNode[], edges: OriginGraphEdge[]): null {
+    log.debug('Kanji origin graph render skipped', { nodes: nodes.length, edges: edges.length });
+    return null;
+}
+
+function originGraphCurrentNode(nodes: OriginGraphNode[]): OriginGraphNode {
+    return nodes.find(node => node.kind === 'current') ?? nodes[0];
 }
 
 function selectedOriginGraphEdges(base: OriginGraphBase): OriginEdgeGroup[] {
@@ -992,12 +1017,7 @@ function inferInboundComponentZone(node: OriginGraphNode): OriginComponentZone {
 }
 
 function zoneFromComponentPosition(position: string): OriginComponentZone | null {
-    if (/へん|left/.test(position)) return 'left';
-    if (/つくり|right/.test(position)) return 'right';
-    if (/かんむり|top|upper/.test(position)) return 'top';
-    if (/あし|した|bottom|lower/.test(position)) return 'bottom';
-    if (/かまえ|enclosure|surround/.test(position)) return 'center';
-    return null;
+    return COMPONENT_POSITION_ZONES.find(([pattern]) => pattern.test(position))?.[1] ?? null;
 }
 
 function zoneFromKnownComponent(node: OriginGraphNode): OriginComponentZone | null {
@@ -1263,15 +1283,19 @@ function readPitchPosition(value: unknown, reading: string): number | null {
     const record = objectRecord(value);
     if (!record) return pitchPositionFromValue(value);
     if (!pitchMetadataReadingMatches(record, reading)) return null;
+    return pitchPositionFromMetadataRecord(record);
+}
 
+function pitchPositionFromMetadataRecord(record: Record<string, unknown>): number | null {
     const direct = pitchPositionFromValue(record.position);
     if (direct != null) return direct;
+    return firstPitchPositionCandidate(record);
+}
 
-    for (const candidate of pitchPositionCandidates(record)) {
-        const position = pitchPositionFromValue(candidate);
-        if (position != null) return position;
-    }
-    return null;
+function firstPitchPositionCandidate(record: Record<string, unknown>): number | null {
+    return pitchPositionCandidates(record)
+        .map(candidate => pitchPositionFromValue(candidate))
+        .find((position): position is number => position != null) ?? null;
 }
 
 function pitchMetadataReadingMatches(record: Record<string, unknown>, reading: string): boolean {
@@ -1367,13 +1391,18 @@ function getPitchClassName(pitch: string, moraCount = 0): string {
 }
 
 function classifyPopupPitch(profile: { pitch: string; dropAt: number; drops: number; rises: number; moraCount: number }): string {
-    if (isPopupAtamadaka(profile)) return 'atamadaka';
-    if (isPopupOdaka(profile)) return 'odaka';
-    if (isPopupHeiban(profile)) return 'heiban';
-    if (isPopupNakadaka(profile)) return 'nakadaka';
-    if (isPopupKifuku(profile)) return 'kifuku';
-    return 'odaka';
+    return POPUP_PITCH_CLASSIFIERS.find(([, matches]) => matches(profile))?.[0] ?? 'odaka';
 }
+
+type PopupPitchProfile = { pitch: string; dropAt: number; drops: number; rises: number; moraCount: number };
+type PopupPitchClassName = 'atamadaka' | 'odaka' | 'heiban' | 'nakadaka' | 'kifuku';
+const POPUP_PITCH_CLASSIFIERS: Array<[PopupPitchClassName, (profile: PopupPitchProfile) => boolean]> = [
+    ['atamadaka', isPopupAtamadaka],
+    ['odaka', isPopupOdaka],
+    ['heiban', isPopupHeiban],
+    ['nakadaka', isPopupNakadaka],
+    ['kifuku', isPopupKifuku],
+];
 
 function isPopupAtamadaka(profile: { pitch: string; drops: number }): boolean {
     return profile.pitch.startsWith('H') && profile.drops === 1;

@@ -357,16 +357,16 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
 
 function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        newTabEnabled: typeof value?.newTabEnabled === 'boolean' ? value.newTabEnabled : DEFAULT_SETTINGS.newTabEnabled,
+        newTabEnabled: booleanSetting(value, 'newTabEnabled'),
         newTabSource: normalizeNewTabSource(value?.newTabSource),
         newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
         newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value?.newTabJpdbReviewMode),
         newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value?.newTabKanjiKeywordSource),
-        newTabParsingEnabled: typeof value?.newTabParsingEnabled === 'boolean' ? value.newTabParsingEnabled : DEFAULT_SETTINGS.newTabParsingEnabled,
-        newTabOfflineEnabled: typeof value?.newTabOfflineEnabled === 'boolean' ? value.newTabOfflineEnabled : DEFAULT_SETTINGS.newTabOfflineEnabled,
+        newTabParsingEnabled: booleanSetting(value, 'newTabParsingEnabled'),
+        newTabOfflineEnabled: booleanSetting(value, 'newTabOfflineEnabled'),
         newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
-        newTabKanjiAutogradeEnabled: typeof value?.newTabKanjiAutogradeEnabled === 'boolean' ? value.newTabKanjiAutogradeEnabled : DEFAULT_SETTINGS.newTabKanjiAutogradeEnabled,
-        newTabKanjiAutoSubmit: typeof value?.newTabKanjiAutoSubmit === 'boolean' ? value.newTabKanjiAutoSubmit : DEFAULT_SETTINGS.newTabKanjiAutoSubmit,
+        newTabKanjiAutogradeEnabled: booleanSetting(value, 'newTabKanjiAutogradeEnabled'),
+        newTabKanjiAutoSubmit: booleanSetting(value, 'newTabKanjiAutoSubmit'),
     };
 }
 
@@ -493,9 +493,9 @@ function jpdbImmersionReviewAudioEnabled(value: Partial<ReaderSettings> | null, 
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        subtitleNativeBlurred: typeof value?.subtitleNativeBlurred === 'boolean' ? value.subtitleNativeBlurred : DEFAULT_SETTINGS.subtitleNativeBlurred,
-        subtitleKaraokeMode: typeof value?.subtitleKaraokeMode === 'boolean' ? value.subtitleKaraokeMode : DEFAULT_SETTINGS.subtitleKaraokeMode,
-        subtitleAutoCopyLine: typeof value?.subtitleAutoCopyLine === 'boolean' ? value.subtitleAutoCopyLine : DEFAULT_SETTINGS.subtitleAutoCopyLine,
+        subtitleNativeBlurred: booleanSetting(value, 'subtitleNativeBlurred'),
+        subtitleKaraokeMode: booleanSetting(value, 'subtitleKaraokeMode'),
+        subtitleAutoCopyLine: booleanSetting(value, 'subtitleAutoCopyLine'),
         subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
         subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
         subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
@@ -1046,22 +1046,29 @@ function isSafeLookupUrlTemplate(value: string): boolean {
 export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[], types: Record<string, DictionaryPreference['type']> = {}): DictionaryPreference[] {
     const merged = new Map(current.map(item => [item.name, item]));
     for (const name of names) {
-        const type = types[name] ?? inferDictionaryTypeFromName(name);
-        if (!merged.has(name)) {
-            merged.set(name, {
-                name,
-                alias: name,
-                enabled: true,
-                priority: merged.size,
-                allowSecondarySearches: false,
-                type,
-            });
-        } else {
-            const existing = merged.get(name);
-            if (existing && !existing.type) merged.set(name, { ...existing, type });
-        }
+        mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
     }
     return normalizeDictionaryPreferences([...merged.values()]);
+}
+
+function mergeDictionaryPreference(merged: Map<string, DictionaryPreference>, name: string, type: DictionaryPreference['type']): void {
+    const existing = merged.get(name);
+    if (!existing) {
+        merged.set(name, defaultDictionaryPreference(name, type, merged.size));
+        return;
+    }
+    if (!existing.type) merged.set(name, { ...existing, type });
+}
+
+function defaultDictionaryPreference(name: string, type: DictionaryPreference['type'], priority: number): DictionaryPreference {
+    return {
+        name,
+        alias: name,
+        enabled: true,
+        priority,
+        allowSecondarySearches: false,
+        type,
+    };
 }
 
 function normalizeDictionaryType(value: unknown, name = ''): DictionaryPreference['type'] {

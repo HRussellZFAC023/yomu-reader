@@ -182,25 +182,35 @@ class YouTubeReplacementRequester {
 
     request(shownCount: number): void {
         const now = performance.now();
-        if (now - this.lastRequest < 1200) return;
+        if (!this.canRequest(now)) return;
         this.lastRequest = now;
 
         const previousScrollTop = window.scrollY;
         const scrollTarget = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
         dispatchWindowEvent(createWindowEvent('scroll'));
-        if (shownCount < 12 && !/jsdom/i.test(navigator.userAgent)) {
-            try {
-                window.scrollTo({ top: scrollTarget, behavior: 'auto' });
-            } catch {
-                // jsdom and some embedded contexts do not implement scrollTo.
-            }
-            dispatchWindowEvent(createWindowEvent('scroll'));
-            try {
-                window.scrollTo({ top: previousScrollTop, behavior: 'auto' });
-            } catch {
-                // Best-effort replacement nudging only.
-            }
-        }
+        if (shouldNudgeYouTubeReplacementScan(shownCount)) nudgeYouTubeReplacementScan(scrollTarget, previousScrollTop);
+    }
+
+    private canRequest(now: number): boolean {
+        return now - this.lastRequest >= 1200;
+    }
+}
+
+function shouldNudgeYouTubeReplacementScan(shownCount: number): boolean {
+    return shownCount < 12 && !/jsdom/i.test(navigator.userAgent);
+}
+
+function nudgeYouTubeReplacementScan(scrollTarget: number, previousScrollTop: number): void {
+    scrollYouTubeReplacementScan(scrollTarget);
+    dispatchWindowEvent(createWindowEvent('scroll'));
+    scrollYouTubeReplacementScan(previousScrollTop);
+}
+
+function scrollYouTubeReplacementScan(top: number): void {
+    try {
+        window.scrollTo({ top, behavior: 'auto' });
+    } catch {
+        // Best-effort replacement nudging only.
     }
 }
 
@@ -405,12 +415,15 @@ export class YoutubeImmersionFilter {
 
     private updateNoticeSummary(filteredCount: number, shownCount: number): void {
         const summary = this.bar?.querySelector<HTMLElement>('[data-role="summary"]');
-        if (summary) {
-            summary.textContent = this.revealed
-                ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? '' : 's'}`
-                : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? '' : 's'}`;
-            summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : '';
-        }
+        if (!summary) return;
+        summary.textContent = this.noticeSummaryText(filteredCount);
+        summary.title = youtubeNoticeTitle(shownCount);
+    }
+
+    private noticeSummaryText(filteredCount: number): string {
+        return this.revealed
+            ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? '' : 's'}`
+            : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? '' : 's'}`;
     }
 
     private updateNoticeActions(settings: ReaderSettings): void {
@@ -449,6 +462,10 @@ export class YoutubeImmersionFilter {
         this.bar = undefined;
         log.debug('YouTube filter cleared');
     }
+}
+
+function youtubeNoticeTitle(shownCount: number): string {
+    return shownCount ? `${shownCount} Japanese-looking items stayed visible.` : '';
 }
 
 function mutationInsideReaderRoot(mutation: MutationRecord): boolean {

@@ -68,16 +68,17 @@ function hasReusablePrimaryParserCache(input: SubtitlePrimaryRenderInput): boole
 }
 
 function renderSubtitlePrimaryHtml(input: SubtitlePrimaryRenderInput, mode: SubtitlePrimaryRenderMode): string {
-    if (isParsedSubtitleRenderMode(mode)) return input.parsedHtml ?? '';
-    if (mode === 'karaoke') return renderSubtitleKaraokeCue(input.cue, input.time);
-    if (mode === 'cached-parser') return input.lastRenderedHtml;
-    if (mode === 'loading-parser') return `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input.text)}</span>`;
-    return escapeWithBreaks(input.text);
+    return SUBTITLE_PRIMARY_RENDERERS[mode](input);
 }
 
-function isParsedSubtitleRenderMode(mode: SubtitlePrimaryRenderMode): boolean {
-    return mode === 'parsed-karaoke' || mode === 'parsed';
-}
+const SUBTITLE_PRIMARY_RENDERERS: Record<SubtitlePrimaryRenderMode, (input: SubtitlePrimaryRenderInput) => string> = {
+    'parsed-karaoke': input => input.parsedHtml ?? '',
+    parsed: input => input.parsedHtml ?? '',
+    karaoke: input => renderSubtitleKaraokeCue(input.cue, input.time),
+    'cached-parser': input => input.lastRenderedHtml,
+    'loading-parser': input => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input.text)}</span>`,
+    plain: input => escapeWithBreaks(input.text),
+};
 
 function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActive: boolean): SubtitlePrimaryRenderResult['nextRenderedPrimary'] {
     if (input.parsedHtml) return { text: input.text, html: input.parsedHtml };

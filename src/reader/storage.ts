@@ -23,6 +23,9 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     FACTORY_RESET_SIGNAL_KEY,
 ];
 
+type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };
+type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
+
 export type FactoryResetSignalPhase = 'prepare' | 'complete';
 
 export interface FactoryResetSignal {
@@ -56,23 +59,31 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
 }
 
 export function gmStorageGetSync<T>(key: string, fallback: T): T {
-    if (typeof GM_getValue === 'function') {
-        try {
-            const value = GM_getValue<T | typeof MISSING>(key, MISSING);
-            if (!isPromiseLike(value)) {
-                if (value !== MISSING) return value as T;
-                const migrated = localStorageGet<T>(key, MISSING as T);
-                if (migrated !== (MISSING as T)) {
-                    void gmStorageSet(key, migrated);
-                    return migrated;
-                }
-                return fallback;
-            }
-        } catch (error) {
-            debugStorageError('GM storage sync read failed', key, error);
-        }
+    const getValue = typeof GM_getValue === 'function' ? GM_getValue as GmGetValue : null;
+    if (getValue) {
+        const read = gmStorageSyncRead<T>(key, getValue);
+        if (read.kind === 'found') return read.value;
     }
     return localStorageGet(key, fallback);
+}
+
+function gmStorageSyncRead<T>(key: string, getValue: GmGetValue): SyncStorageRead<T> {
+    try {
+        const value = getValue<T | typeof MISSING>(key, MISSING);
+        if (isPromiseLike(value)) return { kind: 'fallback' };
+        if (value !== MISSING) return { kind: 'found', value: value as T };
+        return migratedLocalStorageSyncValue(key);
+    } catch (error) {
+        debugStorageError('GM storage sync read failed', key, error);
+        return { kind: 'fallback' };
+    }
+}
+
+function migratedLocalStorageSyncValue<T>(key: string): SyncStorageRead<T> {
+    const migrated = localStorageGet<T>(key, MISSING as T);
+    if (migrated === (MISSING as T)) return { kind: 'fallback' };
+    void gmStorageSet(key, migrated);
+    return { kind: 'found', value: migrated };
 }
 
 export async function gmStorageSet(key: string, value: unknown): Promise<void> {
@@ -127,14 +138,22 @@ export async function exportStoredValues(prefixes: string[]): Promise<Record<str
 }
 
 export async function importStoredValues(values: unknown): Promise<number> {
-    if (!values || typeof values !== 'object' || Array.isArray(values)) return 0;
     let count = 0;
-    for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
-        if (!isManagedStorageKey(key)) continue;
+    for (const [key, value] of managedStoredValueEntries(values)) {
         await gmStorageSet(key, value);
         count++;
     }
     return count;
+}
+
+function managedStoredValueEntries(values: unknown): Array<[string, unknown]> {
+    return isStorageImportRecord(values)
+        ? Object.entries(values).filter(([key]) => isManagedStorageKey(key))
+        : [];
+}
+
+function isStorageImportRecord(values: unknown): values is Record<string, unknown> {
+    return Boolean(values && typeof values === 'object' && !Array.isArray(values));
 }
 
 export async function clearManagedStoredValues(): Promise<number> {
@@ -224,13 +243,13 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
 
 async function storageKeys(prefixes: string[]): Promise<string[]> {
     const keys = new Set<string>();
-    await addGmStorageKeys(keys, prefixes);
+    await addPrefixedGmStorageKeys(keys, prefixes);
     addLocalStorageKeys(keys, prefixes);
     await addKnownManagedStorageKeys(keys, prefixes);
     return [...keys].sort();
 }
 
-async function addGmStorageKeys(keys: Set<string>, prefixes: string[]): Promise<void> {
+async function addPrefixedGmStorageKeys(keys: Set<string>, prefixes: string[]): Promise<void> {
     const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
     if (typeof listValues !== 'function') return;
     try {
@@ -269,20 +288,27 @@ function storageKeyMatchesPrefix(key: string, prefixes: string[]): boolean {
 
 async function allStorageKeys(): Promise<string[]> {
     const keys = new Set<string>();
-    const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
-    if (typeof listValues === 'function') {
-        try {
-            for (const key of await listValues()) keys.add(key);
-        } catch (error) {
-            debugStorageError('GM storage list failed', 'GM_listValues', error);
-        }
-    }
+    await addGmStorageKeys(keys);
     collectWebStorageKeys(localStorage, keys);
     collectWebStorageKeys(sessionStorage, keys);
+    await addKnownStoredKeys(keys);
+    return [...keys].sort();
+}
+
+async function addGmStorageKeys(keys: Set<string>): Promise<void> {
+    const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
+    if (typeof listValues !== 'function') return;
+    try {
+        for (const key of await listValues()) keys.add(key);
+    } catch (error) {
+        debugStorageError('GM storage list failed', 'GM_listValues', error);
+    }
+}
+
+async function addKnownStoredKeys(keys: Set<string>): Promise<void> {
     for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
         if (await storedValueExists(key)) keys.add(key);
     }
-    return [...keys].sort();
 }
 
 function collectWebStorageKeys(storage: Storage, keys: Set<string>): void {
@@ -354,11 +380,27 @@ function isPromiseLike(value: unknown): value is Promise<unknown> {
 
 function normalizeFactoryResetSignal(signal: FactoryResetSignal): FactoryResetSignal {
     return {
-        id: String(signal.id || createFactoryResetId()),
-        phase: signal.phase === 'complete' ? 'complete' : 'prepare',
-        at: typeof signal.at === 'number' && Number.isFinite(signal.at) ? signal.at : Date.now(),
-        href: typeof signal.href === 'string' ? signal.href : location.href,
+        id: normalizedFactoryResetId(signal.id),
+        phase: normalizedFactoryResetPhase(signal.phase),
+        at: normalizedFactoryResetAt(signal.at),
+        href: normalizedFactoryResetHref(signal.href),
     };
+}
+
+function normalizedFactoryResetId(id: string): string {
+    return String(id || createFactoryResetId());
+}
+
+function normalizedFactoryResetPhase(phase: FactoryResetSignalPhase): FactoryResetSignalPhase {
+    return phase === 'complete' ? 'complete' : 'prepare';
+}
+
+function normalizedFactoryResetAt(at: number): number {
+    return typeof at === 'number' && Number.isFinite(at) ? at : Date.now();
+}
+
+function normalizedFactoryResetHref(href: string): string {
+    return typeof href === 'string' ? href : location.href;
 }
 
 function parseFactoryResetSignal(value: unknown): FactoryResetSignal | null {

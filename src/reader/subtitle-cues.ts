@@ -73,17 +73,36 @@ function splitCueDisplayText(text: string): string[] {
 function splitSentencesByPunctuation(text: string): string[] {
     const parts: string[] = [];
     let start = 0;
-    const chars = Array.from(text);
     let offset = 0;
-    for (const char of chars) {
+    for (const char of Array.from(text)) {
         offset += char.length;
-        if (!/[。！？!?]/u.test(char)) continue;
-        while (offset < text.length && /["'」』）\]]/u.test(text[offset])) offset++;
+        const end = subtitleSentenceBoundaryEnd(text, char, offset);
+        if (end === null) continue;
+        offset = end;
         pushSubtitleSentencePart(parts, text, start, offset);
         start = offset;
     }
     pushSubtitleSentencePart(parts, text, start, text.length);
     return parts.length ? parts : [text];
+}
+
+function subtitleSentenceBoundaryEnd(text: string, char: string, offset: number): number | null {
+    if (!isSubtitleSentencePunctuation(char)) return null;
+    return consumeClosingSubtitlePunctuation(text, offset);
+}
+
+function isSubtitleSentencePunctuation(char: string): boolean {
+    return /[。！？!?]/u.test(char);
+}
+
+function consumeClosingSubtitlePunctuation(text: string, offset: number): number {
+    let end = offset;
+    while (end < text.length && isSubtitleSentenceCloser(text[end])) end++;
+    return end;
+}
+
+function isSubtitleSentenceCloser(char: string): boolean {
+    return /["'」』）\]]/u.test(char);
 }
 
 function pushSubtitleSentencePart(parts: string[], text: string, start: number, end: number): void {
@@ -214,15 +233,20 @@ function clampNumber(value: number, min: number, max: number): number {
 
 function parseVttCuePayload(raw: string, cueStart: number, cueEnd: number): { text: string; words?: SubtitleWordTiming[]; wordTimingsExact?: boolean } {
     const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
-    const markers: Array<{ time: number; index: number; endIndex: number }> = [];
-    raw.replace(timestampPattern, (match, rawTime: string, index: number) => {
-        const time = parseSubtitleTime(rawTime.includes(':') ? rawTime : `00:${rawTime}`);
-        if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
-        return match;
-    });
-    const text = raw.replace(timestampPattern, '').replace(/<[^>]+>/g, '').trim();
+    const markers = vttTimestampMarkers(raw, timestampPattern);
+    const text = vttCueTextWithoutMarkers(raw, timestampPattern);
     if (!markers.length) return { text };
+    return vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd);
+}
 
+function vttCuePayloadWithMarkers(
+    raw: string,
+    timestampPattern: RegExp,
+    markers: Array<{ time: number; index: number; endIndex: number }>,
+    text: string,
+    cueStart: number,
+    cueEnd: number,
+): { text: string; words?: SubtitleWordTiming[]; wordTimingsExact?: boolean } {
     const words: SubtitleWordTiming[] = [];
     for (let index = 0; index < markers.length; index++) {
         const markerWord = vttMarkerWord(raw, timestampPattern, markers, index);
@@ -231,6 +255,24 @@ function parseVttCuePayload(raw: string, cueStart: number, cueEnd: number): { te
         words.push(vttWordTiming(markerWord, cueStart, cueEnd));
     }
     return { text, words: words.length ? words : undefined, wordTimingsExact: Boolean(words.length) };
+}
+
+function vttTimestampMarkers(raw: string, timestampPattern: RegExp): Array<{ time: number; index: number; endIndex: number }> {
+    const markers: Array<{ time: number; index: number; endIndex: number }> = [];
+    raw.replace(timestampPattern, (match, rawTime: string, index: number) => {
+        appendVttTimestampMarker(markers, match, rawTime, index);
+        return match;
+    });
+    return markers;
+}
+
+function appendVttTimestampMarker(markers: Array<{ time: number; index: number; endIndex: number }>, match: string, rawTime: string, index: number): void {
+    const time = parseSubtitleTime(rawTime.includes(':') ? rawTime : `00:${rawTime}`);
+    if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
+}
+
+function vttCueTextWithoutMarkers(raw: string, timestampPattern: RegExp): string {
+    return raw.replace(timestampPattern, '').replace(/<[^>]+>/g, '').trim();
 }
 
 function vttMarkerWord(raw: string, timestampPattern: RegExp, markers: Array<{ time: number; index: number; endIndex: number }>, index: number): { text: string; start: number; end: number } | null {
@@ -553,11 +595,21 @@ function mergedYouTubeCueWords(
     next: SubtitleCue,
     merge: { progressive: boolean; overlap: number },
 ): SubtitleWordTiming[] | undefined {
-    const currentWords = cueHasExactWordTimings(current) ? current.words : undefined;
-    const nextWords = cueHasExactWordTimings(next) ? next.words : undefined;
-    if (merge.progressive) return nextWords;
-    if (!canMergeYouTubeCueWords(currentWords, nextWords, next.text)) return undefined;
-    return [...currentWords, ...(nextWords ? subtitleWordsAfterCompactOffset(nextWords, merge.overlap) : [])];
+    const words = youtubeCueMergeWords(current, next);
+    if (merge.progressive) return words.next;
+    if (!canMergeYouTubeCueWords(words.current, words.next, next.text)) return undefined;
+    return [...words.current, ...trimmedNextYouTubeCueWords(words.next, merge.overlap)];
+}
+
+function youtubeCueMergeWords(current: SubtitleCue, next: SubtitleCue): { current: SubtitleWordTiming[] | undefined; next: SubtitleWordTiming[] | undefined } {
+    return {
+        current: cueHasExactWordTimings(current) ? current.words : undefined,
+        next: cueHasExactWordTimings(next) ? next.words : undefined,
+    };
+}
+
+function trimmedNextYouTubeCueWords(words: SubtitleWordTiming[] | undefined, overlap: number): SubtitleWordTiming[] {
+    return words ? subtitleWordsAfterCompactOffset(words, overlap) : [];
 }
 
 function canMergeYouTubeCueWords(
@@ -588,12 +640,23 @@ function isProgressiveYouTubeCaption(current: string, next: string): boolean {
 function joinYouTubeCaptionFragments(left: string, right: string): string {
     const a = left.trim();
     const b = right.trim();
-    if (!a) return b;
-    if (!b) return a;
-    if (/^[、。，．！？!?））」』\]}]/u.test(b)) return `${a}${b}`;
-    if (/[\s「『（([{]$/u.test(a)) return `${a}${b}`;
-    if (shouldSpaceYouTubeCaptionFragments(a, b)) return `${a} ${b}`;
-    return `${a}${b}`;
+    const emptyJoin = emptyYouTubeCaptionFragmentJoin(a, b);
+    if (emptyJoin !== null) return emptyJoin;
+    return `${a}${youtubeCaptionFragmentSeparator(a, b)}${b}`;
+}
+
+function emptyYouTubeCaptionFragmentJoin(left: string, right: string): string | null {
+    if (!left) return right;
+    return right ? null : left;
+}
+
+function youtubeCaptionFragmentSeparator(left: string, right: string): string {
+    if (shouldJoinYouTubeCaptionFragmentsDirectly(left, right)) return '';
+    return shouldSpaceYouTubeCaptionFragments(left, right) ? ' ' : '';
+}
+
+function shouldJoinYouTubeCaptionFragmentsDirectly(left: string, right: string): boolean {
+    return /^[、。，．！？!?））」』\]}]/u.test(right) || /[\s「『（([{]$/u.test(left);
 }
 
 function shouldSpaceYouTubeCaptionFragments(left: string, right: string): boolean {
@@ -639,16 +702,22 @@ function subtitleWordsAfterCompactOffset(words: SubtitleWordTiming[], compactOff
 
 function sliceByCompactOffset(text: string, compactOffset: number): string {
     if (compactOffset <= 0) return text;
-    let seen = 0;
-    for (let index = 0; index < text.length;) {
-        const char = firstCodePoint(text.slice(index));
-        if (!char) break;
-        index += char.length;
-        if (/\s/u.test(char)) continue;
-        seen += 1;
-        if (seen >= compactOffset) return text.slice(index);
+    for (const step of compactTextOffsetSteps(text)) {
+        if (step.seen >= compactOffset) return text.slice(step.index);
     }
     return '';
+}
+
+function compactTextOffsetSteps(text: string): Array<{ index: number; seen: number }> {
+    const steps: Array<{ index: number; seen: number }> = [];
+    let index = 0;
+    let seen = 0;
+    for (const char of Array.from(text)) {
+        index += char.length;
+        if (/\s/u.test(char)) continue;
+        steps.push({ index, seen: ++seen });
+    }
+    return steps;
 }
 
 function firstCodePoint(text: string): string {
@@ -696,12 +765,16 @@ function createAssParseState(): AssParseState {
 }
 
 function readAssSubtitleLine(line: string, state: AssParseState): void {
-    if (shouldIgnoreAssLine(line)) return;
-    if (updateAssSectionState(line, state)) return;
-    if (!shouldReadAssDialogueLine(line, state)) return;
-    if (readAssFormatLine(line, state)) return;
+    if (!shouldParseAssCueLine(line, state)) return;
     const cue = readAssDialogueCue(line, state.format);
     if (cue) state.cues.push(cue);
+}
+
+function shouldParseAssCueLine(line: string, state: AssParseState): boolean {
+    if (shouldIgnoreAssLine(line)) return false;
+    if (updateAssSectionState(line, state)) return false;
+    if (!shouldReadAssDialogueLine(line, state)) return false;
+    return !readAssFormatLine(line, state);
 }
 
 function shouldReadAssDialogueLine(line: string, state: AssParseState): boolean {

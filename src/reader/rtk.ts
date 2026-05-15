@@ -138,9 +138,17 @@ export function parseRtkSearchIndex(script: string): Map<string, string> {
 }
 
 function rtkSearchIndexEntry(match: RegExpExecArray): { kanji: string; keyword: string } | null {
-    const kanji = Array.from(match[1] ?? '').find(character => KANJI_RE.test(character)) ?? '';
+    const kanji = firstKanjiCharacter(match[1]);
     const keyword = match[2] ?? '';
     return kanji && keyword ? { kanji, keyword } : null;
+}
+
+function firstKanjiCharacter(value: string | undefined): string {
+    return Array.from(value ?? '').find(isKanjiCharacter) ?? '';
+}
+
+function isKanjiCharacter(character: string): boolean {
+    return KANJI_RE.test(character);
 }
 
 function addRtkKeywordIndexEntry(entries: Map<string, string>, collisions: Set<string>, key: string, kanji: string): void {

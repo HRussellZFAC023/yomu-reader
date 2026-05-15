@@ -32,24 +32,30 @@ export interface SubtitleDrawerLayoutOptions {
 export function computeSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions): TranscriptPanelLayout {
     const margin = TRANSCRIPT_PANEL_MARGIN;
     const size = options.size ?? {};
-    if (options.compactPanel) {
-        const height = clampNumber(
-            size.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46),
-            220,
-            Math.max(220, options.viewportHeight - margin * 3),
-        );
-        return {
-            placement: 'bottom',
-            left: margin,
-            top: Math.max(margin, options.viewportHeight - height - margin),
-            width: options.viewportWidth - margin * 2,
-            height,
-            viewportWidth: options.viewportWidth,
-            viewportHeight: options.viewportHeight,
-            margin,
-        };
-    }
+    return options.compactPanel
+        ? compactSubtitleDrawerLayout(options, size, margin)
+        : sideSubtitleDrawerLayout(options, size, margin);
+}
 
+function compactSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size: TranscriptPanelSize, margin: number): TranscriptPanelLayout {
+    const height = clampNumber(
+        size.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46),
+        220,
+        Math.max(220, options.viewportHeight - margin * 3),
+    );
+    return {
+        placement: 'bottom',
+        left: margin,
+        top: Math.max(margin, options.viewportHeight - height - margin),
+        width: options.viewportWidth - margin * 2,
+        height,
+        viewportWidth: options.viewportWidth,
+        viewportHeight: options.viewportHeight,
+        margin,
+    };
+}
+
+function sideSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size: TranscriptPanelSize, margin: number): TranscriptPanelLayout {
     const top = clampNumber(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
     const width = clampNumber(
         size.sideWidth ?? Math.min(460, options.viewportWidth * 0.32),
