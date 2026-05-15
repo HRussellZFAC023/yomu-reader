@@ -24,6 +24,7 @@ The audit uses deterministic local network responses for repeatable regression r
 - Keep the userscript self-contained; do not add `@require`.
 - Do not add a backend service for default functionality.
 - Do not hardcode API keys, Tailnet URLs, or user secrets.
+- Always push completed changes and trigger the relevant redeploy before finishing, unless the user explicitly says not to.
 - Preserve iPhone/iPad Tampermonkey friendliness.
 - Prefer local/imported data and optional runtime lookups over bundling large datasets.
 - Treat external kanji/etymology sources as license-sensitive. Check `docs/kanji-source-research.md` before adding a source.
