@@ -264,15 +264,16 @@
   .jpdb-reader-newtab-study {
   grid-template-rows: auto auto auto auto;
   align-content: start;
-  gap: clamp(12px, 1.8vh, 20px);
+  gap: clamp(14px, 2vh, 24px);
 }
 
 .jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
   .jpdb-reader-newtab-study {
   grid-template-rows: auto auto auto auto;
-  align-content: center;
-  gap: clamp(6px, 1.1vh, 12px);
-  padding-bottom: clamp(76px, 11vh, 132px);
+  align-content: start;
+  gap: clamp(8px, 1.2vh, 14px);
+  padding-top: clamp(68px, 8vh, 112px);
+  padding-bottom: clamp(64px, 9vh, 120px);
 }
 
 .jpdb-reader-newtab-count,
@@ -309,7 +310,7 @@
 
 .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
   font-family: inherit;
-  font-size: clamp(2.6rem, 8vw, 5.8rem);
+  font-size: clamp(2.4rem, 6.4vw, 4.8rem);
   line-height: 1.02;
 }
 
@@ -369,6 +370,7 @@
 
 .jpdb-reader-newtab-reading {
   max-width: 100%;
+  width: 100%;
   color: var(--jpdb-reader-text, #f2f4f8);
   font-size: clamp(1.2rem, 3.2vw, 2rem);
   font-weight: 780;
@@ -516,12 +518,13 @@
 }
 
 .jpdb-reader-newtab-kanji-answer {
-  width: min(660px, calc(100vw - 32px));
+  width: min(700px, calc(100vw - 32px));
   display: grid;
   grid-template-columns: repeat(2, minmax(150px, 1fr));
   justify-content: center;
-  align-items: center;
-  gap: clamp(14px, 2.4vw, 20px);
+  align-items: start;
+  gap: clamp(18px, 3vw, 28px);
+  margin-block: clamp(4px, 1.4vh, 14px) clamp(12px, 2.8vh, 28px);
 }
 
 .jpdb-reader-newtab-kanji-front {
@@ -535,7 +538,7 @@
 
 .jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
   .jpdb-reader-newtab-kanji-front {
-  margin-block: clamp(4px, 1.2vh, 14px) 0;
+  margin-block: clamp(2px, 0.8vh, 10px) 0;
 }
 
 .jpdb-reader-newtab-kanji-svg,
@@ -556,12 +559,18 @@
   aspect-ratio: 1;
   display: grid;
   place-items: center;
+  padding: clamp(8px, 1.6vw, 14px);
+  font-family: "Hiragino Sans", "Yu Gothic", var(--jpdb-reader-font);
+  font-size: clamp(4rem, 12vw, 8rem);
+  font-weight: 900;
+  line-height: 1;
 }
 
 .jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-svg,
 .jpdb-reader-newtab-doodle .jpdb-reader-kanjivg-svg {
-  width: min(78%, 190px);
-  height: auto;
+  display: block;
+  width: min(82%, 220px);
+  height: min(82%, 220px);
 }
 
 .jpdb-reader-newtab-kanji-svg .jpdb-reader-kanjivg-strokes path,
@@ -588,6 +597,8 @@
   grid-column: 1 / -1;
   position: relative;
   width: min(420px, 100%);
+  max-width: calc(100dvh - 240px);
+  min-width: min(260px, 100%);
   aspect-ratio: 1;
   justify-self: center;
   margin-inline: auto;
@@ -636,6 +647,7 @@
 
 .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas {
   z-index: 2;
+  display: block;
 }
 
 .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(
@@ -976,7 +988,7 @@
   }
 
   .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
-    font-size: 3rem;
+    font-size: 2.75rem;
   }
 
   .jpdb-reader-newtab-controls {

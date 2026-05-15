@@ -941,6 +941,9 @@ function requestViaAudioFetch(responseUrl: string, responseType: 'blob' | 'text'
         method: options.method ?? 'GET',
         headers: options.headers,
         body: options.data,
+        credentials: 'omit',
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer',
         timeoutMs,
     }).then(async response => {
         if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);

@@ -1,6 +1,7 @@
 import { escapeHtml, setInnerHtml } from './dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
+import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks } from './proxy-fetch';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -14,6 +15,7 @@ interface UchisenCarouselOptions {
     detailsClass?: string;
     summaryClass?: string;
     bodyClass?: string;
+    proxyUrl?: string;
     summaryHtml?: (index: number, total: number) => string;
 }
 
@@ -63,8 +65,8 @@ function uchisenCardStory(card: HTMLElement, mainStory: string): string {
     return story || mainStory || 'No story available';
 }
 
-export async function loadUchisenImages(kanji: string): Promise<UchisenImage[]> {
-    const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000);
+export async function loadUchisenImages(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenImage[]> {
+    const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000, proxyUrl);
     return parseUchisenImages(html);
 }
 
@@ -79,6 +81,7 @@ export async function installUchisenCarousel(
     let index = preferredUchisenIndex(storedIndex, starred, images);
     if (!isValidUchisenIndex(index, images)) index = 0;
 
+    const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
     let currentStarred = starred;
     let currentImageUrl = '';
     const cleanup = () => {
@@ -117,7 +120,7 @@ export async function installUchisenCarousel(
         const image = container.querySelector<HTMLImageElement>('[data-uchisen-image]');
         if (!image) return;
         const srcUrl = item.url;
-        requestBlobUrl(srcUrl, 9000)
+        requestBlobUrl(srcUrl, 9000, proxyUrl)
             .then(url => {
                 if (!image.isConnected || images[index]?.url !== srcUrl) {
                     revokePageMediaUrl(url);
@@ -166,7 +169,7 @@ function isValidUchisenIndex(index: number, images: UchisenImage[]): boolean {
     return Number.isFinite(index) && index >= 0 && index < images.length;
 }
 
-function requestText(url: string, timeout: number): Promise<string> {
+function requestText(url: string, timeout: number, proxyUrl: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const userscriptRequest = getUserscriptHttpRequest();
         if (userscriptRequest) {
@@ -183,18 +186,23 @@ function requestText(url: string, timeout: number): Promise<string> {
             });
             return;
         }
-        fetch(url).then(response => {
+        fetchWithCorsFallbacks(url, proxyUrl, {
+            credentials: 'omit',
+            redirect: 'follow',
+            referrerPolicy: 'no-referrer',
+            timeoutMs: timeout,
+        }).then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.text();
         }).then(resolve, reject);
     });
 }
 
-function requestBlobUrl(url: string, timeout: number): Promise<string> {
-    return requestBlob(url, timeout).then(blob => createPageMediaUrl(blob));
+function requestBlobUrl(url: string, timeout: number, proxyUrl: string): Promise<string> {
+    return requestBlob(url, timeout, proxyUrl).then(blob => createPageMediaUrl(blob));
 }
 
-function requestBlob(url: string, timeout: number): Promise<Blob> {
+function requestBlob(url: string, timeout: number, proxyUrl: string): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const userscriptRequest = getUserscriptHttpRequest();
         if (userscriptRequest) {
@@ -212,7 +220,12 @@ function requestBlob(url: string, timeout: number): Promise<Blob> {
             });
             return;
         }
-        fetch(url).then(response => {
+        fetchWithCorsFallbacks(url, proxyUrl, {
+            credentials: 'omit',
+            redirect: 'follow',
+            referrerPolicy: 'no-referrer',
+            timeoutMs: timeout,
+        }).then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.blob();
         }).then(resolve, reject);

@@ -189,6 +189,8 @@ const JPDB_ALL_DECKS = 'all';
 const JPDB_DECK_SAMPLE_LIMIT = 6;
 const JPDB_WORDS_PER_DECK = 36;
 const NEW_TAB_WORD_LIMIT = 180;
+const NEW_TAB_NAVIGATION_DEDUPE_MS = 550;
+const NEW_TAB_HEADER_LABEL = 'yomu';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     '.jpdb-reader-word',
@@ -234,6 +236,7 @@ export class NewTabController {
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
     private dictionarySetupRequired = false;
+    private dictionarySetupSignature = '';
     private reviewCountMode = false;
     private loadGeneration = 0;
     private rootEventController: AbortController | undefined;
@@ -274,7 +277,11 @@ export class NewTabController {
         }
         this.syncThemeToggle(root);
 
-        if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, false);
+        if (this.shouldUseCachedDictionarySetup(settings)) {
+            this.renderDictionarySetup(root);
+            return;
+        }
+        if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, true);
         else this.applyWords(root, true);
     }
 
@@ -318,6 +325,7 @@ export class NewTabController {
         this.sourceLabel = '';
         this.visiblePoolSignature = '';
         this.dictionarySetupRequired = false;
+        this.dictionarySetupSignature = '';
         this.reviewCountMode = false;
         this.liveCards.clear();
         this.keywordCache.clear();
@@ -339,7 +347,7 @@ export class NewTabController {
                     el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand', 'data-v-6aa21345': '', 'data-v-1168a8e4': '' },
                         el('a', { class: 'title', href: brand.homeHref, 'data-v-1168a8e4': '' },
                             el('img', { class: 'VPImage logo', src: brand.iconSrc, alt: '', width: 24, height: 24, 'data-v-8426fc1a': '' }),
-                            el('span', { 'data-v-1168a8e4': '' }, APP_NAME),
+                            el('span', { 'data-v-1168a8e4': '' }, NEW_TAB_HEADER_LABEL),
                         ),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': 'Study mode' },
@@ -372,7 +380,7 @@ export class NewTabController {
                 ),
                 el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
                     el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true } }, '0 / 0'),
-                    el('h1', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, 'よむ'),
+                    el('h1', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, APP_NAME),
                     el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
                         el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
                         el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
@@ -391,7 +399,7 @@ export class NewTabController {
                     rel: 'noopener',
                     hidden: true,
                     dataset: { newtabInstall: true },
-                }, 'Get Yomu'),
+                }, `Get ${APP_NAME}`),
             ),
         );
     }
@@ -512,7 +520,10 @@ export class NewTabController {
 
     private acceptPointerNavigation(action: 'next' | 'previous', event: MouseEvent): boolean {
         const time = event.timeStamp || Date.now();
-        if (this.lastPointerNavigation?.action === action && time - this.lastPointerNavigation.time < 220) return false;
+        if (
+            this.lastPointerNavigation?.action === action
+            && time - this.lastPointerNavigation.time < NEW_TAB_NAVIGATION_DEDUPE_MS
+        ) return false;
         this.lastPointerNavigation = { action, time };
         return true;
     }
@@ -649,7 +660,7 @@ export class NewTabController {
 
     private async renderEmptyWordLoad(root: HTMLElement): Promise<void> {
         if (!this.dictionarySetupRequired) {
-            this.renderEmpty(root, 'よむ', 'No words yet.');
+            this.renderEmpty(root, APP_NAME, 'No words yet.');
             return;
         }
         this.renderDictionarySetup(root);
@@ -668,7 +679,7 @@ export class NewTabController {
             this.setStatus(root, 'Offline cache. Grades are disabled until the source reconnects.');
             return;
         }
-        this.renderEmpty(root, 'よむ', 'Could not load words.');
+        this.renderEmpty(root, APP_NAME, 'Could not load words.');
     }
 
     private async loadWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
@@ -727,7 +738,7 @@ export class NewTabController {
                 return { cards: [], sourceLabel: 'Dictionaries', needsDictionarySetup: true, reviewCountMode: false };
             }
 
-            const entries = await this.dependencies.dictionaries.listRandomTopTerms(90, 4000, settings.dictionaryPreferences);
+            const entries = await this.dependencies.dictionaries.listRandomTopTerms(NEW_TAB_WORD_LIMIT, 4000, settings.dictionaryPreferences);
             return {
                 cards: entries.map(entry => this.dependencies.parser.localCardFromEntry(entry)),
                 sourceLabel: 'Dictionaries',
@@ -815,14 +826,14 @@ export class NewTabController {
 
     private applyWords(root: HTMLElement, preferStoredWord: boolean): void {
         this.syncMode(root);
-        if (this.shouldRenderDictionarySetup()) {
+        if (this.shouldUseCachedDictionarySetup(this.dependencies.getSettings())) {
             this.renderDictionarySetup(root);
             return;
         }
         const baseWords = this.studyPoolForCurrentMode();
         const poolSignature = this.newTabPoolSignature(baseWords);
         const poolChanged = poolSignature !== this.visiblePoolSignature;
-        if (poolChanged) this.replaceVisibleWordPool(baseWords, poolSignature);
+        if (poolChanged) this.replaceVisibleWordPool(baseWords, poolSignature, this.preferredStoredWordKey(preferStoredWord));
         if (!this.ensureVisibleWords(root)) return;
         if (shouldResolveInitialWordIndex(poolChanged, preferStoredWord)) this.index = this.resolveInitialIndex(preferStoredWord);
         this.index = Math.max(0, Math.min(this.index, this.visibleWords.length - 1));
@@ -831,6 +842,33 @@ export class NewTabController {
 
     private shouldRenderDictionarySetup(): boolean {
         return !this.allWords.length && this.dictionarySetupRequired;
+    }
+
+    private shouldUseCachedDictionarySetup(settings: ReaderSettings): boolean {
+        return this.shouldRenderDictionarySetup()
+            && this.dictionarySetupSignature === this.dictionarySetupStateSignature(settings);
+    }
+
+    private dictionarySetupStateSignature(settings: ReaderSettings = this.dependencies.getSettings()): string {
+        const preferences = settings.dictionaryPreferences
+            .map(preference => [
+                preference.name,
+                preference.alias,
+                preference.enabled ? '1' : '0',
+                preference.priority,
+                preference.type ?? 'terms',
+            ].join('\x1f'))
+            .join('\x1e');
+        return [
+            this.state.source,
+            settings.newTabSource,
+            settings.localDictionariesEnabled ? 'local' : 'no-local',
+            settings.apiKey.trim() ? 'jpdb-key' : 'no-jpdb-key',
+            settings.ankiEnabled ? 'anki' : 'no-anki',
+            settings.newTabJpdbDeck,
+            settings.newTabJpdbReviewMode,
+            preferences,
+        ].join('\x1d');
     }
 
     private studyPoolForCurrentMode(): JPDBCard[] {
@@ -843,15 +881,15 @@ export class NewTabController {
             : cards;
     }
 
-    private replaceVisibleWordPool(baseWords: JPDBCard[], poolSignature: string): void {
-        this.visibleWords = shuffleCards(baseWords);
+    private replaceVisibleWordPool(baseWords: JPDBCard[], poolSignature: string, preferredKey = ''): void {
+        this.visibleWords = promoteCardByKey(shuffleCards(baseWords), preferredKey);
         this.visiblePoolSignature = poolSignature;
     }
 
     private ensureVisibleWords(root: HTMLElement): boolean {
         if (this.visibleWords.length) return true;
         this.index = 0;
-        this.renderEmpty(root, 'よむ', this.state.mode === 'kanji' ? 'No kanji cards yet.' : 'No words yet.');
+        this.renderEmpty(root, APP_NAME, this.state.mode === 'kanji' ? 'No kanji cards yet.' : 'No words yet.');
         return false;
     }
 
@@ -865,14 +903,18 @@ export class NewTabController {
     }
 
     private resolveInitialIndex(preferStoredWord: boolean): number {
-        if (preferStoredWord) {
-            const stored = this.readStoredWordKey();
-            if (stored?.signature === this.currentSessionSignature()) {
-                const index = this.visibleWords.findIndex(card => cardKey(card) === stored.key);
-                if (index >= 0) return index;
-            }
+        const preferredKey = this.preferredStoredWordKey(preferStoredWord);
+        if (preferredKey) {
+            const index = this.visibleWords.findIndex(card => cardKey(card) === preferredKey);
+            if (index >= 0) return index;
         }
         return 0;
+    }
+
+    private preferredStoredWordKey(preferStoredWord: boolean): string {
+        if (!preferStoredWord) return '';
+        const stored = this.readStoredWordKey();
+        return stored?.signature === this.currentSessionSignature() ? stored.key : '';
     }
 
     private showNextWord(): void {
@@ -909,11 +951,11 @@ export class NewTabController {
 
         this.renderPromptForMode(slots, card, state);
 
-        if (slots.count) slots.count.textContent = this.newTabCountLabel(card);
+        this.renderCount(slots.count, '');
         if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
         this.renderControls(slots, card);
         this.renderInstallCta(root);
-        if (slots.status) slots.status.textContent = this.sourceLabel;
+        if (slots.status) slots.status.textContent = this.newTabStatusLabel(card);
     }
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
@@ -926,8 +968,19 @@ export class NewTabController {
     }
 
     private newTabCountLabel(card: JPDBCard): string {
-        if (this.reviewCountMode || this.isReviewCard(card)) return `${this.index + 1} / ${this.visibleWords.length}`;
-        return `${this.index + 1}`;
+        if (!this.visibleWords.length) return '';
+        if (!this.reviewCountMode && !this.isReviewCard(card)) return '';
+        return `${this.index + 1} / ${this.visibleWords.length}`;
+    }
+
+    private newTabStatusLabel(card: JPDBCard): string {
+        return [this.newTabCountLabel(card), this.sourceLabel].filter(Boolean).join(' · ');
+    }
+
+    private renderCount(countSlot: HTMLElement | null, label: string): void {
+        if (!countSlot) return;
+        countSlot.textContent = label;
+        countSlot.hidden = !label;
     }
 
     private studySlots(root: HTMLElement): NewTabStudySlots {
@@ -1454,7 +1507,7 @@ export class NewTabController {
             this.clearDoodleAssessment(slots);
             return;
         }
-        const assessment = assessKanjiStrokes(strokes, expectedStrokes || strokes.length);
+        const assessment = assessKanjiStrokes(strokes, expectedStrokes || strokes.length, details.vg?.strokeShapes);
         this.renderDoodleAssessment(slots, assessment);
         this.autoSubmitDoodleAssessment(settings, assessment.passed);
     }
@@ -1493,10 +1546,10 @@ export class NewTabController {
     private renderEmpty(root: HTMLElement, prompt: string, message: string): void {
         this.enterEmptyMode(root);
         const slots = this.studySlots(root);
-        this.renderPromptSlot(slots.prompt, prompt);
+        this.renderPromptSlot(slots.prompt, prompt, prompt === APP_NAME ? 'ja' : 'en');
         setOptionalText(slots.answer, message);
         setOptionalText(slots.meaning, '');
-        setOptionalText(slots.count, '');
+        this.renderCount(slots.count, '');
         setOptionalText(slots.status, '');
         this.renderEmptyControls(slots.controls);
     }
@@ -1508,8 +1561,9 @@ export class NewTabController {
         root.querySelector<HTMLElement>('[data-newtab-study]')?.removeAttribute('data-newtab-card');
     }
 
-    private renderPromptSlot(promptSlot: HTMLElement | null, prompt: string): void {
+    private renderPromptSlot(promptSlot: HTMLElement | null, prompt: string, lang = 'en'): void {
         if (!promptSlot) return;
+        promptSlot.lang = lang;
         delete promptSlot.dataset.newtabExpression;
         promptSlot.textContent = prompt;
     }
@@ -1524,13 +1578,14 @@ export class NewTabController {
     }
 
     private renderDictionarySetup(root: HTMLElement): void {
+        this.dictionarySetupSignature = this.dictionarySetupStateSignature();
         this.enterDictionarySetupMode(root);
         this.syncThemeToggle(root);
         const slots = this.studySlots(root);
         this.renderPromptSlot(slots.prompt, 'Start with a dictionary');
         setOptionalText(slots.answer, 'Add a dictionary to turn this page into study cards.');
         setOptionalText(slots.meaning, 'It stays in this browser and is ready whenever a new tab opens.');
-        setOptionalText(slots.count, '');
+        this.renderCount(slots.count, '');
         setOptionalText(slots.status, '');
         this.renderDictionarySetupControls(slots.controls);
     }
@@ -1833,7 +1888,7 @@ function emptyNewTabLoadAccumulator(): NewTabLoadAccumulator {
 
 function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, result: NewTabLoadResult): void {
     accumulator.dictionarySetupRequired ||= result.needsDictionarySetup;
-    accumulator.reviewCountMode ||= result.reviewCountMode === true;
+    if (result.cards.length) accumulator.reviewCountMode ||= result.reviewCountMode === true;
     appendLoadedWords(result, accumulator.cards, accumulator.labels);
 }
 
@@ -1875,6 +1930,16 @@ function sourcePriority(card: JPDBCard): number {
     if (!card.source || card.source === 'jpdb') return 0;
     if (card.source === 'anki') return 1;
     return 2;
+}
+
+function promoteCardByKey(cards: JPDBCard[], key: string): JPDBCard[] {
+    if (!key) return cards;
+    const index = cards.findIndex(card => cardKey(card) === key);
+    if (index <= 0) return cards;
+    const promoted = [...cards];
+    const [card] = promoted.splice(index, 1);
+    if (card) promoted.unshift(card);
+    return promoted;
 }
 
 function fact(label: string, value: string | undefined): [string, string] | null {
@@ -2072,7 +2137,9 @@ function passingNewTabGrade(grade: JPDBGrade): boolean {
 function installOriginGraphDrag(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('.jpdb-reader-origin-graph-wrap').forEach(wrap => {
         let active: { node: HTMLElement; pointerId: number; moved: boolean } | null = null;
+        let suppressClick = false;
         wrap.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
             const node = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-origin-graph-node');
             if (!node || !wrap.contains(node)) return;
             active = { node, pointerId: event.pointerId, moved: false };
@@ -2095,6 +2162,7 @@ function installOriginGraphDrag(root: HTMLElement): void {
             active.node.classList.remove('dragging');
             active.node.releasePointerCapture?.(event.pointerId);
             if (active.moved) {
+                suppressClick = true;
                 event.preventDefault();
                 event.stopPropagation();
             }
@@ -2102,6 +2170,14 @@ function installOriginGraphDrag(root: HTMLElement): void {
         };
         wrap.addEventListener('pointerup', finish);
         wrap.addEventListener('pointercancel', finish);
+        wrap.addEventListener('click', event => {
+            if (!suppressClick) return;
+            suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
+        refreshOriginGraphEdges(wrap);
+        wrap.dataset.graphReady = 'true';
     });
 }
 

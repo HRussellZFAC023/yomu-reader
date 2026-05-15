@@ -289,6 +289,7 @@ export class SubtitlePlayerController {
     private subtitleEl?: HTMLElement;
     private menuEl?: HTMLElement;
     private transcriptPanel?: HTMLElement;
+    private abortController?: AbortController;
     private primaryFileInput?: HTMLInputElement;
     private secondaryFileInput?: HTMLInputElement;
     private video?: HTMLVideoElement;
@@ -300,7 +301,9 @@ export class SubtitlePlayerController {
     private observer?: MutationObserver;
     private videoResizeObserver?: ResizeObserver;
     private discoverTimer?: number;
+    private tickTimer?: number;
     private alignFrame?: number;
+    private destroyed = false;
     private selectedTrackId = '';
     private secondaryTrackId = '';
     private youtubeVideoId = '';
@@ -347,19 +350,19 @@ export class SubtitlePlayerController {
         'load-secondary': () => this.secondaryFileInput?.click(),
         menu: () => this.toggleMenu(),
         panel: () => this.toggleTranscriptDrawer(),
-        list: () => this.toggleTranscriptPanel(),
-        tracks: () => this.toggleTrackPanel(),
         'panel-lines': () => this.openLinesPanel(),
         'panel-tracks': () => this.openTracksPanel(),
         'close-panel': () => this.closeTranscriptPanel(),
         'primary-track': target => { void this.choosePrimaryTrack(this.trackIdFromTarget(target)); },
         'secondary-track': target => { void this.chooseSecondaryTrack(this.trackIdFromTarget(target)); },
-        toggle: () => this.toggleSubtitles(),
         'toggle-secondary': () => this.toggleSecondarySubtitles(),
         'toggle-native-blur': () => this.toggleNativeSubtitleBlur(),
     };
 
     init(): void {
+        this.destroy();
+        this.destroyed = false;
+        this.abortController = new AbortController();
         this.install();
         this.observer = new MutationObserver(mutations => {
             if (mutations.every(mutationInsideReaderRoot)) return;
@@ -367,21 +370,54 @@ export class SubtitlePlayerController {
             this.scheduleDiscoverVideo();
         });
         this.observer.observe(document.body, { childList: true, subtree: true });
-        document.addEventListener('keydown', event => this.handleKeydown(event));
-        document.addEventListener('pointermove', event => this.handlePointerActivity(event), { passive: true });
+        document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions());
+        document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('fullscreenchange', () => {
             this.fullscreen = Boolean(document.fullscreenElement);
             this.syncFullscreenState();
             this.scheduleAlignToVideo();
             this.render();
-        });
-        window.addEventListener('scroll', () => this.scheduleAlignToVideo(), { passive: true });
+        }, this.eventOptions());
+        window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         window.addEventListener('resize', () => {
             this.scheduleAlignToVideo();
-        }, { passive: true });
+        }, this.eventOptions({ passive: true }));
         this.discoverVideo();
         this.tick();
         log.info('Subtitle controller initialized');
+    }
+
+    destroy(): void {
+        this.destroyed = true;
+        this.abortController?.abort();
+        this.abortController = undefined;
+        this.observer?.disconnect();
+        this.observer = undefined;
+        this.videoResizeObserver?.disconnect();
+        this.videoResizeObserver = undefined;
+        if (this.discoverTimer !== undefined) window.clearTimeout(this.discoverTimer);
+        this.discoverTimer = undefined;
+        if (this.tickTimer !== undefined) window.clearTimeout(this.tickTimer);
+        this.tickTimer = undefined;
+        if (this.alignFrame !== undefined) window.cancelAnimationFrame(this.alignFrame);
+        this.alignFrame = undefined;
+        if (this.transcriptScrollFrame !== undefined) window.cancelAnimationFrame(this.transcriptScrollFrame);
+        this.transcriptScrollFrame = undefined;
+        if (this.transcriptHydrateFrame !== undefined) window.cancelAnimationFrame(this.transcriptHydrateFrame);
+        this.transcriptHydrateFrame = undefined;
+        this.clearVideoInsetForTranscriptPanel();
+        this.root?.remove();
+        this.root = undefined;
+        this.subtitleEl = undefined;
+        this.menuEl = undefined;
+        this.transcriptPanel = undefined;
+        this.primaryFileInput = undefined;
+        this.secondaryFileInput = undefined;
+        this.video = undefined;
+    }
+
+    private eventOptions(options: AddEventListenerOptions = {}): AddEventListenerOptions {
+        return this.abortController ? { ...options, signal: this.abortController.signal } : options;
     }
 
     refresh(): void {
@@ -429,6 +465,7 @@ export class SubtitlePlayerController {
 
     private install(): void {
         if (this.root) return;
+        document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"]').forEach(element => element.remove());
 
         const root = document.createElement('div');
         root.className = 'jpdb-subtitle-player';
@@ -437,11 +474,9 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-status" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
-                <button class="jpdb-subtitle-toggle" type="button" data-action="toggle" title="Show or hide subtitles" aria-label="Show or hide subtitles">${subtitleIcon('eye')}</button>
                 <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
                 <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
-                <button type="button" data-action="list" title="Open transcript" aria-label="Open transcript">${subtitleIcon('transcript')}</button>
-                <button type="button" data-action="tracks" title="Choose subtitles" aria-label="Choose subtitles">${subtitleIcon('tracks')}</button>
+                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="Open subtitle panel" aria-label="Open subtitle panel">${subtitleIcon('panel-right')}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -454,8 +489,8 @@ export class SubtitlePlayerController {
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.primaryFileInput = root.querySelector('input[data-file="primary"]') as HTMLInputElement;
         this.secondaryFileInput = root.querySelector('input[data-file="secondary"]') as HTMLInputElement;
-        this.primaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('primary'));
-        this.secondaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('secondary'));
+        this.primaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('primary'), this.eventOptions());
+        this.secondaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('secondary'), this.eventOptions());
         document.body.appendChild(root);
         this.root = root;
         this.refresh();
@@ -465,6 +500,7 @@ export class SubtitlePlayerController {
         if (this.discoverTimer !== undefined) return;
         this.discoverTimer = window.setTimeout(() => {
             this.discoverTimer = undefined;
+            if (this.destroyed) return;
             this.discoverVideo();
         }, 120);
     }
@@ -516,7 +552,7 @@ export class SubtitlePlayerController {
             if (video !== this.video) return;
             const track = (event as TrackEvent).track as TextTrack | null;
             if (track) this.addNativeTrack(track);
-        });
+        }, this.eventOptions());
     }
 
     private syncSubtitleSourceContext(video = this.video): boolean {
@@ -582,9 +618,9 @@ export class SubtitlePlayerController {
         this.videoResizeObserver?.disconnect();
         this.videoResizeObserver = new ResizeObserver(() => this.scheduleAlignToVideo());
         this.videoResizeObserver.observe(video);
-        video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), { passive: true });
-        video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), { passive: true });
-        video.addEventListener('play', () => this.scheduleAlignToVideo(), { passive: true });
+        video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+        video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+        video.addEventListener('play', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         this.scheduleAlignToVideo();
     }
 
@@ -595,9 +631,10 @@ export class SubtitlePlayerController {
         const option: SubtitleTrackOption = { id, label, kind: 'native', language: track.language, track };
         this.tracks.push(option);
 
-        track.addEventListener('cuechange', () => this.updateFromNativeTrack(track));
+        track.addEventListener('cuechange', () => this.updateFromNativeTrack(track), this.eventOptions());
         this.maybeAutoSelectNativeTrack(option);
         window.setTimeout(() => {
+            if (this.destroyed) return;
             this.setNativeTrackModes();
             this.syncControls();
         }, 0);
@@ -760,9 +797,13 @@ export class SubtitlePlayerController {
     }
 
     private tick(): void {
+        if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (settings.subtitlePlayerEnabled) this.tickSubtitlePlayer(settings);
-        window.setTimeout(() => this.tick(), 250);
+        this.tickTimer = window.setTimeout(() => {
+            this.tickTimer = undefined;
+            this.tick();
+        }, 250);
     }
 
     private tickSubtitlePlayer(settings: ReaderSettings): void {
@@ -1650,7 +1691,6 @@ export class SubtitlePlayerController {
         if (menuOpen) this.renderMenu();
         const secondaryToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle-secondary"]');
         if (secondaryToggle) secondaryToggle.textContent = secondarySubtitleToggleLabel(settings);
-        this.syncSubtitleToggle(settings);
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
         this.syncStatus();
@@ -1679,15 +1719,6 @@ export class SubtitlePlayerController {
         }
     }
 
-    private syncSubtitleToggle(settings: ReaderSettings): void {
-        const subtitleToggle = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-toggle');
-        if (!subtitleToggle) return;
-        setInnerHtml(subtitleToggle, subtitleIcon(settings.subtitleOverlayVisible ? 'eye-off' : 'eye'));
-        subtitleToggle.setAttribute('aria-pressed', String(settings.subtitleOverlayVisible));
-        subtitleToggle.title = settings.subtitleOverlayVisible ? 'Hide subtitles' : 'Show subtitles';
-        subtitleToggle.setAttribute('aria-label', subtitleToggle.title);
-    }
-
     private syncLineNavigationButtons(hasLines: boolean): void {
         const panelOpen = this.isTranscriptPanelDockedOpen();
         for (const action of ['previous', 'next'] as const) {
@@ -1706,29 +1737,28 @@ export class SubtitlePlayerController {
     }
 
     private syncDrawerButtons(hasLines: boolean): void {
-        const listButton = this.root?.querySelector<HTMLButtonElement>('[data-action="list"]');
-        const tracksButton = this.root?.querySelector<HTMLButtonElement>('[data-action="tracks"]');
+        const panelButton = this.root?.querySelector<HTMLButtonElement>('[data-action="panel"]');
         const state = this.drawerButtonState(hasLines);
-        if (listButton) this.syncDrawerButton(listButton, state.disableList, state.panelOpen && this.panelMode === 'lines', 'Close transcript', 'Open transcript');
-        if (tracksButton) this.syncDrawerButton(tracksButton, state.disableTracks, state.panelOpen && this.panelMode === 'tracks', 'Close subtitle tracks', 'Choose subtitles');
+        if (panelButton) this.syncDrawerButton(panelButton, state.disablePanel, state.panelOpen);
     }
 
-    private drawerButtonState(hasLines: boolean): { panelOpen: boolean; disableList: boolean; disableTracks: boolean } {
+    private drawerButtonState(hasLines: boolean): { panelOpen: boolean; disablePanel: boolean } {
         const panelOpen = Boolean(this.transcriptPanel && !this.transcriptPanel.hidden);
         const canOpenTranscript = hasLines || this.hasTranscriptSurface();
+        const canOpenTracks = Boolean(this.video || this.tracks.length);
         return {
             panelOpen,
-            disableList: !this.video && !canOpenTranscript,
-            disableTracks: !this.video && !this.tracks.length,
+            disablePanel: !canOpenTranscript && !canOpenTracks,
         };
     }
 
-    private syncDrawerButton(button: HTMLButtonElement, disabled: boolean, pressed: boolean, pressedTitle: string, defaultTitle: string): void {
+    private syncDrawerButton(button: HTMLButtonElement, disabled: boolean, pressed: boolean): void {
         button.hidden = false;
         button.disabled = disabled;
-        button.title = pressed ? pressedTitle : defaultTitle;
+        button.title = pressed ? 'Close subtitle panel' : 'Open subtitle panel';
         button.setAttribute('aria-label', button.title);
         button.setAttribute('aria-pressed', String(pressed));
+        setInnerHtml(button, subtitleIcon(transcriptPlacementIcon(this.effectiveTranscriptPlacement)));
     }
 
     private syncPanelState(): void {
@@ -1839,15 +1869,6 @@ export class SubtitlePlayerController {
         if (!this.menuEl.hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
         this.root?.classList.toggle('jpdb-subtitle-menu-open', !this.menuEl.hidden);
         this.root?.classList.toggle('jpdb-subtitle-panel-open', Boolean(this.transcriptPanel && !this.transcriptPanel.hidden));
-    }
-
-    private toggleSubtitles(): void {
-        const settings = this.options.getSettings();
-        settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
-        this.options.onSettingsChange();
-        this.setNativeTrackModes();
-        this.refresh();
-        log.info('Subtitle overlay toggled', { visible: settings.subtitleOverlayVisible });
     }
 
     private toggleSecondarySubtitles(): void {
@@ -2067,6 +2088,7 @@ export class SubtitlePlayerController {
         if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
         this.transcriptScrollFrame = requestAnimationFrame(() => {
             this.transcriptScrollFrame = undefined;
+            if (this.destroyed) return;
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             active?.scrollIntoView({ block: 'center', inline: 'nearest' });
         });
@@ -2116,14 +2138,15 @@ export class SubtitlePlayerController {
             this.positionTranscriptPanel();
         };
 
-        window.addEventListener('pointermove', onMove);
-        window.addEventListener('pointerup', onUp, { once: true });
+        window.addEventListener('pointermove', onMove, this.eventOptions());
+        window.addEventListener('pointerup', onUp, this.eventOptions({ once: true }));
     }
 
     private scheduleTranscriptHydration(preferredIndex = this.activeTranscriptRowIndex()): void {
         if (this.transcriptHydrateFrame) return;
         this.transcriptHydrateFrame = requestAnimationFrame(() => {
             this.transcriptHydrateFrame = undefined;
+            if (this.destroyed) return;
             void this.hydrateTranscriptRows(preferredIndex);
         });
     }
@@ -2504,16 +2527,19 @@ export class SubtitlePlayerController {
         const panel = this.transcriptPanel;
         const viewportWidth = Math.max(320, window.innerWidth);
         const viewportHeight = Math.max(240, window.innerHeight);
+        const settings = this.options.getSettings();
         const layout = computeSubtitleDrawerLayout({
             viewportWidth,
             viewportHeight,
             anchorTop: this.transcriptAnchorRect().top,
             compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
+            preferredPlacement: settings.subtitleTranscriptPlacement,
             size: this.transcriptPanelSize,
         });
         applyTranscriptPanelLayout(panel, layout);
         this.effectiveTranscriptPlacement = layout.placement;
         this.syncTranscriptPlacementClass();
+        this.syncDrawerButtons(this.hasVisibleSubtitleLines());
         this.applyVideoInsetForTranscriptLayout(layout);
     }
 
@@ -2544,6 +2570,7 @@ export class SubtitlePlayerController {
         if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
         this.alignFrame = requestAnimationFrame(() => {
             this.alignFrame = undefined;
+            if (this.destroyed) return;
             this.alignToVideo();
         });
     }
@@ -2653,6 +2680,12 @@ function clampNumber(value: number, min: number, max: number): number {
 }
 
 type SubtitleIconName = 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'tracks' | 'transcript';
+
+function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
+    if (placement === 'left') return 'panel-left';
+    if (placement === 'bottom') return 'panel-bottom';
+    return 'panel-right';
+}
 
 function subtitleIcon(name: SubtitleIconName): string {
     const paths: Record<SubtitleIconName, string> = {

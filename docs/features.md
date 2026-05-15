@@ -54,7 +54,7 @@ Recognized text stays lightweight: touch targets sit over the image without cove
 
 The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
 
-For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
+For local files, open the [Yomu video player](https://hrussellzfac023.github.io/yomu-reader/video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
 You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and can be opened from the subtitle controls or overflow menu. On phones it becomes a bottom panel so the video stays usable.
 

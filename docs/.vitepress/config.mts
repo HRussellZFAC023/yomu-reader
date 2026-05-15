@@ -21,7 +21,7 @@ export default defineConfig({
     ],
     themeConfig: {
         logo: '/yomu-icon.svg',
-        siteTitle: 'よむ',
+        siteTitle: 'yomu',
         nav: [
             { text: 'Start', link: '/getting-started' },
             { text: 'Features', link: '/features' },

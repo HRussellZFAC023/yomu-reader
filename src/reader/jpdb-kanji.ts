@@ -82,6 +82,9 @@ export class JpdbKanjiClient {
         await requestText(action.url, '', {
             method: action.method,
             payload: action.payload,
+            allowProxyFallback: false,
+            allowConfiguredProxy: false,
+            credentials: 'same-origin',
         });
         this.cache.delete(action.kanji);
         return this.lookup(action.kanji);
@@ -403,7 +406,17 @@ function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function requestText(url: string, proxyUrl = '', options: { method?: 'GET' | 'POST'; payload?: Record<string, string>; allowProxyFallback?: boolean } = {}): Promise<string> {
+function requestText(
+    url: string,
+    proxyUrl = '',
+    options: {
+        method?: 'GET' | 'POST';
+        payload?: Record<string, string>;
+        allowProxyFallback?: boolean;
+        allowConfiguredProxy?: boolean;
+        credentials?: RequestCredentials;
+    } = {},
+): Promise<string> {
     const method = options.method ?? 'GET';
     const body = requestTextBody(options.payload);
     const requestUrl = requestTextUrl(url, method, body);
@@ -411,7 +424,16 @@ function requestText(url: string, proxyUrl = '', options: { method?: 'GET' | 'PO
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestTextViaUserscript(userscriptRequest, method, requestUrl, headers, body);
 
-    return requestTextViaFetch(requestUrl, proxyUrl, method, headers, body, options.allowProxyFallback ?? method === 'GET');
+    return requestTextViaFetch(
+        requestUrl,
+        proxyUrl,
+        method,
+        headers,
+        body,
+        options.allowProxyFallback ?? method === 'GET',
+        options.allowConfiguredProxy,
+        options.credentials ?? 'omit',
+    );
 }
 
 function requestTextBody(payload: Record<string, string> | undefined): string {
@@ -457,15 +479,18 @@ function requestTextViaFetch(
     headers: Record<string, string> | undefined,
     body: string,
     allowProxyFallback: boolean,
+    allowConfiguredProxy: boolean | undefined,
+    credentials: RequestCredentials,
 ): Promise<string> {
     return fetchWithCorsFallbacks(requestUrl, proxyUrl, {
         method,
         headers,
         body: method === 'POST' ? body : undefined,
-        credentials: 'omit',
+        credentials,
         redirect: 'follow',
         timeoutMs: 8000,
         allowPublicProxies: allowProxyFallback,
+        allowConfiguredProxy,
     }).then(response => {
         if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
         return response.text();

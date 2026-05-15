@@ -18,8 +18,9 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(640px, calc(100vw - 20px));
-  max-height: min(760px, calc(100vh - 20px));
+  width: min(1040px, calc(100vw - 48px));
+  max-height: min(820px, calc(100vh - 20px));
+  max-height: min(820px, calc(100dvh - 20px));
   overflow: hidden;
   padding: 0;
   display: flex;
@@ -116,8 +117,10 @@
   display: grid;
   gap: 5px;
   margin: 10px 0;
+  min-width: 0;
   color: var(--jpdb-reader-muted) !important;
   font-size: 11px;
+  line-height: 1.35;
 }
 .jpdb-reader-settings input,
 .jpdb-reader-settings select,
@@ -131,6 +134,7 @@
   color: var(--jpdb-reader-text);
   font: 700 12px/1.2 var(--jpdb-reader-font);
   height: 38px;
+  min-width: 0;
   padding: 8px;
 }
 .jpdb-reader-btn {
@@ -260,7 +264,12 @@
 .jpdb-reader-settings .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px 14px;
+}
+.jpdb-reader-settings-subsection {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
 }
 .jpdb-reader-theme-field {
   display: grid;
@@ -444,6 +453,28 @@
   min-height: 42px;
   padding-inline: 10px;
 }
+.jpdb-reader-help-support {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+}
+.jpdb-reader-help-discord {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 42px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-reader-accent) 12%);
+  font: 800 12px/1.2 var(--jpdb-reader-font);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
 .jpdb-reader-dictionary-status {
   margin: 10px 0;
   color: var(--jpdb-reader-muted);
@@ -454,8 +485,8 @@
 .jpdb-reader-audio-sources,
 .jpdb-reader-lookup-links {
   display: grid;
-  gap: 7px;
-  margin: 10px 0;
+  gap: 9px;
+  margin: 12px 0;
 }
 .jpdb-reader-recommended-dictionaries {
   display: grid;
@@ -509,7 +540,7 @@
 .jpdb-reader-order-head,
 .jpdb-reader-order-row {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   box-sizing: border-box;
   min-width: 0;
@@ -520,13 +551,14 @@
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, 0.8fr) max-content 58px;
+  grid-template-columns: 50px minmax(160px, 1fr) minmax(150px, 0.9fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 48px minmax(160px, 1fr) max-content 58px;
+  grid-template-columns: 50px minmax(220px, 1fr) max-content 42px;
 }
 .jpdb-reader-order-head {
+  padding: 0 10px;
   color: var(--jpdb-reader-faint);
   font-size: 11px;
   font-weight: 700;
@@ -537,7 +569,8 @@
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface);
-  padding: 8px;
+  padding: 10px;
+  min-height: 56px;
   width: 100%;
 }
 .jpdb-reader-dictionary-row-help {
@@ -607,10 +640,17 @@
 .jpdb-reader-drag-handle {
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .jpdb-reader-drag-handle:active,
 .jpdb-reader-order-row-dragging .jpdb-reader-drag-handle {
   cursor: grabbing;
+}
+.jpdb-reader-order-row-drag-pending,
+.jpdb-reader-order-row-dragging {
+  user-select: none;
+  -webkit-user-select: none;
 }
 .jpdb-reader-order-row-dragging {
   border-color: var(--jpdb-reader-accent);
@@ -661,6 +701,7 @@
 @media (min-width: 700px) and (max-width: 1180px), (pointer: coarse) and (min-width: 700px) {
   .jpdb-reader-settings {
     width: min(860px, calc(100vw - 44px));
+    max-height: min(820px, calc(100vh - 44px));
     max-height: min(820px, calc(100dvh - 44px));
   }
 
@@ -686,16 +727,109 @@
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 44px minmax(128px, 0.9fr) minmax(180px, 1.1fr) max-content 48px;
+    grid-template-columns: 46px minmax(130px, 0.95fr) minmax(180px, 1.1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 44px minmax(220px, 1fr) max-content 48px;
+    grid-template-columns: 46px minmax(220px, 1fr) max-content 42px;
   }
 
   .jpdb-reader-recommended-item {
     grid-template-columns: minmax(0, 1fr) minmax(112px, 140px);
+  }
+}
+
+@media (max-width: 699px) {
+  .jpdb-reader-settings {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .jpdb-reader-settings-head {
+    padding: 16px 14px 0;
+  }
+
+  .jpdb-reader-settings-tabs {
+    padding: 0 14px 8px;
+  }
+
+  .jpdb-reader-settings-scroll {
+    padding: 0 14px 100px;
+  }
+
+  .jpdb-reader-settings fieldset {
+    margin: 10px 0;
+    padding: 11px;
+  }
+
+  .jpdb-reader-settings .grid,
+  .jpdb-reader-settings-actions,
+  .jpdb-reader-recommended-item {
+    grid-template-columns: 1fr;
+  }
+
+  .jpdb-reader-help-actions {
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  }
+
+  .jpdb-reader-order-head {
+    display: none;
+  }
+
+  .jpdb-reader-dictionary-row,
+  .jpdb-reader-dictionary-row.compact,
+  .jpdb-reader-audio-source-row,
+  .jpdb-reader-lookup-link-row {
+    grid-template-columns: 42px minmax(0, 1fr) max-content;
+    align-items: start;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-order-toggle,
+  .jpdb-reader-audio-source-row > .jpdb-reader-order-toggle,
+  .jpdb-reader-lookup-link-row > .jpdb-reader-order-toggle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display,
+  .jpdb-reader-audio-source-choice,
+  .jpdb-reader-lookup-link-row > input[name$=".label"] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-dictionary-row > input[name$=".alias"],
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display[aria-label="Display name"],
+  .jpdb-reader-audio-source-fields,
+  .jpdb-reader-lookup-link-row > input[name$=".urlTemplate"],
+  .jpdb-reader-lookup-link-note {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-row-order-tools {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-row-remove-tools {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: start;
+  }
+
+  .jpdb-reader-dictionary-row.compact > .jpdb-reader-row-remove-tools {
+    grid-row: 1;
+  }
+
+  .jpdb-reader-dictionary-row-help {
+    grid-column: 1 / -1;
+  }
+
+  .jpdb-reader-settings .footer {
+    padding-inline: 14px;
   }
 }
 .jpdb-reader-icon-mini[data-immersion-action="previous"],

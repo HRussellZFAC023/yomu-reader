@@ -1,4 +1,4 @@
-import { DOCS_BASE_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DOCS_BASE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
@@ -38,8 +38,18 @@ export function renderHelpLinksPanel(): string {
                 <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">Video Player</a>
                 <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">New Tab</a>
                 <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
-                <a class="jpdb-reader-btn" href="https://github.com/HRussellZFAC023/yomu-reader/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
-                <a class="jpdb-reader-btn" href="https://paypal.me/HenryRussell163" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
+                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}support" target="_blank" rel="noopener" data-help-link="support">Support</a>
+            </div>
+            <div class="jpdb-reader-help-support">
+                <div>
+                    <div class="jpdb-reader-help-title" data-help-support-title>Support よむ</div>
+                    <p data-help-support-copy>Report bugs on GitHub, message Discord henry281199, or donate if you want to help cover maintenance and testing costs.</p>
+                </div>
+                <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
+                    <a class="jpdb-reader-btn" href="https://paypal.me/HenryRussell163" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
+                    <span class="jpdb-reader-help-discord" data-help-link="discord">Discord: henry281199</span>
+                </div>
             </div>
         </div>
     `;
@@ -786,7 +796,10 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
 
 function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: SettingsText): void {
     form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
-        button.textContent = button.dataset.installed === 'true' ? text('update') : text('download');
+        const installed = button.dataset.installed === 'true';
+        button.textContent = installed ? text('update') : `${text('download')} & import`;
+        button.title = installed ? text('update') : 'Download and import into よむ';
+        button.setAttribute('aria-label', button.title);
     });
 }
 
@@ -1005,6 +1018,7 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     panel.querySelector<HTMLElement>('[data-help-link="video-player"]')?.replaceChildren(text('videoPlayer'));
     panel.querySelector<HTMLElement>('[data-help-link="new-tab"]')?.replaceChildren(text('newTabPage'));
     panel.querySelector<HTMLElement>('[data-help-link="docs"]')?.replaceChildren(text('docs'));
+    panel.querySelector<HTMLElement>('[data-help-link="support"]')?.replaceChildren(text('help'));
 }
 
 export function renderReviewShortcutInputs(settings: ReaderSettings): string {
@@ -1084,12 +1098,12 @@ function renderAudioSourceRows(rows: AudioSourceSetting[]): string {
                         <option value="${escapeHtml(source.voice)}">${escapeHtml(source.voice || 'Automatic browser voice')}</option>
                     </select>
                 </div>
-                <div class="jpdb-reader-row-tools" aria-label="Audio source order">
+                <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools" aria-label="Audio source order">
                     <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                 </div>
-                <div class="jpdb-reader-row-tools">
+                <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="Remove" aria-label="Remove">${miniIcon('remove')}</button>
                 </div>
             </div>
@@ -1231,12 +1245,12 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
                     ${urlControl}
                     <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
                     <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? 'open')}">
-                    <div class="jpdb-reader-row-tools" aria-label="Lookup pill order">
+                    <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools" aria-label="Lookup pill order">
                         <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                         <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                         <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                     </div>
-                    <div class="jpdb-reader-row-tools">
+                    <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
                         ${removeControl}
                     </div>
                 </div>
@@ -1341,8 +1355,10 @@ export function updateSourceRowEditor(action: string, control?: HTMLElement | nu
 
 export function installSourceRowDrag(root: HTMLElement): void {
     let drag: SourceRowDragState | null = null;
+    const dragDocument = root.ownerDocument;
 
     root.addEventListener('pointerdown', event => {
+        if (drag) return;
         if (event.pointerType === 'mouse' && event.button !== 0) return;
         const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-source-drag-handle]');
         if (!handle || !root.contains(handle)) return;
@@ -1350,27 +1366,34 @@ export function installSourceRowDrag(root: HTMLElement): void {
         const container = row?.closest<HTMLElement>('[data-source-editor]');
         if (!row || !container) return;
         event.preventDefault();
-        handle.setPointerCapture?.(event.pointerId);
+        setSourceRowPointerCapture(handle, event.pointerId);
         drag = { active: false, container, handle, pointerId: event.pointerId, row, startY: event.clientY };
         row.classList.add('jpdb-reader-order-row-drag-pending');
+        dragDocument.addEventListener('pointermove', moveDrag);
+        dragDocument.addEventListener('pointerup', finishDrag);
+        dragDocument.addEventListener('pointercancel', finishDrag);
     });
 
-    root.addEventListener('pointermove', event => {
+    const moveDrag = (event: PointerEvent): void => {
         if (!drag || event.pointerId !== drag.pointerId) return;
         if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
         event.preventDefault();
         drag.active = true;
         drag.row.classList.add('jpdb-reader-order-row-dragging');
         moveSourceRowToPointer(drag.container, drag.row, event.clientY);
-    });
+    };
 
     const finishDrag = (event: PointerEvent): void => {
         if (!drag || event.pointerId !== drag.pointerId) return;
-        drag.handle.releasePointerCapture?.(event.pointerId);
+        releaseSourceRowPointerCapture(drag.handle, event.pointerId);
         drag.row.classList.remove('jpdb-reader-order-row-drag-pending', 'jpdb-reader-order-row-dragging');
         syncSourceRowOrder(drag.container);
         drag = null;
+        dragDocument.removeEventListener('pointermove', moveDrag);
+        dragDocument.removeEventListener('pointerup', finishDrag);
+        dragDocument.removeEventListener('pointercancel', finishDrag);
     };
+    root.addEventListener('pointermove', moveDrag);
     root.addEventListener('pointerup', finishDrag);
     root.addEventListener('pointercancel', finishDrag);
 }
@@ -1382,6 +1405,22 @@ interface SourceRowDragState {
     pointerId: number;
     row: HTMLElement;
     startY: number;
+}
+
+function setSourceRowPointerCapture(handle: HTMLElement, pointerId: number): void {
+    try {
+        handle.setPointerCapture?.(pointerId);
+    } catch {
+        // Some iPad/Safari contexts expose pointer events without reliable capture.
+    }
+}
+
+function releaseSourceRowPointerCapture(handle: HTMLElement, pointerId: number): void {
+    try {
+        handle.releasePointerCapture?.(pointerId);
+    } catch {
+        // Matching the guarded capture path above keeps drag cleanup best-effort.
+    }
 }
 
 function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, clientY: number): void {
@@ -1598,17 +1637,17 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
                     <input name="${row.prefix}.enabled" type="checkbox" ${row.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
                 </label>
-                ${sourceField(row.name, row.prefix, 'name', options.sourceLabel)}
+                ${sourceField(sourceRowDisplayName(row, options.showAlias), row.name, row.prefix, 'name', options.sourceLabel)}
                 ${options.showAlias ? (row.readonly
-                    ? sourceField(row.alias, row.prefix, 'alias', 'Display name')
+                    ? sourceField(row.alias, row.alias, row.prefix, 'alias', 'Display name')
                     : `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml(row.name)}">`) : ''}
-                <div class="jpdb-reader-row-tools">
+                <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools">
                     <input name="${row.prefix}.priority" type="hidden" value="${index}" aria-label="${escapeHtml(options.sourceLabel)} priority">
                     <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                 </div>
-                <div class="jpdb-reader-row-tools">
+                <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
                     ${row.removable ? `<button type="button" class="jpdb-reader-icon-mini" data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml(row.name)}" title="Remove imported dictionary" aria-label="Remove imported dictionary">${miniIcon('remove')}</button>` : ''}
                 </div>
                 ${row.removable ? `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml(row.dictionaryType ?? 'terms')}">` : ''}
@@ -1618,10 +1657,14 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
     `;
 }
 
-function sourceField(value: string, prefix: string, field: 'name' | 'alias', label: string): string {
+function sourceRowDisplayName(row: SettingsSourceRow, showAlias: boolean): string {
+    return !showAlias && !row.readonly && row.alias ? row.alias : row.name;
+}
+
+function sourceField(displayValue: string, formValue: string, prefix: string, field: 'name' | 'alias', label: string): string {
     return `
-        <span class="jpdb-reader-field-display" aria-label="${escapeHtml(label)}">${escapeHtml(value)}</span>
-        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml(value)}">
+        <span class="jpdb-reader-field-display" aria-label="${escapeHtml(label)}">${escapeHtml(displayValue)}</span>
+        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml(formValue)}">
     `;
 }
 
@@ -1659,7 +1702,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
                 <div class="jpdb-reader-help">${escapeHtml(dictionary.description)}</div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? 'Update' : 'Download'}
+                ${alreadyInstalled ? 'Update' : 'Download & import'}
             </button>
         </div>
     `;

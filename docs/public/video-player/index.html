@@ -194,7 +194,8 @@
       min-height: 100dvh;
       margin: 0 auto;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      align-content: start;
       gap: 14px;
       padding: max(14px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
     }
@@ -226,8 +227,11 @@
 
     .stage {
       position: relative;
+      justify-self: center;
+      width: min(100%, calc((100dvh - 92px) * 16 / 9));
+      aspect-ratio: 16 / 9;
       min-width: 0;
-      min-height: min(760px, calc(100dvh - 92px));
+      min-height: 0;
       display: grid;
       place-items: center;
       overflow: hidden;
@@ -241,23 +245,26 @@
       width: 100%;
       max-width: 100%;
       height: 100%;
-      max-height: calc(100dvh - 110px);
       display: block;
       background: #050708;
       object-fit: contain;
     }
 
     .empty {
+      width: auto;
+      min-height: 0;
       position: absolute;
       inset: 18px 18px 60px;
       display: grid;
       place-items: center;
       border: 2px dashed var(--line);
       border-radius: var(--radius);
+      background: transparent;
       color: rgba(245,247,246,.72);
       text-align: center;
       text-shadow: 0 1px 2px rgba(0,0,0,.72);
-      pointer-events: none;
+      cursor: pointer;
+      padding: 0;
     }
 
     .empty strong {
@@ -302,15 +309,6 @@
         flex: 1 1 auto;
       }
 
-      .stage {
-        min-height: 58dvh;
-      }
-
-      video {
-        height: 100%;
-        max-height: 62dvh;
-      }
-
       .empty {
         inset: 14px 14px 56px;
       }
@@ -342,14 +340,14 @@
       </div>
     </header>
 
-    <section class="stage" data-stage aria-label="Video">
+    <section class="stage" data-stage data-yomu-video-frame aria-label="Video">
       <video controls playsinline preload="metadata" data-video></video>
-      <div class="empty">
+      <button class="empty" type="button" data-empty-open>
         <div>
           <strong>Open or drop a video</strong>
           <span class="status" data-status>Use the Yomu subtitle controls for tracks, lines, and mining.</span>
         </div>
-      </div>
+      </button>
     </section>
   </main>
 
@@ -359,6 +357,7 @@
       const stage = document.querySelector('[data-stage]');
       const video = document.querySelector('[data-video]');
       const videoInput = document.querySelector('[data-video-input]');
+      const emptyOpen = document.querySelector('[data-empty-open]');
       const status = document.querySelector('[data-status]');
       const themeToggle = document.querySelector('[data-theme-toggle]');
       const themeKey = 'yomu-page-theme';
@@ -414,6 +413,7 @@
       }
 
       videoInput.addEventListener('change', () => handleFiles(videoInput.files || []));
+      emptyOpen?.addEventListener('click', () => videoInput.click());
       themeToggle?.addEventListener('click', () => {
         const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
         localStorage.setItem(themeKey, next);
