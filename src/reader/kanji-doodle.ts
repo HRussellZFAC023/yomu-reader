@@ -141,6 +141,11 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     canvas.addEventListener('pointermove', move, { passive: false, signal });
     canvas.addEventListener('pointerup', end, { passive: false, signal });
     canvas.addEventListener('pointercancel', end, { passive: false, signal });
+    for (const target of [stage, canvas]) {
+        target.addEventListener('contextmenu', suppressNativeCanvasGesture, { signal });
+        target.addEventListener('selectstart', suppressNativeCanvasGesture, { signal });
+        target.addEventListener('dragstart', suppressNativeCanvasGesture, { signal });
+    }
     clear?.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -175,6 +180,11 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
     requestAnimationFrame(resize);
     requestAnimationFrame(disconnectWhenDetached);
+}
+
+function suppressNativeCanvasGesture(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
 }
 
 function kanjiDoodleElements(popover: HTMLElement): KanjiDoodleElements | null {
