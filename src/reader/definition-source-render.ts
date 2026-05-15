@@ -229,41 +229,58 @@ function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup
 }
 
 function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, reference?: Pick<JPDBCard, 'spelling' | 'reading'>, options: { showDictionaryTag?: boolean } = {}): string {
-    const repeatsLookupHeadword = Boolean(reference)
-        && group.expression === reference?.spelling
-        && (!reference.reading || group.reading === reference.reading || group.reading === group.expression);
-    const tags = localTermTags(group.entries);
-    const showDictionaryTag = options.showDictionaryTag ?? true;
-    const tagItems = [
-        showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(dictionaryLabel(dictionary))}</span>` : '',
-        ...tags.map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`),
-    ].filter(Boolean);
-    const tagHtml = tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
-    const showFullGlossary = group.entries.some(hasAdditionalLocalDictionaryText);
-    const meaningHtml = showFullGlossary
-        ? renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false })
-        : group.meanings.length
-        ? `<div class="jpdb-reader-local-senses">
-            ${group.meanings.slice(0, 8).map((meaning, index) => `
-                <div class="jpdb-reader-local-sense">
-                    ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
-                    <span>${escapeHtml(meaning)}</span>
-                </div>
-            `).join('')}
-        </div>`
-        : renderLocalGlossaryEntries(dictionary, group.entries);
-    const frequency = group.frequency !== undefined ? `<span class="jpdb-reader-local-frequency">#${escapeHtml(String(group.frequency))}</span>` : '';
     return `
         <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-            ${repeatsLookupHeadword ? '' : `<div class="jpdb-reader-local-head">
-                <span class="jpdb-reader-local-expression">${escapeHtml(group.expression)}</span>
-                ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml(group.reading)}</span>` : ''}
-                ${frequency}
-            </div>`}
-            ${tagHtml}
-            ${meaningHtml}
+            ${renderLocalTermHead(group, reference)}
+            ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true)}
+            ${renderLocalTermMeaning(dictionary, group)}
         </article>
     `;
+}
+
+function renderLocalTermHead(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
+    if (repeatsLookupHeadword(group, reference)) return '';
+    return `<div class="jpdb-reader-local-head">
+        <span class="jpdb-reader-local-expression">${escapeHtml(group.expression)}</span>
+        ${renderLocalTermReading(group)}
+        ${renderLocalTermFrequency(group)}
+    </div>`;
+}
+
+function repeatsLookupHeadword(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): boolean {
+    if (!reference || group.expression !== reference.spelling) return false;
+    return !reference.reading || group.reading === reference.reading || group.reading === group.expression;
+}
+
+function renderLocalTermReading(group: LearnerTermGroup): string {
+    return group.reading && group.reading !== group.expression
+        ? `<span class="jpdb-reader-local-reading">${escapeHtml(group.reading)}</span>`
+        : '';
+}
+
+function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, showDictionaryTag: boolean): string {
+    const tagItems = [
+        showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(dictionaryLabel(dictionary))}</span>` : '',
+        ...localTermTags(group.entries).map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`),
+    ].filter(Boolean);
+    return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
+}
+
+function renderLocalTermMeaning(dictionary: string, group: LearnerTermGroup): string {
+    if (group.entries.some(hasAdditionalLocalDictionaryText)) return renderLocalGlossaryEntries(dictionary, group.entries, { showIndex: false });
+    if (!group.meanings.length) return renderLocalGlossaryEntries(dictionary, group.entries);
+    return `<div class="jpdb-reader-local-senses">
+        ${group.meanings.slice(0, 8).map((meaning, index) => `
+            <div class="jpdb-reader-local-sense">
+                ${group.meanings.length > 1 ? `<span class="jpdb-reader-local-sense-index">${index + 1}</span>` : ''}
+                <span>${escapeHtml(meaning)}</span>
+            </div>
+        `).join('')}
+    </div>`;
+}
+
+function renderLocalTermFrequency(group: LearnerTermGroup): string {
+    return group.frequency !== undefined ? `<span class="jpdb-reader-local-frequency">#${escapeHtml(String(group.frequency))}</span>` : '';
 }
 
 function renderLocalGlossaryEntries(dictionary: string, entries: YomitanTermEntry[], options: { showIndex?: boolean } = {}): string {

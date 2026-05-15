@@ -25,12 +25,16 @@ export function pickTokenForSelection(tokens: JPDBToken[] = [], selected: string
 }
 
 export function formatMetaFrequency(value: unknown): string {
-    if (typeof value === 'number' || typeof value === 'string') return `#${value}`;
-    if (!value || typeof value !== 'object') return '';
-    const record = value as Record<string, unknown>;
-    const display = scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
+    const display = metaFrequencyDisplayValue(value);
     if (display == null) return '';
     return `#${display}`;
+}
+
+function metaFrequencyDisplayValue(value: unknown): string | null {
+    if (typeof value === 'number' || typeof value === 'string') return String(value);
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    return scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
 }
 
 function scalarMetaValue(value: unknown): string | null {
@@ -79,30 +83,41 @@ export function groupTermEntriesByHeadword(entries: YomitanTermEntry[]): Learner
     const grouped = new Map<string, LearnerTermGroup>();
     const meaningKeys = new Map<string, Set<string>>();
     for (const entry of entries) {
-        const expression = entry.expression || entry.reading;
-        const reading = entry.reading || '';
-        const key = `${expression}\n${reading}`;
-        const group = grouped.get(key) ?? { expression, reading, entries: [], meanings: [] };
+        const key = termHeadwordKey(entry);
+        const group = grouped.get(key) ?? createLearnerTermGroup(entry);
         group.entries.push(entry);
-        if (entry.jpdbFrequency !== undefined && (group.frequency === undefined || entry.jpdbFrequency < group.frequency)) {
-            group.frequency = entry.jpdbFrequency;
-        }
-
-        const meaning = summarizeLearnerGlossary(entry);
-        if (meaning) {
-            const seen = meaningKeys.get(key) ?? new Set<string>();
-            const meaningKey = meaning.toLocaleLowerCase();
-            if (!seen.has(meaningKey)) {
-                seen.add(meaningKey);
-                group.meanings.push(meaning);
-            }
-            meaningKeys.set(key, seen);
-        }
-
+        updateLearnerTermFrequency(group, entry);
+        addLearnerTermMeaning(group, entry, key, meaningKeys);
         grouped.set(key, group);
     }
     log.debug('Grouped term entries by headword', { entries: entries.length, headwords: grouped.size });
     return [...grouped.values()];
+}
+
+function termHeadwordKey(entry: YomitanTermEntry): string {
+    return `${entry.expression || entry.reading}\n${entry.reading || ''}`;
+}
+
+function createLearnerTermGroup(entry: YomitanTermEntry): LearnerTermGroup {
+    return { expression: entry.expression || entry.reading, reading: entry.reading || '', entries: [], meanings: [] };
+}
+
+function updateLearnerTermFrequency(group: LearnerTermGroup, entry: YomitanTermEntry): void {
+    if (entry.jpdbFrequency !== undefined && (group.frequency === undefined || entry.jpdbFrequency < group.frequency)) {
+        group.frequency = entry.jpdbFrequency;
+    }
+}
+
+function addLearnerTermMeaning(group: LearnerTermGroup, entry: YomitanTermEntry, key: string, meaningKeys: Map<string, Set<string>>): void {
+    const meaning = summarizeLearnerGlossary(entry);
+    if (!meaning) return;
+    const seen = meaningKeys.get(key) ?? new Set<string>();
+    const meaningKey = meaning.toLocaleLowerCase();
+    if (!seen.has(meaningKey)) {
+        seen.add(meaningKey);
+        group.meanings.push(meaning);
+    }
+    meaningKeys.set(key, seen);
 }
 
 export interface RtkComponentSummary {
@@ -373,113 +388,83 @@ export function renderKanjiOrigins(
     initiallyExpanded = settings.dictionarySourcesInitiallyExpanded,
     sourceStateKey?: string,
 ): string {
-    if (!facts.length && (!graph || graph.nodes.length <= 1) && !sourceInfo?.kanjiMap) {
+    if (!hasKanjiOriginContent(facts, graph, sourceInfo)) {
         log.debug('Kanji origins render skipped', { reason: 'no-origin-data' });
         return '';
     }
     const map = sourceInfo?.kanjiMap;
-    const radical = map?.radical;
-    const radicalFrames = settings.kanjiOriginRadicalImagesEnabled && radical
-        ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4)
-        : [];
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'originStructure')}</summary>
-            ${facts.length ? `<div class="jpdb-reader-kanji-facts">
-                ${facts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
-            </div>` : ''}
-            ${map ? `<div class="jpdb-reader-origin-detail">
-                ${radical || map.hint ? `<div class="jpdb-reader-radical-card">
-                    ${radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml(radical.symbol || uiText(language, 'radical'))}</strong>` : ''}
-                    <div>
-                        ${radical ? `<strong>${escapeHtml([radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, 'strokes')}` : ''].filter(Boolean).join(' · '))}</strong>` : ''}
-                        ${map.hint ? `<span>${escapeHtml(map.hint)}</span>` : ''}
-                        ${radicalFrames.length ? `<div class="jpdb-reader-radical-frames">
-                            ${radicalFrames.map((url, index) => `<img src="${escapeHtml(url)}" alt="" loading="lazy" data-radical-frame="${index}">`).join('')}
-                        </div>` : ''}
-                    </div>
-                </div>` : ''}
-            </div>` : ''}
+            ${renderKanjiFactPills(facts)}
+            ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ''}
         </details>
     `;
 }
 
+function hasKanjiOriginContent(facts: KanjiFact[], graph: KanjiOriginGraph | null, sourceInfo: KanjiSourceInfo | null): boolean {
+    return Boolean(facts.length || (graph && graph.nodes.length > 1) || sourceInfo?.kanjiMap);
+}
+
+function renderKanjiFactPills(facts: KanjiFact[]): string {
+    if (!facts.length) return '';
+    return `<div class="jpdb-reader-kanji-facts">
+        ${facts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
+    </div>`;
+}
+
+function renderKanjiOriginDetail(map: KanjiSourceInfo['kanjiMap'] | undefined, settings: ReaderSettings, language: InterfaceLanguage): string {
+    if (!map) return '';
+    const radicalCard = renderKanjiRadicalCard(map, settings, language);
+    return radicalCard ? `<div class="jpdb-reader-origin-detail">${radicalCard}</div>` : '<div class="jpdb-reader-origin-detail"></div>';
+}
+
+function renderKanjiRadicalCard(map: NonNullable<KanjiSourceInfo['kanjiMap']>, settings: ReaderSettings, language: InterfaceLanguage): string {
+    const radical = map.radical;
+    if (!radical && !map.hint) return '';
+    return `<div class="jpdb-reader-radical-card">
+        ${renderKanjiRadicalGlyph(radical, language)}
+        <div>
+            ${renderKanjiRadicalSummary(radical, language)}
+            ${map.hint ? `<span>${escapeHtml(map.hint)}</span>` : ''}
+            ${renderKanjiRadicalFrames(radicalFrameUrls(radical, settings))}
+        </div>
+    </div>`;
+}
+
+function renderKanjiRadicalGlyph(radical: NonNullable<KanjiSourceInfo['kanjiMap']>['radical'], language: InterfaceLanguage): string {
+    return radical
+        ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml(radical.symbol || uiText(language, 'radical'))}</strong>`
+        : '';
+}
+
+function renderKanjiRadicalSummary(radical: NonNullable<KanjiSourceInfo['kanjiMap']>['radical'], language: InterfaceLanguage): string {
+    if (!radical) return '';
+    const values = [radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, 'strokes')}` : ''];
+    return `<strong>${escapeHtml(values.filter(Boolean).join(' · '))}</strong>`;
+}
+
+function radicalFrameUrls(radical: NonNullable<KanjiSourceInfo['kanjiMap']>['radical'], settings: ReaderSettings): string[] {
+    return settings.kanjiOriginRadicalImagesEnabled && radical
+        ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4)
+        : [];
+}
+
+function renderKanjiRadicalFrames(radicalFrames: string[]): string {
+    if (!radicalFrames.length) return '';
+    return `<div class="jpdb-reader-radical-frames">
+        ${radicalFrames.map((url, index) => `<img src="${escapeHtml(url)}" alt="" loading="lazy" data-radical-frame="${index}">`).join('')}
+    </div>`;
+}
+
 function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
-    const nodes = graph?.nodes.filter(node => !node.id.startsWith('rtk:')) ?? [];
-    const nodeById = new Map(nodes.map(node => [node.id, node]));
-    const nodeIds = new Set(nodeById.keys());
-    const edges = graph?.edges.filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
-    if (nodes.length <= 1 || !edges.length) {
-        log.debug('Kanji origin graph render skipped', { nodes: nodes.length, edges: edges.length });
-        return '';
-    }
-    const current = nodes.find(node => node.kind === 'current') ?? nodes[0];
-    const groupedEdges = groupOriginEdges(edges);
-    const primaryEdges = selectOriginEdgeGroups(
-        groupedEdges.filter(edge => !isOriginOutboundEdge(edge, current.id)),
-        nodeById,
-    );
-    const outboundEdges = selectOriginOutboundEdgeGroups(groupedEdges, nodeById, current.id);
-    const selectedEdges = [...primaryEdges, ...outboundEdges];
-    if (!selectedEdges.length) {
-        log.debug('Kanji origin graph render skipped', { reason: 'no-selected-edges', nodes: nodes.length, edges: edges.length });
-        return '';
-    }
-    const connectedIds = new Set([current.id]);
-    selectedEdges.forEach(edge => {
-        connectedIds.add(edge.from);
-        connectedIds.add(edge.to);
-    });
-    const graphNodes = nodes.filter(node => connectedIds.has(node.id) && !isNoisyOriginNode(node));
-    const visibleNodes = chooseOriginGraphNodes(graphNodes, selectedEdges, current.id);
-    const visibleIds = new Set(visibleNodes.map(node => node.id));
-    const edgeGroups = selectedEdges.filter(edge => visibleIds.has(edge.from) && visibleIds.has(edge.to));
-    if (visibleNodes.length <= 1 || !edgeGroups.length) {
-        log.debug('Kanji origin graph render skipped', { reason: 'no-visible-graph', visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
-        return '';
-    }
-    const primaryIds = new Set([current.id]);
-    const outboundIds = new Set<string>();
-    edgeGroups.forEach(edge => {
-        if (isOriginOutboundEdge(edge, current.id)) {
-            outboundIds.add(edge.to);
-            return;
-        }
-        primaryIds.add(edge.from);
-        primaryIds.add(edge.to);
-    });
-    const positioned = forceLayoutOriginGraph(visibleNodes, edgeGroups, current.id);
-    const coords = new Map(positioned.map(item => [item.node.id, item]));
-    const markerId = `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map(item => item.node.id).join('|'))}`;
-    const hasOutboundEdges = edgeGroups.some(edge => isOriginOutboundEdge(edge, current.id));
+    const model = buildKanjiOriginGraphRenderModel(graph);
+    if (!model) return '';
+    const { current, edgeGroups, hasOutboundEdges, markerId, positioned } = model;
     const graphClass = `jpdb-reader-origin-graph-wrap${hasOutboundEdges ? ' show-outbound' : ''}`;
-    const lines = edgeGroups
-        .map(edge => {
-            const from = coords.get(edge.from);
-            const to = coords.get(edge.to);
-            if (!from || !to) return '';
-            const targetZone = originEdgeTargetZone(edge, current.id, nodeById);
-            const edgePath = clippedOriginEdgePath(from, to, targetZone);
-            const label = edge.labels.join(' / ');
-            const particles = edgePath.points;
-            const outbound = isOriginOutboundEdge(edge, current.id);
-            const outboundAttrs = outbound ? ' data-origin-outbound="true"' : '';
-            return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}>
-                <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
-                ${particles.map(point => `<circle class="jpdb-reader-origin-edge-particle" cx="${formatGraphNumber(point.x)}" cy="${formatGraphNumber(point.y)}" r="0.55"></circle>`).join('')}
-            </g>`;
-        })
-        .join('');
-    const nodeButtons = positioned.map(({ node, x, y, rx, ry }) => {
-        const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
-        const outboundOnly = node.id !== current.id && outboundIds.has(node.id) && !primaryIds.has(node.id);
-        const attrs = `data-graph-node="${escapeHtml(node.id)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ''} style="${style}"`;
-        if (node.kind === 'related') {
-            return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
-        }
-        return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" ${attrs} title="${escapeHtml([node.detail, node.source].filter(Boolean).join(' · '))}">${escapeHtml(node.label)}</button>`;
-    }).join('');
+    const lines = renderOriginGraphLines(model);
+    const nodeButtons = renderOriginGraphNodeButtons(model);
     log.debug('Kanji origin graph rendered', { nodes: positioned.length, edges: edgeGroups.length });
     return `
         <div class="${graphClass}" aria-label="${uiText(language, 'originMapLabel')}">
@@ -509,6 +494,13 @@ const BOTTOM_COMPONENTS = new Set(['心', '忄', '灬', '儿', '皿', '貝', '�
 const LEFT_COMPONENTS = new Set(['亻', '人', '彳', '氵', '忄', '扌', '木', '言', '訁', '口', '女', '糸', '纟', '土', '王', '犭', '礻', '衤', '月', '火', '禾', '虫', '足', '車', '车']);
 const RIGHT_COMPONENTS = new Set(['阝', '刂', '卩', '頁', '页', '隹', '攵', '殳', '欠', '鳥', '鸟']);
 const WHOLE_COMPONENTS = new Set(['大', '夫', '天', '失', '央', '本', '末', '未']);
+const KNOWN_COMPONENT_ZONES: Array<[OriginComponentZone, Set<string>]> = [
+    ['top', TOP_COMPONENTS],
+    ['bottom', BOTTOM_COMPONENTS],
+    ['center', WHOLE_COMPONENTS],
+    ['left', LEFT_COMPONENTS],
+    ['right', RIGHT_COMPONENTS],
+];
 
 type OriginComponentZone = 'top' | 'upper' | 'left' | 'center' | 'right' | 'lower' | 'bottom';
 
@@ -533,12 +525,188 @@ interface PositionedOriginNode {
     ry: number;
 }
 
+interface OriginGraphBase {
+    nodes: OriginGraphNode[];
+    nodeById: Map<string, OriginGraphNode>;
+    edges: OriginGraphEdge[];
+    current: OriginGraphNode;
+}
+
+interface OriginGraphRenderModel {
+    current: OriginGraphNode;
+    nodeById: Map<string, OriginGraphNode>;
+    edgeGroups: OriginEdgeGroup[];
+    positioned: PositionedOriginNode[];
+    primaryIds: Set<string>;
+    outboundIds: Set<string>;
+    markerId: string;
+    hasOutboundEdges: boolean;
+}
+
 interface OriginNodeState extends PositionedOriginNode {
     vx: number;
     vy: number;
     anchorX: number;
     anchorY: number;
     collision: number;
+}
+
+function buildKanjiOriginGraphRenderModel(graph: KanjiOriginGraph | null): OriginGraphRenderModel | null {
+    const base = originGraphBase(graph);
+    if (!base) return null;
+    const selectedEdges = selectedOriginGraphEdges(base);
+    const visible = visibleOriginGraph(base, selectedEdges);
+    if (!visible) return null;
+
+    const roles = originGraphNodeRoles(visible.edgeGroups, base.current.id);
+    const positioned = forceLayoutOriginGraph(visible.nodes, visible.edgeGroups, base.current.id);
+    return {
+        current: base.current,
+        nodeById: base.nodeById,
+        edgeGroups: visible.edgeGroups,
+        positioned,
+        ...roles,
+        markerId: originGraphMarkerId(positioned),
+        hasOutboundEdges: visible.edgeGroups.some(edge => isOriginOutboundEdge(edge, base.current.id)),
+    };
+}
+
+function originGraphBase(graph: KanjiOriginGraph | null): OriginGraphBase | null {
+    const nodes = graph?.nodes.filter(node => !node.id.startsWith('rtk:')) ?? [];
+    const nodeById = new Map(nodes.map(node => [node.id, node]));
+    const nodeIds = new Set(nodeById.keys());
+    const edges = graph?.edges.filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
+    if (nodes.length <= 1 || !edges.length) {
+        log.debug('Kanji origin graph render skipped', { nodes: nodes.length, edges: edges.length });
+        return null;
+    }
+    return {
+        nodes,
+        nodeById,
+        edges,
+        current: nodes.find(node => node.kind === 'current') ?? nodes[0],
+    };
+}
+
+function selectedOriginGraphEdges(base: OriginGraphBase): OriginEdgeGroup[] {
+    const groupedEdges = groupOriginEdges(base.edges);
+    const primaryEdges = selectOriginEdgeGroups(
+        groupedEdges.filter(edge => !isOriginOutboundEdge(edge, base.current.id)),
+        base.nodeById,
+    );
+    return [
+        ...primaryEdges,
+        ...selectOriginOutboundEdgeGroups(groupedEdges, base.nodeById, base.current.id),
+    ];
+}
+
+function visibleOriginGraph(
+    base: OriginGraphBase,
+    selectedEdges: OriginEdgeGroup[],
+): { nodes: OriginGraphNode[]; edgeGroups: OriginEdgeGroup[] } | null {
+    if (!selectedEdges.length) {
+        log.debug('Kanji origin graph render skipped', { reason: 'no-selected-edges', nodes: base.nodes.length, edges: base.edges.length });
+        return null;
+    }
+
+    const connectedIds = connectedOriginNodeIds(base.current.id, selectedEdges);
+    const graphNodes = base.nodes.filter(node => connectedIds.has(node.id) && !isNoisyOriginNode(node));
+    const visibleNodes = chooseOriginGraphNodes(graphNodes, selectedEdges, base.current.id);
+    const visibleIds = new Set(visibleNodes.map(node => node.id));
+    const edgeGroups = selectedEdges.filter(edge => visibleIds.has(edge.from) && visibleIds.has(edge.to));
+    if (visibleNodes.length <= 1 || !edgeGroups.length) {
+        log.debug('Kanji origin graph render skipped', { reason: 'no-visible-graph', visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
+        return null;
+    }
+    return { nodes: visibleNodes, edgeGroups };
+}
+
+function connectedOriginNodeIds(currentId: string, edges: OriginEdgeGroup[]): Set<string> {
+    const ids = new Set([currentId]);
+    edges.forEach(edge => {
+        ids.add(edge.from);
+        ids.add(edge.to);
+    });
+    return ids;
+}
+
+function originGraphNodeRoles(edgeGroups: OriginEdgeGroup[], currentId: string): Pick<OriginGraphRenderModel, 'primaryIds' | 'outboundIds'> {
+    const primaryIds = new Set([currentId]);
+    const outboundIds = new Set<string>();
+    edgeGroups.forEach(edge => addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds));
+    return { primaryIds, outboundIds };
+}
+
+function addOriginGraphNodeRole(
+    edge: OriginEdgeGroup,
+    currentId: string,
+    primaryIds: Set<string>,
+    outboundIds: Set<string>,
+): void {
+    if (isOriginOutboundEdge(edge, currentId)) {
+        outboundIds.add(edge.to);
+        return;
+    }
+    primaryIds.add(edge.from);
+    primaryIds.add(edge.to);
+}
+
+function originGraphMarkerId(positioned: PositionedOriginNode[]): string {
+    return `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map(item => item.node.id).join('|'))}`;
+}
+
+function renderOriginGraphLines(model: OriginGraphRenderModel): string {
+    const coords = new Map(model.positioned.map(item => [item.node.id, item]));
+    return model.edgeGroups
+        .map(edge => renderOriginGraphEdgeGroup(edge, coords, model))
+        .join('');
+}
+
+function renderOriginGraphEdgeGroup(
+    edge: OriginEdgeGroup,
+    coords: Map<string, PositionedOriginNode>,
+    model: OriginGraphRenderModel,
+): string {
+    const from = coords.get(edge.from);
+    const to = coords.get(edge.to);
+    if (!from || !to) return '';
+    const targetZone = originEdgeTargetZone(edge, model.current.id, model.nodeById);
+    const edgePath = clippedOriginEdgePath(from, to, targetZone);
+    const label = edge.labels.join(' / ');
+    const outbound = isOriginOutboundEdge(edge, model.current.id);
+    const outboundAttrs = outbound ? ' data-origin-outbound="true"' : '';
+    return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}>
+        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${model.markerId})"><title>${escapeHtml(label)}</title></path>
+        ${renderOriginGraphEdgeParticles(edgePath.points)}
+    </g>`;
+}
+
+function renderOriginGraphEdgeParticles(points: Array<{ x: number; y: number }>): string {
+    return points
+        .map(point => `<circle class="jpdb-reader-origin-edge-particle" cx="${formatGraphNumber(point.x)}" cy="${formatGraphNumber(point.y)}" r="0.55"></circle>`)
+        .join('');
+}
+
+function renderOriginGraphNodeButtons(model: OriginGraphRenderModel): string {
+    return model.positioned.map(node => renderOriginGraphNodeButton(node, model)).join('');
+}
+
+function renderOriginGraphNodeButton(positioned: PositionedOriginNode, model: OriginGraphRenderModel): string {
+    const { node, x, y, rx, ry } = positioned;
+    const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
+    const outboundOnly = node.id !== model.current.id && model.outboundIds.has(node.id) && !model.primaryIds.has(node.id);
+    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ''} style="${style}"`;
+    if (node.kind === 'related') return renderRelatedOriginGraphNode(node, attrs);
+    return renderKanjiOriginGraphNode(node, attrs);
+}
+
+function renderRelatedOriginGraphNode(node: OriginGraphNode, attrs: string): string {
+    return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
+}
+
+function renderKanjiOriginGraphNode(node: OriginGraphNode, attrs: string): string {
+    const title = [node.detail, node.source].filter(Boolean).join(' · ');
+    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" ${attrs} title="${escapeHtml(title)}">${escapeHtml(node.label)}</button>`;
 }
 
 function chooseOriginGraphNodes(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): OriginGraphNode[] {
@@ -621,7 +789,22 @@ function groupOriginEdges(edges: OriginGraphEdge[]): OriginEdgeGroup[] {
 
 function forceLayoutOriginGraph(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): PositionedOriginNode[] {
     const anchors = originGraphAnchors(nodes, edges, currentId);
-    const states: OriginNodeState[] = nodes.map((node, index) => {
+    const states = createOriginNodeStates(nodes, anchors);
+    const byId = new Map(states.map(state => [state.node.id, state]));
+
+    for (let iteration = 0; iteration < 240; iteration++) {
+        const alpha = Math.pow(1 - iteration / 240, 1.45);
+        applyOriginNodeRepulsion(states, alpha);
+        applyOriginEdgePulls(byId, edges, currentId, alpha);
+        applyOriginAnchorPulls(states, currentId, alpha);
+        integrateOriginNodeStates(states, currentId);
+    }
+
+    return positionOriginNodes(states);
+}
+
+function createOriginNodeStates(nodes: OriginGraphNode[], anchors: Map<string, { x: number; y: number }>): OriginNodeState[] {
+    return nodes.map((node, index) => {
         const { rx, ry } = originNodeRadii(node);
         const anchor = anchors.get(node.id) ?? { x: 50, y: 50 };
         const jitter = index === 0 ? 0 : (index % 2 === 0 ? 1 : -1) * (1.2 + (index % 3) * 0.45);
@@ -638,77 +821,94 @@ function forceLayoutOriginGraph(nodes: OriginGraphNode[], edges: OriginEdgeGroup
             collision: Math.max(rx * 1.35, ry) + 3.8,
         };
     });
-    const byId = new Map(states.map(state => [state.node.id, state]));
+}
 
-    for (let iteration = 0; iteration < 240; iteration++) {
-        const alpha = Math.pow(1 - iteration / 240, 1.45);
-        for (let aIndex = 0; aIndex < states.length; aIndex++) {
-            for (let bIndex = aIndex + 1; bIndex < states.length; bIndex++) {
-                const a = states[aIndex];
-                const b = states[bIndex];
-                let dx = b.x - a.x;
-                let dy = b.y - a.y;
-                if (Math.abs(dx) + Math.abs(dy) < 0.01) {
-                    dx = (bIndex - aIndex) * 0.13;
-                    dy = (aIndex + bIndex) * 0.11;
-                }
-                const distanceSquared = Math.max(8, dx * dx + dy * dy);
-                const distance = Math.sqrt(distanceSquared);
-                const repel = Math.min(0.55, (14 * alpha) / distanceSquared);
-                a.vx -= dx * repel;
-                a.vy -= dy * repel;
-                b.vx += dx * repel;
-                b.vy += dy * repel;
-
-                const minimumDistance = a.collision + b.collision;
-                if (distance < minimumDistance) {
-                    const push = ((minimumDistance - distance) / distance) * 0.085 * alpha;
-                    a.vx -= dx * push;
-                    a.vy -= dy * push;
-                    b.vx += dx * push;
-                    b.vy += dy * push;
-                }
-            }
-        }
-
-        for (const edge of edges) {
-            const source = byId.get(edge.from);
-            const target = byId.get(edge.to);
-            if (!source || !target) continue;
-            const dx = target.x - source.x;
-            const dy = target.y - source.y;
-            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-            const targetDistance = source.node.id === currentId || target.node.id === currentId ? 23 : 21;
-            const pull = ((distance - targetDistance) / distance) * 0.06 * alpha;
-            source.vx += dx * pull;
-            source.vy += dy * pull;
-            target.vx -= dx * pull;
-            target.vy -= dy * pull;
-        }
-
-        for (const state of states) {
-            const anchorStrength = state.node.id === currentId ? 0.32 : 0.16;
-            state.vx += (state.anchorX - state.x) * anchorStrength * alpha;
-            state.vy += (state.anchorY - state.y) * anchorStrength * alpha;
-        }
-
-        for (const state of states) {
-            if (state.node.id === currentId) {
-                state.x += (state.anchorX - state.x) * 0.4;
-                state.y += (state.anchorY - state.y) * 0.4;
-                state.vx = 0;
-                state.vy = 0;
-            } else {
-                state.x += state.vx;
-                state.y += state.vy;
-                state.vx *= 0.58;
-                state.vy *= 0.58;
-            }
-            state.x = clampGraphValue(state.x, 8 + state.rx, 92 - state.rx);
-            state.y = clampGraphValue(state.y, 10 + state.ry, 90 - state.ry);
+function applyOriginNodeRepulsion(states: OriginNodeState[], alpha: number): void {
+    for (let aIndex = 0; aIndex < states.length; aIndex++) {
+        for (let bIndex = aIndex + 1; bIndex < states.length; bIndex++) {
+            repelOriginNodePair(states[aIndex], states[bIndex], aIndex, bIndex, alpha);
         }
     }
+}
 
+function repelOriginNodePair(a: OriginNodeState, b: OriginNodeState, aIndex: number, bIndex: number, alpha: number): void {
+    const delta = originNodeDelta(a, b, aIndex, bIndex);
+    const distanceSquared = Math.max(8, delta.dx * delta.dx + delta.dy * delta.dy);
+    const distance = Math.sqrt(distanceSquared);
+    const repel = Math.min(0.55, (14 * alpha) / distanceSquared);
+    a.vx -= delta.dx * repel;
+    a.vy -= delta.dy * repel;
+    b.vx += delta.dx * repel;
+    b.vy += delta.dy * repel;
+
+    const minimumDistance = a.collision + b.collision;
+    if (distance >= minimumDistance) return;
+    const push = ((minimumDistance - distance) / distance) * 0.085 * alpha;
+    a.vx -= delta.dx * push;
+    a.vy -= delta.dy * push;
+    b.vx += delta.dx * push;
+    b.vy += delta.dy * push;
+}
+
+function originNodeDelta(a: OriginNodeState, b: OriginNodeState, aIndex: number, bIndex: number): { dx: number; dy: number } {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return Math.abs(dx) + Math.abs(dy) < 0.01
+        ? { dx: (bIndex - aIndex) * 0.13, dy: (aIndex + bIndex) * 0.11 }
+        : { dx, dy };
+}
+
+function applyOriginEdgePulls(byId: Map<string, OriginNodeState>, edges: OriginEdgeGroup[], currentId: string, alpha: number): void {
+    for (const edge of edges) {
+        const source = byId.get(edge.from);
+        const target = byId.get(edge.to);
+        if (source && target) pullOriginEdge(source, target, currentId, alpha);
+    }
+}
+
+function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, currentId: string, alpha: number): void {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    const targetDistance = source.node.id === currentId || target.node.id === currentId ? 23 : 21;
+    const pull = ((distance - targetDistance) / distance) * 0.06 * alpha;
+    source.vx += dx * pull;
+    source.vy += dy * pull;
+    target.vx -= dx * pull;
+    target.vy -= dy * pull;
+}
+
+function applyOriginAnchorPulls(states: OriginNodeState[], currentId: string, alpha: number): void {
+    for (const state of states) {
+        const anchorStrength = state.node.id === currentId ? 0.32 : 0.16;
+        state.vx += (state.anchorX - state.x) * anchorStrength * alpha;
+        state.vy += (state.anchorY - state.y) * anchorStrength * alpha;
+    }
+}
+
+function integrateOriginNodeStates(states: OriginNodeState[], currentId: string): void {
+    for (const state of states) {
+        integrateOriginNodeState(state, currentId);
+        state.x = clampGraphValue(state.x, 8 + state.rx, 92 - state.rx);
+        state.y = clampGraphValue(state.y, 10 + state.ry, 90 - state.ry);
+    }
+}
+
+function integrateOriginNodeState(state: OriginNodeState, currentId: string): void {
+    if (state.node.id === currentId) {
+        state.x += (state.anchorX - state.x) * 0.4;
+        state.y += (state.anchorY - state.y) * 0.4;
+        state.vx = 0;
+        state.vy = 0;
+        return;
+    }
+    state.x += state.vx;
+    state.y += state.vy;
+    state.vx *= 0.58;
+    state.vy *= 0.58;
+}
+
+function positionOriginNodes(states: OriginNodeState[]): PositionedOriginNode[] {
     return states.map(({ node, x, y, rx, ry }) => ({
         node,
         x: Number(x.toFixed(2)),
@@ -769,17 +969,22 @@ function spreadOutboundComponents(nodes: OriginGraphNode[], currentId: string): 
 
 function inferInboundComponentZone(node: OriginGraphNode): OriginComponentZone {
     const position = (node.position ?? '').toLowerCase();
+    return zoneFromComponentPosition(position)
+        ?? zoneFromKnownComponent(node)
+        ?? 'center';
+}
+
+function zoneFromComponentPosition(position: string): OriginComponentZone | null {
     if (/へん|left/.test(position)) return 'left';
     if (/つくり|right/.test(position)) return 'right';
     if (/かんむり|top|upper/.test(position)) return 'top';
     if (/あし|した|bottom|lower/.test(position)) return 'bottom';
     if (/かまえ|enclosure|surround/.test(position)) return 'center';
-    if (TOP_COMPONENTS.has(node.id) || TOP_COMPONENTS.has(node.label)) return 'top';
-    if (BOTTOM_COMPONENTS.has(node.id) || BOTTOM_COMPONENTS.has(node.label)) return 'bottom';
-    if (WHOLE_COMPONENTS.has(node.id) || WHOLE_COMPONENTS.has(node.label)) return 'center';
-    if (LEFT_COMPONENTS.has(node.id) || LEFT_COMPONENTS.has(node.label)) return 'left';
-    if (RIGHT_COMPONENTS.has(node.id) || RIGHT_COMPONENTS.has(node.label)) return 'right';
-    return 'center';
+    return null;
+}
+
+function zoneFromKnownComponent(node: OriginGraphNode): OriginComponentZone | null {
+    return KNOWN_COMPONENT_ZONES.find(([, components]) => components.has(node.id) || components.has(node.label))?.[0] ?? null;
 }
 
 function inferOutboundComponentZone(currentId: string, node: OriginGraphNode): OriginComponentZone {
@@ -791,45 +996,47 @@ function componentZoneSort(zone: OriginComponentZone): number {
 }
 
 function inboundZoneAnchor(zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
-    const offset = (index - (total - 1) / 2) * 10;
-    switch (zone) {
-        case 'top':
-            return { x: 50 + offset, y: 23 };
-        case 'upper':
-            return { x: 58 + offset, y: 35 };
-        case 'left':
-            return { x: 24, y: 50 + offset };
-        case 'right':
-            return { x: 76, y: 50 + offset };
-        case 'lower':
-            return { x: 58 + offset, y: 65 };
-        case 'bottom':
-            return { x: 50 + offset, y: 77 };
-        case 'center':
-        default:
-            return { x: 32, y: 50 + offset };
-    }
+    return zoneAnchor(INBOUND_ZONE_ANCHORS, zone, index, total, 10);
 }
 
 function outboundZoneAnchor(zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
-    const offset = (index - (total - 1) / 2) * 9;
-    switch (zone) {
-        case 'top':
-            return { x: 72 + offset, y: 23 };
-        case 'upper':
-            return { x: 79 + offset, y: 34 };
-        case 'left':
-            return { x: 84, y: 47 + offset };
-        case 'right':
-            return { x: 72, y: 47 + offset };
-        case 'lower':
-            return { x: 79 + offset, y: 66 };
-        case 'bottom':
-            return { x: 72 + offset, y: 77 };
-        case 'center':
-        default:
-            return { x: 84, y: 50 + offset };
-    }
+    return zoneAnchor(OUTBOUND_ZONE_ANCHORS, zone, index, total, 9);
+}
+
+type ZoneAnchorSpec = { x: number; y: number; offsetAxis: 'x' | 'y' };
+
+const INBOUND_ZONE_ANCHORS: Record<OriginComponentZone, ZoneAnchorSpec> = {
+    top: { x: 50, y: 23, offsetAxis: 'x' },
+    upper: { x: 58, y: 35, offsetAxis: 'x' },
+    left: { x: 24, y: 50, offsetAxis: 'y' },
+    right: { x: 76, y: 50, offsetAxis: 'y' },
+    lower: { x: 58, y: 65, offsetAxis: 'x' },
+    bottom: { x: 50, y: 77, offsetAxis: 'x' },
+    center: { x: 32, y: 50, offsetAxis: 'y' },
+};
+
+const OUTBOUND_ZONE_ANCHORS: Record<OriginComponentZone, ZoneAnchorSpec> = {
+    top: { x: 72, y: 23, offsetAxis: 'x' },
+    upper: { x: 79, y: 34, offsetAxis: 'x' },
+    left: { x: 84, y: 47, offsetAxis: 'y' },
+    right: { x: 72, y: 47, offsetAxis: 'y' },
+    lower: { x: 79, y: 66, offsetAxis: 'x' },
+    bottom: { x: 72, y: 77, offsetAxis: 'x' },
+    center: { x: 84, y: 50, offsetAxis: 'y' },
+};
+
+function zoneAnchor(
+    anchors: Record<OriginComponentZone, ZoneAnchorSpec>,
+    zone: OriginComponentZone,
+    index: number,
+    total: number,
+    step: number,
+): { x: number; y: number } {
+    const spec = anchors[zone] ?? anchors.center;
+    const offset = (index - (total - 1) / 2) * step;
+    return spec.offsetAxis === 'x'
+        ? { x: spec.x + offset, y: spec.y }
+        : { x: spec.x, y: spec.y + offset };
 }
 
 function spreadConstellation(nodes: OriginGraphNode[]): Array<{ node: OriginGraphNode; x: number; y: number }> {
@@ -932,6 +1139,9 @@ export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, langua
 export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSummary[], language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
     if (!info) return '';
     const elementChips = buildRtkElementChips(info, components);
+    const readings = renderRtkReadings(info, language);
+    const elementSection = renderRtkElementSection(elementChips, language);
+    const stories = renderRtkStories(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">RTK</summary>
@@ -940,24 +1150,41 @@ export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSumm
                     <strong>${escapeHtml(info.keyword)}</strong>
                     ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ''}
                 </div>
-                ${info.onYomi || info.kunYomi ? `<div class="jpdb-reader-kanji-readings">
-                    ${info.onYomi ? `<span>${uiText(language, 'onReading')} ${escapeHtml(info.onYomi)}</span>` : ''}
-                    ${info.kunYomi ? `<span>${uiText(language, 'kunReading')} ${escapeHtml(info.kunYomi)}</span>` : ''}
-                </div>` : ''}
-                ${elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, 'rtkComponentKeywords')}">
-                    ${elementChips.map(chip => {
-                        const content = `${chip.glyph ? `<strong>${escapeHtml(chip.glyph)}</strong>` : ''}<span>${escapeHtml(chip.keyword)}</span>`;
-                        return chip.kanji
-                            ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${chip.kanji}`)}">${content}</button>`
-                            : `<span>${content}</span>`;
-                    }).join('')}
-                </div>` : ''}
-                ${info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : ''}
-                ${info.heisigComment ? `<details><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : ''}
-                ${info.koohiiStories.length ? `<details><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : ''}
+                ${readings}
+                ${elementSection}
+                ${stories}
             </div>
         </details>
     `;
+}
+
+function renderRtkReadings(info: RtkInfo, language: InterfaceLanguage): string {
+    if (!info.onYomi && !info.kunYomi) return '';
+    return `<div class="jpdb-reader-kanji-readings">
+        ${info.onYomi ? `<span>${uiText(language, 'onReading')} ${escapeHtml(info.onYomi)}</span>` : ''}
+        ${info.kunYomi ? `<span>${uiText(language, 'kunReading')} ${escapeHtml(info.kunYomi)}</span>` : ''}
+    </div>`;
+}
+
+function renderRtkElementSection(elementChips: ReturnType<typeof buildRtkElementChips>, language: InterfaceLanguage): string {
+    return elementChips.length
+        ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, 'rtkComponentKeywords')}">${elementChips.map(chip => renderRtkElementChip(chip, language)).join('')}</div>`
+        : '';
+}
+
+function renderRtkElementChip(chip: ReturnType<typeof buildRtkElementChips>[number], language: InterfaceLanguage): string {
+    const content = `${chip.glyph ? `<strong>${escapeHtml(chip.glyph)}</strong>` : ''}<span>${escapeHtml(chip.keyword)}</span>`;
+    return chip.kanji
+        ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${chip.kanji}`)}">${content}</button>`
+        : `<span>${content}</span>`;
+}
+
+function renderRtkStories(info: RtkInfo, language: InterfaceLanguage): string {
+    return [
+        info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : '',
+        info.heisigComment ? `<details><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : '',
+        info.koohiiStories.length ? `<details><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : '',
+    ].join('');
 }
 
 export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []): string {
@@ -992,33 +1219,44 @@ function readPitchPosition(value: unknown, reading: string): number | null {
     if (!value || typeof value !== 'object') return pitchPositionFromValue(value);
 
     const record = value as Record<string, unknown>;
-    const metadataReading = typeof record.reading === 'string' ? record.reading : '';
-    if (metadataReading && reading && metadataReading !== reading) return null;
+    if (!pitchMetadataReadingMatches(record, reading)) return null;
 
     const direct = pitchPositionFromValue(record.position);
     if (direct != null) return direct;
 
-    const candidates = Array.isArray(record.pitches)
-        ? record.pitches
-        : Array.isArray(record.positions)
-            ? record.positions
-            : [];
-    for (const candidate of candidates) {
+    for (const candidate of pitchPositionCandidates(record)) {
         const position = pitchPositionFromValue(candidate);
         if (position != null) return position;
     }
     return null;
 }
 
+function pitchMetadataReadingMatches(record: Record<string, unknown>, reading: string): boolean {
+    const metadataReading = typeof record.reading === 'string' ? record.reading : '';
+    return !metadataReading || !reading || metadataReading === reading;
+}
+
+function pitchPositionCandidates(record: Record<string, unknown>): unknown[] {
+    if (Array.isArray(record.pitches)) return record.pitches;
+    return Array.isArray(record.positions) ? record.positions : [];
+}
+
 function pitchPositionFromValue(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
-    if (typeof value === 'string' && value.trim()) {
-        const number = Number(value);
-        return Number.isInteger(number) && number >= 0 ? number : null;
-    }
+    const direct = directPitchPositionValue(value);
+    if (direct !== null) return direct;
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
     return pitchPositionFromValue(record.position);
+}
+
+function directPitchPositionValue(value: unknown): number | null {
+    if (typeof value === 'number') return validPitchPosition(value);
+    if (typeof value === 'string' && value.trim()) return validPitchPosition(Number(value));
+    return null;
+}
+
+function validPitchPosition(value: number): number | null {
+    return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 function pitchPatternFromPosition(reading: string, position: number): string {
@@ -1076,13 +1314,40 @@ function splitMorae(reading: string): string[] {
 
 function getPitchClassName(pitch: string, moraCount = 0): string {
     const levels = Array.from(pitch).filter(ch => ch === 'H' || ch === 'L');
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === 'H' && level === 'L');
-    const drops = (pitch.match(/HL/g) ?? []).length;
-    const rises = (pitch.match(/LH/g) ?? []).length;
-    if (pitch.startsWith('H') && drops === 1) return 'atamadaka';
-    if (moraCount && pitch.startsWith('L') && dropAt === moraCount) return 'odaka';
-    if (pitch.startsWith('L') && rises === 1 && !pitch.endsWith('L')) return 'heiban';
-    if (pitch.startsWith('L') && rises === 1 && pitch.endsWith('L')) return 'nakadaka';
-    if (rises > 1 || drops > 1) return 'kifuku';
+    return classifyPopupPitch({
+        pitch,
+        dropAt: levels.findIndex((level, index) => index > 0 && levels[index - 1] === 'H' && level === 'L'),
+        drops: (pitch.match(/HL/g) ?? []).length,
+        rises: (pitch.match(/LH/g) ?? []).length,
+        moraCount,
+    });
+}
+
+function classifyPopupPitch(profile: { pitch: string; dropAt: number; drops: number; rises: number; moraCount: number }): string {
+    if (isPopupAtamadaka(profile)) return 'atamadaka';
+    if (isPopupOdaka(profile)) return 'odaka';
+    if (isPopupHeiban(profile)) return 'heiban';
+    if (isPopupNakadaka(profile)) return 'nakadaka';
+    if (isPopupKifuku(profile)) return 'kifuku';
     return 'odaka';
+}
+
+function isPopupAtamadaka(profile: { pitch: string; drops: number }): boolean {
+    return profile.pitch.startsWith('H') && profile.drops === 1;
+}
+
+function isPopupOdaka(profile: { pitch: string; dropAt: number; moraCount: number }): boolean {
+    return Boolean(profile.moraCount && profile.pitch.startsWith('L') && profile.dropAt === profile.moraCount);
+}
+
+function isPopupHeiban(profile: { pitch: string; rises: number }): boolean {
+    return profile.pitch.startsWith('L') && profile.rises === 1 && !profile.pitch.endsWith('L');
+}
+
+function isPopupNakadaka(profile: { pitch: string; rises: number }): boolean {
+    return profile.pitch.startsWith('L') && profile.rises === 1 && profile.pitch.endsWith('L');
+}
+
+function isPopupKifuku(profile: { rises: number; drops: number }): boolean {
+    return profile.rises > 1 || profile.drops > 1;
 }

@@ -42,42 +42,64 @@ builder.on('exit', code => {
     if (!closing) process.exit(code ?? 1);
 });
 
-const server = createServer(async (req, res) => {
+const server = createServer(handleRequest);
+
+async function handleRequest(req, res) {
     try {
         const url = new URL(req.url ?? '/', origin);
-        if (url.pathname === '/__jpdb-reader-audio-proxy'
-            || url.pathname === '/__jpdb-reader-dictionary-proxy'
-            || url.pathname === '/__jpdb-reader-immersion-proxy') {
-            await proxy(url, res);
-            return;
-        }
-        if (url.pathname === metadataPath) {
-            await serveMetadata(res);
-            return;
-        }
-        if (url.pathname === runtimePath) {
-            await serveRuntime(res);
-            return;
-        }
-        if (url.pathname === versionPath) {
-            await serveVersion(res);
-            return;
-        }
-        if (url.pathname === installPath || url.pathname === '/dist/yomu.user.js') {
-            await serveUserscript(res);
-            return;
-        }
-        if (url.pathname === '/') {
-            send(res, 200, devIndex(), 'text/html; charset=utf-8');
-            return;
-        }
-        const filePath = await resolveStatic(url.pathname);
-        send(res, 200, await readFile(filePath), contentType(filePath));
+        await routeRequest(url, res);
     } catch (error) {
-        const status = error?.code === 'ENOENT' ? 404 : 500;
-        send(res, status, status === 404 ? 'Not found' : String(error?.message || error));
+        sendRequestError(res, error);
     }
-});
+}
+
+async function routeRequest(url, res) {
+    if (isProxyPath(url.pathname)) {
+        await proxy(url, res);
+        return;
+    }
+    if (url.pathname === metadataPath) {
+        await serveMetadata(res);
+        return;
+    }
+    if (url.pathname === runtimePath) {
+        await serveRuntime(res);
+        return;
+    }
+    if (url.pathname === versionPath) {
+        await serveVersion(res);
+        return;
+    }
+    if (isUserscriptPath(url.pathname)) {
+        await serveUserscript(res);
+        return;
+    }
+    if (url.pathname === '/') {
+        send(res, 200, devIndex(), 'text/html; charset=utf-8');
+        return;
+    }
+    await serveStaticPath(url.pathname, res);
+}
+
+function isProxyPath(pathname) {
+    return pathname === '/__jpdb-reader-audio-proxy'
+        || pathname === '/__jpdb-reader-dictionary-proxy'
+        || pathname === '/__jpdb-reader-immersion-proxy';
+}
+
+function isUserscriptPath(pathname) {
+    return pathname === installPath || pathname === '/dist/yomu.user.js';
+}
+
+async function serveStaticPath(pathname, res) {
+    const filePath = await resolveStatic(pathname);
+    send(res, 200, await readFile(filePath), contentType(filePath));
+}
+
+function sendRequestError(res, error) {
+    const status = error?.code === 'ENOENT' ? 404 : 500;
+    send(res, status, status === 404 ? 'Not found' : String(error?.message || error));
+}
 
 server.on('error', error => {
     console.error(`[dev] ${error.message}`);
@@ -407,20 +429,28 @@ async function proxy(url, res) {
 
 async function resolveStatic(pathname) {
     const clean = path.normalize(decodeURIComponent(pathname)).replace(/^[/\\]+/, '');
-    const candidates = [];
-    for (const base of [publicDir, distDir]) {
-        candidates.push(path.resolve(base, clean));
-        if (pathname.endsWith('/')) candidates.push(path.resolve(base, clean, 'index.html'));
-    }
+    const candidates = staticCandidates(clean, pathname.endsWith('/'));
     for (const candidate of candidates) {
-        const base = candidate.startsWith(publicDir) ? publicDir : distDir;
-        if (candidate !== base && !candidate.startsWith(`${base}${path.sep}`)) continue;
+        if (!isStaticCandidateSafe(candidate)) continue;
         const info = await stat(candidate).catch(() => null);
         if (info?.isFile()) return candidate;
     }
     const error = new Error('Not found');
     error.code = 'ENOENT';
     throw error;
+}
+
+function staticCandidates(clean, includeIndex) {
+    return [publicDir, distDir].flatMap(base => {
+        const candidates = [path.resolve(base, clean)];
+        if (includeIndex) candidates.push(path.resolve(base, clean, 'index.html'));
+        return candidates;
+    });
+}
+
+function isStaticCandidateSafe(candidate) {
+    const base = candidate.startsWith(publicDir) ? publicDir : distDir;
+    return candidate === base || candidate.startsWith(`${base}${path.sep}`);
 }
 
 function devIndex() {
@@ -450,15 +480,18 @@ function sendNoStore(res, status, body, type = 'text/plain; charset=utf-8') {
 }
 
 function contentType(filePath) {
-    if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
-    if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
-    if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
-    if (filePath.endsWith('.svg')) return 'image/svg+xml; charset=utf-8';
-    if (filePath.endsWith('.json')) return 'application/json; charset=utf-8';
-    if (filePath.endsWith('.vtt')) return 'text/vtt; charset=utf-8';
-    if (filePath.endsWith('.png')) return 'image/png';
-    return 'application/octet-stream';
+    return CONTENT_TYPES[path.extname(filePath)] ?? 'application/octet-stream';
 }
+
+const CONTENT_TYPES = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.svg': 'image/svg+xml; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.vtt': 'text/vtt; charset=utf-8',
+    '.png': 'image/png',
+};
 
 async function findPort(start) {
     for (let candidate = start; candidate < start + 20; candidate++) {

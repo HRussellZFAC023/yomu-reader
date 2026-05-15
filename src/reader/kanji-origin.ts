@@ -158,22 +158,14 @@ export function parseKanjiMapInfo(raw: unknown, kanji: string, sourceUrl: string
     const radical = readKanjiMapRadical(kanjiAlive, jisho);
     const examples = readKanjiMapExamples(kanjiAlive, jisho);
     const references = readKanjiMapReferences(kanjiAlive, jisho);
-    const meaning = stringValue(jisho?.meaning) || stringValue(kanjiAlive?.meaning);
-    const grade = normalizeGrade(stringValue(jisho?.taughtIn) || numberValue(kanjiAlive?.grade)) ?? '';
-    const jlpt = normalizeJlpt(stringValue(jisho?.jlptLevel)) ?? '';
-    const strokeCount = numberValue(jisho?.strokeCount) ?? numberValue(kanjiAlive?.kstroke);
-    const frequencyRank = normalizeFrequency(stringValue(jisho?.newspaperFrequencyRank));
+    const metrics = readKanjiMapMetrics(kanjiAlive, jisho);
+    const readings = readKanjiMapReadings(kanjiAlive, jisho);
 
     return {
         kanji,
-        meaning,
-        grade,
-        jlpt,
-        strokeCount,
-        frequencyRank,
-        kunyomi: stringArray(jisho?.kunyomi, stringValue(kanjiAlive?.kunyomi_ja) || stringValue(kanjiAlive?.kunyomi)),
-        onyomi: stringArray(jisho?.onyomi, stringValue(kanjiAlive?.onyomi_ja) || stringValue(kanjiAlive?.onyomi)),
-        parts: stringArray(jisho?.parts).filter(part => part !== kanji && JAPANESE_RE.test(part)).slice(0, 10),
+        ...metrics,
+        ...readings,
+        parts: readKanjiMapParts(jisho, kanji),
         hint: stripHtml(stringValue(kanjiAlive?.mn_hint)),
         radical,
         examples,
@@ -182,6 +174,29 @@ export function parseKanjiMapInfo(raw: unknown, kanji: string, sourceUrl: string
         kanjiAliveUrl: `https://app.kanjialive.com/${encodeURIComponent(kanji)}`,
         jishoUrl: stringValue(jisho?.uri),
     };
+}
+
+function readKanjiMapMetrics(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): Pick<KanjiMapKanjiInfo, 'meaning' | 'grade' | 'jlpt' | 'strokeCount' | 'frequencyRank'> {
+    return {
+        meaning: stringValue(jisho?.meaning) || stringValue(kanjiAlive?.meaning),
+        grade: normalizeGrade(stringValue(jisho?.taughtIn) || numberValue(kanjiAlive?.grade)) ?? '',
+        jlpt: normalizeJlpt(stringValue(jisho?.jlptLevel)) ?? '',
+        strokeCount: numberValue(jisho?.strokeCount) ?? numberValue(kanjiAlive?.kstroke),
+        frequencyRank: normalizeFrequency(stringValue(jisho?.newspaperFrequencyRank)),
+    };
+}
+
+function readKanjiMapReadings(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): Pick<KanjiMapKanjiInfo, 'kunyomi' | 'onyomi'> {
+    return {
+        kunyomi: stringArray(jisho?.kunyomi, stringValue(kanjiAlive?.kunyomi_ja) || stringValue(kanjiAlive?.kunyomi)),
+        onyomi: stringArray(jisho?.onyomi, stringValue(kanjiAlive?.onyomi_ja) || stringValue(kanjiAlive?.onyomi)),
+    };
+}
+
+function readKanjiMapParts(jisho: Record<string, unknown> | undefined, kanji: string): string[] {
+    return stringArray(jisho?.parts)
+        .filter(part => part !== kanji && JAPANESE_RE.test(part))
+        .slice(0, 10);
 }
 
 function stripHtml(value: string): string {
@@ -216,34 +231,109 @@ export function buildKanjiFacts(
     sourceInfo: KanjiSourceInfo | null = null,
 ): KanjiFact[] {
     const facts = new Map<string, KanjiFact>();
-    const add = (label: string, value: string | undefined, source: string | undefined) => {
-        const normalized = value?.trim();
-        if (!normalized || facts.has(label)) return;
-        facts.set(label, { label, value: normalized, source: source || 'source unknown' });
-    };
+    for (const candidate of kanjiFactCandidates(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo)) {
+        addKanjiFact(facts, candidate.label, candidate.value, candidate.source);
+    }
+    if (!facts.has('Character')) addKanjiFact(facts, 'Character', kanji, 'current lookup');
+    const result = Array.from(facts.values()).filter(fact => fact.label !== 'Character').slice(0, 6);
+    log.debug('Kanji facts built', { kanji, facts: result.map(fact => fact.label) });
+    return result;
+}
 
+function kanjiFactCandidates(
+    _kanji: string,
+    jpdbInfo: JpdbKanjiInfo | null,
+    rtkInfo: RtkInfo | null,
+    kanjiVGInfo: KanjiVGInfo | null,
+    entries: YomitanKanjiEntry[],
+    sourceInfo: KanjiSourceInfo | null,
+): KanjiFact[] {
     const local = extractLocalKanjiFacts(entries);
-    const localMeaning = firstLocalMeaning(entries);
     const map = sourceInfo?.kanjiMap;
-    const meaning = firstFactCandidate([
+    return [
+        kanjiMeaningFact(map, jpdbInfo, rtkInfo, entries),
+        kanjiTypeFact(jpdbInfo, local, map),
+        kanjiJlptFact(local, map),
+        kanjiGradeFact(local, map),
+        kanjiStrokeFact(kanjiVGInfo, local, map),
+        kanjiFrequencyFact(jpdbInfo, local, map),
+        kanjiRadicalFact(map),
+    ];
+}
+
+function kanjiMeaningFact(
+    map: KanjiMapKanjiInfo | undefined,
+    jpdbInfo: JpdbKanjiInfo | null,
+    rtkInfo: RtkInfo | null,
+    entries: YomitanKanjiEntry[],
+): KanjiFact {
+    const meaning = kanjiMeaningCandidate(map, jpdbInfo, rtkInfo, entries);
+    return { label: 'Meaning', value: meaning?.value ?? '', source: meaning?.source ?? '' };
+}
+
+function kanjiTypeFact(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
+    return {
+        label: 'Type',
+        value: normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade) ?? '',
+        source: jpdbInfo?.type ? 'JPDB' : local.typeSource ?? 'Kanji Alive / Jisho',
+    };
+}
+
+function kanjiJlptFact(local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
+    return { label: 'JLPT', value: local.jlpt ?? map?.jlpt ?? '', source: local.jlptSource ?? 'Jisho' };
+}
+
+function kanjiGradeFact(local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
+    return { label: 'Grade', value: local.grade ?? map?.grade ?? '', source: local.gradeSource ?? 'Kanji Alive / Jisho' };
+}
+
+function kanjiStrokeFact(kanjiVGInfo: KanjiVGInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
+    return { label: 'Strokes', value: kanjiStrokeValue(kanjiVGInfo, local, map), source: kanjiStrokeSource(kanjiVGInfo, local) };
+}
+
+function kanjiFrequencyFact(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
+    return {
+        label: 'Frequency',
+        value: jpdbInfo?.frequency || local.frequency || map?.frequencyRank || '',
+        source: jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho',
+    };
+}
+
+function kanjiRadicalFact(map: KanjiMapKanjiInfo | undefined): KanjiFact {
+    return { label: 'Radical', value: kanjiRadicalValue(map), source: 'Kanji Alive / Jisho' };
+}
+
+function kanjiMeaningCandidate(
+    map: KanjiMapKanjiInfo | undefined,
+    jpdbInfo: JpdbKanjiInfo | null,
+    rtkInfo: RtkInfo | null,
+    entries: YomitanKanjiEntry[],
+): KanjiFactCandidate | undefined {
+    const localMeaning = firstLocalMeaning(entries);
+    return firstFactCandidate([
         { value: map?.meaning, source: 'Kanji Alive / Jisho' },
         { value: jpdbInfo?.keyword, source: 'JPDB' },
         { value: rtkInfo?.keyword, source: 'RTK' },
         ...(localMeaning ? [localMeaning] : []),
     ]);
+}
 
-    add('Meaning', meaning?.value, meaning?.source);
-    add('Type', normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade), jpdbInfo?.type ? 'JPDB' : local.typeSource ?? 'Kanji Alive / Jisho');
-    add('JLPT', local.jlpt ?? map?.jlpt, local.jlptSource ?? 'Jisho');
-    add('Grade', local.grade ?? map?.grade, local.gradeSource ?? 'Kanji Alive / Jisho');
-    add('Strokes', kanjiVGInfo?.strokeCount ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map?.strokeCount), kanjiVGInfo?.strokeCount ? 'KanjiVG' : local.strokesSource ?? 'Kanji Alive / Jisho');
-    add('Frequency', jpdbInfo?.frequency || local.frequency || map?.frequencyRank, jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho');
-    add('Radical', map?.radical ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(' ') : undefined, 'Kanji Alive / Jisho');
+function kanjiStrokeValue(kanjiVGInfo: KanjiVGInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): string {
+    return kanjiVGInfo?.strokeCount ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map?.strokeCount) ?? '';
+}
 
-    if (!facts.has('Character')) add('Character', kanji, 'current lookup');
-    const result = Array.from(facts.values()).filter(fact => fact.label !== 'Character').slice(0, 6);
-    log.debug('Kanji facts built', { kanji, facts: result.map(fact => fact.label) });
-    return result;
+function kanjiStrokeSource(kanjiVGInfo: KanjiVGInfo | null, local: LocalKanjiFacts): string {
+    return kanjiVGInfo?.strokeCount ? 'KanjiVG' : local.strokesSource ?? 'Kanji Alive / Jisho';
+}
+
+function kanjiRadicalValue(map: KanjiMapKanjiInfo | undefined): string {
+    return map?.radical ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(' ') : '';
+}
+
+function addKanjiFact(facts: Map<string, KanjiFact>, label: string, value: string | undefined, source: string | undefined): void {
+    const normalized = value?.trim();
+    if (!normalized || facts.has(label)) return;
+    facts.set(label, { label, value: normalized, source: source || 'source unknown' });
 }
 
 export function buildKanjiOriginGraph(
@@ -342,13 +432,20 @@ function kanjiVGComponentPositionMap(info: KanjiVGInfo | null): Map<string, { po
 
 function normalizeKanjiVGPosition(value: string): string {
     const normalized = value.toLowerCase().trim();
-    if (normalized === 'top' || normalized === 'tare') return 'top';
-    if (normalized === 'bottom' || normalized === 'nyo') return 'bottom';
-    if (normalized === 'left') return 'left';
-    if (normalized === 'right') return 'right';
-    if (normalized === 'inside' || normalized === 'kamae' || normalized === 'middle') return 'center';
-    return normalized;
+    return KANJIVG_POSITION_ALIASES.get(normalized) ?? normalized;
 }
+
+const KANJIVG_POSITION_ALIASES = new Map<string, string>([
+    ['top', 'top'],
+    ['tare', 'top'],
+    ['bottom', 'bottom'],
+    ['nyo', 'bottom'],
+    ['left', 'left'],
+    ['right', 'right'],
+    ['inside', 'center'],
+    ['kamae', 'center'],
+    ['middle', 'center'],
+]);
 
 interface LocalKanjiFacts {
     type?: string;
@@ -383,25 +480,39 @@ function firstLocalMeaning(entries: YomitanKanjiEntry[]): KanjiFactCandidate | u
 function readKanjiMapRadical(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): KanjiMapRadicalInfo | undefined {
     const aliveRadical = asRecord(kanjiAlive?.radical);
     const jishoRadical = asRecord(jisho?.radical);
-    const symbol = stringValue(jishoRadical?.symbol) || stringValue(kanjiAlive?.rad_utf) || stringValue(aliveRadical?.character);
-    const meaning = stringValue(asRecord(aliveRadical?.meaning)?.english) || stringValue(jishoRadical?.meaning) || stringValue(kanjiAlive?.rad_meaning);
-    const image = safeMediaUrl(stringValue(aliveRadical?.image));
-    const animation = unknownArray(aliveRadical?.animation).map(stringValue).map(safeMediaUrl).filter(Boolean).slice(0, 4);
-    if (!symbol && !meaning && !image) return undefined;
+    const basics = readKanjiMapRadicalBasics(kanjiAlive, aliveRadical, jishoRadical);
+    if (!hasKanjiMapRadical(basics)) return undefined;
 
     const position = asRecord(aliveRadical?.position);
     const name = asRecord(aliveRadical?.name);
     return {
-        symbol,
+        symbol: basics.symbol,
         forms: stringArray(jishoRadical?.forms),
         name: stringValue(name?.romaji) || stringValue(kanjiAlive?.rad_name),
         reading: stringValue(name?.hiragana) || stringValue(kanjiAlive?.rad_name_ja),
-        meaning,
+        meaning: basics.meaning,
         strokes: normalizeNumber(aliveRadical?.strokes ?? kanjiAlive?.rad_stroke) ?? '',
         position: stringValue(position?.hiragana) || stringValue(kanjiAlive?.rad_position_ja),
-        image,
-        animation,
+        image: basics.image,
+        animation: basics.animation,
     };
+}
+
+function readKanjiMapRadicalBasics(
+    kanjiAlive: Record<string, unknown> | undefined,
+    aliveRadical: Record<string, unknown> | undefined,
+    jishoRadical: Record<string, unknown> | undefined,
+): Pick<KanjiMapRadicalInfo, 'symbol' | 'meaning' | 'image' | 'animation'> {
+    return {
+        symbol: stringValue(jishoRadical?.symbol) || stringValue(kanjiAlive?.rad_utf) || stringValue(aliveRadical?.character),
+        meaning: stringValue(asRecord(aliveRadical?.meaning)?.english) || stringValue(jishoRadical?.meaning) || stringValue(kanjiAlive?.rad_meaning),
+        image: safeMediaUrl(stringValue(aliveRadical?.image)),
+        animation: unknownArray(aliveRadical?.animation).map(stringValue).map(safeMediaUrl).filter(Boolean).slice(0, 4),
+    };
+}
+
+function hasKanjiMapRadical(radical: Pick<KanjiMapRadicalInfo, 'symbol' | 'meaning' | 'image'>): boolean {
+    return Boolean(radical.symbol || radical.meaning || radical.image);
 }
 
 function readKanjiMapExamples(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): KanjiMapExample[] {
@@ -453,21 +564,37 @@ function extractLocalKanjiFacts(entries: YomitanKanjiEntry[]): LocalKanjiFacts {
 }
 
 function readTagFact(tag: string, facts: LocalKanjiFacts, source: string): void {
-    const value = tag.trim();
-    const normalized = value.toLowerCase().replace(/[＿_]/g, ' ');
-    if (!facts.type && /\b(jōyō|jouyou|joyo)\b/.test(normalized)) setFact(facts, 'type', 'Jōyō kanji', source);
-    if (!facts.type && /\b(jinmeiyō|jinmeiyou|jinmeiyo)\b/.test(normalized)) setFact(facts, 'type', 'Jinmeiyō kanji', source);
-    if (!facts.type && /\b(hyōgai|hyougai|hyogai|outside|neither)\b/.test(normalized)) setFact(facts, 'type', 'Outside jōyō/jinmeiyō', source);
+    const normalized = tag.trim().toLowerCase().replace(/[＿_]/g, ' ');
+    readTagTypeFact(normalized, facts, source);
+    readTagJlptFact(normalized, facts, source);
+    readTagGradeFact(normalized, facts, source);
+    readTagStrokeFact(normalized, facts, source);
+    readTagFrequencyFact(normalized, facts, source);
+}
 
+function readTagTypeFact(normalized: string, facts: LocalKanjiFacts, source: string): void {
+    if (facts.type) return;
+    if (/\b(jōyō|jouyou|joyo)\b/.test(normalized)) setFact(facts, 'type', 'Jōyō kanji', source);
+    else if (/\b(jinmeiyō|jinmeiyou|jinmeiyo)\b/.test(normalized)) setFact(facts, 'type', 'Jinmeiyō kanji', source);
+    else if (/\b(hyōgai|hyougai|hyogai|outside|neither)\b/.test(normalized)) setFact(facts, 'type', 'Outside jōyō/jinmeiyō', source);
+}
+
+function readTagJlptFact(normalized: string, facts: LocalKanjiFacts, source: string): void {
     const jlpt = normalized.match(/\b(?:jlpt\s*)?n?([1-5])\b/);
     if (!facts.jlpt && jlpt && /jlpt|^n[1-5]$/.test(normalized)) setFact(facts, 'jlpt', `N${jlpt[1]}`, source);
+}
 
+function readTagGradeFact(normalized: string, facts: LocalKanjiFacts, source: string): void {
     const grade = normalized.match(/\b(?:grade|gakunen|school)\s*([1-6])\b/);
     if (!facts.grade && grade) setFact(facts, 'grade', `Grade ${grade[1]}`, source);
+}
 
+function readTagStrokeFact(normalized: string, facts: LocalKanjiFacts, source: string): void {
     const strokes = normalized.match(/\b(?:strokes?|画数)\s*:?\s*(\d{1,2})\b/) ?? normalized.match(/\b(\d{1,2})\s*strokes?\b/);
     if (!facts.strokes && strokes) setFact(facts, 'strokes', strokes[1], source);
+}
 
+function readTagFrequencyFact(normalized: string, facts: LocalKanjiFacts, source: string): void {
     const frequency = normalized.match(/\b(?:freq|frequency)\s*:?\s*(\d{1,5})\b/);
     if (!facts.frequency && frequency) setFact(facts, 'frequency', `#${frequency[1]}`, source);
 }
@@ -489,16 +616,18 @@ function setFact(facts: LocalKanjiFacts, key: keyof LocalKanjiFacts, value: stri
 
 function flattenStats(stats: unknown, prefix = ''): Map<string, unknown> {
     const values = new Map<string, unknown>();
-    if (!stats || typeof stats !== 'object') return values;
+    if (!isPlainStatsRecord(stats)) return values;
     for (const [key, value] of Object.entries(stats as Record<string, unknown>)) {
         const fullKey = prefix ? `${prefix}.${key}` : key;
         values.set(key, value);
         values.set(fullKey, value);
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-            flattenStats(value, fullKey).forEach((nestedValue, nestedKey) => values.set(nestedKey, nestedValue));
-        }
+        if (isPlainStatsRecord(value)) flattenStats(value, fullKey).forEach((nestedValue, nestedKey) => values.set(nestedKey, nestedValue));
     }
     return values;
+}
+
+function isPlainStatsRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function firstValue(values: Map<string, unknown>, keys: string[]): unknown {
@@ -561,12 +690,7 @@ function wiktionaryHtml(raw: unknown): string {
 
 function sectionNodes(doc: Document, labels: string[]): Element[] {
     const normalizedLabels = labels.map(label => normalizeHeading(label));
-    const heading = Array.from(doc.querySelectorAll('h2, h3, h4'))
-        .find(element => {
-            const id = normalizeHeading(element.id);
-            const text = normalizeHeading(element.textContent ?? '');
-            return normalizedLabels.includes(id) || normalizedLabels.includes(text);
-        });
+    const heading = findSectionHeading(doc, normalizedLabels);
     if (!heading) return [];
 
     const level = Number(heading.tagName.slice(1)) || 6;
@@ -574,15 +698,37 @@ function sectionNodes(doc: Document, labels: string[]): Element[] {
     const nodes: Element[] = [];
     let next = wrapper.nextElementSibling;
     while (next) {
-        const nextHeading = next.classList.contains('mw-heading')
-            ? next.querySelector('h2, h3, h4')
-            : next.matches('h2, h3, h4') ? next : null;
-        const nextLevel = nextHeading ? Number(nextHeading.tagName.slice(1)) || 6 : 99;
-        if (nextHeading && nextLevel <= level) break;
+        if (startsNextSection(next, level)) break;
         nodes.push(next);
         next = next.nextElementSibling;
     }
     return nodes;
+}
+
+function startsNextSection(element: Element, currentLevel: number): boolean {
+    const heading = sectionSiblingHeading(element);
+    return Boolean(heading && headingLevel(heading) <= currentLevel);
+}
+
+function sectionSiblingHeading(element: Element): Element | null {
+    return element.classList.contains('mw-heading')
+        ? element.querySelector('h2, h3, h4')
+        : element.matches('h2, h3, h4') ? element : null;
+}
+
+function headingLevel(element: Element): number {
+    return Number(element.tagName.slice(1)) || 6;
+}
+
+function findSectionHeading(doc: Document, normalizedLabels: string[]): Element | undefined {
+    return Array.from(doc.querySelectorAll('h2, h3, h4'))
+        .find(element => headingMatchesLabels(element, normalizedLabels));
+}
+
+function headingMatchesLabels(element: Element, normalizedLabels: string[]): boolean {
+    const id = normalizeHeading(element.id);
+    const text = normalizeHeading(element.textContent ?? '');
+    return normalizedLabels.includes(id) || normalizedLabels.includes(text);
 }
 
 function extractSectionText(nodes: Element[], limit: number): string[] {

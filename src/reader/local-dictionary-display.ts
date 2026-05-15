@@ -40,9 +40,12 @@ export function hasRichStructuredGlossary(value: unknown): boolean {
     if (!value || typeof value !== 'object') return false;
     if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
     const record = value as Record<string, unknown>;
+    return isRichStructuredGlossaryRecord(record) || hasRichStructuredGlossary(record.content);
+}
+
+function isRichStructuredGlossaryRecord(record: Record<string, unknown>): boolean {
     const tag = typeof record.tag === 'string' ? record.tag.toLowerCase() : '';
-    if (record.type === 'image' || 'path' in record || tag === 'img' || tag === 'table') return true;
-    return hasRichStructuredGlossary(record.content);
+    return record.type === 'image' || 'path' in record || tag === 'img' || tag === 'table';
 }
 
 export function pillStyle(key: string): string {
@@ -71,10 +74,14 @@ export function dictionaryPreferencePriority(settings: ReaderSettings, dictionar
 
 function metaFrequencyRank(value: unknown): number {
     if (typeof value === 'number') return value;
-    if (typeof value === 'string') return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+    if (typeof value === 'string') return numericFrequencyRank(value);
     if (!value || typeof value !== 'object') return Number.POSITIVE_INFINITY;
     const record = value as Record<string, unknown>;
     return metaFrequencyRank(record.frequency ?? record.value ?? record.displayValue);
+}
+
+function numericFrequencyRank(value: string): number {
+    return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
 }
 
 export function normalizeFrequencyChipValue(label: string, value: string): string {

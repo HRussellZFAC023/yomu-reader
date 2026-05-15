@@ -13,6 +13,15 @@ import {
 
 const ANKI_VERSION = 6;
 const log = Logger.scope('Anki');
+const ANKI_EASE_BY_GRADE: Record<JPDBGrade, number> = {
+    nothing: 1,
+    fail: 1,
+    something: 2,
+    hard: 2,
+    okay: 3,
+    pass: 3,
+    easy: 4,
+};
 export const YOMU_MODEL_FIELDS = [
     'Expression',
     'Reading',
@@ -103,6 +112,15 @@ export interface AnkiCardContext {
     sourceTitle?: string;
 }
 
+interface AnkiFieldContext {
+    localEntries: YomitanTermEntry[];
+    kanjiEntries: YomitanKanjiEntry[];
+    metaEntries: YomitanMetaEntry[];
+    dictionaryPreferences: DictionaryPreference[];
+    sourceUrl: string;
+    sourceTitle: string;
+}
+
 export class AnkiConnectClient {
     private lookupCache = new Map<string, { at: number; result: AnkiLookupResult }>();
     private unavailableUntil = 0;
@@ -138,12 +156,7 @@ export class AnkiConnectClient {
 
         try {
             const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });
-            const query = [
-                settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : '',
-                settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : '',
-                '-is:suspended',
-                '(is:due OR is:new OR is:learn)',
-            ].filter(Boolean).join(' ');
+            const query = newTabAnkiQuery(settings);
             const foundCardIds = await this.invoke<number[]>('findCards', { query });
             const sampledCardIds = sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
             if (!sampledCardIds.length) {
@@ -152,32 +165,16 @@ export class AnkiConnectClient {
                 return [];
             }
 
-            const dueFlags = await this.invoke<boolean[]>('areDue', { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
-            const cards = await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: sampledCardIds }).catch((): AnkiCardInfo[] => []);
-            const dueCards = cards.filter((cardInfo, index) => {
-                if (cardInfo.queue === -1) return false;
-                if (cardInfo.queue === 0 || cardInfo.type === 0) return true;
-                if (cardInfo.queue === 1 || cardInfo.type === 1) return true;
-                if (cardInfo.queue === 3 || cardInfo.type === 3) return true;
-                return Boolean(dueFlags[index]);
-            });
+            const dueCards = await this.loadDueNewTabCards(sampledCardIds);
             if (!dueCards.length) {
                 done();
-                log.debug('Anki cards found but none are reviewable for new tab', { query, cards: cards.length });
+                log.debug('Anki cards found but none are reviewable for new tab', { query, cards: sampledCardIds.length });
                 return [];
             }
 
             const noteIds = unique(dueCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
             const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: noteIds });
-            const cardsByNote = new Map<number, AnkiCardInfo[]>();
-            for (const cardInfo of dueCards) {
-                const noteId = Number(cardInfo.note);
-                if (!Number.isFinite(noteId)) continue;
-                const list = cardsByNote.get(noteId) ?? [];
-                list.push(cardInfo);
-                cardsByNote.set(noteId, list);
-            }
-
+            const cardsByNote = cardsByNoteId(dueCards);
             const result = notes
                 .map(note => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? []))
                 .filter((card): card is JPDBCard => card !== null)
@@ -192,80 +189,47 @@ export class AnkiConnectClient {
         }
     }
 
+    private async loadDueNewTabCards(sampledCardIds: number[]): Promise<AnkiCardInfo[]> {
+        const dueFlags = await this.invoke<boolean[]>('areDue', { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
+        const cards = await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: sampledCardIds }).catch((): AnkiCardInfo[] => []);
+        return cards.filter((cardInfo, index) => isReviewableAnkiCard(cardInfo, dueFlags[index]));
+    }
+
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
-        const empty: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const empty = emptyAnkiLookupResult();
         if (Date.now() < this.unavailableUntil) {
             log.debug('Anki lookup skipped during cooldown', { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
             return empty;
         }
 
         const cacheKey = `${card.spelling}|${card.reading}`;
-        const cached = this.lookupCache.get(cacheKey);
-        if (cached && Date.now() - cached.at < 45000) {
-            log.debug('Anki lookup cache hit', { term: card.spelling, state: cached.result.state });
-            return cached.result;
-        }
+        const cached = this.readLookupCache(cacheKey, card);
+        if (cached) return cached;
 
         try {
             const done = log.time('findExistingCards', { term: card.spelling });
-            const queryTerms = unique([card.spelling, card.reading].filter(Boolean));
-            const noteIds = new Set<number>();
-            for (const term of queryTerms) {
-                const ids = await this.invoke<number[]>('findNotes', { query: quoteAnkiSearch(term) }).catch((): number[] => []);
-                ids.forEach(id => noteIds.add(id));
-            }
+            const noteIds = await this.findCandidateNoteIds(card);
             if (!noteIds.size) {
-                this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
+                this.writeLookupCache(cacheKey, empty);
                 log.debug('No Anki notes found', { term: card.spelling });
                 done();
                 return empty;
             }
 
-            const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [...noteIds] });
-            const matchingNotes = notes.filter(note => noteLooksLikeCard(note, card));
-            if (!matchingNotes.length) {
-                this.lookupCache.set(cacheKey, { at: Date.now(), result: empty });
-                log.debug('Anki notes found but none matched Yomu card', { term: card.spelling, candidateNotes: notes.length });
+            const { existing, candidateNotes } = await this.loadExistingNotes(card, noteIds);
+            if (!existing.length) {
+                this.writeLookupCache(cacheKey, empty);
+                log.debug('Anki notes found but none matched Yomu card', { term: card.spelling, candidateNotes });
                 done();
                 return empty;
             }
 
-            const cardIds = unique(matchingNotes.flatMap(note => note.cards ?? []));
-            const cards = cardIds.length
-                ? await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }).catch((): AnkiCardInfo[] => [])
-                : [];
-            const cardsByNote = new Map<number, AnkiCardInfo[]>();
-            for (const cardInfo of cards) {
-                const noteId = Number(cardInfo.note);
-                if (!Number.isFinite(noteId)) continue;
-                const list = cardsByNote.get(noteId) ?? [];
-                list.push(cardInfo);
-                cardsByNote.set(noteId, list);
-            }
-
-            const existing = matchingNotes.map(note => {
-                const noteCards = cardsByNote.get(note.noteId) ?? [];
-                const fields = flattenNoteFields(note.fields);
-                const state = stateFromAnkiCards(noteCards);
-                return {
-                    noteId: note.noteId,
-                    modelName: note.modelName,
-                    deckNames: unique(noteCards.map(item => item.deckName).filter(Boolean)),
-                    cardIds: note.cards ?? [],
-                    primaryCardId: pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null,
-                    state,
-                    fields,
-                    tags: note.tags ?? [],
-                    reps: noteCards.reduce((sum, item) => sum + Number(item.reps || 0), 0),
-                    lapses: noteCards.reduce((sum, item) => sum + Number(item.lapses || 0), 0),
-                } satisfies AnkiExistingNote;
-            });
             const result: AnkiLookupResult = {
                 state: stateFromExistingNotes(existing),
                 notes: existing,
                 primary: pickPrimaryExistingNote(existing),
             };
-            this.lookupCache.set(cacheKey, { at: Date.now(), result });
+            this.writeLookupCache(cacheKey, result);
             log.debug('Anki lookup completed', { term: card.spelling, notes: existing.length, state: result.state });
             done();
             return result;
@@ -274,6 +238,44 @@ export class AnkiConnectClient {
             this.unavailableUntil = Date.now() + 30000;
             return empty;
         }
+    }
+
+    private readLookupCache(cacheKey: string, card: JPDBCard): AnkiLookupResult | null {
+        const cached = this.lookupCache.get(cacheKey);
+        if (!cached || Date.now() - cached.at >= 45000) return null;
+        log.debug('Anki lookup cache hit', { term: card.spelling, state: cached.result.state });
+        return cached.result;
+    }
+
+    private writeLookupCache(cacheKey: string, result: AnkiLookupResult): void {
+        this.lookupCache.set(cacheKey, { at: Date.now(), result });
+    }
+
+    private async findCandidateNoteIds(card: JPDBCard): Promise<Set<number>> {
+        const noteIds = new Set<number>();
+        for (const term of unique([card.spelling, card.reading].filter(Boolean))) {
+            const ids = await this.invoke<number[]>('findNotes', { query: quoteAnkiSearch(term) }).catch((): number[] => []);
+            ids.forEach(id => noteIds.add(id));
+        }
+        return noteIds;
+    }
+
+    private async loadExistingNotes(card: JPDBCard, noteIds: Set<number>): Promise<{ existing: AnkiExistingNote[]; candidateNotes: number }> {
+        const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [...noteIds] });
+        const matchingNotes = notes.filter(note => noteLooksLikeCard(note, card));
+        const cardsByNote = await this.loadCardsByNote(matchingNotes);
+        return {
+            existing: matchingNotes.map(note => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? [])),
+            candidateNotes: notes.length,
+        };
+    }
+
+    private async loadCardsByNote(notes: AnkiNoteInfo[]): Promise<Map<number, AnkiCardInfo[]>> {
+        const cardIds = unique(notes.flatMap(note => note.cards ?? []));
+        const cards = cardIds.length
+            ? await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }).catch((): AnkiCardInfo[] => [])
+            : [];
+        return cardsByNoteId(cards);
     }
 
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
@@ -293,52 +295,79 @@ export class AnkiConnectClient {
             log.debug('Anki add skipped because Anki is disabled', { term: card.spelling });
             return null;
         }
-        const deckName = options.deckName?.trim() || settings.ankiDeck || 'よむ';
+        const note = this.buildAnkiNote(card, sentence, settings, options);
+        this.logAnkiNoteAdd(card, note);
+        if (this.openMobileHandoffIfPreferred(settings, note, card)) return null;
+
+        try {
+            return await this.addNoteViaConnect(note, card);
+        } catch (error) {
+            return this.addCardWithFallback(error, settings, note, card);
+        }
+    }
+
+    private buildAnkiNote(card: JPDBCard, sentence: string, settings: ReaderSettings, options: AnkiCardContext): AnkiNote {
         const note: AnkiNote = {
-            deckName,
+            deckName: this.ankiDeckName(options, settings),
             modelName: settings.ankiModel || 'よむ Japanese',
-            fields: buildYomuAnkiFields(card, sentence, {
-                ...options,
-                sourceUrl: options.sourceUrl ?? safeLocationHref(),
-                sourceTitle: options.sourceTitle ?? safeDocumentTitle(),
-                dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences,
-            }),
+            fields: buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings)),
             tags: tagsFromString(settings.ankiTags),
             options: {
                 allowDuplicate: false,
                 duplicateScope: 'collection',
             },
         };
+        this.attachAnkiNoteImage(note, options.imageDataUrl, card);
+        return note;
+    }
 
-        const image = options.imageDataUrl ? imageFromDataUrl(options.imageDataUrl, card) : null;
+    private ankiDeckName(options: AnkiCardContext, settings: ReaderSettings): string {
+        return options.deckName?.trim() || settings.ankiDeck || 'よむ';
+    }
+
+    private ankiFieldContext(options: AnkiCardContext, settings: ReaderSettings): AnkiCardContext {
+        return {
+            ...options,
+            sourceUrl: options.sourceUrl ?? safeLocationHref(),
+            sourceTitle: options.sourceTitle ?? safeDocumentTitle(),
+            dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences,
+        };
+    }
+
+    private attachAnkiNoteImage(note: AnkiNote, imageDataUrl: string | undefined, card: JPDBCard): void {
+        const image = imageDataUrl ? imageFromDataUrl(imageDataUrl, card) : null;
         if (image) note.picture = [image];
+    }
+
+    private logAnkiNoteAdd(card: JPDBCard, note: AnkiNote): void {
         log.info('Adding Anki note', {
             term: card.spelling,
             deck: note.deckName,
             model: note.modelName,
-            hasImage: Boolean(image),
+            hasImage: Boolean(note.picture?.length),
             tags: note.tags,
         });
+    }
 
-        if (settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment()) {
-            log.info('Opening mobile Anki handoff', { term: card.spelling });
-            if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
-            return null;
-        }
+    private openMobileHandoffIfPreferred(settings: ReaderSettings, note: AnkiNote, card: JPDBCard): boolean {
+        if (!settings.ankiMobileHandoff || !isMobileAnkiHandoffEnvironment()) return false;
+        log.info('Opening mobile Anki handoff', { term: card.spelling });
+        if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
+        return true;
+    }
 
-        try {
-            await this.ensureDeckAndModel(deckName);
-            const noteId = await this.invoke<number | null>('addNote', { note });
-            log.info('Anki note added', { term: card.spelling, noteId });
-            return noteId;
-        } catch (error) {
-            if (settings.ankiMobileHandoff && isMobileUserAgent()) {
-                log.warn('AnkiConnect add failed; trying mobile handoff', { term: card.spelling }, error);
-                if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
-                return null;
-            }
-            throw error;
-        }
+    private async addNoteViaConnect(note: AnkiNote, card: JPDBCard): Promise<number | null> {
+        await this.ensureDeckAndModel(note.deckName);
+        const noteId = await this.invoke<number | null>('addNote', { note });
+        log.info('Anki note added', { term: card.spelling, noteId });
+        return noteId;
+    }
+
+    private addCardWithFallback(error: unknown, settings: ReaderSettings, note: AnkiNote, card: JPDBCard): null {
+        if (!settings.ankiMobileHandoff || !isMobileUserAgent()) throw error;
+        log.warn('AnkiConnect add failed; trying mobile handoff', { term: card.spelling }, error);
+        if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
+        return null;
     }
 
     async ensureDeckAndModel(deckOverride?: string): Promise<void> {
@@ -468,30 +497,55 @@ function canFetchAnkiConnect(url: string): boolean {
 }
 
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {
-    const dictionaryPreferences = context.dictionaryPreferences ?? [];
-    const jpdbUrl = card.source === 'local' || card.source === 'anki' ? '' : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
-    const sourceUrl = context.sourceUrl ?? '';
-    const sourceTitle = context.sourceTitle ?? '';
+    const fieldContext = ankiFieldContext(context);
+    const jpdbUrl = jpdbVocabularyUrl(card);
     return {
         Expression: escapeHtml(card.spelling),
         Reading: card.reading && card.reading !== card.spelling ? escapeHtml(card.reading) : '',
         Meaning: renderJpdbMeanings(card),
         Sentence: renderSentence(sentence, card.spelling),
-        Url: escapeHtml(sourceUrl),
-        Frequency: renderFrequency(card, context.metaEntries ?? [], dictionaryPreferences),
+        Url: escapeHtml(fieldContext.sourceUrl),
+        Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
         PartOfSpeech: escapeHtml(formatPartOfSpeech(card.partOfSpeech) || formatPartOfSpeechDetails(card.partOfSpeech)),
         Image: '',
         JPDB: jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : '',
-        Status: card.source === 'local'
-            ? '<span class="yomu-chip">local dictionary</span>'
-            : card.source === 'anki'
-                ? '<span class="yomu-chip">Anki</span>'
-                : card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' '),
-        Pitch: renderPitchField(card, context.metaEntries ?? [], dictionaryPreferences),
-        DictionaryDefinitions: renderDictionaryDefinitions(context.localEntries ?? [], dictionaryPreferences),
-        Kanji: renderKanjiDefinitions(context.kanjiEntries ?? [], dictionaryPreferences),
-        Source: renderSource(sourceUrl, sourceTitle),
+        Status: renderCardStatus(card),
+        Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
+        DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
+        Kanji: renderKanjiDefinitions(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences),
+        Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle),
     };
+}
+
+function ankiFieldContext(context: AnkiCardContext): AnkiFieldContext {
+    return {
+        localEntries: fallbackArray(context.localEntries),
+        kanjiEntries: fallbackArray(context.kanjiEntries),
+        metaEntries: fallbackArray(context.metaEntries),
+        dictionaryPreferences: fallbackArray(context.dictionaryPreferences),
+        sourceUrl: fallbackString(context.sourceUrl),
+        sourceTitle: fallbackString(context.sourceTitle),
+    };
+}
+
+function fallbackArray<T>(value: T[] | undefined): T[] {
+    return value ?? [];
+}
+
+function fallbackString(value: string | undefined): string {
+    return value ?? '';
+}
+
+function jpdbVocabularyUrl(card: JPDBCard): string {
+    return card.source === 'local' || card.source === 'anki'
+        ? ''
+        : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
+}
+
+function renderCardStatus(card: JPDBCard): string {
+    if (card.source === 'local') return '<span class="yomu-chip">local dictionary</span>';
+    if (card.source === 'anki') return '<span class="yomu-chip">Anki</span>';
+    return card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' ');
 }
 
 function tagsFromString(value: string): string[] {
@@ -523,13 +577,24 @@ function isMobileAnkiHandoffEnvironment(): boolean {
 }
 
 function openMobileAnkiHandoff(note: AnkiNote): boolean {
-    const url = /Android/i.test(typeof navigator === 'undefined' ? '' : navigator.userAgent)
-        ? androidAnkiDroidIntentUrl(note)
-        : iosAnkiMobileUrl(note);
-    const appName = /Android/i.test(typeof navigator === 'undefined' ? '' : navigator.userAgent) ? 'AnkiDroid' : 'AnkiMobile';
-    if (!window.confirm(`Open ${appName} to add "${stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || 'this note')}"?`)) return false;
-    location.href = url;
+    const handoff = mobileAnkiHandoffTarget(note);
+    if (!window.confirm(mobileAnkiHandoffPrompt(note, handoff.appName))) return false;
+    location.href = handoff.url;
     return true;
+}
+
+function mobileAnkiHandoffTarget(note: AnkiNote): { appName: string; url: string } {
+    if (isAndroidUserAgent()) return { appName: 'AnkiDroid', url: androidAnkiDroidIntentUrl(note) };
+    return { appName: 'AnkiMobile', url: iosAnkiMobileUrl(note) };
+}
+
+function isAndroidUserAgent(): boolean {
+    return /Android/i.test(typeof navigator === 'undefined' ? '' : navigator.userAgent);
+}
+
+function mobileAnkiHandoffPrompt(note: AnkiNote, appName: string): string {
+    const title = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || 'this note');
+    return `Open ${appName} to add "${title}"?`;
 }
 
 function iosAnkiMobileUrl(note: AnkiNote): string {
@@ -600,37 +665,119 @@ function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, strin
     return out;
 }
 
+function emptyAnkiLookupResult(): AnkiLookupResult {
+    return { state: 'not-in-deck', notes: [], primary: null };
+}
+
+function newTabAnkiQuery(settings: ReaderSettings): string {
+    return [
+        settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : '',
+        settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : '',
+        '-is:suspended',
+        '(is:due OR is:new OR is:learn)',
+    ].filter(Boolean).join(' ');
+}
+
+function isReviewableAnkiCard(cardInfo: AnkiCardInfo, dueFlag: boolean | undefined): boolean {
+    if (cardInfo.queue === -1) return false;
+    if (isReviewableAnkiQueueOrType(cardInfo.queue, cardInfo.type)) return true;
+    return Boolean(dueFlag);
+}
+
+function isReviewableAnkiQueueOrType(queue: number, type: number): boolean {
+    return [0, 1, 3].includes(queue) || [0, 1, 3].includes(type);
+}
+
+function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]> {
+    const cardsByNote = new Map<number, AnkiCardInfo[]>();
+    for (const cardInfo of cards) addCardInfoByNoteId(cardsByNote, cardInfo);
+    return cardsByNote;
+}
+
+function addCardInfoByNoteId(cardsByNote: Map<number, AnkiCardInfo[]>, cardInfo: AnkiCardInfo): void {
+    const noteId = Number(cardInfo.note);
+    if (!Number.isFinite(noteId)) return;
+    const list = cardsByNote.get(noteId) ?? [];
+    list.push(cardInfo);
+    cardsByNote.set(noteId, list);
+}
+
+function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): AnkiExistingNote {
+    const state = stateFromAnkiCards(noteCards);
+    return {
+        noteId: note.noteId,
+        modelName: note.modelName,
+        deckNames: unique(noteCards.map(item => item.deckName).filter(Boolean)),
+        cardIds: note.cards ?? [],
+        primaryCardId: pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null,
+        state,
+        fields: flattenNoteFields(note.fields),
+        tags: note.tags ?? [],
+        reps: sumAnkiCardMetric(noteCards, 'reps'),
+        lapses: sumAnkiCardMetric(noteCards, 'lapses'),
+    };
+}
+
+function sumAnkiCardMetric(cards: AnkiCardInfo[], metric: 'reps' | 'lapses'): number {
+    return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
+}
+
 function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | null {
-    const fields = flattenNoteFields(note.fields);
-    const spelling = firstField(fields, ['Expression', 'Word', 'Vocab', 'Vocabulary', 'Term', 'Front', 'Expression Reading'])
-        || firstJapaneseValue(fields);
-    if (!spelling) return null;
-    const reading = firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling;
-    const meaning = firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '';
-    const partOfSpeech = firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']);
-    const sentence = firstField(fields, ['Sentence', 'Example', 'Context', 'ExpressionSentence', 'SentenceAudio']) || '';
+    const fields = ankiNoteCardFields(note);
+    if (!fields) return null;
     const state = stateFromAnkiCards(cards);
     const primary = pickPrimaryCard(cards);
+    const primaryCardId = primary?.cardId ?? note.cards?.[0];
     return {
         vid: -stableAnkiId(String(note.noteId)),
-        sid: -stableAnkiId(`${note.noteId}:${spelling}`),
-        rid: primary?.cardId ?? note.cards?.[0] ?? 0,
-        spelling,
-        reading,
+        sid: -stableAnkiId(`${note.noteId}:${fields.spelling}`),
+        rid: primaryCardId ?? 0,
+        spelling: fields.spelling,
+        reading: fields.reading,
         frequencyRank: null,
-        partOfSpeech: partOfSpeech ? [partOfSpeech] : [],
-        meanings: [{
-            glosses: meaningToGlosses(meaning),
-            partOfSpeech: partOfSpeech ? [partOfSpeech] : [],
-        }],
+        partOfSpeech: ankiPartOfSpeechList(fields.partOfSpeech),
+        meanings: [ankiCardMeaning(fields)],
         cardState: [state],
         pitchAccent: [],
         wordWithReading: null,
         source: 'anki',
-        sentence,
+        sentence: fields.sentence,
         reviewSource: 'anki',
-        ankiCardId: primary?.cardId ?? note.cards?.[0] ?? undefined,
+        ankiCardId: primaryCardId ?? undefined,
     };
+}
+
+interface AnkiNoteCardFields {
+    spelling: string;
+    reading: string;
+    meaning: string;
+    partOfSpeech: string;
+    sentence: string;
+}
+
+function ankiNoteCardFields(note: AnkiNoteInfo): AnkiNoteCardFields | null {
+    const fields = flattenNoteFields(note.fields);
+    const spelling = firstField(fields, ['Expression', 'Word', 'Vocab', 'Vocabulary', 'Term', 'Front', 'Expression Reading'])
+        || firstJapaneseValue(fields);
+    if (!spelling) return null;
+    return {
+        spelling,
+        reading: firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling,
+        meaning: firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '',
+        partOfSpeech: firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']),
+        sentence: firstField(fields, ['Sentence', 'Example', 'Context', 'ExpressionSentence', 'SentenceAudio']) || '',
+    };
+}
+
+function ankiCardMeaning(fields: AnkiNoteCardFields): JPDBCard['meanings'][number] {
+    return {
+        glosses: meaningToGlosses(fields.meaning),
+        partOfSpeech: ankiPartOfSpeechList(fields.partOfSpeech),
+    };
+}
+
+function ankiPartOfSpeechList(value: string): string[] {
+    return value ? [value] : [];
 }
 
 function firstField(fields: Record<string, string>, names: string[]): string {
@@ -668,11 +815,35 @@ function stableAnkiId(value: string): number {
 
 function noteLooksLikeCard(note: AnkiNoteInfo, card: JPDBCard): boolean {
     const fields = flattenNoteFields(note.fields);
-    const values = Object.values(fields).map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean);
-    const exactTargets = unique([card.spelling, card.reading].filter(Boolean));
-    if (exactTargets.some(target => values.some(value => value === target))) return true;
-    const expression = fields.Expression || fields.Front || fields.Word || fields.Vocab || fields.Term || fields['Expression Reading'];
-    if (expression && exactTargets.some(target => expression.includes(target))) return true;
+    const exactTargets = noteCardExactTargets(card);
+    return noteHasExactTarget(fields, exactTargets)
+        || noteExpressionContainsTarget(fields, exactTargets)
+        || noteReadingContainsTarget(fields, card);
+}
+
+function noteCardExactTargets(card: JPDBCard): string[] {
+    return unique([card.spelling, card.reading].filter(Boolean));
+}
+
+function noteFieldValues(fields: Record<string, string>): string[] {
+    return Object.values(fields).map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+function noteHasExactTarget(fields: Record<string, string>, exactTargets: string[]): boolean {
+    const values = noteFieldValues(fields);
+    return exactTargets.some(target => values.some(value => value === target));
+}
+
+function noteExpressionContainsTarget(fields: Record<string, string>, exactTargets: string[]): boolean {
+    const expression = firstNoteField(fields, ['Expression', 'Front', 'Word', 'Vocab', 'Term', 'Expression Reading']);
+    return Boolean(expression && exactTargets.some(target => expression.includes(target)));
+}
+
+function firstNoteField(fields: Record<string, string>, names: string[]): string {
+    return names.map(name => fields[name]).find(Boolean) ?? '';
+}
+
+function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCard): boolean {
     const reading = fields.Reading || fields.Kana || fields.Yomi;
     return Boolean(reading && card.reading && reading.includes(card.reading));
 }
@@ -692,13 +863,16 @@ function stripHtml(value: string): string {
 
 function stateFromAnkiCards(cards: AnkiCardInfo[]): CardState {
     if (!cards.length) return 'known';
-    if (cards.some(card => card.queue === -1)) return 'suspended';
-    if (cards.some(card => card.type === 3 || card.queue === 3)) return 'failed';
-    if (cards.some(card => card.queue === 1 || card.type === 1)) return 'learning';
-    if (cards.some(card => card.queue === 0 || card.type === 0)) return 'new';
-    if (cards.some(card => card.queue === 2 && Number(card.due ?? 0) <= 0)) return 'due';
-    return 'known';
+    return ANKI_CARD_STATE_RULES.find(rule => cards.some(rule.matches))?.state ?? 'known';
 }
+
+const ANKI_CARD_STATE_RULES: Array<{ state: CardState; matches: (card: AnkiCardInfo) => boolean }> = [
+    { state: 'suspended', matches: card => card.queue === -1 },
+    { state: 'failed', matches: card => card.type === 3 || card.queue === 3 },
+    { state: 'learning', matches: card => card.queue === 1 || card.type === 1 },
+    { state: 'new', matches: card => card.queue === 0 || card.type === 0 },
+    { state: 'due', matches: card => card.queue === 2 && Number(card.due ?? 0) <= 0 },
+];
 
 function stateFromExistingNotes(notes: AnkiExistingNote[]): CardState {
     const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended'];
@@ -729,21 +903,7 @@ function pickPrimaryExistingNote(notes: AnkiExistingNote[]): AnkiExistingNote | 
 }
 
 function ankiEaseFromGrade(grade: JPDBGrade): number {
-    switch (grade) {
-        case 'nothing':
-        case 'fail':
-            return 1;
-        case 'something':
-        case 'hard':
-            return 2;
-        case 'okay':
-        case 'pass':
-            return 3;
-        case 'easy':
-            return 4;
-        default:
-            return 3;
-    }
+    return ANKI_EASE_BY_GRADE[grade] ?? 3;
 }
 
 function yomuCardTemplates(mode: ReaderSettings['ankiTemplateMode'] = 'recognition'): Record<string, { Front: string; Back: string }> {
@@ -979,27 +1139,38 @@ function safeGlossaryHtml(value: unknown, dictionary: string): string {
 }
 
 function formatMetaFrequency(value: unknown): string {
-    if (typeof value === 'number' || typeof value === 'string') return `#${value}`;
-    if (!value || typeof value !== 'object') return '';
-    const record = value as Record<string, unknown>;
-    const display = scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
+    const display = metaFrequencyDisplayValue(value);
     return display == null ? '' : `#${display}`;
+}
+
+function metaFrequencyDisplayValue(value: unknown): string | null {
+    if (typeof value === 'number' || typeof value === 'string') return String(value);
+    return scalarMetaValue(nestedMetaScalarValue(value));
 }
 
 function scalarMetaValue(value: unknown): string | null {
     if (typeof value === 'number' || typeof value === 'string') return String(value);
-    if (!value || typeof value !== 'object') return null;
+    return scalarMetaValue(nestedMetaScalarValue(value));
+}
+
+function nestedMetaScalarValue(value: unknown): unknown {
+    if (!value || typeof value !== 'object') return undefined;
     const record = value as Record<string, unknown>;
-    return scalarMetaValue(record.displayValue ?? record.frequency ?? record.value);
+    return record.displayValue ?? record.frequency ?? record.value;
 }
 
 function formatMetaPitch(value: unknown): string {
     if (!value || typeof value !== 'object') return '';
     const record = value as Record<string, unknown>;
-    const positions = Array.isArray(record.pitches) ? record.pitches : Array.isArray(record.positions) ? record.positions : [];
+    const positions = metaPitchPositions(record);
     if (positions.length) return positions.slice(0, 4).map(String).join(', ');
     if (typeof record.position === 'number') return String(record.position);
     return '';
+}
+
+function metaPitchPositions(record: Record<string, unknown>): unknown[] {
+    if (Array.isArray(record.pitches)) return record.pitches;
+    return Array.isArray(record.positions) ? record.positions : [];
 }
 
 function safeLocationHref(): string {

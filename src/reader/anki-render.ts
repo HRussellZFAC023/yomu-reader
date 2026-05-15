@@ -19,27 +19,43 @@ export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: Read
 export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedContext: StoredMiningContext | null): string {
     const note = ankiLookup.primary;
     if (!note) return '';
-    const decks = note.deckNames.length ? note.deckNames.join(', ') : 'Anki';
-    const sentence = note.fields.Sentence || note.fields.Example || note.fields.SentenceExpression || '';
-    const meaning = note.fields.Meaning || note.fields.Definition || note.fields.Glossary || '';
-    const source = note.fields.Source || note.fields.Url || '';
-    const lastContext = storedContext
-        ? `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml(contextLabel(storedContext))}</span><small>${escapeHtml(storedContext.sentence)}</small></div>`
-        : '';
+    const preview = ankiExistingPreview(note, storedContext);
     return `
         <details class="jpdb-reader-anki-existing">
             <summary>
                 <span><span class="jpdb-reader-state-dot jpdb-${note.state}"></span>Already in Anki</span>
-                <small>${escapeHtml(decks)} · ${escapeHtml(note.modelName)}</small>
+                <small>${escapeHtml(preview.decks)} · ${escapeHtml(note.modelName)}</small>
             </summary>
             <div class="jpdb-reader-anki-card-preview">
-                ${sentence ? `<div><strong>Sentence</strong><span>${escapeHtml(sentence)}</span></div>` : ''}
-                ${meaning ? `<div><strong>Meaning</strong><span>${escapeHtml(meaning.slice(0, 420))}</span></div>` : ''}
-                ${source ? `<div><strong>Source</strong><span>${escapeHtml(source)}</span></div>` : ''}
-                ${lastContext}
+                ${previewField('Sentence', preview.sentence)}
+                ${previewField('Meaning', preview.meaning.slice(0, 420))}
+                ${previewField('Source', preview.source)}
+                ${preview.context}
             </div>
         </details>
     `;
+}
+
+function ankiExistingPreview(note: AnkiExistingNote, storedContext: StoredMiningContext | null): { decks: string; sentence: string; meaning: string; source: string; context: string } {
+    return {
+        decks: note.deckNames.length ? note.deckNames.join(', ') : 'Anki',
+        sentence: firstAnkiPreviewField(note, ['Sentence', 'Example', 'SentenceExpression']),
+        meaning: firstAnkiPreviewField(note, ['Meaning', 'Definition', 'Glossary']),
+        source: firstAnkiPreviewField(note, ['Source', 'Url']),
+        context: storedContext ? renderLastMiningContext(storedContext) : '',
+    };
+}
+
+function firstAnkiPreviewField(note: AnkiExistingNote, fields: string[]): string {
+    return fields.map(field => note.fields[field]).find(Boolean) ?? '';
+}
+
+function previewField(label: string, value: string): string {
+    return value ? `<div><strong>${label}</strong><span>${escapeHtml(value)}</span></div>` : '';
+}
+
+function renderLastMiningContext(context: StoredMiningContext): string {
+    return `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml(contextLabel(context))}</span><small>${escapeHtml(context.sentence)}</small></div>`;
 }
 
 export function renderReviewButtons(

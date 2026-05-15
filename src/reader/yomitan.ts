@@ -37,6 +37,15 @@ const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
 
+interface TermMatchCandidatePosition {
+    start: number;
+    end: number;
+    surface: string;
+    deinflected: DeinflectedTerm;
+}
+
+type TermMatchCandidates = Map<string, TermMatchCandidatePosition[]>;
+
 export type {
     DictionarySummary,
     ImportSummary,
@@ -49,6 +58,17 @@ export type {
 } from './yomitan-types';
 export { glossaryToHtml, glossaryToText, renderDictionaryScopedStyles } from './yomitan-glossary';
 export { parseYomitanSettingsExport } from './yomitan-settings-import';
+
+interface ReaderDictionaryExport {
+    dictionaries?: YomitanDictionaryInfo[];
+    entries?: YomitanTermEntry[];
+    terms?: YomitanTermEntry[];
+    kanji?: YomitanKanjiEntry[];
+    termMeta?: YomitanMetaEntry[];
+    kanjiMeta?: YomitanMetaEntry[];
+}
+
+type YomitanZipIndex = { title?: string; format?: number; version?: number; revision?: string };
 
 export class YomitanDictionaryStore {
     private dbPromise?: Promise<IDBDatabase>;
@@ -207,21 +227,7 @@ export class YomitanDictionaryStore {
             return [];
         }
 
-        const candidates = new Map<string, Array<{ start: number; end: number; surface: string; deinflected: DeinflectedTerm }>>();
-        const maxLength = Math.min(18, source.length);
-        for (let start = 0; start < source.length; start++) {
-            if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
-            for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
-                const surface = source.slice(start, start + length);
-                if (!JAPANESE_RE.test(surface) || /\s/.test(surface)) continue;
-                for (const deinflected of deinflectJapaneseTerm(surface)) {
-                    if (!JAPANESE_RE.test(deinflected.term)) continue;
-                    const positions = candidates.get(deinflected.term) ?? [];
-                    positions.push({ start, end: start + length, surface, deinflected });
-                    candidates.set(deinflected.term, positions);
-                }
-            }
-        }
+        const candidates = this.collectTermMatchCandidates(source);
         if (!candidates.size) {
             log.debug('Inline term match search skipped', { reason: 'no-candidates', length: source.length });
             done();
@@ -229,61 +235,7 @@ export class YomitanDictionaryStore {
         }
 
         try {
-            const db = await this.db();
-            const rank = dictionaryRank(preferences);
-            const matches = await new Promise<YomitanTermMatch[]>((resolve, reject) => {
-                const tx = db.transaction('terms', 'readonly');
-                const store = tx.objectStore('terms');
-                const expressionIndex = store.index('expression');
-                const readingIndex = store.index('reading');
-                const results: YomitanTermMatch[] = [];
-                const expressions = Array.from(candidates.keys())
-                    .sort((a, b) => b.length - a.length || a.localeCompare(b));
-                let pending = expressions.length * 2;
-
-                const finish = () => {
-                    if (--pending <= 0) resolve(results);
-                };
-
-                const addMatches = (expression: string, foundEntries: YomitanTermEntry[]) => {
-                    const seen = new Set<string>();
-                    const entries = foundEntries
-                        .filter(item => {
-                            const key = `${item.id ?? ''}\n${item.dictionary}\n${item.expression}\n${item.reading}\n${item.sequence ?? ''}`;
-                            if (seen.has(key)) return false;
-                            seen.add(key);
-                            return dictionaryEnabled(item.dictionary, rank);
-                        })
-                        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
-                    if (!entries.length) return;
-                    for (const position of candidates.get(expression) ?? []) {
-                        const entry = entries.find(item => termRulesMatch(item.rules, position.deinflected.rules));
-                        if (entry) results.push({
-                            entry,
-                            ...position,
-                            deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
-                        });
-                    }
-                };
-
-                for (const expression of expressions) {
-                    const expressionRequest = expressionIndex.getAll(IDBKeyRange.only(expression), 8);
-                    expressionRequest.onsuccess = () => {
-                        addMatches(expression, expressionRequest.result as YomitanTermEntry[]);
-                        finish();
-                    };
-                    expressionRequest.onerror = () => reject(expressionRequest.error);
-
-                    const readingRequest = readingIndex.getAll(IDBKeyRange.only(expression), 8);
-                    readingRequest.onsuccess = () => {
-                        addMatches(expression, readingRequest.result as YomitanTermEntry[]);
-                        finish();
-                    };
-                    readingRequest.onerror = () => reject(readingRequest.error);
-                }
-
-                tx.onerror = () => reject(tx.error);
-            });
+            const matches = await this.lookupTermMatchCandidates(candidates, preferences);
 
             const results = nonOverlappingMatches(matches, limit);
             log.debug('Inline term match search completed', {
@@ -299,6 +251,58 @@ export class YomitanDictionaryStore {
         } finally {
             done();
         }
+    }
+
+    private collectTermMatchCandidates(source: string): TermMatchCandidates {
+        const candidates: TermMatchCandidates = new Map();
+        const maxLength = Math.min(18, source.length);
+        for (let start = 0; start < source.length; start++) {
+            if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
+            this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
+        }
+        return candidates;
+    }
+
+    private collectTermMatchCandidatesAt(source: string, start: number, maxLength: number, candidates: TermMatchCandidates): void {
+        for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
+            const surface = source.slice(start, start + length);
+            if (!isSearchableJapaneseSurface(surface)) continue;
+            this.addDeinflectedTermCandidates(surface, start, candidates);
+        }
+    }
+
+    private addDeinflectedTermCandidates(surface: string, start: number, candidates: TermMatchCandidates): void {
+        for (const deinflected of deinflectJapaneseTerm(surface)) {
+            if (!JAPANESE_RE.test(deinflected.term)) continue;
+            const positions = candidates.get(deinflected.term) ?? [];
+            positions.push({ start, end: start + surface.length, surface, deinflected });
+            candidates.set(deinflected.term, positions);
+        }
+    }
+
+    private async lookupTermMatchCandidates(candidates: TermMatchCandidates, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        return await new Promise<YomitanTermMatch[]>((resolve, reject) => {
+            const tx = db.transaction('terms', 'readonly');
+            const store = tx.objectStore('terms');
+            const expressionIndex = store.index('expression');
+            const readingIndex = store.index('reading');
+            const results: YomitanTermMatch[] = [];
+            const expressions = sortedTermMatchExpressions(candidates);
+            let pending = expressions.length * 2;
+            const finish = () => {
+                if (--pending <= 0) resolve(results);
+            };
+            const addMatches = (expression: string, foundEntries: YomitanTermEntry[]) => {
+                results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank));
+            };
+            for (const expression of expressions) {
+                requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
+                requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+            }
+            tx.onerror = () => reject(tx.error);
+        });
     }
 
     async summary(): Promise<DictionarySummary> {
@@ -530,23 +534,11 @@ export class YomitanDictionaryStore {
         log.debug('ZIP dictionary import started', fileSummary(file, sourceUrl));
         onProgress?.('Reading dictionary ZIP...');
         const zip = await JSZip.loadAsync(file);
-        const indexFile = zip.file('index.json');
-        if (!indexFile) throw new Error('Yomitan dictionary ZIP is missing index.json.');
-
-        const index = JSON.parse(await indexFile.async('string')) as { title?: string; format?: number; version?: number; revision?: string };
-        const dictionary = index.title?.trim() || file.name.replace(/\.zip$/i, '');
-        const version = index.format ?? index.version ?? 3;
+        const index = await readYomitanZipIndex(zip);
+        const dictionary = yomitanZipDictionaryName(index, file.name);
+        const version = yomitanZipVersion(index);
         await this.deleteDictionary(dictionary);
-        const info: YomitanDictionaryInfo = {
-            title: dictionary,
-            alias: dictionary,
-            enabled: true,
-            priority: 0,
-            styles: await readZipText(zip, 'styles.css').catch(() => ''),
-            revision: typeof index.revision === 'string' ? index.revision : undefined,
-            downloadUrl: sourceUrl || undefined,
-            importDate: Date.now(),
-        };
+        const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
 
         const summary: ImportSummary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
         const importBank = async <T>(pattern: RegExp, label: keyof Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>, store: StoreName, normalize: (row: unknown) => T | null) => {
@@ -586,34 +578,28 @@ export class YomitanDictionaryStore {
         const json = JSON.parse(await readBlobText(file)) as unknown;
         if (isReaderDictionaryExport(json)) {
             log.debug('Detected Yomu dictionary export', { name: file.name, size: file.size });
-            await this.clear();
-            const dictionaryTypes = dictionaryTypesFromReaderExport(json);
-            const dictionaryNames = json.dictionaries?.map(item => item.title)
-                ?? [...new Set((json.terms ?? json.entries ?? []).map(entry => entry.dictionary))];
-            const dictionaries = json.dictionaries?.length
-                ? json.dictionaries.map(info => ({ ...info, type: info.type ?? dictionaryTypes[info.title] }))
-                : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
-            await Promise.all([
-                this.addToStore('dictionaryInfo', dictionaries, true),
-                this.addToStore('terms', json.terms ?? json.entries ?? []),
-                this.addToStore('kanji', json.kanji ?? []),
-                this.addToStore('termMeta', json.termMeta ?? []),
-                this.addToStore('kanjiMeta', json.kanjiMeta ?? []),
-            ]);
-            const summary = {
-                dictionaries: dictionaryNames,
-                dictionaryTypes,
-                entries: (json.terms ?? json.entries ?? []).length + (json.kanji ?? []).length + (json.termMeta ?? []).length + (json.kanjiMeta ?? []).length,
-                terms: (json.terms ?? json.entries ?? []).length,
-                kanji: (json.kanji ?? []).length,
-                termMeta: (json.termMeta ?? []).length,
-                kanjiMeta: (json.kanjiMeta ?? []).length,
-            };
-            log.info('JSON dictionary import parsed', summary);
-            return summary;
+            return this.importReaderJson(json);
         }
 
         throw new Error('Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.');
+    }
+
+    private async importReaderJson(json: ReaderDictionaryExport): Promise<ImportSummary> {
+        await this.clear();
+        const terms = readerExportTerms(json);
+        const dictionaryTypes = dictionaryTypesFromReaderExport(json);
+        const dictionaryNames = readerExportDictionaryNames(json, terms);
+        const dictionaries = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
+        await Promise.all([
+            this.addToStore('dictionaryInfo', dictionaries, true),
+            this.addToStore('terms', terms),
+            this.addToStore('kanji', json.kanji ?? []),
+            this.addToStore('termMeta', json.termMeta ?? []),
+            this.addToStore('kanjiMeta', json.kanjiMeta ?? []),
+        ]);
+        const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
+        log.info('JSON dictionary import parsed', summary);
+        return summary;
     }
 
     async importDexieJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
@@ -1097,6 +1083,69 @@ export class YomitanDictionaryStore {
     }
 }
 
+function isSearchableJapaneseSurface(surface: string): boolean {
+    return JAPANESE_RE.test(surface) && !/\s/.test(surface);
+}
+
+function sortedTermMatchExpressions(candidates: TermMatchCandidates): string[] {
+    return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
+}
+
+function requestTermMatchIndex(
+    index: IDBIndex,
+    expression: string,
+    addMatches: (expression: string, entries: YomitanTermEntry[]) => void,
+    finish: () => void,
+    reject: (reason?: unknown) => void,
+): void {
+    const request = index.getAll(IDBKeyRange.only(expression), 8);
+    request.onsuccess = () => {
+        addMatches(expression, request.result as YomitanTermEntry[]);
+        finish();
+    };
+    request.onerror = () => reject(request.error);
+}
+
+function termMatchesForEntries(
+    expression: string,
+    foundEntries: YomitanTermEntry[],
+    candidates: TermMatchCandidates,
+    rank: Map<string, DictionaryPreference>,
+): YomitanTermMatch[] {
+    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
+    if (!entries.length) return [];
+    return (candidates.get(expression) ?? [])
+        .map(position => termMatchForPosition(position, entries))
+        .filter((match): match is YomitanTermMatch => Boolean(match));
+}
+
+function deduplicateTermMatchEntries(entries: YomitanTermEntry[]): YomitanTermEntry[] {
+    const seen = new Set<string>();
+    return entries.filter(item => {
+        const key = `${item.id ?? ''}\n${item.dictionary}\n${item.expression}\n${item.reading}\n${item.sequence ?? ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function sortTermMatchEntries(entries: YomitanTermEntry[], rank: Map<string, DictionaryPreference>): YomitanTermEntry[] {
+    return entries
+        .filter(item => dictionaryEnabled(item.dictionary, rank))
+        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+}
+
+function termMatchForPosition(position: TermMatchCandidatePosition, entries: YomitanTermEntry[]): YomitanTermMatch | null {
+    const entry = entries.find(item => termRulesMatch(item.rules, position.deinflected.rules));
+    return entry
+        ? {
+            entry,
+            ...position,
+            deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
+        }
+        : null;
+}
+
 function importEntryStores(): EntryStoreName[] {
     return ['terms', 'kanji', 'termMeta', 'kanjiMeta'];
 }
@@ -1115,36 +1164,117 @@ function dictionaryCountsFromSummary(summary: Pick<ImportSummary, 'terms' | 'kan
 }
 
 function dictionaryTypeFromCounts(counts: Record<string, unknown> = {}): YomitanDictionaryInfo['type'] {
-    const terms = Number(counts.terms ?? 0);
-    const kanji = Number(counts.kanji ?? 0);
-    const termMeta = Number(counts.termMeta ?? 0);
-    const kanjiMeta = Number(counts.kanjiMeta ?? 0);
-    if (terms > 0) return 'terms';
-    if (termMeta > 0) return 'frequency';
-    if (kanji > 0) return 'kanji';
-    if (kanjiMeta > 0) return 'metadata';
-    return 'terms';
+    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? 'terms';
 }
 
-function dictionaryTypesFromReaderExport(json: {
-    dictionaries?: YomitanDictionaryInfo[];
-    entries?: YomitanTermEntry[];
-    terms?: YomitanTermEntry[];
-    kanji?: YomitanKanjiEntry[];
-    termMeta?: YomitanMetaEntry[];
-    kanjiMeta?: YomitanMetaEntry[];
-}): Record<string, YomitanDictionaryInfo['type']> {
-    const counts = new Map<string, Record<string, number>>();
-    const bump = (dictionary: string, store: EntryStoreName) => {
-        const item = counts.get(dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-        item[store]++;
-        counts.set(dictionary, item);
+const DICTIONARY_TYPE_COUNT_PRIORITY: Array<{ key: string; type: YomitanDictionaryInfo['type'] }> = [
+    { key: 'terms', type: 'terms' },
+    { key: 'termMeta', type: 'frequency' },
+    { key: 'kanji', type: 'kanji' },
+    { key: 'kanjiMeta', type: 'metadata' },
+];
+
+function readerExportTerms(json: ReaderDictionaryExport): YomitanTermEntry[] {
+    return json.terms ?? json.entries ?? [];
+}
+
+function readerExportDictionaryNames(json: ReaderDictionaryExport, terms = readerExportTerms(json)): string[] {
+    return json.dictionaries?.map(item => item.title)
+        ?? [...new Set(terms.map(entry => entry.dictionary))];
+}
+
+function readerExportDictionaryInfo(
+    json: ReaderDictionaryExport,
+    dictionaryNames: string[],
+    dictionaryTypes: Record<string, YomitanDictionaryInfo['type']>,
+): YomitanDictionaryInfo[] {
+    return json.dictionaries?.length
+        ? json.dictionaries.map(info => ({ ...info, type: info.type ?? dictionaryTypes[info.title] }))
+        : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
+}
+
+function readerExportSummary(
+    json: ReaderDictionaryExport,
+    terms: YomitanTermEntry[],
+    dictionaryNames: string[],
+    dictionaryTypes: Record<string, YomitanDictionaryInfo['type']>,
+): ImportSummary {
+    const kanji = json.kanji ?? [];
+    const termMeta = json.termMeta ?? [];
+    const kanjiMeta = json.kanjiMeta ?? [];
+    return {
+        dictionaries: dictionaryNames,
+        dictionaryTypes,
+        entries: terms.length + kanji.length + termMeta.length + kanjiMeta.length,
+        terms: terms.length,
+        kanji: kanji.length,
+        termMeta: termMeta.length,
+        kanjiMeta: kanjiMeta.length,
     };
-    for (const entry of json.terms ?? json.entries ?? []) bump(entry.dictionary, 'terms');
-    for (const entry of json.kanji ?? []) bump(entry.dictionary, 'kanji');
-    for (const entry of json.termMeta ?? []) bump(entry.dictionary, 'termMeta');
-    for (const entry of json.kanjiMeta ?? []) bump(entry.dictionary, 'kanjiMeta');
-    return Object.fromEntries([...(json.dictionaries ?? []).map(info => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)] as const), ...[...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)] as const)]);
+}
+
+function dictionaryTypesFromReaderExport(json: ReaderDictionaryExport): Record<string, YomitanDictionaryInfo['type']> {
+    const counts = new Map<string, Record<string, number>>();
+    addDictionaryTypeCounts(counts, readerExportTerms(json), 'terms');
+    addDictionaryTypeCounts(counts, json.kanji ?? [], 'kanji');
+    addDictionaryTypeCounts(counts, json.termMeta ?? [], 'termMeta');
+    addDictionaryTypeCounts(counts, json.kanjiMeta ?? [], 'kanjiMeta');
+    return Object.fromEntries([
+        ...configuredReaderDictionaryTypes(json),
+        ...observedReaderDictionaryTypes(counts),
+    ]);
+}
+
+function addDictionaryTypeCounts(counts: Map<string, Record<string, number>>, entries: Array<{ dictionary: string }>, store: EntryStoreName): void {
+    for (const entry of entries) {
+        const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        item[store]++;
+        counts.set(entry.dictionary, item);
+    }
+}
+
+function configuredReaderDictionaryTypes(json: ReaderDictionaryExport): Array<readonly [string, YomitanDictionaryInfo['type']]> {
+    return (json.dictionaries ?? []).map(info => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)] as const);
+}
+
+function observedReaderDictionaryTypes(counts: Map<string, Record<string, number>>): Array<readonly [string, YomitanDictionaryInfo['type']]> {
+    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)] as const);
+}
+
+async function readYomitanZipIndex(zip: JSZip): Promise<YomitanZipIndex> {
+    const indexFile = zip.file('index.json');
+    if (!indexFile) throw new Error('Yomitan dictionary ZIP is missing index.json.');
+    return JSON.parse(await indexFile.async('string')) as YomitanZipIndex;
+}
+
+function yomitanZipDictionaryName(index: YomitanZipIndex, filename: string): string {
+    return index.title?.trim() || filename.replace(/\.zip$/i, '');
+}
+
+function yomitanZipVersion(index: YomitanZipIndex): number {
+    return index.format ?? index.version ?? 3;
+}
+
+async function yomitanZipDictionaryInfo(
+    zip: JSZip,
+    index: YomitanZipIndex,
+    dictionary: string,
+    sourceUrl: string,
+): Promise<YomitanDictionaryInfo> {
+    return {
+        title: dictionary,
+        alias: dictionary,
+        enabled: true,
+        priority: 0,
+        styles: await readOptionalZipText(zip, 'styles.css'),
+        revision: typeof index.revision === 'string' ? index.revision : undefined,
+        downloadUrl: sourceUrl || undefined,
+        importDate: Date.now(),
+    };
+}
+
+async function readOptionalZipText(zip: JSZip, name: string): Promise<string> {
+    return readZipText(zip, name).catch(() => '');
 }
 
 async function readZipText(zip: JSZip, name: string): Promise<string> {
@@ -1159,15 +1289,35 @@ function normalizeZipTermRow(row: unknown, dictionary: string): YomitanTermEntry
     if (typeof expression !== 'string') return null;
     return {
         expression,
-        reading: typeof reading === 'string' && reading ? reading : expression,
-        definitionTags: typeof definitionTags === 'string' ? definitionTags : '',
-        rules: typeof rules === 'string' ? rules : '',
-        score: typeof score === 'number' ? score : 0,
-        glossary: Array.isArray(glossary) ? glossary : [],
-        sequence: typeof sequence === 'number' ? sequence : undefined,
-        termTags: typeof termTags === 'string' ? termTags : '',
+        reading: zipTermReading(reading, expression),
+        definitionTags: zipStringField(definitionTags),
+        rules: zipStringField(rules),
+        score: zipNumberField(score, 0),
+        glossary: zipGlossaryField(glossary),
+        sequence: zipOptionalNumberField(sequence),
+        termTags: zipStringField(termTags),
         dictionary,
     };
+}
+
+function zipTermReading(value: unknown, expression: string): string {
+    return typeof value === 'string' && value ? value : expression;
+}
+
+function zipStringField(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+}
+
+function zipNumberField(value: unknown, fallback: number): number {
+    return typeof value === 'number' ? value : fallback;
+}
+
+function zipOptionalNumberField(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
+}
+
+function zipGlossaryField(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
 }
 
 function normalizeZipKanjiRow(row: unknown, dictionary: string, version: number): YomitanKanjiEntry | null {
@@ -1205,15 +1355,34 @@ function normalizeDexieTermRow(row: unknown): YomitanTermEntry | null {
     if (typeof record.expression !== 'string' || typeof record.dictionary !== 'string') return null;
     return {
         expression: record.expression,
-        reading: typeof record.reading === 'string' && record.reading ? record.reading : record.expression,
-        definitionTags: typeof record.definitionTags === 'string' ? record.definitionTags : '',
-        rules: typeof record.rules === 'string' ? record.rules : '',
-        score: typeof record.score === 'number' ? record.score : 0,
-        glossary: Array.isArray(record.glossary) ? record.glossary : [],
-        sequence: typeof record.sequence === 'number' ? record.sequence : undefined,
-        termTags: typeof record.termTags === 'string' ? record.termTags : '',
+        reading: dexieStringField(record, 'reading', record.expression),
+        definitionTags: dexieStringField(record, 'definitionTags'),
+        rules: dexieStringField(record, 'rules'),
+        score: dexieNumberField(record, 'score', 0),
+        glossary: dexieGlossaryField(record),
+        sequence: dexieOptionalNumberField(record, 'sequence'),
+        termTags: dexieStringField(record, 'termTags'),
         dictionary: record.dictionary,
     };
+}
+
+function dexieStringField(record: Partial<YomitanTermEntry>, key: keyof YomitanTermEntry, fallback = ''): string {
+    const value = record[key];
+    return typeof value === 'string' && value ? value : fallback;
+}
+
+function dexieNumberField(record: Partial<YomitanTermEntry>, key: keyof YomitanTermEntry, fallback: number): number {
+    const value = record[key];
+    return typeof value === 'number' ? value : fallback;
+}
+
+function dexieOptionalNumberField(record: Partial<YomitanTermEntry>, key: keyof YomitanTermEntry): number | undefined {
+    const value = record[key];
+    return typeof value === 'number' ? value : undefined;
+}
+
+function dexieGlossaryField(record: Partial<YomitanTermEntry>): unknown[] {
+    return Array.isArray(record.glossary) ? record.glossary : [];
 }
 
 function termLookupDedupKey(entry: YomitanTermEntry): string {
@@ -1230,13 +1399,17 @@ function normalizeDexieKanjiRow(row: unknown): YomitanKanjiEntry | null {
     if (typeof record.character !== 'string' || typeof record.dictionary !== 'string') return null;
     return {
         character: record.character,
-        onyomi: Array.isArray(record.onyomi) ? record.onyomi.map(String) : splitTags(record.onyomi),
-        kunyomi: Array.isArray(record.kunyomi) ? record.kunyomi.map(String) : splitTags(record.kunyomi),
-        tags: Array.isArray(record.tags) ? record.tags.map(String) : splitTags(record.tags),
+        onyomi: dexieStringList(record.onyomi),
+        kunyomi: dexieStringList(record.kunyomi),
+        tags: dexieStringList(record.tags),
         meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
         stats: record.stats,
         dictionary: record.dictionary,
     };
+}
+
+function dexieStringList(value: unknown): string[] {
+    return Array.isArray(value) ? value.map(String) : splitTags(value);
 }
 
 function normalizeDexieTermMetaRow(row: unknown): YomitanMetaEntry | null {
@@ -1264,16 +1437,34 @@ function normalizeDexieDictionaryRow(row: unknown): YomitanDictionaryInfo | null
     if (typeof record.title !== 'string') return null;
     return {
         title: record.title,
-        alias: typeof record.alias === 'string' && record.alias ? record.alias : record.title,
+        alias: dictionaryAlias(record, record.title),
         enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
         priority: Number.isFinite(Number(record.priority)) ? Number(record.priority) : 0,
         counts: record.counts as Record<string, unknown> | undefined,
-        type: record.type === 'terms' || record.type === 'kanji' || record.type === 'frequency' || record.type === 'metadata' ? record.type : undefined,
-        styles: typeof record.styles === 'string' ? record.styles : '',
-        revision: typeof record.revision === 'string' ? record.revision : undefined,
-        downloadUrl: typeof record.downloadUrl === 'string' ? record.downloadUrl : undefined,
-        importDate: typeof record.importDate === 'number' ? record.importDate : undefined,
+        type: dictionaryInfoType(record.type),
+        styles: stringField(record.styles) ?? '',
+        revision: stringField(record.revision),
+        downloadUrl: stringField(record.downloadUrl),
+        importDate: numberField(record.importDate),
     };
+}
+
+function dictionaryAlias(record: Partial<YomitanDictionaryInfo>, fallback: string): string {
+    return typeof record.alias === 'string' && record.alias ? record.alias : fallback;
+}
+
+function dictionaryInfoType(value: unknown): YomitanDictionaryInfo['type'] | undefined {
+    return value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'metadata'
+        ? value
+        : undefined;
+}
+
+function stringField(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined;
+}
+
+function numberField(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
 }
 
 function unwrapDexieRow(row: unknown): unknown {
@@ -1284,14 +1475,7 @@ function unwrapDexieRow(row: unknown): unknown {
     return row;
 }
 
-function isReaderDictionaryExport(value: unknown): value is {
-    dictionaries?: YomitanDictionaryInfo[];
-    entries?: YomitanTermEntry[];
-    terms?: YomitanTermEntry[];
-    kanji?: YomitanKanjiEntry[];
-    termMeta?: YomitanMetaEntry[];
-    kanjiMeta?: YomitanMetaEntry[];
-} {
+function isReaderDictionaryExport(value: unknown): value is ReaderDictionaryExport {
     return !!value
         && typeof value === 'object'
         && ['yomu-yomitan-dictionaries', 'jpdb-reader-yomitan-dictionaries'].includes((value as { formatName?: string }).formatName ?? '')
@@ -1455,9 +1639,26 @@ function reservoirSample<T>(items: T[], limit: number): T[] {
 }
 
 function isCommonDictionaryTerm(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
-    if (!entry.expression || !JAPANESE_RE.test(entry.expression) || entry.expression.length > 8 || !dictionaryEnabled(entry.dictionary, rank)) return false;
-    const tags = `${entry.definitionTags ?? ''} ${entry.termTags ?? ''} ${entry.rules ?? ''}`.toLowerCase();
-    if (/\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(tags)) return true;
+    return isCommonDictionaryTermCandidate(entry, rank)
+        && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
+}
+
+function isCommonDictionaryTermCandidate(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
+    return Boolean(entry.expression
+        && JAPANESE_RE.test(entry.expression)
+        && entry.expression.length <= 8
+        && dictionaryEnabled(entry.dictionary, rank));
+}
+
+function hasCommonDictionaryTags(entry: YomitanTermEntry): boolean {
+    return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
+}
+
+function dictionaryTermTags(entry: YomitanTermEntry): string {
+    return `${entry.definitionTags ?? ''} ${entry.termTags ?? ''} ${entry.rules ?? ''}`.toLowerCase();
+}
+
+function hasCommonDictionaryScore(entry: YomitanTermEntry): boolean {
     return typeof entry.score === 'number' && entry.score >= 5;
 }
 

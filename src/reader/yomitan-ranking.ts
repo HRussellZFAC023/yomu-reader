@@ -20,18 +20,44 @@ export function dictionaryPriority(dictionary: string, rank: Map<string, Diction
 }
 
 export function compareMetaEntries(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
-    if (a.mode === 'freq' && b.mode !== 'freq') return -1;
-    if (a.mode !== 'freq' && b.mode === 'freq') return 1;
-    if (a.mode === 'freq' && b.mode === 'freq') {
-        const aJpdb = isJpdbFrequencyDictionary(a.dictionary) ? 0 : 1;
-        const bJpdb = isJpdbFrequencyDictionary(b.dictionary) ? 0 : 1;
-        return aJpdb - bJpdb
-            || dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-            || frequencyRank(a.data) - frequencyRank(b.data)
-            || a.dictionary.localeCompare(b.dictionary);
-    }
-    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-        || a.dictionary.localeCompare(b.dictionary);
+    return compareMetaModes(a, b) || compareMetaEntriesWithinMode(a, b, rank);
+}
+
+function compareMetaModes(a: YomitanMetaEntry, b: YomitanMetaEntry): number {
+    return metaModePriority(a) - metaModePriority(b);
+}
+
+function metaModePriority(entry: YomitanMetaEntry): number {
+    return entry.mode === 'freq' ? 0 : 1;
+}
+
+function compareMetaEntriesWithinMode(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
+    return a.mode === 'freq' && b.mode === 'freq'
+        ? compareFrequencyMetaEntries(a, b, rank)
+        : compareDictionaryMetaEntries(a, b, rank);
+}
+
+function compareFrequencyMetaEntries(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
+    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b)
+        || compareDictionaryPriority(a, b, rank)
+        || frequencyRank(a.data) - frequencyRank(b.data)
+        || compareDictionaryName(a, b);
+}
+
+function jpdbFrequencyPriority(entry: YomitanMetaEntry): number {
+    return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
+}
+
+function compareDictionaryMetaEntries(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
+    return compareDictionaryPriority(a, b, rank) || compareDictionaryName(a, b);
+}
+
+function compareDictionaryPriority(a: YomitanMetaEntry, b: YomitanMetaEntry, rank: Map<string, DictionaryPreference>): number {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank);
+}
+
+function compareDictionaryName(a: YomitanMetaEntry, b: YomitanMetaEntry): number {
+    return a.dictionary.localeCompare(b.dictionary);
 }
 
 export function extractFrequency(value: unknown): number | undefined {
@@ -73,8 +99,17 @@ function isJpdbFrequencyDictionary(dictionary: string): boolean {
 
 function frequencyRank(value: unknown): number {
     if (typeof value === 'number') return value;
-    if (typeof value === 'string') return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
-    if (!value || typeof value !== 'object') return Number.POSITIVE_INFINITY;
+    if (typeof value === 'string') return rankFromFrequencyString(value);
+    const nested = nestedFrequencyValue(value);
+    return nested === undefined ? Number.POSITIVE_INFINITY : frequencyRank(nested);
+}
+
+function rankFromFrequencyString(value: string): number {
+    return Number(value.replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+}
+
+function nestedFrequencyValue(value: unknown): unknown | undefined {
+    if (!value || typeof value !== 'object') return undefined;
     const record = value as Record<string, unknown>;
-    return frequencyRank(record.frequency ?? record.value ?? record.displayValue);
+    return record.frequency ?? record.value ?? record.displayValue;
 }

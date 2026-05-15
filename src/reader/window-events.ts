@@ -41,20 +41,13 @@ export function dispatchWindowEvent(event: Event): boolean {
     const directResult = callEventTargetMethod(directDispatch, target, event);
     if (directResult.called) return directResult.result;
 
-    let prototypeResult: DispatchCallResult = directResult;
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, 'dispatchEvent')) {
-        if (prototypeDispatch === directDispatch) continue;
-        prototypeResult = callEventTargetMethod(prototypeDispatch, target, event);
-        if (prototypeResult.called) return prototypeResult.result;
-    }
+    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+    if (prototypeResult.called) return prototypeResult.result;
 
     const unshadowedResult = callWithUnshadowedWindowDispatch(event);
     if (unshadowedResult.called) return unshadowedResult.result;
 
-    log.debugThrottled(`dispatch-window-event-${event.type}`, 5000, 'Window event dispatch unavailable', {
-        type: event.type,
-        error: unshadowedResult.error ?? prototypeResult.error ?? directResult.error,
-    });
+    logDispatchFailure(event, unshadowedResult, prototypeResult, directResult);
     return false;
 }
 
@@ -68,21 +61,74 @@ export function addWindowEventListener(
     const directResult = callAddEventListener(directAdd, target, type, listener, options);
     if (directResult.called) return true;
 
-    let prototypeResult: AddListenerCallResult = directResult;
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, 'addEventListener')) {
-        if (prototypeAdd === directAdd) continue;
-        prototypeResult = callAddEventListener(prototypeAdd, target, type, listener, options);
-        if (prototypeResult.called) return true;
-    }
+    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+    if (prototypeResult.called) return true;
 
     const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
     if (unshadowedResult.called) return true;
 
+    logAddListenerFailure(type, unshadowedResult, prototypeResult, directResult);
+    return false;
+}
+
+function dispatchWithPrototypeMethod(
+    target: EventTarget,
+    directDispatch: EventTarget['dispatchEvent'] | undefined,
+    event: Event,
+): DispatchCallResult {
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, 'dispatchEvent')) {
+        if (prototypeDispatch === directDispatch) continue;
+        const result = callEventTargetMethod(prototypeDispatch, target, event);
+        if (result.called) return result;
+    }
+    return { called: false };
+}
+
+function addListenerWithPrototypeMethod(
+    target: EventTarget,
+    directAdd: EventTarget['addEventListener'] | undefined,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+): AddListenerCallResult {
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, 'addEventListener')) {
+        if (prototypeAdd === directAdd) continue;
+        const result = callAddEventListener(prototypeAdd, target, type, listener, options);
+        if (result.called) return result;
+    }
+    return { called: false };
+}
+
+function logDispatchFailure(
+    event: Event,
+    unshadowedResult: DispatchCallResult,
+    prototypeResult: DispatchCallResult,
+    directResult: DispatchCallResult,
+): void {
+    log.debugThrottled(`dispatch-window-event-${event.type}`, 5000, 'Window event dispatch unavailable', {
+        type: event.type,
+        error: firstCallError(unshadowedResult, prototypeResult, directResult),
+    });
+}
+
+function logAddListenerFailure(
+    type: string,
+    unshadowedResult: AddListenerCallResult,
+    prototypeResult: AddListenerCallResult,
+    directResult: AddListenerCallResult,
+): void {
     log.debugThrottled(`add-window-listener-${type}`, 5000, 'Window event listener registration unavailable', {
         type,
-        error: unshadowedResult.error ?? prototypeResult.error ?? directResult.error,
+        error: firstCallError(unshadowedResult, prototypeResult, directResult),
     });
-    return false;
+}
+
+function firstCallError(...results: Array<DispatchCallResult | AddListenerCallResult>): unknown {
+    return results.map(callResultError).find(error => error !== undefined);
+}
+
+function callResultError(result: DispatchCallResult | AddListenerCallResult): unknown {
+    return result.called ? undefined : result.error;
 }
 
 function eventConstructor<T extends Event>(source: unknown, key: 'Event' | 'CustomEvent'): (new (type: string, init?: EventInit | CustomEventInit) => T) | undefined {

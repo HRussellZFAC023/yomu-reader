@@ -4,32 +4,45 @@ import { isYomuNewTabUrl } from './new-tab';
 const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
 
 export function isYomuHostedAppUrl(value: string): boolean {
-    try {
-        const url = new URL(value);
-        const path = normalizedPath(url.pathname);
-        if (isYomuNewTabUrl(value)) return true;
-        if (isYomuVideoPlayerPath(path)) return true;
-        if (url.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`)) return true;
-        if (url.protocol === 'file:' && isYomuLocalAppPath(path)) return true;
-        if (LOCAL_HOSTS.test(url.hostname) && isYomuLocalAppPath(path)) return true;
-        return false;
-    } catch {
-        return false;
-    }
+    const appUrl = readYomuAppUrl(value);
+    return Boolean(appUrl && (
+        isYomuNewTabUrl(value)
+        || isYomuVideoPlayerPath(appUrl.path)
+        || isHostedRepositoryAppUrl(appUrl)
+        || isLocalRepositoryAppUrl(appUrl)
+    ));
 }
 
 export function isYomuHostedPassivePage(value: string): boolean {
+    const appUrl = readYomuAppUrl(value);
+    return Boolean(appUrl
+        && !isYomuNewTabUrl(value)
+        && !isYomuVideoPlayerPath(appUrl.path)
+        && (isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl)));
+}
+
+interface YomuAppUrl {
+    url: URL;
+    path: string;
+}
+
+function readYomuAppUrl(value: string): YomuAppUrl | null {
     try {
         const url = new URL(value);
-        const path = normalizedPath(url.pathname);
-        if (isYomuNewTabUrl(value) || isYomuVideoPlayerPath(path)) return false;
-        if (url.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`)) return true;
-        if (url.protocol === 'file:' && isYomuLocalAppPath(path)) return true;
-        if (LOCAL_HOSTS.test(url.hostname) && isYomuLocalAppPath(path)) return true;
-        return false;
+        return { url, path: normalizedPath(url.pathname) };
     } catch {
-        return false;
+        return null;
     }
+}
+
+function isHostedRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
+    return appUrl.url.origin === GITHUB_PAGES_ORIGIN
+        && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+
+function isLocalRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
+    return isYomuLocalAppPath(appUrl.path)
+        && (appUrl.url.protocol === 'file:' || LOCAL_HOSTS.test(appUrl.url.hostname));
 }
 
 function normalizedPath(pathname: string): string {

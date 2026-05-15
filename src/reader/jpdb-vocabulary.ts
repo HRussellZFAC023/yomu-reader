@@ -75,11 +75,14 @@ function vocabularyRoot(doc: Document, spelling: string, reading: string): Paren
     const roots = Array.from(doc.querySelectorAll('.result.vocabulary'));
     const matches = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
     if (matches.length) return matches[0] ?? null;
-    const hasRequestedIdentity = Boolean(cleanText(spelling) || cleanText(reading));
-    if (!hasRequestedIdentity && !roots.length) return doc;
-    if (!hasRequestedIdentity && roots.length === 1) return roots[0] ?? null;
+    if (canUseGenericVocabularyRoot(roots, spelling, reading)) return roots[0] ?? doc;
     if (documentMatchesVocabulary(doc, spelling, reading)) return roots[0] ?? doc;
     return null;
+}
+
+function canUseGenericVocabularyRoot(roots: Element[], spelling: string, reading: string): boolean {
+    const hasRequestedIdentity = Boolean(cleanText(spelling) || cleanText(reading));
+    return !hasRequestedIdentity && roots.length <= 1;
 }
 
 function vocabularyRootMatches(root: Element, spelling: string, reading: string): boolean {
@@ -192,12 +195,17 @@ function readingText(root: Node): string {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
     if (root.nodeType !== Node.ELEMENT_NODE) return '';
     const element = root as HTMLElement;
-    if (element.tagName === 'RT' || element.tagName === 'RP') return '';
-    if (element.tagName === 'RUBY') {
-        const rt = Array.from(element.children).find(child => child.tagName === 'RT')?.textContent ?? '';
-        return rt || baseText(element);
-    }
+    if (isRubyAnnotation(element)) return '';
+    if (element.tagName === 'RUBY') return rubyReadingText(element);
     return Array.from(element.childNodes).map(readingText).join('');
+}
+
+function isRubyAnnotation(element: Element): boolean {
+    return element.tagName === 'RT' || element.tagName === 'RP';
+}
+
+function rubyReadingText(element: Element): string {
+    return Array.from(element.children).find(child => child.tagName === 'RT')?.textContent || baseText(element);
 }
 
 function cleanText(value: string): string {

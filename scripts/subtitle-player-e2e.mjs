@@ -62,6 +62,11 @@ function rectFromJson(rect) {
     };
 }
 
+function panelSizeDelta(before, after) {
+    if (!before || !after) return 0;
+    return Math.max(Math.abs(before.width - after.width), Math.abs(before.height - after.height));
+}
+
 function genericHtml(origin) {
     return `<!doctype html>
 <html>
@@ -263,7 +268,7 @@ async function openAndReady(page, site) {
         return video && video.getBoundingClientRect().width > 240;
     }, null, { timeout: 20000 });
     await waitForSubtitleSurface(page, site);
-    await assertTrackButtonToggles(page);
+    await assertDrawerModeControls(page);
     return { yomuLogs, errors };
 }
 
@@ -314,12 +319,32 @@ async function dismissBlockingOverlays(page) {
     }
 }
 
-async function assertTrackButtonToggles(page) {
+async function assertDrawerModeControls(page) {
     await openTracksPanel(page);
-    await page.locator('.jpdb-subtitle-rail [data-action="tracks"]').click({ force: true });
+    await waitForDrawerMode(page, 'tracks');
+
+    const linesButton = page.locator('.jpdb-subtitle-list [data-action="panel-lines"]').first();
+    const canOpenLines = await linesButton.evaluate(button => !button.disabled).catch(() => false);
+    if (canOpenLines) {
+        await linesButton.click({ force: true });
+        await waitForDrawerMode(page, 'lines');
+    }
+
+    await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click({ force: true });
+    await waitForDrawerMode(page, 'tracks');
+    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').first().click({ force: true });
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
-    await page.locator('.jpdb-subtitle-rail [data-action="tracks"]').click({ force: true });
-    await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+    await openTracksPanel(page);
+}
+
+async function waitForDrawerMode(page, mode) {
+    await page.waitForFunction(expectedMode => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        if (!panel || panel.hidden) return false;
+        const className = expectedMode === 'lines' ? 'jpdb-subtitle-lines-panel' : 'jpdb-subtitle-tracks-panel';
+        const pressed = panel.querySelector(`[data-action="panel-${expectedMode}"][aria-pressed="true"]`);
+        return panel.classList.contains(className) && Boolean(pressed);
+    }, mode, { timeout: 5000 });
 }
 
 async function openTracksPanel(page) {
@@ -355,7 +380,7 @@ async function openLinesOrTracksPanel(page) {
 
 async function resizePanel(page, placement) {
     const handle = await page.locator('[data-resize-transcript]').boundingBox();
-    if (!handle) return;
+    if (!handle) return false;
     const x = handle.x + handle.width / 2;
     const y = handle.y + handle.height / 2;
     await page.mouse.move(x, y);
@@ -369,6 +394,7 @@ async function resizePanel(page, placement) {
     }
     await page.mouse.up();
     await page.waitForTimeout(350);
+    return true;
 }
 
 async function snapshot(page) {
@@ -397,43 +423,93 @@ async function snapshot(page) {
     });
 }
 
-async function exercisePositions(page, site) {
+async function exerciseDrawerLayout(page, site) {
     const results = [];
-    for (const placement of ['right', 'bottom', 'left']) {
-        await openLinesOrTracksPanel(page);
-        await page.locator(`[data-action="transcript-${placement}"]`).click({ force: true });
-        await page.waitForTimeout(300);
-        await resizePanel(page, placement);
-        const state = await snapshot(page);
-        const panel = rectFromJson(state.panel);
-        const video = rectFromJson(state.video);
-        assert(panel && panel.width >= 260 && panel.height >= 80, `${site.name}: missing transcript panel after ${placement}`, state);
-        assert(video && video.width >= 240 && video.height >= 120, `${site.name}: missing usable video after ${placement}`, state);
-        assert(!rectsOverlap(panel, video), `${site.name}: transcript panel overlaps video after ${placement}`, state);
-        assert(panel.left >= -1 && panel.top >= -1 && panel.right <= state.viewport.width + 1 && panel.bottom <= state.viewport.height + 1,
-            `${site.name}: transcript panel leaves viewport after ${placement}`, state);
-        assert(!state.blockingDialogVisible, `${site.name}: blocking page dialog is covering the verification screenshot`, state);
-        if (site.expectRows !== false) assert(state.rows > 0, `${site.name}: transcript lines did not render after ${placement}`, state);
-        if (site.expectNativeCaptions) {
-            assert(!state.yomuCaptionsActive, `${site.name}: generic page captions were hidden by YouTube-only caption suppression`, state);
-            assert(state.nativeCaptionVisible, `${site.name}: page native captions are not visible`, state);
-        }
-        const screenshot = join(artifactsDir, `${site.name}-${placement}.png`);
-        await page.screenshot({ path: screenshot, fullPage: false });
-        results.push({ placement, effectivePlacement: state.placement, screenshot, rows: state.rows, tracks: state.tracks });
+    for (const phase of ['initial', 'resized']) {
+        results.push(await exerciseDrawerLayoutPhase(page, site, phase));
     }
     return results;
+}
+
+async function exerciseDrawerLayoutPhase(page, site, phase) {
+    const resize = await prepareDrawerLayoutPhase(page, phase);
+    const state = await snapshot(page);
+    const layout = drawerLayoutRects(state, phase);
+    assertDrawerLayoutState(site, phase, state, layout);
+    assertDrawerResize(site, phase, resize, layout, state);
+    assertExpectedSubtitleState(site, phase, state);
+    const screenshot = await writeDrawerScreenshot(page, site, phase);
+    return drawerLayoutResult(phase, layout.placement, resize.resized, screenshot, state);
+}
+
+async function prepareDrawerLayoutPhase(page, phase) {
+    await openLinesOrTracksPanel(page);
+    if (phase !== 'resized') return { beforeResizePanel: undefined, resized: false };
+    const beforeResize = await snapshot(page);
+    const beforeResizePanel = rectFromJson(beforeResize.panel);
+    const resized = await resizePanel(page, beforeResize.placement || 'right');
+    return { beforeResizePanel, resized };
+}
+
+function drawerLayoutRects(state, phase) {
+    return {
+        placement: state.placement || phase,
+        panel: rectFromJson(state.panel),
+        video: rectFromJson(state.video),
+    };
+}
+
+function assertDrawerLayoutState(site, phase, state, layout) {
+    assert(layout.panel && layout.panel.width >= 260 && layout.panel.height >= 80, `${site.name}: missing transcript panel during ${phase}`, state);
+    assert(layout.video && layout.video.width >= 240 && layout.video.height >= 120, `${site.name}: missing usable video during ${phase}`, state);
+    assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
+    assert(panelFitsViewport(layout.panel, state.viewport), `${site.name}: transcript panel leaves viewport during ${phase}`, state);
+    assert(!state.blockingDialogVisible, `${site.name}: blocking page dialog is covering the verification screenshot`, state);
+}
+
+function panelFitsViewport(panel, viewport) {
+    return panel.left >= -1
+        && panel.top >= -1
+        && panel.right <= viewport.width + 1
+        && panel.bottom <= viewport.height + 1;
+}
+
+function assertDrawerResize(site, phase, resize, layout, state) {
+    if (phase !== 'resized') return;
+    assert(resize.resized, `${site.name}: transcript drawer resize handle was not available`, state);
+    assert(panelSizeDelta(resize.beforeResizePanel, layout.panel) >= 24, `${site.name}: transcript drawer did not resize`, {
+        beforeResizePanel: resize.beforeResizePanel,
+        afterResizePanel: layout.panel,
+        placement: layout.placement,
+    });
+}
+
+function assertExpectedSubtitleState(site, phase, state) {
+    if (site.expectRows !== false) assert(state.rows > 0, `${site.name}: transcript lines did not render during ${phase}`, state);
+    if (!site.expectNativeCaptions) return;
+    assert(!state.yomuCaptionsActive, `${site.name}: generic page captions were hidden by YouTube-only caption suppression`, state);
+    assert(state.nativeCaptionVisible, `${site.name}: page native captions are not visible`, state);
+}
+
+async function writeDrawerScreenshot(page, site, phase) {
+    const screenshot = join(artifactsDir, `${site.name}-${phase}.png`);
+    await page.screenshot({ path: screenshot, fullPage: false });
+    return screenshot;
+}
+
+function drawerLayoutResult(phase, effectivePlacement, resized, screenshot, state) {
+    return { phase, effectivePlacement, resized, screenshot, rows: state.rows, tracks: state.tracks };
 }
 
 async function runSite(browser, site) {
     const page = await browser.newPage({ viewport: site.viewport, locale: 'en-GB' });
     try {
         const telemetry = await openAndReady(page, site);
-        const positions = await exercisePositions(page, site);
+        const layouts = await exerciseDrawerLayout(page, site);
         return {
             site: site.name,
             url: site.url,
-            positions,
+            layouts,
             yomuLogCount: telemetry.yomuLogs.length,
             pageErrors: telemetry.errors.slice(0, 5),
         };

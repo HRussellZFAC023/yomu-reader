@@ -109,32 +109,43 @@ export class FloatingButtonController {
 function avoidVideoOverlap(button: HTMLButtonElement, settings: ReaderSettings, saveSettings: () => void): void {
     if (!button.isConnected || document.fullscreenElement) return;
     const rect = button.getBoundingClientRect();
-    const video = visibleVideos().find(candidate => intersects(rect, candidate.getBoundingClientRect()));
+    const video = overlappingVideo(rect);
     button.classList.toggle('jpdb-reader-fab-over-video', Boolean(video));
     if (!video || button.matches(':hover, :focus, :focus-visible')) return;
 
     const videoRect = video.getBoundingClientRect();
+    for (const position of nonOverlappingPuckPositions(button, rect, videoRect)) {
+        movePuck(button, position, settings, saveSettings);
+        button.classList.remove('jpdb-reader-fab-over-video');
+        return;
+    }
+}
+
+function overlappingVideo(rect: DOMRect): HTMLVideoElement | undefined {
+    return visibleVideos().find(candidate => intersects(rect, candidate.getBoundingClientRect()));
+}
+
+function nonOverlappingPuckPositions(button: HTMLButtonElement, rect: DOMRect, videoRect: DOMRect): Array<{ x: number; y: number }> {
     const candidates = [
         { x: videoRect.right + 10, y: rect.top },
         { x: videoRect.left - rect.width - 10, y: rect.top },
         { x: rect.left, y: videoRect.bottom + 10 },
         { x: rect.left, y: videoRect.top - rect.height - 10 },
     ];
-    for (const candidate of candidates) {
-        const position = clampPuck(button, candidate.x, candidate.y);
-        if (!position) continue;
-        const moved = new DOMRect(position.x, position.y, rect.width, rect.height);
-        if (intersects(moved, videoRect)) continue;
-        button.style.left = `${position.x}px`;
-        button.style.top = `${position.y}px`;
-        button.style.right = 'auto';
-        button.style.bottom = 'auto';
-        settings.puckPositionX = Math.round(position.x);
-        settings.puckPositionY = Math.round(position.y);
-        saveSettings();
-        button.classList.remove('jpdb-reader-fab-over-video');
-        return;
-    }
+    return candidates
+        .map(candidate => clampPuck(button, candidate.x, candidate.y))
+        .filter((position): position is { x: number; y: number } => Boolean(position))
+        .filter(position => !intersects(new DOMRect(position.x, position.y, rect.width, rect.height), videoRect));
+}
+
+function movePuck(button: HTMLButtonElement, position: { x: number; y: number }, settings: ReaderSettings, saveSettings: () => void): void {
+    button.style.left = `${position.x}px`;
+    button.style.top = `${position.y}px`;
+    button.style.right = 'auto';
+    button.style.bottom = 'auto';
+    settings.puckPositionX = Math.round(position.x);
+    settings.puckPositionY = Math.round(position.y);
+    saveSettings();
 }
 
 function restoreButtonPosition(button: HTMLButtonElement, settings: ReaderSettings): void {
@@ -163,22 +174,31 @@ function clampRestoredButtonPosition(button: HTMLButtonElement, settings: Reader
 function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number; y: number } | null {
     const rect = button.getBoundingClientRect();
     const margin = 8;
-    if (
-        !Number.isFinite(x)
-        || !Number.isFinite(y)
-        || !Number.isFinite(window.innerWidth)
-        || !Number.isFinite(window.innerHeight)
-        || window.innerWidth <= margin * 2
-        || window.innerHeight <= margin * 2
-        || rect.width <= 0
-        || rect.height <= 0
-    ) {
-        return null;
-    }
+    if (!canClampPuck(rect, x, y, margin)) return null;
     return {
         x: Math.max(margin, Math.min(window.innerWidth - rect.width - margin, x)),
         y: Math.max(margin, Math.min(window.innerHeight - rect.height - margin, y)),
     };
+}
+
+function canClampPuck(rect: DOMRect, x: number, y: number, margin: number): boolean {
+    return finitePuckPosition(x, y)
+        && finiteViewport()
+        && hasViewportRoom(margin)
+        && rect.width > 0
+        && rect.height > 0;
+}
+
+function finitePuckPosition(x: number, y: number): boolean {
+    return Number.isFinite(x) && Number.isFinite(y);
+}
+
+function finiteViewport(): boolean {
+    return Number.isFinite(window.innerWidth) && Number.isFinite(window.innerHeight);
+}
+
+function hasViewportRoom(margin: number): boolean {
+    return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
 }
 
 function visibleVideos(): HTMLVideoElement[] {

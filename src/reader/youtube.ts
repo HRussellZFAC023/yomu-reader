@@ -80,6 +80,12 @@ interface YouTubeCardInfo {
     title: string;
 }
 
+interface YouTubeScanCounts {
+    filteredCount: number;
+    shownCount: number;
+    pendingCount: number;
+}
+
 export function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
@@ -148,11 +154,23 @@ function youtubeVideoIdFromHref(href: string): string {
     if (!href) return '';
     try {
         const url = new URL(href, location.origin);
-        if (url.pathname === '/watch') return url.searchParams.get('v') ?? '';
-        return url.pathname.match(/\/shorts\/([^/?#]+)/)?.[1] ?? '';
+        return youtubeVideoIdFromUrl(url);
     } catch {
-        return href.match(/[?&]v=([^&#]+)/)?.[1] ?? href.match(/\/shorts\/([^/?#]+)/)?.[1] ?? '';
+        return youtubeVideoIdFromRawHref(href);
     }
+}
+
+function youtubeVideoIdFromUrl(url: URL): string {
+    if (url.pathname === '/watch') return url.searchParams.get('v') ?? '';
+    return shortsVideoIdFromPath(url.pathname);
+}
+
+function youtubeVideoIdFromRawHref(href: string): string {
+    return href.match(/[?&]v=([^&#]+)/)?.[1] ?? shortsVideoIdFromPath(href);
+}
+
+function shortsVideoIdFromPath(path: string): string {
+    return path.match(/\/shorts\/([^/?#]+)/)?.[1] ?? '';
 }
 
 class YouTubeReplacementRequester {
@@ -258,34 +276,45 @@ export class YoutubeImmersionFilter {
         }
         this.syncFilterActiveClass();
 
-        let filteredCount = 0;
-        let shownCount = 0;
-        let pendingCount = 0;
-        for (const card of collectYouTubeVideoCards()) {
-            const info = readYouTubeCardInfo(card);
-            const decision = this.decideCard(info);
-
-            if (decision === 'pending') {
-                pendingCount += 1;
-                continue;
-            }
-            if (decision === 'filtered') filteredCount += 1;
-            if (decision === 'shown' || this.revealed) {
-                this.showCard(card);
-                shownCount += 1;
-            } else {
-                this.hideCard(card);
-            }
-        }
-
-        if (settings.youtubeShowFilterNotice) this.renderNotice(filteredCount, shownCount, settings);
+        const counts = this.scanYouTubeCards();
+        if (settings.youtubeShowFilterNotice) this.renderNotice(counts.filteredCount, counts.shownCount, settings);
         else this.clearNotice();
-        if (pendingCount) this.schedule(180);
-        if (filteredCount && !this.revealed) {
-            this.replacementRequester.request(shownCount);
-        }
-        log.debug('YouTube filter scan completed', { filteredCount, shownCount, pendingCount, revealed: this.revealed });
+        this.scheduleAfterScan(counts);
+        log.debug('YouTube filter scan completed', { ...counts, revealed: this.revealed });
         done();
+    }
+
+    private scanYouTubeCards(): YouTubeScanCounts {
+        const counts: YouTubeScanCounts = { filteredCount: 0, shownCount: 0, pendingCount: 0 };
+        for (const card of collectYouTubeVideoCards()) {
+            const decision = this.decideCard(readYouTubeCardInfo(card));
+            this.applyCardDecision(card, decision, counts);
+        }
+        return counts;
+    }
+
+    private applyCardDecision(card: HTMLElement, decision: YouTubeCardDecision, counts: YouTubeScanCounts): void {
+        if (decision === 'pending') {
+            counts.pendingCount += 1;
+            return;
+        }
+
+        if (decision === 'filtered') counts.filteredCount += 1;
+        if (this.shouldShowCard(decision)) {
+            this.showCard(card);
+            counts.shownCount += 1;
+            return;
+        }
+        this.hideCard(card);
+    }
+
+    private shouldShowCard(decision: YouTubeCardDecision): boolean {
+        return decision === 'shown' || this.revealed;
+    }
+
+    private scheduleAfterScan(counts: YouTubeScanCounts): void {
+        if (counts.pendingCount) this.schedule(180);
+        if (counts.filteredCount && !this.revealed) this.replacementRequester.request(counts.shownCount);
     }
 
     private decideCard(info: YouTubeCardInfo): YouTubeCardDecision {
@@ -318,49 +347,80 @@ export class YoutubeImmersionFilter {
             return;
         }
 
-        if (!this.bar) {
-            this.bar = document.createElement('div');
-            this.bar.className = 'jpdb-youtube-filter-bar';
-            this.bar.dataset.jpdbReaderRoot = 'true';
-            const label = document.createElement('span');
-            label.dataset.role = 'summary';
-            const actions = document.createElement('div');
-            actions.className = 'jpdb-youtube-filter-actions';
-            const showAnyway = document.createElement('button');
-            showAnyway.type = 'button';
-            showAnyway.dataset.action = 'show-anyway';
-            const turnOff = document.createElement('button');
-            turnOff.type = 'button';
-            turnOff.dataset.action = 'turn-off';
-            actions.append(showAnyway, turnOff);
-            this.bar.addEventListener('click', event => {
-                const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
-                if (action === 'show-anyway') {
-                    this.revealed = !this.revealed;
-                    log.info('YouTube filter reveal toggled', { revealed: this.revealed });
-                    this.schedule(0);
-                }
-                if (action === 'turn-off') {
-                    log.info('YouTube filter turn-off clicked');
-                    this.options.setEnabled?.(false);
-                    if (!this.options.setEnabled) this.clear();
-                }
-            });
-            this.bar.append(label, actions);
-            document.body.append(this.bar);
-        }
+        this.ensureNoticeBar();
+        this.updateNoticeSummary(filteredCount, shownCount);
+        this.updateNoticeActions(settings);
+        this.scheduleNoticeClear();
+    }
 
-        const summary = this.bar.querySelector<HTMLElement>('[data-role="summary"]');
-        const showAnyway = this.bar.querySelector<HTMLButtonElement>('[data-action="show-anyway"]');
-        const turnOff = this.bar.querySelector<HTMLButtonElement>('[data-action="turn-off"]');
+    private ensureNoticeBar(): void {
+        if (this.bar) return;
+        this.bar = this.createNoticeBar();
+        document.body.append(this.bar);
+    }
+
+    private createNoticeBar(): HTMLDivElement {
+        const bar = document.createElement('div');
+        bar.className = 'jpdb-youtube-filter-bar';
+        bar.dataset.jpdbReaderRoot = 'true';
+        const label = document.createElement('span');
+        label.dataset.role = 'summary';
+        const actions = this.createNoticeActions();
+        bar.addEventListener('click', event => this.handleNoticeClick(event));
+        bar.append(label, actions);
+        return bar;
+    }
+
+    private createNoticeActions(): HTMLDivElement {
+        const actions = document.createElement('div');
+        actions.className = 'jpdb-youtube-filter-actions';
+        actions.append(this.createNoticeButton('show-anyway'), this.createNoticeButton('turn-off'));
+        return actions;
+    }
+
+    private createNoticeButton(action: string): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.action = action;
+        return button;
+    }
+
+    private handleNoticeClick(event: Event): void {
+        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+        if (action === 'show-anyway') this.toggleRevealedCards();
+        if (action === 'turn-off') this.turnOffFilter();
+    }
+
+    private toggleRevealedCards(): void {
+        this.revealed = !this.revealed;
+        log.info('YouTube filter reveal toggled', { revealed: this.revealed });
+        this.schedule(0);
+    }
+
+    private turnOffFilter(): void {
+        log.info('YouTube filter turn-off clicked');
+        this.options.setEnabled?.(false);
+        if (!this.options.setEnabled) this.clear();
+    }
+
+    private updateNoticeSummary(filteredCount: number, shownCount: number): void {
+        const summary = this.bar?.querySelector<HTMLElement>('[data-role="summary"]');
         if (summary) {
             summary.textContent = this.revealed
                 ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? '' : 's'}`
                 : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? '' : 's'}`;
             summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : '';
         }
+    }
+
+    private updateNoticeActions(settings: ReaderSettings): void {
+        const showAnyway = this.bar?.querySelector<HTMLButtonElement>('[data-action="show-anyway"]');
+        const turnOff = this.bar?.querySelector<HTMLButtonElement>('[data-action="turn-off"]');
         if (showAnyway) showAnyway.textContent = this.revealed ? uiText(settings.interfaceLanguage, 'youtubeFilterAgain') : uiText(settings.interfaceLanguage, 'youtubeShowAnyway');
         if (turnOff) turnOff.textContent = uiText(settings.interfaceLanguage, 'youtubeTurnOff');
+    }
+
+    private scheduleNoticeClear(): void {
         window.clearTimeout(this.noticeTimer);
         this.noticeTimer = window.setTimeout(() => this.clearNotice(), 4500);
     }

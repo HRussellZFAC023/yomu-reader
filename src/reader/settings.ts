@@ -448,14 +448,11 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
 }
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
-    const jpdbWordAudioAutoPlayReviewAudio = typeof value?.jpdbWordAudioAutoPlayReviewAudio === 'boolean'
-        ? value.jpdbWordAudioAutoPlayReviewAudio
-        : DEFAULT_SETTINGS.jpdbWordAudioAutoPlayReviewAudio;
-    const jpdbImmersionKitAvailable = (typeof value?.immersionKitEnabled === 'boolean' ? value.immersionKitEnabled : DEFAULT_SETTINGS.immersionKitEnabled)
-        && (typeof value?.jpdbImmersionKitEnabled === 'boolean' ? value.jpdbImmersionKitEnabled : DEFAULT_SETTINGS.jpdbImmersionKitEnabled);
+    const jpdbWordAudioAutoPlayReviewAudio = booleanSetting(value, 'jpdbWordAudioAutoPlayReviewAudio');
+    const jpdbImmersionKitAvailable = immersionKitAvailable(value);
     return {
-        audioViaBlob: typeof value?.audioViaBlob === 'boolean' ? value.audioViaBlob : DEFAULT_SETTINGS.audioViaBlob,
-        audioFallbackChimeEnabled: typeof value?.audioFallbackChimeEnabled === 'boolean' ? value.audioFallbackChimeEnabled : DEFAULT_SETTINGS.audioFallbackChimeEnabled,
+        audioViaBlob: booleanSetting(value, 'audioViaBlob'),
+        audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
         immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
         immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
@@ -463,15 +460,11 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         immersionKitCategory: normalizeImmersionKitCategory(value?.immersionKitCategory),
         immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
         immersionKitPlaybackRate: clampNumber(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
-        immersionKitRevealTranslationOnClick: typeof value?.immersionKitRevealTranslationOnClick === 'boolean'
-            ? value.immersionKitRevealTranslationOnClick
-            : DEFAULT_SETTINGS.immersionKitRevealTranslationOnClick,
-        jpdbImmersionKitAutoPlayReviewAudio: jpdbImmersionKitAvailable && !jpdbWordAudioAutoPlayReviewAudio && (typeof value?.jpdbImmersionKitAutoPlayReviewAudio === 'boolean'
-            ? value.jpdbImmersionKitAutoPlayReviewAudio
-            : DEFAULT_SETTINGS.jpdbImmersionKitAutoPlayReviewAudio),
+        immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
+        jpdbImmersionKitAutoPlayReviewAudio: jpdbImmersionReviewAudioEnabled(value, jpdbImmersionKitAvailable, jpdbWordAudioAutoPlayReviewAudio),
         jpdbWordAudioAutoPlayReviewAudio,
-        immersionKitPlayOnHover: typeof value?.immersionKitPlayOnHover === 'boolean' ? value.immersionKitPlayOnHover : DEFAULT_SETTINGS.immersionKitPlayOnHover,
-        immersionKitPlayOnImageClick: typeof value?.immersionKitPlayOnImageClick === 'boolean' ? value.immersionKitPlayOnImageClick : DEFAULT_SETTINGS.immersionKitPlayOnImageClick,
+        immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
+        immersionKitPlayOnImageClick: booleanSetting(value, 'immersionKitPlayOnImageClick'),
         ocrProvider: normalizeOcrProvider(value?.ocrProvider),
         ocrEngine: normalizeOcrEngine(value?.ocrEngine),
         ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
@@ -480,6 +473,14 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
         ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
     };
+}
+
+function immersionKitAvailable(value: Partial<ReaderSettings> | null): boolean {
+    return booleanSetting(value, 'immersionKitEnabled') && booleanSetting(value, 'jpdbImmersionKitEnabled');
+}
+
+function jpdbImmersionReviewAudioEnabled(value: Partial<ReaderSettings> | null, kitAvailable: boolean, jpdbWordAudioEnabled: boolean): boolean {
+    return kitAvailable && !jpdbWordAudioEnabled && booleanSetting(value, 'jpdbImmersionKitAutoPlayReviewAudio');
 }
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -567,6 +568,13 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
 }
 
+function booleanSetting(value: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings): boolean {
+    const rawValue = value?.[key];
+    const fallback = DEFAULT_SETTINGS[key];
+    if (typeof rawValue === 'boolean') return rawValue;
+    return typeof fallback === 'boolean' ? fallback : false;
+}
+
 function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitleControlsMode'] {
     return value === 'always' || value === 'hidden' || value === 'auto' ? value : DEFAULT_SETTINGS.subtitleControlsMode;
 }
@@ -604,10 +612,18 @@ function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource)
 }
 
 function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
-    if (value === 'auto' || value === 'all' || value === 'difficult-kanji' || value === 'known-status' || value === 'off') return value;
-    if (settings && Object.prototype.hasOwnProperty.call(settings, 'showFurigana') && settings.showFurigana === false) return 'off';
-    if (settings && Object.prototype.hasOwnProperty.call(settings, 'hideKnownFurigana') && settings.hideKnownFurigana === false) return 'all';
+    if (isFuriganaMode(value)) return value;
+    if (legacyBooleanSettingIs(settings, 'showFurigana', false)) return 'off';
+    if (legacyBooleanSettingIs(settings, 'hideKnownFurigana', false)) return 'all';
     return DEFAULT_SETTINGS.furiganaMode;
+}
+
+function isFuriganaMode(value: unknown): value is FuriganaMode {
+    return value === 'auto' || value === 'all' || value === 'difficult-kanji' || value === 'known-status' || value === 'off';
+}
+
+function legacyBooleanSettingIs(settings: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings, expected: boolean): boolean {
+    return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
 }
 
 function normalizeDeckIdSetting(value: unknown, fallback: string): string {
@@ -663,37 +679,50 @@ export function accentToRgba(color: string, alpha: number): string {
 
 export function applyUrlBootstrapSettings(settings: ReaderSettings, search = location.search): ReaderSettings {
     const params = new URLSearchParams(search);
-    const apiKey = params.get('apiKey')?.trim();
-    const audio = params.get('audio')?.trim();
-    const ocr = params.get('ocr')?.trim();
-    if (!apiKey && !audio && !ocr) return settings;
+    const bootstrap = urlBootstrapSettings(params);
+    if (!bootstrap.apiKey && !bootstrap.audio && !bootstrap.ocr) return settings;
     log.info('Applying URL bootstrap settings', {
-        hasApiKey: Boolean(apiKey),
-        hasAudio: Boolean(audio),
-        hasOcr: Boolean(ocr),
+        hasApiKey: Boolean(bootstrap.apiKey),
+        hasAudio: Boolean(bootstrap.audio),
+        hasOcr: Boolean(bootstrap.ocr),
     });
-
-    const audioSources = audio
-        ? [{ type: 'custom-json', url: audio, voice: '', enabled: true } satisfies AudioSourceSetting, ...settings.audioSources.filter(source => source.url !== audio)]
-        : settings.audioSources;
 
     return {
         ...settings,
-        apiKey: apiKey || settings.apiKey,
-        audioSources,
-        audioSourceUrl: audio || settings.audioSourceUrl,
-        ocrEndpointUrl: ocr || settings.ocrEndpointUrl,
+        apiKey: bootstrap.apiKey || settings.apiKey,
+        audioSources: bootstrapAudioSources(settings, bootstrap.audio),
+        audioSourceUrl: bootstrap.audio || settings.audioSourceUrl,
+        ocrEndpointUrl: bootstrap.ocr || settings.ocrEndpointUrl,
     };
 }
 
-export function normalizeOcrProvider(value: unknown): OcrProvider {
-    if (value === 'auto') return 'google-lens';
-    if (value === 'fast') return 'google-lens';
-    if (value === 'page-text') return 'google-lens';
-    if (value === 'custom-json') return 'local-service';
-    if (value === 'google-lens' || value === 'cloud-vision' || value === 'local-service' || value === 'off') return value;
-    return DEFAULT_SETTINGS.ocrProvider;
+function urlBootstrapSettings(params: URLSearchParams): { apiKey: string; audio: string; ocr: string } {
+    return {
+        apiKey: params.get('apiKey')?.trim() ?? '',
+        audio: params.get('audio')?.trim() ?? '',
+        ocr: params.get('ocr')?.trim() ?? '',
+    };
 }
+
+function bootstrapAudioSources(settings: ReaderSettings, audio: string): AudioSourceSetting[] {
+    return audio
+        ? [{ type: 'custom-json', url: audio, voice: '', enabled: true }, ...settings.audioSources.filter(source => source.url !== audio)]
+        : settings.audioSources;
+}
+
+export function normalizeOcrProvider(value: unknown): OcrProvider {
+    if (typeof value !== 'string') return DEFAULT_SETTINGS.ocrProvider;
+    return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider);
+}
+
+const OCR_PROVIDER_ALIASES: Record<string, OcrProvider> = {
+    auto: 'google-lens',
+    fast: 'google-lens',
+    'page-text': 'google-lens',
+    'custom-json': 'local-service',
+};
+
+const OCR_PROVIDERS = new Set<OcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
 
 export function normalizeOcrEngine(value: unknown): string {
     if (typeof value !== 'string' || !value.trim()) return DEFAULT_SETTINGS.ocrEngine;
@@ -744,26 +773,41 @@ export function matchesShortcut(event: KeyboardEvent, shortcut = ''): boolean {
 
 export function formatShortcutEvent(event: KeyboardEvent): string {
     const parts: string[] = [];
+    addShortcutModifierParts(parts, event);
+    addShortcutKeyPart(parts, normalizeEventKey(event.key));
+    return dedupeShortcutParts(parts).join('+');
+}
+
+function addShortcutModifierParts(parts: string[], event: KeyboardEvent): void {
     if (event.ctrlKey) parts.push('Ctrl');
     if (event.altKey) parts.push('Alt');
     if (event.shiftKey) parts.push('Shift');
     if (event.metaKey) parts.push('Meta');
-    const key = normalizeEventKey(event.key);
-    if (!isModifierKey(key) || parts.length === 0) {
-        if (!isModifierKey(key)) parts.push(key);
-    }
-    return dedupeShortcutParts(parts).join('+');
+}
+
+function addShortcutKeyPart(parts: string[], key: string): void {
+    if (!isModifierKey(key)) parts.push(key);
 }
 
 export function shortcutIsPressed(shortcut = '', event: MouseEvent | KeyboardEvent, pressedKeys = new Set<string>()): boolean {
     if (!shortcut.trim()) return true;
     const parts = parseShortcut(shortcut);
-    if (parts.modifiers.has('alt') !== event.altKey) return false;
-    if (parts.modifiers.has('ctrl') !== event.ctrlKey) return false;
-    if (parts.modifiers.has('meta') !== event.metaKey) return false;
-    if (parts.modifiers.has('shift') !== event.shiftKey) return false;
+    if (!shortcutModifiersArePressed(parts.modifiers, event)) return false;
     if (!parts.key) return parts.modifiers.size > 0;
-    return pressedKeys.has(parts.key.toLowerCase()) || ('key' in event && normalizeEventKey(event.key).toLowerCase() === parts.key.toLowerCase());
+    return shortcutKeyIsPressed(parts.key, event, pressedKeys);
+}
+
+function shortcutModifiersArePressed(modifiers: Set<string>, event: MouseEvent | KeyboardEvent): boolean {
+    return modifiers.has('alt') === event.altKey
+        && modifiers.has('ctrl') === event.ctrlKey
+        && modifiers.has('meta') === event.metaKey
+        && modifiers.has('shift') === event.shiftKey;
+}
+
+function shortcutKeyIsPressed(key: string, event: MouseEvent | KeyboardEvent, pressedKeys: Set<string>): boolean {
+    const normalized = key.toLowerCase();
+    return pressedKeys.has(normalized)
+        || ('key' in event && normalizeEventKey(event.key).toLowerCase() === normalized);
 }
 
 function parseShortcut(shortcut: string): { key: string; modifiers: Set<string> } {
@@ -777,14 +821,27 @@ function normalizeShortcutPart(part: string): string {
     const value = part.trim();
     if (!value) return '';
     const lower = value.toLowerCase();
-    if (lower === 'control') return 'Ctrl';
-    if (lower === 'cmd' || lower === 'command' || lower === 'win' || lower === 'windows') return 'Meta';
-    if (lower === 'option') return 'Alt';
-    if (lower === 'esc') return 'Escape';
-    if (lower === 'spacebar' || lower === ' ') return 'Space';
+    const alias = shortcutPartAlias(lower);
+    if (alias) return alias;
     if (value.length === 1) return value.toUpperCase();
     return value[0]?.toUpperCase() + value.slice(1);
 }
+
+function shortcutPartAlias(lower: string): string {
+    return SHORTCUT_PART_ALIASES.get(lower) ?? '';
+}
+
+const SHORTCUT_PART_ALIASES = new Map<string, string>([
+    ['control', 'Ctrl'],
+    ['cmd', 'Meta'],
+    ['command', 'Meta'],
+    ['win', 'Meta'],
+    ['windows', 'Meta'],
+    ['option', 'Alt'],
+    ['esc', 'Escape'],
+    ['spacebar', 'Space'],
+    [' ', 'Space'],
+]);
 
 function normalizeEventKey(key: string): string {
     if (key === ' ') return 'Space';
@@ -882,23 +939,51 @@ export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = fals
 export function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown; action?: unknown };
-    const id = typeof record.id === 'string' && record.id.trim()
-        ? record.id.trim()
-        : typeof record.label === 'string'
-            ? `custom-${stableLookupLinkId(record.label)}`
-            : '';
-    const label = typeof record.label === 'string' && record.label.trim() ? record.label.trim().slice(0, 24) : id;
-    const urlTemplate = typeof record.urlTemplate === 'string' ? record.urlTemplate.trim() : '';
-    const action = record.action === 'copy' || id === 'copy' ? 'copy' : 'open';
-    if (!id || !label) return null;
-    if (action !== 'copy' && (!urlTemplate || !isSafeLookupUrlTemplate(urlTemplate))) return null;
+    const id = normalizedLookupLinkId(record);
+    const label = normalizedLookupLinkLabel(record, id);
+    const urlTemplate = normalizedLookupLinkUrlTemplate(record);
+    const action = normalizedLookupLinkAction(record, id);
+    if (!isUsableDictionaryLookupLink(id, label, urlTemplate, action)) return null;
     return {
         id,
         label,
         urlTemplate,
-        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+        enabled: normalizedLookupLinkEnabled(record),
         action,
     };
+}
+
+function normalizedLookupLinkUrlTemplate(record: { urlTemplate?: unknown }): string {
+    return typeof record.urlTemplate === 'string' ? record.urlTemplate.trim() : '';
+}
+
+function normalizedLookupLinkEnabled(record: { enabled?: unknown }): boolean {
+    return typeof record.enabled === 'boolean' ? record.enabled : true;
+}
+
+function isUsableDictionaryLookupLink(
+    id: string,
+    label: string,
+    urlTemplate: string,
+    action: DictionaryLookupLink['action'],
+): boolean {
+    if (!id || !label) return false;
+    return action === 'copy' || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
+}
+
+function normalizedLookupLinkId(record: { id?: unknown; label?: unknown }): string {
+    if (typeof record.id === 'string' && record.id.trim()) return record.id.trim();
+    return typeof record.label === 'string' ? `custom-${stableLookupLinkId(record.label)}` : '';
+}
+
+function normalizedLookupLinkLabel(record: { label?: unknown }, id: string): string {
+    return typeof record.label === 'string' && record.label.trim()
+        ? record.label.trim().slice(0, 24)
+        : id;
+}
+
+function normalizedLookupLinkAction(record: { action?: unknown }, id: string): DictionaryLookupLink['action'] {
+    return record.action === 'copy' || id === 'copy' ? 'copy' : 'open';
 }
 
 function stableLookupLinkId(value: string): string {

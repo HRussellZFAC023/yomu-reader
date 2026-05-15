@@ -24,18 +24,9 @@ export function bootReaderApp(): void {
     if (!ownerId) return;
     const isRealRuntime = runtimeKind !== 'demo';
 
-    if (bootWindow.__yomuReaderAppInitialized && bootWindow.__yomuDemoApp && isRealRuntime) {
-        bootWindow.__yomuDemoApp.destroy();
-        delete bootWindow.__yomuDemoApp;
-        bootWindow.__yomuReaderAppInitialized = false;
-    }
-
-    if (bootWindow.__yomuReaderAppInitialized) {
-        const existingPriority = runtimePriority(bootWindow.__yomuRuntimeKind ?? 'demo');
-        if (existingPriority >= runtimePriority(runtimeKind)) return;
-        bootWindow.__yomuRealApp?.destroy();
-        bootWindow.__yomuDemoApp?.destroy();
-    }
+    discardDemoRuntimeForRealBoot(bootWindow, isRealRuntime);
+    if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return;
+    destroyExistingRuntimeApps(bootWindow);
 
     bootWindow.__yomuReaderAppInitialized = true;
     bootWindow.__jpdbPopupReaderInitialized = true;
@@ -43,18 +34,45 @@ export function bootReaderApp(): void {
     bootWindow.__yomuRuntimeOwnerId = ownerId;
     const app = new ReaderApp();
     bindRuntimeClaims(app, ownerId, runtimeKind);
+    registerBootedRuntime(bootWindow, app, isRealRuntime);
+    startBootedRuntime(app, ownerId, runtimeKind, isRealRuntime);
+}
+
+function discardDemoRuntimeForRealBoot(bootWindow: YomuBootWindow, isRealRuntime: boolean): void {
+    if (!bootWindow.__yomuReaderAppInitialized || !bootWindow.__yomuDemoApp || !isRealRuntime) return;
+    bootWindow.__yomuDemoApp.destroy();
+    delete bootWindow.__yomuDemoApp;
+    bootWindow.__yomuReaderAppInitialized = false;
+}
+
+function canReplaceExistingRuntime(bootWindow: YomuBootWindow, runtimeKind: YomuRuntimeKind): boolean {
+    if (!bootWindow.__yomuReaderAppInitialized) return true;
+    const existingPriority = runtimePriority(bootWindow.__yomuRuntimeKind ?? 'demo');
+    return existingPriority < runtimePriority(runtimeKind);
+}
+
+function destroyExistingRuntimeApps(bootWindow: YomuBootWindow): void {
+    if (!bootWindow.__yomuReaderAppInitialized) return;
+    bootWindow.__yomuRealApp?.destroy();
+    bootWindow.__yomuDemoApp?.destroy();
+}
+
+function registerBootedRuntime(bootWindow: YomuBootWindow, app: ReaderApp, isRealRuntime: boolean): void {
     if (isRealRuntime) {
         bootWindow.__yomuRealApp = app;
         dispatchWindowEvent(createWindowCustomEvent('yomu-extension-loaded'));
-    } else {
-        bootWindow.__yomuDemoApp = app;
-        addWindowEventListener('yomu-extension-loaded', () => {
-            if (bootWindow.__yomuDemoApp === app) {
-                app.destroy();
-                delete bootWindow.__yomuDemoApp;
-            }
-        });
+        return;
     }
+    bootWindow.__yomuDemoApp = app;
+    addWindowEventListener('yomu-extension-loaded', () => {
+        if (bootWindow.__yomuDemoApp === app) {
+            app.destroy();
+            delete bootWindow.__yomuDemoApp;
+        }
+    });
+}
+
+function startBootedRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind, isRealRuntime: boolean): void {
     void app.init({
         isDemo: !isRealRuntime,
         showWelcome: runtimeKind === 'userscript',

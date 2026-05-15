@@ -54,6 +54,61 @@ const LENS_AUTO_FILTER = 7;
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 const log = Logger.scope('OCR');
 
+function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
+    return state.autoSkipped && !userRequested;
+}
+
+function updateOcrRequestFlags(state: ImageState, image: HTMLImageElement, userRequested: boolean): void {
+    state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
+    state.manualRequested ||= userRequested;
+    if (userRequested) state.autoSkipped = false;
+}
+
+function showOcrReadingStatus(state: ImageState): void {
+    state.status.hidden = false;
+    state.status.textContent = 'Reading image...';
+}
+
+interface OcrScanContext {
+    provider: string;
+    done: () => void;
+}
+
+function beginOcrScan(
+    state: ImageState,
+    image: HTMLImageElement,
+    settings: ReaderSettings,
+    manualRequested: boolean,
+): OcrScanContext {
+    state.loading = true;
+    state.status.hidden = !state.overlayRequested;
+    state.status.textContent = 'Reading image...';
+    const provider = inlineProviderLabel(settings);
+    return {
+        provider,
+        done: log.time('scanImage', { provider, image: imageSummary(image), manualRequested }),
+    };
+}
+
+function finishOcrScan(state: ImageState): void {
+    state.loading = false;
+    state.manualRequested = false;
+}
+
+function renderNoOcrLines(state: ImageState, provider: string, manualRequested: boolean): void {
+    state.autoSkipped = !manualRequested;
+    state.status.textContent = 'No Japanese text found';
+    state.status.hidden = !state.overlayRequested || state.autoSkipped;
+    log.debug('OCR found no lines', { provider, manualRequested });
+}
+
+function renderOcrErrorStatus(state: ImageState, provider: string, manualRequested: boolean, error: unknown): void {
+    state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
+    state.autoSkipped = !manualRequested;
+    state.status.hidden = !state.overlayRequested || state.autoSkipped;
+    log.warn('OCR scan failed', { provider, manualRequested }, error);
+}
+
 interface ProtoField {
     field: number;
     wire: number;
@@ -109,8 +164,7 @@ export class ImageOcrController {
             log.debug('OCR disabled; cleared overlays');
             return;
         }
-        const hasEmbeddedOcr = Array.from(document.images).some(hasFallbackOcrMetadata);
-        if (!options.userRequested && !hasEmbeddedOcr && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false)) {
+        if (this.shouldSkipRefresh(settings, options)) {
             this.clear();
             log.debugThrottled('refresh-skipped', 5000, 'OCR auto-scan skipped until Japanese text appears');
             return;
@@ -118,23 +172,46 @@ export class ImageOcrController {
 
         this.pruneDisconnectedStates();
         this.ensureObserver(settings);
-        const images = Array.from(document.images)
-            .filter(image => isCandidateImage(image, settings) && shouldObserveImage(image, settings))
-            .sort((a, b) => {
-                const priorityDelta = this.observePriority(a) - this.observePriority(b);
-                return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
-            })
-            .slice(0, settings.ocrMaxImagesPerPage);
+        const images = this.refreshImages(settings);
 
         for (const image of images) {
-            const state = this.ensureState(image);
-            this.observer?.observe(image);
-            if (settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !state.result && !state.loading && !state.autoSkipped && isNearViewport(image, settings.ocrPrefetchMargin)) {
-                this.enqueue(image);
-            }
+            this.observeRefreshImage(image, settings);
         }
         this.schedulePosition();
         log.debugThrottled('refresh', 2500, 'OCR refreshed image candidates', { images: images.length });
+    }
+
+    private shouldSkipRefresh(settings: ReaderSettings, options: { userRequested?: boolean }): boolean {
+        return !options.userRequested
+            && !Array.from(document.images).some(hasFallbackOcrMetadata)
+            && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false);
+    }
+
+    private refreshImages(settings: ReaderSettings): HTMLImageElement[] {
+        return Array.from(document.images)
+            .filter(image => isCandidateImage(image, settings) && shouldObserveImage(image, settings))
+            .sort((a, b) => this.compareRefreshImages(a, b))
+            .slice(0, settings.ocrMaxImagesPerPage);
+    }
+
+    private compareRefreshImages(a: HTMLImageElement, b: HTMLImageElement): number {
+        const priorityDelta = this.observePriority(a) - this.observePriority(b);
+        return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
+    }
+
+    private observeRefreshImage(image: HTMLImageElement, settings: ReaderSettings): void {
+        const state = this.ensureState(image);
+        this.observer?.observe(image);
+        if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
+    }
+
+    private shouldAutoEnqueueImage(image: HTMLImageElement, state: ImageState, settings: ReaderSettings): boolean {
+        return settings.ocrAutoScanImages
+            && this.options.shouldAutoScan?.() !== false
+            && !state.result
+            && !state.loading
+            && !state.autoSkipped
+            && isNearViewport(image, settings.ocrPrefetchMargin);
     }
 
     toggle(): void {
@@ -212,22 +289,24 @@ export class ImageOcrController {
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         const state = this.states.get(image) ?? this.ensureState(image);
-        if (state.autoSkipped && !userRequested) return;
-        state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
-        state.manualRequested ||= userRequested;
-        if (userRequested) state.autoSkipped = false;
-        if (state.result) {
-            if (userRequested) void this.renderResult(state, state.result, true);
-            return;
-        }
+        if (shouldSkipOcrRequest(state, userRequested)) return;
+        updateOcrRequestFlags(state, image, userRequested);
+        if (this.renderExistingOcrResult(state, userRequested)) return;
         if (state.loading) return;
-        if (!this.queue.includes(image)) this.queue.push(image);
-        if (userRequested) {
-            state.status.hidden = false;
-            state.status.textContent = 'Reading image...';
-        }
+        this.queueImageForOcr(image);
+        if (userRequested) showOcrReadingStatus(state);
         log.debug('OCR image queued', { userRequested, queue: this.queue.length, image: imageSummary(image) });
         this.drainQueue();
+    }
+
+    private renderExistingOcrResult(state: ImageState, userRequested: boolean): boolean {
+        if (!state.result) return false;
+        if (userRequested) void this.renderResult(state, state.result, true);
+        return true;
+    }
+
+    private queueImageForOcr(image: HTMLImageElement): void {
+        if (!this.queue.includes(image)) this.queue.push(image);
     }
 
     private drainQueue(): void {
@@ -252,62 +331,72 @@ export class ImageOcrController {
         const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
+        if (await this.renderCachedOcrResult(state, image, key)) return;
+
+        const scan = beginOcrScan(state, image, settings, manualRequested);
+
+        try {
+            await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
+        } catch (error) {
+            await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
+        } finally {
+            finishOcrScan(state);
+            scan.done();
+        }
+    }
+
+    private async renderCachedOcrResult(state: ImageState, image: HTMLImageElement, key: string): Promise<boolean> {
         const cached = this.cache.get(key);
-        if (cached) {
-            log.debug('OCR cache hit', { image: imageSummary(image), lines: cached.lines.length });
-            await this.renderResult(state, cached);
-            state.manualRequested = false;
+        if (!cached) return false;
+        log.debug('OCR cache hit', { image: imageSummary(image), lines: cached.lines.length });
+        await this.renderResult(state, cached);
+        state.manualRequested = false;
+        return true;
+    }
+
+    private async scanUncachedImage(
+        state: ImageState,
+        image: HTMLImageElement,
+        key: string,
+        settings: ReaderSettings,
+        provider: string,
+        manualRequested: boolean,
+    ): Promise<void> {
+        const inlineFallback = readFallbackOcrResult(image, false);
+        const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
+        const result = inlineFallback ?? providerResult;
+        if (!result?.lines.length) {
+            renderNoOcrLines(state, provider, manualRequested);
             return;
         }
 
-        state.loading = true;
-        state.status.hidden = !state.overlayRequested;
-        const canUseLocalService = settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim();
-        const canUseCloudVision = settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim();
-        const canUseGoogleLens = settings.ocrProvider === 'google-lens';
-        state.status.textContent = 'Reading image...';
-        const provider = inlineProviderLabel(settings);
-        const done = log.time('scanImage', { provider, image: imageSummary(image), manualRequested });
+        this.remember(key, result);
+        state.key = key;
+        await this.renderResult(state, result);
+        log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
+    }
 
-        try {
-            const inlineFallback = readFallbackOcrResult(image, false);
-            const providerResult = inlineFallback ? null : canUseLocalService
-                ? await recognizeViaLocalService(image, settings)
-                : canUseCloudVision
-                    ? await recognizeViaCloudVision(image, settings)
-                : canUseGoogleLens
-                    ? await recognizeViaGoogleLens(image, settings)
-                    : null;
-            const result = inlineFallback ?? providerResult;
-
-            if (!result?.lines.length) {
-                state.autoSkipped = !manualRequested;
-                state.status.textContent = 'No Japanese text found';
-                state.status.hidden = !state.overlayRequested || state.autoSkipped;
-                log.debug('OCR found no lines', { provider, manualRequested });
-                return;
-            }
-
-            this.remember(key, result);
-            state.key = key;
-            await this.renderResult(state, result);
-            log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
-        } catch (error) {
-            const fallback = readFallbackOcrResult(image, false);
-            if (fallback?.lines.length) {
-                log.warn('OCR provider failed; rendered fallback metadata', { provider }, error);
-                await this.renderResult(state, fallback);
-            } else {
-                state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
-                state.autoSkipped = !manualRequested;
-                state.status.hidden = !state.overlayRequested || state.autoSkipped;
-                log.warn('OCR scan failed', { provider, manualRequested }, error);
-            }
-        } finally {
-            state.loading = false;
-            state.manualRequested = false;
-            done();
+    private async renderOcrFailure(
+        state: ImageState,
+        image: HTMLImageElement,
+        provider: string,
+        manualRequested: boolean,
+        error: unknown,
+    ): Promise<void> {
+        const fallback = readFallbackOcrResult(image, false);
+        if (fallback?.lines.length) {
+            log.warn('OCR provider failed; rendered fallback metadata', { provider }, error);
+            await this.renderResult(state, fallback);
+            return;
         }
+        renderOcrErrorStatus(state, provider, manualRequested, error);
+    }
+
+    private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+        if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) return recognizeViaLocalService(image, settings);
+        if (settings.ocrProvider === 'cloud-vision' && settings.ocrCloudVisionApiKey.trim()) return recognizeViaCloudVision(image, settings);
+        if (settings.ocrProvider === 'google-lens') return recognizeViaGoogleLens(image, settings);
+        return Promise.resolve(null);
     }
 
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
@@ -319,73 +408,11 @@ export class ImageOcrController {
         const showText = settings.ocrShowTextOverlay || forceOverlay;
 
         const sentence = result.lines.map(line => line.text).join('\n');
-        const parsed = settings.apiKey.trim() || settings.localDictionariesEnabled
-            ? await Promise.all(result.lines.map(line => this.options.parseJapanese(line.text).catch(error => {
-                log.debug('OCR line parse failed quietly', { textLength: line.text.length }, error);
-                return [];
-            })))
-            : result.lines.map(() => []);
-        state.overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
-        state.overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
-        state.overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
-        state.overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+        const parsed = await this.parseOcrLines(result.lines, settings);
+        applyOcrOverlayStyle(state.overlay, settings);
 
         for (const [index, line] of result.lines.entries()) {
-            const element = document.createElement('div');
-            element.className = 'jpdb-ocr-line';
-            if (showText) element.classList.add('jpdb-ocr-line-visible');
-            element.dataset.ocrText = line.text;
-            element.dataset.boxLeft = String(line.box.left / result.width);
-            element.dataset.boxTop = String(line.box.top / result.height);
-            element.dataset.vertical = String(line.vertical);
-            element.dataset.boxWidth = String(line.box.width / result.width);
-            element.dataset.boxHeight = String(line.box.height / result.height);
-            element.dataset.sentence = sentence;
-            element.title = line.text;
-            element.tabIndex = 0;
-            element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
-            element.setAttribute('aria-label', line.text);
-            const textElement = document.createElement('span');
-            textElement.className = 'jpdb-ocr-line-text';
-            setInnerHtml(textElement, parsed[index]?.length
-                ? renderTokensToHtml(line.text, parsed[index], settings)
-                : escapeHtml(line.text));
-            normalizeOcrRuby(textElement);
-            normalizeOcrPlainText(textElement);
-            element.append(textElement);
-            const hasFurigana = Boolean(textElement.querySelector('.jpdb-reader-has-furi'));
-            element.dataset.hasFuri = String(hasFurigana);
-            element.style.left = `${100 * line.box.left / result.width}%`;
-            element.style.top = `${100 * line.box.top / result.height}%`;
-            element.style.width = `${100 * line.box.width / result.width}%`;
-            element.style.height = `${100 * line.box.height / result.height}%`;
-            element.addEventListener('pointerenter', event => {
-                if (event.pointerType === 'touch') return;
-                this.activateLine(state, element, false);
-            });
-            element.addEventListener('pointerleave', event => {
-                if (event.pointerType === 'touch' || element.dataset.pinned === 'true') return;
-                this.deactivateLine(element);
-            });
-            element.addEventListener('focus', () => {
-                if (element.dataset.pinned !== 'true') this.activateLine(state, element, false);
-            });
-            element.addEventListener('blur', () => {
-                if (element.dataset.pinned !== 'true') this.deactivateLine(element);
-            });
-            element.addEventListener('click', event => {
-                if ((event.target as HTMLElement).closest('.jpdb-reader-word')) return;
-                event.preventDefault();
-                event.stopPropagation();
-                const wasPinned = element.classList.contains('jpdb-ocr-line-active') && element.dataset.pinned === 'true';
-                if (wasPinned) {
-                    this.deactivateLine(element);
-                } else {
-                    element.focus({ preventScroll: true });
-                    this.activateLine(state, element, true);
-                }
-            });
-            state.overlay.append(element);
+            state.overlay.append(this.renderOcrLineElement(state, result, line, parsed[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
         log.debug('OCR overlay lines positioned', {
@@ -393,6 +420,52 @@ export class ImageOcrController {
             parsedTokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0),
             forcedOverlay: forceOverlay,
         });
+    }
+
+    private async parseOcrLines(lines: OcrLine[], settings: ReaderSettings): Promise<JPDBToken[][]> {
+        if (!settings.apiKey.trim() && !settings.localDictionariesEnabled) return lines.map(() => []);
+        return Promise.all(lines.map(line => this.options.parseJapanese(line.text).catch(error => {
+            log.debug('OCR line parse failed quietly', { textLength: line.text.length }, error);
+            return [];
+        })));
+    }
+
+    private renderOcrLineElement(
+        state: ImageState,
+        result: OcrResult,
+        line: OcrLine,
+        tokens: JPDBToken[],
+        sentence: string,
+        showText: boolean,
+        settings: ReaderSettings,
+    ): HTMLElement {
+        const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
+        element.addEventListener('pointerenter', event => {
+            if (event.pointerType !== 'touch') this.activateLine(state, element, false);
+        });
+        element.addEventListener('pointerleave', event => {
+            if (event.pointerType !== 'touch' && element.dataset.pinned !== 'true') this.deactivateLine(element);
+        });
+        element.addEventListener('focus', () => {
+            if (element.dataset.pinned !== 'true') this.activateLine(state, element, false);
+        });
+        element.addEventListener('blur', () => {
+            if (element.dataset.pinned !== 'true') this.deactivateLine(element);
+        });
+        element.addEventListener('click', event => this.toggleOcrLinePinned(state, element, event));
+        return element;
+    }
+
+    private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
+        if ((event.target as HTMLElement).closest('.jpdb-reader-word')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (element.classList.contains('jpdb-ocr-line-active') && element.dataset.pinned === 'true') {
+            this.deactivateLine(element);
+            return;
+        }
+        element.focus({ preventScroll: true });
+        this.activateLine(state, element, true);
     }
 
     private activateLine(state: ImageState, element: HTMLElement, pinned: boolean): void {
@@ -551,6 +624,61 @@ export class ImageOcrController {
     }
 }
 
+function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): void {
+    overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
+    overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
+    overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
+    overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+}
+
+function createOcrLineElement(
+    result: OcrResult,
+    line: OcrLine,
+    tokens: JPDBToken[],
+    sentence: string,
+    showText: boolean,
+    settings: ReaderSettings,
+): HTMLElement {
+    const element = document.createElement('div');
+    element.className = showText ? 'jpdb-ocr-line jpdb-ocr-line-visible' : 'jpdb-ocr-line';
+    setOcrLineDataset(element, result, line, sentence);
+    element.title = line.text;
+    element.tabIndex = 0;
+    element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
+    element.setAttribute('aria-label', line.text);
+    const textElement = createOcrLineText(line, tokens, settings);
+    element.append(textElement);
+    element.dataset.hasFuri = String(Boolean(textElement.querySelector('.jpdb-reader-has-furi')));
+    setOcrLinePosition(element, result, line);
+    return element;
+}
+
+function setOcrLineDataset(element: HTMLElement, result: OcrResult, line: OcrLine, sentence: string): void {
+    element.dataset.ocrText = line.text;
+    element.dataset.boxLeft = String(line.box.left / result.width);
+    element.dataset.boxTop = String(line.box.top / result.height);
+    element.dataset.vertical = String(line.vertical);
+    element.dataset.boxWidth = String(line.box.width / result.width);
+    element.dataset.boxHeight = String(line.box.height / result.height);
+    element.dataset.sentence = sentence;
+}
+
+function createOcrLineText(line: OcrLine, tokens: JPDBToken[], settings: ReaderSettings): HTMLElement {
+    const textElement = document.createElement('span');
+    textElement.className = 'jpdb-ocr-line-text';
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
+    normalizeOcrRuby(textElement);
+    normalizeOcrPlainText(textElement);
+    return textElement;
+}
+
+function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLine): void {
+    element.style.left = `${100 * line.box.left / result.width}%`;
+    element.style.top = `${100 * line.box.top / result.height}%`;
+    element.style.width = `${100 * line.box.width / result.width}%`;
+    element.style.height = `${100 * line.box.height / result.height}%`;
+}
+
 function captureImageElement(image: HTMLImageElement): string | undefined {
     try {
         if (!image.naturalWidth || !image.naturalHeight) return undefined;
@@ -574,40 +702,53 @@ export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHe
     const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
     if (cloudVision) return cloudVision;
 
+    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
+    const lines = collectGenericOcrLines(record, width, height);
+    return japaneseOcrResult(width, height, lines);
+}
+
+function ocrResultDimensions(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): Pick<OcrResult, 'width' | 'height'> {
     const resolution = record.context_resolution as Record<string, unknown> | undefined;
     const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
     const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+    return { width, height };
+}
+
+function collectGenericOcrLines(record: Record<string, unknown>, width: number, height: number): OcrLine[] {
     const rawLines = Array.isArray(record.lines) ? record.lines : Array.isArray(record.regions) ? record.regions : undefined;
     const lines: OcrLine[] = [];
+    if (rawLines) lines.push(...normalizeSimpleLines(rawLines, width, height));
+    if (Array.isArray(record.results)) lines.push(...normalizeStructuredOcrResults(record.results, width, height));
+    if (Array.isArray(record.ocr_regions)) lines.push(...normalizeOcrRegionResults(record.ocr_regions, width, height));
+    return lines;
+}
 
-    if (rawLines) {
-        for (const item of rawLines) {
-            const line = normalizeSimpleLine(item, width, height);
-            if (line) lines.push(line);
-        }
-    }
+function normalizeSimpleLines(values: unknown[], width: number, height: number): OcrLine[] {
+    return values
+        .map(item => normalizeSimpleLine(item, width, height))
+        .filter((line): line is OcrLine => Boolean(line));
+}
 
-    if (Array.isArray(record.results)) {
-        for (const item of record.results) {
-            lines.push(...normalizeStructuredOcrResult(item, width, height));
-        }
-    }
+function normalizeStructuredOcrResults(values: unknown[], width: number, height: number): OcrLine[] {
+    return values.flatMap(item => normalizeStructuredOcrResult(item, width, height));
+}
 
-    if (Array.isArray(record.ocr_regions)) {
-        for (const region of record.ocr_regions) {
-            const regionRecord = region as Record<string, unknown>;
-            const regionBox = normalizeOcrRegion(regionRecord, width, height);
-            const scaleWidth = regionBox?.width ?? width;
-            const scaleHeight = regionBox?.height ?? height;
-            if (Array.isArray(regionRecord.results)) {
-                for (const item of regionRecord.results) {
-                    const regionLines = normalizeStructuredOcrResult(item, scaleWidth, scaleHeight);
-                    lines.push(...(regionBox ? regionLines.map(line => offsetLineToRegion(line, regionBox, width, height)).filter((line): line is OcrLine => Boolean(line)) : regionLines));
-                }
-            }
-        }
-    }
+function normalizeOcrRegionResults(regions: unknown[], width: number, height: number): OcrLine[] {
+    return regions.flatMap(region => normalizeSingleOcrRegionResults(region, width, height));
+}
 
+function normalizeSingleOcrRegionResults(region: unknown, width: number, height: number): OcrLine[] {
+    if (!region || typeof region !== 'object') return [];
+    const regionRecord = region as Record<string, unknown>;
+    const regionBox = normalizeOcrRegion(regionRecord, width, height);
+    const scaleWidth = regionBox?.width ?? width;
+    const scaleHeight = regionBox?.height ?? height;
+    if (!Array.isArray(regionRecord.results)) return [];
+    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
+    return regionBox ? lines.map(line => offsetLineToRegion(line, regionBox, width, height)).filter((line): line is OcrLine => Boolean(line)) : lines;
+}
+
+function japaneseOcrResult(width: number, height: number, lines: OcrLine[]): OcrResult | null {
     const japaneseLines = lines.filter(line => line.text.length > 0 && HAS_JAPANESE.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
 }
@@ -615,17 +756,16 @@ export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHe
 export function readFallbackOcrResult(image: HTMLImageElement, _includeAccessibleText = false): OcrResult | null {
     const width = image.naturalWidth || image.width || 1;
     const height = image.naturalHeight || image.height || 1;
-    const data = image.dataset.ocrLines;
-    if (data) {
-        try {
-            const parsed = normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
-            if (parsed) return parsed;
-        } catch {
-            // Ignore invalid fixture/helper metadata.
-        }
-    }
+    return parseFallbackOcrLines(image.dataset.ocrLines, width, height);
+}
 
-    return null;
+function parseFallbackOcrLines(data: string | undefined, width: number, height: number): OcrResult | null {
+    if (!data) return null;
+    try {
+        return normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
+    } catch {
+        return null;
+    }
 }
 
 function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
@@ -859,142 +999,244 @@ function parseGoogleLensResponse(bytes: Uint8Array, width: number, height: numbe
     const layout = text ? protoFirstMessage(text, 1) : null;
     if (!layout) return null;
 
-    const lines: OcrLine[] = [];
-    for (const paragraph of protoMessages(layout, 1)) {
-        const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-        const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-        for (const line of protoMessages(paragraph, 2)) {
-            const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-            const words = protoMessages(line, 1).map(word => ({
-                text: protoString(word, 2),
-                separator: protoString(word, 3),
-                box: protoBox(protoFirstMessage(word, 4), width, height),
-            })).filter(word => word.text);
-            const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-            const rawText = orderedWords
-                .map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? ' ' : '')))
-                .join('');
-            const textValue = cleanOcrText(rawText);
-            if (!textValue || !HAS_JAPANESE.test(textValue)) continue;
-
-            const box = lineBox ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item))) ?? paragraphBox;
-            if (!box) continue;
-            lines.push({
-                text: textValue,
-                box,
-                vertical: paragraphVertical || (box.height > box.width * 1.25 && textValue.length > 1),
-            });
-        }
-    }
+    const lines = protoMessages(layout, 1).flatMap(paragraph => googleLensParagraphLines(paragraph, width, height));
     return lines.length ? { width, height, lines } : null;
 }
 
+interface GoogleLensWord {
+    text: string;
+    separator: string;
+    box: OcrRect | null;
+}
+
+function googleLensParagraphLines(paragraph: ProtoField[], width: number, height: number): OcrLine[] {
+    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+    return protoMessages(paragraph, 2)
+        .map(line => googleLensLine(line, width, height, vertical, paragraphBox))
+        .filter((line): line is OcrLine => line !== null);
+}
+
+function googleLensLine(line: ProtoField[], width: number, height: number, paragraphVertical: boolean, paragraphBox: OcrRect | null): OcrLine | null {
+    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+    const words = googleLensWords(line, width, height);
+    const text = cleanOcrText(googleLensLineText(words, paragraphVertical));
+    if (!text || !HAS_JAPANESE.test(text)) return null;
+    const box = googleLensLineBox(lineBox, words, paragraphBox);
+    return box ? { text, box, vertical: googleLensLineIsVertical(paragraphVertical, box, text) } : null;
+}
+
+function googleLensLineBox(lineBox: OcrRect | null, words: GoogleLensWord[], paragraphBox: OcrRect | null): OcrRect | null {
+    return lineBox ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item))) ?? paragraphBox;
+}
+
+function googleLensLineIsVertical(paragraphVertical: boolean, box: OcrRect, text: string): boolean {
+    return paragraphVertical || (box.height > box.width * 1.25 && text.length > 1);
+}
+
+function googleLensWords(line: ProtoField[], width: number, height: number): GoogleLensWord[] {
+    return protoMessages(line, 1).map(word => ({
+        text: protoString(word, 2),
+        separator: protoString(word, 3),
+        box: protoBox(protoFirstMessage(word, 4), width, height),
+    })).filter(word => word.text);
+}
+
+function googleLensLineText(words: GoogleLensWord[], paragraphVertical: boolean): string {
+    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+    return orderedWords
+        .map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? ' ' : '')))
+        .join('');
+}
+
 function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
-    const match = html.match(/AF_initDataCallback\((\{key:\s*['"]ds:1['"][\s\S]*?\})\);/);
-    if (!match) return null;
     try {
-        const callback = Function(`"use strict";return (${match[1]});`)() as { data?: unknown[] };
-        const blocks = (((callback.data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
-        const lines: OcrLine[] = [];
-        for (const block of blocks) {
-            const blockData = block as unknown[];
-            const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
-            const lineItems = rawLines?.[0] as unknown[] | undefined;
-            if (!Array.isArray(lineItems)) continue;
-            for (const item of lineItems) {
-                const lineData = item as unknown[];
-                const words = Array.isArray(lineData[0]) ? lineData[0] as unknown[] : [];
-                const boxData = Array.isArray(lineData[1]) ? lineData[1] as number[] : [];
-                const text = cleanOcrText(words.map(word => {
-                    const wordData = word as unknown[];
-                    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
-                }).join(''));
-                const box = boxData.length >= 4 ? clampBox({
-                    top: Number(boxData[0]) * height,
-                    left: Number(boxData[1]) * width,
-                    width: Number(boxData[2]) * width,
-                    height: Number(boxData[3]) * height,
-                }, width, height) : null;
-                if (text && box && HAS_JAPANESE.test(text)) {
-                    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
-                }
-            }
-        }
+        const callback = parseGoogleLensUploadCallback(html);
+        if (!callback) return null;
+        const lines = googleLensUploadBlocks(callback)
+            .flatMap(block => googleLensUploadLineItems(block))
+            .map(item => googleLensUploadLine(item, width, height))
+            .filter((line): line is OcrLine => line !== null);
         return lines.length ? { width, height, lines } : null;
     } catch {
         return null;
     }
 }
 
+function parseGoogleLensUploadCallback(html: string): { data?: unknown[] } | null {
+    const match = html.match(/AF_initDataCallback\((\{key:\s*['"]ds:1['"][\s\S]*?\})\);/);
+    return match ? Function(`"use strict";return (${match[1]});`)() as { data?: unknown[] } : null;
+}
+
+function googleLensUploadBlocks(callback: { data?: unknown[] }): unknown[] {
+    return (((callback.data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
+}
+
+function googleLensUploadLineItems(block: unknown): unknown[] {
+    const blockData = block as unknown[];
+    const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
+    const lineItems = rawLines?.[0] as unknown[] | undefined;
+    return Array.isArray(lineItems) ? lineItems : [];
+}
+
+function googleLensUploadLine(item: unknown, width: number, height: number): OcrLine | null {
+    const lineData = item as unknown[];
+    const text = cleanOcrText(googleLensUploadWordsText(lineData[0]));
+    const box = googleLensUploadBox(lineData[1], width, height);
+    return text && box && HAS_JAPANESE.test(text)
+        ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
+        : null;
+}
+
+function googleLensUploadWordsText(value: unknown): string {
+    const words = Array.isArray(value) ? value : [];
+    return words.map(word => {
+        const wordData = word as unknown[];
+        return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
+    }).join('');
+}
+
+function googleLensUploadBox(value: unknown, width: number, height: number): OcrRect | null {
+    const boxData = Array.isArray(value) ? value as number[] : [];
+    return boxData.length >= 4 ? clampBox({
+        top: Number(boxData[0]) * height,
+        left: Number(boxData[1]) * width,
+        width: Number(boxData[2]) * width,
+        height: Number(boxData[3]) * height,
+    }, width, height) : null;
+}
+
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    const text = stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+    const text = simpleLineText(record);
     const box = normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
     if (!text || !box) return null;
-    return { text, box, vertical: Boolean(record.vertical ?? record.is_vertical) };
+    return { text, box, vertical: simpleLineIsVertical(record) };
+}
+
+function simpleLineText(record: Record<string, unknown>): string {
+    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+}
+
+function simpleLineIsVertical(record: Record<string, unknown>): boolean {
+    return Boolean(record.vertical ?? record.is_vertical);
 }
 
 function normalizeCloudVisionResponse(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): OcrResult | null {
-    const responses = Array.isArray(record.responses) ? record.responses : ('fullTextAnnotation' in record ? [record] : []);
+    const responses = cloudVisionResponses(record);
     const lines: OcrLine[] = [];
     let width = fallbackWidth;
     let height = fallbackHeight;
     for (const response of responses) {
-        const annotation = (response as Record<string, unknown>)?.fullTextAnnotation as Record<string, unknown> | undefined;
-        const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-        for (const page of pages) {
-            const pageRecord = page as Record<string, unknown>;
-            width = numberFrom(pageRecord.width) || width;
-            height = numberFrom(pageRecord.height) || height;
-            const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
-            for (const block of blocks) {
-                const paragraphs = Array.isArray((block as Record<string, unknown>).paragraphs) ? (block as Record<string, unknown>).paragraphs as unknown[] : [];
-                for (const paragraph of paragraphs) {
-                    pushCloudVisionParagraphLines(paragraph as Record<string, unknown>, lines, width, height);
-                }
-            }
-        }
-        const annotations = Array.isArray((response as Record<string, unknown>)?.textAnnotations) ? (response as Record<string, unknown>).textAnnotations as unknown[] : [];
-        if (!lines.length && annotations.length > 1) {
-            for (const annotationItem of annotations.slice(1)) {
-                const item = annotationItem as Record<string, unknown>;
-                const text = cleanOcrText(item.description);
-                const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
-                if (text && box && HAS_JAPANESE.test(text)) lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
-            }
-        }
+        const pageResult = collectCloudVisionPageLines(response, width, height);
+        width = pageResult.width;
+        height = pageResult.height;
+        lines.push(...pageResult.lines);
+        if (!lines.length) lines.push(...normalizeCloudVisionTextAnnotations(response, width, height));
     }
     return lines.length ? { width, height, lines } : null;
 }
 
-function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
-    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-    let text = '';
-    let boxes: OcrRect[] = [];
-    const pushLine = () => {
-        const value = cleanOcrText(text);
-        const box = unionBoxes(boxes);
-        if (value && box && HAS_JAPANESE.test(value)) {
-            lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
-        }
-        text = '';
-        boxes = [];
-    };
+function cloudVisionResponses(record: Record<string, unknown>): unknown[] {
+    if (Array.isArray(record.responses)) return record.responses;
+    return 'fullTextAnnotation' in record ? [record] : [];
+}
 
-    for (const word of words) {
-        const symbols = Array.isArray((word as Record<string, unknown>).symbols) ? (word as Record<string, unknown>).symbols as unknown[] : [];
-        for (const symbol of symbols) {
-            const symbolRecord = symbol as Record<string, unknown>;
-            text += String(symbolRecord.text ?? '');
-            const box = normalizeCloudVisionVertices((symbolRecord.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
-            if (box) boxes.push(box);
-            const breakType = ((symbolRecord.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
-            if (breakType === 'SPACE' || breakType === 'SURE_SPACE' || breakType === 'UNKNOWN') text += ' ';
-            if (breakType === 'LINE_BREAK' || breakType === 'EOL_SURE_SPACE' || breakType === 'HYPHEN') pushLine();
+function collectCloudVisionPageLines(response: unknown, fallbackWidth: number, fallbackHeight: number): OcrResult {
+    const lines: OcrLine[] = [];
+    let width = fallbackWidth;
+    let height = fallbackHeight;
+    for (const pageRecord of cloudVisionPages(response)) {
+        width = numberFrom(pageRecord.width) || width;
+        height = numberFrom(pageRecord.height) || height;
+        for (const paragraph of cloudVisionPageParagraphs(pageRecord)) {
+            pushCloudVisionParagraphLines(paragraph, lines, width, height);
         }
     }
-    pushLine();
+    return { width, height, lines };
+}
+
+function cloudVisionPages(response: unknown): Record<string, unknown>[] {
+    if (!response || typeof response !== 'object') return [];
+    const annotation = (response as Record<string, unknown>).fullTextAnnotation as Record<string, unknown> | undefined;
+    return Array.isArray(annotation?.pages) ? annotation.pages.filter(isRecord) : [];
+}
+
+function cloudVisionPageParagraphs(page: Record<string, unknown>): Record<string, unknown>[] {
+    const blocks = Array.isArray(page.blocks) ? page.blocks.filter(isRecord) : [];
+    return blocks.flatMap(block => Array.isArray(block.paragraphs) ? block.paragraphs.filter(isRecord) : []);
+}
+
+function normalizeCloudVisionTextAnnotations(response: unknown, width: number, height: number): OcrLine[] {
+    if (!response || typeof response !== 'object') return [];
+    const annotations = (response as Record<string, unknown>).textAnnotations;
+    if (!Array.isArray(annotations) || annotations.length <= 1) return [];
+    return annotations.slice(1)
+        .map(item => normalizeCloudVisionTextAnnotation(item, width, height))
+        .filter((line): line is OcrLine => Boolean(line));
+}
+
+function normalizeCloudVisionTextAnnotation(item: unknown, width: number, height: number): OcrLine | null {
+    if (!isRecord(item)) return null;
+    const text = cleanOcrText(item.description);
+    const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
+    return text && box && HAS_JAPANESE.test(text)
+        ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
+        : null;
+}
+
+function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
+    const accumulator: CloudVisionLineAccumulator = { text: '', boxes: [] };
+    for (const word of cloudVisionParagraphWords(paragraph)) {
+        for (const symbol of cloudVisionWordSymbols(word)) appendCloudVisionSymbol(accumulator, symbol, lines, width, height);
+    }
+    pushCloudVisionLine(accumulator, lines);
+}
+
+interface CloudVisionLineAccumulator {
+    text: string;
+    boxes: OcrRect[];
+}
+
+function cloudVisionParagraphWords(paragraph: Record<string, unknown>): unknown[] {
+    return Array.isArray(paragraph.words) ? paragraph.words : [];
+}
+
+function cloudVisionWordSymbols(word: unknown): unknown[] {
+    return isRecord(word) && Array.isArray(word.symbols) ? word.symbols : [];
+}
+
+function appendCloudVisionSymbol(accumulator: CloudVisionLineAccumulator, symbol: unknown, lines: OcrLine[], width: number, height: number): void {
+    if (!isRecord(symbol)) return;
+    accumulator.text += String(symbol.text ?? '');
+    const box = normalizeCloudVisionVertices((symbol.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
+    if (box) accumulator.boxes.push(box);
+    const breakType = cloudVisionDetectedBreak(symbol);
+    if (isCloudVisionSpaceBreak(breakType)) accumulator.text += ' ';
+    if (isCloudVisionLineBreak(breakType)) pushCloudVisionLine(accumulator, lines);
+}
+
+function pushCloudVisionLine(accumulator: CloudVisionLineAccumulator, lines: OcrLine[]): void {
+    const value = cleanOcrText(accumulator.text);
+    const box = unionBoxes(accumulator.boxes);
+    if (value && box && HAS_JAPANESE.test(value)) {
+        lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
+    }
+    accumulator.text = '';
+    accumulator.boxes = [];
+}
+
+function cloudVisionDetectedBreak(symbol: Record<string, unknown>): unknown {
+    return ((symbol.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
+}
+
+function isCloudVisionSpaceBreak(value: unknown): boolean {
+    return value === 'SPACE' || value === 'SURE_SPACE' || value === 'UNKNOWN';
+}
+
+function isCloudVisionLineBreak(value: unknown): boolean {
+    return value === 'LINE_BREAK' || value === 'EOL_SURE_SPACE' || value === 'HYPHEN';
 }
 
 function normalizeCloudVisionVertices(value: unknown, width: number, height: number): OcrRect | null {
@@ -1009,45 +1251,82 @@ function normalizeCloudVisionVertices(value: unknown, width: number, height: num
 function normalizeStructuredOcrResult(value: unknown, width: number, height: number): OcrLine[] {
     if (!value || typeof value !== 'object') return [];
     const record = value as Record<string, unknown>;
-    const textLines = Array.isArray(record.text_lines) ? record.text_lines : Array.isArray(record.text) ? record.text : [];
-    const vertical = Boolean(record.is_vertical ?? (record.box as Record<string, unknown> | undefined)?.isVertical);
+    const textLines = structuredOcrTextLines(record);
+    const vertical = structuredOcrVertical(record);
     const lines = textLines
-        .map(item => {
-            const lineRecord = item as Record<string, unknown>;
-            const text = stringFrom(lineRecord?.content ?? lineRecord?.text ?? lineRecord?.word);
-            const box = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
-            return text && box ? { text, box, vertical: Boolean(lineRecord.is_vertical ?? (lineRecord.box as Record<string, unknown> | undefined)?.isVertical ?? vertical) } : null;
-        })
+        .map(item => normalizeStructuredOcrLine(item, width, height, vertical))
         .filter((line): line is OcrLine => line !== null);
     if (lines.length) return lines;
 
+    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+}
+
+function structuredOcrTextLines(record: Record<string, unknown>): unknown[] {
+    if (Array.isArray(record.text_lines)) return record.text_lines;
+    return Array.isArray(record.text) ? record.text : [];
+}
+
+function structuredOcrVertical(record: Record<string, unknown>): boolean {
+    return Boolean(record.is_vertical ?? (record.box as Record<string, unknown> | undefined)?.isVertical);
+}
+
+function normalizeStructuredOcrLine(item: unknown, width: number, height: number, inheritedVertical: boolean): OcrLine | null {
+    const lineRecord = item as Record<string, unknown>;
+    const text = stringFrom(lineRecord?.content ?? lineRecord?.text ?? lineRecord?.word);
+    const box = normalizeBox(lineRecord.box ?? lineRecord.boundingBox ?? lineRecord, width, height);
+    if (!text || !box) return null;
+    return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+}
+
+function structuredOcrLineVertical(record: Record<string, unknown>, inheritedVertical: boolean): boolean {
+    return Boolean(record.is_vertical ?? (record.box as Record<string, unknown> | undefined)?.isVertical ?? inheritedVertical);
+}
+
+function normalizeStructuredOcrFallback(record: Record<string, unknown>, textLines: unknown[], width: number, height: number, vertical: boolean): OcrLine[] {
     const text = textLines.map(item => stringFrom((item as Record<string, unknown>)?.content)).filter(Boolean).join('');
     const box = normalizeBox(record.box, width, height);
     return text && box ? [{ text, box, vertical }] : [];
 }
 
 function normalizeOcrRegion(record: Record<string, unknown>, width: number, height: number): OcrRect | null {
+    const region = readOcrRegion(record);
+    if (!region) return null;
+    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
+    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
+}
+
+interface OcrRegionParts {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}
+
+function readOcrRegion(record: Record<string, unknown>): OcrRegionParts | null {
     const position = record.position as Record<string, unknown> | undefined;
     const size = record.size as Record<string, unknown> | undefined;
     if (!position || !size) return null;
-
     const left = numberFrom(position.left);
     const top = numberFrom(position.top);
     const regionWidth = numberFrom(size.width);
     const regionHeight = numberFrom(size.height);
-    if (left === null || top === null || regionWidth === null || regionHeight === null) return null;
+    return left === null || top === null || regionWidth === null || regionHeight === null
+        ? null
+        : { left, top, width: regionWidth, height: regionHeight };
+}
 
-    const fractional = Math.max(left, top, regionWidth, regionHeight) <= 1;
-    const box = clampBox({
-        left: (fractional ? left : left / 100) * width,
-        top: (fractional ? top : top / 100) * height,
-        width: (fractional ? regionWidth : regionWidth / 100) * width,
-        height: (fractional ? regionHeight : regionHeight / 100) * height,
-    }, width, height);
+function scaleOcrRegion(region: OcrRegionParts, width: number, height: number): OcrRect {
+    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
+    return {
+        left: (region.left / divisor) * width,
+        top: (region.top / divisor) * height,
+        width: (region.width / divisor) * width,
+        height: (region.height / divisor) * height,
+    };
+}
 
-    if (!box) return null;
-    const isFullImage = box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
-    return isFullImage ? null : box;
+function isFullImageOcrRegion(box: OcrRect, width: number, height: number): boolean {
+    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
 }
 
 function offsetLineToRegion(line: OcrLine, region: OcrRect, width: number, height: number): OcrLine | null {
@@ -1115,15 +1394,31 @@ function boxFromNumbers(
     imageHeight: number,
     scale: 'pixels' | 'fraction' | 'percent-100',
 ): OcrRect | null {
-    if (box.left === null || box.top === null || box.width === null || box.height === null) return null;
-    const factor = scale === 'percent-100' ? 100 : 1;
-    const fractional = scale !== 'pixels';
+    if (!hasCompleteBoxNumbers(box)) return null;
+    const scaleInfo = boxScaleInfo(scale);
     return clampBox({
-        left: fractional ? box.left / factor * imageWidth : box.left,
-        top: fractional ? box.top / factor * imageHeight : box.top,
-        width: fractional ? box.width / factor * imageWidth : box.width,
-        height: fractional ? box.height / factor * imageHeight : box.height,
+        left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
+        top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
+        width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
+        height: scaleBoxNumber(box.height, imageHeight, scaleInfo),
     }, imageWidth, imageHeight);
+}
+
+function hasCompleteBoxNumbers(
+    box: { left: number | null; top: number | null; width: number | null; height: number | null },
+): box is { left: number; top: number; width: number; height: number } {
+    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
+}
+
+function boxScaleInfo(scale: 'pixels' | 'fraction' | 'percent-100'): { fractional: boolean; factor: number } {
+    return {
+        fractional: scale !== 'pixels',
+        factor: scale === 'percent-100' ? 100 : 1,
+    };
+}
+
+function scaleBoxNumber(value: number, dimension: number, scale: { fractional: boolean; factor: number }): number {
+    return scale.fractional ? value / scale.factor * dimension : value;
 }
 
 function clampBox(box: OcrRect, width: number, height: number): OcrRect | null {
@@ -1151,13 +1446,21 @@ function cleanOcrText(value: unknown): string {
 }
 
 function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
-    if (image.closest('[data-jpdb-reader-root]')) return false;
-    if (image.closest('[aria-hidden="true"], [hidden], .slick-cloned')) return false;
+    if (isIgnoredOcrImage(image)) return false;
     const rect = image.getBoundingClientRect();
     const area = rect.width * rect.height;
     if (area < settings.ocrMinImageArea) return false;
     if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
     if (isImageOccludedByVideo(image, rect)) return false;
+    return isVisibleOcrImage(image);
+}
+
+function isIgnoredOcrImage(image: HTMLImageElement): boolean {
+    return Boolean(image.closest('[data-jpdb-reader-root]')
+        || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
+}
+
+function isVisibleOcrImage(image: HTMLImageElement): boolean {
     const style = getComputedStyle(image);
     return style.visibility !== 'hidden'
         && style.display !== 'none'
@@ -1167,11 +1470,20 @@ function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): bo
 
 function isInsideHiddenAncestor(element: Element): boolean {
     for (let current: Element | null = element.parentElement; current && current !== document.body; current = current.parentElement) {
-        const style = getComputedStyle(current);
-        if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity || '1') <= 0) return true;
-        if (current.getAttribute('aria-hidden') === 'true' || current.hasAttribute('hidden')) return true;
+        if (isHiddenByCss(current) || isHiddenByAttribute(current)) return true;
     }
     return false;
+}
+
+function isHiddenByCss(element: Element): boolean {
+    const style = getComputedStyle(element);
+    return style.visibility === 'hidden'
+        || style.display === 'none'
+        || Number(style.opacity || '1') <= 0;
+}
+
+function isHiddenByAttribute(element: Element): boolean {
+    return element.getAttribute('aria-hidden') === 'true' || element.hasAttribute('hidden');
 }
 
 function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {
@@ -1193,15 +1505,33 @@ function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundin
     if (imageArea < 4) return false;
     const imageRoot = image.getRootNode();
     for (const video of document.querySelectorAll('video')) {
-        if (!video.isConnected || video.getRootNode() !== imageRoot || isSameMediaNode(video, image)) continue;
-        const videoRect = video.getBoundingClientRect();
-        if (videoRect.width < 2 || videoRect.height < 2) continue;
-        const style = getComputedStyle(video);
-        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) continue;
-        const overlap = intersectionArea(rect, videoRect);
-        if (overlap / imageArea >= 0.6) return true;
+        if (!isVisiblePeerVideo(video, image, imageRoot)) continue;
+        if (videoOccludesImage(video, rect, imageArea)) return true;
     }
     return false;
+}
+
+function isVisiblePeerVideo(video: HTMLVideoElement, image: HTMLImageElement, imageRoot: Node): boolean {
+    return video.isConnected
+        && video.getRootNode() === imageRoot
+        && !isSameMediaNode(video, image)
+        && visibleVideoRect(video) !== null
+        && isVisibleElement(video);
+}
+
+function visibleVideoRect(video: HTMLVideoElement): DOMRect | null {
+    const rect = video.getBoundingClientRect();
+    return rect.width >= 2 && rect.height >= 2 ? rect : null;
+}
+
+function isVisibleElement(element: Element): boolean {
+    const style = getComputedStyle(element);
+    return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
+}
+
+function videoOccludesImage(video: HTMLVideoElement, imageRect: DOMRect, imageArea: number): boolean {
+    const videoRect = visibleVideoRect(video);
+    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
 }
 
 function isSameMediaNode(video: HTMLVideoElement, image: HTMLImageElement): boolean {
@@ -1354,18 +1684,37 @@ function protoNumber(fields: ProtoField[], field: number): number {
 function protoBox(geometry: ProtoField[] | null, width: number, height: number): OcrRect | null {
     const box = geometry ? protoFirstMessage(geometry, 1) : null;
     if (!box) return null;
-    const centerX = protoNumber(box, 1);
-    const centerY = protoNumber(box, 2);
-    const boxWidth = protoNumber(box, 3);
-    const boxHeight = protoNumber(box, 4);
-    if (!boxWidth || !boxHeight) return null;
-    const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
-    return clampBox({
-        left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
-        top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
-        width: normalized ? boxWidth * width : boxWidth,
-        height: normalized ? boxHeight * height : boxHeight,
-    }, width, height);
+    const geometryBox = readProtoGeometryBox(box);
+    return geometryBox ? clampBox(scaleProtoGeometryBox(geometryBox, width, height), width, height) : null;
+}
+
+interface ProtoGeometryBox {
+    centerX: number;
+    centerY: number;
+    width: number;
+    height: number;
+}
+
+function readProtoGeometryBox(box: ProtoField[]): ProtoGeometryBox | null {
+    const geometry = {
+        centerX: protoNumber(box, 1),
+        centerY: protoNumber(box, 2),
+        width: protoNumber(box, 3),
+        height: protoNumber(box, 4),
+    };
+    return geometry.width && geometry.height ? geometry : null;
+}
+
+function scaleProtoGeometryBox(box: ProtoGeometryBox, imageWidth: number, imageHeight: number): OcrRect {
+    const normalized = Math.max(box.centerX, box.centerY, box.width, box.height) <= 2;
+    const scaledWidth = normalized ? box.width * imageWidth : box.width;
+    const scaledHeight = normalized ? box.height * imageHeight : box.height;
+    return {
+        left: (normalized ? box.centerX * imageWidth : box.centerX) - scaledWidth / 2,
+        top: (normalized ? box.centerY * imageHeight : box.centerY) - scaledHeight / 2,
+        width: scaledWidth,
+        height: scaledHeight,
+    };
 }
 
 function concatBytes(parts: Uint8Array[]): Uint8Array {
@@ -1533,6 +1882,10 @@ function stringFrom(value: unknown): string {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function numberFrom(value: unknown): number | null {
