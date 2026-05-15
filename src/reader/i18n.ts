@@ -761,8 +761,11 @@ const COPY = {
 export type UiCopyKey = keyof typeof COPY.en;
 
 export function resolveUiLanguage(language: InterfaceLanguage): UiLanguage {
-    if (language === 'ja') return 'ja';
-    if (language === 'en') return 'en';
+    if (language !== 'auto') return language;
+    return automaticUiLanguage();
+}
+
+function automaticUiLanguage(): UiLanguage {
     return typeof navigator !== 'undefined' && /^ja\b/i.test(navigator.language) ? 'ja' : 'en';
 }
 
