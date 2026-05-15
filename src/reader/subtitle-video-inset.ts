@@ -29,10 +29,7 @@ export class SubtitleVideoInsetAdapter {
     }
 
     clear(video?: HTMLVideoElement): void {
-        if (!this.lastSignature
-            && !document.documentElement.classList.contains('jpdb-subtitle-video-inset-left')
-            && !document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')
-            && !document.documentElement.classList.contains('jpdb-subtitle-video-inset-bottom')) return;
+        if (!hasActiveVideoInset(this.lastSignature)) return;
         this.lastSignature = '';
         document.documentElement.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right', 'jpdb-subtitle-video-inset-bottom');
         document.documentElement.style.removeProperty('--jpdb-subtitle-video-inset');
@@ -43,6 +40,13 @@ export class SubtitleVideoInsetAdapter {
         for (const element of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element);
         if (video) clearGenericVideoInset(video);
     }
+}
+
+function hasActiveVideoInset(lastSignature: string): boolean {
+    return Boolean(lastSignature)
+        || document.documentElement.classList.contains('jpdb-subtitle-video-inset-left')
+        || document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')
+        || document.documentElement.classList.contains('jpdb-subtitle-video-inset-bottom');
 }
 
 interface VideoInsetMetrics {
@@ -132,12 +136,20 @@ function videoAspectRatio(video?: HTMLVideoElement): number {
 
 function applyYouTubePlayerInset(side: SubtitleVideoInsetSide, width: number, inset: number, height: number): void {
     const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+    applyYouTubeWatchFlexyInset(watchFlexy, side, width, height);
+    for (const element of youtubePlayerContainers()) {
+        applyYouTubePlayerContainerInset(element, side, width, inset, bottomInsetHeight(side, height));
+    }
+}
+
+function applyYouTubeWatchFlexyInset(watchFlexy: HTMLElement | null, side: SubtitleVideoInsetSide, width: number, height: number): void {
     if (side !== 'bottom') watchFlexy?.style.setProperty('--ytd-watch-flexy-player-width', `${width}px`);
     if (height) watchFlexy?.style.setProperty('--ytd-watch-flexy-player-height', `${height}px`);
     if (side === 'bottom' && height) watchFlexy?.style.setProperty('--ytd-watch-flexy-min-player-height', `${height}px`);
-    for (const element of youtubePlayerContainers()) {
-        applyYouTubePlayerContainerInset(element, side, width, inset, side === 'bottom' ? height : 0);
-    }
+}
+
+function bottomInsetHeight(side: SubtitleVideoInsetSide, height: number): number {
+    return side === 'bottom' ? height : 0;
 }
 
 function youtubePlayerContainers(): HTMLElement[] {

@@ -83,11 +83,19 @@ async function processDexieStreamBuffer(
 ): Promise<void> {
     let progress = true;
     while (progress) {
-        progress = false;
-        if (state.mode === 'seek-table') progress = seekDexieTable(state);
-        if (state.mode === 'seek-rows') progress = seekDexieRows(state, onTable) || progress;
-        if (state.mode === 'rows') progress = await readDexieRows(state, handlers) || progress;
+        progress = await processDexieStreamStep(state, handlers, onTable);
     }
+}
+
+async function processDexieStreamStep(
+    state: DexieStreamState,
+    handlers: Partial<Record<string, DexieRowHandler>>,
+    onTable?: (table: string) => void,
+): Promise<boolean> {
+    if (state.mode === 'seek-table') return seekDexieTable(state);
+    if (state.mode === 'seek-rows') return seekDexieRows(state, onTable);
+    if (state.mode === 'rows') return await readDexieRows(state, handlers);
+    return false;
 }
 
 function seekDexieTable(state: DexieStreamState): boolean {

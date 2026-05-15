@@ -50,18 +50,26 @@ function scopeDictionaryStyleBlock(block: string, scope: string): string {
     if (openIndex < 0 || closeIndex <= openIndex) return '';
     const selector = block.slice(0, openIndex).trim();
     const declarations = block.slice(openIndex + 1, closeIndex).trim();
-    if (!selector || !declarations) return '';
+    if (!hasCssRuleParts(selector, declarations)) return '';
     if (selector.startsWith('@')) {
         const scopedInner = splitTopLevelCssBlocks(declarations)
             .map(innerBlock => scopeDictionaryStyleBlock(innerBlock, scope))
             .filter(Boolean)
             .join('\n');
-        return scopedInner ? `${selector} {\n${scopedInner}\n}` : `${selector} { ${declarations} }`;
+        return renderScopedAtRule(selector, declarations, scopedInner);
     }
     const scopedSelectors = splitSelectorList(selector)
         .map(part => `${scope} ${part.trim()}`)
         .join(', ');
     return `${scopedSelectors} { ${declarations} }`;
+}
+
+function hasCssRuleParts(selector: string, declarations: string): boolean {
+    return Boolean(selector && declarations);
+}
+
+function renderScopedAtRule(selector: string, declarations: string, scopedInner: string): string {
+    return scopedInner ? `${selector} {\n${scopedInner}\n}` : `${selector} { ${declarations} }`;
 }
 
 function splitTopLevelCssBlocks(styles: string): string[] {

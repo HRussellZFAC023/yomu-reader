@@ -72,19 +72,24 @@ function grammarHintFromIndexItem(normalizedSentence: string, item: HanabiraGram
 }
 
 function grammarHintFromMatch(item: HanabiraGrammarIndexItem, match: NonNullable<ReturnType<typeof bestCandidateMatch>>): GrammarHint & { candidateLength: number } {
+    const fallbackText = hanabiraFallbackText(item);
     return {
         ruleId: hanabiraRuleId(item.title),
         name: item.title,
         level: item.level,
         kind: 'Hanabira grammar',
-        short: item.short || item.formation || item.title,
-        detail: item.detail || item.short || item.formation || item.title,
+        short: item.short || fallbackText,
+        detail: item.detail || item.short || fallbackText,
         url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
         match: match.candidate,
         confidence: match.candidate.length >= 4 ? 'high' : 'medium',
         index: match.index,
         candidateLength: match.candidate.length,
     };
+}
+
+function hanabiraFallbackText(item: HanabiraGrammarIndexItem): string {
+    return item.formation || item.title;
 }
 
 function compareGrammarHints(
@@ -154,13 +159,24 @@ function normalizeGrammarText(value: string): string {
 function bestCandidateMatch(sentence: string, candidates: string[]): { candidate: string; index: number } | null {
     let best: { candidate: string; index: number } | null = null;
     for (const candidate of candidates) {
-        const index = sentence.indexOf(candidate);
-        if (index < 0) continue;
-        if (!best || index < best.index || (index === best.index && candidate.length > best.candidate.length)) {
-            best = { candidate, index };
-        }
+        best = betterCandidateMatch(best, candidateMatch(sentence, candidate));
     }
     return best;
+}
+
+function candidateMatch(sentence: string, candidate: string): { candidate: string; index: number } | null {
+    const index = sentence.indexOf(candidate);
+    return index < 0 ? null : { candidate, index };
+}
+
+function betterCandidateMatch(
+    best: { candidate: string; index: number } | null,
+    next: { candidate: string; index: number } | null,
+): { candidate: string; index: number } | null {
+    if (!next) return best;
+    if (!best) return next;
+    if (next.index < best.index) return next;
+    return next.index === best.index && next.candidate.length > best.candidate.length ? next : best;
 }
 
 async function loadHanabiraGrammarIndexUncached(): Promise<HanabiraGrammarIndexItem[]> {

@@ -28,11 +28,7 @@ export async function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
     options: YouTubeTrackLoadOptions<T>,
 ): Promise<SubtitleCue[]> {
     if (!track.url) return [];
-    const preferred = findPreferredYouTubeCaptionCandidate(track);
-    if (preferred && shouldPreferYouTubeTrackUrl(preferred.url, track.url)) {
-        track.url = preferred.url;
-        track.youtubeTrack = preferred.raw;
-    }
+    applyPreferredYouTubeCaptionCandidate(track);
     for (const url of youtubeSubtitleRequestUrls(track.url)) {
         try {
             const cues = normalizeSubtitleCues(parseSubtitleText(await options.requestText(url), {
@@ -45,6 +41,14 @@ export async function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
         }
     }
     return [];
+}
+
+function applyPreferredYouTubeCaptionCandidate<T extends YouTubeSubtitleTrack>(track: T): void {
+    const preferred = findPreferredYouTubeCaptionCandidate(track);
+    if (!preferred) return;
+    if (!track.url || !shouldPreferYouTubeTrackUrl(preferred.url, track.url)) return;
+    track.url = preferred.url;
+    track.youtubeTrack = preferred.raw;
 }
 
 export async function loadFirstUsableYouTubeSibling<T extends YouTubeSubtitleTrack>(
@@ -334,18 +338,22 @@ function readYouTubePlayerResponseFromConfig(videoId: string): YouTubePlayerResp
 
 function readYouTubePlayerResponseCandidate(candidate: unknown): unknown {
     if (!candidate) return null;
-    if (typeof candidate === 'string') {
-        try {
-            return JSON.parse(candidate);
-        } catch {
-            return null;
-        }
-    }
-    if (typeof candidate === 'object') {
-        const record = candidate as { player_response?: unknown; raw_player_response?: unknown };
-        return readYouTubePlayerResponseCandidate(record.player_response ?? record.raw_player_response) ?? candidate;
-    }
+    if (typeof candidate === 'string') return parseYouTubePlayerResponseJson(candidate);
+    if (typeof candidate === 'object') return readYouTubePlayerResponseObject(candidate);
     return null;
+}
+
+function parseYouTubePlayerResponseJson(candidate: string): unknown {
+    try {
+        return JSON.parse(candidate);
+    } catch {
+        return null;
+    }
+}
+
+function readYouTubePlayerResponseObject(candidate: object): unknown {
+    const record = candidate as { player_response?: unknown; raw_player_response?: unknown };
+    return readYouTubePlayerResponseCandidate(record.player_response ?? record.raw_player_response) ?? candidate;
 }
 
 function isMatchingYouTubePlayerResponse(value: unknown, videoId: string): boolean {
@@ -428,15 +436,19 @@ function youtubeTrackUrlScore(value: string | undefined): number {
     if (!value) return 0;
     try {
         const url = new URL(value, location.href);
-        return [
-            url.searchParams.has('pot') ? 8 : 0,
-            url.searchParams.has('potc') ? 4 : 0,
-            url.searchParams.has('signature') ? 2 : 0,
-            url.searchParams.has('kind') ? 1 : 0,
-        ].reduce((sum, item) => sum + item, 0);
+        return youtubeTrackSearchParamScore(url.searchParams);
     } catch {
         return 0;
     }
+}
+
+function youtubeTrackSearchParamScore(params: URLSearchParams): number {
+    return [
+        params.has('pot') ? 8 : 0,
+        params.has('potc') ? 4 : 0,
+        params.has('signature') ? 2 : 0,
+        params.has('kind') ? 1 : 0,
+    ].reduce((sum, item) => sum + item, 0);
 }
 
 function uniqueStrings(values: string[]): string[] {

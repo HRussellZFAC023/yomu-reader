@@ -84,8 +84,13 @@ export function parseJpdbReviewCardValue(value: string | null | undefined, respo
     const kind = (parts[0] ?? '').trim();
     const kanji = firstReviewGlyph(parts.slice(1).join(',')) ?? '';
     const isKanji = kind.startsWith('k') && Boolean(kanji);
-    const phase = !isKanji ? 'none' : response === '1' ? 'after' : 'before';
+    const phase = reviewCardPhase(isKanji, response);
     return { kind, kanji, isKanji, phase };
+}
+
+function reviewCardPhase(isKanji: boolean, response: string | null | undefined): JpdbReviewCardState['phase'] {
+    if (!isKanji) return 'none';
+    return response === '1' ? 'after' : 'before';
 }
 
 export function extractCurrentKanji(): string {
@@ -126,10 +131,14 @@ function currentKanjiTermTarget(): JpdbTermTarget | null {
 function currentVocabularyTermTarget(): JpdbTermTarget | null {
     const pageTerm = extractCurrentTermTarget();
     const searchQuery = extractSearchQuery();
-    const term = isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? '';
+    const term = currentVocabularyLookupTerm(pageTerm, searchQuery);
     if (!term) return null;
     const queries = vocabularyTermQueries(term, pageTerm, searchQuery);
     return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor: currentVocabularyAddonAnchor() };
+}
+
+function currentVocabularyLookupTerm(pageTerm: Pick<JpdbTermTarget, 'term'> | null, searchQuery: string): string {
+    return isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? '';
 }
 
 function currentVocabularyAddonAnchor(): HTMLElement {

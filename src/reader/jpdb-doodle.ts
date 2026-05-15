@@ -39,13 +39,21 @@ export function findDoodleCanvasMount(): HTMLElement | null {
 }
 
 export function findDoodlePreviewMount(): HTMLElement | null {
-    return document.querySelector<HTMLElement>('.review-reveal .hbox')
-        ?? document.querySelector<HTMLElement>('.review-reveal')
-        ?? document.querySelector<HTMLElement>('.hbox')
-        ?? document.querySelector<HTMLElement>('.result.kanji .hbox')
-        ?? document.querySelector<HTMLElement>('.result.kanji a.kanji.plain')
-        ?? document.querySelector<HTMLElement>('.answer-box .kanji, .answer-box .plain')
-        ?? document.querySelector<HTMLElement>('.answer-box');
+    return firstElement(DOODLE_PREVIEW_MOUNT_SELECTORS);
+}
+
+const DOODLE_PREVIEW_MOUNT_SELECTORS = [
+    '.review-reveal .hbox',
+    '.review-reveal',
+    '.hbox',
+    '.result.kanji .hbox',
+    '.result.kanji a.kanji.plain',
+    '.answer-box .kanji, .answer-box .plain',
+    '.answer-box',
+];
+
+function firstElement(selectors: string[]): HTMLElement | null {
+    return selectors.map(selector => document.querySelector<HTMLElement>(selector)).find(Boolean) ?? null;
 }
 
 export function installDoodle(root: HTMLElement, glyph: string, options: DoodleInstallOptions): void {

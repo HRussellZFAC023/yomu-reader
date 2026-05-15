@@ -8,7 +8,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     const panel = button.closest('.jpdb-reader-study-tools')?.querySelector<HTMLElement>('[data-study-panel]');
     if (!panel || !sentence) return;
     panel.hidden = false;
-    panel.textContent = action === 'study-translate' ? 'Translating...' : 'Finding grammar...';
+    panel.textContent = studyToolPendingText(action);
     const done = log.time('studyTool', { action, sentenceLength: sentence.length });
     if (action === 'study-translate') {
         try {
@@ -19,7 +19,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
             done();
         }
     }
-    const hints = grammarHints ?? detectGrammarHints(sentence);
+    const hints = resolvedGrammarHints(sentence, grammarHints);
     if (!hints.length) {
         panel.hidden = true;
         panel.textContent = '';
@@ -28,6 +28,14 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     }
     setInnerHtml(panel, renderGrammarHints(hints, sentence));
     done();
+}
+
+function studyToolPendingText(action: string): string {
+    return action === 'study-translate' ? 'Translating...' : 'Finding grammar...';
+}
+
+function resolvedGrammarHints(sentence: string, grammarHints: GrammarHint[] | undefined): GrammarHint[] {
+    return grammarHints ?? detectGrammarHints(sentence);
 }
 
 export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string): boolean {

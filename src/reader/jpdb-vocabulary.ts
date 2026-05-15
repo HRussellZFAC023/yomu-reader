@@ -74,10 +74,15 @@ function vocabularyLookupUrls(vid: number, spelling: string, reading: string): s
 function vocabularyRoot(doc: Document, spelling: string, reading: string): ParentNode | null {
     const roots = Array.from(doc.querySelectorAll('.result.vocabulary'));
     const matches = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
-    if (matches.length) return matches[0] ?? null;
+    const matched = firstVocabularyRoot(matches);
+    if (matched) return matched;
     if (canUseGenericVocabularyRoot(roots, spelling, reading)) return roots[0] ?? doc;
     if (documentMatchesVocabulary(doc, spelling, reading)) return roots[0] ?? doc;
     return null;
+}
+
+function firstVocabularyRoot(matches: Element[]): Element | null {
+    return matches[0] ?? null;
 }
 
 function canUseGenericVocabularyRoot(roots: Element[], spelling: string, reading: string): boolean {
@@ -124,9 +129,24 @@ function vocabularyIdentityMatches(identity: { expression: string; reading: stri
     const canonicalReading = cleanText(identity.reading);
     const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
     if (!requested.size) return true;
-    if (!requested.has(expression) && !requested.has(canonicalReading)) return false;
+    if (!vocabularyIdentityIntersectsRequest(requested, expression, canonicalReading)) return false;
     if (!requestedReading) return true;
-    return canonicalReading === requestedReading || expression === requestedReading || expression === requestedSpelling;
+    return vocabularyIdentityMatchesReading(expression, canonicalReading, requestedSpelling, requestedReading);
+}
+
+function vocabularyIdentityIntersectsRequest(requested: Set<string>, expression: string, canonicalReading: string): boolean {
+    return requested.has(expression) || requested.has(canonicalReading);
+}
+
+function vocabularyIdentityMatchesReading(
+    expression: string,
+    canonicalReading: string,
+    requestedSpelling: string,
+    requestedReading: string,
+): boolean {
+    return canonicalReading === requestedReading
+        || expression === requestedReading
+        || expression === requestedSpelling;
 }
 
 function extractMeanings(root: ParentNode, doc: Document, spelling: string, reading: string): string[] {

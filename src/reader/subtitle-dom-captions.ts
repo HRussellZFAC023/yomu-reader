@@ -137,8 +137,16 @@ function hasVisibleCaptionStyle(style: CSSStyleDeclaration): boolean {
 function isCaptionNearVideo(rect: DOMRect, videoRect: DOMRect): boolean {
     const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
     const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
-    const overlapsVideo = rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;
-    const belowVideo = rect.top >= videoRect.bottom && rect.top <= videoRect.bottom + 90 && overlapRatio > 0.25;
+    const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
+    const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
     return !tooLarge && (overlapsVideo || belowVideo);
+}
+
+function captionOverlapsVideo(rect: DOMRect, videoRect: DOMRect, overlapRatio: number): boolean {
+    return rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;
+}
+
+function captionSitsBelowVideo(rect: DOMRect, videoRect: DOMRect, overlapRatio: number): boolean {
+    return rect.top >= videoRect.bottom && rect.top <= videoRect.bottom + 90 && overlapRatio > 0.25;
 }

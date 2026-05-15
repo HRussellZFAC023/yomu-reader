@@ -72,14 +72,17 @@ async function resolveDocsFile(root, pathname) {
 }
 
 function contentType(filePath) {
-    if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
-    if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
-    if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
-    if (filePath.endsWith('.svg')) return 'image/svg+xml; charset=utf-8';
-    if (filePath.endsWith('.png')) return 'image/png';
-    if (filePath.endsWith('.woff2')) return 'font/woff2';
-    return 'application/octet-stream';
+    return DOCS_CONTENT_TYPES.find(({ extension }) => filePath.endsWith(extension))?.type ?? 'application/octet-stream';
 }
+
+const DOCS_CONTENT_TYPES = [
+    { extension: '.html', type: 'text/html; charset=utf-8' },
+    { extension: '.css', type: 'text/css; charset=utf-8' },
+    { extension: '.js', type: 'text/javascript; charset=utf-8' },
+    { extension: '.svg', type: 'image/svg+xml; charset=utf-8' },
+    { extension: '.png', type: 'image/png' },
+    { extension: '.woff2', type: 'font/woff2' },
+];
 
 async function waitForStablePage(page) {
     await page.waitForLoadState('networkidle');
@@ -158,31 +161,7 @@ async function main() {
     const results = [];
     try {
         for (const viewport of viewports) {
-            const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
-            for (const pageDef of pages) {
-                const page = await context.newPage();
-                const errors = [];
-                page.on('console', message => {
-                    if (message.type() === 'error') errors.push(message.text());
-                });
-                page.on('pageerror', error => errors.push(error.message));
-                const label = `${pageDef.name} ${viewport.name}`;
-                try {
-                    await page.goto(`${server.origin}${pageDef.path}`, { waitUntil: 'domcontentloaded' });
-                    await waitForStablePage(page);
-                    assertAudit(!errors.length, `${label} console/page errors: ${JSON.stringify(errors)}`);
-                    await assertDocsAccessibility(page, label);
-                    await page.screenshot({ path: path.join(ARTIFACTS, `docs-${pageDef.name}-${viewport.name}.png`), fullPage: false });
-                    results.push({ label, status: 'PASS' });
-                    console.log(`PASS ${label}`);
-                } catch (error) {
-                    results.push({ label, status: 'FAIL', error: error instanceof Error ? error.message : String(error) });
-                    console.log(`FAIL ${label} - ${error instanceof Error ? error.message : String(error)}`);
-                } finally {
-                    await page.close();
-                }
-            }
-            await context.close();
+            await auditDocsViewport(browser, server.origin, viewport, results);
         }
     } finally {
         await browser.close();
@@ -192,6 +171,45 @@ async function main() {
     const failed = results.filter(result => result.status === 'FAIL');
     console.log(`Docs a11y summary: ${results.length - failed.length}/${results.length} passed`);
     if (failed.length) process.exitCode = 1;
+}
+
+async function auditDocsViewport(browser, origin, viewport, results) {
+    const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+    try {
+        for (const pageDef of pages) {
+            await auditDocsPage(context, origin, viewport, pageDef, results);
+        }
+    } finally {
+        await context.close();
+    }
+}
+
+async function auditDocsPage(context, origin, viewport, pageDef, results) {
+    const page = await context.newPage();
+    const errors = [];
+    page.on('console', message => {
+        if (message.type() === 'error') errors.push(message.text());
+    });
+    page.on('pageerror', error => errors.push(error.message));
+    const label = `${pageDef.name} ${viewport.name}`;
+    try {
+        await page.goto(`${origin}${pageDef.path}`, { waitUntil: 'domcontentloaded' });
+        await waitForStablePage(page);
+        assertAudit(!errors.length, `${label} console/page errors: ${JSON.stringify(errors)}`);
+        await assertDocsAccessibility(page, label);
+        await page.screenshot({ path: path.join(ARTIFACTS, `docs-${pageDef.name}-${viewport.name}.png`), fullPage: false });
+        results.push({ label, status: 'PASS' });
+        console.log(`PASS ${label}`);
+    } catch (error) {
+        results.push({ label, status: 'FAIL', error: errorMessage(error) });
+        console.log(`FAIL ${label} - ${errorMessage(error)}`);
+    } finally {
+        await page.close();
+    }
+}
+
+function errorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
 }
 
 await main();

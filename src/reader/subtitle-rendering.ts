@@ -68,11 +68,15 @@ function hasReusablePrimaryParserCache(input: SubtitlePrimaryRenderInput): boole
 }
 
 function renderSubtitlePrimaryHtml(input: SubtitlePrimaryRenderInput, mode: SubtitlePrimaryRenderMode): string {
-    if (mode === 'parsed-karaoke' || mode === 'parsed') return input.parsedHtml ?? '';
+    if (isParsedSubtitleRenderMode(mode)) return input.parsedHtml ?? '';
     if (mode === 'karaoke') return renderSubtitleKaraokeCue(input.cue, input.time);
     if (mode === 'cached-parser') return input.lastRenderedHtml;
     if (mode === 'loading-parser') return `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input.text)}</span>`;
     return escapeWithBreaks(input.text);
+}
+
+function isParsedSubtitleRenderMode(mode: SubtitlePrimaryRenderMode): boolean {
+    return mode === 'parsed-karaoke' || mode === 'parsed';
 }
 
 function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActive: boolean): SubtitlePrimaryRenderResult['nextRenderedPrimary'] {

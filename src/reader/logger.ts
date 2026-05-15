@@ -362,13 +362,21 @@ function sanitizeObjectForConsole(value: object, depth: number, seen: WeakSet<ob
 }
 
 function sanitizeSpecialConsoleValue(value: object, depth: number, seen: WeakSet<object>): { handled: boolean; value?: unknown } {
-    return sanitizeErrorForConsole(value)
-        ?? sanitizeUrlForConsole(value)
-        ?? sanitizeBlobForConsole(value)
-        ?? sanitizeElementForConsole(value)
-        ?? sanitizeEventForConsole(value)
-        ?? sanitizeFormDataSpecialForConsole(value, depth, seen)
+    return specialConsoleSanitizers(depth, seen)
+        .map(sanitize => sanitize(value))
+        .find(Boolean)
         ?? { handled: false };
+}
+
+function specialConsoleSanitizers(depth: number, seen: WeakSet<object>): Array<(value: object) => { handled: true; value: unknown } | null> {
+    return [
+        sanitizeErrorForConsole,
+        sanitizeUrlForConsole,
+        sanitizeBlobForConsole,
+        sanitizeElementForConsole,
+        sanitizeEventForConsole,
+        value => sanitizeFormDataSpecialForConsole(value, depth, seen),
+    ];
 }
 
 function sanitizeErrorForConsole(value: object): { handled: true; value: unknown } | null {

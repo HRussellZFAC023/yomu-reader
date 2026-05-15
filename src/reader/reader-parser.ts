@@ -163,11 +163,15 @@ export function fallbackLookupTermAtOffset(text: string, offset: number): string
     for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
         const start = match.index ?? 0;
         const end = start + match[0].length;
-        if ((start <= clampedOffset && clampedOffset < end) || (start < clampedOffset && clampedOffset <= end)) {
+        if (offsetInsideFallbackMatch(start, end, clampedOffset)) {
             return normalizeFallbackTerm(match[0]);
         }
     }
     return normalizeFallbackTerm(text);
+}
+
+function offsetInsideFallbackMatch(start: number, end: number, offset: number): boolean {
+    return (start <= offset && offset < end) || (start < offset && offset <= end);
 }
 
 function normalizeFallbackTerm(text: string): string {

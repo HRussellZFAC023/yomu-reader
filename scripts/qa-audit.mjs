@@ -799,12 +799,17 @@ const qaVocabulary = [
     frequency,
 }));
 
+const EMPTY_JPDB_ENDPOINTS = new Set([
+    'review',
+    'deck/add-vocabulary',
+    'deck/remove-vocabulary',
+    'set-card-sentence',
+]);
+
 function mockJpdbApi(endpoint, body) {
     if (endpoint === 'parse') return jsonQaResponse(mockJpdbParse(readJsonBody(body)));
     if (endpoint === 'list-user-decks') return jsonQaResponse({ decks: [[1, 'Yomu'], [2, 'Mining']] });
-    if (endpoint === 'review' || endpoint === 'deck/add-vocabulary' || endpoint === 'deck/remove-vocabulary' || endpoint === 'set-card-sentence') {
-        return jsonQaResponse({});
-    }
+    if (EMPTY_JPDB_ENDPOINTS.has(endpoint)) return jsonQaResponse({});
     return jsonQaResponse({});
 }
 
@@ -1976,8 +1981,7 @@ async function auditJpdbSearchCompatibility(browser) {
             svg: svgRect ? { width: svgRect.width, height: svgRect.height } : null,
         };
     });
-    assertAudit((buttonSnapshot.button?.width ?? 999) <= 44 && (buttonSnapshot.button?.height ?? 999) <= 44, 'jpdb.io page CSS stretched the reader audio button');
-    assertAudit((buttonSnapshot.svg?.width ?? 999) <= 24 && (buttonSnapshot.svg?.height ?? 999) <= 24, 'jpdb.io page CSS stretched the reader icon SVG');
+    assertJpdbSearchControlIsolation(buttonSnapshot);
 
     const readKanjiButton = page.locator('.jpdb-reader-kanji-inline[data-kanji="読"]').first();
     await readKanjiButton.waitFor({ state: 'visible', timeout: 6000 }).catch(async error => {
@@ -1998,6 +2002,15 @@ async function auditJpdbSearchCompatibility(browser) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-search-compat.png'), fullPage: false });
     await page.close();
     record('jpdb.io search compatibility', 'pass', 'native ruby, kanji drilldown, status colors, and reader control isolation work on jpdb.io');
+}
+
+function assertJpdbSearchControlIsolation(snapshot) {
+    assertAudit(boxFits(snapshot.button, 44), 'jpdb.io page CSS stretched the reader audio button');
+    assertAudit(boxFits(snapshot.svg, 24), 'jpdb.io page CSS stretched the reader icon SVG');
+}
+
+function boxFits(box, maxSize) {
+    return Boolean(box && box.width <= maxSize && box.height <= maxSize);
 }
 
 async function auditJpdbPageAddons(browser) {
@@ -2525,14 +2538,7 @@ async function auditVideoFixture(browser, server) {
             subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
         };
     });
-    assertAudit(snapshot.hidden === false, 'subtitle player is hidden on a page with video');
-    assertAudit((snapshot.rect?.width ?? 0) > 200, 'subtitle player is not laid out');
-    assertAudit(snapshot.visibleFileInputs === 0, 'subtitle file inputs are visible over the video');
-    assertAudit(!snapshot.transcriptVisible, 'transcript panel should be off by default');
-    assertAudit(!snapshot.obsoleteStatusText, 'obsolete no-subtitle status text is visible over the controls');
-    assertAudit(snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読'), 'subtitle fixture cue is not visible');
-    assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');
-    assertAudit(snapshot.subtitleBackground.includes('rgba'), 'subtitle readable background is not applied');
+    assertVideoFixtureSnapshot(snapshot);
     await page.evaluate(() => {
         const video = document.querySelector('video');
         if (!video) return;
@@ -2563,14 +2569,7 @@ async function auditVideoFixture(browser, server) {
             videoBottom: video.bottom,
         };
     });
-    assertAudit(Boolean(desktopTranscriptLayout), 'desktop transcript layout could not be measured');
-    assertAudit(
-        desktopTranscriptLayout.panelWidth >= 340
-            && desktopTranscriptLayout.panelRight <= desktopTranscriptLayout.viewportWidth - 6
-            && desktopTranscriptLayout.panelLeft >= desktopTranscriptLayout.viewportWidth * 0.6
-            && desktopTranscriptLayout.panelBottom > desktopTranscriptLayout.panelTop,
-        `desktop transcript drawer is not anchored to the viewport edge: ${JSON.stringify(desktopTranscriptLayout)}`,
-    );
+    assertDesktopTranscriptLayout(desktopTranscriptLayout);
     await page.screenshot({ path: path.join(ARTIFACTS, 'video-fixture.png'), fullPage: false });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
@@ -2589,11 +2588,50 @@ async function auditVideoFixture(browser, server) {
             ? snapshot
             : false;
     }, 3000, 'mobile transcript panel did not stay visible');
-    assertAudit(mobileTranscript.width >= mobileTranscript.viewportWidth - 24 && mobileTranscript.top > mobileTranscript.viewportHeight * 0.42, `mobile transcript panel is not bottom-sheet sized: ${JSON.stringify(mobileTranscript)}`);
+    assertMobileTranscriptLayout(mobileTranscript);
     await assertAccessibleSurface(page, 'subtitle player fixture', '.jpdb-subtitle-player');
     await page.screenshot({ path: path.join(ARTIFACTS, 'video-fixture-mobile.png'), fullPage: false });
     await page.close();
     record('subtitle player fixture', 'pass', 'watched a cue with JPDB highlighting and readable subtitle backing');
+}
+
+function assertVideoFixtureSnapshot(snapshot) {
+    assertAudit(snapshot.hidden === false, 'subtitle player is hidden on a page with video');
+    assertAudit(hasLaidOutSubtitlePlayer(snapshot), 'subtitle player is not laid out');
+    assertAudit(snapshot.visibleFileInputs === 0, 'subtitle file inputs are visible over the video');
+    assertAudit(!snapshot.transcriptVisible, 'transcript panel should be off by default');
+    assertAudit(!snapshot.obsoleteStatusText, 'obsolete no-subtitle status text is visible over the controls');
+    assertAudit(hasVisibleFixtureSubtitleText(snapshot), 'subtitle fixture cue is not visible');
+    assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');
+    assertAudit(snapshot.subtitleBackground.includes('rgba'), 'subtitle readable background is not applied');
+}
+
+function hasLaidOutSubtitlePlayer(snapshot) {
+    return (snapshot.rect?.width ?? 0) > 200;
+}
+
+function hasVisibleFixtureSubtitleText(snapshot) {
+    return snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読');
+}
+
+function assertDesktopTranscriptLayout(layout) {
+    assertAudit(Boolean(layout), 'desktop transcript layout could not be measured');
+    assertAudit(isDesktopTranscriptAnchored(layout), `desktop transcript drawer is not anchored to the viewport edge: ${JSON.stringify(layout)}`);
+}
+
+function isDesktopTranscriptAnchored(layout) {
+    return layout.panelWidth >= 340
+        && layout.panelRight <= layout.viewportWidth - 6
+        && layout.panelLeft >= layout.viewportWidth * 0.6
+        && layout.panelBottom > layout.panelTop;
+}
+
+function assertMobileTranscriptLayout(layout) {
+    assertAudit(isMobileTranscriptSheet(layout), `mobile transcript panel is not bottom-sheet sized: ${JSON.stringify(layout)}`);
+}
+
+function isMobileTranscriptSheet(layout) {
+    return layout.width >= layout.viewportWidth - 24 && layout.top > layout.viewportHeight * 0.42;
 }
 
 async function runAudit(name, fn, options = {}) {

@@ -240,14 +240,20 @@ export class ImmersionPopoverController {
         if (!settings.immersionKitEnabled) return;
         let queued = 0;
         for (const token of tokens) {
-            const term = token.card.spelling.trim();
-            if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) continue;
-            this.preloadedTerms.add(term);
+            const term = this.nextPreloadTerm(token);
+            if (!term) continue;
             this.options.client.preload(term, settings);
             queued++;
             if (queued >= 2) break;
         }
         if (queued) log.debugThrottled('immersion-preload', 2500, 'Immersion Kit preloads queued', { queued });
+    }
+
+    private nextPreloadTerm(token: JPDBToken): string {
+        const term = token.card.spelling.trim();
+        if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) return '';
+        this.preloadedTerms.add(term);
+        return term;
     }
 
     stopAudio(): void {
@@ -323,35 +329,25 @@ export class ImmersionPopoverController {
 
     private async fallbackQueries(card: JPDBCard, exactQuery: string): Promise<string[]> {
         const candidates: string[] = [];
-        const add = (value: string) => {
-            const query = normalizeImmersionSearchQuery(value);
-            if (!isUsefulImmersionFallbackQuery(query, exactQuery)) return;
-            candidates.push(query);
-        };
+        const add = (value: string) => addImmersionFallbackQuery(candidates, value, exactQuery);
 
         if (card.reading !== card.spelling) add(card.reading);
 
         if (this.options.canParseJapanese()) {
-            const [tokens] = await this.options.parseJapanese([card.spelling]).catch(error => {
-                log.debug('Immersion fallback parse failed quietly', { term: card.spelling }, error);
-                return [[]] as JPDBToken[][];
-            });
-            const tokenQueries = (tokens ?? [])
-                .map(token => ({
-                    token,
-                    surface: card.spelling.slice(token.start, token.end),
-                    length: queryLength(token.card.spelling),
-                }))
-                .sort((a, b) => Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length);
-            for (const item of tokenQueries) {
-                add(item.token.card.spelling);
-                add(item.surface);
-                if (item.token.card.reading !== item.token.card.spelling) add(item.token.card.reading);
-            }
+            const tokens = await this.fallbackParseTokens(card);
+            for (const query of fallbackTokenQueries(card, tokens)) add(query);
         }
 
         for (const fragment of immersionFallbackFragments(card.spelling)) add(fragment);
         return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
+    }
+
+    private async fallbackParseTokens(card: JPDBCard): Promise<JPDBToken[]> {
+        const [tokens] = await this.options.parseJapanese([card.spelling]).catch(error => {
+            log.debug('Immersion fallback parse failed quietly', { term: card.spelling }, error);
+            return [[]] as JPDBToken[][];
+        });
+        return tokens ?? [];
     }
 
     private renderEmpty(container: HTMLElement): void {
@@ -714,6 +710,37 @@ function pageMiningSourceKind(anchor?: HTMLElement): ReturnType<typeof inferMini
 
 function isConnectedImmersionSurface(popover: HTMLElement, container: HTMLElement): boolean {
     return popover.isConnected && container.isConnected;
+}
+
+function addImmersionFallbackQuery(candidates: string[], value: string, exactQuery: string): void {
+    const query = normalizeImmersionSearchQuery(value);
+    if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
+}
+
+function fallbackTokenQueries(card: JPDBCard, tokens: JPDBToken[]): string[] {
+    return sortedFallbackTokenCandidates(card, tokens).flatMap(item => [
+        item.token.card.spelling,
+        item.surface,
+        item.token.card.reading !== item.token.card.spelling ? item.token.card.reading : '',
+    ].filter(Boolean));
+}
+
+function sortedFallbackTokenCandidates(card: JPDBCard, tokens: JPDBToken[]): Array<{ token: JPDBToken; surface: string; length: number }> {
+    return tokens
+        .map(token => ({
+            token,
+            surface: card.spelling.slice(token.start, token.end),
+            length: queryLength(token.card.spelling),
+        }))
+        .sort(compareFallbackTokenCandidates);
+}
+
+function compareFallbackTokenCandidates(
+    a: { token: JPDBToken; length: number },
+    b: { token: JPDBToken; length: number },
+): number {
+    return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling))
+        || b.length - a.length;
 }
 
 function validImmersionExampleIndex(index: number, length: number): number {
