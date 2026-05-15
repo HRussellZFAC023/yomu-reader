@@ -1592,6 +1592,7 @@ export function renderAnkiTemplatePreview(settings: ReaderSettings): string {
 
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const rows = definitionSourceRows(settings);
+    const showAlias = rows.some(row => !row.readonly);
     const visibleNames = new Set(rows.filter(row => row.removable).map(row => row.name));
     const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map(preference => {
@@ -1609,11 +1610,11 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         : '';
     if (!rows.some(row => row.removable)) return `
         <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
-        ${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}
+        ${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias })}
         ${metadataHelp}
         ${hidden}
     `;
-    return `${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias: true })}${metadataHelp}${hidden}`;
+    return `${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias })}${metadataHelp}${hidden}`;
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
@@ -1622,17 +1623,22 @@ export function renderKanjiSourceRows(settings: ReaderSettings): string {
 
 function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel: string; countName?: string; countValue?: number; showAlias: boolean }): string {
     const removableCount = rows.filter(row => row.removable).length;
+    const showRemove = removableCount > 0;
+    const layoutClass = [
+        options.showAlias ? '' : 'compact',
+        showRemove ? 'has-remove' : 'no-remove',
+    ].filter(Boolean).join(' ');
     return `
-        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${options.showAlias ? '' : 'compact'}">
+        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${layoutClass}">
             <span>On</span>
             <span>${escapeHtml(options.sourceLabel)}</span>
             ${options.showAlias ? '<span>Display name</span>' : ''}
             <span>Order</span>
-            <span>Remove</span>
+            ${showRemove ? '<span>Remove</span>' : ''}
         </div>
         ${options.countName ? `<input type="hidden" name="${escapeHtml(options.countName)}" value="${options.countValue ?? removableCount}">` : ''}
         ${rows.map((row, index) => `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${options.showAlias ? '' : 'compact'}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                     <input name="${row.prefix}.enabled" type="checkbox" ${row.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
@@ -1647,9 +1653,9 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                 </div>
-                <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
+                ${showRemove ? `<div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
                     ${row.removable ? `<button type="button" class="jpdb-reader-icon-mini" data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml(row.name)}" title="Remove imported dictionary" aria-label="Remove imported dictionary">${miniIcon('remove')}</button>` : ''}
-                </div>
+                </div>` : ''}
                 ${row.removable ? `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml(row.dictionaryType ?? 'terms')}">` : ''}
                 ${row.help ? `<div class="jpdb-reader-dictionary-row-help">${escapeHtml(row.help)}</div>` : ''}
             </div>

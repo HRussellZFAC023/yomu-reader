@@ -15,6 +15,7 @@ interface FetchUrlCandidate {
 export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
 
 const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
+    targetUrl => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
     targetUrl => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
     targetUrl => `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
 ];

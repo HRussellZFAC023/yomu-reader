@@ -4,7 +4,7 @@ import { listNewTabAnkiCards } from './anki-new-tab';
 import { positionPopover } from './browser-ui';
 import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData } from './card-render-data';
-import { APP_NAME, JPDB_DEFINITION_SOURCE_ID } from './constants';
+import { APP_NAME, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 import {
     renderJpdbDefinitionSource,
     renderLocalDefinitionSourcesSection,
@@ -106,6 +106,7 @@ class NewTabRuntime {
     private activeLookupPopover?: HTMLElement;
     private activeLookupBackdrop?: HTMLElement;
     private activeLookupAnchor?: HTMLElement;
+    private externalRefreshController?: AbortController;
     private dictionaryStyles = new DictionaryStyleController({
         loadCss: () => this.settings.localDictionariesEnabled
             ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences)
@@ -153,6 +154,7 @@ class NewTabRuntime {
 
     async init(): Promise<void> {
         markNewTabRuntime();
+        this.installExternalRefreshListener();
         configureLogger({ settingsProvider: () => this.settings });
         this.installStyles();
         this.settings = await loadSettings();
@@ -164,9 +166,20 @@ class NewTabRuntime {
     }
 
     destroy(): void {
+        this.externalRefreshController?.abort();
+        this.externalRefreshController = undefined;
         this.newTab?.destroy();
         this.dictionaryStyles.remove();
         this.dismiss();
+    }
+
+    private installExternalRefreshListener(): void {
+        this.externalRefreshController?.abort();
+        const controller = new AbortController();
+        window.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
+            if (this.newTab?.isCurrentPage()) void this.newTab.refreshExternalData();
+        }, { signal: controller.signal });
+        this.externalRefreshController = controller;
     }
 
     private createNewTabController(): NewTabController {

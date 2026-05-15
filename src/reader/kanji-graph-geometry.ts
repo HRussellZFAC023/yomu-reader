@@ -48,8 +48,8 @@ export function graphEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry, ta
         return graphAutoEdgePath(from, to);
     }
 
-    const target = graphFixedAnchorPoint(to, normalizedTargetZone, 1.75);
-    const source = graphAutoBoundaryPoint(from, target, 0.8);
+    const target = graphFixedAnchorPoint(to, normalizedTargetZone, -0.35);
+    const source = graphAutoBoundaryPoint(from, target, -0.2);
     return {
         d: `M${formatGraphCoordinate(source.x)} ${formatGraphCoordinate(source.y)} L${formatGraphCoordinate(target.x)} ${formatGraphCoordinate(target.y)}`,
         points: [
@@ -62,8 +62,8 @@ export function graphEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry, ta
 function graphAutoEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry): GraphEdgePath {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const sourceOffset = graphEllipseOffset(dx, dy, from.rx + 0.8, from.ry + 0.8);
-    const targetOffset = graphEllipseOffset(dx, dy, to.rx + 1.75, to.ry + 1.75);
+    const sourceOffset = graphEllipseOffset(dx, dy, graphEdgeRadius(from.rx, -0.2), graphEdgeRadius(from.ry, -0.2));
+    const targetOffset = graphEllipseOffset(dx, dy, graphEdgeRadius(to.rx, -0.35), graphEdgeRadius(to.ry, -0.35));
     const x1 = from.x + dx * sourceOffset;
     const y1 = from.y + dy * sourceOffset;
     const x2 = to.x - dx * targetOffset;
@@ -80,7 +80,7 @@ function graphAutoEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry): Grap
 function graphAutoBoundaryPoint(from: GraphNodeGeometry, to: { x: number; y: number }, padding: number): { x: number; y: number } {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const offset = graphEllipseOffset(dx, dy, from.rx + padding, from.ry + padding);
+    const offset = graphEllipseOffset(dx, dy, graphEdgeRadius(from.rx, padding), graphEdgeRadius(from.ry, padding));
     return {
         x: from.x + dx * offset,
         y: from.y + dy * offset,
@@ -99,6 +99,10 @@ function graphFixedAnchorPoint(node: GraphNodeGeometry, zone: Exclude<Normalized
             return { x: node.x, y: node.y + node.ry + padding };
     }
     return { x: node.x, y: node.y };
+}
+
+function graphEdgeRadius(radius: number, padding: number): number {
+    return Math.max(0.5, radius + padding);
 }
 
 function normalizeGraphAnchorZone(zone: GraphAnchorZone): NormalizedGraphAnchorZone {

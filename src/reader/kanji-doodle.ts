@@ -20,6 +20,10 @@ interface KanjiDoodleElements {
     ghost: HTMLElement;
 }
 
+const PEN_MIN_DISTANCE = 0.0008;
+const POINTER_MIN_DISTANCE = 0.0035;
+const ACTIVE_DOODLE_CLASS = 'jpdb-reader-doodle-active';
+
 export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage, options: KanjiDoodleOptions = {}): void {
     const root = popover as KanjiDoodleRoot;
     root.__yomuKanjiDoodleCleanup?.();
@@ -40,6 +44,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     let dpr = 1;
     let drawing = false;
     let pointerId = -1;
+    let pointerType = '';
     let traceVisible = !ghost.hidden && !stage.classList.contains('trace-hidden');
     let points: DoodlePoint[] = [];
     let strokes: DoodleStroke[] = [];
@@ -50,10 +55,14 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const resize = () => {
         const rect = stage.getBoundingClientRect();
         dpr = Math.max(window.devicePixelRatio || 1, 1);
-        canvas.width = Math.max(1, Math.round(rect.width * dpr));
-        canvas.height = Math.max(1, Math.round(rect.height * dpr));
+        const width = Math.max(1, Math.round(rect.width * dpr));
+        const height = Math.max(1, Math.round(rect.height * dpr));
         canvasRect = canvas.getBoundingClientRect();
-        redraw();
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+            redraw();
+        }
     };
 
     const toPoint = (event: PointerEvent): DoodlePoint => {
@@ -79,9 +88,31 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
 
     const drawStroke = (stroke: DoodlePoint[]) => {
         if (!stroke.length) return;
+        if (stroke.length === 1) {
+            drawPoint(stroke[0]);
+            return;
+        }
         for (let index = 1; index < stroke.length; index += 1) {
             drawSegment(stroke[index - 1], stroke[index]);
         }
+    };
+
+    const drawPoint = (point: DoodlePoint) => {
+        context.save();
+        setupStroke(point);
+        context.beginPath();
+        if (typeof context.arc === 'function' && typeof context.fill === 'function') {
+            context.fillStyle = context.strokeStyle;
+            context.arc(point.x * canvas.width, point.y * canvas.height, Math.max(1.2, context.lineWidth / 2), 0, Math.PI * 2);
+            context.fill();
+        } else {
+            const x = point.x * canvas.width;
+            const y = point.y * canvas.height;
+            context.moveTo(x, y);
+            context.lineTo(x + Math.max(1, context.lineWidth / 2), y);
+            context.stroke();
+        }
+        context.restore();
     };
 
     const drawSegment = (from: DoodlePoint, to: DoodlePoint) => {
@@ -100,48 +131,84 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         drawStroke(points);
     };
 
+    const appendPoint = (point: DoodlePoint): void => {
+        const last = points.at(-1);
+        const minDistance = pointerType === 'pen' ? PEN_MIN_DISTANCE : POINTER_MIN_DISTANCE;
+        if (last && Math.hypot(point.x - last.x, point.y - last.y) < minDistance) return;
+        points.push(point);
+        if (last) drawSegment(last, point);
+        else drawPoint(point);
+    };
+
+    const applyPointerSamples = (event: PointerEvent): void => {
+        for (const sample of pointerSamples(event)) appendPoint(toPoint(sample));
+    };
+
     const start = (event: PointerEvent) => {
         const computedCanvas = getComputedStyle(canvas);
         if (computedCanvas.pointerEvents === 'none' || computedCanvas.visibility === 'hidden') return;
+        if (drawing) return;
         event.preventDefault();
         event.stopPropagation();
         drawing = true;
         pointerId = event.pointerId;
+        pointerType = event.pointerType;
+        document.documentElement.classList.add(ACTIVE_DOODLE_CLASS);
+        clearSelection();
         canvasRect = canvas.getBoundingClientRect();
-        points = [toPoint(event)];
-        canvas.setPointerCapture?.(event.pointerId);
+        points = [];
+        appendPoint(toPoint(event));
+        setDoodlePointerCapture(canvas, event.pointerId);
     };
 
     const move = (event: PointerEvent) => {
         if (!drawing || event.pointerId !== pointerId) return;
         event.preventDefault();
         event.stopPropagation();
-        const point = toPoint(event);
-        const last = points.at(-1);
-        const minDistance = event.pointerType === 'pen' ? 0.0015 : 0.0035;
-        if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= minDistance) {
-            points.push(point);
-            if (last) drawSegment(last, point);
-        }
+        applyPointerSamples(event);
     };
 
     const end = (event: PointerEvent) => {
         if (!drawing || event.pointerId !== pointerId) return;
         event.preventDefault();
         event.stopPropagation();
+        applyPointerSamples(event);
+        finishStroke();
+    };
+
+    const finishAfterLostCapture = (event: PointerEvent) => {
+        if (!drawing || event.pointerId !== pointerId) return;
+        finishStroke(false);
+    };
+
+    const clearActiveSelection = () => {
+        if (drawing) clearSelection();
+    };
+
+    const finishStroke = (releaseCapture = true) => {
         if (points.length) strokes = [...strokes, points];
         points = [];
         drawing = false;
+        const activePointerId = pointerId;
         pointerId = -1;
-        canvas.releasePointerCapture?.(event.pointerId);
+        pointerType = '';
+        if (releaseCapture) releaseDoodlePointerCapture(canvas, activePointerId);
+        document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+        clearSelection();
         options.onChange?.(strokes.map(stroke => [...stroke]));
     };
 
     canvas.addEventListener('pointerdown', start, { passive: false, signal });
-    canvas.addEventListener('pointermove', move, { passive: false, signal });
-    canvas.addEventListener('pointerup', end, { passive: false, signal });
-    canvas.addEventListener('pointercancel', end, { passive: false, signal });
-    for (const target of [stage, canvas]) {
+    canvas.addEventListener('lostpointercapture', finishAfterLostCapture, { signal });
+    document.addEventListener('pointermove', move, { passive: false, signal });
+    document.addEventListener('pointerup', end, { passive: false, signal });
+    document.addEventListener('pointercancel', end, { passive: false, signal });
+    window.addEventListener('pointermove', move, { passive: false, signal });
+    window.addEventListener('pointerup', end, { passive: false, signal });
+    window.addEventListener('pointercancel', end, { passive: false, signal });
+    document.addEventListener('selectionchange', clearActiveSelection, { signal });
+    for (const target of [stage, canvas, clear, trace]) {
+        if (!target) continue;
         target.addEventListener('contextmenu', suppressNativeCanvasGesture, { signal });
         target.addEventListener('selectstart', suppressNativeCanvasGesture, { signal });
         target.addEventListener('dragstart', suppressNativeCanvasGesture, { signal });
@@ -169,6 +236,8 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     root.__yomuKanjiDoodleCleanup = () => {
         controller.abort();
         resizeObserver.disconnect();
+        document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+        clearSelection();
         if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;
     };
     const disconnectWhenDetached = () => {
@@ -185,6 +254,47 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
 function suppressNativeCanvasGesture(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
+    clearSelection();
+}
+
+function pointerSamples(event: PointerEvent): PointerEvent[] {
+    const coalesced = safeCoalescedPointerEvents(event);
+    if (!coalesced.length) return [event];
+    const last = coalesced.at(-1);
+    return last && samePointerPosition(last, event) ? coalesced : [...coalesced, event];
+}
+
+function safeCoalescedPointerEvents(event: PointerEvent): PointerEvent[] {
+    try {
+        return typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [];
+    } catch {
+        return [];
+    }
+}
+
+function samePointerPosition(a: PointerEvent, b: PointerEvent): boolean {
+    return a.clientX === b.clientX && a.clientY === b.clientY && a.pressure === b.pressure;
+}
+
+function setDoodlePointerCapture(canvas: HTMLCanvasElement, activePointerId: number): void {
+    try {
+        canvas.setPointerCapture?.(activePointerId);
+    } catch {
+        // iPad Safari can expose pointer events without reliable capture.
+    }
+}
+
+function releaseDoodlePointerCapture(canvas: HTMLCanvasElement, activePointerId: number): void {
+    try {
+        canvas.releasePointerCapture?.(activePointerId);
+    } catch {
+        // Capture may already be gone if Safari cancelled or retargeted the Pencil gesture.
+    }
+}
+
+function clearSelection(): void {
+    const selection = document.getSelection?.();
+    if (selection && !selection.isCollapsed) selection.removeAllRanges();
 }
 
 function kanjiDoodleElements(popover: HTMLElement): KanjiDoodleElements | null {
