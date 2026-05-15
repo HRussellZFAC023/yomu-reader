@@ -267,6 +267,15 @@
   gap: 8px;
 }
 
+.jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
+  .jpdb-reader-newtab-study {
+  grid-template-rows: auto auto auto auto;
+  align-content: center;
+  gap: clamp(6px, 1.1vh, 12px);
+  padding-bottom: clamp(76px, 11vh, 132px);
+  transform: translateY(calc(-1 * clamp(18px, 4vh, 54px)));
+}
+
 .jpdb-reader-newtab-count,
 .jpdb-reader-newtab-status {
   color: var(--jpdb-reader-text, #f2f4f8);
@@ -522,6 +531,11 @@
   width: min(420px, calc(100vw - 32px));
   margin-block: clamp(12px, 3vh, 36px);
   margin-inline: auto;
+}
+
+.jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
+  .jpdb-reader-newtab-kanji-front {
+  margin-block: clamp(4px, 1.2vh, 14px) 0;
 }
 
 .jpdb-reader-newtab-kanji-svg,
