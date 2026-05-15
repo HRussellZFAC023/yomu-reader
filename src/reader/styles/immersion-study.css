@@ -5,8 +5,7 @@
   padding-top: 12px;
   border-top: 1px solid var(--jpdb-reader-border);
 }
-.jpdb-reader-immersion,
-#yomu-jpdb-immersion {
+.jpdb-reader-immersion {
   container-type: inline-size;
   --jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px), 260px);
 }
@@ -22,12 +21,6 @@
 }
 .jpdb-reader-example-card.has-image {
   grid-template-columns: minmax(0, 1fr);
-}
-.jpdb-reader-example-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 .jpdb-reader-example-image {
   display: block;
@@ -53,16 +46,6 @@
   gap: 7px;
   min-width: 0;
 }
-.jpdb-reader-example-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 8px;
-  min-width: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 750;
-}
 .jpdb-reader-example-source {
   min-width: 0;
   flex: 1 1 auto;
@@ -70,8 +53,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.jpdb-reader-example-summary,
-.yomu-jpdb-immersion-group > summary.jpdb-reader-local-head {
+.jpdb-reader-example-summary {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between;
@@ -80,20 +62,14 @@
   padding: 8px 0;
   width: 100%;
 }
-.jpdb-reader-example-summary .jpdb-reader-example-source,
-.yomu-jpdb-local-dictionaries
-  .jpdb-reader-dictionary-group
-  > summary
-  .jpdb-reader-example-source,
-.yomu-jpdb-immersion-group > summary .jpdb-reader-example-source {
+.jpdb-reader-example-summary .jpdb-reader-example-source {
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
   text-transform: uppercase;
 }
-.jpdb-reader-example-summary .jpdb-reader-local-dict,
-.yomu-jpdb-immersion-group > summary .jpdb-reader-local-dict {
+.jpdb-reader-example-summary .jpdb-reader-local-dict {
   display: block;
   max-width: 100%;
   flex: 1 1 auto;
@@ -171,9 +147,6 @@ mark.jpdb-reader-example-target {
   filter: blur(4px);
   user-select: none;
   cursor: pointer;
-  transition:
-    filter 0.16s ease,
-    opacity 0.16s ease;
 }
 .jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:hover,
 .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:hover,
@@ -193,8 +166,7 @@ mark.jpdb-reader-example-target {
   border: 0;
   background: transparent;
 }
-.jpdb-reader-immersion > .jpdb-reader-example-actions,
-.yomu-jpdb-immersion-group > .jpdb-reader-example-actions {
+.jpdb-reader-immersion > .jpdb-reader-example-actions {
   display: flex;
   justify-content: flex-end;
   margin: -2px 0 6px;
@@ -228,9 +200,6 @@ mark.jpdb-reader-example-target {
   .jpdb-reader-example-card.has-image {
     grid-template-columns: minmax(0, 1fr);
   }
-  .jpdb-reader-example-topline {
-    align-items: flex-start;
-  }
   .jpdb-reader-example-media {
     --jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px), 230px);
     max-height: var(--jpdb-reader-example-media-max-height);
@@ -240,9 +209,6 @@ mark.jpdb-reader-example-target {
   }
   .jpdb-reader-example-actions {
     justify-self: start;
-  }
-  .jpdb-reader-example-meta {
-    gap: 5px 6px;
   }
   .jpdb-reader-example-source {
     flex-basis: 100%;
@@ -258,24 +224,10 @@ mark.jpdb-reader-example-target {
     max-height: 34px !important;
   }
 }
-.jpdb-reader-media-note {
-  color: var(--jpdb-reader-muted);
-  font-style: italic;
-}
 .jpdb-reader-study-tools {
   display: grid;
   gap: 8px;
   margin: 10px 0;
-}
-.jpdb-reader-study-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-.jpdb-reader-study-actions .jpdb-reader-icon-mini {
-  width: auto;
-  min-width: 76px;
-  padding: 0 10px;
 }
 .jpdb-reader-study-panel {
   display: grid;
@@ -379,14 +331,9 @@ mark.jpdb-reader-example-target {
   font-size: 13px;
   line-height: 1.45;
 }
-.jpdb-reader-study-title,
 .jpdb-reader-study-name {
   color: var(--jpdb-reader-text);
   font-weight: 800;
-}
-.jpdb-reader-study-title {
-  font-size: 13px;
-  line-height: 1.2;
 }
 .jpdb-reader-study-list {
   border-top: 1px solid var(--jpdb-reader-border);
@@ -633,16 +580,6 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-template-sentence span {
   color: var(--jpdb-reader-accent);
   font-weight: 850;
-}
-.jpdb-reader-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface-2);
-  color: var(--jpdb-reader-muted);
-  font-weight: 700;
 }
 .jpdb-reader-frequency-pill {
   border: 1px solid var(--chip-border, var(--jpdb-reader-border));

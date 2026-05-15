@@ -17,7 +17,7 @@ Furigana and word colors are separate controls. You can keep the automatic behav
 
 ## Yomitan Dictionaries
 
-よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you add a starter dictionary.
+よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you add a starter dictionary. Standalone browsers that block the remote JMdict ZIP get a small bundled starter dictionary instead of a dead setup state.
 
 This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
 
@@ -39,7 +39,7 @@ Kanji origin sources are modular and license-aware. You can turn off optional pu
 
 ## Image And Manga OCR
 
-OCR lets you tap Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, Google Lens by default, Google Cloud Vision with your own key, or a local OCR app/server for engines such as MangaOCR, PaddleOCR, Apple Vision style results, and YomiNinja-shaped responses.
+OCR lets you tap Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, or a local OCR app/server for engines such as MangaOCR, PaddleOCR, Apple Vision style results, and YomiNinja-shaped responses.
 
 Recognized text stays lightweight: touch targets sit over the image without covering it until you tap or hover.
 
@@ -74,15 +74,6 @@ You can choose example categories, length limits, image visibility, translation 
   <figcaption>Immersion Kit lives inside the same popup flow.</figcaption>
 </figure>
 
-## YouTube Immersion Mode
-
-The optional YouTube mode hides non-Japanese-looking recommendation cards, search results, and sidebars. It is off by default and includes reveal controls so you can show hidden videos again or turn the mode off quickly.
-
-<figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-youtube-cij.png'" alt="YouTube search results for Comprehensible Japanese with the よむ filter bar showing hidden non-Japanese-looking items.">
-  <figcaption>YouTube immersion filtering on Comprehensible Japanese results.</figcaption>
-</figure>
-
 ## New Tab Study Page
 
 よむ includes an optional new-tab page at:
@@ -91,7 +82,7 @@ The optional YouTube mode hides non-Japanese-looking recommendation cards, searc
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts with one explicit Add dictionary step so the demo never hides setup work.
+Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts with one explicit Add dictionary step; it downloads JMdict when the browser can reach it and falls back to a bundled starter on stricter standalone mobile browsers.
 
 On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed.
 

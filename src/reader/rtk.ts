@@ -30,11 +30,9 @@ export class RtkClient {
         const key = Array.from(kanji)[0] ?? kanji;
         let promise = this.cache.get(key);
         if (!promise) {
-            log.debug('Lookup cache miss', { kanji: key });
             promise = this.fetchInfo(key);
             this.cache.set(key, promise);
         } else {
-            log.debug('Lookup cache hit', { kanji: key });
         }
         return promise;
     }
@@ -46,13 +44,11 @@ export class RtkClient {
         });
         if (!html) return null;
         const info = parseRtkHtml(html, kanji);
-        log.debug('RTK info parsed', { kanji, found: Boolean(info), keyword: info?.keyword ?? '' });
         return info ? this.withElementGlyphs(info) : null;
     }
 
     private async withElementGlyphs(info: RtkInfo): Promise<RtkInfo> {
-        const index = await this.lookupKeywordIndex().catch(error => {
-            log.debug('RTK keyword index unavailable', { kanji: info.kanji }, error);
+        const index = await this.lookupKeywordIndex().catch(() => {
             return new Map<string, string>();
         });
         const elementGlyphs: Record<string, RtkElementGlyph> = {};

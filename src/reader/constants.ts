@@ -17,13 +17,3 @@ export const STUDY_TOOLS_SOURCE_ID = '__study_tools__';
 export const STUDY_TRANSLATION_SOURCE_ID = '__study_translation__';
 export const STUDY_GRAMMAR_SOURCE_ID = '__study_grammar__';
 export const IMMERSION_KIT_SOURCE_ID = '__immersion_kit__';
-
-export const SUPPORT_LINKS = {
-    discordUsername: 'henry281199',
-    docs: DOCS_BASE_URL,
-    github: GITHUB_REPOSITORY_URL,
-    issues: `${GITHUB_REPOSITORY_URL}/issues`,
-    paypal: 'https://paypal.me/HenryRussell163',
-    migakuPricing: 'https://migaku.com/pricing',
-    yomikiri: 'https://github.com/BlueGreenMagick/yomikiri',
-} as const;

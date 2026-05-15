@@ -1,4 +1,3 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
@@ -11,36 +10,6 @@ const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 
 export default defineConfig({
     plugins: [
-        {
-            name: 'jpdb-reader-dev-proxies',
-            configureServer(server) {
-                const proxy = async (req: IncomingMessage, res: ServerResponse, label: string) => {
-                    try {
-                        const requestUrl = new URL(req.url ?? '', 'http://127.0.0.1');
-                        const target = requestUrl.searchParams.get('url');
-                        if (!target) {
-                            res.statusCode = 400;
-                            res.end('Missing url');
-                            return;
-                        }
-                        const response = await fetch(target);
-                        res.statusCode = response.status;
-                        res.setHeader('access-control-allow-origin', '*');
-                        res.setHeader('content-type', response.headers.get('content-type') ?? 'application/octet-stream');
-                        const disposition = response.headers.get('content-disposition');
-                        if (disposition) res.setHeader('content-disposition', disposition);
-                        const body = Buffer.from(await response.arrayBuffer());
-                        res.end(body);
-                    } catch (error) {
-                        res.statusCode = 502;
-                        res.end(error instanceof Error ? error.message : `${label} proxy failed`);
-                    }
-                };
-                server.middlewares.use('/__jpdb-reader-audio-proxy', (req, res) => void proxy(req, res, 'Audio'));
-                server.middlewares.use('/__jpdb-reader-dictionary-proxy', (req, res) => void proxy(req, res, 'Dictionary'));
-                server.middlewares.use('/__jpdb-reader-immersion-proxy', (req, res) => void proxy(req, res, 'Immersion Kit'));
-            },
-        },
         monkey({
             entry: 'src/reader/userscript-entry.ts',
             userscript: {
@@ -56,9 +25,6 @@ export default defineConfig({
                     'apiv2express.immersionkit.com',
                     'apiv2.immersionkit.com',
                     'us-southeast-1.linodeobjects.com',
-                    'lensfrontend-pa.googleapis.com',
-                    'lens.google.com',
-                    'vision.googleapis.com',
                     'raw.githubusercontent.com',
                     'en.wiktionary.org',
                     'media.kanjialive.com',

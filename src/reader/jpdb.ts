@@ -50,12 +50,10 @@ export class JpdbClient {
         const cacheKey = text.join('\n');
         const cached = this.parseCache.get(cacheKey);
         if (cached) {
-            log.debug('Parse cache hit', { paragraphs: text.length, tokens: cached.reduce((sum, tokens) => sum + tokens.length, 0) });
             return cached;
         }
         const inFlight = this.parseInFlight.get(cacheKey);
         if (inFlight) {
-            log.debug('Parse in-flight cache hit', { paragraphs: text.length, chars: cacheKey.length });
             return inFlight;
         }
 
@@ -87,7 +85,6 @@ export class JpdbClient {
         const decks = Array.isArray(response.decks)
             ? response.decks.map(normalizeDeck).filter((deck): deck is JPDBDeck => deck !== null)
             : [];
-        log.debug('Decks listed', { decks: decks.length });
         return decks;
     }
 
@@ -101,7 +98,6 @@ export class JpdbClient {
         const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
         if (!pairs.length) {
             done();
-            log.debug('Deck vocabulary list was empty', { deckId });
             return [];
         }
         const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
@@ -111,7 +107,6 @@ export class JpdbClient {
         const cards = jpdbVocabularyToCards((lookup.vocabulary_info ?? []) as JPDBRawVocabulary[]);
         this.cacheCards(cards);
         done();
-        log.debug('Deck cards loaded', { deckId, requested: pairs.length, cards: cards.length });
         return cards;
     }
 
@@ -131,12 +126,10 @@ export class JpdbClient {
     clear(): void {
         this.cardCache.clear();
         this.parseCache.clear();
-        log.debug('Caches cleared');
     }
 
     private async addVocabularyToDeck(deckId: string, card: JPDBCard): Promise<void> {
         if (deckId === 'forq') {
-            log.debug('Adding card via JPDB prioritize endpoint', { term: card.spelling });
             await this.api.requestByUrl('https://jpdb.io/prioritize', {
                 v: card.vid,
                 s: card.sid,
@@ -174,7 +167,6 @@ export class JpdbClient {
 
         this.cardCache.set(cardKey(card.vid, card.sid), fresh);
         Object.assign(card, fresh);
-        log.debug('Card refreshed', { term: card.spelling, state: fresh.cardState });
     }
 
     private cacheCards(cards: JPDBCard[]): void {
@@ -197,11 +189,6 @@ export class JpdbClient {
 
             this.cacheCards(cards);
             this.parseCache.set(cacheKey, tokens);
-            log.debug('Parse completed', {
-                paragraphs: tokens.length,
-                tokens: tokens.reduce((sum, paragraphTokens) => sum + paragraphTokens.length, 0),
-                cards: cards.length,
-            });
             return tokens;
         } finally {
             done();

@@ -26,7 +26,7 @@ export type AudioSourceType =
 
 export type AudioSelectionMode = 'first' | 'random';
 
-export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
+export type OcrProvider = 'local-service' | 'off';
 
 export type PopupActivationMode = 'click' | 'hover' | 'modifier';
 
@@ -178,18 +178,6 @@ export interface ReaderSettings {
     subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
     jpdbDefinitionsPriority: number;
-    jpdbExtensionsEnabled: boolean;
-    jpdbUchisenEnabled: boolean;
-    jpdbRtkEnabled: boolean;
-    jpdbImmersionKitEnabled: boolean;
-    jpdbImmersionKitAutoPlayReviewAudio: boolean;
-    jpdbWordAudioAutoPlayReviewAudio: boolean;
-    jpdbLocalDictionariesEnabled: boolean;
-    jpdbReviewUiEnabled: boolean;
-    jpdbAutoRevealSentenceEnabled: boolean;
-    jpdbKanjiDoodleEnabled: boolean;
-    jpdbKanjiAutogradeEnabled: boolean;
-    jpdbPageParsingEnabled: boolean;
     jpdbKanjiEnabled: boolean;
     jpdbKanjiPriority: number;
     uchisenEnabled: boolean;
@@ -201,7 +189,6 @@ export interface ReaderSettings {
     kanjiOriginsEnabled: boolean;
     kanjiOriginsPriority: number;
     kanjiOriginKanjiMapEnabled: boolean;
-    kanjiOriginWiktionaryEnabled: boolean;
     kanjiOriginGraphEnabled: boolean;
     kanjiOriginRadicalImagesEnabled: boolean;
     similarKanjiWords: boolean;
@@ -265,7 +252,6 @@ export interface ReaderSettings {
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;
     ocrEngine: string;
-    ocrCloudVisionApiKey: string;
     ocrLanguage: string;
     ocrMaxImagePixels: number;
     ocrMinImageArea: number;
@@ -305,8 +291,6 @@ export interface ReaderSettings {
     subtitleFontWeight: number;
     subtitleMiningPause: boolean;
     subtitleSeekPadding: number;
-    youtubeImmersionEnabled: boolean;
-    youtubeShowFilterNotice: boolean;
     ankiEnabled: boolean;
     ankiConnectUrl: string;
     ankiDeck: string;
@@ -343,7 +327,6 @@ export interface ReaderSettings {
         nextSubtitle: string;
         copySubtitle: string;
         toggleOcr: string;
-        toggleYoutubeImmersion: string;
         scanImages: string;
         gradeNothing: string;
         gradeSomething: string;

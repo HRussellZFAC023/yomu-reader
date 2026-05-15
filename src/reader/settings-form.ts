@@ -1,4 +1,4 @@
-import { NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_LINKS, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DOCS_BASE_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
@@ -27,48 +27,23 @@ interface SettingsFormReader {
     colorSource: (key: string, fallback: ReaderColorSource) => ReaderColorSource;
 }
 
-export function renderSupportPanel(): string {
-    return `
-        <div class="jpdb-reader-support-card jpdb-reader-support-donation-card">
-            <div>
-                <div class="jpdb-reader-support-title">Free Japanese reading and mining tools</div>
-                <p>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as <a href="${SUPPORT_LINKS.migakuPricing}" target="_blank" rel="noopener">Migaku</a> currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                <p>Donations are optional. They help cover the time, testing devices, services, and maintenance that keep the reader polished. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Even a small donation helps bring that future closer, and it also encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.</p>
-            </div>
-            <div class="jpdb-reader-support-actions">
-                <a class="jpdb-reader-btn add" href="${SUPPORT_LINKS.paypal}" target="_blank" rel="noopener" data-support-link="paypal">Donate</a>
-                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.issues}" target="_blank" rel="noopener" data-support-link="issues">Report issue</a>
-                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.github}" target="_blank" rel="noopener" data-support-link="github">GitHub</a>
-                <button class="jpdb-reader-btn" type="button" data-action="copy-discord" data-support-link="discord">Copy Discord</button>
-            </div>
-            <div class="jpdb-reader-help">Discord: ${SUPPORT_LINKS.discordUsername}</div>
-        </div>
-    `;
-}
-
 export function renderHelpLinksPanel(): string {
     return `
-        <div class="jpdb-reader-support-card jpdb-reader-help-links-card">
+        <div class="jpdb-reader-help-card jpdb-reader-help-links-card">
             <div>
-                <div class="jpdb-reader-support-title" data-help-links-title>Useful pages</div>
+                <div class="jpdb-reader-help-title" data-help-links-title>Useful pages</div>
                 <p data-help-links-copy>Open the hosted reader tools and docs from here.</p>
             </div>
-            <div class="jpdb-reader-support-actions jpdb-reader-help-links-actions">
+            <div class="jpdb-reader-help-actions">
                 <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">Video Player</a>
                 <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">New Tab</a>
-                <a class="jpdb-reader-btn" href="${SUPPORT_LINKS.docs}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
+                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
             </div>
         </div>
     `;
 }
 
 export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string): string {
-    log.debug('Rendering settings form', {
-        language: settings.interfaceLanguage,
-        dictionaries: settings.dictionaryPreferences.length,
-        audioSources: settings.audioSources.length,
-        enableLogging: settings.enableLogging,
-    });
     return `
             <div class="jpdb-reader-settings-head">
                 <h2>${SETTINGS_TITLE}</h2>
@@ -83,7 +58,6 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
-            ${renderYouTubeSettingsPanel(settings)}
             ${renderMiningSettingsPanel(settings)}
             ${renderDictionariesSettingsPanel(settings)}
             ${renderShortcutSettingsPanel(settings)}
@@ -107,7 +81,6 @@ function renderSettingsTabs(): string {
 }
 
 function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string): string {
-    const revealAudio = jpdbRevealAudioSettings(settings);
     return `
             <fieldset data-settings-panel="basics">
                 <legend>JPDB</legend>
@@ -121,48 +94,8 @@ function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: stri
                 <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                     ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                 </div>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">JPDB page add-ons</div>
-                    <div class="grid">
-                        ${checkbox('jpdbExtensionsEnabled', 'Enable JPDB page add-ons', settings.jpdbExtensionsEnabled)}
-                        ${checkbox('jpdbUchisenEnabled', 'Uchisen mnemonic carousel', settings.jpdbUchisenEnabled)}
-                        ${checkbox('jpdbRtkEnabled', 'RTK story panel', settings.jpdbRtkEnabled)}
-                        ${checkbox('jpdbImmersionKitEnabled', 'Immersion Kit examples on JPDB', settings.jpdbImmersionKitEnabled)}
-                        ${checkbox('jpdbImmersionKitAutoPlayReviewAudio', 'Play Immersion Kit audio on JPDB answer reveal', revealAudio.immersionEnabled, { disabled: revealAudio.immersionDisabled })}
-                        ${checkbox('jpdbWordAudioAutoPlayReviewAudio', 'Play よむ word audio on JPDB answer reveal', revealAudio.wordEnabled, { disabled: !settings.audioEnabled })}
-                        ${checkbox('jpdbLocalDictionariesEnabled', 'Imported dictionary entries on JPDB', settings.jpdbLocalDictionariesEnabled)}
-                        ${checkbox('jpdbReviewUiEnabled', 'Compact review navigation', settings.jpdbReviewUiEnabled)}
-                        ${checkbox('jpdbAutoRevealSentenceEnabled', 'Auto-reveal review example sentences', settings.jpdbAutoRevealSentenceEnabled)}
-                        ${checkbox('jpdbKanjiDoodleEnabled', 'Kanji doodle pad in reviews', settings.jpdbKanjiDoodleEnabled)}
-                        ${checkbox('jpdbKanjiAutogradeEnabled', 'Autograde kanji drawing on JPDB', settings.jpdbKanjiAutogradeEnabled)}
-                        ${checkbox('jpdbPageParsingEnabled', 'Parse review sentences on JPDB', settings.jpdbPageParsingEnabled)}
-                    </div>
-                    <div class="jpdb-reader-help">These only run on jpdb.io. Each add-on can be turned off without disabling the rest of よむ.</div>
-                </div>
             </fieldset>
     `;
-}
-
-function jpdbRevealAudioSettings(settings: ReaderSettings): { wordEnabled: boolean; immersionEnabled: boolean; immersionDisabled: boolean } {
-    const wordEnabled = jpdbWordReviewAudioEnabled(settings);
-    const immersionAvailable = jpdbImmersionReviewAudioAvailable(settings);
-    return {
-        wordEnabled,
-        immersionEnabled: jpdbImmersionReviewAudioEnabled(settings, immersionAvailable, wordEnabled),
-        immersionDisabled: !immersionAvailable || wordEnabled,
-    };
-}
-
-function jpdbWordReviewAudioEnabled(settings: ReaderSettings): boolean {
-    return settings.audioEnabled && settings.jpdbWordAudioAutoPlayReviewAudio;
-}
-
-function jpdbImmersionReviewAudioAvailable(settings: ReaderSettings): boolean {
-    return settings.immersionKitEnabled && settings.jpdbImmersionKitEnabled;
-}
-
-function jpdbImmersionReviewAudioEnabled(settings: ReaderSettings, immersionAvailable: boolean, wordEnabled: boolean): boolean {
-    return immersionAvailable && !wordEnabled && settings.jpdbImmersionKitAutoPlayReviewAudio;
 }
 
 function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
@@ -347,7 +280,6 @@ function renderKanjiSettingsPanel(settings: ReaderSettings): string {
 
 function renderImageSettingsPanel(settings: ReaderSettings): string {
     const localOcrHidden = settings.ocrProvider === 'local-service' ? '' : 'hidden';
-    const cloudOcrHidden = settings.ocrProvider === 'cloud-vision' ? '' : 'hidden';
     return `
             <fieldset data-settings-panel="media" hidden>
                 <legend>Images</legend>
@@ -355,7 +287,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
                     ${checkbox('ocrAutoScanImages', 'Read images automatically', settings.ocrAutoScanImages)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
-                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['local-service', 'Local OCR app'], ['cloud-vision', 'Google Cloud Vision'], ['off', 'Off']])}
+                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['local-service', 'Local OCR app'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
@@ -366,11 +298,10 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${input('ocrFontScale', 'Image text scale', String(settings.ocrFontScale), 'number')}
                     <label data-local-ocr ${localOcrHidden}>Local OCR app URL<input name="ocrEndpointUrl" type="text" value="${escapeHtml(settings.ocrEndpointUrl)}" autocomplete="off"></label>
                     <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision']])}</div>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
-                <div class="jpdb-reader-help">Images are read quietly near the viewport. Google Lens handles normal images by default; embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
+                <div class="jpdb-reader-help">Images are read quietly near the viewport when embedded OCR metadata or a local OCR app is available. Recognized areas stay transparent until you tap or hover.</div>
             </fieldset>
     `;
 }
@@ -417,19 +348,6 @@ function renderSubtitlePreview(): string {
                     </div>
                     <div class="jpdb-subtitle-secondary">Live subtitle preview</div>
                 </div>
-    `;
-}
-
-function renderYouTubeSettingsPanel(settings: ReaderSettings): string {
-    return `
-            <fieldset data-settings-panel="media" hidden>
-                <legend>YouTube</legend>
-                <div class="grid">
-                    ${checkbox('youtubeImmersionEnabled', 'Only show Japanese-looking YouTube videos', settings.youtubeImmersionEnabled)}
-                    ${checkbox('youtubeShowFilterNotice', 'Show reveal control for hidden videos', settings.youtubeShowFilterNotice)}
-                </div>
-                <div class="jpdb-reader-help">Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
-            </fieldset>
     `;
 }
 
@@ -512,7 +430,6 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.nextSubtitle', 'Next subtitle', settings.shortcuts.nextSubtitle)}
                     ${shortcutInput('shortcuts.copySubtitle', 'Copy subtitle', settings.shortcuts.copySubtitle)}
                     ${shortcutInput('shortcuts.toggleOcr', 'Toggle image reading', settings.shortcuts.toggleOcr)}
-                    ${shortcutInput('shortcuts.toggleYoutubeImmersion', 'Toggle YouTube filter', settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
@@ -524,7 +441,6 @@ function renderHelpSettingsPanel(): string {
     return `
             <fieldset data-settings-panel="help" hidden>
                 <legend>Help</legend>
-                ${renderSupportPanel()}
                 ${renderHelpLinksPanel()}
             </fieldset>
     `;
@@ -590,7 +506,6 @@ export function getFormInterfaceLanguage(form: HTMLFormElement, fallback: Interf
 }
 
 export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage): void {
-    log.debug('Localizing settings form', { language });
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
     localizeSettingsShell(form, language, text);
     localizeSettingsLabels(form, text);
@@ -600,7 +515,6 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     localizeSettingsHelpText(form, text);
     localizeSettingsActions(form, text);
     localizeSettingsEditorChrome(form, text);
-    localizeSupportPanel(form, language);
     localizeHelpLinksPanel(form, language);
 }
 
@@ -639,11 +553,10 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
         text('kanji'),
         text('images'),
         text('video'),
-        text('youtube'),
         text('anki'),
         text('dictionaries'),
         text('shortcuts'),
-        text('support'),
+        text('help'),
     ].forEach((label, index) => {
         const legend = form.querySelectorAll('fieldset > legend')[index];
         legend?.replaceChildren(label);
@@ -655,7 +568,6 @@ function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
-    localizeBlockControlLabel(form, 'ocrCloudVisionApiKey', text('cloudVisionApiKey'));
 }
 
 function localizeBlockControlLabel(form: HTMLFormElement, name: string, label: string): void {
@@ -773,9 +685,7 @@ function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText)
 
 function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
     setSelectOptionLabels(form, 'ocrProvider', [
-        ['google-lens', text('googleLens')],
         ['local-service', text('localOcr')],
-        ['cloud-vision', text('cloudVision')],
         ['off', text('off')],
     ]);
     setSelectOptionLabels(form, 'ocrMaxImagesPerPage', [
@@ -821,8 +731,7 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
     setFieldsetHelp(form, 4, text('readerHelp'));
     setFieldsetHelp(form, 5, text('kanjiHelp'));
     setFieldsetHelp(form, 6, text('ocrHelp'));
-    setFieldsetHelp(form, 8, text('youtubeHelp'));
-    setFieldsetHelp(form, 9, text('ankiHelp'));
+    setFieldsetHelp(form, 8, text('ankiHelp'));
     localizeAudioHelp(form, text);
     localizeDictionaryImportHelp(form, text);
 }
@@ -934,7 +843,6 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['kanjivgEnabled', 'kanjivgEnabled'],
         ['kanjiOriginsEnabled', 'kanjiOriginsEnabled'],
         ['kanjiOriginKanjiMapEnabled', 'kanjiOriginKanjiMapEnabled'],
-        ['kanjiOriginWiktionaryEnabled', 'kanjiOriginWiktionaryEnabled'],
         ['kanjiOriginGraphEnabled', 'kanjiOriginGraphEnabled'],
         ['kanjiOriginRadicalImagesEnabled', 'kanjiOriginRadicalImagesEnabled'],
         ['rtkEnabled', 'rtkEnabled'],
@@ -953,9 +861,6 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['immersionKitAutoPlayAudio', 'immersionKitAutoPlayAudio'],
         ['immersionKitPlayOnHover', 'immersionKitPlayOnHover'],
         ['immersionKitPlayOnImageClick', 'immersionKitPlayOnImageClick'],
-        ['jpdbImmersionKitAutoPlayReviewAudio', 'jpdbImmersionKitAutoPlayReviewAudio'],
-        ['jpdbWordAudioAutoPlayReviewAudio', 'jpdbWordAudioAutoPlayReviewAudio'],
-        ['jpdbAutoRevealSentenceEnabled', 'jpdbAutoRevealSentenceEnabled'],
         ['immersionKitCategory', 'immersionKitCategory'],
         ['immersionKitSort', 'immersionKitSort'],
         ['immersionKitLimit', 'immersionKitLimit'],
@@ -977,7 +882,6 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['ocrFontScale', 'ocrFontScale'],
         ['ocrEndpointUrl', 'ocrEndpointUrl'],
         ['ocrEngine', 'ocrEngine'],
-        ['ocrCloudVisionApiKey', 'cloudVisionApiKey'],
         ['subtitlePlayerEnabled', 'subtitlePlayerEnabled'],
         ['subtitleAutoDetect', 'subtitleAutoDetect'],
         ['subtitleOverlayVisible', 'subtitleOverlayVisible'],
@@ -998,8 +902,6 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['subtitleFontFamily', 'subtitleFontFamily'],
         ['subtitleFontWeight', 'subtitleFontWeight'],
         ['subtitleSeekPadding', 'subtitleSeekPadding'],
-        ['youtubeImmersionEnabled', 'youtubeImmersionEnabled'],
-        ['youtubeShowFilterNotice', 'youtubeShowFilterNotice'],
         ['ankiEnabled', 'ankiEnabled'],
         ['ankiMineWithJpdb', 'ankiMineWithJpdb'],
         ['ankiCaptureScreenshot', 'ankiCaptureScreenshot'],
@@ -1027,7 +929,6 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['shortcuts.nextSubtitle', 'nextSubtitle'],
         ['shortcuts.copySubtitle', 'copySubtitle'],
         ['shortcuts.toggleOcr', 'toggleImageReading'],
-        ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
         ['shortcuts.scanImages', 'readImagesNow'],
         ['shortcuts.gradeNothing', 'gradeNothing'],
         ['shortcuts.gradeSomething', 'gradeSomething'],
@@ -1092,20 +993,6 @@ function setFieldsetHelp(form: HTMLFormElement, index: number, text: string): vo
     if (help) help.textContent = text;
 }
 
-function localizeSupportPanel(form: HTMLFormElement, language: InterfaceLanguage): void {
-    const support = form.querySelector<HTMLElement>('.jpdb-reader-support-donation-card');
-    if (!support) return;
-    const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
-    support.querySelector('.jpdb-reader-support-title')?.replaceChildren(text('supportTitle'));
-    const paragraphs = support.querySelectorAll('p');
-    paragraphs[0]?.replaceChildren(text('supportCopy'));
-    paragraphs[1]?.replaceChildren(text('supportDonation'));
-    support.querySelector<HTMLElement>('[data-support-link="paypal"]')?.replaceChildren(text('donate'));
-    support.querySelector<HTMLElement>('[data-support-link="issues"]')?.replaceChildren(text('reportIssue'));
-    support.querySelector<HTMLElement>('[data-support-link="github"]')?.replaceChildren(text('github'));
-    support.querySelector<HTMLElement>('[data-support-link="discord"]')?.replaceChildren(text('copyDiscord'));
-}
-
 function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLanguage): void {
     const panel = form.querySelector<HTMLElement>('.jpdb-reader-help-links-card');
     if (!panel) return;
@@ -1136,7 +1023,6 @@ export function renderReviewShortcutInputs(settings: ReaderSettings): string {
 }
 
 export function activateSettingsPanel(form: HTMLFormElement, panel: string): void {
-    log.debug('Activating settings panel', { panel });
     form.querySelectorAll<HTMLElement>('[data-settings-panel]').forEach(section => {
         section.hidden = section.dataset.settingsPanel !== panel;
     });
@@ -1175,7 +1061,7 @@ function renderAudioSourceRows(rows: AudioSourceSetting[]): string {
     return `
         <input type="hidden" name="audioSourceCount" value="${count}">
         ${rows.map((source, index) => `
-            <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" draggable="true" data-source-row data-audio-source-row data-source-id="audio-${index}">
+            <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
                 <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
                     <input name="audioSources.${index}.enabled" type="checkbox" ${source.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
@@ -1273,14 +1159,12 @@ export function updateAudioSourceEditor(form: HTMLFormElement, action: string, c
 
     if (isAudioSourceMoveAction(action)) {
         moveSourceRow(container, index, audioSourceMoveTargetIndex(action, index));
-        log.debug('Reordered audio source row', { action, rows: rows.length });
         return;
     }
 
     const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
     updateAudioSourceRows(sources, action, index);
     setInnerHtml(container, renderAudioSourceEditor(sources));
-    log.debug('Updated audio source editor', { action, rows: sources.length });
 }
 
 function isAudioSourceMoveAction(action: string): boolean {
@@ -1333,7 +1217,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
                 ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>'
                 : `<button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-remove" title="Remove" aria-label="Remove">${miniIcon('remove')}</button>`;
             return `
-                <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" draggable="true" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
+                <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
                     <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                         <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" ${link.enabled ? 'checked' : ''}>
                         <span>${index + 1}</span>
@@ -1410,7 +1294,6 @@ export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: 
     const index = row ? Array.from(container.querySelectorAll('[data-lookup-link-row]')).indexOf(row) : -1;
     updateDictionaryLookupLinks(links, action, index);
     setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
-    log.debug('Updated lookup link editor', { action, rows: links.length });
 }
 
 function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number): void {
@@ -1448,178 +1331,6 @@ export function updateSourceRowEditor(action: string, control?: HTMLElement | nu
     const index = rows.indexOf(row);
     const targetIndex = action === 'dictionary-source-up' ? index - 1 : index + 1;
     moveSourceRow(container, index, targetIndex);
-    log.debug('Updated ordered source editor', { action, rows: rows.length });
-}
-
-export function installSourceRowDrag(form: HTMLFormElement): void {
-    let dragged: HTMLElement | null = null;
-    let dropSlot: SourceRowDropSlot | null = null;
-    let touchDrag: SourceRowTouchDrag | null = null;
-    form.addEventListener('dragstart', event => {
-        const row = (event.target as HTMLElement).closest<HTMLElement>('[data-source-row]');
-        if (!row) return;
-        dragged = row;
-        row.classList.add('jpdb-reader-dragging');
-        event.dataTransfer?.setData('text/plain', row.dataset.sourceId ?? '');
-        event.dataTransfer?.setDragImage(row, 18, 18);
-        log.debug('Source row drag started', { sourceId: row.dataset.sourceId });
-    });
-    form.addEventListener('dragover', event => {
-        if (!dragged) return;
-        const row = (event.target as HTMLElement).closest<HTMLElement>('[data-source-row]');
-        const slot = sourceRowDropSlotFromRow(dragged, row, event.clientY);
-        if (!slot) return;
-        event.preventDefault();
-        dropSlot = slot;
-        showSourceRowDropSlot(form, slot);
-    });
-    form.addEventListener('drop', event => {
-        if (!dragged) return;
-        if (!dropSlot) return;
-        event.preventDefault();
-        moveSourceRowToSlot(dropSlot);
-        log.debug('Source row dropped', sourceRowDropSlotLog(dropSlot));
-    });
-    form.addEventListener('dragend', () => {
-        dragged?.classList.remove('jpdb-reader-dragging');
-        if (dragged) log.debug('Source row drag ended', { sourceId: dragged.dataset.sourceId });
-        clearSourceRowDropSlot(form);
-        dragged = null;
-        dropSlot = null;
-    });
-
-    form.addEventListener('touchstart', event => {
-        if (event.touches.length !== 1 || isInteractiveDragTarget(event.target)) return;
-        const row = (event.target as HTMLElement).closest<HTMLElement>('[data-source-row]');
-        if (!row) return;
-        const touch = event.touches[0];
-        touchDrag = { row, startX: touch.clientX, startY: touch.clientY, active: false, slot: null };
-    }, { passive: true });
-    form.addEventListener('touchmove', event => {
-        if (!touchDrag || event.touches.length !== 1) return;
-        const touch = event.touches[0];
-        const distance = Math.hypot(touch.clientX - touchDrag.startX, touch.clientY - touchDrag.startY);
-        if (!touchDrag.active && distance < 8) return;
-        if (!touchDrag.active) {
-            touchDrag.active = true;
-            dragged = touchDrag.row;
-            dragged.classList.add('jpdb-reader-dragging', 'jpdb-reader-touch-dragging');
-            log.debug('Source row touch drag started', { sourceId: dragged.dataset.sourceId });
-        }
-        event.preventDefault();
-        const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest<HTMLElement>('[data-source-row]') ?? null;
-        const slot = sourceRowDropSlotFromRow(touchDrag.row, target, touch.clientY);
-        touchDrag.slot = slot;
-        if (slot) showSourceRowDropSlot(form, slot);
-        else clearSourceRowDropSlot(form);
-    }, { passive: false });
-    form.addEventListener('touchend', () => {
-        if (touchDrag?.active && touchDrag.slot) {
-            moveSourceRowToSlot(touchDrag.slot);
-            log.debug('Source row touch dropped', sourceRowDropSlotLog(touchDrag.slot));
-        }
-        endSourceRowTouchDrag(form, touchDrag);
-        touchDrag = null;
-        dragged = null;
-        dropSlot = null;
-    });
-    form.addEventListener('touchcancel', () => {
-        endSourceRowTouchDrag(form, touchDrag);
-        touchDrag = null;
-        dragged = null;
-        dropSlot = null;
-    });
-}
-
-interface SourceRowDropSlot {
-    container: HTMLElement;
-    dragged: HTMLElement;
-    target: HTMLElement;
-    position: 'before' | 'after';
-}
-
-interface SourceRowTouchDrag {
-    row: HTMLElement;
-    startX: number;
-    startY: number;
-    active: boolean;
-    slot: SourceRowDropSlot | null;
-}
-
-function sourceRowDropSlotFromRow(dragged: HTMLElement, target: HTMLElement | null, clientY: number): SourceRowDropSlot | null {
-    const container = sourceRowDropContainer(dragged, target);
-    if (!container || !target) return null;
-    return {
-        container,
-        dragged,
-        target,
-        position: sourceRowDropPosition(target, clientY),
-    };
-}
-
-function sourceRowDropContainer(dragged: HTMLElement, target: HTMLElement | null): HTMLElement | null {
-    const container = dragged.closest<HTMLElement>('[data-source-editor]');
-    if (!target || !container || target === dragged) return null;
-    return target.closest('[data-source-editor]') === container ? container : null;
-}
-
-function sourceRowDropPosition(target: HTMLElement, clientY: number): 'before' | 'after' {
-    const rect = target.getBoundingClientRect();
-    return clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-}
-
-function showSourceRowDropSlot(root: HTMLElement, slot: SourceRowDropSlot): void {
-    clearSourceRowDropSlot(root);
-    slot.target.classList.add(slot.position === 'before' ? 'jpdb-reader-drop-before' : 'jpdb-reader-drop-after');
-}
-
-function clearSourceRowDropSlot(root: HTMLElement): void {
-    root.querySelectorAll<HTMLElement>('.jpdb-reader-drop-before, .jpdb-reader-drop-after').forEach(row => {
-        row.classList.remove('jpdb-reader-drop-before', 'jpdb-reader-drop-after');
-    });
-}
-
-function moveSourceRowToSlot(slot: SourceRowDropSlot): void {
-    const rows = Array.from(slot.container.querySelectorAll<HTMLElement>('[data-source-row]'));
-    const from = rows.indexOf(slot.dragged);
-    const target = rows.indexOf(slot.target);
-    if (!hasSourceRowIndexes(from, target)) return;
-    const targetIndex = sourceRowSlotTargetIndex(slot.position, target);
-    const adjustedTargetIndex = adjustedSourceRowTargetIndex(from, targetIndex);
-    if (from === adjustedTargetIndex) return;
-    slot.container.insertBefore(slot.dragged, sourceRowInsertBefore(rows, targetIndex));
-    syncSourceRowOrder(slot.container);
-}
-
-function hasSourceRowIndexes(from: number, target: number): boolean {
-    return from >= 0 && target >= 0;
-}
-
-function sourceRowSlotTargetIndex(position: SourceRowDropSlot['position'], target: number): number {
-    return position === 'before' ? target : target + 1;
-}
-
-function adjustedSourceRowTargetIndex(from: number, targetIndex: number): number {
-    return from < targetIndex ? targetIndex - 1 : targetIndex;
-}
-
-function sourceRowInsertBefore(rows: HTMLElement[], targetIndex: number): HTMLElement | null {
-    return rows[targetIndex] ?? null;
-}
-
-function sourceRowDropSlotLog(slot: SourceRowDropSlot): { from: number; to: number; position: SourceRowDropSlot['position'] } {
-    const rows = Array.from(slot.container.querySelectorAll<HTMLElement>('[data-source-row]'));
-    return { from: rows.indexOf(slot.dragged), to: rows.indexOf(slot.target), position: slot.position };
-}
-
-function endSourceRowTouchDrag(form: HTMLFormElement, touchDrag: SourceRowTouchDrag | null): void {
-    touchDrag?.row.classList.remove('jpdb-reader-dragging', 'jpdb-reader-touch-dragging');
-    clearSourceRowDropSlot(form);
-    if (touchDrag?.active) log.debug('Source row touch drag ended', { sourceId: touchDrag.row.dataset.sourceId });
-}
-
-function isInteractiveDragTarget(target: EventTarget | null): boolean {
-    return Boolean((target as HTMLElement | null)?.closest('input, select, textarea, button, a'));
 }
 
 function moveSourceRow(container: HTMLElement, index: number, targetIndex: number): void {
@@ -1686,11 +1397,9 @@ export function installShortcutCapture(root: HTMLElement): void {
             event.stopPropagation();
             if (event.key === 'Backspace' || event.key === 'Delete') {
                 inputEl.value = '';
-                log.debug('Shortcut cleared', { name: inputEl.name });
                 return;
             }
             inputEl.value = formatShortcutEvent(event);
-            log.debug('Shortcut captured', { name: inputEl.name, value: inputEl.value });
         });
         inputEl.addEventListener('paste', event => event.preventDefault());
     });
@@ -1821,7 +1530,7 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
         </div>
         ${options.countName ? `<input type="hidden" name="${escapeHtml(options.countName)}" value="${options.countValue ?? removableCount}">` : ''}
         ${rows.map((row, index) => `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${options.showAlias ? '' : 'compact'}" draggable="true" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${options.showAlias ? '' : 'compact'}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                     <input name="${row.prefix}.enabled" type="checkbox" ${row.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
@@ -1942,8 +1651,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         dictionaryPreferences,
         dictionaryLookupLinks: readDictionaryLookupLinks(data),
         ...readSubtitleFormSettings(reader, current),
-        youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
-        youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
         ...readAnkiFormSettings(reader, current),
         ...readStudyToolFormSettings(reader, current),
         enableLogging: has('enableLogging'),
@@ -1951,10 +1658,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readMiningFormSettings(reader),
         shortcuts: readShortcutFormSettings(reader),
     };
-    if (!settings.audioEnabled) settings.jpdbWordAudioAutoPlayReviewAudio = false;
-    if (settings.jpdbWordAudioAutoPlayReviewAudio || !settings.immersionKitEnabled || !settings.jpdbImmersionKitEnabled) {
-        settings.jpdbImmersionKitAutoPlayReviewAudio = false;
-    }
     log.info('Read settings form data', {
         enableLogging: settings.enableLogging,
         dictionaries: settings.dictionaryPreferences.length,
@@ -1962,7 +1665,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         audioSources: settings.audioSources.length,
         ocrEnabled: settings.ocrEnabled,
         subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-        youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
         ankiEnabled: settings.ankiEnabled,
     });
     return settings;
@@ -1977,18 +1679,6 @@ function readJpdbFormSettings(reader: SettingsFormReader, current: ReaderSetting
     return {
         jpdbDefinitionsEnabled: definitionsRowPresent ? has('jpdbDefinitions.enabled') : has('jpdbDefinitionsEnabled'),
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
-        jpdbExtensionsEnabled: has('jpdbExtensionsEnabled'),
-        jpdbUchisenEnabled: has('jpdbUchisenEnabled'),
-        jpdbRtkEnabled: has('jpdbRtkEnabled'),
-        jpdbImmersionKitEnabled: has('jpdbImmersionKitEnabled'),
-        jpdbImmersionKitAutoPlayReviewAudio: has('jpdbImmersionKitAutoPlayReviewAudio'),
-        jpdbWordAudioAutoPlayReviewAudio: has('jpdbWordAudioAutoPlayReviewAudio'),
-        jpdbLocalDictionariesEnabled: has('jpdbLocalDictionariesEnabled'),
-        jpdbReviewUiEnabled: has('jpdbReviewUiEnabled'),
-        jpdbAutoRevealSentenceEnabled: has('jpdbAutoRevealSentenceEnabled'),
-        jpdbKanjiDoodleEnabled: has('jpdbKanjiDoodleEnabled'),
-        jpdbKanjiAutogradeEnabled: has('jpdbKanjiAutogradeEnabled'),
-        jpdbPageParsingEnabled: has('jpdbPageParsingEnabled'),
     };
 }
 
@@ -2006,7 +1696,6 @@ function readKanjiAddonFormSettings(reader: SettingsFormReader, current: ReaderS
         kanjiOriginsEnabled: has('kanjiOrigins.enabled'),
         kanjiOriginsPriority: Math.max(0, Math.min(999, number('kanjiOrigins.priority', current.kanjiOriginsPriority))),
         kanjiOriginKanjiMapEnabled: has('kanjiOriginKanjiMapEnabled'),
-        kanjiOriginWiktionaryEnabled: false,
         kanjiOriginGraphEnabled: has('kanjiOriginGraphEnabled'),
         kanjiOriginRadicalImagesEnabled: has('kanjiOriginRadicalImagesEnabled'),
         similarKanjiWords: has('similarKanjiWords.enabled'),
@@ -2172,7 +1861,6 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrProvider: normalizeOcrProvider(get('ocrProvider')),
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',
-        ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
         ocrLanguage: get('ocrLanguage').trim() || 'ja-JP',
         ocrMaxImagePixels: Math.max(160000, Math.min(2800000, number('ocrMaxImagePixels', current.ocrMaxImagePixels))),
         ocrMinImageArea: Math.max(10000, Math.min(800000, number('ocrMinImageArea', current.ocrMinImageArea))),
@@ -2246,7 +1934,6 @@ function readShortcutFormSettings(reader: SettingsFormReader): ReaderSettings['s
         nextSubtitle: get('shortcuts.nextSubtitle'),
         copySubtitle: get('shortcuts.copySubtitle'),
         toggleOcr: get('shortcuts.toggleOcr'),
-        toggleYoutubeImmersion: get('shortcuts.toggleYoutubeImmersion'),
         scanImages: get('shortcuts.scanImages'),
         gradeNothing: get('shortcuts.gradeNothing'),
         gradeSomething: get('shortcuts.gradeSomething'),
@@ -2349,7 +2036,6 @@ export function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Pr
             log.info('File picker completed', { type, name: file?.name ?? '', size: file?.size ?? 0 });
             resolve(file);
         };
-        log.debug('Opening file picker', { type });
         inputEl.click();
     });
 }

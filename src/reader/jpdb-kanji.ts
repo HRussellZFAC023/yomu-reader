@@ -64,11 +64,9 @@ export class JpdbKanjiClient {
         if (!key) return Promise.resolve(null);
         let promise = this.cache.get(key);
         if (!promise) {
-            log.debug('Lookup cache miss', { kanji: key });
             promise = this.fetchInfo(key);
             this.cache.set(key, promise);
         } else {
-            log.debug('Lookup cache hit', { kanji: key });
         }
         return promise;
     }
@@ -95,7 +93,6 @@ export class JpdbKanjiClient {
         if (info) {
             visibleJpdbKanjiActions(info).forEach(action => this.actions.set(action.id, action));
         }
-        log.debug('Kanji info parsed', { kanji, found: Boolean(info) });
         return info;
     }
 }
@@ -411,7 +408,7 @@ function requestText(url: string, options: { method?: 'GET' | 'POST'; payload?: 
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestTextViaUserscript(userscriptRequest, method, requestUrl, headers, body);
 
-    const fetchUrl = publicFetchUrl(requestUrl, method);
+    const fetchUrl = publicFetchUrl(requestUrl);
     if (!fetchUrl) return Promise.reject(new Error('Cross-origin JPDB kanji request needs a userscript HTTP bridge.'));
     return requestTextViaFetch(fetchUrl, method, headers, body);
 }
@@ -435,7 +432,6 @@ function requestTextViaUserscript(
     headers: Record<string, string> | undefined,
     body: string,
 ): Promise<string> {
-    log.debug('Kanji page request via userscript API');
     return new Promise((resolve, reject) => {
         userscriptRequest({
             method,
@@ -454,7 +450,6 @@ function requestTextViaUserscript(
 }
 
 function requestTextViaFetch(fetchUrl: string, method: 'GET' | 'POST', headers: Record<string, string> | undefined, body: string): Promise<string> {
-    log.debug('Kanji page request via fetch');
     return fetch(fetchUrl, {
         method,
         headers,
@@ -467,17 +462,12 @@ function requestTextViaFetch(fetchUrl: string, method: 'GET' | 'POST', headers: 
     });
 }
 
-function publicFetchUrl(url: string, method: 'GET' | 'POST'): string | null {
+function publicFetchUrl(url: string): string | null {
     try {
         const target = new URL(url, location.href);
         if (target.origin === location.origin) return target.href;
-        if (method === 'GET' && isLoopbackPage()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
         return null;
     } catch {
         return url;
     }
-}
-
-function isLoopbackPage(): boolean {
-    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }

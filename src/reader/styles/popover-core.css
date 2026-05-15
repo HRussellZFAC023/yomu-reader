@@ -16,12 +16,7 @@
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
   color: var(--jpdb-reader-text);
   color-scheme: light dark;
-  font:
-    14px/1.45 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 14px/1.45 var(--jpdb-reader-font);
 }
 
 .jpdb-reader-popover {
@@ -118,11 +113,6 @@
   cursor: pointer;
   overflow: hidden;
   transform: translateY(-0.01rem);
-  transition:
-    border-color 0.2s ease-in-out,
-    box-shadow 0.2s ease-in-out,
-    color 0.2s ease-in-out,
-    transform 0.2s ease-in-out;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-icon-btn:hover,
@@ -161,12 +151,7 @@
   color: var(--jpdb-reader-text);
   box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
   color-scheme: light dark;
-  font:
-    15px/1.5 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 15px/1.5 var(--jpdb-reader-font);
 }
 .jpdb-reader-onboarding-close {
   position: absolute;
@@ -211,8 +196,7 @@
   color: var(--jpdb-reader-text);
   font-size: 16px;
 }
-.jpdb-reader-onboarding-grid span,
-.jpdb-reader-onboarding-note {
+.jpdb-reader-onboarding-grid span {
   color: var(--jpdb-reader-muted);
   font-size: 13px;
 }
@@ -234,12 +218,7 @@
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   padding: 8px 10px;
-  font:
-    750 14px/1.2 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 750 14px/1.2 var(--jpdb-reader-font);
 }
 .jpdb-reader-onboarding-actions {
   display: flex;
@@ -410,10 +389,6 @@ button.jpdb-reader-action-pill {
   cursor: pointer;
   font-family: inherit;
   transform: translateY(-0.01rem) !important;
-  transition:
-    transform 0.2s ease-in-out,
-    box-shadow 0.2s ease-in-out,
-    outline-color 0.2s ease-in-out !important;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-action-pill:hover,
@@ -678,24 +653,12 @@ button.jpdb-reader-action-pill {
   font-size: 10.5px;
   line-height: 1.3;
 }
-.jpdb-reader-meaning-pos {
-  color: var(--jpdb-reader-faint);
-  font-size: 11px;
-  margin-right: 5px;
-  font-style: italic;
-  text-transform: none;
-}
 .jpdb-reader-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   font-size: 11px;
-}
-.jpdb-reader-inline-link {
-  color: var(--jpdb-reader-accent);
-  font-weight: 800;
-  text-decoration: none;
 }
 .jpdb-reader-state-dot {
   width: 8px;

@@ -14,7 +14,6 @@ const SEARCH_EXAMPLE_LIMIT = 250;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
 const DEFAULT_EXAMPLE_SORT = 'sentence_length:asc';
 const log = Logger.scope('ImmersionKit');
-const IMMERSION_KIT_PROXY_PATH = '/__jpdb-reader-immersion-proxy';
 
 // Immersion Kit media paths use these canonical deck titles, while search results only include slugs.
 const IMMERSION_KIT_TITLES: Record<string, string> = {
@@ -133,7 +132,7 @@ export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
     private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
     private preloadKeys = new Set<string>();
-    private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS, 'immersion-kit-media');
+    private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
         const query = term.trim();
@@ -478,36 +477,34 @@ function requestError(error: unknown, fallback: string): Error {
 
 function requestJsonCandidate(url: string, timeoutMs: number): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
-    const requestUrl = proxiedImmersionKitUrl(url);
     if (userscriptRequest) {
         return requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest)
             .catch(error => {
-                if (!canUsePageFetch(requestUrl) || !isUserscriptTransportError(error)) throw error;
-                return requestImmersionJsonViaFetch(requestUrl, timeoutMs);
+                if (!canUsePageFetch(url) || !isUserscriptTransportError(error)) throw error;
+                return requestImmersionJsonViaFetch(url, timeoutMs);
             });
     }
 
-    if (!canUsePageFetch(requestUrl)) {
+    if (!canUsePageFetch(url)) {
         return Promise.reject(new Error('Immersion Kit search needs the Yomu userscript request bridge.'));
     }
-    return requestImmersionJsonViaFetch(requestUrl, timeoutMs);
+    return requestImmersionJsonViaFetch(url, timeoutMs);
 }
 
 function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
     const userscriptRequest = getUserscriptHttpRequest();
-    const requestUrl = proxiedImmersionKitUrl(url);
     if (userscriptRequest) {
         return requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest)
             .catch(error => {
-                if (!canUsePageFetch(requestUrl) || !isUserscriptTransportError(error)) throw error;
-                return requestImmersionBlobViaFetch(requestUrl, timeoutMs);
+                if (!canUsePageFetch(url) || !isUserscriptTransportError(error)) throw error;
+                return requestImmersionBlobViaFetch(url, timeoutMs);
             });
     }
 
-    if (!canUsePageFetch(requestUrl)) {
+    if (!canUsePageFetch(url)) {
         return Promise.reject(new Error('Immersion Kit media needs the Yomu userscript request bridge.'));
     }
-    return requestImmersionBlobViaFetch(requestUrl, timeoutMs);
+    return requestImmersionBlobViaFetch(url, timeoutMs);
 }
 
 function requestImmersionJsonViaUserscript(url: string, timeoutMs: number, userscriptRequest: UserscriptHttpRequest): Promise<unknown> {
@@ -672,29 +669,18 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     });
 }
 
-function proxiedImmersionKitUrl(url: string): string {
-    if (!isLoopbackPage()) return url;
-    try {
-        const target = new URL(url, location.href);
-        const current = new URL(location.href);
-        if (target.origin === current.origin) return target.href;
-        return `${IMMERSION_KIT_PROXY_PATH}?url=${encodeURIComponent(target.href)}`;
-    } catch {
-        return url;
-    }
-}
-
-function isLoopbackPage(): boolean {
-    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-}
-
 function canUsePageFetch(url: string): boolean {
     try {
         const target = new URL(url, location.href);
-        return target.origin === location.origin || isLoopbackPage();
+        return target.origin === location.origin || isKnownCorsImmersionKitUrl(target);
     } catch {
         return false;
     }
+}
+
+function isKnownCorsImmersionKitUrl(url: URL): boolean {
+    return API_BASES.some(base => url.origin === new URL(base).origin)
+        || url.origin === new URL(OBJECT_STORE_BASE).origin;
 }
 
 function isUserscriptTransportError(error: unknown): boolean {

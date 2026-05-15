@@ -1,6 +1,3 @@
-import { Logger } from './logger';
-
-const log = Logger.scope('BrowserUi');
 type NormalizedWritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr' | 'sideways-rl' | 'sideways-lr';
 
 interface PopoverRect {
@@ -66,7 +63,6 @@ export function pauseActiveVideo(): void {
         });
     const target = playable[0];
     target?.pause();
-    log.debug('Pause active video requested', { videos: videos.length, playable: playable.length, paused: Boolean(target) });
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
@@ -78,10 +74,8 @@ export async function copyText(text: string): Promise<void> {
     if (navigator.clipboard?.writeText) {
         try {
             await navigator.clipboard.writeText(text);
-            log.debug('Copied text with Clipboard API', { length: text.length });
             return;
-        } catch (error) {
-            log.debug('Clipboard API copy failed, falling back', { length: text.length, error });
+        } catch {
             // Userscript contexts can deny clipboard even when the API exists.
         }
     }
@@ -94,7 +88,6 @@ export async function copyText(text: string): Promise<void> {
     textarea.select();
     document.execCommand('copy');
     textarea.remove();
-    log.debug('Copied text with execCommand fallback', { length: text.length });
 }
 
 export function normalizePressedKey(key: string): string {
@@ -109,7 +102,7 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
         return;
     }
 
-    positionAnchoredPopover(popover, anchor, options, frame);
+    positionAnchoredPopover(popover, anchor, frame);
 }
 
 function preparePopoverPositionFrame(
@@ -145,15 +138,9 @@ function positionPopoverWithoutAnchor(popover: HTMLElement, frame: PopoverPositi
     popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - frame.width - margin))}px`;
     popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - frame.height - margin))}px`;
     restorePopoverScrollTop(popover, frame.scrollTop);
-    log.debugThrottled('position-popover', 1000, 'Popover positioned without anchor', {
-        width: frame.width,
-        height: frame.height,
-        viewportWidth: frame.viewportWidth,
-        viewportHeight: frame.viewportHeight,
-    });
 }
 
-function positionAnchoredPopover(popover: HTMLElement, anchor: HTMLElement | undefined, options: PopoverPositionOptions, frame: PopoverPositionFrame): void {
+function positionAnchoredPopover(popover: HTMLElement, anchor: HTMLElement | undefined, frame: PopoverPositionFrame): void {
     const writingMode = getPopoverWritingMode(anchor);
     const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height);
     popover.style.maxWidth = `${Math.max(0, position.width)}px`;
@@ -162,16 +149,6 @@ function positionAnchoredPopover(popover: HTMLElement, anchor: HTMLElement | und
     popover.style.left = `${position.left}px`;
     popover.style.top = `${position.top}px`;
     restorePopoverScrollTop(popover, frame.scrollTop);
-    log.debugThrottled('position-popover', 1000, 'Popover positioned', {
-        left: Math.round(position.left),
-        top: Math.round(position.top),
-        side: popover.dataset.jpdbReaderPlacementSide,
-        followsPointer: Boolean(options.followPoint),
-        width: Math.round(position.width),
-        height: Math.round(position.height),
-        viewportWidth: frame.viewportWidth,
-        viewportHeight: frame.viewportHeight,
-    });
 }
 
 function restorePopoverScrollTop(popover: HTMLElement, scrollTop: number): void {

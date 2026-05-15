@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl } from '../../src/reader/app-pages';
@@ -7,6 +6,8 @@ import { AnkiConnectClient, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiLoo
 import { AudioPlayer, findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, ShuffledAudioDeck } from '../../src/reader/audio';
 import { positionPopover } from '../../src/reader/browser-ui';
 import { CardActionController } from '../../src/reader/card-action-controller';
+import { CardPopoverRenderer } from '../../src/reader/card-popover-renderer';
+import { CardRenderDataLoader } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
 import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
@@ -18,12 +19,11 @@ import { ImmersionKitClient } from '../../src/reader/immersion-kit';
 import { ImmersionPopoverController } from '../../src/reader/immersion-popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb';
 import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
-import { JpdbExtensionsController, parseJpdbReviewCardValue, parseUchisenImages } from '../../src/reader/jpdb-extensions';
-import { currentLocalDictionaryTargets, isKanjiReviewBack, isKanjiReviewFront } from '../../src/reader/jpdb-page-targets';
+import { isKanjiReviewBack, isKanjiReviewFront, parseJpdbReviewCardValue } from '../../src/reader/jpdb-page-targets';
 import { parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../src/reader/jpdb-kanji';
 import { JpdbVocabularyClient, parseJpdbVocabularyHtml } from '../../src/reader/jpdb-vocabulary';
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
-import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo, parseWiktionaryInfo } from '../../src/reader/kanji-origin';
+import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { Logger } from '../../src/reader/logger';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayContainJapaneseText } from '../../src/reader/mutation-scan';
@@ -49,13 +49,14 @@ import { computeSubtitleDrawerLayout } from '../../src/reader/subtitle-layout';
 import { collectPageSubtitleSources } from '../../src/reader/subtitle-sources';
 import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitle-video-inset';
 import { getYouTubeCaptionTracks, loadYouTubeTrackCues } from '../../src/reader/subtitle-youtube';
+import { parseUchisenImages } from '../../src/reader/uchisen';
 import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
-import { YoutubeImmersionFilter, collectYouTubeVideoCards, isProbablyJapaneseYouTubeText, readYouTubeCardText, readYouTubeCardVideoId } from '../../src/reader/youtube';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
 import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
+import { yomitanZipBlob } from './zip-fixture';
 
 const card: JPDBCard = {
     vid: 1,
@@ -320,12 +321,12 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('display: ruby-text;');
         expect(normalizedCss).toContain('text-decoration-line: inherit !important;');
         expect(normalizedCss).toContain('text-decoration-color: inherit !important;');
-        expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var( --jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16) );');
-        expect(normalizedCss).toContain('--jpdb-reader-source-status-decoration: var( --jpdb-reader-state-known, #7bd88f );');
-        expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-heiban, #359eff );');
-        expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var( --jpdb-reader-source-status-decoration, transparent );');
-        expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var( --jpdb-reader-source-pitch-decoration, transparent );');
+        expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
+        expect(normalizedCss).toContain('--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);');
+        expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16)); }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status { --jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent); }');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-anki, .jpdb-reader-word-underline-pitch) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration, transparent); }');
         expect(normalizedCss).toContain('.jpdb-ocr-line .jpdb-reader-word { background: transparent !important; --jpdb-reader-word-underline: transparent; text-decoration: none !important;');
     });
 
@@ -381,28 +382,23 @@ describe('reader helpers', () => {
     });
 
     it('renders the mining drawer affordance as a bar instead of text', () => {
-        const app = new ReaderApp();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            renderCardPopoverContent(card: JPDBCard, sentence: string | undefined, trigger: 'modal' | 'hover', data: {
-                localEntries: [];
-                kanjiEntries: [];
-                metaEntries: [];
-                ankiLookup: AnkiLookupResult;
-                jpdbDecks: [];
-                ankiDecks: [];
-                jpdbVocabularyInfo: null;
-                loading: boolean;
-            }): string;
-        };
-        internals.settings = {
+        const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
             enableReviews: true,
         };
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => settings,
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
 
-        const html = internals.renderCardPopoverContent(card, '食べる。', 'modal', {
+        const html = renderer.render(card, '食べる。', 'modal', {
             localEntries: [],
             kanjiEntries: [],
             metaEntries: [],
@@ -816,7 +812,7 @@ describe('reader helpers', () => {
         expect(settings.popoverHeight).toBe(220);
     });
 
-    it('keeps popover mode usable when settings are shown in Japanese', () => {
+    it('keeps popover mode usable when saved settings request Japanese copy', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
@@ -828,9 +824,9 @@ describe('reader helpers', () => {
         const popupMode = form.querySelector<HTMLSelectElement>('select[name="popupMode"]');
         const settings = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
-        expect(form.lang).toBe('ja');
+        expect(form.lang).toBe('en');
         expect(popupMode?.value).toBe('popover');
-        expect(Array.from(popupMode?.options ?? []).find(option => option.value === 'popover')?.textContent).toBe('ポップオーバー');
+        expect(Array.from(popupMode?.options ?? []).find(option => option.value === 'popover')?.textContent).toBe('Popover');
         expect(settings.interfaceLanguage).toBe('ja');
         expect(settings.popupMode).toBe('popover');
     });
@@ -1305,206 +1301,20 @@ describe('reader helpers', () => {
         expect(translationOnlyIds).not.toContain(STUDY_TOOLS_SOURCE_ID);
     });
 
-    it('keeps JPDB reveal audio choices exclusive and adds Uchisen to kanji source ordering', () => {
+    it('adds Uchisen to kanji source ordering', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
-            jpdbImmersionKitAutoPlayReviewAudio: true,
-            jpdbWordAudioAutoPlayReviewAudio: true,
             uchisenPriority: 1,
         }, 'https://jpdb.io/settings');
 
-        const immersionRevealAudio = form.querySelector<HTMLInputElement>('input[name="jpdbImmersionKitAutoPlayReviewAudio"]');
-        const wordRevealAudio = form.querySelector<HTMLInputElement>('input[name="jpdbWordAudioAutoPlayReviewAudio"]');
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
-        expect(immersionRevealAudio?.checked).toBe(false);
-        expect(immersionRevealAudio?.disabled).toBe(true);
-        expect(wordRevealAudio?.checked).toBe(true);
-        expect(saved.jpdbImmersionKitAutoPlayReviewAudio).toBe(false);
-        expect(saved.jpdbWordAudioAutoPlayReviewAudio).toBe(true);
         expect(saved.uchisenEnabled).toBe(true);
         expect(saved.uchisenPriority).toBe(1);
         expect(kanjiSourceRows(saved).map(row => row.id)).toContain(KANJI_UCHISEN_SOURCE_ID);
         expect(orderedKanjiSourceIds(saved)[1]).toBe(KANJI_UCHISEN_SOURCE_ID);
         expect(orderedKanjiSourceIds({ ...saved, uchisenEnabled: false })).not.toContain(KANJI_UCHISEN_SOURCE_ID);
-
-        const immersionDisabledForm = document.createElement('form');
-        immersionDisabledForm.innerHTML = renderSettingsForm({
-            ...DEFAULT_SETTINGS,
-            immersionKitEnabled: false,
-            jpdbImmersionKitAutoPlayReviewAudio: true,
-        }, 'https://jpdb.io/settings');
-        const disabledImmersionRevealAudio = immersionDisabledForm.querySelector<HTMLInputElement>('input[name="jpdbImmersionKitAutoPlayReviewAudio"]');
-        const disabledSaved = readFormSettings(new FormData(immersionDisabledForm), DEFAULT_SETTINGS);
-
-        expect(disabledImmersionRevealAudio?.checked).toBe(false);
-        expect(disabledImmersionRevealAudio?.disabled).toBe(true);
-        expect(disabledSaved.jpdbImmersionKitAutoPlayReviewAudio).toBe(false);
-    });
-
-    it('adds local dictionaries and Immersion Kit to JPDB romaji search results', async () => {
-        window.history.replaceState(null, '', '/search?q=HAHA&lang=english#a');
-        document.body.innerHTML = `
-            <div class="container bugfix">
-                <div class="results search">
-                    <div id="result-0">
-                        <div class="result vocabulary">
-                            <div class="subsection-spelling with-furigana">
-                                <div class="primary-spelling"><div class="spelling"><div><ruby class="v">母<rt>はは</rt></ruby></div></div></div>
-                            </div>
-                            <div class="vbox grow gap">
-                                <div class="subsection-meanings">
-                                    <h6 class="subsection-label">Meanings</h6>
-                                    <div class="subsection"><div class="description">1. mother</div></div>
-                                </div>
-                                <div class="subsection-other-spellings alt-section">
-                                    <div class="subsection"><div class="alt-spelling"><a class="plain" href="/vocabulary/1514990/%E6%AF%8D/%E3%81%AF%E3%81%AF?lang=english#a"><ruby>母<rt>はは</rt></ruby></a></div></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const immersionQueries: string[] = [];
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                showFloatingButton: false,
-                autoScanJapanese: false,
-                scanVisiblePage: false,
-                audioViaBlob: false,
-                immersionKitShowImages: false,
-                localDictionariesEnabled: true,
-                jpdbLocalDictionariesEnabled: true,
-                immersionKitEnabled: true,
-                jpdbImmersionKitEnabled: true,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbKanjiEnabled: false,
-                jpdbRtkEnabled: false,
-                jpdbUchisenEnabled: false,
-            }),
-            dictionaries: {
-                lookup: vi.fn(async (term: string) => term === 'はは'
-                    ? [{
-                        expression: 'はは',
-                        reading: '',
-                        glossary: ['mother; mama'],
-                        dictionary: '小学館例解学習国語 第十二版',
-                        score: 1,
-                    }]
-                    : []),
-            } as unknown as YomitanDictionaryStore,
-            immersionKit: {
-                search: vi.fn(async (query: string) => {
-                    immersionQueries.push(query);
-                    return query === 'HAHA'
-                        ? [{
-                            id: 'anime_test_1',
-                            sentence: 'ははっ｡',
-                            sentenceWithFurigana: '',
-                            translation: 'The police are here!',
-                            sourceTitle: 'My Hero Academia',
-                            titleSlug: 'my_hero_academia',
-                            category: 'anime',
-                            soundFile: 'audio.mp3',
-                            imageFile: '',
-                            soundUrl: 'https://audio.test/haha.mp3',
-                            imageUrl: '',
-                        }]
-                        : [];
-                }),
-                mediaUrl: vi.fn(() => 'https://audio.test/haha.mp3'),
-                fetchDataUrl: vi.fn(),
-                fetchBlobUrl: vi.fn(async () => 'blob:http://localhost/haha.mp3'),
-            } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent).toContain('mother; mama');
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('My Hero Academia');
-        });
-        expect(immersionQueries[0]).toBe('HAHA');
-        controller.destroy();
-    });
-
-    it('uses JPDB compound sections as local dictionary lookup variants and renders page examples', async () => {
-        window.history.replaceState(null, '', '/vocabulary/1/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E5%B8%AD/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%9B%E3%81%8D#a');
-        document.body.innerHTML = `
-            <div class="result vocabulary">
-                <div class="subsection-spelling"><ruby>国家主席<rt>こっかしゅせき</rt></ruby></div>
-                <div class="subsection-meanings"><h6 class="subsection-label">Meanings</h6><div class="subsection">head of state</div></div>
-                <div class="subsection-composed-of-vocabulary">
-                    <h6 class="subsection-label">Composed of</h6>
-                    <div class="subsection">
-                        <div><div class="spelling"><a href="/vocabulary/2/%E5%9B%BD%E5%AE%B6/%E3%81%93%E3%81%A3%E3%81%8B"><ruby>国家<rt>こっか</rt></ruby></a></div><div class="description">state; country; nation</div></div>
-                        <div><div class="spelling"><a href="/vocabulary/3/%E4%B8%BB%E5%B8%AD/%E3%81%97%E3%82%85%E3%81%9B%E3%81%8D"><ruby>主席<rt>しゅせき</rt></ruby></a></div><div class="description">chairman; governor</div></div>
-                    </div>
-                </div>
-                <div class="subsection-examples">
-                    <h6 class="subsection-label">Monolingual examples</h6>
-                    <div class="subsection">
-                        <div class="example"><span class="sentence">スピーカーから中国の国家主席の声が聞こえてくる。</span></div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const targets = currentLocalDictionaryTargets();
-        expect(targets[0]?.compounds.map(compound => compound.term)).toEqual(['国家', '主席']);
-        expect(targets[0]?.examples[0]?.sentence).toBe('スピーカーから中国の国家主席の声が聞こえてくる。');
-
-        const lookedUp: string[] = [];
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                showFloatingButton: false,
-                autoScanJapanese: false,
-                scanVisiblePage: false,
-                localDictionariesEnabled: true,
-                jpdbLocalDictionariesEnabled: true,
-                immersionKitEnabled: false,
-                jpdbImmersionKitEnabled: false,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbKanjiEnabled: false,
-                jpdbRtkEnabled: false,
-                jpdbUchisenEnabled: false,
-            }),
-            dictionaries: {
-                lookup: vi.fn(async (term: string) => {
-                    lookedUp.push(term);
-                    return term === '国家' ? [{
-                        expression: '国家',
-                        reading: 'こっか',
-                        glossary: ['state; country; nation'],
-                        dictionary: 'Jitendex',
-                        score: 1,
-                    }] : [];
-                }),
-            } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(lookedUp).toContain('国家');
-            expect(document.querySelector('.yomu-jpdb-page-dictionary')?.textContent).not.toContain('Composed of');
-            expect(document.querySelector('.yomu-jpdb-page-dictionary')?.textContent).toContain('JPDB examples');
-            expect(document.querySelector('.yomu-jpdb-page-dictionary')?.textContent).toContain('スピーカーから中国の国家主席の声が聞こえてくる。');
-            expect(document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent).toContain('state; country; nation');
-        });
-        controller.destroy();
     });
 
     it('renders JPDB vocabulary page compounds and examples in the popup JPDB source', () => {
@@ -1579,75 +1389,6 @@ describe('reader helpers', () => {
         expect(html).not.toContain('local-only meaning');
     });
 
-    it('uses JPDB page examples before inaccurate compound fallback queries on JPDB pages', async () => {
-        window.history.replaceState(null, '', '/vocabulary/1/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E5%B8%AD/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%9B%E3%81%8D#a');
-        document.body.innerHTML = `
-            <div class="result vocabulary">
-                <div class="subsection-spelling"><ruby>国家主席<rt>こっかしゅせき</rt></ruby></div>
-                <div class="subsection-meanings"><h6 class="subsection-label">Meanings</h6><div class="subsection">head of state</div></div>
-                <div class="subsection-examples">
-                    <h6 class="subsection-label">Monolingual examples</h6>
-                    <div class="subsection">
-                        <div class="example"><span class="sentence">スピーカーから中国の国家主席の声が聞こえてくる。</span></div>
-                    </div>
-                </div>
-            </div>
-        `;
-        const queries: string[] = [];
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                showFloatingButton: false,
-                autoScanJapanese: false,
-                scanVisiblePage: false,
-                immersionKitShowImages: false,
-                localDictionariesEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-                immersionKitEnabled: true,
-                jpdbImmersionKitEnabled: true,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbKanjiEnabled: false,
-                jpdbRtkEnabled: false,
-                jpdbUchisenEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: {
-                search: vi.fn(async (query: string) => {
-                    queries.push(query);
-                    return query === 'こっかしゅせき' ? [{
-                        id: 'wrong-reading-match',
-                        sentence: '窓際の前から４番目。',
-                        sentenceWithFurigana: '',
-                        translation: 'Fourth seat, window row.',
-                        sourceTitle: 'ReLIFE',
-                        titleSlug: 'relife',
-                        category: 'anime',
-                        soundFile: '',
-                        imageFile: '',
-                        soundUrl: '',
-                        imageUrl: '',
-                    }] : [];
-                }),
-                mediaUrl: vi.fn(() => ''),
-                fetchDataUrl: vi.fn(),
-                fetchBlobUrl: vi.fn(),
-            } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('JPDB examples');
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('スピーカーから中国の国家主席の声が聞こえてくる。');
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).not.toContain('ReLIFE');
-        });
-        expect(queries).toContain('国家主席');
-        controller.destroy();
-    });
-
     it('uses JPDB component terms as Immersion Kit fallback queries for compounds', async () => {
         localStorage.clear();
         window.history.replaceState(null, '', '/vocabulary/1/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E5%B8%AD/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%9B%E3%81%8D#a');
@@ -1698,25 +1439,7 @@ describe('reader helpers', () => {
         vi.useFakeTimers();
         try {
             const never = new Promise<never>(() => undefined);
-            const app = new ReaderApp();
-            const internals = app as unknown as {
-                settings: typeof DEFAULT_SETTINGS;
-                dictionaries: Pick<YomitanDictionaryStore, 'lookup' | 'lookupKanji' | 'lookupTermMeta'>;
-                jpdbPublicPitch: Pick<JpdbPublicPitchClient, 'lookup'>;
-                jpdbVocabulary: { lookup: () => Promise<null> };
-                anki: Pick<AnkiConnectClient, 'findExistingCards' | 'deckNames'>;
-                jpdb: Pick<JpdbClient, 'listDecks'>;
-                fetchCardRenderData(card: JPDBCard): { all: Promise<{
-                    localEntries: unknown[];
-                    kanjiEntries: unknown[];
-                    metaEntries: unknown[];
-                    ankiLookup: AnkiLookupResult;
-                    jpdbDecks: unknown[];
-                    ankiDecks: string[];
-                    jpdbVocabularyInfo: null;
-                }> };
-            };
-            internals.settings = {
+            const settings = {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'api-key',
                 audioTimeoutMs: 1000,
@@ -1726,20 +1449,23 @@ describe('reader helpers', () => {
                 ankiEnabled: true,
                 jpdbMiningEnabled: true,
             };
-            internals.dictionaries = {
-                lookup: vi.fn(() => never),
-                lookupKanji: vi.fn(() => never),
-                lookupTermMeta: vi.fn(() => never),
-            } as never;
-            internals.jpdbPublicPitch = { lookup: vi.fn(() => never) } as never;
-            internals.jpdbVocabulary = { lookup: vi.fn(() => never) };
-            internals.anki = {
-                findExistingCards: vi.fn(() => never),
-                deckNames: vi.fn(() => never),
-            } as never;
-            internals.jpdb = { listDecks: vi.fn(() => never) } as never;
-
-            const load = internals.fetchCardRenderData({ ...card, pitchAccent: [] });
+            const loader = new CardRenderDataLoader({
+                getSettings: () => settings,
+                dictionaries: {
+                    lookup: vi.fn(() => never),
+                    lookupKanji: vi.fn(() => never),
+                    lookupTermMeta: vi.fn(() => never),
+                } as unknown as YomitanDictionaryStore,
+                jpdbPublicPitch: { lookup: vi.fn(() => never) } as unknown as JpdbPublicPitchClient,
+                jpdbVocabulary: { lookup: vi.fn(() => never) } as unknown as JpdbVocabularyClient,
+                anki: {
+                    findExistingCards: vi.fn(() => never),
+                    deckNames: vi.fn(() => never),
+                } as unknown as AnkiConnectClient,
+                jpdb: { listDecks: vi.fn(() => never) } as unknown as JpdbClient,
+                isJpdbBackedCard: () => true,
+            });
+            const load = loader.load({ ...card, pitchAccent: [] });
             await vi.advanceTimersByTimeAsync(9000);
 
             await expect(load.all).resolves.toMatchObject({
@@ -1758,13 +1484,7 @@ describe('reader helpers', () => {
 
     it('loads public JPDB vocabulary details for local cards without an API key', async () => {
         const lookup = vi.fn(async () => ({ meanings: ['to read'], compounds: [], examples: [] }));
-        const app = new ReaderApp();
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            jpdbVocabulary: { lookup: typeof lookup };
-            fetchCardRenderData(card: JPDBCard): { all: Promise<{ jpdbVocabularyInfo: { meanings: string[] } | null }> };
-        };
-        internals.settings = {
+        const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
             showPitchAccent: false,
@@ -1773,7 +1493,22 @@ describe('reader helpers', () => {
             ankiEnabled: false,
             jpdbMiningEnabled: false,
         };
-        internals.jpdbVocabulary = { lookup };
+        const loader = new CardRenderDataLoader({
+            getSettings: () => settings,
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+            } as unknown as YomitanDictionaryStore,
+            jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
+            jpdbVocabulary: { lookup } as unknown as JpdbVocabularyClient,
+            anki: {
+                findExistingCards: vi.fn(),
+                deckNames: vi.fn(),
+            } as unknown as AnkiConnectClient,
+            jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
+            isJpdbBackedCard: () => false,
+        });
 
         const localCard: JPDBCard = {
             ...card,
@@ -1785,7 +1520,7 @@ describe('reader helpers', () => {
             pitchAccent: [],
             source: 'local',
         };
-        const load = internals.fetchCardRenderData(localCard);
+        const load = loader.load(localCard);
 
         await expect(load.all).resolves.toMatchObject({
             jpdbVocabularyInfo: { meanings: ['to read'] },
@@ -1848,622 +1583,6 @@ describe('reader helpers', () => {
         expect(container.textContent).not.toContain('Current sentence');
         expect(container.querySelector('[data-immersion-action="audio"]')).not.toBeNull();
         expect(container.querySelector('.jpdb-reader-example-media')).toBeNull();
-    });
-
-    it('uses JPDB review answer readings for local dictionaries, keeps RTK collapsed on front, and autoplays collapsed review Immersion Kit audio', async () => {
-        const played: string[] = [];
-        class FakeAudio {
-            playbackRate = 1;
-            ended = false;
-            constructor(public src: string) {}
-            addEventListener(): void {}
-            pause(): void {}
-            play(): Promise<void> {
-                played.push(this.src);
-                return Promise.resolve();
-            }
-        }
-        vi.stubGlobal('Audio', FakeAudio);
-
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            showFloatingButton: false,
-            autoScanJapanese: false,
-            scanVisiblePage: false,
-            audioViaBlob: false,
-            immersionKitShowImages: false,
-            localDictionariesEnabled: true,
-            jpdbLocalDictionariesEnabled: true,
-            immersionKitEnabled: true,
-            jpdbImmersionKitEnabled: true,
-            jpdbImmersionKitAutoPlayReviewAudio: true,
-            jpdbKanjiDoodleEnabled: false,
-            jpdbKanjiEnabled: false,
-            jpdbUchisenEnabled: false,
-            jpdbRtkEnabled: true,
-            rtkEnabled: true,
-        };
-
-        document.body.innerHTML = `
-            <div class="nav minimal"><div class="menu"><a class="nav-item" href="/learn">Learn (<span style="color:red">121</span>)</a><a class="nav-item" href="/decks">Decks</a></div><button class="menu-icon">menu</button></div>
-            <div class="answer-box">
-                <input name="c" value="kb,漢">
-                <div class="plain kanji-keyword">Chinese</div>
-            </div>
-        `;
-        window.history.replaceState(null, '', '/review?c=kb,%E6%BC%A2#a');
-        const frontController = new JpdbExtensionsController({
-            getSettings: () => settings,
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: {
-                lookup: vi.fn(async () => ({
-                    kanji: '漢',
-                    keyword: 'Sino-',
-                    frameNumber: '100',
-                    onYomi: 'カン',
-                    kunYomi: '',
-                    elements: 'water, mouth',
-                    heisigStory: 'Water between countries.',
-                    heisigComment: '',
-                    koohiiStories: [],
-                })),
-            } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-        (frontController as unknown as { run: () => void }).run();
-        await waitForExpect(() => {
-            expect(document.querySelector('.nav-item')?.textContent).toContain('Items left (121)');
-            expect(document.querySelector('#yomu-jpdb-rtk details')?.hasAttribute('open')).toBe(false);
-        });
-        frontController.destroy();
-
-        window.history.replaceState(null, '', '/review?c=vf%2C1492670%2C2652238148&r=1#a');
-        document.body.innerHTML = `
-            <div class="nav minimal"><div class="menu"><a class="nav-item" href="/learn">Learn (<span style="color:red">121</span>)</a><a class="nav-item" href="/decks">Decks</a></div><button class="menu-icon">menu</button></div>
-            <div class="review-reveal">
-                <div class="answer-box">
-                    <div class="plain" style="display:none"><a class="plain" href="/vocabulary/1492670/%E4%B8%8D%E8%87%AA%E7%84%B6#a"><ruby>不<rt>ふ</rt></ruby><ruby>自<rt>し</rt></ruby><ruby>然<rt>ぜん</rt></ruby></a></div>
-                    <div class="sentence">この文章は<span class="highlight"><ruby>不<rt>ふ</rt></ruby><ruby>自<rt>し</rt></ruby><ruby>然<rt>ぜん</rt></ruby></span>に感じます。</div>
-                </div>
-                <div class="result vocabulary">
-                    <div class="subsection-meanings">
-                        <h6 class="subsection-label">Meanings</h6>
-                        <div class="subsection"><div class="description">1. unnatural</div></div>
-                    </div>
-                </div>
-            </div>
-        `;
-        const backController = new JpdbExtensionsController({
-            getSettings: () => settings,
-            dictionaries: {
-                lookup: vi.fn(async (term: string) => term === 'ふしぜん'
-                    ? [{
-                        expression: 'ふしぜん',
-                        reading: '',
-                        glossary: ['わざとらしいこと。自然でないこと。'],
-                        dictionary: '小学館例解学習国語 第十二版',
-                        score: 1,
-                    }]
-                    : []),
-            } as unknown as YomitanDictionaryStore,
-            immersionKit: {
-                search: vi.fn(async (query: string) => query === '不自然'
-                    ? [{
-                        id: 'anime_code_geass_1',
-                        sentence: 'うん とっても不自然',
-                        sentenceWithFurigana: '',
-                        translation: 'Yeah... This is pretty unnatural.',
-                        sourceTitle: 'Code Geass',
-                        titleSlug: 'code_geass',
-                        category: 'anime',
-                        soundFile: '',
-                        imageFile: '',
-                        soundUrl: 'https://audio.test/fushizen.mp3',
-                        imageUrl: '',
-                    }]
-                    : []),
-                mediaUrl: vi.fn(() => 'https://audio.test/fushizen.mp3'),
-                fetchDataUrl: vi.fn(),
-                fetchBlobUrl: vi.fn(async () => 'blob:http://localhost/fushizen.mp3'),
-            } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-        (backController as unknown as { run: () => void }).run();
-        await waitForExpect(() => {
-            expect(document.querySelector('.yomu-jpdb-local-dictionaries')?.textContent).toContain('自然でない');
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('Code Geass');
-        });
-        await waitForExpect(() => {
-            expect(played).toContain('blob:http://localhost/fushizen.mp3');
-        });
-        backController.destroy();
-        vi.unstubAllGlobals();
-    });
-
-    it('keeps the review nav tweak stable across repeated scans', async () => {
-        document.body.innerHTML = `
-            <div class="nav minimal"><div class="menu"><a class="nav-item" href="/learn">Learn (<span style="color:red">121</span>)</a><a class="nav-item" href="/decks">Decks</a></div><button class="menu-icon">menu</button></div>
-            <div class="answer-box">
-                <input name="c" value="kb,漢">
-                <div class="plain kanji-keyword">Chinese</div>
-            </div>
-        `;
-        window.history.replaceState(null, '', '/review?c=kb,%E6%BC%A2#a');
-
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                showFloatingButton: false,
-                autoScanJapanese: false,
-                scanVisiblePage: false,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbKanjiEnabled: false,
-                jpdbRtkEnabled: false,
-                jpdbUchisenEnabled: false,
-                jpdbImmersionKitEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        const run = (controller as unknown as { run: () => void }).run.bind(controller);
-        run();
-
-        await waitForExpect(() => {
-            expect(document.querySelector('.nav-item')?.textContent).toContain('Items left (121)');
-        });
-
-        const countNode = document.querySelector('.yomu-jpdb-items-left-count');
-        const htmlAfterFirstRun = document.querySelector('.nav-item')?.innerHTML;
-
-        run();
-
-        expect(document.querySelector('.yomu-jpdb-items-left-count')).toBe(countNode);
-        expect(document.querySelector('.nav-item')?.innerHTML).toBe(htmlAfterFirstRun);
-        controller.destroy();
-    });
-
-    it('autoplays よむ word audio on JPDB reveal without also playing Immersion Kit audio', async () => {
-        const playedImmersionAudio: string[] = [];
-        class FakeAudio {
-            playbackRate = 1;
-            ended = false;
-            constructor(public src: string) {}
-            addEventListener(): void {}
-            pause(): void {}
-            play(): Promise<void> {
-                playedImmersionAudio.push(this.src);
-                return Promise.resolve();
-            }
-        }
-        vi.stubGlobal('Audio', FakeAudio);
-
-        window.history.replaceState(null, '', '/review?c=vf%2C1492670%2C2652238148&r=1#a');
-        document.body.innerHTML = `
-            <div class="review-reveal">
-                <div class="answer-box">
-                    <div class="plain" style="display:none"><a class="plain" href="/vocabulary/1492670/%E4%B8%8D%E8%87%AA%E7%84%B6/%E3%81%B5%E3%81%97%E3%81%9C%E3%82%93#a"><ruby>不<rt>ふ</rt></ruby><ruby>自<rt>し</rt></ruby><ruby>然<rt>ぜん</rt></ruby></a></div>
-                    <div class="sentence">この文章は<span class="highlight"><ruby>不<rt>ふ</rt></ruby><ruby>自<rt>し</rt></ruby><ruby>然<rt>ぜん</rt></ruby></span>に感じます。</div>
-                </div>
-                <div class="result vocabulary">
-                    <div class="subsection-meanings">
-                        <h6 class="subsection-label">Meanings</h6>
-                        <div class="subsection"><div class="description">1. unnatural</div></div>
-                    </div>
-                </div>
-            </div>
-        `;
-        const yomuAudioPlay = vi.fn(async (_card: JPDBCard) => true);
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                audioEnabled: true,
-                jpdbWordAudioAutoPlayReviewAudio: true,
-                jpdbImmersionKitAutoPlayReviewAudio: true,
-                immersionKitEnabled: true,
-                jpdbImmersionKitEnabled: true,
-                jpdbKanjiEnabled: false,
-                jpdbUchisenEnabled: false,
-                jpdbRtkEnabled: false,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: {
-                search: vi.fn(async () => [{
-                    id: 'anime_code_geass_1',
-                    sentence: 'うん とっても不自然',
-                    sentenceWithFurigana: '',
-                    translation: 'Yeah... This is pretty unnatural.',
-                    sourceTitle: 'Code Geass',
-                    titleSlug: 'code_geass',
-                    category: 'anime',
-                    soundFile: '',
-                    imageFile: '',
-                    soundUrl: 'https://audio.test/fushizen.mp3',
-                    imageUrl: '',
-                }]),
-                mediaUrl: vi.fn(() => 'https://audio.test/fushizen.mp3'),
-                fetchDataUrl: vi.fn(),
-                fetchBlobUrl: vi.fn(async () => 'blob:http://localhost/fushizen.mp3'),
-            } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: yomuAudioPlay } as unknown as AudioPlayer,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(yomuAudioPlay).toHaveBeenCalledTimes(1);
-            expect(yomuAudioPlay.mock.calls[0][0]).toMatchObject({ spelling: '不自然', reading: 'ふしぜん' });
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('Code Geass');
-        });
-        expect(playedImmersionAudio).toEqual([]);
-        controller.destroy();
-        vi.unstubAllGlobals();
-    });
-
-    it('renders Uchisen and RTK on JPDB kanji pages without the review doodle', async () => {
-        const originalGetContext = HTMLCanvasElement.prototype.getContext;
-        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-            configurable: true,
-            value: vi.fn(() => ({
-                clearRect: vi.fn(),
-                save: vi.fn(),
-                restore: vi.fn(),
-                beginPath: vi.fn(),
-                moveTo: vi.fn(),
-                lineTo: vi.fn(),
-                stroke: vi.fn(),
-                lineCap: '',
-                lineJoin: '',
-                lineWidth: 1,
-                strokeStyle: '',
-            })),
-        });
-        vi.stubGlobal('ResizeObserver', class {
-            observe(): void {}
-            disconnect(): void {}
-        });
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
-                if (details.url.includes('uchisen.com/kanji')) {
-                    details.onload?.({
-                        status: 200,
-                        response: null,
-                        responseText: `
-                            <div class="kanji_image_loader" data-large="/kanji/1/main.png"></div>
-                            <div id="mnemonic_story">Water between countries.</div>
-                        `,
-                    });
-                    return;
-                }
-                if (details.url.includes('ik.imagekit.io')) {
-                    details.onload?.({
-                        status: 200,
-                        response: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
-                    });
-                    return;
-                }
-                if (details.url.includes('raw.githubusercontent.com')) {
-                    details.onload?.({
-                        status: 200,
-                        response: null,
-                        responseText: '<svg viewBox="0 0 109 109"><path d="M1 1L10 10"/></svg>',
-                    });
-                    return;
-                }
-                details.onload?.({ status: 404, response: null, responseText: '' });
-            },
-        });
-
-        window.history.replaceState(null, '', '/kanji/%E6%BC%A2');
-        document.body.innerHTML = `
-            <main>
-                <div class="result kanji">
-                    <div class="vbox">
-                        <div class="hbox"><a class="kanji plain" href="/kanji/%E6%BC%A2">漢</a></div>
-                        <h6 class="subsection-label">Mnemonic</h6>
-                        <div class="subsection"><div class="mnemonic">JPDB mnemonic</div></div>
-                    </div>
-                </div>
-            </main>
-        `;
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                jpdbKanjiEnabled: false,
-                jpdbUchisenEnabled: true,
-                jpdbRtkEnabled: true,
-                jpdbKanjiDoodleEnabled: true,
-                jpdbImmersionKitEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-                audioEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: {
-                lookup: vi.fn(async () => ({
-                    kanji: '漢',
-                    keyword: 'Sino-',
-                    frameNumber: '100',
-                    onYomi: 'カン',
-                    kunYomi: '',
-                    elements: 'water, mouth',
-                    heisigStory: 'Water between countries.',
-                    heisigComment: '',
-                    koohiiStories: [],
-                })),
-            } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(document.querySelector('#yomu-jpdb-uchisen')?.textContent).toContain('Water between countries.');
-            expect(document.querySelector('#yomu-jpdb-rtk')?.textContent).toContain('Sino-');
-        });
-        expect(document.querySelector('#yomu-jpdb-uchisen details')).not.toBeNull();
-        expect(document.querySelector('#yomu-jpdb-uchisen summary')?.className).toBe('jpdb-reader-local-title');
-        expect(document.querySelector('#yomu-jpdb-uchisen summary')?.textContent?.trim()).toBe('Uchisen');
-        expect(document.querySelector('#yomu-jpdb-rtk summary')?.className).toBe('jpdb-reader-local-title');
-        expect(document.querySelector('#yomu-jpdb-rtk summary')?.textContent?.trim()).toBe('RTK');
-        expect(document.querySelector('[data-yomu-jpdb-addon="doodle"]')).toBeNull();
-
-        controller.destroy();
-        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-            configurable: true,
-            value: originalGetContext,
-        });
-        vi.unstubAllGlobals();
-    });
-
-    it('does not keep flashing Uchisen loading when a kanji has no mnemonic images', async () => {
-        let uchisenRequests = 0;
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
-                if (details.url.includes('uchisen.com/kanji')) {
-                    uchisenRequests += 1;
-                    details.onload?.({
-                        status: 200,
-                        response: null,
-                        responseText: '<html><body>No mnemonic images here</body></html>',
-                    });
-                    return;
-                }
-                details.onload?.({ status: 404, response: null, responseText: '' });
-            },
-        });
-
-        window.history.replaceState(null, '', '/review?c=kb,%E6%88%89#a');
-        document.body.innerHTML = `
-            <main>
-                <input name="c" value="kb,戉">
-                <div class="answer-box">
-                    <a class="kanji plain" href="/kanji/%E6%88%89">戉</a>
-                </div>
-            </main>
-        `;
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                jpdbUchisenEnabled: true,
-                jpdbRtkEnabled: false,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbImmersionKitEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-                audioEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(uchisenRequests).toBe(1);
-            expect(document.querySelector('#yomu-jpdb-uchisen')).toBeNull();
-        });
-
-        (controller as unknown as { run: () => void }).run();
-        await new Promise(resolve => setTimeout(resolve, 20));
-
-        expect(uchisenRequests).toBe(1);
-        expect(document.body.textContent).not.toContain('Loading mnemonic images...');
-
-        controller.destroy();
-        vi.unstubAllGlobals();
-    });
-
-    it('does not keep flashing RTK loading when a kanji has no story data', async () => {
-        const rtkLookup = vi.fn(async () => null);
-
-        window.history.replaceState(null, '', '/review?c=kb,%E6%88%89#a');
-        document.body.innerHTML = `
-            <main>
-                <input name="c" value="kb,戉">
-                <div class="answer-box">
-                    <a class="kanji plain" href="/kanji/%E6%88%89">戉</a>
-                </div>
-            </main>
-        `;
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                jpdbUchisenEnabled: false,
-                jpdbRtkEnabled: true,
-                rtkEnabled: true,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbImmersionKitEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-                audioEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: rtkLookup } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(rtkLookup).toHaveBeenCalledTimes(1);
-            expect(document.querySelector('#yomu-jpdb-rtk')).toBeNull();
-        });
-
-        (controller as unknown as { run: () => void }).run();
-        await new Promise(resolve => setTimeout(resolve, 20));
-
-        expect(rtkLookup).toHaveBeenCalledTimes(1);
-        expect(document.body.textContent).not.toContain('Loading story data...');
-
-        controller.destroy();
-    });
-
-    it('renders Immersion Kit examples for revealed JPDB kanji review backs', async () => {
-        window.history.replaceState(null, '', '/review?c=kb,%E6%BC%A2&r=14#a');
-        document.body.innerHTML = `
-            <div class="bugfix">
-                <div class="result kanji">
-                    <div class="vbox gap">
-                        <div class="hbox"><a class="kanji plain" href="/kanji/%E6%BC%A2#a">漢</a></div>
-                        <div><h6 class="subsection-label">Mnemonic</h6><div class="subsection"><span class="keyword-missing">missing</span></div></div>
-                    </div>
-                </div>
-            </div>
-        `;
-        const queries: string[] = [];
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                showFloatingButton: false,
-                autoScanJapanese: false,
-                scanVisiblePage: false,
-                audioViaBlob: false,
-                immersionKitShowImages: false,
-                localDictionariesEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-                immersionKitEnabled: true,
-                jpdbImmersionKitEnabled: true,
-                jpdbKanjiDoodleEnabled: false,
-                jpdbKanjiEnabled: false,
-                jpdbUchisenEnabled: false,
-                jpdbRtkEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: {
-                search: vi.fn(async (query: string) => {
-                    queries.push(query);
-                    return query === '漢'
-                        ? [{
-                            id: 'anime_kanji_1',
-                            sentence: '漢字を勉強する。',
-                            sentenceWithFurigana: '',
-                            translation: 'I study kanji.',
-                            sourceTitle: 'Steins Gate',
-                            titleSlug: 'steins_gate',
-                            category: 'anime',
-                            soundFile: '',
-                            imageFile: '',
-                            soundUrl: '',
-                            imageUrl: '',
-                        }]
-                        : [];
-                }),
-                mediaUrl: vi.fn(() => ''),
-                fetchDataUrl: vi.fn(),
-                fetchBlobUrl: vi.fn(),
-            } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-
-        (controller as unknown as { run: () => void }).run();
-
-        await waitForExpect(() => {
-            expect(document.querySelector('#yomu-jpdb-immersion')?.textContent).toContain('Steins Gate');
-        });
-        expect(queries[0]).toBe('漢');
-        expect(document.querySelector('.keyword-missing')?.closest('.subsection')?.nextElementSibling?.id).toBe('yomu-jpdb-immersion');
-        controller.destroy();
-    });
-
-    it('remembers the JPDB review examples toggle instead of forcing examples open', () => {
-        const storageKey = 'yomu-jpdb-review-examples-open';
-        localStorage.removeItem(storageKey);
-        window.history.replaceState(null, '', '/review?r=1#a');
-
-        const controller = new JpdbExtensionsController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                jpdbReviewUiEnabled: true,
-                jpdbAutoRevealSentenceEnabled: false,
-                jpdbKanjiEnabled: false,
-                jpdbUchisenEnabled: false,
-                jpdbRtkEnabled: false,
-                jpdbImmersionKitEnabled: false,
-                jpdbLocalDictionariesEnabled: false,
-                audioEnabled: false,
-                jpdbKanjiDoodleEnabled: false,
-            }),
-            dictionaries: { lookup: vi.fn(async () => []) } as unknown as YomitanDictionaryStore,
-            immersionKit: { search: vi.fn(async () => []) } as unknown as ImmersionKitClient,
-            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
-            rtk: { lookup: vi.fn(async () => null) } as never,
-            audio: { play: vi.fn(async () => undefined) } as never,
-        });
-        const run = () => (controller as unknown as { run: () => void }).run();
-        const setReviewDom = (checked: boolean, visible: boolean) => {
-            document.body.innerHTML = `
-                <input id="show-checkbox-examples" type="checkbox" ${checked ? 'checked' : ''}>
-                <label id="show-checkbox-examples-label" for="show-checkbox-examples">Examples</label>
-                <div class="hidden-body" ${visible ? '' : 'hidden style="display: none"'}>例文</div>
-            `;
-        };
-
-        setReviewDom(false, false);
-        run();
-        expect(document.querySelector<HTMLInputElement>('#show-checkbox-examples')?.checked).toBe(false);
-        expect(document.querySelector<HTMLElement>('.hidden-body')?.hidden).toBe(true);
-
-        const expandCheckbox = document.querySelector<HTMLInputElement>('#show-checkbox-examples')!;
-        expandCheckbox.checked = true;
-        expandCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(JSON.parse(localStorage.getItem(storageKey) ?? 'null')).toBe(true);
-
-        setReviewDom(false, false);
-        run();
-        expect(document.querySelector<HTMLInputElement>('#show-checkbox-examples')?.checked).toBe(true);
-        expect(document.querySelector<HTMLElement>('.hidden-body')?.hidden).toBe(false);
-
-        const collapseCheckbox = document.querySelector<HTMLInputElement>('#show-checkbox-examples')!;
-        collapseCheckbox.checked = false;
-        collapseCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(JSON.parse(localStorage.getItem(storageKey) ?? 'null')).toBe(false);
-
-        setReviewDom(true, true);
-        run();
-        expect(document.querySelector<HTMLInputElement>('#show-checkbox-examples')?.checked).toBe(false);
-        expect(document.querySelector<HTMLElement>('.hidden-body')?.hidden).toBe(true);
-
-        controller.destroy();
-        localStorage.removeItem(storageKey);
     });
 
     it('skips the JapanesePod101 unavailable clip and plays the next source', async () => {
@@ -2721,7 +1840,7 @@ describe('reader helpers', () => {
 
         try {
             let createCount = 0;
-            const cache = new ObjectUrlCache(1000, 'test');
+            const cache = new ObjectUrlCache(1000);
             const createUrl = vi.fn(async () => `blob:http://localhost/${++createCount}`);
 
             await expect(cache.getOrCreate('audio', createUrl)).resolves.toBe('blob:http://localhost/1');
@@ -2868,6 +1987,37 @@ describe('reader helpers', () => {
 
             expect(examples[0]).toMatchObject({ sourceTitle: 'Steins Gate', imageFile: 'A_SteinsGateS01_E07_1_0.19.51.112.jpg' });
             expect(client.mediaUrl(examples[0], 'image')).toContain('media%2Fanime%2FSteins+Gate%2Fmedia%2FA_SteinsGateS01_E07_1_0.19.51.112.jpg');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses page fetch for CORS-enabled Immersion Kit search without a userscript bridge', async () => {
+        const client = new ImmersionKitClient();
+        const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({
+                examples: [{
+                    id: 'anime_steins_gate_000002366',
+                    sentence: 'メールを読みました',
+                    translation: 'I read your message.',
+                    image: 'A_SteinsGateS01_E07_1_0.19.51.112.jpg',
+                    sound: 'A_SteinsGateS01_E07_1_0.19.50.215-0.19.52.008.mp3',
+                    title: 'steins_gate',
+                }],
+            }),
+        } as Response));
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        vi.stubGlobal('GM', {});
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(String(fetchMock.mock.calls[0][0])).toContain('https://apiv2express.immersionkit.com/search?');
+            expect(examples[0]).toMatchObject({ sourceTitle: 'Steins Gate' });
         } finally {
             vi.unstubAllGlobals();
         }
@@ -3658,7 +2808,6 @@ describe('reader helpers', () => {
         expect(DEFAULT_SETTINGS.subtitleNativeBlurred).toBe(true);
         expect(DEFAULT_SETTINGS.subtitleKaraokeMode).toBe(true);
         expect(DEFAULT_SETTINGS.subtitleBackgroundOpacity).toBe(0);
-        expect(DEFAULT_SETTINGS.youtubeShowFilterNotice).toBe(false);
     });
 
     it('ranks and classifies subtitle tracks by learner usefulness', () => {
@@ -3922,10 +3071,10 @@ describe('reader helpers', () => {
         expect(DEFAULT_SETTINGS.apiKey).toBe('');
     });
 
-    it('migrates older OCR provider names to the current readable options', () => {
-        expect(normalizeOcrProvider('auto')).toBe('google-lens');
-        expect(normalizeOcrProvider('fast')).toBe('google-lens');
-        expect(normalizeOcrProvider('custom-json')).toBe('local-service');
+    it('normalizes OCR providers to the current readable options', () => {
+        expect(normalizeOcrProvider('local-service')).toBe('local-service');
+        expect(normalizeOcrProvider('off')).toBe('off');
+        expect(normalizeOcrProvider('old-provider')).toBe('local-service');
     });
 
     it('keeps numeric token counts visible while redacting real secrets in logs', () => {
@@ -3970,12 +3119,12 @@ describe('reader helpers', () => {
     });
 
     it('downloads dictionaries through lowercase GM.xmlhttpRequest when that is the exposed userscript API', async () => {
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Alias Dict', format: 3 }));
-        zip.file('term_bank_1.json', JSON.stringify([
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Alias Dict', format: 3 },
+            'term_bank_1.json': [
             ['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, ''],
-        ]));
-        const blob = await zip.generateAsync({ type: 'blob' });
+            ],
+        });
         const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
             expect(options.url).toBe('https://dict.test/alias.zip');
             options.onprogress?.({ lengthComputable: true, loaded: blob.size, total: blob.size });
@@ -4002,12 +3151,12 @@ describe('reader helpers', () => {
     });
 
     it('keeps GM dictionary downloads working when a mounted userscript window is unreadable', async () => {
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Firefox GM Dict', format: 3 }));
-        zip.file('term_bank_1.json', JSON.stringify([
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Firefox GM Dict', format: 3 },
+            'term_bank_1.json': [
             ['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, ''],
-        ]));
-        const blob = await zip.generateAsync({ type: 'blob' });
+            ],
+        });
         const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
             options.onload?.({ status: 200, response: blob });
         });
@@ -4037,12 +3186,12 @@ describe('reader helpers', () => {
     });
 
     it('downloads dictionaries through vite-plugin-monkey mounted userscript APIs', async () => {
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Mounted Dict', format: 3 }));
-        zip.file('term_bank_1.json', JSON.stringify([
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Mounted Dict', format: 3 },
+            'term_bank_1.json': [
             ['見る', 'みる', '', 'v1', 10, ['to see'], 1, ''],
-        ]));
-        const blob = await zip.generateAsync({ type: 'blob' });
+            ],
+        });
         const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
             expect(options.url).toBe('https://dict.test/mounted.zip');
             options.onload?.({ status: 200, response: blob });
@@ -4070,16 +3219,15 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses the local dev dictionary proxy when userscript requests are unavailable on localhost', async () => {
-        expect(['localhost', '127.0.0.1', '::1']).toContain(location.hostname);
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Proxy Dict', format: 3 }));
-        zip.file('term_bank_1.json', JSON.stringify([
+    it('imports same-origin dictionary ZIPs via fetch without the userscript bridge', async () => {
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Proxy Dict', format: 3 },
+            'term_bank_1.json': [
             ['青空', 'あおぞら', '', '', 10, ['blue sky'], 1, ''],
-        ]));
-        const blob = await zip.generateAsync({ type: 'blob' });
+            ],
+        });
         const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            expect(String(input)).toBe('/__jpdb-reader-dictionary-proxy?url=https%3A%2F%2Fdict.test%2Fproxy.zip');
+            expect(String(input)).toBe(`${location.origin}/proxy.zip`);
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -4094,7 +3242,7 @@ describe('reader helpers', () => {
         try {
             const store = new YomitanDictionaryStore();
             await store.clear();
-            const summary = await store.importFromUrl('https://dict.test/proxy.zip', 'proxy.zip');
+            const summary = await store.importFromUrl(`${location.origin}/proxy.zip`, 'proxy.zip');
 
             expect(fetchMock).toHaveBeenCalledTimes(1);
             expect(summary).toMatchObject({ dictionaries: ['Proxy Dict'], terms: 1, entries: 1 });
@@ -4103,19 +3251,53 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not fetch remote dictionary ZIPs directly from content pages without the userscript bridge', async () => {
+    it('imports deflated Yomitan ZIPs without browser DecompressionStream', async () => {
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Deflated Dict', format: 3 },
+            'term_bank_1.json': [
+            ['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, ''],
+            ],
+        }, { compression: 'deflate' });
+        vi.stubGlobal('DecompressionStream', undefined);
+
+        try {
+            const store = new YomitanDictionaryStore();
+            await store.clear();
+            const summary = await store.importFile(new File([blob], 'deflated.zip', { type: 'application/zip' }));
+
+            expect(summary).toMatchObject({ dictionaries: ['Deflated Dict'], terms: 1, entries: 1 });
+            expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Deflated Dict' }]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('installs the bundled starter dictionary when remote starter downloads are unavailable', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        const progress: string[] = [];
+
+        const summary = await store.installBundledStarterDictionary(message => progress.push(message));
+
+        expect(summary).toMatchObject({ dictionaries: ['Yomu Starter'], terms: 45, entries: 45 });
+        expect(progress.at(-1)).toContain('Starter dictionary ready');
+        expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Yomu Starter' }]);
+        expect(await store.listRandomTopTerms(10, 4000)).not.toEqual([]);
+    });
+
+    it('reports browser-blocked remote dictionary ZIP fetches without the userscript bridge', async () => {
         vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('GM_xmlhttpRequest', undefined);
         vi.stubGlobal('GM', {});
-        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))));
 
         try {
             const store = new YomitanDictionaryStore();
             await store.clear();
 
             await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
-                .rejects.toThrow(/userscript request bridge/i);
-            expect(fetch).not.toHaveBeenCalled();
+                .rejects.toThrow(/blocked in this browser/i);
+            expect(fetch).toHaveBeenCalledWith('https://github.com/example/dict.zip', expect.objectContaining({ credentials: 'omit' }));
         } finally {
             vi.unstubAllGlobals();
         }
@@ -5122,30 +4304,6 @@ describe('reader helpers', () => {
         });
     });
 
-    it('extracts Wiktionary origin notes and historical form images', () => {
-        const info = parseWiktionaryInfo({
-            parse: {
-                text: {
-                    '*': `
-                        <div class="mw-heading mw-heading3"><h3 id="Glyph_origin">Glyph origin</h3></div>
-                        <p>Pictogram of a thread spool. Compare ancient forms.</p>
-                        <table><tr><td><img src="//upload.wikimedia.org/wikipedia/commons/test.svg" width="80" height="80" alt="oracle form"></td></tr></table>
-                        <div class="mw-heading mw-heading3"><h3 id="Etymology">Etymology</h3></div>
-                        <p>Borrowed as a phonetic element in later compounds.</p>
-                        <div class="mw-heading mw-heading3"><h3 id="Definitions">Definitions</h3></div>
-                    `,
-                },
-            },
-        }, '己');
-
-        expect(info?.glyphOrigin).toEqual(['Pictogram of a thread spool. Compare ancient forms.']);
-        expect(info?.etymology).toEqual(['Borrowed as a phonetic element in later compounds.']);
-        expect(info?.images[0]).toMatchObject({
-            src: 'https://upload.wikimedia.org/wikipedia/commons/test.svg',
-            alt: 'oracle form',
-        });
-    });
-
     it('parses primary and native VTT subtitle files', () => {
         const japanese = parseSubtitleText('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n今日は本を読む。\n');
         const native = parseSubtitleText('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nToday I read a book.\n');
@@ -5972,7 +5130,6 @@ describe('reader helpers', () => {
             'ttsu-parser',
             'youtube-comments-parser',
             'mokuro-parser',
-            'mokuro-legacy-parser',
             'wikipedia-parser',
             'satori-reader-parser',
             'nhk-parser',
@@ -5981,6 +5138,8 @@ describe('reader helpers', () => {
         ]));
         expect(getMatchingSiteParsers('https://news.web.nhk/news/easy/ne2026050812537/ne2026050812537.html').map(profile => profile.id))
             .toContain('nhk-parser');
+        expect(getMatchingSiteParsers('file:///Users/me/mokuro/book/index.html').map(profile => profile.id))
+            .toContain('mokuro-parser');
     });
 
     it('scans YouTube watch titles, descriptions, and comments', () => {
@@ -6294,135 +5453,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('identifies Japanese-looking YouTube cards without showing English-only cards', () => {
-        document.body.innerHTML = `
-            <ytd-rich-item-renderer><a id="video-title" href="/watch?v=jp" aria-label="今日は花を見ます">今日は花を見ます</a></ytd-rich-item-renderer>
-            <ytd-rich-item-renderer><a id="video-title" href="/watch?v=en" aria-label="10 habits for learning Japanese">10 habits for learning Japanese</a></ytd-rich-item-renderer>
-            <ytd-rich-item-renderer><a id="video-title" href="/watch?v=channel" aria-label="study with me">study with me</a><div id="channel-name">日本語チャンネル</div></ytd-rich-item-renderer>
-        `;
-        const cards = collectYouTubeVideoCards(document);
-
-        expect(cards).toHaveLength(3);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(true);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(false);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[2]))).toBe(false);
-    });
-
-    it('aligns YouTube title detection with NihongoTube kana filtering', () => {
-        expect(isProbablyJapaneseYouTubeText('アニメで日本語')).toBe(true);
-        expect(isProbablyJapaneseYouTubeText('東京日記')).toBe(false);
-        expect(isProbablyJapaneseYouTubeText('fypシ Japanese study')).toBe(false);
-        expect(isProbablyJapaneseYouTubeText('今日のアニメ感想☆')).toBe(true);
-        expect(isProbablyJapaneseYouTubeText('アニメ☆')).toBe(false);
-    });
-
-    it('collects current Shorts cards without treating the whole shelf as a video', () => {
-        document.body.innerHTML = `
-            <ytd-rich-shelf-renderer>
-                <ytm-shorts-lockup-view-model-v2 data-case="short-en">
-                    <a class="shortsLockupViewModelHostEndpoint" href="/shorts/en1">
-                        <h3 class="shortsLockupViewModelHostMetadataTitle"><span>English short</span></h3>
-                    </a>
-                </ytm-shorts-lockup-view-model-v2>
-                <ytm-shorts-lockup-view-model-v2 data-case="short-jp">
-                    <a class="shortsLockupViewModelHostEndpoint" href="/shorts/jp1">
-                        <h3 class="shortsLockupViewModelHostMetadataTitle"><span>日本語で話そう</span></h3>
-                    </a>
-                </ytm-shorts-lockup-view-model-v2>
-            </ytd-rich-shelf-renderer>
-        `;
-        const cards = collectYouTubeVideoCards(document);
-
-        expect(cards.map(card => card.dataset.case)).toEqual(['short-en', 'short-jp']);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(false);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(true);
-    });
-
-    it('extracts watch and Shorts ids for original-title lookups', () => {
-        document.body.innerHTML = `
-            <ytd-rich-item-renderer data-case="watch"><a id="video-title" href="/watch?v=abc123&t=20">Translated title</a></ytd-rich-item-renderer>
-            <ytm-shorts-lockup-view-model-v2 data-case="short">
-                <a class="shortsLockupViewModelHostEndpoint" href="/shorts/short123?feature=share">
-                    <h3 class="shortsLockupViewModelHostMetadataTitle"><span>Translated short</span></h3>
-                </a>
-            </ytm-shorts-lockup-view-model-v2>
-        `;
-        const cards = collectYouTubeVideoCards(document);
-
-        expect(cards.map(card => readYouTubeCardVideoId(card))).toEqual(['abc123', 'short123']);
-    });
-
-    it('filters YouTube cards synchronously without oEmbed title lookups', async () => {
-        const originalLocation = window.location;
-        Object.defineProperty(window, 'location', {
-            configurable: true,
-            value: new URL('https://www.youtube.com/') as unknown as Location,
-        });
-        document.body.innerHTML = '<ytd-rich-item-renderer><a id="video-title" href="/watch?v=jp1">Translated title</a></ytd-rich-item-renderer>';
-
-        const fetch = vi.fn();
-        vi.stubGlobal('fetch', fetch);
-        vi.useFakeTimers();
-
-        try {
-            const filter = new YoutubeImmersionFilter({
-                getSettings: () => ({ ...DEFAULT_SETTINGS, youtubeImmersionEnabled: true }),
-            });
-            filter.refresh();
-            await vi.advanceTimersByTimeAsync(0);
-
-            const card = document.querySelector<HTMLElement>('ytd-rich-item-renderer') as HTMLElement;
-            expect(fetch).not.toHaveBeenCalled();
-            expect(card.dataset.yomuYoutubeChecked).toBe('true');
-            expect(card.classList.contains('jpdb-youtube-filtered')).toBe(true);
-        } finally {
-            vi.useRealTimers();
-            vi.unstubAllGlobals();
-            Object.defineProperty(window, 'location', {
-                configurable: true,
-                value: originalLocation,
-            });
-        }
-    });
-
-    it('filters YouTube cards appended while scrolling down', async () => {
-        const originalLocation = window.location;
-        Object.defineProperty(window, 'location', {
-            configurable: true,
-            value: new URL('https://www.youtube.com/') as unknown as Location,
-        });
-        document.body.innerHTML = '<main><ytd-rich-item-renderer><a id="video-title" href="/watch?v=jp1">日本語で話そう</a></ytd-rich-item-renderer></main>';
-        vi.stubGlobal('fetch', vi.fn(async () => {
-            throw new Error('no original title');
-        }));
-        const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
-        vi.useFakeTimers();
-
-        try {
-            const filter = new YoutubeImmersionFilter({
-                getSettings: () => ({ ...DEFAULT_SETTINGS, youtubeImmersionEnabled: true }),
-            });
-            filter.init();
-            await vi.advanceTimersByTimeAsync(300);
-
-            document.querySelector('main')?.insertAdjacentHTML('beforeend', '<ytd-rich-item-renderer data-case="new"><a id="video-title" href="/watch?v=en1">English study vlog</a></ytd-rich-item-renderer>');
-            window.dispatchEvent(new Event('scroll'));
-            await vi.advanceTimersByTimeAsync(120);
-            await Promise.resolve();
-            const card = document.querySelector<HTMLElement>('[data-case="new"]') as HTMLElement;
-            expect(card.dataset.yomuYoutubeChecked).toBe('true');
-            expect(card.classList.contains('jpdb-youtube-filtered')).toBe(true);
-        } finally {
-            vi.useRealTimers();
-            vi.unstubAllGlobals();
-            scrollTo.mockRestore();
-            Object.defineProperty(window, 'location', {
-                configurable: true,
-                value: originalLocation,
-            });
-        }
-    });
-
     it('normalizes structured OCR responses for image overlays', () => {
         const result = normalizeOcrResult({
             context_resolution: { width: 800, height: 1200 },
@@ -6490,34 +5520,6 @@ describe('reader helpers', () => {
         expect(result?.lines[0]).toMatchObject({
             text: '花が咲く',
             box: { left: 350, top: 180, width: 150, height: 48 },
-        });
-    });
-
-    it('normalizes Google Cloud Vision OCR responses', () => {
-        const result = normalizeOcrResult({
-            responses: [{
-                fullTextAnnotation: {
-                    pages: [{
-                        width: 800,
-                        height: 600,
-                        blocks: [{
-                            paragraphs: [{
-                                words: [{
-                                    symbols: [
-                                        { text: '花', boundingBox: { vertices: [{ x: 100, y: 50 }, { x: 130, y: 50 }, { x: 130, y: 90 }, { x: 100, y: 90 }] } },
-                                        { text: '火', property: { detectedBreak: { type: 'LINE_BREAK' } }, boundingBox: { vertices: [{ x: 132, y: 50 }, { x: 160, y: 50 }, { x: 160, y: 90 }, { x: 132, y: 90 }] } },
-                                    ],
-                                }],
-                            }],
-                        }],
-                    }],
-                },
-            }],
-        }, 800, 600);
-
-        expect(result?.lines[0]).toMatchObject({
-            text: '花火',
-            box: { left: 100, top: 50, width: 60, height: 40 },
         });
     });
 
@@ -6763,25 +5765,27 @@ describe('reader helpers', () => {
     it('loads new-tab dictionary words from top frequency data or common JMdict-style tags', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Tiny JMdict', format: 3 }));
-        zip.file('term_bank_1.json', JSON.stringify([
+        const zip = yomitanZipBlob({
+            'index.json': { title: 'Tiny JMdict', format: 3 },
+            'term_bank_1.json': [
             ['読む', 'よむ', 'common', '', 10, ['to read'], 1, 'ichi1'],
             ['珍語', 'ちんご', '', '', 0, ['rare word'], 2, ''],
             ['行く', 'いく', '', '', 8, ['to go'], 3, 'news1'],
-        ]));
-        await store.importFile(new File([await zip.generateAsync({ type: 'blob' })], 'tiny-jmdict.zip', { type: 'application/zip' }));
+            ],
+        });
+        await store.importFile(new File([zip], 'tiny-jmdict.zip', { type: 'application/zip' }));
 
         const common = await store.listRandomTopTerms(10, 2000);
         expect(common.map(entry => entry.expression).sort()).toEqual(['行く', '読む']);
 
-        const freq = new JSZip();
-        freq.file('index.json', JSON.stringify({ title: 'Tiny Frequency', format: 3 }));
-        freq.file('term_meta_bank_1.json', JSON.stringify([
+        const freq = yomitanZipBlob({
+            'index.json': { title: 'Tiny Frequency', format: 3 },
+            'term_meta_bank_1.json': [
             ['読む', 'freq', { frequency: 400 }],
             ['珍語', 'freq', { frequency: 3000 }],
-        ]));
-        const frequencySummary = await store.importFile(new File([await freq.generateAsync({ type: 'blob' })], 'tiny-frequency.zip', { type: 'application/zip' }));
+            ],
+        });
+        const frequencySummary = await store.importFile(new File([freq], 'tiny-frequency.zip', { type: 'application/zip' }));
         expect(frequencySummary.dictionaryTypes).toMatchObject({ 'Tiny Frequency': 'frequency' });
 
         const top = await store.listRandomTopTerms(10, 2000);
@@ -6792,13 +5796,13 @@ describe('reader helpers', () => {
     it('downloads and imports a recommended dictionary ZIP via userscript requests', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Tiny Dictionary', format: 3, revision: 'test' }));
-        zip.file('styles.css', 'ul[data-sc-content="glossary"] { padding-left: 1em; }');
-        zip.file('term_bank_1.json', JSON.stringify([
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Tiny Dictionary', format: 3, revision: 'test' },
+            'styles.css': 'ul[data-sc-content="glossary"] { padding-left: 1em; }',
+            'term_bank_1.json': [
             ['読む', 'よむ', '', '', 1, ['to read'], 1, ''],
-        ]));
-        const blob = await zip.generateAsync({ type: 'blob' });
+            ],
+        });
         vi.stubGlobal('GM_xmlhttpRequest', (details: {
             onload?: (response: { status: number; response: Blob }) => void;
         }) => details.onload?.({ status: 200, response: blob }));
@@ -6819,19 +5823,21 @@ describe('reader helpers', () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
 
-        const firstZip = new JSZip();
-        firstZip.file('index.json', JSON.stringify({ title: 'Tiny Terms', format: 3 }));
-        firstZip.file('term_bank_1.json', JSON.stringify([
+        const firstZip = yomitanZipBlob({
+            'index.json': { title: 'Tiny Terms', format: 3 },
+            'term_bank_1.json': [
             ['読む', 'よむ', '', '', 1, ['to read'], 1, ''],
-        ]));
-        const secondZip = new JSZip();
-        secondZip.file('index.json', JSON.stringify({ title: 'Tiny Kanji', format: 3 }));
-        secondZip.file('kanji_bank_1.json', JSON.stringify([
+            ],
+        });
+        const secondZip = yomitanZipBlob({
+            'index.json': { title: 'Tiny Kanji', format: 3 },
+            'kanji_bank_1.json': [
             ['読', 'ドク', 'よ.む', '', ['read'], {}, {}],
-        ]));
+            ],
+        });
 
-        await store.importFile(new File([await firstZip.generateAsync({ type: 'blob' })], 'tiny-terms.zip', { type: 'application/zip' }));
-        await store.importFile(new File([await secondZip.generateAsync({ type: 'blob' })], 'tiny-kanji.zip', { type: 'application/zip' }));
+        await store.importFile(new File([firstZip], 'tiny-terms.zip', { type: 'application/zip' }));
+        await store.importFile(new File([secondZip], 'tiny-kanji.zip', { type: 'application/zip' }));
         await store.deleteDictionary('Tiny Terms');
 
         const summary = await store.summary();
@@ -6845,12 +5851,12 @@ describe('reader helpers', () => {
     it('downloads recommended dictionary ZIPs via the GM object userscript request API', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
-        const zip = new JSZip();
-        zip.file('index.json', JSON.stringify({ title: 'Tiny GM Dictionary', format: 3, revision: 'test' }));
-        zip.file('term_bank_1.json', JSON.stringify([
+        const blob = yomitanZipBlob({
+            'index.json': { title: 'Tiny GM Dictionary', format: 3, revision: 'test' },
+            'term_bank_1.json': [
             ['書く', 'かく', '', '', 1, ['to write'], 1, ''],
-        ]));
-        const blob = await zip.generateAsync({ type: 'blob' });
+            ],
+        });
         vi.stubGlobal('GM', {
             xmlHttpRequest: () => Promise.resolve({ status: 200, response: blob }),
         });

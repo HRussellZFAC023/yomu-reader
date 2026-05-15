@@ -1,0 +1,220 @@
+import { escapeHtml, setInnerHtml } from './dom';
+import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
+import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
+import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
+import { getUserscriptHttpRequest } from './userscript';
+
+export interface UchisenImage {
+    url: string;
+    story: string;
+}
+
+interface UchisenCarouselOptions {
+    sourceAttributes?: string;
+    detailsClass?: string;
+    summaryClass?: string;
+    bodyClass?: string;
+    summaryHtml?: (index: number, total: number) => string;
+}
+
+const UCHISEN_STAR_PREFIX = 'yomu-jpdb-uchisen-star:';
+const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
+
+export function parseUchisenImages(html: string): UchisenImage[] {
+    if (!html.trim()) return [];
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const images: UchisenImage[] = [];
+    const mainImage = mainUchisenImageUrl(doc);
+    const mainStory = cleanText(doc.querySelector('#mnemonic_story')?.textContent ?? '');
+    if (mainImage) images.push({ url: canonicalUchisenUrl(mainImage), story: mainStory || 'No story available' });
+
+    doc.querySelectorAll<HTMLElement>('.mnemonic_card').forEach(card => {
+        const image = uchisenCardImage(card, mainStory);
+        if (image) images.push(image);
+    });
+
+    const seen = new Set<string>();
+    return images.filter(item => {
+        if (!item.url || seen.has(item.url)) return false;
+        seen.add(item.url);
+        return true;
+    });
+}
+
+function mainUchisenImageUrl(doc: Document): string {
+    const mainLoader = doc.querySelector<HTMLElement>('.kanji_image_loader[data-large]');
+    return mainLoader?.getAttribute('data-large')
+        || doc.querySelector<HTMLImageElement>('#full_kanji_image')?.getAttribute('src')
+        || '';
+}
+
+function uchisenCardImage(card: HTMLElement, mainStory: string): UchisenImage | null {
+    const rawUrl = card.querySelector<HTMLInputElement>('input.image_url')?.value.trim() ?? '';
+    if (!rawUrl) return null;
+    return {
+        url: canonicalUchisenUrl(rawUrl),
+        story: uchisenCardStory(card, mainStory),
+    };
+}
+
+function uchisenCardStory(card: HTMLElement, mainStory: string): string {
+    const rawStory = card.querySelector<HTMLInputElement>('input.story')?.value ?? '';
+    const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, ' '));
+    return story || mainStory || 'No story available';
+}
+
+export async function loadUchisenImages(kanji: string): Promise<UchisenImage[]> {
+    const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000);
+    return parseUchisenImages(html);
+}
+
+export async function installUchisenCarousel(
+    container: HTMLElement,
+    kanji: string,
+    images: UchisenImage[],
+    options: UchisenCarouselOptions = {},
+): Promise<() => void> {
+    const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
+    const starred = await gmStorageGet<string | null>(`${UCHISEN_STAR_PREFIX}${kanji}`, null);
+    let index = preferredUchisenIndex(storedIndex, starred, images);
+    if (!isValidUchisenIndex(index, images)) index = 0;
+
+    let currentStarred = starred;
+    let currentImageUrl = '';
+    const cleanup = () => {
+        if (!currentImageUrl) return;
+        revokePageMediaUrl(currentImageUrl);
+        currentImageUrl = '';
+    };
+    const render = () => {
+        const item = images[index];
+        const isStarred = currentStarred === item.url;
+        const detailsClass = options.detailsClass ?? 'jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source';
+        const summaryClass = options.summaryClass ?? 'jpdb-reader-local-head';
+        const bodyClass = options.bodyClass ?? 'jpdb-reader-local-glossary yomu-jpdb-uchisen-body';
+        const sourceAttributes = options.sourceAttributes ?? 'open';
+        const summaryHtml = options.summaryHtml?.(index + 1, images.length) ?? `
+                    <span>Uchisen</span>
+                    <span class="yomu-jpdb-counter">${index + 1}/${images.length}</span>
+                `;
+        const bodyMeta = options.summaryHtml ? `<div class="yomu-jpdb-source-meta">${index + 1}/${images.length}</div>` : '';
+        setInnerHtml(container, `
+            <details class="${detailsClass}" ${sourceAttributes}>
+                <summary class="${summaryClass}">${summaryHtml}</summary>
+                <div class="${bodyClass}">
+                    ${bodyMeta}
+                    <div class="yomu-jpdb-toolbar" role="toolbar" aria-label="Uchisen mnemonic images">
+                        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">&lsaquo;</button>
+                        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">&rsaquo;</button>
+                        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="star" title="Favorite">${isStarred ? '&#9733;' : '&#9734;'}</button>
+                        <a href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">Open</a>
+                    </div>
+                    <div class="yomu-jpdb-image-shell"><img alt="Uchisen mnemonic for ${escapeHtml(kanji)}" data-uchisen-image></div>
+                    <div class="yomu-jpdb-story">${escapeHtml(item.story || 'No story available')}</div>
+                </div>
+            </details>
+        `);
+        const image = container.querySelector<HTMLImageElement>('[data-uchisen-image]');
+        if (!image) return;
+        const srcUrl = item.url;
+        requestBlobUrl(srcUrl, 9000)
+            .then(url => {
+                if (!image.isConnected || images[index]?.url !== srcUrl) {
+                    revokePageMediaUrl(url);
+                    return;
+                }
+                cleanup();
+                currentImageUrl = url;
+                image.src = url;
+            })
+            .catch(() => {
+                if (image.isConnected) image.remove();
+            });
+    };
+
+    container.addEventListener('click', event => {
+        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-uchisen-action]')?.dataset.uchisenAction;
+        if (!action) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (action === 'previous') index = (index - 1 + images.length) % images.length;
+        if (action === 'next') index = (index + 1) % images.length;
+        if (action === 'star') {
+            const key = `${UCHISEN_STAR_PREFIX}${kanji}`;
+            if (currentStarred === images[index].url) {
+                currentStarred = null;
+                void gmStorageDelete(key);
+            } else {
+                currentStarred = images[index].url;
+                void gmStorageSet(key, currentStarred);
+            }
+        } else {
+            void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+        }
+        render();
+    });
+    render();
+    return cleanup;
+}
+
+function preferredUchisenIndex(storedIndex: number, starred: string | null, images: UchisenImage[]): number {
+    const starredIndex = starred ? images.findIndex(item => item.url === starred) : -1;
+    return starredIndex >= 0 ? starredIndex : storedIndex;
+}
+
+function isValidUchisenIndex(index: number, images: UchisenImage[]): boolean {
+    return Number.isFinite(index) && index >= 0 && index < images.length;
+}
+
+function requestText(url: string, timeout: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const userscriptRequest = getUserscriptHttpRequest();
+        if (userscriptRequest) {
+            userscriptRequest({
+                method: 'GET',
+                url,
+                timeout,
+                onload: response => {
+                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? response.response ?? ''));
+                    else reject(new Error(`HTTP ${response.status}`));
+                },
+                onerror: reject,
+                ontimeout: () => reject(new Error('Timed out')),
+            });
+            return;
+        }
+        fetch(url).then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.text();
+        }).then(resolve, reject);
+    });
+}
+
+function requestBlobUrl(url: string, timeout: number): Promise<string> {
+    return requestBlob(url, timeout).then(blob => createPageMediaUrl(blob));
+}
+
+function requestBlob(url: string, timeout: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        const userscriptRequest = getUserscriptHttpRequest();
+        if (userscriptRequest) {
+            userscriptRequest({
+                method: 'GET',
+                url,
+                responseType: 'blob',
+                timeout,
+                onload: response => {
+                    if (response.status >= 200 && response.status < 300 && response.response instanceof Blob) resolve(response.response);
+                    else reject(new Error(`HTTP ${response.status}`));
+                },
+                onerror: reject,
+                ontimeout: () => reject(new Error('Timed out')),
+            });
+            return;
+        }
+        fetch(url).then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.blob();
+        }).then(resolve, reject);
+    });
+}

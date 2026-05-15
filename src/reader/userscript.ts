@@ -1,8 +1,4 @@
 import { monkeyWindow } from 'vite-plugin-monkey/dist/client';
-import { Logger } from './logger';
-
-const log = Logger.scope('Userscript');
-
 type UserscriptRequestSource = {
     GM_xmlhttpRequest?: UserscriptHttpRequest;
     GM?: {
@@ -22,11 +18,9 @@ export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
     for (const candidate of userscriptRequestCandidates()) {
         const request = asUserscriptRequest(candidate.request);
         if (request) {
-            log.debugThrottled('resolved-request', 5000, 'Userscript HTTP request resolved', { source: candidate.source, path: candidate.path });
             return request.bind(candidate.thisArg);
         }
     }
-    log.debugThrottled('missing-userscript-request', 5000, 'Userscript HTTP request unavailable');
     return undefined;
 }
 
@@ -80,7 +74,6 @@ function mountedMonkeyWindows(): unknown[] {
         .filter(key => key.startsWith('__monkeyWindow-'))
         .map(key => readSourceProperty(document, key))
         .filter(isRequestSource);
-    log.debugThrottled('mounted-monkey-windows', 5000, 'Mounted monkey windows inspected', { count: windows.length });
     return windows;
 }
 
@@ -92,8 +85,7 @@ function readSourceProperty(source: unknown, key: string): unknown {
     if (!isRequestSource(source)) return undefined;
     try {
         return (source as Record<string, unknown>)[key];
-    } catch (error) {
-        log.debugThrottled(`userscript-property-${key}`, 5000, 'Userscript API property unavailable', { key, error });
+    } catch {
         return undefined;
     }
 }

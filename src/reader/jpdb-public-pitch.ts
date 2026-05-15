@@ -32,11 +32,9 @@ export class JpdbPublicPitchClient {
             });
             const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
             if (pitch.length) {
-                log.debug('Public JPDB pitch loaded', { spelling, reading, query, pitch });
                 return pitch;
             }
         }
-        log.debug('Public JPDB pitch not found', { spelling, reading });
         return [];
     }
 }
@@ -217,13 +215,8 @@ function publicFetchUrl(url: string): string | null {
     try {
         const target = new URL(url, location.href);
         if (target.origin === location.origin) return target.href;
-        if (isLoopbackPage()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
         return null;
     } catch {
         return url;
     }
-}
-
-function isLoopbackPage(): boolean {
-    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }

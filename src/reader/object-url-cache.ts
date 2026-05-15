@@ -1,5 +1,3 @@
-import { Logger } from './logger';
-
 interface CachedObjectUrl {
     expiresAt: number;
     promise: Promise<string>;
@@ -7,18 +5,15 @@ interface CachedObjectUrl {
     url?: string;
 }
 
-const log = Logger.scope('ObjectUrlCache');
-
 export class ObjectUrlCache {
     private entries = new Map<string, CachedObjectUrl>();
 
-    constructor(private ttlMs: number, private label: string) {}
+    constructor(private ttlMs: number) {}
 
     getOrCreate(key: string, createUrl: () => Promise<string>): Promise<string> {
         const now = Date.now();
         const cached = this.entries.get(key);
         if (cached && cached.expiresAt > now) {
-            log.debug('Object URL cache hit', { label: this.label });
             return cached.promise;
         }
 

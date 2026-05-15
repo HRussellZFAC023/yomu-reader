@@ -134,7 +134,6 @@ export function buildNewTabPalette(accentColor: string): NewTabPalette {
     const surfaceMuted = mixHex(surface, accent, 0.05);
     const shadow = 'rgba(18, 28, 23, .20)';
     const palette = { accent, background, backgroundText, surface, surfaceText, accentText, border, softBorder, surfaceMuted, shadow };
-    log.debug('Built new tab palette', { accentColor: accent, background, backgroundText, accentText });
     return palette;
 }
 
@@ -144,7 +143,6 @@ export function shuffleCards(cards: JPDBCard[]): JPDBCard[] {
         const swapIndex = Math.floor(Math.random() * (index + 1));
         [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
     }
-    log.debug('Shuffled new tab cards', { count: cards.length });
     return shuffled;
 }
 

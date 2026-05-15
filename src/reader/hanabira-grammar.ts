@@ -196,7 +196,6 @@ function isBetterCandidateMatch(next: { candidate: string; index: number }, best
 async function loadHanabiraGrammarIndexUncached(): Promise<HanabiraGrammarIndexItem[]> {
     const cached = await gmStorageGet<HanabiraGrammarCache | null>(HANABIRA_CACHE_KEY, null);
     if (cached && Date.now() - cached.fetchedAt < HANABIRA_CACHE_TTL_MS && Array.isArray(cached.items)) {
-        log.debug('Hanabira grammar index cache hit', { items: cached.items.length });
         return cached.items;
     }
 

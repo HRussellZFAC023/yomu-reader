@@ -2,7 +2,7 @@ import type { JPDBCard, ReaderSettings } from './types';
 import type { YomitanTermEntry } from './yomitan';
 import { cleanText, firstJapaneseRun, firstReviewGlyph, JAPANESE_RE } from './jpdb-text';
 
-const ADDON_ROOT_SELECTOR = '[data-yomu-jpdb-addon], [data-jpdb-reader-root]';
+const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 
 export interface JpdbTermTarget {
     term: string;
@@ -322,7 +322,7 @@ export function currentAudioTargets(): Array<{ term: string; reading: string; li
     const targets: Array<{ term: string; reading: string; link: HTMLElement }> = [];
     const seen = new Set<HTMLElement>();
     document.querySelectorAll<HTMLElement>('a.vocabulary-audio[data-audio]').forEach(link => {
-        if (seen.has(link) || link.closest(ADDON_ROOT_SELECTOR)) return;
+        if (seen.has(link) || link.closest(READER_ROOT_SELECTOR)) return;
         const root = link.closest<HTMLElement>('.result.vocabulary, .answer-box, .review-hidden, .subsection-headword, .plain') ?? link.parentElement;
         if (!root) return;
         const term = extractTermFromElement(root) ?? extractTermFromAudioLink(link);

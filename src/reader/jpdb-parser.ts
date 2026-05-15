@@ -1,10 +1,7 @@
-import { Logger } from './logger';
 import { normalizeCardStates } from './card-state';
 import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
 
 const COMBINING_KANA = new Set('ゃゅょぁぃぅぇぉャュョァィゥェォ');
-const log = Logger.scope('JpdbParser');
-
 export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
     const cards = vocabulary.map(([
         vid,
@@ -35,19 +32,12 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
         wordWithReading: null,
         source: 'jpdb' as const,
     }));
-    log.debug('Converted JPDB vocabulary to cards', { vocabulary: vocabulary.length, cards: cards.length });
     return cards;
 }
 
 export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRawToken[][], cards: JPDBCard[]): JPDBToken[][] {
     const tokens = rawTokens.map(innerTokens => parseParagraphTokens(innerTokens, cards));
     assignSentenceInfo(paragraphs, tokens);
-    log.debug('Converted JPDB parse result to tokens', {
-        paragraphs: paragraphs.length,
-        tokenGroups: rawTokens.length,
-        tokens: tokens.reduce((total, group) => total + group.length, 0),
-        cards: cards.length,
-    });
     return tokens;
 }
 
@@ -137,7 +127,6 @@ export function splitJapaneseSentences(text: string): string[] {
 
     const nonEmptySentences = sentences.filter(Boolean);
     const result = nonEmptySentences.length ? nonEmptySentences : [text];
-    log.debugThrottled('split-sentences', 1000, 'Split Japanese sentences', { textLength: text.length, sentences: result.length });
     return result;
 }
 

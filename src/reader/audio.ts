@@ -70,7 +70,7 @@ export class AudioPlayer {
     private playRequestId = 0;
     private shuffledAudio = new ShuffledAudioDeck();
     private candidateCache = new Map<string, { expiresAt: number; promise: Promise<AudioCandidate[]> }>();
-    private blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, 'audio');
+    private blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     private readyAudioCache = new Map<string, { expiresAt: number; promise: Promise<HTMLAudioElement> }>();
 
     constructor(private getSettings: () => ReaderSettings) {}
@@ -146,14 +146,12 @@ export class AudioPlayer {
         errors: string[],
     ): Promise<AudioSourcePlayResult['state']> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-            log.debug('Audio request superseded', { term: card.spelling, requestId });
             return 'superseded';
         }
         try {
             const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
-            return this.audioSourceAttemptResult(played, source, card, requestId, isCurrent);
+            return this.audioSourceAttemptResult(played, requestId, isCurrent);
         } catch (error) {
-            log.debug('Audio source failed; trying next source', { term: card.spelling, source: source.type }, error);
             errors.push(error instanceof Error ? error.message : String(error));
             return 'miss';
         }
@@ -161,14 +159,11 @@ export class AudioPlayer {
 
     private audioSourceAttemptResult(
         played: boolean,
-        source: AudioSourceSetting,
-        card: JPDBCard,
         requestId: number,
         isCurrent: () => boolean,
     ): AudioSourcePlayResult['state'] {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
         if (!played) return 'miss';
-        log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
         return 'played';
     }
 
@@ -191,17 +186,16 @@ export class AudioPlayer {
                         triedUrls.add(candidateKey);
                         preconnectAudioUrl(candidate.url);
                         void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
-                            .catch(error => log.debug('Audio preload failed quietly', { source: source.type, term: card.spelling, sourceHost: safeHost(candidate.sourceUrl) }, error));
+                            .catch(() => undefined);
                     }
                 })
-                .catch(error => log.debug('Audio candidate preload failed quietly', { source: source.type, term: card.spelling }, error));
+                .catch(() => undefined);
         }
     }
 
     stop(): void {
         this.playRequestId++;
         this.stopCurrent();
-        log.debug('Audio stopped');
     }
 
     async playJapaneseText(text: string, voiceName = ''): Promise<void> {
@@ -212,7 +206,6 @@ export class AudioPlayer {
         this.stopCurrent();
         await this.playTextToSpeech(trimmed, voiceName);
         if (requestId !== this.playRequestId) this.stopCurrent();
-        log.debug('Japanese text-to-speech playback started', { textLength: trimmed.length, voice: voiceName || 'auto' });
     }
 
     private stopCurrent(): void {
@@ -240,20 +233,17 @@ export class AudioPlayer {
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-        log.debug('Audio candidates resolved', { source: source.type, candidates: candidates.length });
         const bagKey = getAudioBagKey(source, card);
-        return await this.playFromAudioCandidates(source, candidates, settings, requestId, triedUrls, isCurrent, bagKey);
+        return await this.playFromAudioCandidates(candidates, settings, requestId, triedUrls, isCurrent, bagKey);
     }
 
     private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
-        log.debug('Text-to-speech playback started', { source: source.type, voice: source.voice || 'auto' });
         return this.isPlaybackCurrent(requestId, isCurrent);
     }
 
     private async playFromAudioCandidates(
-        source: AudioSourceSetting,
         candidates: AudioCandidate[],
         settings: ReaderSettings,
         requestId: number,
@@ -262,14 +252,13 @@ export class AudioPlayer {
         bagKey: string,
     ): Promise<boolean> {
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
-            if (!registerAudioAttempt(triedUrls, source, candidate)) continue;
-            if (await this.playAudioCandidate(source, candidate, id, bagKey, settings, requestId, isCurrent)) return true;
+            if (!registerAudioAttempt(triedUrls, candidate)) continue;
+            if (await this.playAudioCandidate(candidate, id, bagKey, settings, requestId, isCurrent)) return true;
         }
         return false;
     }
 
     private async playAudioCandidate(
-        source: AudioSourceSetting,
         candidate: AudioCandidate,
         id: string,
         bagKey: string,
@@ -283,10 +272,8 @@ export class AudioPlayer {
             const played = await this.playPreparedAudio(audio, requestId, isCurrent);
             if (!played) return false;
             this.shuffledAudio.markPlayed(bagKey, id);
-            log.debug('Audio candidate playing', { source: source.type, viaBlob: audio.src.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
             return true;
-        } catch (error) {
-            log.debug('Audio candidate failed', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) }, error);
+        } catch {
             return false;
         }
     }
@@ -371,7 +358,6 @@ export class AudioPlayer {
         const now = Date.now();
         const cached = this.candidateCache.get(key);
         if (cached && cached.expiresAt > now) {
-            log.debug('Audio candidate cache hit', { source: source.type, term: card.spelling });
             return cached.promise.then(cloneAudioCandidates);
         }
 
@@ -393,7 +379,6 @@ export class AudioPlayer {
         if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
         await assertPlayableAudioBlob(response, url, sourceUrl);
         const blobUrl = await createPageMediaUrl(response);
-        log.debug('Audio media URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith('data:') });
         return blobUrl;
     }
 
@@ -432,22 +417,19 @@ export class AudioPlayer {
     }
 
     private logSilentMissingAudioFallback(): void {
-        log.debug('Missing-audio fallback is silent');
     }
 
     private async tryPlayMissingAudioFallback(requestId: number, isCurrent: () => boolean): Promise<boolean> {
         try {
             const played = await this.playSoftChime(requestId, isCurrent);
             return this.finishMissingAudioFallback(played);
-        } catch (error) {
-            log.debug('Missing-audio fallback chime unavailable', {}, error);
+        } catch {
             return false;
         }
     }
 
     private finishMissingAudioFallback(played: boolean): boolean {
         if (played) {
-            log.debug('Missing-audio fallback chime played');
             return true;
         }
         return false;
@@ -746,10 +728,9 @@ function isTextToSpeechSource(source: AudioSourceSetting): boolean {
     return source.type === 'text-to-speech' || source.type === 'text-to-speech-reading';
 }
 
-function registerAudioAttempt(triedUrls: Set<string>, source: AudioSourceSetting, candidate: AudioCandidate): boolean {
+function registerAudioAttempt(triedUrls: Set<string>, candidate: AudioCandidate): boolean {
     const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
     if (triedUrls.has(candidateKey)) {
-        log.debug('Skipping duplicate audio candidate', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) });
         return false;
     }
     triedUrls.add(candidateKey);
@@ -899,11 +880,9 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
     const userscriptRequest = getUserscriptHttpRequest();
     const browserUrl = getBrowserFetchUrl(responseUrl);
     if (userscriptRequest) {
-        log.debug('Audio request via userscript API', { responseType, host: safeHost(responseUrl) });
         return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest)
             .catch(error => {
                 if (!browserUrl) throw error;
-                log.debug('Audio request via userscript API failed; retrying with browser fetch', { responseType, host: safeHost(responseUrl), error: String(error instanceof Error ? error.message : error) });
                 return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
             });
     }
@@ -912,7 +891,6 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
         return Promise.reject(new Error('Cross-origin audio request needs a userscript HTTP bridge.'));
     }
 
-    log.debug('Audio request via browser fetch', { responseType, host: safeHost(browserUrl) });
     return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
 }
 
@@ -1188,16 +1166,11 @@ function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT
 
 function getBrowserFetchUrl(url: string): string | null {
     if (!isHttpAudioUrl(url)) return url;
-    if (isLocalDevHost(location.hostname)) return audioProxyUrl(url);
     return sameOriginAudioUrl(url);
 }
 
 function isHttpAudioUrl(url: string): boolean {
     return /^https?:\/\//i.test(url);
-}
-
-function audioProxyUrl(url: string): string {
-    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
 }
 
 function sameOriginAudioUrl(url: string): string | null {
@@ -1208,18 +1181,6 @@ function sameOriginAudioUrl(url: string): string | null {
     }
 }
 
-function isLocalDevHost(hostname: string): boolean {
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-}
-
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function safeHost(value: string): string {
-    try {
-        return new URL(value, location.href).host;
-    } catch {
-        return 'invalid-url';
-    }
 }

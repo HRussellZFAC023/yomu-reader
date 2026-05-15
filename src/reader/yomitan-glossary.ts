@@ -1,10 +1,7 @@
 import type { DictionaryPreference } from './types';
-import { Logger } from './logger';
 import { dictionaryEnabled, dictionaryRank } from './yomitan-ranking';
 import { glossaryValueToText, renderStructuredGlossaryHtml, type GlossaryRenderOptions } from './yomitan-structured-content';
 import type { YomitanDictionaryInfo } from './yomitan-types';
-
-const log = Logger.scope('YomitanGlossary');
 
 export type { GlossaryRenderOptions } from './yomitan-structured-content';
 
@@ -14,7 +11,6 @@ export function glossaryToText(value: unknown): string {
 
 export function glossaryToHtml(value: unknown, dictionary = '', options: GlossaryRenderOptions = {}): string {
     const html = renderStructuredGlossaryHtml(value, dictionary, options);
-    log.debugThrottled('glossary-html', 1000, 'Rendered glossary HTML', { dictionary, htmlLength: html.length, valueType: Array.isArray(value) ? 'array' : typeof value });
     return html;
 }
 
@@ -29,7 +25,6 @@ export function renderDictionaryScopedStyles(dictionaries: YomitanDictionaryInfo
         })
         .filter(Boolean)
         .join('\n');
-    log.debug('Rendered dictionary scoped styles', { dictionaries: dictionaries.length, preferences: preferences.length, bytes: css.length });
     return css;
 }
 

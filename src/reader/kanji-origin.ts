@@ -7,7 +7,6 @@ import type { YomitanKanjiEntry } from './yomitan';
 import { getUserscriptHttpRequest } from './userscript';
 
 const KANJI_MAP_KANJI_BASE = 'https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji';
-const WIKTIONARY_PARSE_URL = 'https://en.wiktionary.org/w/api.php?action=parse&prop=text&format=json&origin=*&page=';
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('KanjiOrigin');
 
@@ -74,16 +73,8 @@ export interface KanjiMapKanjiInfo {
     jishoUrl: string;
 }
 
-export interface WiktionaryKanjiInfo {
-    pageUrl: string;
-    glyphOrigin: string[];
-    etymology: string[];
-    images: Array<{ src: string; alt: string }>;
-}
-
 export interface KanjiSourceInfo {
     kanjiMap?: KanjiMapKanjiInfo;
-    wiktionary?: WiktionaryKanjiInfo;
 }
 
 export class KanjiOriginClient {
@@ -92,35 +83,27 @@ export class KanjiOriginClient {
     lookup(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
         const key = Array.from(kanji)[0] ?? kanji;
         if (!key || !settings.kanjiOriginsEnabled) {
-            log.debug('Kanji origin lookup skipped', { kanji, enabled: settings.kanjiOriginsEnabled });
             return Promise.resolve(null);
         }
         const cacheKey = kanjiOriginCacheKey(key, settings);
         let promise = this.cache.get(cacheKey);
         if (!promise) {
-            log.debug('Kanji origin cache miss', { kanji: key, kanjiMap: settings.kanjiOriginKanjiMapEnabled, wiktionary: settings.kanjiOriginWiktionaryEnabled });
             promise = this.fetchInfo(key, settings);
             this.cache.set(cacheKey, promise);
         } else {
-            log.debug('Kanji origin cache hit', { kanji: key });
         }
         return promise;
     }
 
     private async fetchInfo(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
         const done = log.time('Kanji origin lookup', { kanji });
-        const [kanjiMap, wiktionary] = await Promise.all([
-            settings.kanjiOriginKanjiMapEnabled ? fetchKanjiMapInfo(kanji).catch(error => {
+        const kanjiMap = settings.kanjiOriginKanjiMapEnabled
+            ? await fetchKanjiMapInfo(kanji).catch(error => {
                 log.warn('Kanji Map origin lookup failed', { kanji, error });
                 return undefined;
-            }) : Promise.resolve(undefined),
-            settings.kanjiOriginWiktionaryEnabled ? fetchWiktionaryInfo(kanji).catch(error => {
-                log.warn('Wiktionary origin lookup failed', { kanji, error });
-                return undefined;
-            }) : Promise.resolve(undefined),
-        ]);
-        const result = kanjiMap || wiktionary ? { kanjiMap, wiktionary } : null;
-        log.debug('Kanji origin lookup completed', { kanji, hasKanjiMap: Boolean(kanjiMap), hasWiktionary: Boolean(wiktionary) });
+            })
+            : undefined;
+        const result = kanjiMap ? { kanjiMap } : null;
         done();
         return result;
     }
@@ -130,7 +113,6 @@ function kanjiOriginCacheKey(kanji: string, settings: ReaderSettings): string {
     return [
         kanji,
         settings.kanjiOriginKanjiMapEnabled ? 'map' : '',
-        settings.kanjiOriginWiktionaryEnabled ? 'wikt' : '',
     ].join(':');
 }
 
@@ -139,16 +121,6 @@ export async function fetchKanjiMapInfo(kanji: string): Promise<KanjiMapKanjiInf
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : undefined;
-    log.debug('Kanji Map info parsed', { kanji, found: Boolean(info), examples: info?.examples.length ?? 0, references: info?.references.length ?? 0 });
-    done();
-    return info;
-}
-
-export async function fetchWiktionaryInfo(kanji: string): Promise<WiktionaryKanjiInfo | undefined> {
-    const done = log.time('Fetch Wiktionary info', { kanji });
-    const raw = parseJson(await requestText(`${WIKTIONARY_PARSE_URL}${encodeURIComponent(kanji)}`));
-    const info = raw ? parseWiktionaryInfo(raw, kanji) : undefined;
-    log.debug('Wiktionary info parsed', { kanji, found: Boolean(info), glyphOrigin: info?.glyphOrigin.length ?? 0, images: info?.images.length ?? 0 });
     done();
     return info;
 }
@@ -219,33 +191,6 @@ function stripHtml(value: string): string {
     return value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-export function parseWiktionaryInfo(raw: unknown, kanji: string): WiktionaryKanjiInfo | undefined {
-    const html = wiktionaryHtml(raw);
-    if (!canParseWiktionaryHtml(html)) return undefined;
-
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const glyphNodes = sectionNodes(doc, ['Glyph origin', 'Glyph_origin']);
-    const etymologyNodes = sectionNodes(doc, ['Etymology']);
-    const glyphOrigin = extractSectionText(glyphNodes, 3);
-    const etymology = extractSectionText(etymologyNodes, 2);
-    const images = extractSectionImages(glyphNodes, 4);
-    if (!hasWiktionaryOriginContent(glyphOrigin, etymology, images)) return undefined;
-    return {
-        pageUrl: `https://en.wiktionary.org/wiki/${encodeURIComponent(kanji)}`,
-        glyphOrigin,
-        etymology,
-        images,
-    };
-}
-
-function canParseWiktionaryHtml(html: string): boolean {
-    return Boolean(html && typeof DOMParser !== 'undefined');
-}
-
-function hasWiktionaryOriginContent(glyphOrigin: string[], etymology: string[], images: Array<{ src: string; alt: string }>): boolean {
-    return Boolean(glyphOrigin.length || etymology.length || images.length);
-}
-
 export function buildKanjiFacts(
     kanji: string,
     jpdbInfo: JpdbKanjiInfo | null,
@@ -260,7 +205,6 @@ export function buildKanjiFacts(
     }
     if (!facts.has('Character')) addKanjiFact(facts, 'Character', kanji, 'current lookup');
     const result = Array.from(facts.values()).filter(fact => fact.label !== 'Character').slice(0, 6);
-    log.debug('Kanji facts built', { kanji, facts: result.map(fact => fact.label) });
     return result;
 }
 
@@ -453,7 +397,6 @@ export function buildKanjiOriginGraph(
         });
 
     const graph = { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
-    log.debug('Kanji origin graph built', { kanji, nodes: graph.nodes.length, edges: graph.edges.length });
     return graph;
 }
 
@@ -730,110 +673,6 @@ function splitRtkElements(value: string): string[] {
         .slice(0, 16);
 }
 
-function wiktionaryHtml(raw: unknown): string {
-    const record = asRecord(raw);
-    const parse = asRecord(record?.parse);
-    const text = asRecord(parse?.text);
-    return stringValue(text?.['*']);
-}
-
-function sectionNodes(doc: Document, labels: string[]): Element[] {
-    const normalizedLabels = labels.map(label => normalizeHeading(label));
-    const heading = findSectionHeading(doc, normalizedLabels);
-    if (!heading) return [];
-
-    const level = Number(heading.tagName.slice(1)) || 6;
-    const wrapper = heading.parentElement?.classList.contains('mw-heading') ? heading.parentElement : heading;
-    return sectionSiblingNodes(wrapper, level);
-}
-
-function sectionSiblingNodes(wrapper: Element, level: number): Element[] {
-    const nodes: Element[] = [];
-    let next = wrapper.nextElementSibling;
-    while (next) {
-        if (startsNextSection(next, level)) break;
-        nodes.push(next);
-        next = next.nextElementSibling;
-    }
-    return nodes;
-}
-
-function startsNextSection(element: Element, currentLevel: number): boolean {
-    const heading = sectionSiblingHeading(element);
-    return Boolean(heading && headingLevel(heading) <= currentLevel);
-}
-
-function sectionSiblingHeading(element: Element): Element | null {
-    return element.classList.contains('mw-heading')
-        ? element.querySelector('h2, h3, h4')
-        : element.matches('h2, h3, h4') ? element : null;
-}
-
-function headingLevel(element: Element): number {
-    return Number(element.tagName.slice(1)) || 6;
-}
-
-function findSectionHeading(doc: Document, normalizedLabels: string[]): Element | undefined {
-    return Array.from(doc.querySelectorAll('h2, h3, h4'))
-        .find(element => headingMatchesLabels(element, normalizedLabels));
-}
-
-function headingMatchesLabels(element: Element, normalizedLabels: string[]): boolean {
-    const id = normalizeHeading(element.id);
-    const text = normalizeHeading(element.textContent ?? '');
-    return normalizedLabels.includes(id) || normalizedLabels.includes(text);
-}
-
-function extractSectionText(nodes: Element[], limit: number): string[] {
-    const candidates: string[] = [];
-    nodes.forEach(node => {
-        const selectors = node.matches('p, li, dd') ? [node] : Array.from(node.querySelectorAll('p, li, dd'));
-        selectors.forEach(element => {
-            const text = cleanText(element.textContent ?? '')
-                .replace(/\[(?:edit|citation needed)\]/gi, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            if (text.length >= 12 && !/for pronunciation and definitions/i.test(text) && !candidates.includes(text)) {
-                candidates.push(truncateText(text, 260));
-            }
-        });
-    });
-    return candidates.slice(0, limit);
-}
-
-function extractSectionImages(nodes: Element[], limit: number): Array<{ src: string; alt: string }> {
-    const images: Array<{ src: string; alt: string }> = [];
-    nodes.forEach(node => {
-        node.querySelectorAll('img').forEach(image => {
-            const src = normalizeImageUrl(image.getAttribute('src') ?? '');
-            const width = Number(image.getAttribute('width') ?? '0');
-            const height = Number(image.getAttribute('height') ?? '0');
-            if (!src || width < 20 || height < 20 || images.some(existing => existing.src === src)) return;
-            images.push({ src, alt: image.getAttribute('alt') || 'Historical form' });
-        });
-    });
-    return images.slice(0, limit);
-}
-
-function normalizeHeading(value: string): string {
-    return value.replace(/_/g, ' ').replace(/\[edit\]/gi, '').replace(/\s+/g, ' ').trim().toLowerCase();
-}
-
-function normalizeImageUrl(value: string): string {
-    if (!value) return '';
-    const url = value.startsWith('//') ? `https:${value}` : value;
-    if (!/^https:\/\/upload\.wikimedia\.org\//i.test(url)) return '';
-    return url;
-}
-
-function truncateText(value: string, limit: number): string {
-    return value.length > limit ? `${value.slice(0, limit - 1).trim()}…` : value;
-}
-
-function cleanText(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
-}
-
 function stringArray(value: unknown, fallback = ''): string[] {
     const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
     return values.map(item => stringValue(item)).map(item => item.trim()).filter(Boolean);
@@ -879,7 +718,6 @@ function parseJson(value: string): unknown {
 function requestText(url: string): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-        log.debug('Kanji origin request using userscript request', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'GET',
@@ -887,7 +725,6 @@ function requestText(url: string): Promise<string> {
                 timeout: 10000,
                 onload: response => {
                     if (response.status >= 200 && response.status < 300) {
-                        log.debug('Kanji origin request completed', { host: safeHost(url), status: response.status });
                         resolve(String(response.responseText ?? ''));
                     } else {
                         log.warn('Kanji origin request returned HTTP error', { host: safeHost(url), status: response.status });
@@ -906,13 +743,11 @@ function requestText(url: string): Promise<string> {
         });
     }
 
-    log.debug('Kanji origin request using fetch', { host: safeHost(url) });
     return fetch(url).then(response => {
         if (!response.ok) {
             log.warn('Kanji origin request returned HTTP error', { host: safeHost(url), status: response.status });
             throw new Error(`Kanji origin request failed (${response.status}).`);
         }
-        log.debug('Kanji origin request completed', { host: safeHost(url), status: response.status });
         return response.text();
     });
 }

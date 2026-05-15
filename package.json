@@ -38,7 +38,7 @@
     "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
   },
   "dependencies": {
-    "jszip": "^3.10.1"
+    "fflate": "^0.8.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

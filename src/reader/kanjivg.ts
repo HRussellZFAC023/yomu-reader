@@ -27,11 +27,9 @@ export class KanjiVGClient {
         if (!character) return Promise.resolve(null);
         let promise = this.cache.get(character);
         if (!promise) {
-            log.debug('Lookup cache miss', { kanji: character });
             promise = this.fetchSvg(character);
             this.cache.set(character, promise);
         } else {
-            log.debug('Lookup cache hit', { kanji: character });
         }
         return promise;
     }
@@ -44,7 +42,6 @@ export class KanjiVGClient {
         });
         if (!svgText) return null;
         const info = parseKanjiVGSvg(svgText, kanji);
-        log.debug('Stroke-order SVG parsed', { kanji, found: Boolean(info), strokes: info?.strokeCount ?? 0 });
         return info;
     }
 }

@@ -4,23 +4,18 @@ import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiInfo, type
 import { graphEdgePath, type GraphAnchorZone } from './kanji-graph-geometry';
 import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from './kanji-origin';
 import type { KanjiVGInfo } from './kanjivg';
-import { Logger } from './logger';
 import type { RtkInfo } from './rtk';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
-const log = Logger.scope('PopupRender');
-
 export function pickTokenForSelection(tokens: JPDBToken[] = [], selected: string): JPDBToken | undefined {
     const exact = tokens.find(token => token.card.spelling === selected || token.card.reading === selected);
     if (exact) {
-        log.debug('Picked exact token for selection', { selected, vid: exact.card.vid, sid: exact.card.sid });
         return exact;
     }
 
     const fuzzy = tokens.find(token => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
-    log.debug('Picked fuzzy token for selection', { selected, found: Boolean(fuzzy), tokenCount: tokens.length });
     return fuzzy;
 }
 
@@ -84,7 +79,6 @@ export function groupTermEntriesByDictionary(entries: YomitanTermEntry[]): Map<s
         group.push(entry);
         grouped.set(entry.dictionary, group);
     }
-    log.debug('Grouped term entries by dictionary', { entries: entries.length, dictionaries: grouped.size });
     return grouped;
 }
 
@@ -107,7 +101,6 @@ export function groupTermEntriesByHeadword(entries: YomitanTermEntry[]): Learner
         addLearnerTermMeaning(group, entry, key, meaningKeys);
         grouped.set(key, group);
     }
-    log.debug('Grouped term entries by headword', { entries: entries.length, headwords: grouped.size });
     return [...grouped.values()];
 }
 
@@ -155,7 +148,6 @@ export function buildRtkComponentSummaries(rtkInfo: RtkInfo | null, jpdbInfo: Jp
             keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || '',
             meaning: localByKanji.get(kanji) || '',
         }));
-    log.debug('Built RTK component summaries', { components: summaries.length, hasRtk: Boolean(rtkInfo), hasJpdb: Boolean(jpdbInfo), localEntries: entries.length });
     return summaries;
 }
 
@@ -199,7 +191,6 @@ export function mergeSimilarKanjiWords(
         || a.expression.length - b.expression.length
         || a.expression.localeCompare(b.expression),
     );
-    log.debug('Merged similar kanji words', { localEntries: localEntries.length, jpdbVocabulary: jpdbVocabulary.length, results: result.length });
     return result;
 }
 
@@ -406,7 +397,6 @@ export function renderKanjiOrigins(
     sourceStateKey?: string,
 ): string {
     if (!hasKanjiOriginContent(facts, graph, sourceInfo)) {
-        log.debug('Kanji origins render skipped', { reason: 'no-origin-data' });
         return '';
     }
     const map = sourceInfo?.kanjiMap;
@@ -478,13 +468,11 @@ function renderKanjiRadicalFrames(radicalFrames: string[]): string {
 function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const model = buildKanjiOriginGraphRenderModel(graph);
     if (!model) return '';
-    const { edgeGroups, hasOutboundEdges, markerId, positioned } = model;
-    const graphClass = `jpdb-reader-origin-graph-wrap${hasOutboundEdges ? ' show-outbound' : ''}`;
+    const { hasOutboundEdges, markerId } = model;
     const lines = renderOriginGraphLines(model);
     const nodeButtons = renderOriginGraphNodeButtons(model);
-    log.debug('Kanji origin graph rendered', { nodes: positioned.length, edges: edgeGroups.length });
     return `
-        <div class="${graphClass}" aria-label="${uiText(language, 'originMapLabel')}">
+        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, 'originMapLabel')}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -599,7 +587,7 @@ function originGraphBase(graph: KanjiOriginGraph | null): OriginGraphBase | null
     const nodes = originGraphRenderableNodes(graph);
     const nodeById = new Map(nodes.map(node => [node.id, node]));
     const edges = originGraphRenderableEdges(graph, nodeById);
-    if (shouldSkipOriginGraph(nodes, edges)) return skippedOriginGraphBase(nodes, edges);
+    if (shouldSkipOriginGraph(nodes, edges)) return null;
     return {
         nodes,
         nodeById,
@@ -619,11 +607,6 @@ function originGraphRenderableEdges(graph: KanjiOriginGraph | null, nodeById: Ma
 
 function shouldSkipOriginGraph(nodes: OriginGraphNode[], edges: OriginGraphEdge[]): boolean {
     return nodes.length <= 1 || !edges.length;
-}
-
-function skippedOriginGraphBase(nodes: OriginGraphNode[], edges: OriginGraphEdge[]): null {
-    log.debug('Kanji origin graph render skipped', { nodes: nodes.length, edges: edges.length });
-    return null;
 }
 
 function originGraphCurrentNode(nodes: OriginGraphNode[]): OriginGraphNode {
@@ -647,7 +630,6 @@ function visibleOriginGraph(
     selectedEdges: OriginEdgeGroup[],
 ): { nodes: OriginGraphNode[]; edgeGroups: OriginEdgeGroup[] } | null {
     if (!selectedEdges.length) {
-        log.debug('Kanji origin graph render skipped', { reason: 'no-selected-edges', nodes: base.nodes.length, edges: base.edges.length });
         return null;
     }
 
@@ -657,7 +639,6 @@ function visibleOriginGraph(
     const visibleIds = new Set(visibleNodes.map(node => node.id));
     const edgeGroups = selectedEdges.filter(edge => visibleIds.has(edge.from) && visibleIds.has(edge.to));
     if (visibleNodes.length <= 1 || !edgeGroups.length) {
-        log.debug('Kanji origin graph render skipped', { reason: 'no-visible-graph', visibleNodes: visibleNodes.length, edgeGroups: edgeGroups.length });
         return null;
     }
     return { nodes: visibleNodes, edgeGroups };
@@ -912,7 +893,7 @@ function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, curren
     const dx = target.x - source.x;
     const dy = target.y - source.y;
     const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const targetDistance = source.node.id === currentId || target.node.id === currentId ? 23 : 21;
+    const targetDistance = source.node.id === currentId || target.node.id === currentId ? 31 : 24;
     const pull = ((distance - targetDistance) / distance) * 0.06 * alpha;
     source.vx += dx * pull;
     source.vy += dy * pull;
@@ -931,8 +912,8 @@ function applyOriginAnchorPulls(states: OriginNodeState[], currentId: string, al
 function integrateOriginNodeStates(states: OriginNodeState[], currentId: string): void {
     for (const state of states) {
         integrateOriginNodeState(state, currentId);
-        state.x = clampGraphValue(state.x, 8 + state.rx, 92 - state.rx);
-        state.y = clampGraphValue(state.y, 10 + state.ry, 90 - state.ry);
+        state.x = clampGraphValue(state.x, 6 + state.rx, 94 - state.rx);
+        state.y = clampGraphValue(state.y, 7 + state.ry, 93 - state.ry);
     }
 }
 
@@ -1043,13 +1024,13 @@ function outboundZoneAnchor(zone: OriginComponentZone, index: number, total: num
 type ZoneAnchorSpec = { x: number; y: number; offsetAxis: 'x' | 'y' };
 
 const INBOUND_ZONE_ANCHORS: Record<OriginComponentZone, ZoneAnchorSpec> = {
-    top: { x: 50, y: 23, offsetAxis: 'x' },
+    top: { x: 50, y: 19, offsetAxis: 'x' },
     upper: { x: 58, y: 35, offsetAxis: 'x' },
-    left: { x: 24, y: 50, offsetAxis: 'y' },
-    right: { x: 76, y: 50, offsetAxis: 'y' },
+    left: { x: 21, y: 50, offsetAxis: 'y' },
+    right: { x: 79, y: 50, offsetAxis: 'y' },
     lower: { x: 58, y: 65, offsetAxis: 'x' },
-    bottom: { x: 50, y: 77, offsetAxis: 'x' },
-    center: { x: 32, y: 50, offsetAxis: 'y' },
+    bottom: { x: 50, y: 82, offsetAxis: 'x' },
+    center: { x: 24, y: 50, offsetAxis: 'y' },
 };
 
 const OUTBOUND_ZONE_ANCHORS: Record<OriginComponentZone, ZoneAnchorSpec> = {

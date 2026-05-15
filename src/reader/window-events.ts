@@ -1,7 +1,3 @@
-import { Logger } from './logger';
-
-const log = Logger.scope('WindowEvents');
-
 export function createWindowEvent(type: string, init: EventInit = {}): Event {
     const documentEvent = createDocumentEvent(type, init);
     if (documentEvent) return documentEvent;
@@ -10,8 +6,7 @@ export function createWindowEvent(type: string, init: EventInit = {}): Event {
     if (EventConstructor) {
         try {
             return new EventConstructor(type, init);
-        } catch (error) {
-            log.debugThrottled(`create-event-${type}`, 5000, 'Window Event constructor failed', { type, error });
+        } catch {
         }
     }
 
@@ -27,8 +22,7 @@ export function createWindowCustomEvent<T>(type: string, detail?: T, init: Omit<
     if (CustomEventConstructor) {
         try {
             return new CustomEventConstructor(type, eventInit);
-        } catch (error) {
-            log.debugThrottled(`create-custom-event-${type}`, 5000, 'Window CustomEvent constructor failed', { type, error });
+        } catch {
         }
     }
 
@@ -47,7 +41,6 @@ export function dispatchWindowEvent(event: Event): boolean {
     const unshadowedResult = callWithUnshadowedWindowDispatch(event);
     if (unshadowedResult.called) return unshadowedResult.result;
 
-    logDispatchFailure(event, unshadowedResult, prototypeResult, directResult);
     return false;
 }
 
@@ -67,7 +60,6 @@ export function addWindowEventListener(
     const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
     if (unshadowedResult.called) return true;
 
-    logAddListenerFailure(type, unshadowedResult, prototypeResult, directResult);
     return false;
 }
 
@@ -99,38 +91,6 @@ function addListenerWithPrototypeMethod(
     return { called: false };
 }
 
-function logDispatchFailure(
-    event: Event,
-    unshadowedResult: DispatchCallResult,
-    prototypeResult: DispatchCallResult,
-    directResult: DispatchCallResult,
-): void {
-    log.debugThrottled(`dispatch-window-event-${event.type}`, 5000, 'Window event dispatch unavailable', {
-        type: event.type,
-        error: firstCallError(unshadowedResult, prototypeResult, directResult),
-    });
-}
-
-function logAddListenerFailure(
-    type: string,
-    unshadowedResult: AddListenerCallResult,
-    prototypeResult: AddListenerCallResult,
-    directResult: AddListenerCallResult,
-): void {
-    log.debugThrottled(`add-window-listener-${type}`, 5000, 'Window event listener registration unavailable', {
-        type,
-        error: firstCallError(unshadowedResult, prototypeResult, directResult),
-    });
-}
-
-function firstCallError(...results: Array<DispatchCallResult | AddListenerCallResult>): unknown {
-    return results.map(callResultError).find(error => error !== undefined);
-}
-
-function callResultError(result: DispatchCallResult | AddListenerCallResult): unknown {
-    return result.called ? undefined : result.error;
-}
-
 function eventConstructor<T extends Event>(source: unknown, key: 'Event' | 'CustomEvent'): (new (type: string, init?: EventInit | CustomEventInit) => T) | undefined {
     const value = readProperty(source, key);
     return typeof value === 'function' ? value as new (type: string, init?: EventInit | CustomEventInit) => T : undefined;
@@ -142,8 +102,7 @@ function createDocumentEvent(type: string, init: EventInit): Event | undefined {
         const event = document.createEvent('Event');
         event.initEvent(type, Boolean(init.bubbles), Boolean(init.cancelable));
         return event;
-    } catch (error) {
-        log.debugThrottled(`create-document-event-${type}`, 5000, 'Document Event creation failed', { type, error });
+    } catch {
         return undefined;
     }
 }
@@ -154,8 +113,7 @@ function createDocumentCustomEvent<T>(type: string, init: CustomEventInit<T>): C
         const event = document.createEvent('CustomEvent');
         event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
         return event as CustomEvent<T>;
-    } catch (error) {
-        log.debugThrottled(`create-document-custom-event-${type}`, 5000, 'Document CustomEvent creation failed', { type, error });
+    } catch {
         return undefined;
     }
 }
@@ -193,8 +151,7 @@ function readProperty(source: unknown, key: string): unknown {
     if (!source || (typeof source !== 'object' && typeof source !== 'function')) return undefined;
     try {
         return (source as Record<string, unknown>)[key];
-    } catch (error) {
-        log.debugThrottled(`window-event-property-${key}`, 5000, 'Window event property unavailable', { key, error });
+    } catch {
         return undefined;
     }
 }
@@ -264,7 +221,6 @@ function callWithUnshadowedWindowAddEventListener(
 function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener', descriptor: PropertyDescriptor): void {
     try {
         Object.defineProperty(window, key, descriptor);
-    } catch (error) {
-        log.debugThrottled(`restore-window-event-property-${key}`, 5000, 'Window event property restore failed', { key, error });
+    } catch {
     }
 }

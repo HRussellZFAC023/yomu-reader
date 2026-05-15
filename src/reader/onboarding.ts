@@ -25,7 +25,6 @@ export class OnboardingController {
 
     async showIfNeeded(): Promise<boolean> {
         if (this.options.getSettings().onboardingSeen) {
-            log.debug('Onboarding skipped', { reason: 'already-seen' });
             return false;
         }
         this.show();
@@ -116,8 +115,7 @@ export class OnboardingController {
             this.localize(language);
         });
 
-        const note = element('p', 'jpdb-reader-onboarding-note', uiText(this.options.getSettings().interfaceLanguage, 'onboardingNote'));
-        this.panel.append(closeButton, eyebrow, title, copy, language, actions, featureGrid, note);
+        this.panel.append(closeButton, eyebrow, title, copy, language, actions, featureGrid);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
     }
@@ -127,7 +125,7 @@ export class OnboardingController {
         if (!panel) return;
         panel.setAttribute('aria-label', uiText(language, 'welcomeLabel'));
         panel.querySelector('.jpdb-reader-onboarding-eyebrow')?.replaceChildren(uiText(language, 'onboardingEyebrow'));
-        const copy = panel.querySelector('p:not(.jpdb-reader-onboarding-note)');
+        const copy = panel.querySelector('p');
         copy?.replaceChildren(uiText(language, 'onboardingCopy'));
         panel.querySelector('.jpdb-reader-onboarding-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
         const options: Array<[string, string]> = [
@@ -156,7 +154,6 @@ export class OnboardingController {
         const closeButton = panel.querySelector('[data-onboarding-action="close"]');
         closeButton?.setAttribute('aria-label', uiText(language, 'closeOnboarding'));
         closeButton?.setAttribute('title', uiText(language, 'closeOnboarding'));
-        panel.querySelector('.jpdb-reader-onboarding-note')?.replaceChildren(uiText(language, 'onboardingNote'));
     }
 
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
@@ -194,7 +191,6 @@ export class OnboardingController {
     }
 
     private close(): void {
-        if (this.panel || this.backdrop) log.debug('Closing onboarding');
         this.panel?.remove();
         this.backdrop?.remove();
         this.panel = undefined;

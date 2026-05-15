@@ -12,7 +12,7 @@
   --subtitle-color: #fff;
   --subtitle-outline: #000;
   --subtitle-background-rgba: transparent;
-  --subtitle-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --subtitle-family: var(--jpdb-reader-font);
   --subtitle-weight: 760;
 }
 .jpdb-subtitle-text {
@@ -78,7 +78,6 @@
   cursor: pointer;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  transition: filter .12s ease, opacity .12s ease;
 }
 .jpdb-subtitle-secondary-blurred {
   filter: blur(5px);
@@ -117,6 +116,7 @@
   text-underline-offset: .16em;
 }
 .jpdb-subtitle-primary .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--subtitle-color);
   background: transparent !important;
   color: var(--subtitle-color) !important;
   --jpdb-reader-word-underline: transparent;
@@ -141,18 +141,28 @@
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1.48;
 }
-.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-primary .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
-.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, var(--subtitle-color)) !important; }
-.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, var(--subtitle-color)) !important; }
-.jpdb-reader-subtitle-text-anki .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, var(--subtitle-color)) !important; }
-.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, var(--subtitle-color)) !important; }
+.jpdb-reader-subtitle-highlight-status { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-status-soft, transparent); }
+.jpdb-reader-subtitle-highlight-jpdb { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-jpdb-soft, transparent); }
+.jpdb-reader-subtitle-highlight-anki { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-anki-soft, transparent); }
+.jpdb-reader-subtitle-highlight-pitch { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-pitch-soft, transparent); }
+.jpdb-reader-subtitle-underline-status { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-status-decoration, transparent); }
+.jpdb-reader-subtitle-underline-jpdb { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent); }
+.jpdb-reader-subtitle-underline-anki { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-anki-decoration, transparent); }
+.jpdb-reader-subtitle-underline-pitch { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-pitch-decoration, transparent); }
+.jpdb-reader-subtitle-text-status { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
+.jpdb-reader-subtitle-text-jpdb { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
+.jpdb-reader-subtitle-text-anki { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
+.jpdb-reader-subtitle-text-pitch { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
+:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  background: var(--jpdb-reader-subtitle-highlight, transparent) !important;
+}
+:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-decoration, transparent);
+  text-decoration-line: underline !important;
+}
+:is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+}
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
   opacity: 1;
@@ -218,7 +228,6 @@
   backdrop-filter: blur(14px);
   pointer-events: auto;
   opacity: .78;
-  transition: opacity .14s ease, background .14s ease, border-color .14s ease;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-list {
@@ -253,7 +262,7 @@
   background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent);
   color: var(--jpdb-reader-text, #fff);
   box-shadow: none;
-  font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 700 12px/1 var(--jpdb-reader-font);
   pointer-events: auto;
 }
 .jpdb-subtitle-rail button {
@@ -268,7 +277,6 @@
   padding: 0;
   flex: 0 0 auto;
   white-space: nowrap;
-  transition: opacity .14s ease, visibility .14s ease, border-color .14s ease, color .14s ease, background .14s ease;
 }
 .jpdb-subtitle-rail button[data-action="previous"],
 .jpdb-subtitle-rail button[data-action="next"] {
@@ -339,7 +347,7 @@
   min-height: 30px;
   padding: 0 0 2px;
   color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
-  font: 800 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 800 12px/1 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-menu button {
   min-height: 36px;
@@ -400,7 +408,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-radius: 999px;
   background: rgba(255,255,255,.22);
   opacity: 0;
-  transition: opacity .12s ease, background .12s ease;
 }
 .jpdb-subtitle-resize:hover::after,
 .jpdb-subtitle-resize:focus-visible::after {
@@ -458,13 +465,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-drawer-title {
   min-width: 0;
   color: var(--jpdb-reader-text, #fff);
-  font: 800 15px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 800 15px/1.2 var(--jpdb-reader-font);
   letter-spacing: .01em;
 }
 .jpdb-subtitle-drawer-meta {
   min-width: 0;
   color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
-  font: 700 11px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 700 11px/1.35 var(--jpdb-reader-font);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -645,6 +652,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   text-shadow: 0 1px 1px rgba(0,0,0,.38);
 }
 .jpdb-subtitle-row-text .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);
   color: inherit;
   background: transparent;
   text-decoration-color: var(--jpdb-reader-word-underline, currentColor);
@@ -658,18 +666,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.jpdb-reader-subtitle-highlight-status .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-jpdb .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-anki .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
-.jpdb-reader-subtitle-highlight-pitch .jpdb-subtitle-row-text .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
-.jpdb-reader-subtitle-underline-status .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-underline-anki .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }
-.jpdb-reader-subtitle-text-status .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, var(--jpdb-reader-text, #fff)) !important; }
-.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-text, #fff)) !important; }
-.jpdb-reader-subtitle-text-anki .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-text, #fff)) !important; }
-.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-row-text .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-text, #fff)) !important; }
 .jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,
 .jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby {
   color: inherit !important;
@@ -777,82 +773,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-radius: 8px;
   color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
   background: transparent;
-  font: 750 11px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 750 11px/1.3 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-list-empty {
   padding: 12px;
   color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
-  font: 700 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 700 12px/1.35 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
-
-.jpdb-youtube-filtered,
-.jpdb-youtube-filter-pending {
-  display: none !important;
-}
-.jpdb-youtube-filter-active :is(
-  ytd-rich-item-renderer,
-  ytd-video-renderer,
-  ytd-compact-video-renderer,
-  ytd-grid-video-renderer,
-  ytd-reel-item-renderer,
-  ytd-reel-video-renderer,
-  yt-lockup-view-model,
-  .ytGridShelfViewModelGridShelfItem,
-  ytm-rich-item-renderer,
-  ytm-compact-video-renderer,
-  ytm-video-card-renderer,
-  ytm-video-with-context-renderer,
-  ytm-shorts-lockup-view-model,
-  ytm-shorts-lockup-view-model-v2
-):not([data-yomu-youtube-checked="true"]):not([data-jpdb-reader-root]) {
-  visibility: hidden !important;
-}
-.jpdb-youtube-filter-bar {
-  position: fixed;
-  left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 2147483645;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: min(560px, calc(100vw - 24px));
-  padding: 8px 10px 8px 12px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: var(--jpdb-reader-bg);
-  color: var(--jpdb-reader-muted);
-  box-shadow: 0 12px 34px rgba(0,0,0,.28);
-  font: 750 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-.jpdb-youtube-filter-bar span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.jpdb-youtube-filter-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-}
-.jpdb-youtube-filter-bar button {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--jpdb-reader-accent);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--jpdb-reader-accent);
-  font: inherit;
-  cursor: pointer;
-}
-.jpdb-youtube-filter-bar [data-action="turn-off"] {
-  border-color: var(--jpdb-reader-border);
-  color: var(--jpdb-reader-muted);
-}
 
 @media (max-width: 768px), (pointer: coarse) {
   .jpdb-reader-popover.jpdb-reader-sheet {
@@ -902,7 +830,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-reader-settings .grid { grid-template-columns: 1fr; }
   .jpdb-reader-settings-actions { grid-template-columns: 1fr; }
-  .jpdb-reader-support-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .jpdb-reader-help-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .jpdb-reader-recommended-item { grid-template-columns: 1fr; }
   .jpdb-reader-template-preview-grid { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding {
@@ -920,10 +848,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
-  .jpdb-youtube-filter-bar {
-    bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
-    border-radius: 12px;
-  }
   .jpdb-reader-dictionary-head { display: none; }
   .jpdb-reader-dictionary-row,
   .jpdb-reader-dictionary-row.compact { grid-template-columns: 52px 1fr; }

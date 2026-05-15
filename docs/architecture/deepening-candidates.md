@@ -32,12 +32,12 @@ Solution: Deepen around a Reader Lookup Module that accepts a lookup request and
 
 Benefits: Higher Leverage for new lookup sources, fewer main-reader condition branches, and tests focused on observable lookup outcomes.
 
-## 4. JPDB Page Integration Module
+## 4. JPDB Review Bridge Module
 
-Files: `src/reader/jpdb-extensions.ts`, `src/reader/jpdb-page-targets.ts`, `src/reader/jpdb-review-bridge.ts`, `src/reader/jpdb-vocabulary.ts`, `src/reader/jpdb-kanji.ts`.
+Files: `src/reader/jpdb-page-targets.ts`, `src/reader/jpdb-review-bridge.ts`, `src/reader/jpdb-vocabulary.ts`, `src/reader/jpdb-kanji.ts`.
 
-Problem: JPDB page scraping, review bridge behavior, vocabulary parsing, kanji parsing, and page actions are coupled through DOM conventions and repeated parser assumptions.
+Problem: JPDB review bridge behavior, vocabulary parsing, kanji parsing, and page identity still share DOM assumptions.
 
-Solution: Deepen around a JPDB Page Integration Module that exposes page identity, current card targets, review actions, and vocabulary/kanji extraction through one Interface.
+Solution: Deepen around a JPDB Review Bridge Module that exposes page identity, current card targets, review actions, and vocabulary/kanji extraction through one Interface.
 
 Benefits: Better Locality when JPDB markup changes and cleaner tests with page fixtures crossing the same Interface as production.

@@ -29,10 +29,6 @@ export class ReaderParser {
         if (settings.apiKey.trim()) {
             try {
                 const result = await jpdb.parse(paragraphs);
-                log.debug('Parsed with JPDB', {
-                    paragraphs: result.length,
-                    tokens: result.reduce((sum, tokens) => sum + tokens.length, 0),
-                });
                 done();
                 return result;
             } catch (error) {
@@ -45,16 +41,11 @@ export class ReaderParser {
             }
         }
         if (!this.canUseLocalDictionaryFallback()) {
-            log.debug('Parsing skipped; no JPDB key or local fallback');
             done();
             return paragraphs.map(() => []);
         }
         try {
             const result = await Promise.all(paragraphs.map(text => this.parseLocalDictionaryText(text)));
-            log.debug('Parsed with local dictionary fallback', {
-                paragraphs: result.length,
-                tokens: result.reduce((sum, tokens) => sum + tokens.length, 0),
-            });
             return result;
         } finally {
             done();
@@ -84,7 +75,6 @@ export class ReaderParser {
 
     clearLocalCache(): void {
         this.localCardCache.clear();
-        log.debug('Local card cache cleared');
     }
 
     localCardFromEntry(entry: YomitanTermEntry): JPDBCard {
