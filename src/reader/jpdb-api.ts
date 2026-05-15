@@ -23,7 +23,6 @@ export class JpdbApiClient {
         const done = log.time('request', { endpoint, hasBody: Boolean(body) });
         const response = await postJson(url, token, body);
         done();
-        log.debug('Response received', { endpoint, status: response.status, bytes: response.text.length });
         this.assertSuccessfulResponse(response, endpoint);
         return parseJpdbApiResponse<T>(response, endpoint, options.response);
     }
@@ -59,18 +58,22 @@ export class JpdbApiClient {
 function parseJpdbApiResponse<T>(response: JsonPostResponse, endpoint: string, responseMode: 'json' | 'none' | undefined): T {
     if (responseMode === 'none' || !response.text) return undefined as T;
     const json = JSON.parse(response.text) as T | { error_message?: string };
-    if (jpdbApplicationErrorMessage(json)) {
-        log.warn('JPDB returned application error', { endpoint, message: json.error_message });
-        throw new Error(json.error_message);
+    const errorMessage = jpdbApplicationErrorMessage(json);
+    if (errorMessage) {
+        log.warn('JPDB returned application error', { endpoint, message: errorMessage });
+        throw new Error(errorMessage);
     }
     return json as T;
 }
 
-function jpdbApplicationErrorMessage(value: unknown): value is { error_message: string } {
-    const message = value && typeof value === 'object' && 'error_message' in value
-        ? (value as { error_message?: unknown }).error_message
-        : undefined;
-    return typeof message === 'string' && Boolean(message);
+function jpdbApplicationErrorMessage(value: unknown): string | undefined {
+    if (!isJsonRecord(value)) return undefined;
+    const message = value.error_message;
+    return typeof message === 'string' && message ? message : undefined;
+}
+
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object');
 }
 
 interface JsonPostResponse {

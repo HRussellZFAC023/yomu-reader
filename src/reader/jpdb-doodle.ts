@@ -32,6 +32,12 @@ interface DoodleElements {
     context: CanvasRenderingContext2D;
 }
 
+interface RequiredDoodleElements {
+    stage: HTMLElement;
+    canvas: HTMLCanvasElement;
+    ghost: HTMLElement;
+}
+
 export function findDoodleCanvasMount(): HTMLElement | null {
     return document.querySelector<HTMLElement>('.bugfix')
         ?? document.querySelector<HTMLElement>('.result.kanji > .vbox')
@@ -288,19 +294,23 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
 }
 
 function doodleElements(root: HTMLElement): DoodleElements | null {
+    const elements = requiredDoodleElements(root);
+    if (!elements) return null;
+    const context = elements.canvas.getContext('2d');
+    if (!context) return null;
+    return {
+        ...elements,
+        result: root.querySelector<HTMLElement>('[data-doodle-result]'),
+        context,
+    };
+}
+
+function requiredDoodleElements(root: HTMLElement): RequiredDoodleElements | null {
     const stage = root.querySelector<HTMLElement>('.yomu-doodle-stage, .jpdb-reader-doodle-stage');
     const canvas = root.querySelector<HTMLCanvasElement>('.yomu-doodle-canvas, .jpdb-reader-doodle-canvas');
     const ghost = root.querySelector<HTMLElement>('.yomu-doodle-ghost, .jpdb-reader-doodle-ghost');
     if (!stage || !canvas || !ghost) return null;
-    const context = canvas.getContext('2d');
-    if (!context) return null;
-    return {
-        stage,
-        canvas,
-        ghost,
-        result: root.querySelector<HTMLElement>('[data-doodle-result]'),
-        context,
-    };
+    return { stage, canvas, ghost };
 }
 
 interface DoodleGhostStatus {
@@ -317,15 +327,19 @@ async function loadDoodleGhost(
     if (!glyph) return unavailableDoodleGhost();
     try {
         const svg = await loadGhostSvg(glyph);
-        if (!isUsableDoodleGhostSvg(root, svg)) return unavailableDoodleGhost();
-        const info = parseKanjiVGSvg(svg, glyph);
-        setInnerHtml(ghost, info?.svg ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
-        const expectedStrokes = ghost.querySelectorAll('path').length;
-        root.querySelector<HTMLElement>('[data-doodle-stroke-count]')?.replaceChildren(`${expectedStrokes} strokes`);
-        return { available: true, expectedStrokes };
+        return renderDoodleGhost(root, ghost, glyph, svg);
     } catch {
         return unavailableDoodleGhost();
     }
+}
+
+function renderDoodleGhost(root: HTMLElement, ghost: HTMLElement, glyph: string, svg: string): DoodleGhostStatus {
+    if (!isUsableDoodleGhostSvg(root, svg)) return unavailableDoodleGhost();
+    const info = parseKanjiVGSvg(svg, glyph);
+    setInnerHtml(ghost, info?.svg ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
+    const expectedStrokes = ghost.querySelectorAll('path').length;
+    root.querySelector<HTMLElement>('[data-doodle-stroke-count]')?.replaceChildren(`${expectedStrokes} strokes`);
+    return availableDoodleGhost(expectedStrokes);
 }
 
 function doodleStrokeStyle(stage: HTMLElement): string {
@@ -340,6 +354,10 @@ function doodleGuideStyle(fallback = 'rgba(128,128,128,0.35)'): string {
 
 function unavailableDoodleGhost(): DoodleGhostStatus {
     return { available: false, expectedStrokes: 0 };
+}
+
+function availableDoodleGhost(expectedStrokes: number): DoodleGhostStatus {
+    return { available: true, expectedStrokes };
 }
 
 function isUsableDoodleGhostSvg(root: HTMLElement, svg: string): boolean {

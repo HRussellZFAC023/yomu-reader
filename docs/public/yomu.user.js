@@ -3147,7 +3147,7 @@
             if (triedUrls.has(candidateKey2)) continue;
             triedUrls.add(candidateKey2);
             preconnectAudioUrl(candidate.url);
-            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$D.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$6(candidate.sourceUrl) }, error));
+            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch((error) => log$D.debug("Audio preload failed quietly", { source: source.type, term: card.spelling, sourceHost: safeHost$5(candidate.sourceUrl) }, error));
           }
         }).catch((error) => log$D.debug("Audio candidate preload failed quietly", { source: source.type, term: card.spelling }, error));
       }
@@ -3207,10 +3207,10 @@
         const played = await this.playPreparedAudio(audio, requestId, isCurrent);
         if (!played) return false;
         this.shuffledAudio.markPlayed(bagKey, id);
-        log$D.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$6(candidate.sourceUrl) });
+        log$D.debug("Audio candidate playing", { source: source.type, viaBlob: audio.src.startsWith("blob:"), sourceHost: safeHost$5(candidate.sourceUrl) });
         return true;
       } catch (error) {
-        log$D.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) }, error);
+        log$D.debug("Audio candidate failed", { source: source.type, sourceHost: safeHost$5(candidate.sourceUrl) }, error);
         return false;
       }
     }
@@ -3298,7 +3298,7 @@
       if (!(response instanceof Blob)) throw new Error("Audio source did not return audio.");
       await assertPlayableAudioBlob(response, url, sourceUrl);
       const blobUrl = await createPageMediaUrl(response);
-      log$D.debug("Audio media URL created", { sourceHost: safeHost$6(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith("data:") });
+      log$D.debug("Audio media URL created", { sourceHost: safeHost$5(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith("data:") });
       return blobUrl;
     }
     async fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode) {
@@ -3574,7 +3574,7 @@
   function registerAudioAttempt(triedUrls, source, candidate) {
     const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
     if (triedUrls.has(candidateKey2)) {
-      log$D.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$6(candidate.sourceUrl) });
+      log$D.debug("Skipping duplicate audio candidate", { source: source.type, sourceHost: safeHost$5(candidate.sourceUrl) });
       return false;
     }
     triedUrls.add(candidateKey2);
@@ -3702,17 +3702,17 @@
     const userscriptRequest = getUserscriptHttpRequest();
     const browserUrl = getBrowserFetchUrl(responseUrl);
     if (userscriptRequest) {
-      log$D.debug("Audio request via userscript API", { responseType, host: safeHost$6(responseUrl) });
+      log$D.debug("Audio request via userscript API", { responseType, host: safeHost$5(responseUrl) });
       return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest).catch((error) => {
         if (!browserUrl) throw error;
-        log$D.debug("Audio request via userscript API failed; retrying with browser fetch", { responseType, host: safeHost$6(responseUrl), error: String(error instanceof Error ? error.message : error) });
+        log$D.debug("Audio request via userscript API failed; retrying with browser fetch", { responseType, host: safeHost$5(responseUrl), error: String(error instanceof Error ? error.message : error) });
         return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
       });
     }
     if (!browserUrl) {
       return Promise.reject(new Error("Cross-origin audio request needs a userscript HTTP bridge."));
     }
-    log$D.debug("Audio request via browser fetch", { responseType, host: safeHost$6(browserUrl) });
+    log$D.debug("Audio request via browser fetch", { responseType, host: safeHost$5(browserUrl) });
     return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
   }
   function requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest) {
@@ -3952,7 +3952,7 @@
   function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function safeHost$6(value) {
+  function safeHost$5(value) {
     try {
       return new URL(value, location.href).host;
     } catch {
@@ -9478,12 +9478,12 @@ ${entry.reading}`;
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$w.info("Dictionary URL import started", { filename, host: safeHost$5(url) });
+      log$w.info("Dictionary URL import started", { filename, host: safeHost$4(url) });
       onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
       const blob = await requestBlob$3(url, onProgress);
       const file = new File([blob], filename, { type: blob.type || "application/zip" });
       const summary = await this.importFile(file, onProgress, url);
-      log$w.info("Dictionary URL import completed", { filename, host: safeHost$5(url), ...summary });
+      log$w.info("Dictionary URL import completed", { filename, host: safeHost$4(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -10352,10 +10352,10 @@ ${glossaryKey}`;
       name: file.name,
       size: file.size,
       type: file.type,
-      sourceHost: sourceUrl ? safeHost$5(sourceUrl) : ""
+      sourceHost: sourceUrl ? safeHost$4(sourceUrl) : ""
     };
   }
-  function safeHost$5(url) {
+  function safeHost$4(url) {
     try {
       return new URL(url, location.href).host;
     } catch {
@@ -10363,28 +10363,28 @@ ${glossaryKey}`;
     }
   }
   async function requestBlob$3(url, onProgress) {
-    const done = log$w.time("Dictionary download", { host: safeHost$5(url) });
+    const done = log$w.time("Dictionary download", { host: safeHost$4(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress);
     return await requestBlobViaFetch(url, done);
   }
   function requestBlobViaUserscript(url, userscriptRequest, done, onProgress) {
-    log$w.debug("Dictionary download using userscript request", { host: safeHost$5(url) });
+    log$w.debug("Dictionary download using userscript request", { host: safeHost$4(url) });
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$w.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: response.response.size });
+          log$w.info("Dictionary download completed", { host: safeHost$4(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$w.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status: response.status });
+          log$w.warn("Dictionary download returned HTTP error", { host: safeHost$4(url), status: response.status });
           done();
           reject(new Error(`Dictionary download failed (${response.status}).`));
           return;
         }
-        log$w.warn("Dictionary download returned unexpected payload", { host: safeHost$5(url), status: response.status });
+        log$w.warn("Dictionary download returned unexpected payload", { host: safeHost$4(url), status: response.status });
         done();
         reject(new Error("Dictionary download did not return a ZIP file."));
       };
@@ -10401,19 +10401,19 @@ ${glossaryKey}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$w.warn("Dictionary download failed", { host: safeHost$5(url) });
+          log$w.warn("Dictionary download failed", { host: safeHost$4(url) });
           done();
           reject(new Error("Dictionary download failed."));
         },
         ontimeout: () => {
-          log$w.warn("Dictionary download timed out", { host: safeHost$5(url) });
+          log$w.warn("Dictionary download timed out", { host: safeHost$4(url) });
           done();
           reject(new Error("Dictionary download timed out."));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$w.warn("Dictionary download failed", { host: safeHost$5(url) });
+          log$w.warn("Dictionary download failed", { host: safeHost$4(url) });
           done();
           reject(new Error("Dictionary download failed."));
         });
@@ -10434,20 +10434,20 @@ ${glossaryKey}`;
     throw new Error("Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
   }
   async function fetchDictionaryBlob(url, downloadUrl, done) {
-    log$w.debug("Dictionary download using fetch", { host: safeHost$5(url), proxied: downloadUrl !== url });
+    log$w.debug("Dictionary download using fetch", { host: safeHost$4(url), proxied: downloadUrl !== url });
     const response = await fetch(downloadUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" });
     if (!response.ok) throwDictionaryHttpError(url, response.status);
     const blob = await response.blob();
-    log$w.info("Dictionary download completed", { host: safeHost$5(url), status: response.status, size: blob.size });
+    log$w.info("Dictionary download completed", { host: safeHost$4(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
   function throwDictionaryHttpError(url, status) {
-    log$w.warn("Dictionary download returned HTTP error", { host: safeHost$5(url), status });
+    log$w.warn("Dictionary download returned HTTP error", { host: safeHost$4(url), status });
     throw new Error(`Dictionary download failed (${status}).`);
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done) {
-    const host = safeHost$5(url);
+    const host = safeHost$4(url);
     if (isDictionaryCorsError(error)) {
       log$w.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
       done();
@@ -15079,14 +15079,14 @@ ${entry.reading}`;
               image.decoding = "async";
               image.loading = "eager";
               image.src = url;
-            }).catch((error) => log$p.debug("Preload image failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+            }).catch(() => void 0);
           }
           const soundUrls = this.mediaUrls(example, "sound");
           if (soundUrls.length) {
-            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch((error) => log$p.debug("Preload audio failed quietly", { query, sourceTitle: example.sourceTitle }, error));
+            void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs).then(() => void 0).catch(() => void 0);
           }
         }
-      }).catch((error) => log$p.debug("Preload search failed quietly", { query }, error));
+      }).catch(() => void 0);
     }
     async fetchBlobUrl(url, timeoutMs) {
       const urls = urlCandidates(url);
@@ -15260,7 +15260,6 @@ ${entry.reading}`;
         return await requestJsonCandidate(candidate, timeoutMs);
       } catch (error) {
         lastError = error;
-        log$p.debug("JSON candidate failed; trying next", { host: safeHost$4(candidate) }, error);
       }
     }
     throw requestError(lastError, "Immersion Kit request failed.");
@@ -15277,7 +15276,6 @@ ${entry.reading}`;
     if (userscriptRequest) {
       return requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest).catch((error) => {
         if (!canUsePageFetch(requestUrl2) || !isUserscriptTransportError(error)) throw error;
-        log$p.debug("JSON request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
         return requestImmersionJsonViaFetch(requestUrl2, timeoutMs);
       });
     }
@@ -15292,7 +15290,6 @@ ${entry.reading}`;
     if (userscriptRequest) {
       return requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest).catch((error) => {
         if (!canUsePageFetch(requestUrl2) || !isUserscriptTransportError(error)) throw error;
-        log$p.debug("Media request via userscript API failed; retrying with fetch", { host: safeHost$4(url), error: String(error instanceof Error ? error.message : error) });
         return requestImmersionBlobViaFetch(requestUrl2, timeoutMs);
       });
     }
@@ -15412,7 +15409,6 @@ ${entry.reading}`;
         return await requestBlob$2(url, timeoutMs);
       } catch (error) {
         lastError = error;
-        log$p.debugThrottled("media-candidate-failed", 5e3, "Media candidate failed; trying next", { host: safeHost$4(url), candidates: candidates.length }, error);
       }
     }
     throw requestError(lastError, "No Immersion Kit media candidate could be loaded.");
@@ -15443,14 +15439,6 @@ ${entry.reading}`;
       reader.onerror = () => reject(reader.error ?? new Error("Could not read media."));
       reader.readAsDataURL(blob);
     });
-  }
-  function safeHost$4(value) {
-    try {
-      const url = Array.isArray(value) ? value[0] : value;
-      return new URL(url, location.href).host;
-    } catch {
-      return "invalid-url";
-    }
   }
   function proxiedImmersionKitUrl(url) {
     if (!isLoopbackPage$2()) return url;
@@ -15507,14 +15495,11 @@ ${entry.reading}`;
     return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
   }
   function isUsefulImmersionFallbackQuery(query, exactQuery) {
-    if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE$2.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
+    if (isSameImmersionQuery(query, exactQuery)) return false;
+    return isUsefulStandaloneImmersionQuery(query);
   }
   function isUsefulImmersionPreloadQuery(query) {
-    if (!query || !HAS_JAPANESE$2.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
+    return isUsefulStandaloneImmersionQuery(query);
   }
   function uniqueImmersionQueries(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -15532,16 +15517,30 @@ ${entry.reading}`;
     const fragments = [];
     const runs = normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE) ?? [];
     for (const run of runs) {
-      const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE$1) ?? [];
-      fragments.push(...scriptGroups);
-      if (scriptGroups.length > 1) {
-        fragments.push(...scriptGroups.filter(queryHasKanji));
-      }
+      fragments.push(...scriptGroupFallbackFragments(run));
     }
-    return uniqueImmersionQueries(fragments).sort((a, b) => Number(queryHasKanji(b)) - Number(queryHasKanji(a)) || queryLength(b) - queryLength(a));
+    return uniqueImmersionQueries(fragments).sort(compareImmersionFallbackFragments);
   }
   function normalizeImmersionSurface(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  }
+  function isSameImmersionQuery(query, exactQuery) {
+    return queryKey(query) === queryKey(exactQuery);
+  }
+  function isUsefulStandaloneImmersionQuery(query) {
+    if (!query || !HAS_JAPANESE$2.test(query)) return false;
+    if (COMMON_PARTICLES.has(queryKey(query))) return false;
+    return queryLength(query) >= 2;
+  }
+  function scriptGroupFallbackFragments(run) {
+    const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE$1) ?? [];
+    if (scriptGroups.length <= 1) return scriptGroups;
+    return [...scriptGroups, ...scriptGroups.filter(queryHasKanji)];
+  }
+  function compareImmersionFallbackFragments(a, b) {
+    const kanjiOrder = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
+    if (kanjiOrder) return kanjiOrder;
+    return queryLength(b) - queryLength(a);
   }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
   const log$o = Logger.scope("ImmersionPopover");
@@ -15571,113 +15570,116 @@ ${entry.reading}`;
     }
     rememberPageMiningContext(card, sentence, anchor) {
       const cleanSentence = normalizeMiningSentence(sentence);
-      if (!cleanSentence || cleanSentence === card.spelling) return;
-      const immersionCard = (anchor == null ? void 0 : anchor.closest(".jpdb-reader-example-card")) ?? null;
-      if (immersionCard) {
-        this.rememberStoredMiningContext(card, saveMiningContext(card.spelling, immersionContextFromElement(cleanSentence, immersionCard)), "Immersion Kit");
-        return;
-      }
-      const sourceKind = pageMiningSourceKind(anchor);
-      const stored = saveMiningContext(card.spelling, pageMiningContext(cleanSentence, sourceKind));
-      this.rememberStoredMiningContext(card, stored, sourceKind);
+      if (!isPageMiningSentence(cleanSentence, card)) return;
+      this.rememberStoredMiningContext(saveMiningContext(card.spelling, this.pageMiningContextDraft(cleanSentence, anchor)));
     }
-    rememberStoredMiningContext(card, stored, source) {
+    pageMiningContextDraft(sentence, anchor) {
+      const immersionCard = (anchor == null ? void 0 : anchor.closest(".jpdb-reader-example-card")) ?? null;
+      if (immersionCard) return immersionContextFromElement(sentence, immersionCard);
+      const sourceKind = pageMiningSourceKind(anchor);
+      return pageMiningContext(sentence, sourceKind);
+    }
+    rememberStoredMiningContext(stored) {
       if (!stored) return;
       this.activeMiningContext = stored;
-      log$o.debug("Mining context captured", { term: card.spelling, source, sourceTitle: stored.sourceTitle });
     }
     async loadExamples(popover, card, searchPromise = this.searchExamples(card)) {
       const container = popover.querySelector("[data-immersion-kit]");
       if (!container) return;
       try {
         const result = await searchPromise;
-        const { examples } = result;
         if (!isConnectedImmersionSurface(popover, container)) return;
-        if (!examples.length) {
-          log$o.debug("No Immersion Kit examples found", { term: card.spelling, triedQueries: result.triedQueries });
-          this.renderEmpty(container);
-          return;
-        }
-        log$o.debug("Immersion Kit examples loaded", { term: card.spelling, query: result.query, usedFallback: result.usedFallback, examples: examples.length });
-        let index = this.startIndex(card, examples);
-        let renderRequest = 0;
-        let hoverAudioCanPlay = false;
-        let hoverAudioActive = false;
-        requestAnimationFrame(() => {
-          hoverAudioCanPlay = !container.matches(":hover");
-        });
-        const render = (nextIndex, playAudio, promoteMiningContext = false) => {
-          const requestId = ++renderRequest;
-          index = (nextIndex + examples.length) % examples.length;
-          this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
-          bindHoverMedia();
-        };
-        container.addEventListener("click", (event) => {
-          const button2 = event.target.closest("[data-immersion-action]");
-          const media = event.target.closest(".jpdb-reader-example-media");
-          const translation = event.target.closest(".jpdb-reader-example-translation");
-          if (translation) {
-            event.preventDefault();
-            event.stopPropagation();
-            this.toggleTranslationBlur(container);
-            return;
-          }
-          if (!button2 && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
-          event.preventDefault();
-          event.stopPropagation();
-          if (!button2) {
-            void this.playExampleAudio(examples[index]);
-            return;
-          }
-          const action = button2.dataset.immersionAction;
-          const shouldAutoPlay = this.options.getSettings().immersionKitAutoPlayAudio;
-          if (action === "previous") render(index - 1, shouldAutoPlay, true);
-          if (action === "next") render(index + 1, shouldAutoPlay, true);
-          if (action === "audio") void this.playExampleAudio(examples[index]);
-        });
-        container.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          const translation = event.target.closest(".jpdb-reader-example-translation");
-          if (!translation) return;
-          event.preventDefault();
-          this.toggleTranslationBlur(container);
-        });
-        const handleImmersionHover = (event) => {
-          var _a, _b, _c;
-          const media = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-example-media");
-          if (!media || !this.options.getSettings().immersionKitPlayOnHover) return;
-          const pointerType = "pointerType" in event ? event.pointerType : "mouse";
-          const cannotHover = pointerType !== "mouse" && (((_c = window.matchMedia) == null ? void 0 : _c.call(window, "(hover: none)").matches) ?? false);
-          if (pointerType === "touch" || cannotHover) return;
-          if (media.contains(event.relatedTarget)) return;
-          if (!hoverAudioCanPlay) {
-            hoverAudioCanPlay = !container.contains(event.relatedTarget);
-            if (!hoverAudioCanPlay) return;
-          }
-          hoverAudioActive = true;
-          void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(":hover"));
-        };
-        const bindHoverMedia = () => {
-          container.querySelectorAll(".jpdb-reader-example-media").forEach((media) => {
-            if (media.dataset.immersionHoverBound === "true") return;
-            media.dataset.immersionHoverBound = "true";
-            media.addEventListener("pointerover", handleImmersionHover);
-            media.addEventListener("mouseover", handleImmersionHover);
-          });
-        };
-        container.addEventListener("pointerleave", () => {
-          hoverAudioCanPlay = true;
-          hoverAudioActive = false;
-        });
-        container.addEventListener("mouseleave", () => {
-          hoverAudioCanPlay = true;
-          hoverAudioActive = false;
-        });
-        render(index, false);
+        this.renderLoadedExamples(container, card, result);
       } catch (error) {
         log$o.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       }
+    }
+    renderLoadedExamples(container, card, result) {
+      const { examples } = result;
+      if (!examples.length) {
+        this.renderEmpty(container);
+        return;
+      }
+      this.bindExampleCarousel(container, card, result);
+    }
+    bindExampleCarousel(container, card, result) {
+      const { examples } = result;
+      let index = this.startIndex(card, examples);
+      let renderRequest = 0;
+      let hoverAudioCanPlay = false;
+      let hoverAudioActive = false;
+      requestAnimationFrame(() => {
+        hoverAudioCanPlay = !container.matches(":hover");
+      });
+      const render = (nextIndex, playAudio, promoteMiningContext = false) => {
+        const requestId = ++renderRequest;
+        index = (nextIndex + examples.length) % examples.length;
+        this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
+        bindHoverMedia();
+      };
+      container.addEventListener("click", (event) => {
+        const button2 = event.target.closest("[data-immersion-action]");
+        const media = event.target.closest(".jpdb-reader-example-media");
+        const translation = event.target.closest(".jpdb-reader-example-translation");
+        if (translation) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.toggleTranslationBlur(container);
+          return;
+        }
+        if (!button2 && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!button2) {
+          void this.playExampleAudio(examples[index]);
+          return;
+        }
+        const action = button2.dataset.immersionAction;
+        const shouldAutoPlay = this.options.getSettings().immersionKitAutoPlayAudio;
+        if (action === "previous") render(index - 1, shouldAutoPlay, true);
+        if (action === "next") render(index + 1, shouldAutoPlay, true);
+        if (action === "audio") void this.playExampleAudio(examples[index]);
+      });
+      container.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const translation = event.target.closest(".jpdb-reader-example-translation");
+        if (!translation) return;
+        event.preventDefault();
+        this.toggleTranslationBlur(container);
+      });
+      const handleImmersionHover = (event) => {
+        var _a, _b, _c;
+        const media = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, ".jpdb-reader-example-media");
+        if (!media || !this.options.getSettings().immersionKitPlayOnHover) return;
+        const pointerType = "pointerType" in event ? event.pointerType : "mouse";
+        const cannotHover = pointerType !== "mouse" && (((_c = window.matchMedia) == null ? void 0 : _c.call(window, "(hover: none)").matches) ?? false);
+        if (pointerType === "touch" || cannotHover) return;
+        if (media.contains(event.relatedTarget)) return;
+        if (!hoverAudioCanPlay) {
+          hoverAudioCanPlay = !container.contains(event.relatedTarget);
+          if (!hoverAudioCanPlay) return;
+        }
+        hoverAudioActive = true;
+        void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(":hover"));
+      };
+      const bindHoverMedia = () => {
+        container.querySelectorAll(".jpdb-reader-example-media").forEach((media) => {
+          if (media.dataset.immersionHoverBound === "true") return;
+          media.dataset.immersionHoverBound = "true";
+          media.addEventListener("pointerover", handleImmersionHover);
+          media.addEventListener("mouseover", handleImmersionHover);
+        });
+      };
+      container.addEventListener("pointerleave", () => {
+        hoverAudioCanPlay = true;
+        hoverAudioActive = false;
+      });
+      container.addEventListener("mouseleave", () => {
+        hoverAudioCanPlay = true;
+        hoverAudioActive = false;
+      });
+      render(index, false);
     }
     renderEmptyIfConnected(popover, container) {
       if (!isConnectedImmersionSurface(popover, container)) return;
@@ -15687,10 +15689,7 @@ ${entry.reading}`;
       const key = this.searchCacheKey(card, options);
       const now = Date.now();
       const cached = this.searchResultCache.get(key);
-      if (cached && cached.expiresAt > now) {
-        log$o.debug("Immersion Kit result cache hit", { term: card.spelling });
-        return cached.promise;
-      }
+      if (cached && cached.expiresAt > now) return cached.promise;
       const promise = this.fetchExamples(card, options).catch((error) => {
         var _a;
         if (((_a = this.searchResultCache.get(key)) == null ? void 0 : _a.promise) === promise) this.searchResultCache.delete(key);
@@ -15702,8 +15701,7 @@ ${entry.reading}`;
     preloadForTokens(tokens) {
       const settings = this.options.getSettings();
       if (!settings.immersionKitEnabled) return;
-      const queued = this.queuePreloads(tokens, settings);
-      if (queued) log$o.debugThrottled("immersion-preload", 2500, "Immersion Kit preloads queued", { queued });
+      this.queuePreloads(tokens, settings);
     }
     queuePreloads(tokens, settings) {
       let queued = 0;
@@ -15714,7 +15712,6 @@ ${entry.reading}`;
         queued++;
         if (queued >= 2) break;
       }
-      return queued;
     }
     nextPreloadTerm(token) {
       const term = token.card.spelling.trim();
@@ -15746,20 +15743,8 @@ ${entry.reading}`;
       triedQueries.push(query);
       try {
         const examples = await this.options.client.search(query, this.options.getSettings());
-        const accurateExamples = accurateImmersionExamples(query, examples);
-        if (!accurateExamples.length) return null;
-        return {
-          examples: accurateExamples,
-          query,
-          usedFallback: queryKey(query) !== queryKey(exactQuery),
-          triedQueries
-        };
-      } catch (error) {
-        log$o.debug("Immersion query failed, trying next query", {
-          query,
-          exactQuery,
-          error: error instanceof Error ? error.message : String(error)
-        });
+        return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
+      } catch {
         return null;
       }
     }
@@ -15781,18 +15766,18 @@ ${entry.reading}`;
     }
     async fallbackQueries(card, exactQuery) {
       const candidates = [];
-      const add = (value) => addImmersionFallbackQuery(candidates, value, exactQuery);
-      if (card.reading !== card.spelling) add(card.reading);
-      if (this.options.canParseJapanese()) {
-        const tokens = await this.fallbackParseTokens(card);
-        for (const query of fallbackTokenQueries(card, tokens)) add(query);
-      }
-      for (const fragment2 of immersionFallbackFragments(card.spelling)) add(fragment2);
+      addImmersionFallbackQuery(candidates, card.reading !== card.spelling ? card.reading : "", exactQuery);
+      await this.addParsedFallbackQueries(candidates, card, exactQuery);
+      addImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
       return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
     }
+    async addParsedFallbackQueries(candidates, card, exactQuery) {
+      if (!this.options.canParseJapanese()) return;
+      const tokens = await this.fallbackParseTokens(card);
+      addImmersionFallbackQueries(candidates, fallbackTokenQueries(card, tokens), exactQuery);
+    }
     async fallbackParseTokens(card) {
-      const [tokens] = await this.options.parseJapanese([card.spelling]).catch((error) => {
-        log$o.debug("Immersion fallback parse failed quietly", { term: card.spelling }, error);
+      const [tokens] = await this.options.parseJapanese([card.spelling]).catch(() => {
         return [[]];
       });
       return tokens ?? [];
@@ -15838,17 +15823,11 @@ ${entry.reading}`;
       const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl));
       if (storedContext) {
         this.contextByCardKey.set(cardKey$1(card), storedContext);
-        if (promoteMiningContext || !this.activeMiningContext || this.activeMiningContext.term !== card.spelling) {
-          this.activeMiningContext = storedContext;
-        }
-        log$o.debug("Immersion mining context stored", {
-          term: card.spelling,
-          sourceTitle: storedContext.sourceTitle,
-          index,
-          total,
-          active: this.activeMiningContext === storedContext
-        });
+        this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
       }
+    }
+    promoteExampleMiningContext(card, storedContext, promoteMiningContext) {
+      if (shouldPromoteExampleMiningContext(this.activeMiningContext, card, promoteMiningContext)) this.activeMiningContext = storedContext;
     }
     renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, hasAudio) {
       const language = settings.interfaceLanguage;
@@ -15948,7 +15927,7 @@ ${entry.reading}`;
         void this.options.parsePopoverJapanese(container);
         void this.options.enrichAnkiWords(tokens ?? []);
         this.options.repositionPopover();
-      }).catch((error) => log$o.debug("Immersion example sentence parse failed quietly", { term: card.spelling }, error));
+      }).catch(() => void 0);
     }
     highlightTarget(sentence, card, searchQuery = "") {
       const cardVid = String(card.vid);
@@ -15975,14 +15954,14 @@ ${entry.reading}`;
       if (!source) return;
       let requestId = 0;
       try {
-        requestId = this.startExampleAudioRequest(source.key, example);
+        requestId = this.startExampleAudioRequest(source.key);
         if (!requestId) return;
-        await this.playFetchedExampleAudio(example, source, requestId, isCurrent);
+        await this.playFetchedExampleAudio(source, requestId, isCurrent);
       } catch (error) {
         this.handleExampleAudioError(example, quiet, requestId, error);
       }
     }
-    async playFetchedExampleAudio(example, source, requestId, isCurrent) {
+    async playFetchedExampleAudio(source, requestId, isCurrent) {
       const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs);
       if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
         this.clearAudioRequestIfCurrent(requestId, source.key);
@@ -15990,7 +15969,6 @@ ${entry.reading}`;
       }
       const audio = this.attachExampleAudio(src);
       await this.playAttachedExampleAudio(audio, isCurrent);
-      if (isCurrent()) log$o.debug("Immersion Kit audio playing", { sourceTitle: example.sourceTitle, viaBlob: true });
     }
     async playAttachedExampleAudio(audio, isCurrent) {
       if (!isCurrent()) {
@@ -16001,23 +15979,22 @@ ${entry.reading}`;
       if (!isCurrent()) this.clearAudio();
     }
     handleExampleAudioError(example, quiet, requestId, error) {
-      if (!requestId || requestId === this.audioRequestId) this.clearAudio();
+      if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
       log$o.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(error instanceof Error ? error.message : "Immersion Kit audio failed.");
+    }
+    shouldClearAudioAfterExampleError(requestId) {
+      return !requestId || requestId === this.audioRequestId;
     }
     exampleAudioSource(example, quiet) {
       const urls = this.mediaUrls(example, "sound");
       const key = urls[0] ?? "";
       if (key) return { urls, key };
-      log$o.debug("Immersion Kit example has no audio", { sourceTitle: example.sourceTitle });
       if (!quiet) this.options.toast("No Immersion Kit audio for this example.");
       return null;
     }
-    startExampleAudioRequest(key, example) {
-      if (this.isAudioBusy(key)) {
-        log$o.debug("Immersion Kit audio already active", { sourceTitle: example.sourceTitle });
-        return 0;
-      }
+    startExampleAudioRequest(key) {
+      if (this.isAudioBusy(key)) return 0;
       const requestId = ++this.audioRequestId;
       this.clearAudio();
       this.audioKey = key;
@@ -16070,8 +16047,24 @@ ${entry.reading}`;
   function accurateImmersionExamples(query, examples) {
     return shouldFilterImmersionExamplesBySurface(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
   }
+  function immersionSearchResultForQuery(query, exactQuery, triedQueries, examples) {
+    const accurateExamples = accurateImmersionExamples(query, examples);
+    if (!accurateExamples.length) return null;
+    return {
+      examples: accurateExamples,
+      query,
+      usedFallback: queryKey(query) !== queryKey(exactQuery),
+      triedQueries
+    };
+  }
   function shouldFilterImmersionExamplesBySurface(query) {
     return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
+  }
+  function isPageMiningSentence(sentence, card) {
+    return Boolean(sentence && sentence !== card.spelling);
+  }
+  function shouldPromoteExampleMiningContext(activeContext, card, promoteMiningContext) {
+    return promoteMiningContext || !activeContext || activeContext.term !== card.spelling;
   }
   function pageMiningSourceKind(anchor) {
     return inferMiningSourceKind({
@@ -16086,6 +16079,9 @@ ${entry.reading}`;
   function addImmersionFallbackQuery(candidates, value, exactQuery) {
     const query = normalizeImmersionSearchQuery(value);
     if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
+  }
+  function addImmersionFallbackQueries(candidates, values, exactQuery) {
+    for (const value of values) addImmersionFallbackQuery(candidates, value, exactQuery);
   }
   function fallbackTokenQueries(card, tokens) {
     return sortedFallbackTokenCandidates(card, tokens).flatMap((item) => [
@@ -16110,10 +16106,19 @@ ${entry.reading}`;
   function renderExampleImageHtml(container, imageUrl) {
     if (!imageUrl) return "";
     const heldImage = heldExampleImage(container);
-    const mediaStyle = heldImage.minHeight > 0 ? ` style="min-height:${heldImage.minHeight}px"` : "";
-    const imageSrcAttribute = heldImage.src ? ` src="${escapeHtml$1(heldImage.src)}"` : "";
-    const holdImageAttribute = heldImage.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
-    return `<div class="jpdb-reader-example-media"${mediaStyle}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${holdImageAttribute}${imageSrcAttribute} alt="" loading="eager" decoding="async"></div>`;
+    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml$1(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async"></div>`;
+  }
+  function heldExampleMediaStyle(image) {
+    return image.minHeight > 0 ? ` style="min-height:${image.minHeight}px"` : "";
+  }
+  function heldExampleImageAttributes(image) {
+    return `${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`;
+  }
+  function heldExampleHoldAttribute(image) {
+    return image.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
+  }
+  function heldExampleSourceAttribute(image) {
+    return image.src ? ` src="${escapeHtml$1(image.src)}"` : "";
   }
   function heldExampleImage(container) {
     const currentImage = container.querySelector("[data-immersion-image]");
@@ -16548,7 +16553,6 @@ ${entry.reading}`;
       const done = log$m.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await postJson(url, token, body);
       done();
-      log$m.debug("Response received", { endpoint, status: response.status, bytes: response.text.length });
       this.assertSuccessfulResponse(response, endpoint);
       return parseJpdbApiResponse(response, endpoint, options.response);
     }
@@ -16581,15 +16585,20 @@ ${entry.reading}`;
   function parseJpdbApiResponse(response, endpoint, responseMode) {
     if (responseMode === "none" || !response.text) return void 0;
     const json = JSON.parse(response.text);
-    if (jpdbApplicationErrorMessage(json)) {
-      log$m.warn("JPDB returned application error", { endpoint, message: json.error_message });
-      throw new Error(json.error_message);
+    const errorMessage = jpdbApplicationErrorMessage(json);
+    if (errorMessage) {
+      log$m.warn("JPDB returned application error", { endpoint, message: errorMessage });
+      throw new Error(errorMessage);
     }
     return json;
   }
   function jpdbApplicationErrorMessage(value) {
-    const message = value && typeof value === "object" && "error_message" in value ? value.error_message : void 0;
-    return typeof message === "string" && Boolean(message);
+    if (!isJsonRecord(value)) return void 0;
+    const message = value.error_message;
+    return typeof message === "string" && message ? message : void 0;
+  }
+  function isJsonRecord(value) {
+    return Boolean(value && typeof value === "object");
   }
   function postJson(url, token, body) {
     const data = body ? JSON.stringify(body) : void 0;
@@ -17499,34 +17508,40 @@ ${entry.reading}`;
     root.__yomuDoodle = { resizeObserver, cleanup };
   }
   function doodleElements(root) {
-    const stage = root.querySelector(".yomu-doodle-stage, .jpdb-reader-doodle-stage");
-    const canvas = root.querySelector(".yomu-doodle-canvas, .jpdb-reader-doodle-canvas");
-    const ghost = root.querySelector(".yomu-doodle-ghost, .jpdb-reader-doodle-ghost");
-    if (!stage || !canvas || !ghost) return null;
-    const context = canvas.getContext("2d");
+    const elements = requiredDoodleElements(root);
+    if (!elements) return null;
+    const context = elements.canvas.getContext("2d");
     if (!context) return null;
     return {
-      stage,
-      canvas,
-      ghost,
+      ...elements,
       result: root.querySelector("[data-doodle-result]"),
       context
     };
   }
+  function requiredDoodleElements(root) {
+    const stage = root.querySelector(".yomu-doodle-stage, .jpdb-reader-doodle-stage");
+    const canvas = root.querySelector(".yomu-doodle-canvas, .jpdb-reader-doodle-canvas");
+    const ghost = root.querySelector(".yomu-doodle-ghost, .jpdb-reader-doodle-ghost");
+    if (!stage || !canvas || !ghost) return null;
+    return { stage, canvas, ghost };
+  }
   async function loadDoodleGhost(root, ghost, glyph, loadGhostSvg) {
-    var _a;
     if (!glyph) return unavailableDoodleGhost();
     try {
       const svg = await loadGhostSvg(glyph);
-      if (!isUsableDoodleGhostSvg(root, svg)) return unavailableDoodleGhost();
-      const info = parseKanjiVGSvg(svg, glyph);
-      setInnerHtml(ghost, (info == null ? void 0 : info.svg) ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ""));
-      const expectedStrokes = ghost.querySelectorAll("path").length;
-      (_a = root.querySelector("[data-doodle-stroke-count]")) == null ? void 0 : _a.replaceChildren(`${expectedStrokes} strokes`);
-      return { available: true, expectedStrokes };
+      return renderDoodleGhost(root, ghost, glyph, svg);
     } catch {
       return unavailableDoodleGhost();
     }
+  }
+  function renderDoodleGhost(root, ghost, glyph, svg) {
+    var _a;
+    if (!isUsableDoodleGhostSvg(root, svg)) return unavailableDoodleGhost();
+    const info = parseKanjiVGSvg(svg, glyph);
+    setInnerHtml(ghost, (info == null ? void 0 : info.svg) ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ""));
+    const expectedStrokes = ghost.querySelectorAll("path").length;
+    (_a = root.querySelector("[data-doodle-stroke-count]")) == null ? void 0 : _a.replaceChildren(`${expectedStrokes} strokes`);
+    return availableDoodleGhost(expectedStrokes);
   }
   function doodleStrokeStyle(stage) {
     return getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim() || getComputedStyle(document.documentElement).getPropertyValue("--jpdb-reader-text").trim() || "#111";
@@ -17536,6 +17551,9 @@ ${entry.reading}`;
   }
   function unavailableDoodleGhost() {
     return { available: false, expectedStrokes: 0 };
+  }
+  function availableDoodleGhost(expectedStrokes) {
+    return { available: true, expectedStrokes };
   }
   function isUsableDoodleGhostSvg(root, svg) {
     return root.isConnected && svg.includes("<svg");
