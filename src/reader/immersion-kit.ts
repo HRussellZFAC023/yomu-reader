@@ -228,18 +228,18 @@ export class ImmersionKitClient {
                                 image.loading = 'eager';
                                 image.src = url;
                             })
-                            .catch(error => log.debug('Preload image failed quietly', { query, sourceTitle: example.sourceTitle }, error));
+                            .catch(() => undefined);
                     }
 
                     const soundUrls = this.mediaUrls(example, 'sound');
                     if (soundUrls.length) {
                         void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs)
                             .then(() => undefined)
-                            .catch(error => log.debug('Preload audio failed quietly', { query, sourceTitle: example.sourceTitle }, error));
+                            .catch(() => undefined);
                     }
                 }
             })
-            .catch(error => log.debug('Preload search failed quietly', { query }, error));
+            .catch(() => undefined);
     }
 
     async fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string> {
@@ -463,7 +463,6 @@ async function requestJson(url: string | string[], timeoutMs: number): Promise<u
             return await requestJsonCandidate(candidate, timeoutMs);
         } catch (error) {
             lastError = error;
-            log.debug('JSON candidate failed; trying next', { host: safeHost(candidate) }, error);
         }
     }
     throw requestError(lastError, 'Immersion Kit request failed.');
@@ -484,7 +483,6 @@ function requestJsonCandidate(url: string, timeoutMs: number): Promise<unknown> 
         return requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest)
             .catch(error => {
                 if (!canUsePageFetch(requestUrl) || !isUserscriptTransportError(error)) throw error;
-                log.debug('JSON request via userscript API failed; retrying with fetch', { host: safeHost(url), error: String(error instanceof Error ? error.message : error) });
                 return requestImmersionJsonViaFetch(requestUrl, timeoutMs);
             });
     }
@@ -502,7 +500,6 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
         return requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest)
             .catch(error => {
                 if (!canUsePageFetch(requestUrl) || !isUserscriptTransportError(error)) throw error;
-                log.debug('Media request via userscript API failed; retrying with fetch', { host: safeHost(url), error: String(error instanceof Error ? error.message : error) });
                 return requestImmersionBlobViaFetch(requestUrl, timeoutMs);
             });
     }
@@ -637,7 +634,6 @@ async function requestFirstBlob(urls: string | string[], timeoutMs: number): Pro
             return await requestBlob(url, timeoutMs);
         } catch (error) {
             lastError = error;
-            log.debugThrottled('media-candidate-failed', 5000, 'Media candidate failed; trying next', { host: safeHost(url), candidates: candidates.length }, error);
         }
     }
     throw requestError(lastError, 'No Immersion Kit media candidate could be loaded.');

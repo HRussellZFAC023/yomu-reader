@@ -33,15 +33,12 @@ export function immersionSentenceContainsQuery(sentence: string, query: string):
 }
 
 export function isUsefulImmersionFallbackQuery(query: string, exactQuery: string): boolean {
-    if (!query || queryKey(query) === queryKey(exactQuery) || !HAS_JAPANESE.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
+    if (isSameImmersionQuery(query, exactQuery)) return false;
+    return isUsefulStandaloneImmersionQuery(query);
 }
 
 export function isUsefulImmersionPreloadQuery(query: string): boolean {
-    if (!query || !HAS_JAPANESE.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
+    return isUsefulStandaloneImmersionQuery(query);
 }
 
 export function uniqueImmersionQueries(values: string[]): string[] {
@@ -61,16 +58,34 @@ export function immersionFallbackFragments(value: string): string[] {
     const fragments: string[] = [];
     const runs = normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE) ?? [];
     for (const run of runs) {
-        const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE) ?? [];
-        fragments.push(...scriptGroups);
-        if (scriptGroups.length > 1) {
-            fragments.push(...scriptGroups.filter(queryHasKanji));
-        }
+        fragments.push(...scriptGroupFallbackFragments(run));
     }
     return uniqueImmersionQueries(fragments)
-        .sort((a, b) => Number(queryHasKanji(b)) - Number(queryHasKanji(a)) || queryLength(b) - queryLength(a));
+        .sort(compareImmersionFallbackFragments);
 }
 
 function normalizeImmersionSurface(value: string): string {
     return value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+}
+
+function isSameImmersionQuery(query: string, exactQuery: string): boolean {
+    return queryKey(query) === queryKey(exactQuery);
+}
+
+function isUsefulStandaloneImmersionQuery(query: string): boolean {
+    if (!query || !HAS_JAPANESE.test(query)) return false;
+    if (COMMON_PARTICLES.has(queryKey(query))) return false;
+    return queryLength(query) >= 2;
+}
+
+function scriptGroupFallbackFragments(run: string): string[] {
+    const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE) ?? [];
+    if (scriptGroups.length <= 1) return scriptGroups;
+    return [...scriptGroups, ...scriptGroups.filter(queryHasKanji)];
+}
+
+function compareImmersionFallbackFragments(a: string, b: string): number {
+    const kanjiOrder = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
+    if (kanjiOrder) return kanjiOrder;
+    return queryLength(b) - queryLength(a);
 }
