@@ -185,6 +185,10 @@ export interface FragmentTextTarget {
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
 
+interface TextTargetCollectionOptions {
+    includeReaderRoot?: boolean;
+}
+
 export function getSelectionText(): string {
     const selection = window.getSelection();
     return selection?.toString().replace(/\s+/g, ' ').trim() ?? '';
@@ -239,44 +243,96 @@ function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
     let inspected = 0;
     let node: Node | null;
     while ((node = walker.nextNode())) {
-        const text = node.textContent ?? '';
+        const text = nodeTextContent(node);
         if (HAS_JAPANESE.test(text)) return true;
-        inspected += text.length;
+        inspected = inspectedTextLength(inspected, text);
         if (inspected >= limit) return false;
     }
     return false;
 }
 
-export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: { includeReaderRoot?: boolean } = {}): TextTarget[] {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-            const text = node.textContent?.trim() ?? '';
-            if (text.length < 2 || !HAS_JAPANESE.test(text)) return NodeFilter.FILTER_REJECT;
+function nodeTextContent(node: Node): string {
+    return node.textContent ?? '';
+}
 
-            const parent = node.parentElement;
-            if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
-            if (!options.includeReaderRoot && parent.closest(READER_ROOT_SELECTOR)) return NodeFilter.FILTER_REJECT;
-            if (visibleOnly && !isVisible(parent)) return NodeFilter.FILTER_REJECT;
-            if (isFragileUiText(parent, text)) return NodeFilter.FILTER_REJECT;
-            if (parent.childNodes.length > 6) return NodeFilter.FILTER_SKIP;
-            return NodeFilter.FILTER_ACCEPT;
-        },
-    });
+function inspectedTextLength(inspected: number, text: string): number {
+    return inspected + text.length;
+}
 
+export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: TextTargetCollectionOptions = {}): TextTarget[] {
+    const walker = textTargetWalker(root, visibleOnly, options);
     const targets: TextTarget[] = [];
     let node: Node | null;
-    while ((node = walker.nextNode()) && targets.length < limit) {
-        const text = node.textContent?.trim() ?? '';
-        const parent = node.parentElement;
-        if (parent) targets.push({
-            node: node as Text,
-            text,
-            parent,
-            hasNativeRuby: Boolean(parent.closest('ruby')),
-            suppressRuby: shouldSuppressInjectedRuby(parent),
-        });
+    while (targets.length < limit) {
+        node = walker.nextNode();
+        if (!node) break;
+        const target = textTargetFromAcceptedNode(node);
+        if (target) targets.push(target);
     }
     return targets;
+}
+
+function textTargetWalker(root: Node, visibleOnly: boolean, options: TextTargetCollectionOptions): TreeWalker {
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => textTargetFilterResult(node, visibleOnly, options),
+    });
+}
+
+function textTargetFilterResult(node: Node, visibleOnly: boolean, options: TextTargetCollectionOptions): number {
+    const text = nodeTextContent(node).trim();
+    if (!isCandidateScanText(text)) return NodeFilter.FILTER_REJECT;
+
+    const parent = node.parentElement;
+    if (!parent) return NodeFilter.FILTER_REJECT;
+    return textTargetParentFilterResult(parent, text, visibleOnly, options);
+}
+
+function isCandidateScanText(text: string): boolean {
+    if (text.length < 2) return false;
+    return HAS_JAPANESE.test(text);
+}
+
+function textTargetParentFilterResult(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): number {
+    if (shouldRejectTextTargetParent(parent, text, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
+    if (shouldSkipTextTargetParent(parent)) return NodeFilter.FILTER_SKIP;
+    return NodeFilter.FILTER_ACCEPT;
+}
+
+function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
+    if (parent.closest(SKIP_SELECTOR)) return true;
+    if (isInsideExcludedReaderRoot(parent, options)) return true;
+    return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
+}
+
+function isInsideExcludedReaderRoot(parent: HTMLElement, options: TextTargetCollectionOptions): boolean {
+    if (options.includeReaderRoot) return false;
+    return Boolean(parent.closest(READER_ROOT_SELECTOR));
+}
+
+function shouldRejectTextTargetPresentation(parent: HTMLElement, text: string, visibleOnly: boolean): boolean {
+    if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
+    return isFragileUiText(parent, text);
+}
+
+function shouldSkipTextTargetParent(parent: HTMLElement): boolean {
+    return parent.childNodes.length > 6;
+}
+
+function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boolean): boolean {
+    if (!visibleOnly) return false;
+    return !isVisible(parent);
+}
+
+function textTargetFromAcceptedNode(node: Node): TextTarget | null {
+    const parent = node.parentElement;
+    if (!parent) return null;
+    return {
+        node: node as Text,
+        text: nodeTextContent(node).trim(),
+        parent,
+        hasNativeRuby: Boolean(parent.closest('ruby')),
+        suppressRuby: shouldSuppressInjectedRuby(parent),
+    };
 }
 
 export function collectFragmentTextTargetsIn(
@@ -380,8 +436,8 @@ function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
 function trimFragmentStart(fragments: TextFragment[]): void {
     while (fragments.length) {
         const first = fragments[0];
-        while (first.start < first.end && isWhitespaceAt(first.node.data, first.start)) first.start += 1;
-        if (first.start < first.end) break;
+        trimFragmentLeadingWhitespace(first);
+        if (hasFragmentText(first)) break;
         fragments.shift();
     }
 }
@@ -389,10 +445,30 @@ function trimFragmentStart(fragments: TextFragment[]): void {
 function trimFragmentEnd(fragments: TextFragment[]): void {
     while (fragments.length) {
         const last = fragments[fragments.length - 1];
-        while (last.end > last.start && isWhitespaceAt(last.node.data, last.end - 1)) last.end -= 1;
-        if (last.start < last.end) break;
+        trimFragmentTrailingWhitespace(last);
+        if (hasFragmentText(last)) break;
         fragments.pop();
     }
+}
+
+function trimFragmentLeadingWhitespace(fragment: TextFragment): void {
+    while (fragmentHasLeadingWhitespace(fragment)) fragment.start += 1;
+}
+
+function trimFragmentTrailingWhitespace(fragment: TextFragment): void {
+    while (fragmentHasTrailingWhitespace(fragment)) fragment.end -= 1;
+}
+
+function fragmentHasLeadingWhitespace(fragment: TextFragment): boolean {
+    return hasFragmentText(fragment) && isWhitespaceAt(fragment.node.data, fragment.start);
+}
+
+function fragmentHasTrailingWhitespace(fragment: TextFragment): boolean {
+    return hasFragmentText(fragment) && isWhitespaceAt(fragment.node.data, fragment.end - 1);
+}
+
+function hasFragmentText(fragment: TextFragment): boolean {
+    return fragment.start < fragment.end;
 }
 
 function isWhitespaceAt(value: string, index: number): boolean {
@@ -450,12 +526,17 @@ export function nearestReadableSentenceForElement(element: HTMLElement, fallback
 function nearestReadableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
     let current: HTMLElement | null = element.parentElement;
 
-    while (current && current !== document.body && current !== document.documentElement) {
+    while (isReadableAncestorCandidate(current)) {
         const sentence = readableAncestorSentence(current, surface, cleanFallback);
         if (sentence) return sentence;
         current = current.parentElement;
     }
     return '';
+}
+
+function isReadableAncestorCandidate(element: HTMLElement | null): element is HTMLElement {
+    if (!element) return false;
+    return element !== document.body && element !== document.documentElement;
 }
 
 function readableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
@@ -478,7 +559,7 @@ export function sentenceAroundSurface(value: string, surface = '', fallback = ''
     if (!isJapaneseSentenceContext(text)) return '';
 
     const search = sentenceSearchText(text, surface, fallback);
-    const index = search ? text.indexOf(search) : 0;
+    const index = sentenceSearchIndex(text, search);
     if (index < 0) return clampContextText(text);
 
     const hardBounded = hardBoundedSentence(text, index, search.length);
@@ -488,6 +569,11 @@ export function sentenceAroundSurface(value: string, surface = '', fallback = ''
     return clampLongSentence(hardClean, search);
 }
 
+function sentenceSearchIndex(text: string, search: string): number {
+    if (!search) return 0;
+    return text.indexOf(search);
+}
+
 function isJapaneseSentenceContext(text: string): boolean {
     return Boolean(text && HAS_JAPANESE.test(text));
 }
@@ -495,8 +581,14 @@ function isJapaneseSentenceContext(text: string): boolean {
 function sentenceSearchText(text: string, surface: string, fallback: string): string {
     const cleanSurface = cleanReadableSentence(surface);
     const cleanFallback = cleanReadableSentence(fallback);
-    if (cleanSurface && text.includes(cleanSurface)) return cleanSurface;
-    return cleanFallback && text.includes(cleanFallback) ? cleanFallback : '';
+    if (textIncludesSearch(text, cleanSurface)) return cleanSurface;
+    if (textIncludesSearch(text, cleanFallback)) return cleanFallback;
+    return '';
+}
+
+function textIncludesSearch(text: string, search: string): boolean {
+    if (!search) return false;
+    return text.includes(search);
 }
 
 function clampContextText(text: string): string {
@@ -524,10 +616,13 @@ function isRicherThanFallback(sentence: string, fallback: string): boolean {
 }
 
 function readableSurfaceText(node: Node): string {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+    if (node.nodeType === Node.TEXT_NODE) return nodeTextContent(node);
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
-    const element = node as Element;
+    return readableElementSurfaceText(node as Element);
+}
+
+function readableElementSurfaceText(element: Element): string {
     if (isIgnoredReadableElement(element)) return '';
 
     let text = '';
@@ -714,9 +809,16 @@ function attachableFragmentRange(
     start: { fragment: IndexedTextFragment; localOffset: number } | null,
     end: { fragment: IndexedTextFragment; localOffset: number } | null,
 ): { start: FragmentBoundaryMatch; end: FragmentBoundaryMatch } | null {
-    return start && end && start.fragment.node.parentElement && end.fragment.node.parentElement
-        ? { start, end }
-        : null;
+    const attachedStart = attachedFragmentBoundary(start);
+    const attachedEnd = attachedFragmentBoundary(end);
+    if (!attachedStart || !attachedEnd) return null;
+    return { start: attachedStart, end: attachedEnd };
+}
+
+function attachedFragmentBoundary(boundary: FragmentBoundaryMatch | null): FragmentBoundaryMatch | null {
+    if (!boundary) return null;
+    if (!boundary.fragment.node.parentElement) return null;
+    return boundary;
 }
 
 function insertSingleFragmentToken(
@@ -819,11 +921,19 @@ function appendFragmentToken(
 }
 
 function fragmentTokenAllowsRuby(target: FragmentTextTarget, fragment: TextFragment, token: JPDBToken, overlapStart: number, overlapEnd: number): boolean {
-    return overlapStart === token.start
-        && overlapEnd === token.end
-        && !fragment.hasNativeRuby
-        && !fragment.suppressRuby
-        && !target.suppressRuby;
+    if (!tokenCoversFragmentOverlap(token, overlapStart, overlapEnd)) return false;
+    return fragmentAllowsInjectedRuby(target, fragment);
+}
+
+function tokenCoversFragmentOverlap(token: JPDBToken, overlapStart: number, overlapEnd: number): boolean {
+    if (overlapStart !== token.start) return false;
+    return overlapEnd === token.end;
+}
+
+function fragmentAllowsInjectedRuby(target: FragmentTextTarget, fragment: TextFragment): boolean {
+    if (fragment.hasNativeRuby) return false;
+    if (fragment.suppressRuby) return false;
+    return !target.suppressRuby;
 }
 
 type IndexedTextFragment = TextFragment & {
@@ -890,8 +1000,6 @@ function leadingEdgeFragmentBoundary(fragments: IndexedTextFragment[], offset: n
 }
 
 export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: ReaderSettings): string {
-    if (!tokens.length) return escapeHtml(text);
-
     let html = '';
     let offset = 0;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
@@ -901,7 +1009,6 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
-    log.debugThrottled('render-token-html', 1000, 'Rendered token HTML', { tokens: safeTokens.length, textLength: text.length, htmlLength: html.length });
     return html;
 }
 
@@ -1025,11 +1132,14 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
 }
 
 function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
-    if (!allowRuby || !token.rubies.length) return false;
-    const mode = effectiveFuriganaMode(settings);
+    if (!allowRuby) return false;
+    if (!token.rubies.length) return false;
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface);
+}
+
+function furiganaModeAllowsRuby(mode: string, surface: string): boolean {
     if (mode === 'off') return false;
-    if (mode === 'difficult-kanji') return hasDifficultKanji(surface);
-    return true;
+    return mode !== 'difficult-kanji' || hasDifficultKanji(surface);
 }
 
 function hasDifficultKanji(surface: string): boolean {
@@ -1090,7 +1200,10 @@ function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (v
 function nodeLabel(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) return '#text';
     if (node.nodeType !== Node.ELEMENT_NODE) return node.nodeName.toLowerCase();
-    const element = node as Element;
+    return elementNodeLabel(node as Element);
+}
+
+function elementNodeLabel(element: Element): string {
     const id = element.id ? `#${element.id}` : '';
     const classes = element.classList.length ? `.${[...element.classList].slice(0, 3).join('.')}` : '';
     return `${element.tagName.toLowerCase()}${id}${classes}`;
@@ -1122,13 +1235,14 @@ function isParagraphBoundary(element: HTMLElement): boolean {
 }
 
 function isInlineDisplay(display: string): boolean {
-    return display === 'inline' || display === 'contents' || display === 'inline-block' || display === 'inline-flex' || display === 'inline-grid';
+    return INLINE_DISPLAY_VALUES.has(display);
 }
 
 function isBlockLikeDisplay(display: string): boolean {
     return BLOCK_LIKE_DISPLAY_VALUES.has(display);
 }
 
+const INLINE_DISPLAY_VALUES = new Set(['inline', 'contents', 'inline-block', 'inline-flex', 'inline-grid']);
 const BLOCK_LIKE_DISPLAY_VALUES = new Set(['block', 'flow-root', 'grid', 'list-item', 'table', 'table-row', 'table-cell']);
 
 function isFragileUiText(element: HTMLElement, text: string): boolean {
@@ -1141,9 +1255,9 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
 }
 
 function isFragileUiContext(element: HTMLElement, text: string): boolean {
-    return UI_CLASS_RE.test(element.className || '')
-        || (text.length <= 4 && ancestorClassLooksLikeUi(element))
-        || isInsideControlLikeLink(element, text);
+    if (UI_CLASS_RE.test(String(element.className))) return true;
+    if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
+    return isInsideControlLikeLink(element, text);
 }
 
 function fragileTextMetrics(element: HTMLElement, text: string): {
@@ -1183,8 +1297,9 @@ function fragileByTypography(
 ): boolean {
     const centered = style.textAlign === 'center';
     const heading = DISPLAY_HEADING_RE.test(element.tagName);
-    if (heading && isReadableArticleHeading(element, compactLength)) return false;
-    if (heading && fragileHeadingTypography(centered, compactLength, fontSize, lineHeight)) return true;
+    if (!heading) return fragileCenteredNonProseTypography(style, centered, compactLength, fontSize, prose);
+    if (isReadableArticleHeading(element, compactLength)) return false;
+    if (fragileHeadingTypography(centered, compactLength, fontSize, lineHeight)) return true;
     return fragileCenteredNonProseTypography(style, centered, compactLength, fontSize, prose);
 }
 
@@ -1208,11 +1323,16 @@ function isReadableArticleHeading(element: HTMLElement, compactLength: number): 
 
 function shouldSuppressInjectedRuby(element: HTMLElement): boolean {
     let current: HTMLElement | null = element;
-    while (current && current !== document.body) {
-        if (DISPLAY_HEADING_RE.test(current.tagName) || isClippedLineBox(current)) return true;
+    while (current) {
+        if (current === document.body) break;
+        if (shouldSuppressRubyAtAncestor(current)) return true;
         current = current.parentElement;
     }
     return false;
+}
+
+function shouldSuppressRubyAtAncestor(element: HTMLElement): boolean {
+    return DISPLAY_HEADING_RE.test(element.tagName) || isClippedLineBox(element);
 }
 
 function isClippedLineBox(element: HTMLElement): boolean {
@@ -1244,11 +1364,13 @@ function isWithinFourLines(size: number, lineHeight: number): boolean {
 }
 
 function hasUiBox(style: CSSStyleDeclaration): boolean {
-    return style.backgroundColor !== 'rgba(0, 0, 0, 0)'
-        || style.borderTopStyle !== 'none'
-        || Number(style.borderTopWidth.replace('px', '')) > 0
-        || Number(style.borderBottomWidth.replace('px', '')) > 0
-        || Number.parseFloat(style.borderRadius) > 0;
+    return [
+        style.backgroundColor !== 'rgba(0, 0, 0, 0)',
+        style.borderTopStyle !== 'none',
+        Number(style.borderTopWidth.replace('px', '')) > 0,
+        Number(style.borderBottomWidth.replace('px', '')) > 0,
+        Number.parseFloat(style.borderRadius) > 0,
+    ].some(Boolean);
 }
 
 function hasInlineControlShape(display: string): boolean {
@@ -1267,8 +1389,9 @@ function cssPixels(value: string): number {
 
 function ancestorClassLooksLikeUi(element: HTMLElement): boolean {
     let current: HTMLElement | null = element;
-    while (current && current !== document.body) {
-        if (UI_CLASS_RE.test(current.className || '')) return true;
+    while (current) {
+        if (current === document.body) break;
+        if (UI_CLASS_RE.test(String(current.className))) return true;
         current = current.parentElement;
     }
     return false;
