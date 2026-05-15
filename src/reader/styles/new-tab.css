@@ -273,7 +273,6 @@
   align-content: center;
   gap: clamp(6px, 1.1vh, 12px);
   padding-bottom: clamp(76px, 11vh, 132px);
-  transform: translateY(calc(-1 * clamp(18px, 4vh, 54px)));
 }
 
 .jpdb-reader-newtab-count,
