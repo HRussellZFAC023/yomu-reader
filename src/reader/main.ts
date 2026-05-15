@@ -97,18 +97,13 @@ import { RtkClient, type RtkInfo } from './rtk';
 import { ReaderParser, fallbackLookupTermAtOffset } from './reader-parser';
 import {
     DEFAULT_SETTINGS,
-    accentToRgba,
     applyUrlBootstrapSettings,
-    effectiveFuriganaMode,
-    effectiveReaderColorSource,
-    effectiveSubtitleColorSource,
-    effectiveWordHighlightMode,
     loadSettings,
     matchesShortcut,
-    sanitizeAccentColor,
     saveSettings,
     shortcutIsPressed,
 } from './settings';
+import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
 import { SettingsDialogController } from './settings-dialog-controller';
 import { collectScanTargets, collectSiteScanTargets } from './site-parsers';
 import {
@@ -134,7 +129,7 @@ import {
 import { READER_CSS } from './styles';
 import { detectGrammarHints, mergeGrammarHints, renderGrammarHints, translateJapaneseSentence, type GrammarHint } from './study-tools';
 import { SubtitlePlayerController } from './subtitles';
-import type { InterfaceLanguage, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderColorSource, ReaderSettings } from './types';
+import type { InterfaceLanguage, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { YoutubeImmersionFilter } from './youtube';
 import {
     YomitanDictionaryStore,
@@ -151,9 +146,6 @@ const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
 const TERM_AUDIO_PRELOAD_LIMIT = 8;
 const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
-const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
-const COLOR_CHANNELS = ['highlight', 'underline', 'text'] as const;
-type ColorChannel = typeof COLOR_CHANNELS[number];
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
 
 const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
@@ -868,43 +860,14 @@ export class ReaderApp {
     }
 
     private applyTheme(): void {
-        this.applyAccentColor(this.settings.accentColor);
-        this.applyWordColors();
-        document.documentElement.classList.toggle('jpdb-reader-theme-dark', this.settings.theme === 'dark');
-        document.documentElement.classList.toggle('jpdb-reader-theme-light', this.settings.theme === 'light');
-        const furiganaMode = effectiveFuriganaMode(this.settings);
-        const wordHighlightMode = effectiveWordHighlightMode(this.settings);
-        const wordColorSources = {
-            highlight: effectiveReaderColorSource(this.settings, this.settings.wordHighlightColorSource),
-            underline: effectiveReaderColorSource(this.settings, this.settings.wordUnderlineColorSource),
-            text: effectiveReaderColorSource(this.settings, this.settings.wordTextColorSource),
-        } satisfies Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>;
-        const subtitleColorSources = {
-            highlight: effectiveSubtitleColorSource(this.settings, this.settings.subtitleHighlightColorSource),
-            underline: effectiveSubtitleColorSource(this.settings, this.settings.subtitleUnderlineColorSource),
-            text: effectiveSubtitleColorSource(this.settings, this.settings.subtitleTextColorSource),
-        } satisfies Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>;
-        document.documentElement.classList.toggle('jpdb-reader-hide-known', furiganaMode === 'known-status');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-status', wordHighlightMode === 'status');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-pitch', wordHighlightMode === 'pitch');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-off', wordHighlightMode === 'off');
-        this.applyColorSourceClasses('word', wordColorSources);
-        this.applyColorSourceClasses('subtitle', subtitleColorSources);
+        const theme = applyReaderTheme(this.settings);
         log.debug('Theme applied', {
             theme: this.settings.theme,
             popupMode: this.settings.popupMode,
-            furiganaMode,
-            wordHighlightMode,
-            wordColorSources,
-            subtitleColorSources,
-        });
-    }
-
-    private applyColorSourceClasses(scope: 'word' | 'subtitle', sources: Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>): void {
-        COLOR_CHANNELS.forEach(channel => {
-            COLOR_SOURCE_CLASSES.forEach(source => {
-                document.documentElement.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
-            });
+            furiganaMode: theme.furiganaMode,
+            wordHighlightMode: theme.wordHighlightMode,
+            wordColorSources: theme.wordColorSources,
+            subtitleColorSources: theme.subtitleColorSources,
         });
     }
 
@@ -975,37 +938,11 @@ export class ReaderApp {
     }
 
     private applyAccentColor(color: string): void {
-        const accentColor = sanitizeAccentColor(color);
-        document.documentElement.style.setProperty('--jpdb-reader-accent', accentColor);
-        document.documentElement.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18));
+        applyReaderAccentColor(color);
     }
 
     private applyWordColors(settings = this.settings): void {
-        const colorMap = {
-            new: sanitizeAccentColor(settings.wordColorNew),
-            learning: sanitizeAccentColor(settings.wordColorLearning),
-            known: sanitizeAccentColor(settings.wordColorKnown),
-            due: sanitizeAccentColor(settings.wordColorDue),
-            failed: sanitizeAccentColor(settings.wordColorFailed),
-            ignored: sanitizeAccentColor(settings.wordColorIgnored),
-        };
-        Object.entries(colorMap).forEach(([state, color]) => {
-            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}`, color);
-            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-soft`, accentToRgba(color, 0.16));
-            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-strong`, accentToRgba(color, 0.28));
-        });
-        const pitchColorMap = {
-            heiban: { color: sanitizeAccentColor(settings.pitchColorHeiban), alpha: 0.14 },
-            atamadaka: { color: sanitizeAccentColor(settings.pitchColorAtamadaka), alpha: 0.14 },
-            nakadaka: { color: sanitizeAccentColor(settings.pitchColorNakadaka), alpha: 0.16 },
-            odaka: { color: sanitizeAccentColor(settings.pitchColorOdaka), alpha: 0.14 },
-            kifuku: { color: sanitizeAccentColor(settings.pitchColorKifuku), alpha: 0.14 },
-            unknown: { color: sanitizeAccentColor(settings.pitchColorUnknown), alpha: 0 },
-        };
-        Object.entries(pitchColorMap).forEach(([pattern, { color, alpha }]) => {
-            document.documentElement.style.setProperty(`--jpdb-reader-pitch-${pattern}`, color);
-            document.documentElement.style.setProperty(`--jpdb-reader-pitch-${pattern}-soft`, alpha > 0 ? accentToRgba(color, alpha) : 'transparent');
-        });
+        applyReaderWordColors(settings);
     }
 
     private installFab(): void {
