@@ -1,5 +1,4 @@
 import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
-import { isYomuNewTabUrl } from './new-tab';
 
 const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
 
@@ -59,6 +58,18 @@ function normalizedPath(pathname: string): string {
 
 function isYomuVideoPlayerPath(path: string): boolean {
     return path.endsWith('/video-player/');
+}
+
+function isYomuNewTabUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+        const path = normalizedPath(url.pathname);
+        return url.searchParams.has('yomu-newtab')
+            || path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`)
+            || path.endsWith('/newtab/');
+    } catch {
+        return false;
+    }
 }
 
 function isYomuLocalAppPath(path: string): boolean {
