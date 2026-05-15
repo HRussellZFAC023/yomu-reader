@@ -11,7 +11,6 @@ import {
     HAS_JAPANESE,
     appendToDocumentHead,
     applyTokensToScanTarget,
-    collectFragmentTextTargetsIn,
     documentHasJapaneseText,
     collectTextTargetsIn,
     collectVisibleTextTargets,
@@ -62,6 +61,7 @@ import {
     type MiningContext,
 } from './mining-context';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, nestedParseAlreadyScheduled, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
@@ -300,30 +300,6 @@ function mountedHoverPointerPosition(
     return state.mode === 'hover' && hoverPointerPosition ? { ...hoverPointerPosition } : undefined;
 }
 
-function popoverNestedParsePlan(popover: HTMLElement): NestedParsePlan | null {
-    const targets = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
-        .flatMap(root => collectFragmentTextTargetsIn(root, 24, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
-        .slice(0, 24);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
-}
-
-function nestedParseKey(targets: ScanTextTarget[]): string {
-    return targets.map(target => target.text).join('\n\n');
-}
-
-function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {
-    return root.dataset.jpdbReaderParseKey === parseKey
-        || root.dataset.jpdbReaderParseLoadingKey === parseKey;
-}
-
-function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][], settings: ReaderSettings): void {
-    plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
-}
-
-function clearNestedParseLoadingKey(root: HTMLElement, parseKey: string): void {
-    if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
-}
-
 interface KanjiDetailPromises {
     jpdbInfo: Promise<JpdbKanjiInfo | null>;
     kanjiEntries: Promise<YomitanKanjiEntry[]>;
@@ -465,11 +441,6 @@ interface MountedCardShell {
 interface StudyTranslationResult {
     tokens: JPDBToken[];
     translated: string;
-}
-
-interface NestedParsePlan {
-    targets: ScanTextTarget[];
-    parseKey: string;
 }
 
 interface MountPopoverOptions {
@@ -4273,16 +4244,15 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
-        const plan = popoverNestedParsePlan(popover);
+        const plan = nestedTextParsePlan(popover, 24);
         if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover), 'Popover');
+        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
     }
 
     private async parseNestedJapaneseContent(
         root: HTMLElement,
         plan: NestedParsePlan,
         isCurrent: () => boolean,
-        label: 'Popover' | 'New tab',
     ): Promise<void> {
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
@@ -4290,19 +4260,19 @@ export class ReaderApp {
             if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
-            this.afterNestedJapaneseParsed(plan, parsed, label);
+            this.afterNestedJapaneseParsed(plan, parsed);
         } catch (error) {
-            log.debug(`${label} nested text parsing failed quietly`, error);
+            log.debug('Popover nested text parsing failed quietly', error);
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey);
         }
     }
 
-    private afterNestedJapaneseParsed(plan: NestedParsePlan, parsed: JPDBToken[][], label: 'Popover' | 'New tab'): void {
+    private afterNestedJapaneseParsed(plan: NestedParsePlan, parsed: JPDBToken[][]): void {
         const tokens = parsed.flat();
         this.preloadTermAudioForTokens(tokens);
         void this.enrichAnkiWords(tokens);
-        log.debug(`${label} nested text parsed`, { targets: plan.targets.length, tokens: tokens.length });
+        log.debug('Popover nested text parsed', { targets: plan.targets.length, tokens: tokens.length });
     }
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {

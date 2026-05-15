@@ -21036,6 +21036,23 @@ ${normalizedReading}`;
     if (mutation.type === "attributes") return HAS_JAPANESE.test(mutation.target.textContent ?? "");
     return Array.from(mutation.addedNodes).some((node) => HAS_JAPANESE.test(node.textContent ?? ""));
   }
+  const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
+  function nestedTextParsePlan(root, limit) {
+    const targets = Array.from(root.querySelectorAll(PARSEABLE_SELECTOR)).flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, "", { includeReaderRoot: true, allowUiText: true, minLength: 1 })).slice(0, limit);
+    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  }
+  function nestedParseAlreadyScheduled(root, parseKey) {
+    return root.dataset.jpdbReaderParseKey === parseKey || root.dataset.jpdbReaderParseLoadingKey === parseKey;
+  }
+  function applyNestedParsePlan(plan, parsed, settings) {
+    plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
+  }
+  function clearNestedParseLoadingKey(root, parseKey) {
+    if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
+  }
+  function nestedParseKey(targets) {
+    return targets.map((target) => target.text).join("\n\n");
+  }
   const log$b = Logger.scope("Onboarding");
   function selectedOnboardingLanguage(value, fallback) {
     return value === "en" || value === "ja" || value === "auto" ? value : fallback;
@@ -31992,22 +32009,6 @@ ${spelling}`);
     const hoverPointerPosition = state.previousHoverPointerPosition ?? lastPointerPosition;
     return state.mode === "hover" && hoverPointerPosition ? { ...hoverPointerPosition } : void 0;
   }
-  function popoverNestedParsePlan(popover) {
-    const targets = Array.from(popover.querySelectorAll(".jpdb-reader-parseable")).flatMap((root) => collectFragmentTextTargetsIn(root, 24, false, "", { includeReaderRoot: true, allowUiText: true, minLength: 1 })).slice(0, 24);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
-  }
-  function nestedParseKey(targets) {
-    return targets.map((target) => target.text).join("\n\n");
-  }
-  function nestedParseAlreadyScheduled(root, parseKey) {
-    return root.dataset.jpdbReaderParseKey === parseKey || root.dataset.jpdbReaderParseLoadingKey === parseKey;
-  }
-  function applyNestedParsePlan(plan, parsed, settings) {
-    plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
-  }
-  function clearNestedParseLoadingKey(root, parseKey) {
-    if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
-  }
   function canSchedulePointerTextHoverLookup(hoverEnabled, candidate) {
     return hoverEnabled && Boolean(candidate);
   }
@@ -35204,29 +35205,29 @@ ${spelling}`);
     }
     async parsePopoverJapanese(popover) {
       if (!this.isCurrentPopoverRoot(popover)) return;
-      const plan = popoverNestedParsePlan(popover);
+      const plan = nestedTextParsePlan(popover, 24);
       if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
-      await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover), "Popover");
+      await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
     }
-    async parseNestedJapaneseContent(root, plan, isCurrent, label) {
+    async parseNestedJapaneseContent(root, plan, isCurrent) {
       root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
       try {
         const parsed = await this.parseJapanese(plan.targets.map((target) => target.text));
         if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
         applyNestedParsePlan(plan, parsed, this.settings);
         root.dataset.jpdbReaderParseKey = plan.parseKey;
-        this.afterNestedJapaneseParsed(plan, parsed, label);
+        this.afterNestedJapaneseParsed(plan, parsed);
       } catch (error) {
-        log$1.debug(`${label} nested text parsing failed quietly`, error);
+        log$1.debug("Popover nested text parsing failed quietly", error);
       } finally {
         clearNestedParseLoadingKey(root, plan.parseKey);
       }
     }
-    afterNestedJapaneseParsed(plan, parsed, label) {
+    afterNestedJapaneseParsed(plan, parsed) {
       const tokens = parsed.flat();
       this.preloadTermAudioForTokens(tokens);
       void this.enrichAnkiWords(tokens);
-      log$1.debug(`${label} nested text parsed`, { targets: plan.targets.length, tokens: tokens.length });
+      log$1.debug("Popover nested text parsed", { targets: plan.targets.length, tokens: tokens.length });
     }
     isCurrentPopoverRoot(root) {
       return Boolean(root.isConnected && this.activePopover && (root === this.activePopover || this.activePopover.contains(root)));

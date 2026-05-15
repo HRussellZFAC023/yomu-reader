@@ -1,12 +1,13 @@
 import { AudioPlayer } from './audio';
 import { AnkiConnectClient } from './anki';
-import { appendToDocumentHead, applyTokensToScanTarget, collectFragmentTextTargetsIn, type ScanTextTarget } from './dom';
+import { appendToDocumentHead } from './dom';
 import { ImmersionKitClient } from './immersion-kit';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient } from './jpdb-kanji';
 import { createJpdbReviewBridgeClient } from './jpdb-review-bridge';
 import { KanjiVGClient } from './kanjivg';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, nestedParseAlreadyScheduled, nestedTextParsePlan } from './nested-text-parse';
 import { NewTabController } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
 import { createReaderBackdrop } from './popover-shell';
@@ -19,15 +20,10 @@ import {
 } from './settings';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
 import { SettingsDialogController } from './settings-dialog-controller';
-import type { InterfaceLanguage, JPDBToken, ReaderSettings } from './types';
+import type { InterfaceLanguage, ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
 
 const log = Logger.scope('NewTabRuntime');
-
-interface NestedParsePlan {
-    targets: ScanTextTarget[];
-    parseKey: string;
-}
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -235,7 +231,7 @@ class NewTabRuntime {
 
     private async parseNewTabContent(root: HTMLElement): Promise<void> {
         if (!root.isConnected || !this.parser.canParse()) return;
-        const plan = newTabNestedParsePlan(root);
+        const plan = nestedTextParsePlan(root, 36);
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
@@ -257,28 +253,4 @@ function markNewTabRuntime(): void {
 
 function refreshableNoop(): { refresh: () => void } {
     return { refresh: () => undefined };
-}
-
-function newTabNestedParsePlan(root: HTMLElement): NestedParsePlan | null {
-    const targets = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, 36, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
-        .slice(0, 36);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
-}
-
-function nestedParseKey(targets: ScanTextTarget[]): string {
-    return targets.map(target => target.text).join('\n\n');
-}
-
-function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {
-    return root.dataset.jpdbReaderParseKey === parseKey
-        || root.dataset.jpdbReaderParseLoadingKey === parseKey;
-}
-
-function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][], settings: ReaderSettings): void {
-    plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
-}
-
-function clearNestedParseLoadingKey(root: HTMLElement, parseKey: string): void {
-    if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
 }
