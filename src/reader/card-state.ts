@@ -26,21 +26,38 @@ const CARD_STATE_ALIASES: Record<string, CardState> = {
     ignored: 'blacklisted',
 };
 
+interface NormalizedCardStateKeys {
+    trimmed: string;
+    dashed: string;
+    compact: string;
+}
+
 export function normalizeCardState(value: unknown): CardState | null {
+    const keys = normalizedCardStateKeys(value);
+    if (!keys) return null;
+    const aliased = aliasedCardState(keys.trimmed, keys.dashed, keys.compact);
+    if (aliased) return aliased;
+    return knownCardState(keys.dashed);
+}
+
+function normalizedCardStateKeys(value: unknown): NormalizedCardStateKeys | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim().toLowerCase();
     if (!trimmed) return null;
-
-    const dashed = trimmed.replace(/[_\s]+/g, '-');
-    const compact = dashed.replace(/-/g, '');
-    const aliased = aliasedCardState(trimmed, dashed, compact);
-    if (aliased) return aliased;
-    if (CARD_STATES.has(dashed as CardState)) return dashed as CardState;
-    return null;
+    return {
+        trimmed,
+        dashed: trimmed.replace(/[_\s]+/g, '-'),
+        compact: trimmed.replace(/[_\s-]+/g, ''),
+    };
 }
 
 function aliasedCardState(...keys: string[]): CardState | undefined {
     return keys.map(key => CARD_STATE_ALIASES[key]).find(Boolean);
+}
+
+function knownCardState(value: string): CardState | null {
+    if (CARD_STATES.has(value as CardState)) return value as CardState;
+    return null;
 }
 
 export function normalizeCardStates(value: unknown, fallback: CardState = 'not-in-deck'): CardState[] {

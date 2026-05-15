@@ -812,18 +812,28 @@
     ignored: "blacklisted"
   };
   function normalizeCardState(value) {
+    const keys = normalizedCardStateKeys(value);
+    if (!keys) return null;
+    const aliased = aliasedCardState(keys.trimmed, keys.dashed, keys.compact);
+    if (aliased) return aliased;
+    return knownCardState(keys.dashed);
+  }
+  function normalizedCardStateKeys(value) {
     if (typeof value !== "string") return null;
     const trimmed = value.trim().toLowerCase();
     if (!trimmed) return null;
-    const dashed = trimmed.replace(/[_\s]+/g, "-");
-    const compact = dashed.replace(/-/g, "");
-    const aliased = aliasedCardState(trimmed, dashed, compact);
-    if (aliased) return aliased;
-    if (CARD_STATES.has(dashed)) return dashed;
-    return null;
+    return {
+      trimmed,
+      dashed: trimmed.replace(/[_\s]+/g, "-"),
+      compact: trimmed.replace(/[_\s-]+/g, "")
+    };
   }
   function aliasedCardState(...keys) {
     return keys.map((key) => CARD_STATE_ALIASES[key]).find(Boolean);
+  }
+  function knownCardState(value) {
+    if (CARD_STATES.has(value)) return value;
+    return null;
   }
   function normalizeCardStates(value, fallback = "not-in-deck") {
     const states = uniqueNormalizedCardStates(Array.isArray(value) ? value : [value]);
@@ -7753,13 +7763,20 @@
     }
   }
   function expandDeinflectedTerm(current, queue, results, seen) {
-    if (current.depth >= 2) return;
+    if (isDeinflectionDepthLimitReached(current)) return;
     for (const rule of RULES) {
-      const next = deinflectedCandidate(current, rule);
-      if (!next || !rememberDeinflectedCandidate(next, seen)) continue;
-      results.push(next);
-      queue.push(next);
+      rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
+  }
+  function isDeinflectionDepthLimitReached(current) {
+    return current.depth >= 2;
+  }
+  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
+    const next = deinflectedCandidate(current, rule);
+    if (!next) return;
+    if (!rememberDeinflectedCandidate(next, seen)) return;
+    results.push(next);
+    queue.push(next);
   }
   function sortDeinflectedTerms(results) {
     return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
@@ -12251,9 +12268,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const hints = detectGrammarHints(sentence);
     setInnerHtml(panel, renderGrammarHints(hints, sentence));
   }
-  function isStudyGrammarToggleAction(action) {
-    return action === "study-grammar-toggle-known" || action === "study-grammar-toggle-known-visibility";
-  }
   function assertReviewableJpdbCardState(states) {
     if (states.includes("blacklisted")) throw new Error("This word is blacklisted. Unlist it before reviewing.");
     if (states.includes("never-forget")) throw new Error("This word is marked never forget. Remove never-forget before reviewing.");
@@ -12272,11 +12286,19 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return Boolean(action);
     }
     async performStudyAction(action, button2, sentence) {
-      if (isStudyGrammarToggleAction(action)) return this.performStudyGrammarToggle(button2, sentence);
-      if (action === "study-translate") return this.performStudyTool(button2, action, sentence);
-      if (action === "study-grammar") return this.performStudyGrammarTool(button2, sentence);
-      if (action === "study-read-sentence") return this.performStudyReadSentence(sentence);
-      return void 0;
+      var _a;
+      if (!action) return void 0;
+      return (_a = this.studyActionHandler(action, button2, sentence)) == null ? void 0 : _a();
+    }
+    studyActionHandler(action, button2, sentence) {
+      const handlers = {
+        "study-grammar-toggle-known": () => this.performStudyGrammarToggle(button2, sentence),
+        "study-grammar-toggle-known-visibility": () => this.performStudyGrammarToggle(button2, sentence),
+        "study-translate": () => this.performStudyTool(button2, action, sentence),
+        "study-grammar": () => this.performStudyGrammarTool(button2, sentence),
+        "study-read-sentence": () => this.performStudyReadSentence(sentence)
+      };
+      return handlers[action];
     }
     performStudyGrammarToggle(button2, sentence) {
       handleStudyGrammarAction(button2, sentence);
@@ -12322,11 +12344,19 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return false;
     }
     async performMiningAction(action, button2, card, sentence) {
-      if (action === "add") return this.finishMiningAction(this.addToSelectedDeck(button2, card, sentence));
-      if (action === "anki") return this.finishMiningAction(this.addToAnki(card, sentence));
-      if (action === "anki-edit") return this.finishMiningAction(this.openAnkiNote(button2));
-      if (action === "grade") return this.finishMiningAction(this.gradeCard(button2, card, sentence));
+      if (!action) return void 0;
+      const handler = this.miningActionHandler(action, button2, card, sentence);
+      if (handler) return this.finishMiningAction(handler());
       return this.performJpdbDeckMiningAction(action, card);
+    }
+    miningActionHandler(action, button2, card, sentence) {
+      const handlers = {
+        add: () => this.addToSelectedDeck(button2, card, sentence),
+        anki: () => this.addToAnki(card, sentence),
+        "anki-edit": () => this.openAnkiNote(button2),
+        grade: () => this.gradeCard(button2, card, sentence)
+      };
+      return handlers[action];
     }
     async performJpdbDeckMiningAction(action, card) {
       if (action === "neverforget") {
@@ -12362,7 +12392,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       }
       this.assertJpdbActionAllowed(card, "Add a JPDB API key to add cards to JPDB, or use Add to Anki.");
       await this.addToSelectedJpdbDeck(card, sentence, deck.id);
-      if (settings.ankiEnabled && settings.ankiMineWithJpdb) await this.addToAnki(card, sentence, settings.ankiDeck);
+      if (shouldMineAnkiAlongsideJpdb(settings)) await this.addToAnki(card, sentence, settings.ankiDeck);
       this.options.toast(`${uiText(settings.interfaceLanguage, "add")} JPDB.`);
     }
     async openAnkiNote(button2) {
@@ -12449,9 +12479,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     async addToSelectedJpdbDeck(card, sentence, deckId) {
       const settings = this.options.getSettings();
-      const targetDeck = deckId.trim() || settings.miningDeck.trim() || "forq";
+      const targetDeck = selectedJpdbDeckId(deckId, settings);
       await this.options.jpdb.addToDeck(targetDeck, card, sentence);
-      if (settings.addToForq && targetDeck !== "forq") await this.options.jpdb.addToDeck("forq", card, sentence);
+      if (shouldAlsoAddToForq(settings, targetDeck)) await this.options.jpdb.addToDeck("forq", card, sentence);
     }
   }
   function miningSentenceForAnki(contextSentence, fallbackSentence) {
@@ -12464,16 +12494,44 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return sourceUrl || location.href;
   }
   function selectedDeckChoice(button2, settings) {
-    var _a;
-    const source = button2.dataset.deckSource === "anki" ? "anki" : "jpdb";
-    const id = (_a = button2.dataset.deckId) == null ? void 0 : _a.trim();
+    const source = selectedDeckSource(button2);
     return {
       source,
-      id: id || (source === "anki" ? settings.ankiDeck || "よむ" : defaultJpdbDeckId(settings))
+      id: selectedDeckId(button2, settings, source)
     };
+  }
+  function selectedDeckSource(button2) {
+    if (button2.dataset.deckSource === "anki") return "anki";
+    return "jpdb";
+  }
+  function selectedDeckId(button2, settings, source) {
+    var _a;
+    const id = (_a = button2.dataset.deckId) == null ? void 0 : _a.trim();
+    if (id) return id;
+    return defaultDeckIdForSource(source, settings);
+  }
+  function defaultDeckIdForSource(source, settings) {
+    if (source === "anki") return defaultAnkiDeckName(settings);
+    return defaultJpdbDeckId(settings);
+  }
+  function defaultAnkiDeckName(settings) {
+    return settings.ankiDeck || "よむ";
   }
   function defaultJpdbDeckId(settings) {
     return settings.miningDeck.trim() || "forq";
+  }
+  function selectedJpdbDeckId(deckId, settings) {
+    const selectedDeckId2 = deckId.trim();
+    if (selectedDeckId2) return selectedDeckId2;
+    return defaultJpdbDeckId(settings);
+  }
+  function shouldAlsoAddToForq(settings, targetDeck) {
+    if (!settings.addToForq) return false;
+    return targetDeck !== "forq";
+  }
+  function shouldMineAnkiAlongsideJpdb(settings) {
+    if (!settings.ankiEnabled) return false;
+    return settings.ankiMineWithJpdb;
   }
   function cardKey$1(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
@@ -14652,8 +14710,17 @@ ${entry.reading}`;
     </div>`;
   }
   function repeatsLookupHeadword(group, reference) {
-    if (!reference || group.expression !== reference.spelling) return false;
-    return !reference.reading || group.reading === reference.reading || group.reading === group.expression;
+    if (!matchesLookupExpression(group, reference)) return false;
+    return matchesLookupReading(group, reference);
+  }
+  function matchesLookupExpression(group, reference) {
+    if (!reference) return false;
+    return group.expression === reference.spelling;
+  }
+  function matchesLookupReading(group, reference) {
+    if (!reference.reading) return true;
+    if (group.reading === reference.reading) return true;
+    return group.reading === group.expression;
   }
   function renderLocalTermReading(group) {
     return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
@@ -21100,10 +21167,17 @@ ${normalizedReading}`;
   }
   function applyDatasetAttr(element2, name, value) {
     if (name !== "dataset") return false;
-    for (const [key, dataValue] of Object.entries(value ?? {})) {
-      if (!isSkippedAttrValue(dataValue)) element2.dataset[key] = String(dataValue);
+    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
+      applyDatasetValue(element2, key, dataValue);
     }
     return true;
+  }
+  function datasetAttrValues(value) {
+    return value ?? {};
+  }
+  function applyDatasetValue(element2, key, value) {
+    if (isSkippedAttrValue(value)) return;
+    element2.dataset[key] = String(value);
   }
   function applyTextAttr(element2, name, value) {
     if (name !== "text") return false;
@@ -21111,7 +21185,15 @@ ${normalizedReading}`;
     return true;
   }
   function applyElementProperty(element2, name, value) {
-    if (!(name in element2) || name === "role" || name.startsWith("aria")) return false;
+    if (!canApplyElementProperty(element2, name)) return false;
+    return assignElementProperty(element2, name, value);
+  }
+  function canApplyElementProperty(element2, name) {
+    if (!(name in element2)) return false;
+    if (name === "role") return false;
+    return !name.startsWith("aria");
+  }
+  function assignElementProperty(element2, name, value) {
     try {
       element2[name] = value;
       return true;

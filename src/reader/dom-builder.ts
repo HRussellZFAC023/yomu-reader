@@ -9,6 +9,8 @@ export interface DomAttrs {
     [name: string]: unknown;
 }
 
+type DomDataset = NonNullable<DomAttrs['dataset']>;
+
 export function el<K extends keyof HTMLElementTagNameMap>(
     tagName: K,
     attrs?: DomAttrs | null,
@@ -64,10 +66,19 @@ function applyClassAttr(element: HTMLElement, name: string, value: unknown): boo
 
 function applyDatasetAttr(element: HTMLElement, name: string, value: unknown): boolean {
     if (name !== 'dataset') return false;
-    for (const [key, dataValue] of Object.entries((value as DomAttrs['dataset']) ?? {})) {
-        if (!isSkippedAttrValue(dataValue)) element.dataset[key] = String(dataValue);
+    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
+        applyDatasetValue(element, key, dataValue);
     }
     return true;
+}
+
+function datasetAttrValues(value: unknown): DomDataset {
+    return (value as DomDataset | undefined) ?? {};
+}
+
+function applyDatasetValue(element: HTMLElement, key: string, value: unknown): void {
+    if (isSkippedAttrValue(value)) return;
+    element.dataset[key] = String(value);
 }
 
 function applyTextAttr(element: HTMLElement, name: string, value: unknown): boolean {
@@ -77,7 +88,17 @@ function applyTextAttr(element: HTMLElement, name: string, value: unknown): bool
 }
 
 function applyElementProperty(element: HTMLElement, name: string, value: unknown): boolean {
-    if (!(name in element) || name === 'role' || name.startsWith('aria')) return false;
+    if (!canApplyElementProperty(element, name)) return false;
+    return assignElementProperty(element, name, value);
+}
+
+function canApplyElementProperty(element: HTMLElement, name: string): boolean {
+    if (!(name in element)) return false;
+    if (name === 'role') return false;
+    return !name.startsWith('aria');
+}
+
+function assignElementProperty(element: HTMLElement, name: string, value: unknown): boolean {
     try {
         (element as unknown as Record<string, unknown>)[name] = value;
         return true;
