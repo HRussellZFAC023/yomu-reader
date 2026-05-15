@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress';
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
+const videoPlayerUrl = `${siteUrl}video-player/index.html`;
 
 export default defineConfig({
     title: 'よむ',
@@ -22,13 +23,18 @@ export default defineConfig({
         logo: '/yomu-icon.svg',
         siteTitle: 'よむ',
         nav: [
-            { text: 'Getting Started', link: '/getting-started' },
+            { text: 'Start', link: '/getting-started' },
             { text: 'Features', link: '/features' },
-            { text: 'Local Audio', link: '/local-audio' },
-            { text: 'Changelog', link: '/changelog' },
-            { text: 'Support', link: '/support' },
-            { text: 'Video Player', link: '/video-player/index.html', target: '_self' },
             { text: 'New Tab', link: '/newtab/index.html', target: '_self' },
+            {
+                text: 'More',
+                items: [
+                    { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
+                    { text: 'Local Audio', link: '/local-audio' },
+                    { text: 'Support', link: '/support' },
+                    { text: 'Changelog', link: '/changelog' },
+                ],
+            },
         ],
         sidebar: [
             {
@@ -38,7 +44,7 @@ export default defineConfig({
                     { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Features', link: '/features' },
                     { text: 'Local Audio', link: '/local-audio' },
-                    { text: 'Video Player', link: '/video-player/index.html' },
+                    { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
                 ],
             },
             {
