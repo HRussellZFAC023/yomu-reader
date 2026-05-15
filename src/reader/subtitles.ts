@@ -22,7 +22,6 @@ import {
     saveTranscriptPanelSize,
     shouldUseCompactSubtitleDrawer,
     type TranscriptPanelLayout,
-    type TranscriptPanelSize,
 } from './subtitle-layout';
 import {
     collectPageSubtitleSources,
@@ -1793,10 +1792,6 @@ export class SubtitlePlayerController {
         this.root.classList.toggle('jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
         this.root.classList.toggle('jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
         this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
-    }
-
-    private shouldStayInTrackSetup(): boolean {
-        return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && this.panelMode === 'tracks');
     }
 
     private hasTranscriptSurface(): boolean {

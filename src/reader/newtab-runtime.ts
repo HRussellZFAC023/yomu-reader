@@ -20,7 +20,7 @@ import {
 } from './settings';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
 import { SettingsDialogController } from './settings-dialog-controller';
-import type { InterfaceLanguage, ReaderSettings } from './types';
+import type { ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
 
 const log = Logger.scope('NewTabRuntime');
@@ -44,7 +44,6 @@ class NewTabRuntime {
     private activeBackdrop?: HTMLElement;
     private dictionaryStyleElement?: HTMLStyleElement;
     private settingsPreviewOriginalAccent?: string;
-    private settingsPreviewOriginalLanguage?: InterfaceLanguage;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private newTab?: NewTabController;
 
@@ -88,14 +87,12 @@ class NewTabRuntime {
             if (this.newTab?.isCurrentPage()) void this.newTab.renderPage();
         },
         clearDictionarySourceOpenOverrides: () => undefined,
-        beginSettingsPreview: (accent, language, theme) => {
+        beginSettingsPreview: (accent, _language, theme) => {
             this.settingsPreviewOriginalAccent = accent;
-            this.settingsPreviewOriginalLanguage = language;
             this.settingsPreviewOriginalTheme = theme;
         },
         clearSettingsPreview: () => {
             this.settingsPreviewOriginalAccent = undefined;
-            this.settingsPreviewOriginalLanguage = undefined;
             this.settingsPreviewOriginalTheme = undefined;
         },
     });
@@ -181,7 +178,6 @@ class NewTabRuntime {
             this.applyTheme();
         }
         this.settingsPreviewOriginalAccent = undefined;
-        this.settingsPreviewOriginalLanguage = undefined;
         this.settingsPreviewOriginalTheme = undefined;
     }
 

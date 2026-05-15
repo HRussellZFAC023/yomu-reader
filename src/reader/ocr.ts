@@ -1694,10 +1694,6 @@ function imageViewportDistance(image: HTMLImageElement): number {
     return 0;
 }
 
-function nodeContainsImage(node: Node): boolean {
-    return node instanceof HTMLImageElement || (node instanceof Element && Boolean(node.querySelector('img')));
-}
-
 function imageCacheKey(image: HTMLImageElement): string {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
 }

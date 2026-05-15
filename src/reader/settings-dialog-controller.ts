@@ -498,7 +498,7 @@ export class SettingsDialogController {
         }
         if (isDictionarySourceOrderAction(action)) {
             log.debug('Dictionary source order changed', { action });
-            updateSourceRowEditor(form, action, control);
+            updateSourceRowEditor(action, control);
             return true;
         }
         if (isAudioSourceEditorAction(action)) {

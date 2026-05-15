@@ -105,7 +105,7 @@ export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo |
     const keyword = sectionText(doc, 'Keyword') || metaKeyword(doc, kanji);
     if (!keyword) return null;
 
-    const parsed = parsedJpdbKanjiPage(doc, kanji);
+    const parsed = parsedJpdbKanjiPage(doc);
     const actions = kanjiActions(doc, kanji);
     const visibleActions = actions.filter(isVisibleKanjiAction);
     return {
@@ -119,7 +119,7 @@ export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo |
     };
 }
 
-function parsedJpdbKanjiPage(doc: Document, kanji: string): Pick<JpdbKanjiInfo, 'frequency' | 'type' | 'kanken' | 'heisig' | 'oldForms' | 'readings' | 'components' | 'usedInKanji' | 'vocabulary'> {
+function parsedJpdbKanjiPage(doc: Document): Pick<JpdbKanjiInfo, 'frequency' | 'type' | 'kanken' | 'heisig' | 'oldForms' | 'readings' | 'components' | 'usedInKanji' | 'vocabulary'> {
     const infoRows = infoTableRows(doc);
     return {
         frequency: infoRows.get('Frequency') ?? '',

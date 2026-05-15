@@ -1440,7 +1440,7 @@ function moveDictionaryLookupLink(links: DictionaryLookupLink[], from: number, t
     links.splice(to, 0, link);
 }
 
-export function updateSourceRowEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
+export function updateSourceRowEditor(action: string, control?: HTMLElement | null): void {
     const row = control?.closest<HTMLElement>('[data-source-row]');
     const container = row?.closest<HTMLElement>('[data-source-editor]');
     if (!container || !row) return;
