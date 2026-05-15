@@ -515,6 +515,10 @@
     linear-gradient(0deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px), #f8f9fb;
   background-size: 27.25px 27.25px;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-kanjivg > .jpdb-reader-doodle-stage {
   margin-inline: auto;
@@ -539,6 +543,10 @@
   height: 100%;
   cursor: crosshair;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-kanjivg-svg {
   width: 90%;
