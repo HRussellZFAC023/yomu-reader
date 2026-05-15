@@ -226,6 +226,14 @@ function isLookupableJapaneseText(text: string): boolean {
     return Boolean(text && HAS_JAPANESE.test(text));
 }
 
+function dictionaryLookupLink(target: EventTarget | null): HTMLAnchorElement | null {
+    return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]') ?? null;
+}
+
+function dictionaryLookupQuery(link: HTMLAnchorElement): string {
+    return normalizedLookupText(link.dataset.dictionaryLookup ?? '');
+}
+
 function lookupCandidateSentence(text: string): string {
     const sentence = normalizedLookupText(text);
     return isLookupableJapaneseText(sentence) ? sentence : '';
@@ -949,19 +957,33 @@ export class ReaderApp {
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
-        const css = this.settings.localDictionariesEnabled
-            ? await this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch(error => {
-                log.warn('Dictionary styles unavailable', error);
-                return '';
-            })
-            : '';
+        this.applyDictionaryStyleCss(await this.dictionaryStyleCss());
+    }
+
+    private async dictionaryStyleCss(): Promise<string> {
+        if (!this.settings.localDictionariesEnabled) return '';
+        return this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch(error => {
+            log.warn('Dictionary styles unavailable', error);
+            return '';
+        });
+    }
+
+    private applyDictionaryStyleCss(css: string): void {
         const existing = this.dictionaryStyleElement ?? document.getElementById('jpdb-reader-yomitan-dictionary-styles') as HTMLStyleElement | null;
         if (!css.trim()) {
-            existing?.remove();
-            this.dictionaryStyleElement = undefined;
-            log.debug('Dictionary styles cleared');
+            this.clearDictionaryStyleElement(existing);
             return;
         }
+        this.upsertDictionaryStyleElement(existing, css);
+    }
+
+    private clearDictionaryStyleElement(existing: HTMLStyleElement | null): void {
+        existing?.remove();
+        this.dictionaryStyleElement = undefined;
+        log.debug('Dictionary styles cleared');
+    }
+
+    private upsertDictionaryStyleElement(existing: HTMLStyleElement | null, css: string): void {
         const style = existing ?? document.createElement('style');
         style.id = 'jpdb-reader-yomitan-dictionary-styles';
         style.textContent = css;
@@ -1355,14 +1377,18 @@ export class ReaderApp {
     }
 
     private beginPressLookup(event: PointerEvent): void {
-        const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
-        if (!this.canBeginPressLookup(event, isMiddleScan)) return;
-        const word = this.wordFromEventTarget(event.target);
-        if (!isMiddleScan && !word) return;
-        if (isMiddleScan) this.captureMiddleMouseLookup(event);
+        const request = this.pressLookupRequest(event);
+        if (!request) return;
+        if (request.isMiddleScan) this.captureMiddleMouseLookup(event);
+        this.pressLookup = this.createPressLookup(event, request.isMiddleScan);
+        if (request.isMiddleScan) this.updatePressLookup(event);
+    }
 
-        this.pressLookup = this.createPressLookup(event, isMiddleScan);
-        if (isMiddleScan) this.updatePressLookup(event);
+    private pressLookupRequest(event: PointerEvent): { isMiddleScan: boolean } | null {
+        const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
+        if (!this.canBeginPressLookup(event, isMiddleScan)) return null;
+        if (!isMiddleScan && !this.wordFromEventTarget(event.target)) return null;
+        return { isMiddleScan };
     }
 
     private canBeginPressLookup(event: PointerEvent, isMiddleScan: boolean): boolean {
@@ -1448,11 +1474,20 @@ export class ReaderApp {
 
     private endPressLookup(event: PointerEvent): void {
         if (this.isDestroyed) return;
+        const pressLookup = this.matchingPressLookup(event);
+        if (!pressLookup) return;
+        this.finishPressLookupRelease(event, pressLookup);
+        this.pressLookup = undefined;
+    }
+
+    private matchingPressLookup(event: PointerEvent): PressLookupState | null {
         const pressLookup = this.pressLookup;
-        if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
+        return pressLookup?.pointerId === event.pointerId ? pressLookup : null;
+    }
+
+    private finishPressLookupRelease(event: PointerEvent, pressLookup: PressLookupState): void {
         if (pressLookup.active) this.suppressPressLookupAfterRelease();
         if (pressLookup.source === 'middle') this.finishMiddlePressLookup(event, pressLookup);
-        this.pressLookup = undefined;
     }
 
     private suppressPressLookupAfterRelease(): void {
@@ -1557,17 +1592,28 @@ export class ReaderApp {
     }
 
     private preloadNearbyReaderWordAudio(word: HTMLElement): void {
-        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
-            .filter(candidate => candidate.isConnected && this.canLookupReaderWord(candidate));
-        const index = words.indexOf(word);
-        if (index < 0) return;
+        const queued = this.queueNearbyReaderWordAudioPreloads(word);
+        if (queued) log.debugThrottled('nearby-audio-preload', 2500, 'Nearby term audio preloads queued', { queued });
+    }
 
+    private queueNearbyReaderWordAudioPreloads(word: HTMLElement): number {
+        const words = this.lookupableReaderWords();
+        const index = words.indexOf(word);
+        return index < 0 ? 0 : this.queueReaderWordAudioPreloads(words.slice(index + 1));
+    }
+
+    private lookupableReaderWords(): HTMLElement[] {
+        return Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
+            .filter(candidate => candidate.isConnected && this.canLookupReaderWord(candidate));
+    }
+
+    private queueReaderWordAudioPreloads(words: HTMLElement[]): number {
         let queued = 0;
-        for (const candidate of words.slice(index + 1)) {
+        for (const candidate of words) {
             if (this.preloadReaderWordAudio(candidate)) queued++;
             if (queued >= NEARBY_TERM_AUDIO_PRELOAD_LIMIT) break;
         }
-        if (queued) log.debugThrottled('nearby-audio-preload', 2500, 'Nearby term audio preloads queued', { queued });
+        return queued;
     }
 
     private canLookupReaderWord(word: HTMLElement): boolean {
@@ -1581,14 +1627,9 @@ export class ReaderApp {
     }
 
     private handleHoverPointer(event: PointerEvent): void {
-        if (this.isDestroyed) return;
+        if (this.shouldIgnoreHoverPointer(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
-        if (this.pressLookup?.source === 'middle') return;
-        if (event.pointerType === 'touch') return;
-        if (this.isInsideActivePopover(event.target as Node | null)) {
-            this.cancelHoverClose();
-            return;
-        }
+        if (this.handleActivePopoverHover(event)) return;
 
         const word = this.hoverReaderWordForEvent(event);
         if (!word) {
@@ -1596,6 +1637,18 @@ export class ReaderApp {
             return;
         }
         this.handleReaderWordHover(word, event);
+    }
+
+    private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
+        return this.isDestroyed
+            || this.pressLookup?.source === 'middle'
+            || event.pointerType === 'touch';
+    }
+
+    private handleActivePopoverHover(event: PointerEvent): boolean {
+        if (!this.isInsideActivePopover(event.target as Node | null)) return false;
+        this.cancelHoverClose();
+        return true;
     }
 
     private hoverReaderWordForEvent(event: PointerEvent): HTMLElement | null {
@@ -1704,25 +1757,46 @@ export class ReaderApp {
     }
 
     private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
-        if (this.isDestroyed) return;
-        if (!this.lastPointerPosition) return;
-        this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
-        const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) as HTMLElement | null;
-        const word = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (!word || !this.canHoverLookupReaderWord(word)) {
-            const candidate = this.lookupCandidateFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y, target);
-            if (candidate) this.schedulePointerTextLookup(candidate, event);
+        const pointer = this.activeHoverPointerPosition();
+        if (!pointer) return;
+        this.hoverPopoverPointerPosition = { ...pointer };
+        this.scheduleHoverLookupForPointer(pointer, event);
+    }
+
+    private activeHoverPointerPosition(): { x: number; y: number } | null {
+        return !this.isDestroyed && this.lastPointerPosition ? this.lastPointerPosition : null;
+    }
+
+    private scheduleHoverLookupForPointer(pointer: { x: number; y: number }, event: KeyboardEvent): void {
+        const target = document.elementFromPoint(pointer.x, pointer.y) as HTMLElement | null;
+        const word = this.hoverReaderWordFromElement(target);
+        if (word) {
+            this.scheduleHoverLookup(word, event);
             return;
         }
-        this.scheduleHoverLookup(word, event);
+        this.schedulePointerTextLookupForPointer(pointer, target, event);
+    }
+
+    private hoverReaderWordFromElement(element: HTMLElement | null): HTMLElement | null {
+        const word = element?.closest?.('.jpdb-reader-word') as HTMLElement | null;
+        return word && this.canHoverLookupReaderWord(word) ? word : null;
+    }
+
+    private schedulePointerTextLookupForPointer(pointer: { x: number; y: number }, target: EventTarget | null, event: KeyboardEvent): void {
+        const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target);
+        if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
 
     private dismissHoverPopoverForOutsidePointer(event: PointerEvent): void {
         if (this.isDestroyed || this.activePopoverMode !== 'hover') return;
         const target = event.target as Node | null;
-        if (this.isInsideActivePopover(target)) return;
-        if (this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord)) return;
+        if (!this.shouldDismissHoverForPointerTarget(target)) return;
         this.dismiss({ suppressHoverTarget: false });
+    }
+
+    private shouldDismissHoverForPointerTarget(target: Node | null): boolean {
+        if (this.isInsideActivePopover(target)) return false;
+        return !(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
     }
 
     private rememberHoverPopoverPointer(event: MouseEvent): void {
@@ -1821,7 +1895,7 @@ export class ReaderApp {
 
     private canRunScheduledHoverLookup(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
         const hoverLookupKey = this.hoverLookupKeyForWord(activeWord);
-        if (!activeWord.isConnected || this.isSuppressedHoverLookup(activeWord, hoverLookupKey)) return false;
+        if (!this.isRunnableScheduledHoverWord(activeWord, hoverLookupKey)) return false;
         if (this.isActiveHoverLookup(hoverLookupKey)) {
             this.refreshActiveHoverAnchor(activeWord);
             return false;
@@ -1829,6 +1903,10 @@ export class ReaderApp {
         if (!this.canOpenHoverLookupForWord(activeWord, event)) return false;
         if (shouldPauseVideoForSubtitleHover(activeWord, this.settings)) pauseActiveVideo();
         return true;
+    }
+
+    private isRunnableScheduledHoverWord(activeWord: HTMLElement, hoverLookupKey: string): boolean {
+        return activeWord.isConnected && !this.isSuppressedHoverLookup(activeWord, hoverLookupKey);
     }
 
     private canOpenHoverLookupForWord(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
@@ -2054,14 +2132,35 @@ export class ReaderApp {
         if (!isLookupableJapaneseText(selected)) return null;
         const trigger = this.activeTextLookupTrigger();
         const navigation = options.navigation ?? 'reset';
+        return this.createTextLookupDisplayContext(selected, trigger, navigation, options);
+    }
+
+    private createTextLookupDisplayContext(
+        selected: string,
+        trigger: 'modal' | 'hover',
+        navigation: CardNavigationMode,
+        options: TextLookupOptions,
+    ): TextLookupDisplayContext {
         return {
             selected,
             anchor: options.anchor ?? connectedElement(this.activePopoverAnchor),
             trigger,
             navigation,
-            preservePosition: options.preservePosition ?? this.shouldPreserveLookupPosition(navigation),
-            previousNavigationEntry: options.previousNavigationEntry ?? this.textLookupPreviousNavigationEntry(trigger, navigation),
+            preservePosition: this.textLookupPreservePosition(navigation, options),
+            previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options),
         };
+    }
+
+    private textLookupPreservePosition(navigation: CardNavigationMode, options: TextLookupOptions): boolean {
+        return options.preservePosition ?? this.shouldPreserveLookupPosition(navigation);
+    }
+
+    private textLookupPreviousNavigationEntryForOptions(
+        trigger: 'modal' | 'hover',
+        navigation: CardNavigationMode,
+        options: TextLookupOptions,
+    ): PopupNavigationEntry | undefined {
+        return options.previousNavigationEntry ?? this.textLookupPreviousNavigationEntry(trigger, navigation);
     }
 
     private activeTextLookupTrigger(): 'modal' | 'hover' {
@@ -2121,9 +2220,9 @@ export class ReaderApp {
     }
 
     private handleDictionaryLookupLink(event: MouseEvent, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean {
-        const link = (event.target as HTMLElement).closest?.<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]');
+        const link = dictionaryLookupLink(event.target);
         if (!link) return false;
-        const query = link.dataset.dictionaryLookup?.replace(/\s+/g, ' ').trim() ?? '';
+        const query = dictionaryLookupQuery(link);
         if (!query) return false;
         event.preventDefault();
         event.stopPropagation();
@@ -2165,15 +2264,23 @@ export class ReaderApp {
     }
 
     private lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null): PointerTextLookup | null {
-        const element = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
-        if (!element || this.isNativeTextLookupTarget(element)) return null;
-
-        const position = caretTextPositionFromPoint(x, y);
-        if (!this.isUsablePointerTextPosition(element, position)) return null;
-
+        const element = this.pointerLookupElement(x, y, eventTarget);
+        if (!element) return null;
+        const position = this.usablePointerTextPosition(element, x, y);
+        if (!position) return null;
         const characterOffset = pointerTextCharacterOffset(position.node, position.offset, x, y);
         if (characterOffset === null) return null;
         return this.lookupCandidateFromTextPosition(position.node, characterOffset);
+    }
+
+    private pointerLookupElement(x: number, y: number, eventTarget: EventTarget | null): Element | null {
+        const element = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
+        return element && !this.isNativeTextLookupTarget(element) ? element : null;
+    }
+
+    private usablePointerTextPosition(element: Element, x: number, y: number): NonNullable<ReturnType<typeof caretTextPositionFromPoint>> | null {
+        const position = caretTextPositionFromPoint(x, y);
+        return this.isUsablePointerTextPosition(element, position) ? position : null;
     }
 
     private lookupCandidateFromTextPosition(node: Text, characterOffset: number): PointerTextLookup | null {
