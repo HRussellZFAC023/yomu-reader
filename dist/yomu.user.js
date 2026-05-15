@@ -32936,6 +32936,13 @@ ${spelling}`);
   function isLookupableJapaneseText(text2) {
     return Boolean(text2 && HAS_JAPANESE$2.test(text2));
   }
+  function dictionaryLookupLink(target) {
+    var _a;
+    return ((_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, "a.gloss-link[data-dictionary-lookup]")) ?? null;
+  }
+  function dictionaryLookupQuery(link) {
+    return normalizedLookupText(link.dataset.dictionaryLookup ?? "");
+  }
   function lookupCandidateSentence(text2) {
     const sentence = normalizedLookupText(text2);
     return isLookupableJapaneseText(sentence) ? sentence : "";
@@ -33439,17 +33446,29 @@ ${spelling}`);
       });
     }
     async refreshDictionaryStyles() {
-      const css = this.settings.localDictionariesEnabled ? await this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch((error) => {
+      this.applyDictionaryStyleCss(await this.dictionaryStyleCss());
+    }
+    async dictionaryStyleCss() {
+      if (!this.settings.localDictionariesEnabled) return "";
+      return this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences).catch((error) => {
         log$1.warn("Dictionary styles unavailable", error);
         return "";
-      }) : "";
+      });
+    }
+    applyDictionaryStyleCss(css) {
       const existing = this.dictionaryStyleElement ?? document.getElementById("jpdb-reader-yomitan-dictionary-styles");
       if (!css.trim()) {
-        existing == null ? void 0 : existing.remove();
-        this.dictionaryStyleElement = void 0;
-        log$1.debug("Dictionary styles cleared");
+        this.clearDictionaryStyleElement(existing);
         return;
       }
+      this.upsertDictionaryStyleElement(existing, css);
+    }
+    clearDictionaryStyleElement(existing) {
+      existing == null ? void 0 : existing.remove();
+      this.dictionaryStyleElement = void 0;
+      log$1.debug("Dictionary styles cleared");
+    }
+    upsertDictionaryStyleElement(existing, css) {
       const style = existing ?? document.createElement("style");
       style.id = "jpdb-reader-yomitan-dictionary-styles";
       style.textContent = css;
@@ -33805,13 +33824,17 @@ ${spelling}`);
       return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
     }
     beginPressLookup(event) {
+      const request = this.pressLookupRequest(event);
+      if (!request) return;
+      if (request.isMiddleScan) this.captureMiddleMouseLookup(event);
+      this.pressLookup = this.createPressLookup(event, request.isMiddleScan);
+      if (request.isMiddleScan) this.updatePressLookup(event);
+    }
+    pressLookupRequest(event) {
       const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
-      if (!this.canBeginPressLookup(event, isMiddleScan)) return;
-      const word = this.wordFromEventTarget(event.target);
-      if (!isMiddleScan && !word) return;
-      if (isMiddleScan) this.captureMiddleMouseLookup(event);
-      this.pressLookup = this.createPressLookup(event, isMiddleScan);
-      if (isMiddleScan) this.updatePressLookup(event);
+      if (!this.canBeginPressLookup(event, isMiddleScan)) return null;
+      if (!isMiddleScan && !this.wordFromEventTarget(event.target)) return null;
+      return { isMiddleScan };
     }
     canBeginPressLookup(event, isMiddleScan) {
       if (this.isDestroyed) return false;
@@ -33884,11 +33907,18 @@ ${spelling}`);
     }
     endPressLookup(event) {
       if (this.isDestroyed) return;
+      const pressLookup = this.matchingPressLookup(event);
+      if (!pressLookup) return;
+      this.finishPressLookupRelease(event, pressLookup);
+      this.pressLookup = void 0;
+    }
+    matchingPressLookup(event) {
       const pressLookup = this.pressLookup;
-      if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
+      return (pressLookup == null ? void 0 : pressLookup.pointerId) === event.pointerId ? pressLookup : null;
+    }
+    finishPressLookupRelease(event, pressLookup) {
       if (pressLookup.active) this.suppressPressLookupAfterRelease();
       if (pressLookup.source === "middle") this.finishMiddlePressLookup(event, pressLookup);
-      this.pressLookup = void 0;
     }
     suppressPressLookupAfterRelease() {
       this.suppressWordClickUntil = Date.now() + 700;
@@ -33981,15 +34011,24 @@ ${spelling}`);
       return card && isUsefulImmersionPreloadQuery(card.spelling) ? card : null;
     }
     preloadNearbyReaderWordAudio(word) {
-      const words = Array.from(document.querySelectorAll(".jpdb-reader-word")).filter((candidate) => candidate.isConnected && this.canLookupReaderWord(candidate));
+      const queued = this.queueNearbyReaderWordAudioPreloads(word);
+      if (queued) log$1.debugThrottled("nearby-audio-preload", 2500, "Nearby term audio preloads queued", { queued });
+    }
+    queueNearbyReaderWordAudioPreloads(word) {
+      const words = this.lookupableReaderWords();
       const index = words.indexOf(word);
-      if (index < 0) return;
+      return index < 0 ? 0 : this.queueReaderWordAudioPreloads(words.slice(index + 1));
+    }
+    lookupableReaderWords() {
+      return Array.from(document.querySelectorAll(".jpdb-reader-word")).filter((candidate) => candidate.isConnected && this.canLookupReaderWord(candidate));
+    }
+    queueReaderWordAudioPreloads(words) {
       let queued = 0;
-      for (const candidate of words.slice(index + 1)) {
+      for (const candidate of words) {
         if (this.preloadReaderWordAudio(candidate)) queued++;
         if (queued >= NEARBY_TERM_AUDIO_PRELOAD_LIMIT) break;
       }
-      if (queued) log$1.debugThrottled("nearby-audio-preload", 2500, "Nearby term audio preloads queued", { queued });
+      return queued;
     }
     canLookupReaderWord(word) {
       if (!word.closest("[data-jpdb-reader-root]")) return true;
@@ -34000,21 +34039,24 @@ ${spelling}`);
       return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-ocr-layer"));
     }
     handleHoverPointer(event) {
-      var _a;
-      if (this.isDestroyed) return;
+      if (this.shouldIgnoreHoverPointer(event)) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
-      if (((_a = this.pressLookup) == null ? void 0 : _a.source) === "middle") return;
-      if (event.pointerType === "touch") return;
-      if (this.isInsideActivePopover(event.target)) {
-        this.cancelHoverClose();
-        return;
-      }
+      if (this.handleActivePopoverHover(event)) return;
       const word = this.hoverReaderWordForEvent(event);
       if (!word) {
         this.handlePointerTextHover(event);
         return;
       }
       this.handleReaderWordHover(word, event);
+    }
+    shouldIgnoreHoverPointer(event) {
+      var _a;
+      return this.isDestroyed || ((_a = this.pressLookup) == null ? void 0 : _a.source) === "middle" || event.pointerType === "touch";
+    }
+    handleActivePopoverHover(event) {
+      if (!this.isInsideActivePopover(event.target)) return false;
+      this.cancelHoverClose();
+      return true;
     }
     hoverReaderWordForEvent(event) {
       var _a, _b;
@@ -34111,25 +34153,41 @@ ${spelling}`);
       this.scheduleHoverClose(void 0, { ignoreCssHover: true });
     }
     scheduleHoverLookupAtPointer(event) {
-      var _a;
-      if (this.isDestroyed) return;
-      if (!this.lastPointerPosition) return;
-      this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
-      const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-      const word = (_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, ".jpdb-reader-word");
-      if (!word || !this.canHoverLookupReaderWord(word)) {
-        const candidate = this.lookupCandidateFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y, target);
-        if (candidate) this.schedulePointerTextLookup(candidate, event);
+      const pointer = this.activeHoverPointerPosition();
+      if (!pointer) return;
+      this.hoverPopoverPointerPosition = { ...pointer };
+      this.scheduleHoverLookupForPointer(pointer, event);
+    }
+    activeHoverPointerPosition() {
+      return !this.isDestroyed && this.lastPointerPosition ? this.lastPointerPosition : null;
+    }
+    scheduleHoverLookupForPointer(pointer, event) {
+      const target = document.elementFromPoint(pointer.x, pointer.y);
+      const word = this.hoverReaderWordFromElement(target);
+      if (word) {
+        this.scheduleHoverLookup(word, event);
         return;
       }
-      this.scheduleHoverLookup(word, event);
+      this.schedulePointerTextLookupForPointer(pointer, target, event);
+    }
+    hoverReaderWordFromElement(element2) {
+      var _a;
+      const word = (_a = element2 == null ? void 0 : element2.closest) == null ? void 0 : _a.call(element2, ".jpdb-reader-word");
+      return word && this.canHoverLookupReaderWord(word) ? word : null;
+    }
+    schedulePointerTextLookupForPointer(pointer, target, event) {
+      const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target);
+      if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
     dismissHoverPopoverForOutsidePointer(event) {
       if (this.isDestroyed || this.activePopoverMode !== "hover") return;
       const target = event.target;
-      if (this.isInsideActivePopover(target)) return;
-      if (this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord)) return;
+      if (!this.shouldDismissHoverForPointerTarget(target)) return;
       this.dismiss({ suppressHoverTarget: false });
+    }
+    shouldDismissHoverForPointerTarget(target) {
+      if (this.isInsideActivePopover(target)) return false;
+      return !(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
     }
     rememberHoverPopoverPointer(event) {
       this.hoverPopoverPointerPosition = { x: event.clientX, y: event.clientY };
@@ -34209,7 +34267,7 @@ ${spelling}`);
     }
     canRunScheduledHoverLookup(activeWord, event) {
       const hoverLookupKey = this.hoverLookupKeyForWord(activeWord);
-      if (!activeWord.isConnected || this.isSuppressedHoverLookup(activeWord, hoverLookupKey)) return false;
+      if (!this.isRunnableScheduledHoverWord(activeWord, hoverLookupKey)) return false;
       if (this.isActiveHoverLookup(hoverLookupKey)) {
         this.refreshActiveHoverAnchor(activeWord);
         return false;
@@ -34217,6 +34275,9 @@ ${spelling}`);
       if (!this.canOpenHoverLookupForWord(activeWord, event)) return false;
       if (shouldPauseVideoForSubtitleHover(activeWord, this.settings)) pauseActiveVideo();
       return true;
+    }
+    isRunnableScheduledHoverWord(activeWord, hoverLookupKey) {
+      return activeWord.isConnected && !this.isSuppressedHoverLookup(activeWord, hoverLookupKey);
     }
     canOpenHoverLookupForWord(activeWord, event) {
       return this.isWordHoverActive(activeWord) && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
@@ -34405,14 +34466,23 @@ ${spelling}`);
       if (!isLookupableJapaneseText(selected)) return null;
       const trigger = this.activeTextLookupTrigger();
       const navigation = options.navigation ?? "reset";
+      return this.createTextLookupDisplayContext(selected, trigger, navigation, options);
+    }
+    createTextLookupDisplayContext(selected, trigger, navigation, options) {
       return {
         selected,
         anchor: options.anchor ?? connectedElement(this.activePopoverAnchor),
         trigger,
         navigation,
-        preservePosition: options.preservePosition ?? this.shouldPreserveLookupPosition(navigation),
-        previousNavigationEntry: options.previousNavigationEntry ?? this.textLookupPreviousNavigationEntry(trigger, navigation)
+        preservePosition: this.textLookupPreservePosition(navigation, options),
+        previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options)
       };
+    }
+    textLookupPreservePosition(navigation, options) {
+      return options.preservePosition ?? this.shouldPreserveLookupPosition(navigation);
+    }
+    textLookupPreviousNavigationEntryForOptions(trigger, navigation, options) {
+      return options.previousNavigationEntry ?? this.textLookupPreviousNavigationEntry(trigger, navigation);
     }
     activeTextLookupTrigger() {
       return this.activePopoverMode === "hover" ? "hover" : "modal";
@@ -34460,10 +34530,9 @@ ${spelling}`);
       };
     }
     handleDictionaryLookupLink(event, anchor, trigger) {
-      var _a, _b, _c;
-      const link = (_b = (_a = event.target).closest) == null ? void 0 : _b.call(_a, "a.gloss-link[data-dictionary-lookup]");
+      const link = dictionaryLookupLink(event.target);
       if (!link) return false;
-      const query = ((_c = link.dataset.dictionaryLookup) == null ? void 0 : _c.replace(/\s+/g, " ").trim()) ?? "";
+      const query = dictionaryLookupQuery(link);
       if (!query) return false;
       event.preventDefault();
       event.stopPropagation();
@@ -34495,13 +34564,21 @@ ${spelling}`);
       });
     }
     lookupCandidateFromPoint(x, y, eventTarget) {
-      const element2 = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
-      if (!element2 || this.isNativeTextLookupTarget(element2)) return null;
-      const position = caretTextPositionFromPoint(x, y);
-      if (!this.isUsablePointerTextPosition(element2, position)) return null;
+      const element2 = this.pointerLookupElement(x, y, eventTarget);
+      if (!element2) return null;
+      const position = this.usablePointerTextPosition(element2, x, y);
+      if (!position) return null;
       const characterOffset = pointerTextCharacterOffset(position.node, position.offset, x, y);
       if (characterOffset === null) return null;
       return this.lookupCandidateFromTextPosition(position.node, characterOffset);
+    }
+    pointerLookupElement(x, y, eventTarget) {
+      const element2 = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
+      return element2 && !this.isNativeTextLookupTarget(element2) ? element2 : null;
+    }
+    usablePointerTextPosition(element2, x, y) {
+      const position = caretTextPositionFromPoint(x, y);
+      return this.isUsablePointerTextPosition(element2, position) ? position : null;
     }
     lookupCandidateFromTextPosition(node, characterOffset) {
       const run = japaneseRunAt(node.data, characterOffset);
