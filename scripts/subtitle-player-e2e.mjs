@@ -465,11 +465,23 @@ function drawerLayoutRects(state, phase) {
 }
 
 function assertDrawerLayoutState(site, phase, state, layout) {
-    assert(layout.panel && layout.panel.width >= 260 && layout.panel.height >= 80, `${site.name}: missing transcript panel during ${phase}`, state);
-    assert(layout.video && layout.video.width >= 240 && layout.video.height >= 120, `${site.name}: missing usable video during ${phase}`, state);
+    assert(hasTranscriptPanel(layout.panel), `${site.name}: missing transcript panel during ${phase}`, state);
+    assert(hasUsableVideo(layout.video), `${site.name}: missing usable video during ${phase}`, state);
     assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
     assert(panelFitsViewport(layout.panel, state.viewport), `${site.name}: transcript panel leaves viewport during ${phase}`, state);
     assert(!state.blockingDialogVisible, `${site.name}: blocking page dialog is covering the verification screenshot`, state);
+}
+
+function hasTranscriptPanel(panel) {
+    return isUsableLayoutBox(panel, 260, 80);
+}
+
+function hasUsableVideo(video) {
+    return isUsableLayoutBox(video, 240, 120);
+}
+
+function isUsableLayoutBox(box, minWidth, minHeight) {
+    return Boolean(box && box.width >= minWidth && box.height >= minHeight);
 }
 
 function panelFitsViewport(panel, viewport) {

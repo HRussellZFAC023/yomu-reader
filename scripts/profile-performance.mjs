@@ -146,9 +146,17 @@ async function profileBridgeRequest(request) {
 }
 
 function profileRequestBody(body) {
-    if (body?.kind === 'arraybuffer') return Buffer.from(body.bytes ?? []);
-    if (body?.kind === 'formdata') return profileFormData(body.entries ?? []);
+    if (body?.kind === 'arraybuffer') return profileArrayBuffer(body);
+    if (body?.kind === 'formdata') return profileFormDataBody(body);
     return body;
+}
+
+function profileArrayBuffer(body) {
+    return Buffer.from(body.bytes ?? []);
+}
+
+function profileFormDataBody(body) {
+    return profileFormData(body.entries ?? []);
 }
 
 function profileFormData(entries) {
@@ -226,12 +234,22 @@ await page.addInitScript(({ settings, live }) => {
 if (!LIVE) await page.route('**/*', mockProfileRoute);
 
 async function mockProfileRoute(route) {
-    let url = new URL(route.request().url());
-    if (url.hostname === '127.0.0.1' && url.pathname === '/__jpdb-reader-audio-proxy' && url.searchParams.get('url')) {
-        url = new URL(url.searchParams.get('url'));
-    }
+    const url = profileRouteUrl(route.request().url());
     const response = await profileRouteResponse(route, url);
-    return response ? route.fulfill(response) : route.continue();
+    if (response) return route.fulfill(response);
+    return route.continue();
+}
+
+function profileRouteUrl(value) {
+    const url = new URL(value);
+    if (!isProfileAudioProxyUrl(url)) return url;
+    return new URL(url.searchParams.get('url'));
+}
+
+function isProfileAudioProxyUrl(url) {
+    return url.hostname === '127.0.0.1'
+        && url.pathname === '/__jpdb-reader-audio-proxy'
+        && url.searchParams.has('url');
 }
 
 async function profileRouteResponse(route, url) {

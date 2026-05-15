@@ -7,22 +7,37 @@ export function loadLocalEnv(root = path.resolve(import.meta.dirname, '..')) {
 
     const lines = readFileSync(file, 'utf8').split(/\r?\n/);
     for (const line of lines) {
-        const assignment = parseEnvAssignment(line);
-        if (assignment && process.env[assignment.key] === undefined) process.env[assignment.key] = assignment.value;
+        loadEnvLine(line);
     }
+}
+
+function loadEnvLine(line) {
+    const assignment = parseEnvAssignment(line);
+    if (!assignment) return;
+    if (process.env[assignment.key] !== undefined) return;
+    process.env[assignment.key] = assignment.value;
 }
 
 function parseEnvAssignment(line) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return null;
+    if (isIgnoredEnvLine(trimmed)) return null;
     const separator = trimmed.indexOf('=');
-    if (separator <= 0) return null;
+    if (!hasEnvSeparator(separator)) return null;
     const key = trimmed.slice(0, separator).trim();
     if (!key) return null;
     return {
         key,
         value: unquoteEnvValue(trimmed.slice(separator + 1).trim()),
     };
+}
+
+function isIgnoredEnvLine(trimmed) {
+    if (!trimmed) return true;
+    return trimmed.startsWith('#');
+}
+
+function hasEnvSeparator(separator) {
+    return separator > 0;
 }
 
 function unquoteEnvValue(value) {
