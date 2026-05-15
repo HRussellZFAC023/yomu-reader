@@ -36,6 +36,16 @@ interface PopoverRectCandidate {
     canOverlap: boolean;
 }
 
+interface PopoverPositionFrame {
+    scrollTop: number;
+    sourceRects: PopoverRect[];
+    viewport: PopoverRect;
+    viewportWidth: number;
+    viewportHeight: number;
+    width: number;
+    height: number;
+}
+
 const DEFAULT_POPOVER_WRITING_MODE: NormalizedWritingMode = 'horizontal-tb';
 const SUPPORTED_POPOVER_WRITING_MODES = new Set<NormalizedWritingMode>([
     'horizontal-tb',
@@ -93,35 +103,65 @@ export function normalizePressedKey(key: string): string {
 }
 
 export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fallbackRect?: DOMRect, options: PopoverPositionOptions = {}): void {
-    const scrollTop = popover.scrollTop;
-    const margin = 8;
-    const sourceRects = getPopoverSourceRects(anchor, fallbackRect, options);
-    const viewport = getPopoverViewport();
-    const viewportHeight = viewport.bottom - viewport.top;
-    const viewportWidth = viewport.right - viewport.left;
-    const maxFrameHeight = Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
-    popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
-    popover.style.maxHeight = `${maxFrameHeight}px`;
-    const width = popover.offsetWidth;
-    const height = popover.offsetHeight;
-    const fallbackLeft = (viewport.left + viewport.right - width) / 2;
-    const fallbackTop = viewportHeight * 0.18;
-    if (!sourceRects.length) {
-        popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - width - margin))}px`;
-        popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - height - margin))}px`;
-        if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-        log.debugThrottled('position-popover', 1000, 'Popover positioned without anchor', { width, height, viewportWidth, viewportHeight });
+    const frame = preparePopoverPositionFrame(popover, anchor, fallbackRect, options);
+    if (!frame.sourceRects.length) {
+        positionPopoverWithoutAnchor(popover, frame);
         return;
     }
 
+    positionAnchoredPopover(popover, anchor, options, frame);
+}
+
+function preparePopoverPositionFrame(
+    popover: HTMLElement,
+    anchor: HTMLElement | undefined,
+    fallbackRect: DOMRect | undefined,
+    options: PopoverPositionOptions,
+): PopoverPositionFrame {
+    const viewport = getPopoverViewport();
+    const viewportHeight = viewport.bottom - viewport.top;
+    const viewportWidth = viewport.right - viewport.left;
+    popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
+    popover.style.maxHeight = `${popoverMaxFrameHeight(viewportHeight, options)}px`;
+    return {
+        scrollTop: popover.scrollTop,
+        sourceRects: getPopoverSourceRects(anchor, fallbackRect, options),
+        viewport,
+        viewportWidth,
+        viewportHeight,
+        width: popover.offsetWidth,
+        height: popover.offsetHeight,
+    };
+}
+
+function popoverMaxFrameHeight(viewportHeight: number, options: PopoverPositionOptions): number {
+    return Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
+}
+
+function positionPopoverWithoutAnchor(popover: HTMLElement, frame: PopoverPositionFrame): void {
+    const margin = 8;
+    const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
+    const fallbackTop = frame.viewportHeight * 0.18;
+    popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - frame.width - margin))}px`;
+    popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - frame.height - margin))}px`;
+    restorePopoverScrollTop(popover, frame.scrollTop);
+    log.debugThrottled('position-popover', 1000, 'Popover positioned without anchor', {
+        width: frame.width,
+        height: frame.height,
+        viewportWidth: frame.viewportWidth,
+        viewportHeight: frame.viewportHeight,
+    });
+}
+
+function positionAnchoredPopover(popover: HTMLElement, anchor: HTMLElement | undefined, options: PopoverPositionOptions, frame: PopoverPositionFrame): void {
     const writingMode = getPopoverWritingMode(anchor);
-    const position = getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, width, height);
+    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height);
     popover.style.maxWidth = `${Math.max(0, position.width)}px`;
     popover.style.maxHeight = `${Math.max(0, position.height)}px`;
     popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
     popover.style.left = `${position.left}px`;
     popover.style.top = `${position.top}px`;
-    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
+    restorePopoverScrollTop(popover, frame.scrollTop);
     log.debugThrottled('position-popover', 1000, 'Popover positioned', {
         left: Math.round(position.left),
         top: Math.round(position.top),
@@ -129,9 +169,13 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
         followsPointer: Boolean(options.followPoint),
         width: Math.round(position.width),
         height: Math.round(position.height),
-        viewportWidth,
-        viewportHeight,
+        viewportWidth: frame.viewportWidth,
+        viewportHeight: frame.viewportHeight,
     });
+}
+
+function restorePopoverScrollTop(popover: HTMLElement, scrollTop: number): void {
+    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
 }
 
 function getPopoverSourceRects(anchor: HTMLElement | undefined, fallbackRect: DOMRect | undefined, options: PopoverPositionOptions): PopoverRect[] {

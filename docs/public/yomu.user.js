@@ -2955,21 +2955,31 @@
       this.getSettings = getSettings;
     }
     async play(card, options = {}) {
-      const requestId = ++this.playRequestId;
-      const isCurrent = options.isCurrent ?? (() => true);
-      const settings = this.getSettings();
-      if (!settings.audioEnabled) throw new Error("Audio playback is disabled.");
-      if (!isCurrent()) return false;
-      const sources = getOrderedAudioSources(settings);
+      const request = this.audioPlaybackRequest(options);
+      this.ensureAudioEnabled(request.settings);
+      if (!request.isCurrent()) return false;
       this.stopCurrent();
-      if (!sources.length) {
-        log$D.warn("No audio sources configured", { term: card.spelling });
-        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
-      }
-      const done = log$D.time("play", { term: card.spelling, sources: sources.map((source) => source.type), viaBlob: true });
-      const result = await this.playFromSources(sources, card, settings, requestId, isCurrent);
+      if (!request.sources.length) return await this.playNoAudioSources(card, request);
+      const done = log$D.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent);
       done();
-      return this.finishPlaybackResult(card, settings, requestId, isCurrent, result);
+      return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
+    }
+    audioPlaybackRequest(options) {
+      const settings = this.getSettings();
+      return {
+        requestId: ++this.playRequestId,
+        isCurrent: options.isCurrent ?? (() => true),
+        settings,
+        sources: getOrderedAudioSources(settings)
+      };
+    }
+    ensureAudioEnabled(settings) {
+      if (!settings.audioEnabled) throw new Error("Audio playback is disabled.");
+    }
+    async playNoAudioSources(card, request) {
+      log$D.warn("No audio sources configured", { term: card.spelling });
+      return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
@@ -3131,11 +3141,17 @@
     async playPreparedAudio(audio, requestId, isCurrent) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       this.current = audio;
+      this.rewindPreparedAudio(audio);
+      await audio.play();
+      return this.finishPreparedAudio(audio, requestId, isCurrent);
+    }
+    rewindPreparedAudio(audio) {
       try {
         if (audio.readyState > HTMLMediaElement.HAVE_NOTHING) audio.currentTime = 0;
       } catch {
       }
-      await audio.play();
+    }
+    finishPreparedAudio(audio, requestId, isCurrent) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) {
         audio.pause();
         return false;
@@ -3188,20 +3204,32 @@
       });
     }
     async playMissingAudioFallback(settings, requestId, isCurrent) {
-      if (!settings.audioFallbackChimeEnabled) {
-        log$D.debug("Missing-audio fallback is silent");
-        return false;
-      }
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent)) return false;
+      return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
+    }
+    shouldPlayMissingAudioFallback(settings, requestId, isCurrent) {
+      if (settings.audioFallbackChimeEnabled) return this.isPlaybackCurrent(requestId, isCurrent);
+      this.logSilentMissingAudioFallback();
+      return false;
+    }
+    logSilentMissingAudioFallback() {
+      log$D.debug("Missing-audio fallback is silent");
+    }
+    async tryPlayMissingAudioFallback(requestId, isCurrent) {
       try {
         const played = await this.playSoftChime(requestId, isCurrent);
-        if (!played) return false;
-        log$D.debug("Missing-audio fallback chime played");
-        return true;
+        return this.finishMissingAudioFallback(played);
       } catch (error) {
         log$D.debug("Missing-audio fallback chime unavailable", {}, error);
         return false;
       }
+    }
+    finishMissingAudioFallback(played) {
+      if (played) {
+        log$D.debug("Missing-audio fallback chime played");
+        return true;
+      }
+      return false;
     }
     async playSoftChime(requestId, isCurrent) {
       const AudioContextCtor = getAudioContextConstructor();
@@ -3316,11 +3344,17 @@
     return mode === "random" ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
   }
   function findAudioUrls(value, sourceUrl) {
+    const direct = directAudioUrlsForValue(value, sourceUrl);
+    return direct ?? [];
+  }
+  function directAudioUrlsForValue(value, sourceUrl) {
     if (!value) return [];
     if (typeof value === "string") return findAudioUrlsInString(value, sourceUrl);
+    return structuredAudioUrlsForValue(value, sourceUrl);
+  }
+  function structuredAudioUrlsForValue(value, sourceUrl) {
     if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
-    if (typeof value === "object") return findAudioUrlsInRecord(value, sourceUrl);
-    return [];
+    return typeof value === "object" ? findAudioUrlsInRecord(value, sourceUrl) : null;
   }
   function findAudioUrlsInString(value, sourceUrl) {
     if (value.startsWith("data:audio/")) return [value];
@@ -3633,10 +3667,13 @@
     const matches = [];
     let match;
     while (match = pattern.exec(html)) {
-      const attributes = match[1] ?? "";
-      if (!attributePattern || attributePattern.test(attributes)) matches.push(match[0]);
+      if (htmlElementMatchesAttributes(match, attributePattern)) matches.push(match[0]);
     }
     return matches;
+  }
+  function htmlElementMatchesAttributes(match, attributePattern) {
+    const attributes = match[1] ?? "";
+    return attributePattern ? attributePattern.test(attributes) : true;
   }
   function htmlElementHasClass(element2, tag, className) {
     var _a;
@@ -3711,7 +3748,10 @@
     }
   }
   function isLikelyAudioRecord(record) {
-    return typeof record.url === "string" && (isLikelyAudioUrl(record.url) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string");
+    return typeof record.url === "string" && audioRecordHasPlayableSignal(record);
+  }
+  function audioRecordHasPlayableSignal(record) {
+    return isLikelyAudioUrl(String(record.url)) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string";
   }
   function isLikelyAudioUrl(value) {
     if (value.startsWith("data:audio/")) return true;
@@ -3772,8 +3812,17 @@
     (_a = document.head) == null ? void 0 : _a.append(link);
   }
   function getBrowserFetchUrl(url) {
-    if (!/^https?:\/\//i.test(url)) return url;
-    if (isLocalDevHost(location.hostname)) return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+    if (!isHttpAudioUrl(url)) return url;
+    if (isLocalDevHost(location.hostname)) return audioProxyUrl(url);
+    return sameOriginAudioUrl(url);
+  }
+  function isHttpAudioUrl(url) {
+    return /^https?:\/\//i.test(url);
+  }
+  function audioProxyUrl(url) {
+    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+  }
+  function sameOriginAudioUrl(url) {
     try {
       return new URL(url).origin === location.origin ? url : null;
     } catch {
@@ -4061,11 +4110,11 @@
   const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
   function isYomuHostedAppUrl(value) {
     const appUrl = readYomuAppUrl(value);
-    return Boolean(appUrl && (isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path) || isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl)));
+    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
   }
   function isYomuHostedPassivePage(value) {
     const appUrl = readYomuAppUrl(value);
-    return Boolean(appUrl && !isYomuNewTabUrl(value) && !isYomuVideoPlayerPath(appUrl.path) && (isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl)));
+    return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
   }
   function readYomuAppUrl(value) {
     try {
@@ -4074,6 +4123,18 @@
     } catch {
       return null;
     }
+  }
+  function isYomuHostedAppRoute(value, appUrl) {
+    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
+  }
+  function isPassiveYomuRepositoryPage(value, appUrl) {
+    return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
+  }
+  function isYomuActiveAppRoute(value, appUrl) {
+    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
+  }
+  function isYomuRepositoryAppUrl(appUrl) {
+    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
   }
   function isHostedRepositoryAppUrl(appUrl) {
     return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
@@ -10406,26 +10467,11 @@ ${glossaryKey}`;
       if (this.shouldSkipNewTabCards(settings)) return [];
       try {
         const done = log$v.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
-        const query = newTabAnkiQuery(settings);
-        const foundCardIds = await this.invoke("findCards", { query });
-        const sampledCardIds = sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
-        if (!sampledCardIds.length) {
-          done();
-          log$v.debug("No due Anki cards available for new tab", { query });
-          return [];
-        }
-        const dueCards = await this.loadDueNewTabCards(sampledCardIds);
-        if (!dueCards.length) {
-          done();
-          log$v.debug("Anki cards found but none are reviewable for new tab", { query, cards: sampledCardIds.length });
-          return [];
-        }
-        const noteIds = unique$2(dueCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
-        const notes = await this.invoke("notesInfo", { notes: noteIds });
-        const cardsByNote = cardsByNoteId(dueCards);
-        const result = notes.map((note) => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? [])).filter((card) => card !== null).slice(0, Math.max(1, limit));
+        const load = await this.loadNewTabCards(settings, limit);
+        if (this.isEmptyNewTabCardLoad(load, done)) return [];
+        const result = this.newTabCardsFromLoad(load, limit);
         done();
-        log$v.debug("Anki new tab cards loaded", { notes: notes.length, cards: result.length, dueCards: dueCards.length });
+        log$v.debug("Anki new tab cards loaded", { notes: load.notes.length, cards: result.length, dueCards: load.dueCards.length });
         return result;
       } catch (error) {
         log$v.warn("Anki new tab lookup failed; entering cooldown", error);
@@ -10436,10 +10482,53 @@ ${glossaryKey}`;
     shouldSkipNewTabCards(settings) {
       return !settings.ankiEnabled || Date.now() < this.unavailableUntil;
     }
+    async loadNewTabCards(settings, limit) {
+      const query = newTabAnkiQuery(settings);
+      const sampledCardIds = await this.sampleNewTabCardIds(query, limit);
+      const dueCards = sampledCardIds.length ? await this.loadDueNewTabCards(sampledCardIds) : [];
+      const notes = dueCards.length ? await this.loadNewTabNotes(dueCards) : [];
+      return {
+        query,
+        sampledCardIds,
+        dueCards,
+        notes,
+        result: this.newTabCardsFromNotes(notes, dueCards, limit)
+      };
+    }
+    async sampleNewTabCardIds(query, limit) {
+      const foundCardIds = await this.invoke("findCards", { query });
+      return sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
+    }
     async loadDueNewTabCards(sampledCardIds) {
       const dueFlags = await this.invoke("areDue", { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
       const cards = await this.invoke("cardsInfo", { cards: sampledCardIds }).catch(() => []);
       return cards.filter((cardInfo, index) => isReviewableAnkiCard(cardInfo, dueFlags[index]));
+    }
+    async loadNewTabNotes(dueCards) {
+      const noteIds = unique$2(dueCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
+      return await this.invoke("notesInfo", { notes: noteIds });
+    }
+    newTabCardsFromLoad(load, limit) {
+      return load.result.slice(0, Math.max(1, limit));
+    }
+    newTabCardsFromNotes(notes, dueCards, limit) {
+      const cardsByNote = cardsByNoteId(dueCards);
+      return notes.map((note) => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? [])).filter((card) => card !== null).slice(0, Math.max(1, limit));
+    }
+    isEmptyNewTabCardLoad(load, done) {
+      if (!load.sampledCardIds.length) return this.finishEmptyNewTabCards(done, "No due Anki cards available for new tab", { query: load.query });
+      if (!load.dueCards.length) {
+        return this.finishEmptyNewTabCards(done, "Anki cards found but none are reviewable for new tab", {
+          query: load.query,
+          cards: load.sampledCardIds.length
+        });
+      }
+      return false;
+    }
+    finishEmptyNewTabCards(done, message, detail) {
+      done();
+      log$v.debug(message, detail);
+      return true;
     }
     async findExistingCards(card) {
       const empty = emptyAnkiLookupResult();
@@ -10601,21 +10690,29 @@ ${glossaryKey}`;
     }
     async ensureDeckAndModel(deckOverride) {
       const settings = this.getSettings();
-      const deckName = (deckOverride == null ? void 0 : deckOverride.trim()) || settings.ankiDeck || "よむ";
-      const modelName = settings.ankiModel || "よむ Japanese";
+      const deckName = resolvedAnkiDeckName(deckOverride, settings);
+      const modelName = resolvedAnkiModelName(settings);
       log$v.debug("Ensuring Anki deck/model", { deckName, modelName });
+      await this.ensureDeck(deckName);
+      const modelNames = await this.modelNames().catch(() => []);
+      await this.ensureYomuModel(modelNames, modelName, settings);
+    }
+    async ensureDeck(deckName) {
       await this.invoke("createDeck", { deck: deckName }).catch((error) => {
         log$v.debug("createDeck ignored", { deckName }, error);
         return null;
       });
-      const modelNames = await this.modelNames().catch(() => []);
-      if (modelNames.includes(modelName)) {
-        await this.ensureModelFields(modelName);
-        await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
-        await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
-        log$v.debug("Anki model updated", { modelName });
-        return;
-      }
+    }
+    async updateExistingModel(modelName, settings) {
+      await this.ensureModelFields(modelName);
+      await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
+      await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
+      log$v.debug("Anki model updated", { modelName });
+    }
+    async ensureYomuModel(modelNames, modelName, settings) {
+      return modelNames.includes(modelName) ? await this.updateExistingModel(modelName, settings) : await this.createYomuModel(modelName, settings);
+    }
+    async createYomuModel(modelName, settings) {
       await this.invoke("createModel", {
         modelName,
         inOrderFields: YOMU_MODEL_FIELDS,
@@ -10706,6 +10803,12 @@ ${glossaryKey}`;
       return response.json();
     });
   }
+  function resolvedAnkiDeckName(deckOverride, settings) {
+    return (deckOverride == null ? void 0 : deckOverride.trim()) || settings.ankiDeck || "よむ";
+  }
+  function resolvedAnkiModelName(settings) {
+    return settings.ankiModel || "よむ Japanese";
+  }
   function canFetchAnkiConnect(url) {
     try {
       const target = new URL(url, location.href);
@@ -10720,20 +10823,29 @@ ${glossaryKey}`;
     const jpdbUrl = jpdbVocabularyUrl(card);
     return {
       Expression: escapeHtml$1(card.spelling),
-      Reading: card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "",
+      Reading: renderCardReading(card),
       Meaning: renderJpdbMeanings(card),
       Sentence: renderSentence(sentence, card.spelling),
       Url: escapeHtml$1(fieldContext.sourceUrl),
       Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
-      PartOfSpeech: escapeHtml$1(formatPartOfSpeech(card.partOfSpeech) || formatPartOfSpeechDetails(card.partOfSpeech)),
+      PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
       Image: "",
-      JPDB: jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : "",
+      JPDB: renderJpdbLink(jpdbUrl),
       Status: renderCardStatus(card),
       Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
       DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
       Kanji: renderKanjiDefinitions$1(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences),
       Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
     };
+  }
+  function renderCardReading(card) {
+    return card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "";
+  }
+  function renderPartOfSpeech(partOfSpeech) {
+    return escapeHtml$1(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
+  }
+  function renderJpdbLink(jpdbUrl) {
+    return jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : "";
   }
   function ankiFieldContext(context) {
     return {
@@ -10763,16 +10875,25 @@ ${glossaryKey}`;
     return value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean);
   }
   function imageFromDataUrl(dataUrl, card) {
-    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-    if (!match) return null;
-    const rawExtension = match[1].toLowerCase();
-    const extension = rawExtension === "jpeg" ? "jpg" : rawExtension === "svg+xml" ? "svg" : rawExtension;
-    const safeName = card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
+    const parsed = parseAnkiImageDataUrl(dataUrl);
+    if (!parsed) return null;
     return {
-      filename: `yomu_${safeName}_${Date.now()}.${extension}`,
-      data: match[2],
+      filename: `yomu_${safeAnkiImageName(card)}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
       fields: ["Image"]
     };
+  }
+  function parseAnkiImageDataUrl(dataUrl) {
+    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
+  }
+  function ankiImageExtension(rawExtension) {
+    const extension = rawExtension.toLowerCase();
+    if (extension === "jpeg") return "jpg";
+    return extension === "svg+xml" ? "svg" : extension;
+  }
+  function safeAnkiImageName(card) {
+    return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
   }
   function isMobileUserAgent() {
     const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
@@ -10892,17 +11013,28 @@ ${glossaryKey}`;
     cardsByNote.set(noteId, list);
   }
   function ankiExistingNoteFromInfo(note, noteCards) {
-    var _a, _b;
     const state = stateFromAnkiCards(noteCards);
     return {
       noteId: note.noteId,
       modelName: note.modelName,
-      deckNames: unique$2(noteCards.map((item) => item.deckName).filter(Boolean)),
+      deckNames: ankiNoteDeckNames(noteCards),
       cardIds: note.cards ?? [],
-      primaryCardId: ((_a = pickPrimaryCard(noteCards)) == null ? void 0 : _a.cardId) ?? ((_b = note.cards) == null ? void 0 : _b[0]) ?? null,
+      primaryCardId: ankiNotePrimaryCardId(note, noteCards),
       state,
       fields: flattenNoteFields(note.fields),
       tags: note.tags ?? [],
+      ...ankiNoteReviewMetrics(noteCards)
+    };
+  }
+  function ankiNoteDeckNames(noteCards) {
+    return unique$2(noteCards.map((item) => item.deckName).filter(Boolean));
+  }
+  function ankiNotePrimaryCardId(note, noteCards) {
+    var _a, _b;
+    return ((_a = pickPrimaryCard(noteCards)) == null ? void 0 : _a.cardId) ?? ((_b = note.cards) == null ? void 0 : _b[0]) ?? null;
+  }
+  function ankiNoteReviewMetrics(noteCards) {
+    return {
       reps: sumAnkiCardMetric(noteCards, "reps"),
       lapses: sumAnkiCardMetric(noteCards, "lapses")
     };
@@ -10911,12 +11043,10 @@ ${glossaryKey}`;
     return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
   }
   function ankiNoteToCard(note, cards) {
-    var _a;
     const fields = ankiNoteCardFields(note);
     if (!fields) return null;
     const state = stateFromAnkiCards(cards);
-    const primary = pickPrimaryCard(cards);
-    const primaryCardId = (primary == null ? void 0 : primary.cardId) ?? ((_a = note.cards) == null ? void 0 : _a[0]);
+    const primaryCardId = ankiNoteCardId(note, cards);
     return {
       vid: -stableAnkiId(String(note.noteId)),
       sid: -stableAnkiId(`${note.noteId}:${fields.spelling}`),
@@ -10934,6 +11064,10 @@ ${glossaryKey}`;
       reviewSource: "anki",
       ankiCardId: primaryCardId ?? void 0
     };
+  }
+  function ankiNoteCardId(note, cards) {
+    var _a, _b;
+    return ((_a = pickPrimaryCard(cards)) == null ? void 0 : _a.cardId) ?? ((_b = note.cards) == null ? void 0 : _b[0]);
   }
   function ankiNoteCardFields(note) {
     const fields = flattenNoteFields(note.fields);
@@ -11014,8 +11148,11 @@ ${glossaryKey}`;
     return names.map((name) => fields[name]).find(Boolean) ?? "";
   }
   function noteReadingContainsTarget(fields, card) {
-    const reading = fields.Reading || fields.Kana || fields.Yomi;
+    const reading = firstNoteReading(fields);
     return Boolean(reading && card.reading && reading.includes(card.reading));
+  }
+  function firstNoteReading(fields) {
+    return firstNoteField(fields, ["Reading", "Kana", "Yomi"]);
   }
   function stripHtml$1(value) {
     return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
@@ -11248,18 +11385,23 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function renderPitchField(card, entries, preferences) {
     const chips = card.pitchAccent.slice(0, 4).map((pitch) => `<span class="yomu-chip">JPDB ${escapeHtml$1(pitch)}</span>`);
     for (const entry of entries) {
-      if (entry.mode !== "pitch") continue;
-      const value = formatMetaPitch(entry.data);
-      if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel$1(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
+      appendPitchChip(chips, entry, preferences);
       if (chips.length >= 8) break;
     }
     return chips.filter(uniqueValue).join(" ");
   }
+  function appendPitchChip(chips, entry, preferences) {
+    if (entry.mode !== "pitch") return;
+    const value = formatMetaPitch(entry.data);
+    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel$1(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
+  }
   function renderSource(sourceUrl, sourceTitle) {
-    if (!sourceUrl && !sourceTitle) return "";
-    if (!sourceUrl) return escapeHtml$1(sourceTitle);
-    const label = sourceTitle || sourceUrl;
-    return `<a href="${escapeHtml$1(sourceUrl)}">${escapeHtml$1(label)}</a>`;
+    const source = ankiSourceLink(sourceUrl, sourceTitle);
+    if (!source.label) return "";
+    return source.href ? `<a href="${escapeHtml$1(source.href)}">${escapeHtml$1(source.label)}</a>` : escapeHtml$1(source.label);
+  }
+  function ankiSourceLink(sourceUrl, sourceTitle) {
+    return { href: sourceUrl, label: sourceTitle || sourceUrl };
   }
   function groupTermEntriesByDictionary$1(entries) {
     const grouped = /* @__PURE__ */ new Map();
@@ -11291,24 +11433,31 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function scalarMetaValue$1(value) {
     if (typeof value === "number" || typeof value === "string") return String(value);
-    return scalarMetaValue$1(nestedMetaScalarValue(value));
+    const nested = nestedMetaScalarValue(value);
+    return nested === void 0 ? null : scalarMetaValue$1(nested);
   }
   function nestedMetaScalarValue(value) {
-    if (!value || typeof value !== "object") return void 0;
-    const record = value;
-    return record.displayValue ?? record.frequency ?? record.value;
+    const record = metaRecord(value);
+    return record ? record.displayValue ?? record.frequency ?? record.value : void 0;
   }
   function formatMetaPitch(value) {
-    if (!value || typeof value !== "object") return "";
-    const record = value;
+    const record = metaRecord(value);
+    if (!record) return "";
     const positions = metaPitchPositions(record);
-    if (positions.length) return positions.slice(0, 4).map(String).join(", ");
-    if (typeof record.position === "number") return String(record.position);
-    return "";
+    return positions.length ? formatPitchPositions(positions) : formatPitchPosition(record.position);
+  }
+  function metaRecord(value) {
+    return value && typeof value === "object" ? value : null;
   }
   function metaPitchPositions(record) {
     if (Array.isArray(record.pitches)) return record.pitches;
     return Array.isArray(record.positions) ? record.positions : [];
+  }
+  function formatPitchPositions(positions) {
+    return positions.slice(0, 4).map(String).join(", ");
+  }
+  function formatPitchPosition(position) {
+    return typeof position === "number" ? String(position) : "";
   }
   function safeLocationHref() {
     return typeof location === "undefined" ? "" : location.href;
@@ -11366,34 +11515,55 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return key.toLowerCase();
   }
   function positionPopover(popover, anchor, fallbackRect, options = {}) {
-    const scrollTop = popover.scrollTop;
-    const margin = 8;
-    const sourceRects = getPopoverSourceRects(anchor, fallbackRect, options);
+    const frame = preparePopoverPositionFrame(popover, anchor, fallbackRect, options);
+    if (!frame.sourceRects.length) {
+      positionPopoverWithoutAnchor(popover, frame);
+      return;
+    }
+    positionAnchoredPopover(popover, anchor, options, frame);
+  }
+  function preparePopoverPositionFrame(popover, anchor, fallbackRect, options) {
     const viewport = getPopoverViewport();
     const viewportHeight = viewport.bottom - viewport.top;
     const viewportWidth = viewport.right - viewport.left;
-    const maxFrameHeight = Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
     popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
-    popover.style.maxHeight = `${maxFrameHeight}px`;
-    const width = popover.offsetWidth;
-    const height = popover.offsetHeight;
-    const fallbackLeft = (viewport.left + viewport.right - width) / 2;
-    const fallbackTop = viewportHeight * 0.18;
-    if (!sourceRects.length) {
-      popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - width - margin))}px`;
-      popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - height - margin))}px`;
-      if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
-      log$u.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", { width, height, viewportWidth, viewportHeight });
-      return;
-    }
+    popover.style.maxHeight = `${popoverMaxFrameHeight(viewportHeight, options)}px`;
+    return {
+      scrollTop: popover.scrollTop,
+      sourceRects: getPopoverSourceRects(anchor, fallbackRect, options),
+      viewport,
+      viewportWidth,
+      viewportHeight,
+      width: popover.offsetWidth,
+      height: popover.offsetHeight
+    };
+  }
+  function popoverMaxFrameHeight(viewportHeight, options) {
+    return Math.max(0, Math.min(viewportHeight, options.maxHeight ?? viewportHeight));
+  }
+  function positionPopoverWithoutAnchor(popover, frame) {
+    const margin = 8;
+    const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
+    const fallbackTop = frame.viewportHeight * 0.18;
+    popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - frame.width - margin))}px`;
+    popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - frame.height - margin))}px`;
+    restorePopoverScrollTop(popover, frame.scrollTop);
+    log$u.debugThrottled("position-popover", 1e3, "Popover positioned without anchor", {
+      width: frame.width,
+      height: frame.height,
+      viewportWidth: frame.viewportWidth,
+      viewportHeight: frame.viewportHeight
+    });
+  }
+  function positionAnchoredPopover(popover, anchor, options, frame) {
     const writingMode = getPopoverWritingMode(anchor);
-    const position = getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, width, height);
+    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height);
     popover.style.maxWidth = `${Math.max(0, position.width)}px`;
     popover.style.maxHeight = `${Math.max(0, position.height)}px`;
     popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
     popover.style.left = `${position.left}px`;
     popover.style.top = `${position.top}px`;
-    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
+    restorePopoverScrollTop(popover, frame.scrollTop);
     log$u.debugThrottled("position-popover", 1e3, "Popover positioned", {
       left: Math.round(position.left),
       top: Math.round(position.top),
@@ -11401,9 +11571,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       followsPointer: Boolean(options.followPoint),
       width: Math.round(position.width),
       height: Math.round(position.height),
-      viewportWidth,
-      viewportHeight
+      viewportWidth: frame.viewportWidth,
+      viewportHeight: frame.viewportHeight
     });
+  }
+  function restorePopoverScrollTop(popover, scrollTop) {
+    if (popover.scrollTop !== scrollTop) popover.scrollTop = scrollTop;
   }
   function getPopoverSourceRects(anchor, fallbackRect, options) {
     if (options.followPoint) return pointPopoverRects(options.followPoint);

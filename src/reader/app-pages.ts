@@ -5,20 +5,12 @@ const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
 
 export function isYomuHostedAppUrl(value: string): boolean {
     const appUrl = readYomuAppUrl(value);
-    return Boolean(appUrl && (
-        isYomuNewTabUrl(value)
-        || isYomuVideoPlayerPath(appUrl.path)
-        || isHostedRepositoryAppUrl(appUrl)
-        || isLocalRepositoryAppUrl(appUrl)
-    ));
+    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
 }
 
 export function isYomuHostedPassivePage(value: string): boolean {
     const appUrl = readYomuAppUrl(value);
-    return Boolean(appUrl
-        && !isYomuNewTabUrl(value)
-        && !isYomuVideoPlayerPath(appUrl.path)
-        && (isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl)));
+    return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
 }
 
 interface YomuAppUrl {
@@ -33,6 +25,22 @@ function readYomuAppUrl(value: string): YomuAppUrl | null {
     } catch {
         return null;
     }
+}
+
+function isYomuHostedAppRoute(value: string, appUrl: YomuAppUrl): boolean {
+    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
+}
+
+function isPassiveYomuRepositoryPage(value: string, appUrl: YomuAppUrl): boolean {
+    return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
+}
+
+function isYomuActiveAppRoute(value: string, appUrl: YomuAppUrl): boolean {
+    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
+}
+
+function isYomuRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
+    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
 }
 
 function isHostedRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
