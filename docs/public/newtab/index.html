@@ -384,15 +384,7 @@
 
   <body>
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
-    <script>
-      (() => {
-        if (document.querySelector('script[data-yomu-runtime]')) return;
-        const script = document.createElement('script');
-        script.dataset.yomuRuntime = 'true';
-        script.src = '../yomu.user.js';
-        document.body.append(script);
-      })();
-    </script>
+    <script src="./app.js"></script>
   </body>
 
 </html>

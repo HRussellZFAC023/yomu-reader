@@ -48,7 +48,7 @@ import {
 } from './source-sections';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanTermEntry } from './yomitan';
 
-interface NewTabControllerDependencies {
+export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
     anki: AnkiConnectClient;
     jpdb: JpdbClient;

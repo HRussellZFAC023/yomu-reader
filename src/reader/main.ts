@@ -62,7 +62,6 @@ import {
     type MiningContext,
 } from './mining-context';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
-import { NewTabController } from './new-tab-controller';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
@@ -307,13 +306,6 @@ function mountedHoverPointerPosition(
 ): { x: number; y: number } | undefined {
     const hoverPointerPosition = state.previousHoverPointerPosition ?? lastPointerPosition;
     return state.mode === 'hover' && hoverPointerPosition ? { ...hoverPointerPosition } : undefined;
-}
-
-function newTabNestedParsePlan(root: HTMLElement): NestedParsePlan | null {
-    const targets = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, 36, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
-        .slice(0, 36);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 
 function popoverNestedParsePlan(popover: HTMLElement): NestedParsePlan | null {
@@ -580,28 +572,6 @@ export class ReaderApp {
         jpdb: this.jpdb,
         dictionaries: this.dictionaries,
     });
-    private newTab = new NewTabController({
-        getSettings: () => this.settings,
-        anki: this.anki,
-        jpdb: this.jpdb,
-        jpdbKanji: this.jpdbKanji,
-        kanjiVG: this.kanjiVG,
-        rtk: this.rtk,
-        immersionKit: this.immersionKit,
-        jpdbReviewBridge: this.jpdbReviewBridge,
-        parser: this.parser,
-        dictionaries: this.dictionaries,
-        ensureStarterDictionary: onProgress => this.settingsDialog.ensureStarterDictionaryInstalled(onProgress),
-        lookupText: (text, sentence, anchor) => this.lookupText(text, sentence, { anchor }),
-        lookupDictionaryReference: (query, reading, sourceDictionary, anchor) => this.lookupDictionaryReference(query, reading, sourceDictionary, anchor, 'modal'),
-        showKanjiCard: (card, kanji, sentence, anchor) => this.showKanjiCard(card, kanji, sentence, anchor),
-        parseContent: root => this.parseNewTabContent(root),
-        setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
-        onSettingsChange: () => saveSettings(this.settings),
-        applyTheme: () => this.applyTheme(),
-        showSettings: panel => this.showSettings(panel),
-        dismiss: options => this.dismiss(options),
-    });
     private jpdbExtensions = new JpdbExtensionsController({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
@@ -657,9 +627,7 @@ export class ReaderApp {
         installFab: () => this.installFab(),
         refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
         scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),
-        refreshNewTabIfCurrent: () => {
-            if (this.newTab.isCurrentPage()) void this.newTab.renderPage();
-        },
+        refreshNewTabIfCurrent: () => undefined,
         clearDictionarySourceOpenOverrides: () => this.dictionarySourceOpenOverrides.clear(),
         beginSettingsPreview: (accent, language, theme) => {
             this.settingsPreviewOriginalAccent = accent;
@@ -741,9 +709,7 @@ export class ReaderApp {
     async init(options?: ReaderAppInitOptions): Promise<void> {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
         const shouldShowWelcome = await this.loadInitialSettings(options);
-        const dictionaryWarmup = this.startDictionaryWarmup();
         await this.installCoreSurfaces();
-        if (await this.renderNewTabPageIfCurrent(dictionaryWarmup)) return done();
         if (this.leaveHostedPassivePage()) return done();
         await this.initReaderPage(shouldShowWelcome);
         done();
@@ -765,13 +731,6 @@ export class ReaderApp {
         this.isDemo = true;
     }
 
-    private startDictionaryWarmup(): Promise<unknown> {
-        if (!this.settings.localDictionariesEnabled || !this.newTab.isCurrentPage()) return Promise.resolve();
-        return this.dictionaries.warm(this.settings.dictionaryPreferences).catch(error => {
-            log.warn('Local dictionary warmup failed', error);
-        });
-    }
-
     private async installCoreSurfaces(): Promise<void> {
         this.installStyles();
         this.applyTheme();
@@ -779,13 +738,6 @@ export class ReaderApp {
         this.registerMenuCommands();
         this.bindEvents();
         initJpdbReviewPageBridge();
-    }
-
-    private async renderNewTabPageIfCurrent(dictionaryWarmup: Promise<unknown>): Promise<boolean> {
-        if (!this.newTab.isCurrentPage()) return false;
-        await dictionaryWarmup;
-        await this.newTab.renderPage();
-        return true;
     }
 
     private leaveHostedPassivePage(): boolean {
@@ -895,7 +847,6 @@ export class ReaderApp {
         this.dismiss({ suppressHoverTarget: false });
         this.jpdb.clear();
         this.parser.clearLocalCache();
-        this.newTab.invalidateForFactoryReset();
         this.dictionarySourceOpenOverrides.clear();
         this.cardRenderDataCache.clear();
         this.preloadedTermAudioKeys.clear();
@@ -1085,7 +1036,6 @@ export class ReaderApp {
         }
         this.activePopoverResizeObserver?.disconnect();
         
-        this.newTab.destroy();
         this.floatingButton.destroy();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
@@ -4389,13 +4339,6 @@ export class ReaderApp {
         const plan = popoverNestedParsePlan(popover);
         if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
         await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover), 'Popover');
-    }
-
-    private async parseNewTabContent(root: HTMLElement): Promise<void> {
-        if (!root.isConnected || !this.canParseJapanese()) return;
-        const plan = newTabNestedParsePlan(root);
-        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
-        await this.parseNestedJapaneseContent(root, plan, () => root.isConnected, 'New tab');
     }
 
     private async parseNestedJapaneseContent(
