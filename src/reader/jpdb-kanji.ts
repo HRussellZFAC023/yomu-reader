@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { getUserscriptHttpRequest } from './userscript';
 
 export interface JpdbKanjiReading {
@@ -59,6 +60,8 @@ export class JpdbKanjiClient {
     private cache = new Map<string, Promise<JpdbKanjiInfo | null>>();
     private actions = new Map<string, JpdbKanjiAction>();
 
+    constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
+
     lookup(kanji: string): Promise<JpdbKanjiInfo | null> {
         const key = Array.from(kanji)[0] ?? kanji;
         if (!key) return Promise.resolve(null);
@@ -76,7 +79,7 @@ export class JpdbKanjiClient {
         if (!action) throw new Error('JPDB kanji action is no longer available.');
         if (!action.enabled) throw new Error('JPDB kanji action is disabled.');
         log.info('Performing JPDB kanji action', { kanji: action.kanji, role: action.role, kind: action.kind });
-        await requestText(action.url, {
+        await requestText(action.url, '', {
             method: action.method,
             payload: action.payload,
         });
@@ -85,7 +88,7 @@ export class JpdbKanjiClient {
     }
 
     private async fetchInfo(kanji: string): Promise<JpdbKanjiInfo | null> {
-        const html = await requestText(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`).catch(error => {
+        const html = await requestText(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch(error => {
             log.warn('Kanji page request failed', { kanji }, error);
             return '';
         });
@@ -400,7 +403,7 @@ function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function requestText(url: string, options: { method?: 'GET' | 'POST'; payload?: Record<string, string> } = {}): Promise<string> {
+function requestText(url: string, proxyUrl = '', options: { method?: 'GET' | 'POST'; payload?: Record<string, string>; allowProxyFallback?: boolean } = {}): Promise<string> {
     const method = options.method ?? 'GET';
     const body = requestTextBody(options.payload);
     const requestUrl = requestTextUrl(url, method, body);
@@ -408,9 +411,7 @@ function requestText(url: string, options: { method?: 'GET' | 'POST'; payload?: 
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestTextViaUserscript(userscriptRequest, method, requestUrl, headers, body);
 
-    const fetchUrl = publicFetchUrl(requestUrl);
-    if (!fetchUrl) return Promise.reject(new Error('Cross-origin JPDB kanji request needs a userscript HTTP bridge.'));
-    return requestTextViaFetch(fetchUrl, method, headers, body);
+    return requestTextViaFetch(requestUrl, proxyUrl, method, headers, body, options.allowProxyFallback ?? method === 'GET');
 }
 
 function requestTextBody(payload: Record<string, string> | undefined): string {
@@ -449,25 +450,24 @@ function requestTextViaUserscript(
     });
 }
 
-function requestTextViaFetch(fetchUrl: string, method: 'GET' | 'POST', headers: Record<string, string> | undefined, body: string): Promise<string> {
-    return fetch(fetchUrl, {
+function requestTextViaFetch(
+    requestUrl: string,
+    proxyUrl: string,
+    method: 'GET' | 'POST',
+    headers: Record<string, string> | undefined,
+    body: string,
+    allowProxyFallback: boolean,
+): Promise<string> {
+    return fetchWithCorsFallbacks(requestUrl, proxyUrl, {
         method,
         headers,
         body: method === 'POST' ? body : undefined,
-        credentials: 'include',
+        credentials: 'omit',
         redirect: 'follow',
+        timeoutMs: 8000,
+        allowPublicProxies: allowProxyFallback,
     }).then(response => {
         if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
         return response.text();
     });
-}
-
-function publicFetchUrl(url: string): string | null {
-    try {
-        const target = new URL(url, location.href);
-        if (target.origin === location.origin) return target.href;
-        return null;
-    } catch {
-        return url;
-    }
 }

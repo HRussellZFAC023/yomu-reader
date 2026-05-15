@@ -520,11 +520,11 @@
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, 0.8fr) 74px 58px;
+  grid-template-columns: 48px minmax(130px, 1fr) minmax(120px, 0.8fr) max-content 58px;
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 48px minmax(160px, 1fr) 74px 58px;
+  grid-template-columns: 48px minmax(160px, 1fr) max-content 58px;
 }
 .jpdb-reader-order-head {
   color: var(--jpdb-reader-faint);
@@ -601,6 +601,21 @@
   display: flex;
   gap: 5px;
   justify-content: flex-end;
+  flex-wrap: nowrap;
+  min-width: max-content;
+}
+.jpdb-reader-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.jpdb-reader-drag-handle:active,
+.jpdb-reader-order-row-dragging .jpdb-reader-drag-handle {
+  cursor: grabbing;
+}
+.jpdb-reader-order-row-dragging {
+  border-color: var(--jpdb-reader-accent);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
+  z-index: 2;
 }
 .jpdb-reader-icon-mini {
   display: inline-grid !important;
@@ -666,26 +681,17 @@
   }
 
   .jpdb-reader-dictionary-head,
-  .jpdb-reader-audio-source-head,
-  .jpdb-reader-lookup-link-head {
-    display: none;
-  }
-
   .jpdb-reader-dictionary-row,
-  .jpdb-reader-dictionary-row.compact,
+  .jpdb-reader-audio-source-head,
   .jpdb-reader-audio-source-row,
+  .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: 44px minmax(128px, 0.9fr) minmax(180px, 1.1fr) max-content 48px;
   }
 
-  .jpdb-reader-dictionary-row > :nth-child(3),
-  .jpdb-reader-audio-source-row > :nth-child(3),
-  .jpdb-reader-lookup-link-row > :nth-child(3) {
-    grid-column: 2 / -1;
-  }
-
-  .jpdb-reader-dictionary-row-help {
-    grid-column: 2 / -1;
+  .jpdb-reader-dictionary-head.compact,
+  .jpdb-reader-dictionary-row.compact {
+    grid-template-columns: 44px minmax(220px, 1fr) max-content 48px;
   }
 
   .jpdb-reader-recommended-item {

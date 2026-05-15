@@ -171,6 +171,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
     newTabJpdbReviewMode: 'auto',
+    corsProxyUrl: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev',
     newTabKanjiKeywordSource: 'auto',
     newTabParsingEnabled: true,
     newTabOfflineEnabled: true,
@@ -343,6 +344,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
         newTabSource: normalizeNewTabSource(value?.newTabSource),
         newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
         newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value?.newTabJpdbReviewMode),
+        corsProxyUrl: normalizeCorsProxyUrl(value?.corsProxyUrl),
         newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value?.newTabKanjiKeywordSource),
         newTabParsingEnabled: booleanSetting(value, 'newTabParsingEnabled'),
         newTabOfflineEnabled: booleanSetting(value, 'newTabOfflineEnabled'),
@@ -567,6 +569,17 @@ function normalizeNewTabJpdbReviewMode(value: unknown): ReaderSettings['newTabJp
     return value === 'auto' || value === 'api-vocabulary' || value === 'live-review'
         ? value
         : DEFAULT_SETTINGS.newTabJpdbReviewMode;
+}
+
+function normalizeCorsProxyUrl(value: unknown): string {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw) return '';
+    try {
+        const url = new URL(raw);
+        return url.protocol === 'https:' ? url.href.replace(/\/+$/, '') : '';
+    } catch {
+        return '';
+    }
 }
 
 function normalizeNewTabKanjiKeywordSource(value: unknown): ReaderSettings['newTabKanjiKeywordSource'] {

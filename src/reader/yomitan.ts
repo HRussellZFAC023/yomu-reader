@@ -1,5 +1,6 @@
 import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from './deinflect';
 import { Logger } from './logger';
+import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { normalizeDictionaryPreferences } from './settings';
 import type { DictionaryPreference } from './types';
 import { getUserscriptHttpRequest } from './userscript';
@@ -74,6 +75,8 @@ export class YomitanDictionaryStore {
     private dictionaryInfoPromise?: Promise<YomitanDictionaryInfo[]>;
     private summaryPromise?: Promise<DictionarySummary>;
     private dictionaryStyleCssCache = new Map<string, string>();
+
+    constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
     async warm(preferences: DictionaryPreference[] = []): Promise<void> {
         const done = log.time('Dictionary store warmup', { dictionaries: preferences.length });
@@ -501,7 +504,7 @@ export class YomitanDictionaryStore {
     async importFromUrl(url: string, filename = filenameFromUrl(url), onProgress?: (message: string) => void): Promise<ImportSummary> {
         log.info('Dictionary URL import started', { filename, host: safeHost(url) });
         onProgress?.(`Downloading ${filename}...`);
-        const blob = await requestBlob(url, onProgress);
+        const blob = await requestBlob(url, this.getCorsProxyUrl(), onProgress);
         const file = namedBlobFile(blob, filename, blob.type || 'application/zip');
         const summary = await this.importFile(file, onProgress, url);
         log.info('Dictionary URL import completed', { filename, host: safeHost(url), ...summary });
@@ -1522,11 +1525,11 @@ function namedBlobFile(blob: Blob, name: string, type: string): File {
     return blob as File;
 }
 
-async function requestBlob(url: string, onProgress?: (message: string) => void): Promise<Blob> {
+async function requestBlob(url: string, proxyUrl: string, onProgress?: (message: string) => void): Promise<Blob> {
     const done = log.time('Dictionary download', { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress);
-    return await requestBlobViaFetch(url, done);
+    return await requestBlobViaFetch(url, proxyUrl, done);
 }
 
 function requestBlobViaUserscript(
@@ -1586,11 +1589,11 @@ function requestBlobViaUserscript(
         });
 }
 
-async function requestBlobViaFetch(url: string, done: () => void): Promise<Blob> {
+async function requestBlobViaFetch(url: string, proxyUrl: string, done: () => void): Promise<Blob> {
     const downloadUrl = dictionaryDownloadUrl(url);
     if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done);
     try {
-        return await fetchDictionaryBlob(url, downloadUrl, done);
+        return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done);
     } catch (error) {
         return handleDictionaryFetchError(url, downloadUrl, error, done);
     }
@@ -1601,8 +1604,8 @@ function throwMissingDictionaryDownloadBridge(done: () => void): never {
     throw new Error('Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.');
 }
 
-async function fetchDictionaryBlob(url: string, downloadUrl: string, done: () => void): Promise<Blob> {
-    const response = await fetch(downloadUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer' });
+async function fetchDictionaryBlob(url: string, downloadUrl: string, proxyUrl: string, done: () => void): Promise<Blob> {
+    const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', timeoutMs: 120000 });
     if (!response.ok) throwDictionaryHttpError(url, response.status);
     const blob = await response.blob();
     log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });

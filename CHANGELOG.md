@@ -10,6 +10,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Fixed
 
+- Added a Cloudflare-hosted public-resource proxy fallback for hosted-page JPDB kanji/vocabulary, pitch, audio, and dictionary downloads without sending logged-in JPDB actions through public proxies.
 - Reworked the hosted new-tab iPad flow so missing dictionaries send users to Settings, dictionary downloads do not open surprise tabs, new-tab word taps open the lookup popover, kanji graph nodes drag, and the bottom controls stay fixed.
 - Added hosted-page userscript coverage back for the new-tab page so JPDB kanji, Uchisen, RTK, and remote dictionary downloads can use the userscript request bridge on iPad.
 - Improved the settings Help and tablet layout, including visible donation/support links and better wrapping for settings rows.
@@ -131,7 +132,6 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Added
 
-- Added automatic JMdict starter download for dictionary-backed new-tab cards when Anki and JPDB are unavailable.
 - Added a transcript panel for video subtitle mining, with active-line highlighting, auto-scroll, responsive left/right/below placement, and tappable lookup on visible transcript lines.
 - Added a Local Audio docs page covering hosted Ultimate Yomitan Audio, self-hosted audio files, local server setup, startup tasks, custom ports, and Tailscale access.
 - Added optional one-time Immersion Kit hover audio on desktop, with a setting to turn it off and manual replay kept available on every device.

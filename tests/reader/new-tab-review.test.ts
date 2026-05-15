@@ -378,6 +378,54 @@ describe('new tab review helpers', () => {
         expect(toggles).toBe(1);
     });
 
+    it('ignores duplicate pointer navigation clicks from touch browsers', () => {
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.innerHTML = '<button type="button" data-newtab-action="next">Next</button>';
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[] }, {
+            visibleWords: [{
+                vid: 1,
+                sid: 1,
+                rid: 1,
+                spelling: '読む',
+                reading: 'よむ',
+                frequencyRank: null,
+                partOfSpeech: [],
+                meanings: [],
+                cardState: ['new'],
+                pitchAccent: [],
+                wordWithReading: null,
+                source: 'local',
+            }],
+        });
+        let advances = 0;
+        (controller as unknown as { showNextWord(): void }).showNextWord = () => {
+            advances += 1;
+        };
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        const button = root.querySelector('button')!;
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(advances).toBe(1);
+    });
+
     it('routes nested kanji detail buttons and dictionary links to the popup lookup handlers', () => {
         const lookupText = vi.fn();
         const lookupDictionaryReference = vi.fn();

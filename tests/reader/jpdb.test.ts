@@ -33,13 +33,14 @@ import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
 import { installSheetHandle } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
+import { proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderKanjiOrigins, renderPitch, renderRtkInfo, summarizeLearnerGlossary } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { ReaderApp } from '../../src/reader/main';
 import { ReaderParser, fallbackLookupTermAtOffset } from '../../src/reader/reader-parser';
 import { parseRtkSearchIndex } from '../../src/reader/rtk';
 import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, effectiveWordHighlightMode, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings';
-import { localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderSettingsForm, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
+import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderSettingsForm, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/source-sections';
 import { detectGrammarHints, renderGrammarHints } from '../../src/reader/study-tools';
@@ -90,6 +91,17 @@ async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 
     }
     if (lastError) throw lastError;
     await assertion();
+}
+
+function dispatchPointerEvent(target: EventTarget, type: string, clientY: number): void {
+    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
+    Object.defineProperties(event, {
+        button: { value: 0 },
+        clientY: { value: clientY },
+        pointerId: { value: 1 },
+        pointerType: { value: 'mouse' },
+    });
+    target.dispatchEvent(event);
 }
 
 function withPointerTextLookupMock<T>(
@@ -950,7 +962,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips cross-origin built-in audio fetches when the userscript bridge is unavailable', async () => {
+    it('tries proxy fallbacks for cross-origin built-in audio before browser speech', async () => {
         const spoken: string[] = [];
         class FakeSpeechSynthesisUtterance {
             lang = '';
@@ -961,7 +973,7 @@ describe('reader helpers', () => {
             constructor(public text: string) {}
         }
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
-        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('audio fetch failed'))));
         vi.stubGlobal('SpeechSynthesisUtterance', FakeSpeechSynthesisUtterance);
         vi.stubGlobal('speechSynthesis', {
             cancel: vi.fn(),
@@ -977,7 +989,9 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(fetch).not.toHaveBeenCalled();
+            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
+            expect(urls[0]).toContain('yomu-jpdb-public-proxy');
+            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             vi.unstubAllGlobals();
@@ -1148,7 +1162,7 @@ describe('reader helpers', () => {
         expect(parseJpdbPublicPitchHtml(html, '難しい', 'むずかしい')).toEqual([]);
     });
 
-    it('does not fetch public JPDB pitch directly from another site without the userscript bridge', async () => {
+    it('tries public proxy fallbacks for JPDB pitch from another site without the userscript bridge', async () => {
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
 
@@ -1156,13 +1170,15 @@ describe('reader helpers', () => {
             const client = new JpdbPublicPitchClient();
 
             await expect(client.lookup('易しい', 'やさしい')).resolves.toEqual([]);
-            expect(fetch).not.toHaveBeenCalled();
+            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
+            expect(urls[0]).toBe(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
+            expect(urls).toContain(`https://corsproxy.io/?url=${encodeURIComponent('https://jpdb.io/search?q=%E3%82%84%E3%81%95%E3%81%97%E3%81%84')}`);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('does not fetch JPDB vocabulary details directly from another site without the userscript bridge', async () => {
+    it('tries public proxy fallbacks for JPDB vocabulary details from another site without the userscript bridge', async () => {
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
 
@@ -1170,7 +1186,9 @@ describe('reader helpers', () => {
             const client = new JpdbVocabularyClient();
 
             await expect(client.lookup(123, '読む', 'よむ')).resolves.toBeNull();
-            expect(fetch).not.toHaveBeenCalled();
+            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
+            expect(urls[0]).toBe(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
+            expect(urls).toContain(`https://corsproxy.io/?url=${encodeURIComponent('https://jpdb.io/search?q=%E3%82%88%E3%82%80')}`);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -1277,6 +1295,70 @@ describe('reader helpers', () => {
 
         data.set('jpdbDefinitions.enabled', 'on');
         expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
+    });
+
+    it('saves editable dictionary display names without changing dictionary titles', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [{
+                name: 'JITINDEX <1-1-2020>',
+                alias: 'JITINDEX <1-1-2020>',
+                enabled: true,
+                priority: 0,
+                type: 'terms' as const,
+            }],
+        };
+        document.body.innerHTML = `<form>${renderDictionarySourceRows(settings)}</form>`;
+        const form = document.querySelector('form')!;
+        const alias = form.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.0.alias"]');
+
+        expect(alias?.type).toBe('text');
+        alias!.value = 'Jitendex';
+
+        expect(readFormSettings(new FormData(form), settings).dictionaryPreferences[0]).toMatchObject({
+            name: 'JITINDEX <1-1-2020>',
+            alias: 'Jitendex',
+        });
+    });
+
+    it('reorders lookup pill rows through the drag handle', () => {
+        document.body.innerHTML = `<form><div class="jpdb-reader-lookup-links" data-source-editor>${renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'))}</div></form>`;
+        const form = document.querySelector('form')!;
+        installSourceRowDrag(form);
+        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
+        rows.forEach((row, index) => {
+            row.getBoundingClientRect = () => ({
+                x: 0,
+                y: index * 48,
+                top: index * 48,
+                left: 0,
+                right: 300,
+                bottom: index * 48 + 40,
+                width: 300,
+                height: 40,
+                toJSON: () => ({}),
+            });
+        });
+
+        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
+        dispatchPointerEvent(handle, 'pointerdown', 4);
+        dispatchPointerEvent(form, 'pointermove', 200);
+        dispatchPointerEvent(form, 'pointerup', 200);
+
+        const ids = Array.from(form.querySelectorAll<HTMLInputElement>('input[name$=".id"]')).map(input => input.value);
+        expect(ids.at(-1)).toBe('jpdb');
+        expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe('jpdb');
+    });
+
+    it('builds configured proxy URLs before public fallback URLs', () => {
+        const target = 'https://jpdb.io/kanji/%E5%9B%B3';
+        const candidates = proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch');
+
+        expect(candidates[0]).toBe(`https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`);
+        expect(candidates).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
+        expect(proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch', false)).toEqual([
+            `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
+        ]);
     });
 
     it('combines translation and grammar source ordering while keeping individual toggles', () => {
@@ -3140,7 +3222,12 @@ describe('reader helpers', () => {
             const progress: string[] = [];
             const summary = await store.importFromUrl('https://dict.test/alias.zip', 'alias.zip', message => progress.push(message));
 
-            expect(request).toHaveBeenCalledTimes(1);
+            expect(request).toHaveBeenCalled();
+            expect(request.mock.calls[0]?.[0]).toMatchObject({
+                method: 'GET',
+                url: 'https://dict.test/alias.zip',
+                responseType: 'blob',
+            });
             expect(summary).toMatchObject({ dictionaries: ['Alias Dict'], terms: 1, entries: 1 });
             expect(progress).toContain('Downloading alias.zip...');
             expect(progress).toContain('Downloading dictionary 100%...');
@@ -3283,7 +3370,12 @@ describe('reader helpers', () => {
 
             await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
                 .rejects.toThrow(/blocked in this browser/i);
-            expect(fetch).toHaveBeenCalledWith('https://github.com/example/dict.zip', expect.objectContaining({ credentials: 'omit' }));
+            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls.map(([url]) => String(url));
+            expect(urls).toEqual([
+                `https://api.allorigins.win/raw?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
+                `https://corsproxy.io/?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
+            ]);
+            expect(fetch).toHaveBeenCalledWith(urls[0], expect.objectContaining({ credentials: 'omit' }));
         } finally {
             vi.unstubAllGlobals();
         }

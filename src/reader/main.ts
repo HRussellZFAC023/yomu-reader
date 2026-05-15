@@ -352,16 +352,16 @@ export class ReaderApp {
         void saveSettings(this.settings);
     };
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
-    private jpdbKanji = new JpdbKanjiClient();
-    private jpdbPublicPitch = new JpdbPublicPitchClient();
-    private jpdbVocabulary = new JpdbVocabularyClient();
+    private jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
+    private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
+    private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
     private kanjiVG = new KanjiVGClient();
     private kanjiOrigin = new KanjiOriginClient();
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
-    private dictionaries = new YomitanDictionaryStore();
+    private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
