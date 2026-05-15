@@ -14,23 +14,15 @@ import { ReaderParser } from './reader-parser';
 import { RtkClient } from './rtk';
 import {
     DEFAULT_SETTINGS,
-    accentToRgba,
-    effectiveFuriganaMode,
-    effectiveReaderColorSource,
-    effectiveSubtitleColorSource,
-    effectiveWordHighlightMode,
     loadSettings,
-    sanitizeAccentColor,
     saveSettings,
 } from './settings';
+import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
 import { SettingsDialogController } from './settings-dialog-controller';
-import type { InterfaceLanguage, JPDBToken, ReaderColorSource, ReaderSettings } from './types';
+import type { InterfaceLanguage, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
 
 const log = Logger.scope('NewTabRuntime');
-const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
-const COLOR_CHANNELS = ['highlight', 'underline', 'text'] as const;
-type ColorChannel = typeof COLOR_CHANNELS[number];
 
 interface NestedParsePlan {
     targets: ScanTextTarget[];
@@ -207,56 +199,15 @@ class NewTabRuntime {
     }
 
     private applyTheme(): void {
-        this.applyAccentColor(this.settings.accentColor);
-        this.applyWordColors();
-        document.documentElement.classList.toggle('jpdb-reader-theme-dark', this.settings.theme === 'dark');
-        document.documentElement.classList.toggle('jpdb-reader-theme-light', this.settings.theme === 'light');
-        const furiganaMode = effectiveFuriganaMode(this.settings);
-        const wordHighlightMode = effectiveWordHighlightMode(this.settings);
-        this.applyColorSourceClasses('word', {
-            highlight: effectiveReaderColorSource(this.settings, this.settings.wordHighlightColorSource),
-            underline: effectiveReaderColorSource(this.settings, this.settings.wordUnderlineColorSource),
-            text: effectiveReaderColorSource(this.settings, this.settings.wordTextColorSource),
-        });
-        this.applyColorSourceClasses('subtitle', {
-            highlight: effectiveSubtitleColorSource(this.settings, this.settings.subtitleHighlightColorSource),
-            underline: effectiveSubtitleColorSource(this.settings, this.settings.subtitleUnderlineColorSource),
-            text: effectiveSubtitleColorSource(this.settings, this.settings.subtitleTextColorSource),
-        });
-        document.documentElement.classList.toggle('jpdb-reader-hide-known', furiganaMode === 'known-status');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-status', wordHighlightMode === 'status');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-pitch', wordHighlightMode === 'pitch');
-        document.documentElement.classList.toggle('jpdb-reader-highlight-off', wordHighlightMode === 'off');
-    }
-
-    private applyColorSourceClasses(scope: 'word' | 'subtitle', sources: Record<ColorChannel, Exclude<ReaderColorSource, 'auto'>>): void {
-        COLOR_CHANNELS.forEach(channel => {
-            COLOR_SOURCE_CLASSES.forEach(source => {
-                document.documentElement.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
-            });
-        });
+        applyReaderTheme(this.settings);
     }
 
     private applyAccentColor(color: string): void {
-        const accentColor = sanitizeAccentColor(color);
-        document.documentElement.style.setProperty('--jpdb-reader-accent', accentColor);
-        document.documentElement.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18));
+        applyReaderAccentColor(color);
     }
 
     private applyWordColors(settings = this.settings): void {
-        const colorMap = {
-            new: sanitizeAccentColor(settings.wordColorNew),
-            learning: sanitizeAccentColor(settings.wordColorLearning),
-            known: sanitizeAccentColor(settings.wordColorKnown),
-            due: sanitizeAccentColor(settings.wordColorDue),
-            failed: sanitizeAccentColor(settings.wordColorFailed),
-            ignored: sanitizeAccentColor(settings.wordColorIgnored),
-        };
-        Object.entries(colorMap).forEach(([state, color]) => {
-            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}`, color);
-            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-soft`, accentToRgba(color, 0.16));
-            document.documentElement.style.setProperty(`--jpdb-reader-state-${state}-strong`, accentToRgba(color, 0.28));
-        });
+        applyReaderWordColors(settings);
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
