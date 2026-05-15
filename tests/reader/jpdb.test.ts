@@ -34,7 +34,7 @@ import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr'
 import { installSheetHandle } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderKanjiOrigins, renderPitch, renderRtkInfo, summarizeLearnerGlossary } from '../../src/reader/popup-render';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { ReaderApp } from '../../src/reader/main';
 import { ReaderParser, fallbackLookupTermAtOffset } from '../../src/reader/reader-parser';
 import { parseRtkSearchIndex } from '../../src/reader/rtk';
@@ -3102,10 +3102,10 @@ describe('reader helpers', () => {
         }
     });
 
-    it('ships the JMdict starter dictionary download from Yomitan', () => {
-        const starter = findRecommendedDictionary('jmdict');
-        expect(starter?.downloadUrl).toContain('JMdict_english.zip');
-        expect(starter?.homepage).toContain('jmdict-yomitan');
+    it('ships the JMdict recommended dictionary download from Yomitan', () => {
+        const dictionary = findRecommendedDictionary('jmdict');
+        expect(dictionary?.downloadUrl).toContain('JMdict_english.zip');
+        expect(dictionary?.homepage).toContain('jmdict-yomitan');
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
             'Jitendex',
             'JMdict',
@@ -3115,7 +3115,6 @@ describe('reader helpers', () => {
             'BCCWJ',
             'Jiten',
         ]);
-        expect(STARTER_DICTIONARY_IDS).toEqual(['jmdict']);
     });
 
     it('downloads dictionaries through lowercase GM.xmlhttpRequest when that is the exposed userscript API', async () => {
@@ -3270,19 +3269,6 @@ describe('reader helpers', () => {
         } finally {
             vi.unstubAllGlobals();
         }
-    });
-
-    it('installs the bundled starter dictionary when remote starter downloads are unavailable', async () => {
-        const store = new YomitanDictionaryStore();
-        await store.clear();
-        const progress: string[] = [];
-
-        const summary = await store.installBundledStarterDictionary(message => progress.push(message));
-
-        expect(summary).toMatchObject({ dictionaries: ['Yomu Starter'], terms: 45, entries: 45 });
-        expect(progress.at(-1)).toContain('Starter dictionary ready');
-        expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Yomu Starter' }]);
-        expect(await store.listRandomTopTerms(10, 4000)).not.toEqual([]);
     });
 
     it('reports browser-blocked remote dictionary ZIP fetches without the userscript bridge', async () => {

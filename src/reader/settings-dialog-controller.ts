@@ -1,12 +1,12 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
 import { setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { Logger, loggingSettingsSummary } from './logger';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, STARTER_DICTIONARY_IDS, findRecommendedDictionary } from './recommended-dictionaries';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from './recommended-dictionaries';
 import { mergeDictionaryPreferences, saveSettings } from './settings';
 import { exportStoredValues, importStoredValues } from './storage';
 import {
@@ -16,7 +16,6 @@ import {
     getFormInterfaceLanguage,
     getReaderSettingsExport,
     installShortcutCapture,
-    isRecommendedDictionaryInstalled,
     localizeSettingsForm,
     pickFile,
     readFormSettings,
@@ -83,16 +82,6 @@ function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter 
     return message => {
         if (status) status.textContent = message;
     };
-}
-
-function missingStarterDictionaries(summary: DictionarySummary): typeof RECOMMENDED_JAPANESE_DICTIONARIES {
-    return RECOMMENDED_JAPANESE_DICTIONARIES
-        .filter(dictionary => STARTER_DICTIONARY_IDS.includes(dictionary.id))
-        .filter(dictionary => !isRecommendedDictionaryInstalled(dictionary, summary.dictionaries));
-}
-
-function shouldDownloadStarterDictionaries(missing: typeof RECOMMENDED_JAPANESE_DICTIONARIES, summary: DictionarySummary, force: boolean): boolean {
-    return Boolean(missing.length && (force || summary.terms <= 0));
 }
 
 function focusPreviewAudioSource(form: HTMLFormElement, button: HTMLButtonElement | null, previewSettings: ReaderSettings): void {
@@ -170,8 +159,6 @@ function setDictionaryStatusError(status: HTMLElement | null, error: unknown): v
 }
 
 export class SettingsDialogController {
-    private starterDictionaryDownload?: Promise<boolean>;
-
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
     open(panel?: string): void {
@@ -185,15 +172,6 @@ export class SettingsDialogController {
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
-    }
-
-    async ensureStarterDictionaryInstalled(onProgress?: (message: string) => void, force = false): Promise<boolean> {
-        if (this.starterDictionaryDownload) return this.starterDictionaryDownload;
-        this.starterDictionaryDownload = this.downloadStarterDictionaries(onProgress, force)
-            .finally(() => {
-                this.starterDictionaryDownload = undefined;
-            });
-        return this.starterDictionaryDownload;
     }
 
     private get settings(): ReaderSettings {
@@ -402,48 +380,6 @@ export class SettingsDialogController {
         await saveSettings(this.settings);
     }
 
-    private async downloadStarterDictionaries(onProgress?: (message: string) => void, force = false): Promise<boolean> {
-        const summary = await this.dependencies.dictionaries.summary();
-        const missing = missingStarterDictionaries(summary);
-        if (!shouldDownloadStarterDictionaries(missing, summary, force)) return false;
-
-        let importedEntries = 0;
-        for (const [index, dictionary] of missing.entries()) {
-            importedEntries += await this.downloadStarterDictionary(dictionary, index, missing.length, onProgress);
-        }
-        onProgress?.(`Dictionary ready: ${importedEntries.toLocaleString()} records imported.`);
-        log.info('Starter dictionaries downloaded', { dictionaries: missing.length, importedEntries });
-        return true;
-    }
-
-    private async downloadStarterDictionary(
-        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
-        index: number,
-        total: number,
-        onProgress?: (message: string) => void,
-    ): Promise<number> {
-        onProgress?.(`Downloading ${dictionary.name} (${index + 1}/${total})...`);
-        log.info('Downloading starter dictionary', { dictionary: dictionary.name, index: index + 1, total });
-        const imported = await this.importStarterDictionary(dictionary, onProgress);
-        await this.persistDictionaryImport(imported);
-        return imported.entries;
-    }
-
-    private async importStarterDictionary(
-        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
-        onProgress?: (message: string) => void,
-    ): Promise<ImportSummary> {
-        try {
-            return await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => onProgress?.(message));
-        } catch (error) {
-            if (dictionary.id !== 'jmdict') throw error;
-            const message = error instanceof Error ? error.message : 'Dictionary download failed.';
-            log.warn('Starter dictionary download unavailable; using bundled starter dictionary', { dictionary: dictionary.name, message });
-            onProgress?.(`${message} Using the bundled starter dictionary instead.`);
-            return await this.dependencies.dictionaries.installBundledStarterDictionary(message => onProgress?.(message));
-        }
-    }
-
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
         const status = form.querySelector<HTMLElement>('[data-import-status]');
         const setStatus = settingsStatusSetter(status);
@@ -579,6 +515,10 @@ export class SettingsDialogController {
         button?.setAttribute('disabled', 'true');
         setAnkiStatus(uiText(language, 'ankiTesting'), 'pending');
         try {
+            if (canUseMobileAnkiHandoff(this.settings)) {
+                setAnkiStatus('Mobile Anki handoff is ready. AnkiConnect is only needed for desktop bridge features on this device.', 'success');
+                return true;
+            }
             const connected = await this.dependencies.anki.isConnected();
             if (!connected) throw new Error(uiText(language, 'ankiUnreachable'));
             await this.dependencies.anki.ensureDeckAndModel();
@@ -686,9 +626,8 @@ export class SettingsDialogController {
         const message = error instanceof Error ? error.message : 'Dictionary download failed.';
         control?.removeAttribute('disabled');
         if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
-        window.open(dictionary.downloadUrl, '_blank');
-        setStatus(`${message} Opened the dictionary link in a new tab. Download the ZIP and use Import dictionary above.`);
-        log.warn('Dictionary auto-download unavailable, opened manual fallback', { dictionary: dictionary.name, message });
+        setStatus(`${message} Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.`);
+        log.warn('Dictionary auto-download unavailable', { dictionary: dictionary.name, message });
         return null;
     }
 

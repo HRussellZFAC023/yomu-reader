@@ -1,3 +1,6 @@
 import { bootReaderApp } from './reader-boot';
+import { isYomuNewTabUrl } from './new-tab';
+import { installUserscriptHttpBridge } from './userscript';
 
-bootReaderApp();
+installUserscriptHttpBridge();
+if (!isYomuNewTabUrl(location.href)) bootReaderApp();

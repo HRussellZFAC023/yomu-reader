@@ -5,6 +5,7 @@ import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder'
 import type { ImmersionKitClient, ImmersionKitExample } from './immersion-kit';
 import type { JpdbClient } from './jpdb';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
+import { graphEdgePath, type GraphAnchorZone } from './kanji-graph-geometry';
 import { buildKanjiFacts, buildKanjiOriginGraph } from './kanji-origin';
 import { installKanjiDoodle } from './kanji-doodle';
 import { assessKanjiStrokes, type KanjiStrokeAssessment } from './kanji-stroke-grader';
@@ -61,7 +62,6 @@ export interface NewTabControllerDependencies {
     jpdbReviewBridge: JpdbReviewBridgeClient;
     parser: ReaderParser;
     dictionaries: YomitanDictionaryStore;
-    ensureStarterDictionary: (onProgress?: (message: string) => void) => Promise<boolean>;
     lookupText?: (text: string, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
     lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
@@ -183,7 +183,6 @@ interface NewTabGradeTarget {
 
 const log = Logger.scope('NewTab');
 const SESSION_WORD_KEY = 'jpdb-reader-newtab-current-word';
-const SESSION_DICTIONARY_SETUP_KEY = 'jpdb-reader-newtab-install-dictionary';
 const JPDB_ALL_DECKS = 'all';
 const JPDB_DECK_SAMPLE_LIMIT = 6;
 const JPDB_WORDS_PER_DECK = 36;
@@ -424,7 +423,7 @@ export class NewTabController {
             }
             if (action === 'load-dictionary') {
                 event.preventDefault();
-                void this.installStarterDictionary(root);
+                this.dependencies.showSettings('dictionaries');
                 return;
             }
             if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
@@ -638,7 +637,6 @@ export class NewTabController {
             return;
         }
         this.renderDictionarySetup(root);
-        if (this.consumeDictionarySetupRequest()) await this.installStarterDictionary(root);
     }
 
     private async handleLoadWordsError(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number, error: unknown): Promise<void> {
@@ -1336,7 +1334,10 @@ export class NewTabController {
         const keywordMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-keywords');
         const sourcesMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-sources');
         if (keywordMount) setInnerHtml(keywordMount, renderKanjiKeywordLine(fullInfo, rtk, localEntries));
-        if (sourcesMount) setInnerHtml(sourcesMount, sharedSections);
+        if (sourcesMount) {
+            setInnerHtml(sourcesMount, sharedSections);
+            installOriginGraphDrag(sourcesMount);
+        }
         return wrap;
     }
 
@@ -1523,9 +1524,9 @@ export class NewTabController {
         this.enterDictionarySetupMode(root);
         this.syncThemeToggle(root);
         const slots = this.studySlots(root);
-        this.renderPromptSlot(slots.prompt, 'Start with a dictionary');
-        setOptionalText(slots.answer, 'Add a dictionary to turn this page into study cards.');
-        setOptionalText(slots.meaning, 'It stays in this browser and is ready whenever a new tab opens.');
+        this.renderPromptSlot(slots.prompt, 'Download a dictionary');
+        setOptionalText(slots.answer, 'Open Settings, choose Dictionaries, then download JMdict or import a Yomitan ZIP.');
+        setOptionalText(slots.meaning, 'The dictionary stays local in this browser; userscript storage is used when the browser needs that fallback.');
         setOptionalText(slots.count, '');
         setOptionalText(slots.status, '');
         this.renderDictionarySetupControls(slots.controls);
@@ -1542,34 +1543,8 @@ export class NewTabController {
     private renderDictionarySetupControls(controls: HTMLElement | null): void {
         if (!controls) return;
         replaceChildrenWith(controls,
-            el('button', { type: 'button', dataset: { newtabAction: 'load-dictionary' } }, 'Add dictionary'),
+            el('button', { type: 'button', dataset: { newtabAction: 'load-dictionary' } }, 'Open dictionary settings'),
         );
-    }
-
-    private async installStarterDictionary(root: HTMLElement): Promise<void> {
-        this.setStatus(root, 'Adding dictionary...');
-        try {
-            const installed = await this.dependencies.ensureStarterDictionary(message => this.setStatus(root, message));
-            if (!installed) {
-                this.setStatus(root, 'Dictionary was not added.');
-                return;
-            }
-            this.dictionarySetupRequired = false;
-            await this.loadWordsInto(root, false);
-        } catch (error) {
-            log.warn('Starter dictionary setup failed', error);
-            this.setStatus(root, error instanceof Error ? error.message : 'Could not add the dictionary. Check your connection and try again.');
-        }
-    }
-
-    private consumeDictionarySetupRequest(): boolean {
-        try {
-            if (sessionStorage.getItem(SESSION_DICTIONARY_SETUP_KEY) !== '1') return false;
-            sessionStorage.removeItem(SESSION_DICTIONARY_SETUP_KEY);
-            return true;
-        } catch {
-            return false;
-        }
     }
 
     private renderControls(slots: NewTabStudySlots, card: JPDBCard): void {
@@ -1760,6 +1735,10 @@ export class NewTabController {
         return el('span', {
             class: `jpdb-reader-word ${sourceClass}-${state}`,
             dataset: {
+                action: 'lookup',
+                term: text,
+                expression: card.spelling,
+                reading: card.reading,
                 vid: card.vid,
                 sid: card.sid,
                 sentence,
@@ -2084,6 +2063,88 @@ function doodlePreviewBackground(canvas: HTMLCanvasElement): string {
 
 function passingNewTabGrade(grade: JPDBGrade): boolean {
     return grade === 'pass' || grade === 'easy' || grade === 'okay';
+}
+
+function installOriginGraphDrag(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('.jpdb-reader-origin-graph-wrap').forEach(wrap => {
+        let active: { node: HTMLElement; pointerId: number; moved: boolean } | null = null;
+        wrap.addEventListener('pointerdown', event => {
+            const node = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-origin-graph-node');
+            if (!node || !wrap.contains(node)) return;
+            active = { node, pointerId: event.pointerId, moved: false };
+            node.classList.add('dragging');
+            node.setPointerCapture?.(event.pointerId);
+        });
+        wrap.addEventListener('pointermove', event => {
+            if (!active || active.pointerId !== event.pointerId) return;
+            const rect = wrap.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            event.preventDefault();
+            active.moved = true;
+            const x = clampGraphPercent(((event.clientX - rect.left) / rect.width) * 100);
+            const y = clampGraphPercent(((event.clientY - rect.top) / rect.height) * 100);
+            moveOriginGraphNode(active.node, x, y);
+            refreshOriginGraphEdges(wrap);
+        });
+        const finish = (event: PointerEvent) => {
+            if (!active || active.pointerId !== event.pointerId) return;
+            active.node.classList.remove('dragging');
+            active.node.releasePointerCapture?.(event.pointerId);
+            if (active.moved) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            active = null;
+        };
+        wrap.addEventListener('pointerup', finish);
+        wrap.addEventListener('pointercancel', finish);
+    });
+}
+
+function moveOriginGraphNode(node: HTMLElement, x: number, y: number): void {
+    node.dataset.x = String(x);
+    node.dataset.y = String(y);
+    node.style.left = `${x}%`;
+    node.style.top = `${y}%`;
+}
+
+function refreshOriginGraphEdges(wrap: HTMLElement): void {
+    wrap.querySelectorAll<SVGGElement>('.jpdb-reader-origin-edge-group').forEach(group => {
+        const from = originGraphNodeGeometry(wrap, group.dataset.from);
+        const to = originGraphNodeGeometry(wrap, group.dataset.to);
+        if (!from || !to) return;
+        const edgePath = graphEdgePath(from, to, originGraphTargetZone(group.dataset.targetZone));
+        const path = group.querySelector<SVGPathElement>('.jpdb-reader-origin-edge');
+        path?.setAttribute('d', edgePath.d);
+        group.querySelectorAll<SVGCircleElement>('.jpdb-reader-origin-edge-particle').forEach((particle, index) => {
+            const point = edgePath.points[index];
+            if (!point) return;
+            particle.setAttribute('cx', String(point.x));
+            particle.setAttribute('cy', String(point.y));
+        });
+    });
+}
+
+function originGraphNodeGeometry(wrap: HTMLElement, id: string | undefined): { x: number; y: number; rx: number; ry: number } | null {
+    if (!id) return null;
+    const node = wrap.querySelector<HTMLElement>(`.jpdb-reader-origin-graph-node[data-graph-node="${CSS.escape(id)}"]`);
+    if (!node) return null;
+    return {
+        x: Number(node.dataset.x || 0),
+        y: Number(node.dataset.y || 0),
+        rx: Number(node.dataset.rx || 5),
+        ry: Number(node.dataset.ry || 5),
+    };
+}
+
+function originGraphTargetZone(value: string | undefined): GraphAnchorZone {
+    return value === 'top' || value === 'upper' || value === 'left' || value === 'right' || value === 'lower' || value === 'bottom' || value === 'center'
+        ? value
+        : 'auto';
+}
+
+function clampGraphPercent(value: number): number {
+    return Math.max(6, Math.min(94, Number(value.toFixed(2))));
 }
 
 function liveJpdbCardFromBridgeCard(card: JpdbReviewBridgeCard, spelling: string): JPDBCard {

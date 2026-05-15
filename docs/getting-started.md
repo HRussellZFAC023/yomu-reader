@@ -85,16 +85,16 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 
 ## 6. Turn On More Tools When You Need Them
 
-- Dictionaries: choose Add dictionary on the new-tab page or install a starter dictionary from Settings when you want local dictionary study words. よむ downloads JMdict when the browser allows it and falls back to a small bundled starter dictionary on stricter standalone browsers. You can still import other Yomitan ZIP dictionaries or a Yomitan settings export later.
+- Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
 - Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](/video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
-- Anki: enable Anki mining when Anki desktop and AnkiConnect are available.
+- Anki: enable Anki mining. Desktop uses AnkiConnect; iPhone, iPad, and Android use the mobile Anki handoff when direct AnkiConnect is not available.
 - New tab: use the よむ new-tab URL as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
 
 ## 7. iPhone And iPad Notes
 
-iPhone and iPad Safari can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, and the new-tab study page are the friendly mobile paths. Direct AnkiConnect mining and localhost audio helpers usually need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
+iPhone and iPad Safari can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and the AnkiMobile handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
 
 Localhost on iPhone means the phone itself, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Safari can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
 

@@ -210,7 +210,6 @@ describe('new tab review helpers', () => {
                 summary: vi.fn(async () => ({ dictionaries: ['Local'], dictionaryTypes: {} })),
                 listRandomTopTerms: loadDictionary,
             } as never,
-            ensureStarterDictionary: vi.fn(),
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -273,7 +272,6 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary: vi.fn(),
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -341,7 +339,6 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary: vi.fn(),
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -410,7 +407,6 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary: vi.fn(),
             lookupText,
             lookupDictionaryReference,
             showKanjiCard,
@@ -459,7 +455,6 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary: vi.fn(),
             setImmersionTranslationBlurred,
             onSettingsChange,
             applyTheme: vi.fn(),
@@ -597,7 +592,6 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary: vi.fn(),
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -625,41 +619,7 @@ describe('new tab review helpers', () => {
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
     });
 
-    it('tries to install the starter dictionary without requiring an installed userscript', async () => {
-        const showSettings = vi.fn();
-        const ensureStarterDictionary = vi.fn(async () => false);
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
-            immersionKit: {} as never,
-            jpdbReviewBridge: {
-                onUpdate: () => () => {},
-            } as never,
-            parser: {} as never,
-            dictionaries: {} as never,
-            ensureStarterDictionary,
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings,
-            dismiss: vi.fn(),
-        });
-        const root = document.createElement('main');
-        root.innerHTML = '<div data-newtab-status></div>';
-
-        await (controller as unknown as { installStarterDictionary(root: HTMLElement): Promise<void> }).installStarterDictionary(root);
-
-        expect(showSettings).not.toHaveBeenCalled();
-        expect(ensureStarterDictionary).toHaveBeenCalledTimes(1);
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary was not added.');
-    });
-
-    it('allows the hosted demo runtime to install the starter dictionary', async () => {
-        vi.stubGlobal('__yomuDemoApp', {});
-        const ensureStarterDictionary = vi.fn(async () => false);
+    it('opens dictionary settings from the empty new-tab setup state', () => {
         const showSettings = vi.fn();
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS }),
@@ -674,19 +634,21 @@ describe('new tab review helpers', () => {
             } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings,
             dismiss: vi.fn(),
         });
         const root = document.createElement('main');
-        root.innerHTML = '<div data-newtab-status></div>';
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderDictionarySetup(root: HTMLElement): void }).bindRootEvents(root);
+        (controller as unknown as { renderDictionarySetup(root: HTMLElement): void }).renderDictionarySetup(root);
 
-        await (controller as unknown as { installStarterDictionary(root: HTMLElement): Promise<void> }).installStarterDictionary(root);
+        root.querySelector<HTMLButtonElement>('[data-newtab-action="load-dictionary"]')?.click();
 
-        expect(showSettings).not.toHaveBeenCalled();
-        expect(ensureStarterDictionary).toHaveBeenCalledTimes(1);
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary was not added.');
+        expect(showSettings).toHaveBeenCalledWith('dictionaries');
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Download a dictionary');
     });
 });

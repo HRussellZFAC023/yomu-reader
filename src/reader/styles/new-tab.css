@@ -44,7 +44,7 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: clamp(12px, 2.2vh, 22px);
   padding: max(18px, env(safe-area-inset-top)) 0
-    max(18px, env(safe-area-inset-bottom));
+    max(82px, calc(18px + env(safe-area-inset-bottom)));
 }
 
 .jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
@@ -386,11 +386,22 @@
 }
 
 .jpdb-reader-newtab-controls {
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 20;
+  transform: translateX(-50%);
   justify-self: center;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 8px;
-  width: min(100%, 680px);
+  width: min(680px, calc(100vw - 28px));
+  padding: 8px;
+  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 88%, transparent);
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(16px);
 }
 
 .jpdb-reader-newtab-controls button {
@@ -508,8 +519,8 @@
   display: grid;
   justify-items: center;
   gap: 8px;
-  width: min(360px, calc(100vw - 32px));
-  margin-block: clamp(28px, 6vh, 72px);
+  width: min(420px, calc(100vw - 32px));
+  margin-block: clamp(12px, 3vh, 36px);
   margin-inline: auto;
 }
 
@@ -562,7 +573,7 @@
 .jpdb-reader-doodle-stage.jpdb-reader-newtab-doodle {
   grid-column: 1 / -1;
   position: relative;
-  width: min(360px, 100%);
+  width: min(420px, 100%);
   aspect-ratio: 1;
   justify-self: center;
   margin-inline: auto;
@@ -598,8 +609,15 @@
 
 .jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost {
   z-index: 1;
+  display: grid;
+  place-items: center;
   opacity: 0.18;
   pointer-events: none;
+}
+
+.jpdb-reader-newtab-doodle .jpdb-reader-doodle-ghost .jpdb-reader-kanjivg-svg {
+  width: 76%;
+  height: 76%;
 }
 
 .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas {
@@ -676,7 +694,7 @@
 .jpdb-reader-newtab-kanji-details {
   display: grid;
   gap: 9px;
-  width: min(620px, calc(100vw - 32px));
+  width: min(720px, calc(100vw - 32px));
   margin-top: 4px;
   text-align: left;
 }

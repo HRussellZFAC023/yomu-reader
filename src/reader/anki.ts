@@ -306,7 +306,7 @@ export class AnkiConnectClient {
     }
 
     private openMobileHandoffIfPreferred(settings: ReaderSettings, note: AnkiNote, card: JPDBCard): boolean {
-        if (!settings.ankiMobileHandoff || !isMobileAnkiHandoffEnvironment()) return false;
+        if (!canUseMobileAnkiHandoff(settings)) return false;
         log.info('Opening mobile Anki handoff', { term: card.spelling });
         if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
         return true;
@@ -571,6 +571,10 @@ function isMobileAnkiHandoffEnvironment(): boolean {
         || (/Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent));
 }
 
+export function canUseMobileAnkiHandoff(settings: ReaderSettings): boolean {
+    return settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
+}
+
 function openMobileAnkiHandoff(note: AnkiNote): boolean {
     const handoff = mobileAnkiHandoffTarget(note);
     if (!window.confirm(mobileAnkiHandoffPrompt(note, handoff.appName))) return false;
@@ -596,6 +600,7 @@ function iosAnkiMobileUrl(note: AnkiNote): string {
     const params = new URLSearchParams();
     params.set('type', note.modelName);
     params.set('deck', note.deckName);
+    params.set('dupes', '1');
     if (note.tags?.length) params.set('tags', note.tags.join(' '));
     Object.entries(note.fields).forEach(([field, value]) => {
         if (field !== 'Image') params.set(`fld${field}`, stripForMobileHandoff(value));

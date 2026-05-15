@@ -38,6 +38,8 @@ export function renderHelpLinksPanel(): string {
                 <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">Video Player</a>
                 <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">New Tab</a>
                 <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
+                <a class="jpdb-reader-btn" href="https://github.com/HRussellZFAC023/yomu-reader/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
+                <a class="jpdb-reader-btn" href="https://paypal.me/HenryRussell163" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
             </div>
         </div>
     `;

@@ -12,7 +12,6 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-popup-reader-settings',
     'jpdb-reader-newtab-card-cache',
     'jpdb-reader-newtab-current-word',
-    'jpdb-reader-newtab-install-dictionary',
     'jpdb-reader-newtab-ui',
     'jpdb-reader-transcript-panel-size',
     'yomu.grammarPreferences.v1',

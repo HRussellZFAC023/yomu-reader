@@ -28,7 +28,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
   and on mobile touch the word directly. It also treats dictionaries, audio sources, and Anki as
   configurable modules. See https://yomitan.wiki/getting-started/ and
   https://yomitan.wiki/advanced/.
-- Yomitan dictionary management expects the JMdict starter download, bulk import/export, and local
+- Yomitan dictionary management expects downloadable recommended dictionaries, bulk import/export, and local
   dictionary storage. See https://yomitan.wiki/dictionaries/.
 - ASBPlayer sets the video-mining expectation: auto-detected or user-loaded subtitle tracks,
   selectable subtitles, dual tracks, subtitle styling, keyboard shortcuts, Anki export, and
@@ -144,7 +144,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] Yomitan dictionary ZIP import supports term, kanji, term meta, kanji meta, pitch, frequency,
   structured glossary content, tags, and dictionary metadata.
 - [ ] Dexie/Yomitan dictionary collection import/export works after a page refresh.
-- [ ] The starter download includes JMdict with install/update status.
+- [ ] Recommended dictionary downloads include JMdict with install/update status.
 - [ ] Dictionary downloads show progress and final success/failure.
 - [ ] Installed dictionaries can be enabled/disabled, updated/refreshed, reordered, renamed, and
   removed.
@@ -302,8 +302,8 @@ For each release candidate, run these as written and save QA evidence:
    grade shortcuts, audio shortcut, and mobile touch.
 3. Popup/mining: open a new word, known word, never-forget word, blacklisted word, verb with long
    definitions, and kanji word; mine to JPDB and verify state/underline changes.
-4. Dictionaries: import the supplied Yomitan settings and dictionary exports, download the JMdict
-   starter, reorder sources, disable JPDB definitions, refresh, and confirm local results remain.
+4. Dictionaries: import the supplied Yomitan settings and dictionary exports, download JMdict,
+   reorder sources, disable JPDB definitions, refresh, and confirm local results remain.
 5. Audio: JapanesePod101 hit, JapanesePod101 miss, Jisho fallback, LanguagePod101 fallback, custom JSON
    list with random clip, iOS blob path, autoplay once.
 6. OCR: embedded OCR metadata, local OCR regression page, structured local OCR mock,
