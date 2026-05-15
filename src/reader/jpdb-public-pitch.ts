@@ -1,6 +1,5 @@
 import { Logger } from './logger';
-import { fetchWithCorsFallbacks } from './proxy-fetch';
-import { getUserscriptHttpRequest } from './userscript';
+import { requestText as requestReaderText } from './reader-http';
 
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const REQUEST_TIMEOUT_MS = 6000;
@@ -186,25 +185,10 @@ function unique<T>(values: T[]): T[] {
 }
 
 function requestText(url: string, proxyUrl = ''): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                timeout: REQUEST_TIMEOUT_MS,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? response.response ?? ''));
-                    else reject(new Error(`Public JPDB pitch request failed (${response.status}).`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('Public JPDB pitch request timed out.')),
-            });
-        });
-    }
-
-    return fetchWithCorsFallbacks(url, proxyUrl, { credentials: 'omit', redirect: 'follow', timeoutMs: REQUEST_TIMEOUT_MS }).then(response => {
-        if (!response.ok) throw new Error(`Public JPDB pitch request failed (${response.status}).`);
-        return response.text();
+    return requestReaderText(url, {
+        proxyUrl,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        failureLabel: 'Public JPDB pitch request',
+        timeoutLabel: 'Public JPDB pitch request timed out.',
     });
 }

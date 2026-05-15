@@ -1,10 +1,10 @@
 import type { JpdbKanjiInfo } from './jpdb-kanji';
 import type { KanjiVGInfo } from './kanjivg';
 import { Logger } from './logger';
+import { requestText as requestReaderText } from './reader-http';
 import type { RtkInfo } from './rtk';
 import type { ReaderSettings } from './types';
 import type { YomitanKanjiEntry } from './yomitan';
-import { getUserscriptHttpRequest } from './userscript';
 
 const KANJI_MAP_KANJI_BASE = 'https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji';
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
@@ -716,39 +716,13 @@ function parseJson(value: string): unknown {
 }
 
 function requestText(url: string): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                timeout: 10000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) {
-                        resolve(String(response.responseText ?? ''));
-                    } else {
-                        log.warn('Kanji origin request returned HTTP error', { host: safeHost(url), status: response.status });
-                        reject(new Error(`Kanji origin request failed (${response.status}).`));
-                    }
-                },
-                onerror: error => {
-                    log.warn('Kanji origin request failed', { host: safeHost(url), error });
-                    reject(error);
-                },
-                ontimeout: () => {
-                    log.warn('Kanji origin request timed out', { host: safeHost(url) });
-                    reject(new Error('Kanji origin request timed out.'));
-                },
-            });
-        });
-    }
-
-    return fetch(url).then(response => {
-        if (!response.ok) {
-            log.warn('Kanji origin request returned HTTP error', { host: safeHost(url), status: response.status });
-            throw new Error(`Kanji origin request failed (${response.status}).`);
-        }
-        return response.text();
+    return requestReaderText(url, {
+        timeoutMs: 10000,
+        failureLabel: 'Kanji origin request',
+        timeoutLabel: 'Kanji origin request timed out.',
+    }).catch(error => {
+        log.warn('Kanji origin request failed', { host: safeHost(url), error });
+        throw error;
     });
 }
 

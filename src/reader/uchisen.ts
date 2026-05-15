@@ -1,9 +1,9 @@
 import { escapeHtml, setInnerHtml } from './dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks } from './proxy-fetch';
+import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from './proxy-fetch';
+import { requestBlob as requestReaderBlob, requestText as requestReaderText } from './reader-http';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
-import { getUserscriptHttpRequest } from './userscript';
 
 export interface UchisenImage {
     url: string;
@@ -170,31 +170,11 @@ function isValidUchisenIndex(index: number, images: UchisenImage[]): boolean {
 }
 
 function requestText(url: string, timeout: number, proxyUrl: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const userscriptRequest = getUserscriptHttpRequest();
-        if (userscriptRequest) {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                timeout,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? response.response ?? ''));
-                    else reject(new Error(`HTTP ${response.status}`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('Timed out')),
-            });
-            return;
-        }
-        fetchWithCorsFallbacks(url, proxyUrl, {
-            credentials: 'omit',
-            redirect: 'follow',
-            referrerPolicy: 'no-referrer',
-            timeoutMs: timeout,
-        }).then(response => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.text();
-        }).then(resolve, reject);
+    return requestReaderText(url, {
+        proxyUrl,
+        timeoutMs: timeout,
+        failureLabel: 'Uchisen request',
+        timeoutLabel: 'Uchisen request timed out.',
     });
 }
 
@@ -203,31 +183,10 @@ function requestBlobUrl(url: string, timeout: number, proxyUrl: string): Promise
 }
 
 function requestBlob(url: string, timeout: number, proxyUrl: string): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const userscriptRequest = getUserscriptHttpRequest();
-        if (userscriptRequest) {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                responseType: 'blob',
-                timeout,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300 && response.response instanceof Blob) resolve(response.response);
-                    else reject(new Error(`HTTP ${response.status}`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('Timed out')),
-            });
-            return;
-        }
-        fetchWithCorsFallbacks(url, proxyUrl, {
-            credentials: 'omit',
-            redirect: 'follow',
-            referrerPolicy: 'no-referrer',
-            timeoutMs: timeout,
-        }).then(response => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.blob();
-        }).then(resolve, reject);
+    return requestReaderBlob(url, {
+        proxyUrl,
+        timeoutMs: timeout,
+        failureLabel: 'Uchisen image request',
+        timeoutLabel: 'Uchisen image request timed out.',
     });
 }

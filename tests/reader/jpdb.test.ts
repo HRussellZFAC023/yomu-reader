@@ -1581,19 +1581,24 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps the public Worker restricted to allowlisted public resource targets', () => {
+    it('allows public Worker GET fallbacks while blocking private and sensitive targets', () => {
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/kanji/%E5%9B%B3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://uchisen.com/kanji/%E5%9B%B3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://release-assets.githubusercontent.com/github-production-release-asset/123/asset-id?sig=github-signed'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://example.com/dict.zip'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://cdn.example.com/audio.mp3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('POST', new URL('https://www.japanesepod101.com/learningcenter/reference/dictionary_post'))).toBe(true);
 
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(false);
         expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/prioritize'))).toBe(false);
         expect(isAllowedPublicProxyTarget('POST', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://example.com/dict.zip'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://localhost/audio.mp3'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://127.0.0.1/audio.mp3'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://192.168.1.2/audio.mp3'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://[::1]/audio.mp3'))).toBe(false);
     });
 
     it('combines translation and grammar source ordering while keeping individual toggles', () => {
@@ -3628,7 +3633,8 @@ describe('reader helpers', () => {
             await store.clear();
             const summary = await store.importFromUrl(`${location.origin}/proxy.zip`, 'proxy.zip');
 
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(fetchMock).toHaveBeenCalled();
+            expect(String(fetchMock.mock.calls[0][0])).toBe(`${location.origin}/proxy.zip`);
             expect(summary).toMatchObject({ dictionaries: ['Proxy Dict'], terms: 1, entries: 1 });
         } finally {
             vi.unstubAllGlobals();
@@ -4710,6 +4716,39 @@ describe('reader helpers', () => {
         expect(html).not.toMatch(/class="jpdb-reader-origin-edge" d="[^"]*[QC]/);
     });
 
+    it('keeps 友 components visually anchored and distinguishes outbound graph links', () => {
+        const graph = buildKanjiOriginGraph('友', {
+            kanji: '友',
+            keyword: 'friend',
+            frequency: '',
+            type: '',
+            kanken: '',
+            heisig: '',
+            oldForms: [],
+            readings: [],
+            components: [{ kanji: 'ナ', keyword: "by one's side" }, { kanji: '又', keyword: 'once again' }],
+            usedInKanji: [
+                { kanji: '髪', keyword: 'hair' },
+                { kanji: '抜', keyword: 'extract' },
+            ],
+            mnemonic: '',
+            vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
+        }, null, [], null, null);
+
+        const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
+
+        expect(html).toContain('data-graph-node="ナ"');
+        expect(html).toContain('data-graph-node="又"');
+        expect(html).toContain('data-target-zone="upper"');
+        expect(html).toContain('data-target-zone="bottom"');
+        expect(html).toContain('jpdb-reader-origin-edge-arrow-outbound');
+        expect(html).toContain('-outbound');
+        expect(html).toContain('class="jpdb-reader-origin-edge-group outbound"');
+    });
+
     it('builds compact kanji facts from JPDB, stroke, and local dictionary data', () => {
         const facts = buildKanjiFacts('読', {
             kanji: '読',
@@ -4863,6 +4902,7 @@ describe('reader helpers', () => {
         expect(html).toContain('data-origin-outbound="true"');
         expect(html).toContain('data-origin-outbound-toggle');
         expect(html).toContain('data-rx=');
+        expect(html).not.toContain('jpdb-reader-origin-edge-particle');
         expect(html).not.toContain('data-graph-node="買"');
         expect(html).not.toContain('data-graph-node="讠"');
     });

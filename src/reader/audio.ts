@@ -1,9 +1,8 @@
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
-import { fetchWithCorsFallbacks } from './proxy-fetch';
+import { requestBlob, requestText } from './reader-http';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
-import { getUserscriptHttpRequest } from './userscript';
 
 interface AudioCandidate {
     url: string;
@@ -879,76 +878,18 @@ function commonsImageInfoUrls(info: string, title: string, term: string, source:
 }
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    const proxyUrl = options.proxyUrl ?? '';
-    if (userscriptRequest) {
-        return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest)
-            .catch(error => {
-                if (!canAttemptBrowserAudioFetch(responseUrl, proxyUrl)) throw error;
-                return requestViaAudioFetch(responseUrl, responseType, timeoutMs, options);
-            });
-    }
-
-    if (!canAttemptBrowserAudioFetch(responseUrl, proxyUrl)) {
-        return Promise.reject(new Error('Cross-origin audio request needs a userscript HTTP bridge.'));
-    }
-
-    return requestViaAudioFetch(responseUrl, responseType, timeoutMs, options);
-}
-
-function requestViaUserscriptAudio(
-    responseUrl: string,
-    responseType: 'blob' | 'text',
-    timeoutMs: number,
-    options: AudioRequestOptions,
-    userscriptRequest: UserscriptHttpRequest,
-): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => {
-            if (response.status >= 200 && response.status < 300) {
-                const value = response.response ?? response.responseText;
-                if (responseType === 'blob' && value instanceof Blob) {
-                    resolve(value);
-                    return;
-                }
-                if (responseType === 'text' && typeof value === 'string') {
-                    resolve(value);
-                    return;
-                }
-            }
-            reject(new Error(`Audio request failed (${response.status}).`));
-        };
-
-        const result = userscriptRequest({
-            method: options.method ?? 'GET',
-            url: responseUrl,
-            headers: options.headers,
-            data: options.data,
-            responseType,
-            timeout: timeoutMs,
-            onload: handleLoad,
-            onerror: () => reject(new Error('Audio request failed.')),
-            ontimeout: () => reject(new Error('Audio request timed out.')),
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Audio request failed.')));
-        }
-    });
-}
-
-function requestViaAudioFetch(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions): Promise<unknown> {
-    return fetchWithCorsFallbacks(responseUrl, options.proxyUrl ?? '', {
+    const requestOptions = {
         method: options.method ?? 'GET',
         headers: options.headers,
-        body: options.data,
-        credentials: 'omit',
-        redirect: 'follow',
-        referrerPolicy: 'no-referrer',
+        data: options.data,
+        proxyUrl: options.proxyUrl,
         timeoutMs,
-    }).then(async response => {
-        if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
-        return responseType === 'blob' ? await response.blob() : await response.text();
-    });
+        failureLabel: 'Audio request',
+        timeoutLabel: 'Audio request timed out.',
+    };
+    return responseType === 'blob'
+        ? requestBlob(responseUrl, requestOptions)
+        : requestText(responseUrl, requestOptions);
 }
 
 function findHtmlElementById(html: string, tag: string, id: string): string | null {
@@ -1167,19 +1108,6 @@ function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT
     link.href = origin;
     if (rel === 'preconnect') link.crossOrigin = 'anonymous';
     document.head?.append(link);
-}
-
-function isHttpAudioUrl(url: string): boolean {
-    return /^https?:\/\//i.test(url);
-}
-
-function canAttemptBrowserAudioFetch(url: string, proxyUrl: string): boolean {
-    if (!isHttpAudioUrl(url) || proxyUrl) return true;
-    try {
-        return new URL(url).origin === location.origin;
-    } catch {
-        return false;
-    }
 }
 
 function escapeRegExp(value: string): string {
