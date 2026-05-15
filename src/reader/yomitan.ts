@@ -34,7 +34,6 @@ const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
 const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-const BUNDLED_STARTER_DICTIONARY_NAME = 'Yomu Starter';
 const log = Logger.scope('Yomitan');
 
 interface TermMatchCandidatePosition {
@@ -506,37 +505,6 @@ export class YomitanDictionaryStore {
         const file = namedBlobFile(blob, filename, blob.type || 'application/zip');
         const summary = await this.importFile(file, onProgress, url);
         log.info('Dictionary URL import completed', { filename, host: safeHost(url), ...summary });
-        return summary;
-    }
-
-    async installBundledStarterDictionary(onProgress?: (message: string) => void): Promise<ImportSummary> {
-        onProgress?.('Installing bundled starter dictionary...');
-        const existing = await this.summary().catch(() => null);
-        await this.deleteDictionary(BUNDLED_STARTER_DICTIONARY_NAME).catch(() => undefined);
-        const terms = bundledStarterTerms();
-        const priority = existing?.dictionaries.filter(item => item.title !== BUNDLED_STARTER_DICTIONARY_NAME).length ?? 0;
-        await this.addToStore('terms', terms);
-        await this.putDictionaryInfo({
-            title: BUNDLED_STARTER_DICTIONARY_NAME,
-            alias: 'Starter',
-            enabled: true,
-            priority,
-            counts: { terms: terms.length },
-            type: 'terms',
-            revision: 'bundled-1',
-            importDate: Date.now(),
-        });
-        const summary: ImportSummary = {
-            dictionaries: [BUNDLED_STARTER_DICTIONARY_NAME],
-            dictionaryTypes: { [BUNDLED_STARTER_DICTIONARY_NAME]: 'terms' },
-            entries: terms.length,
-            terms: terms.length,
-            kanji: 0,
-            termMeta: 0,
-            kanjiMeta: 0,
-        };
-        onProgress?.(`Starter dictionary ready: ${terms.length.toLocaleString()} terms imported.`);
-        log.info('Bundled starter dictionary installed', summary);
         return summary;
     }
 
@@ -1545,74 +1513,6 @@ function safeHost(url: string): string {
     } catch {
         return '';
     }
-}
-
-function bundledStarterTerms(): YomitanTermEntry[] {
-    return BUNDLED_STARTER_TERMS.map((entry, index) => ({
-        ...entry,
-        dictionary: BUNDLED_STARTER_DICTIONARY_NAME,
-        sequence: index + 1,
-        score: entry.score ?? 10,
-        termTags: [entry.termTags, 'common'].filter(Boolean).join(' '),
-    }));
-}
-
-const BUNDLED_STARTER_TERMS: Array<Omit<YomitanTermEntry, 'dictionary'>> = [
-    starterTerm('読む', 'よむ', 'v5m', 'to read'),
-    starterTerm('見る', 'みる', 'v1', 'to see; to watch'),
-    starterTerm('聞く', 'きく', 'v5k', 'to hear; to listen; to ask'),
-    starterTerm('食べる', 'たべる', 'v1', 'to eat'),
-    starterTerm('飲む', 'のむ', 'v5m', 'to drink'),
-    starterTerm('行く', 'いく', 'v5k', 'to go'),
-    starterTerm('来る', 'くる', 'vk', 'to come'),
-    starterTerm('する', 'する', 'vs', 'to do'),
-    starterTerm('ある', 'ある', 'v5r', 'to exist; to have'),
-    starterTerm('いる', 'いる', 'v1', 'to be; to exist'),
-    starterTerm('言う', 'いう', 'v5u', 'to say'),
-    starterTerm('思う', 'おもう', 'v5u', 'to think'),
-    starterTerm('分かる', 'わかる', 'v5r', 'to understand'),
-    starterTerm('知る', 'しる', 'v5r', 'to know'),
-    starterTerm('作る', 'つくる', 'v5r', 'to make'),
-    starterTerm('使う', 'つかう', 'v5u', 'to use'),
-    starterTerm('書く', 'かく', 'v5k', 'to write'),
-    starterTerm('話す', 'はなす', 'v5s', 'to speak'),
-    starterTerm('買う', 'かう', 'v5u', 'to buy'),
-    starterTerm('取る', 'とる', 'v5r', 'to take'),
-    starterTerm('入る', 'はいる', 'v5r', 'to enter'),
-    starterTerm('出る', 'でる', 'v1', 'to leave; to appear'),
-    starterTerm('帰る', 'かえる', 'v5r', 'to return home'),
-    starterTerm('待つ', 'まつ', 'v5t', 'to wait'),
-    starterTerm('持つ', 'もつ', 'v5t', 'to hold; to have'),
-    starterTerm('会う', 'あう', 'v5u', 'to meet'),
-    starterTerm('勉強', 'べんきょう', '', 'study'),
-    starterTerm('日本語', 'にほんご', '', 'Japanese language'),
-    starterTerm('今日', 'きょう', '', 'today'),
-    starterTerm('明日', 'あした', '', 'tomorrow'),
-    starterTerm('昨日', 'きのう', '', 'yesterday'),
-    starterTerm('人', 'ひと', '', 'person'),
-    starterTerm('本', 'ほん', '', 'book'),
-    starterTerm('水', 'みず', '', 'water'),
-    starterTerm('時間', 'じかん', '', 'time'),
-    starterTerm('友達', 'ともだち', '', 'friend'),
-    starterTerm('学校', 'がっこう', '', 'school'),
-    starterTerm('仕事', 'しごと', '', 'work; job'),
-    starterTerm('家', 'いえ', '', 'house; home'),
-    starterTerm('町', 'まち', '', 'town'),
-    starterTerm('大きい', 'おおきい', 'adj-i', 'big'),
-    starterTerm('小さい', 'ちいさい', 'adj-i', 'small'),
-    starterTerm('新しい', 'あたらしい', 'adj-i', 'new'),
-    starterTerm('古い', 'ふるい', 'adj-i', 'old'),
-    starterTerm('良い', 'よい', 'adj-i', 'good'),
-];
-
-function starterTerm(expression: string, reading: string, rules: string, ...glossary: string[]): Omit<YomitanTermEntry, 'dictionary'> {
-    return {
-        expression,
-        reading,
-        rules,
-        definitionTags: '',
-        glossary,
-    };
 }
 
 function namedBlobFile(blob: Blob, name: string, type: string): File {

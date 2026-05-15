@@ -17,7 +17,7 @@ Furigana and word colors are separate controls. You can keep the automatic behav
 
 ## Yomitan Dictionaries
 
-よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you add a starter dictionary. Standalone browsers that block the remote JMdict ZIP get a small bundled starter dictionary instead of a dead setup state.
+よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you download JMdict or import a Yomitan ZIP in Settings.
 
 This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
 
@@ -82,7 +82,7 @@ You can choose example categories, length limits, image visibility, translation 
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts with one explicit Add dictionary step; it downloads JMdict when the browser can reach it and falls back to a bundled starter on stricter standalone mobile browsers.
+Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
 On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed.
 

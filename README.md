@@ -21,8 +21,8 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
-- Optional Anki mining through AnkiConnect, with a よむ note type created automatically, existing-card detection, Anki grading, and best-effort context images from Immersion Kit, video, OCR, or image mining.
-- Yomitan dictionary imports: automatic JMdict starter download with a bundled starter fallback, settings JSON, dictionary ZIPs, and Dexie exports.
+- Optional Anki mining through AnkiConnect on desktop and mobile Anki handoff on iPhone, iPad, and Android, with a よむ note type created automatically where the bridge supports it.
+- Yomitan dictionary imports: JMdict download from Settings, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
 - Furigana and word-color modes for all parsed text: automatic, difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
@@ -74,7 +74,7 @@ Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect a
 
 Context selection is metadata-first: よむ remembers the last useful sentence/source for a term without storing image blobs in localStorage. Immersion Kit mining uses the exact example currently selected in the popup, including its sentence and thumbnail. Subtitle and video cards can include a best-effort still image from the active video, and OCR/image cards can include the source image when browser security allows it. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin media source the way a full browser extension can.
 
-Anki mobile note: AnkiConnect is an Anki desktop add-on, so direct one-tap Anki mining is designed around desktop Anki reachable at a local or LAN/Tailscale URL. On iPad or Android, Yomu can still copy/look up/mine to JPDB; direct AnkiMobile/AnkiDroid card creation needs a desktop bridge or another reachable service.
+Anki mobile note: AnkiConnect is an Anki desktop add-on, so desktop mining still works best with Anki reachable at a local or LAN/Tailscale URL. On iPad, よむ can hand a note to AnkiMobile through the `anki://x-callback-url/addnote` flow. On Android, よむ uses the browser intent path for AnkiDroid where the browser permits it.
 
 ## Video Player
 
@@ -94,7 +94,7 @@ Use this address as a browser new-tab/home-page URL or add it to the iPad Home S
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is enabled and reachable, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ tries to download JMdict as the starter dictionary; when a standalone browser blocks the GitHub ZIP download, it installs a small bundled starter dictionary so the hosted demo still becomes usable. Tapping a word opens the same popup dictionary used on normal pages.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect or mobile handoff is enabled, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ sends you to Settings > Dictionaries to download JMdict or import a Yomitan ZIP into local browser storage. Tapping a word opens the same popup dictionary used on normal pages.
 
 ## OCR
 
@@ -206,7 +206,7 @@ npm run publish:greasyfork
 ## Notes
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
-- JMdict is available as the starter dictionary download in settings and can be installed automatically for dictionary-backed new-tab cards. If a browser blocks the remote release ZIP, the new-tab setup falls back to a small bundled starter dictionary; users can still import any Yomitan ZIP, Dexie export, or settings export manually.
+- JMdict is available as a recommended dictionary download in settings for dictionary-backed new-tab cards. If a browser blocks the remote release ZIP, enable the userscript on the hosted page or import any Yomitan ZIP, Dexie export, or settings export manually.
 - Definition sources can be reordered in settings. When a JPDB API key is missing or parsing fails, imported Yomitan dictionaries are used for local parsing with common deinflection rules; JPDB-only mining and kanji pages still require JPDB access.
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
@@ -235,7 +235,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 - [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) for JPDB reader behavior, parser edge cases, and ASB-style integration ideas.
 - [Yomitan](https://github.com/yomidevs/yomitan) for dictionary import formats, structured glossary handling, audio-source conventions, and scanning UX references.
 - [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) for the JPDB-side idea of importing and displaying Yomitan-style dictionary entries on JPDB pages; used as product inspiration only, with no code copied.
-- [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) and EDRDG/JMdict for the starter dictionary package that users can download into local browser storage.
+- [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) and EDRDG/JMdict for the recommended dictionary package that users can download into local browser storage.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
 - [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg) for kanji stroke-order SVG data.

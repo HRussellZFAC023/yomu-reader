@@ -15,7 +15,7 @@ const fail = message => {
 if (!code.startsWith('// ==UserScript==')) fail('dist/yomu.user.js is missing a userscript metadata block.');
 if (!code.includes(`// @version      ${pkg.version}`)) fail('userscript version does not match package.json.');
 if (!code.includes('// @match        *://*/*')) fail('userscript match metadata is missing.');
-if (!code.includes('// @exclude      https://hrussellzfac023.github.io/yomu-reader/*')) fail('docs site exclude metadata is missing.');
+if (code.includes('// @exclude      https://hrussellzfac023.github.io/yomu-reader/*')) fail('docs site exclude metadata should not block hosted new-tab request bridging.');
 if (!code.includes('// @grant        GM_xmlhttpRequest')) fail('GM_xmlhttpRequest grant is missing.');
 if (!code.includes('// @grant        GM.xmlHttpRequest')) fail('GM.xmlHttpRequest grant is missing.');
 if (!code.includes('// @inject-into  content')) fail('Violentmonkey content-world injection metadata is missing.');

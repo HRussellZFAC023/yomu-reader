@@ -918,3 +918,23 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-radius: 20px 20px 16px 16px;
   }
 }
+
+@media (pointer: coarse) and (min-width: 700px) {
+  .jpdb-reader-settings {
+    inset: auto !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(860px, calc(100vw - 44px)) !important;
+    max-height: min(820px, calc(100dvh - 44px)) !important;
+    border-radius: 8px !important;
+  }
+
+  .jpdb-reader-settings .grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .jpdb-reader-help-actions {
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
+}

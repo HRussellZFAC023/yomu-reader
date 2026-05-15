@@ -10,8 +10,12 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Fixed
 
+- Reworked the hosted new-tab iPad flow so missing dictionaries send users to Settings, dictionary downloads do not open surprise tabs, new-tab word taps open the lookup popover, kanji graph nodes drag, and the bottom controls stay fixed.
+- Added hosted-page userscript coverage back for the new-tab page so JPDB kanji, Uchisen, RTK, and remote dictionary downloads can use the userscript request bridge on iPad.
+- Improved the settings Help and tablet layout, including visible donation/support links and better wrapping for settings rows.
+- Treat mobile Anki handoff as a valid iPad/Android path instead of reporting mobile-only setups as broken AnkiConnect.
 - Let the standalone hosted new-tab page use normal browser CORS for Immersion Kit examples/media, so Chrome, Safari/WebKit, Firefox, and mobile browsers do not need an installed userscript just to load examples.
-- Added a bundled starter dictionary fallback when the browser blocks the remote JMdict release ZIP, and kept compressed Yomitan ZIP imports working when `DecompressionStream` is unavailable or unreliable.
+- Kept compressed Yomitan ZIP imports working when `DecompressionStream` is unavailable or unreliable.
 
 ## [0.4.9] - 2026-05-14
 

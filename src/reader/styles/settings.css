@@ -437,7 +437,7 @@
 }
 .jpdb-reader-help-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 8px;
 }
 .jpdb-reader-help-actions .jpdb-reader-btn {
@@ -641,6 +641,56 @@
 }
 .jpdb-reader-icon-mini:active {
   transform: scale(0.98);
+}
+
+@media (min-width: 700px) and (max-width: 1180px), (pointer: coarse) and (min-width: 700px) {
+  .jpdb-reader-settings {
+    width: min(860px, calc(100vw - 44px));
+    max-height: min(820px, calc(100dvh - 44px));
+  }
+
+  .jpdb-reader-settings-head {
+    padding: 20px 22px 0;
+  }
+
+  .jpdb-reader-settings-tabs {
+    padding-inline: 22px;
+  }
+
+  .jpdb-reader-settings-scroll {
+    padding: 0 22px 104px;
+  }
+
+  .jpdb-reader-settings .grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .jpdb-reader-dictionary-head,
+  .jpdb-reader-audio-source-head,
+  .jpdb-reader-lookup-link-head {
+    display: none;
+  }
+
+  .jpdb-reader-dictionary-row,
+  .jpdb-reader-dictionary-row.compact,
+  .jpdb-reader-audio-source-row,
+  .jpdb-reader-lookup-link-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .jpdb-reader-dictionary-row > :nth-child(3),
+  .jpdb-reader-audio-source-row > :nth-child(3),
+  .jpdb-reader-lookup-link-row > :nth-child(3) {
+    grid-column: 2 / -1;
+  }
+
+  .jpdb-reader-dictionary-row-help {
+    grid-column: 2 / -1;
+  }
+
+  .jpdb-reader-recommended-item {
+    grid-template-columns: minmax(0, 1fr) minmax(112px, 140px);
+  }
 }
 .jpdb-reader-icon-mini[data-immersion-action="previous"],
 .jpdb-reader-icon-mini[data-immersion-action="next"],

@@ -1,18 +1,30 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient } from './anki';
+import { AnkiConnectClient, type AnkiLookupResult } from './anki';
 import { listNewTabAnkiCards } from './anki-new-tab';
-import { appendToDocumentHead } from './dom';
+import { positionPopover } from './browser-ui';
+import { CardPopoverRenderer } from './card-popover-renderer';
+import { CardRenderDataLoader, loadingCardRenderData } from './card-render-data';
+import { APP_NAME, JPDB_DEFINITION_SOURCE_ID } from './constants';
+import {
+    renderJpdbDefinitionSource,
+    renderLocalDefinitionSourcesSection,
+} from './definition-source-render';
+import { DictionarySourceStateController } from './dictionary-source-state';
+import { appendToDocumentHead, HAS_JAPANESE, setInnerHtml } from './dom';
 import { DictionaryStyleController } from './dictionary-styles';
 import { ImmersionKitClient } from './immersion-kit';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient } from './jpdb-kanji';
+import { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import { createJpdbReviewBridgeClient } from './jpdb-review-bridge';
+import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { KanjiVGClient } from './kanjivg';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, nestedParseAlreadyScheduled, nestedTextParsePlan } from './nested-text-parse';
 import { NewTabController } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
-import { createReaderBackdrop } from './popover-shell';
+import { createReaderBackdrop, createReaderPopover } from './popover-shell';
+import { groupTermEntriesByDictionary, pickTokenForSelection } from './popup-render';
 import { ReaderParser } from './reader-parser';
 import { RtkClient } from './rtk';
 import {
@@ -22,8 +34,10 @@ import {
 } from './settings';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
 import { SettingsDialogController } from './settings-dialog-controller';
-import type { ReaderSettings } from './types';
-import { YomitanDictionaryStore } from './yomitan';
+import { orderedDefinitionSourceIds } from './source-sections';
+import type { JPDBCard, ReaderSettings } from './types';
+import { renderWordPills } from './word-pills';
+import { YomitanDictionaryStore, type YomitanTermEntry } from './yomitan';
 
 const log = Logger.scope('NewTabRuntime');
 
@@ -50,6 +64,8 @@ class NewTabRuntime {
 
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
     private jpdbKanji = new JpdbKanjiClient();
+    private jpdbPublicPitch = new JpdbPublicPitchClient();
+    private jpdbVocabulary = new JpdbVocabularyClient();
     private kanjiVG = new KanjiVGClient();
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
@@ -57,6 +73,39 @@ class NewTabRuntime {
     private rtk = new RtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore();
+    private dictionarySourceState = new DictionarySourceStateController({
+        getSettings: () => this.settings,
+        onStateChange: () => this.repositionLookupPopover(),
+    });
+    private cardRenderData = new CardRenderDataLoader({
+        getSettings: () => this.settings,
+        dictionaries: this.dictionaries,
+        jpdbPublicPitch: this.jpdbPublicPitch,
+        jpdbVocabulary: this.jpdbVocabulary,
+        anki: this.anki,
+        jpdb: this.jpdb,
+        isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
+    });
+    private lookupPopoverRenderer = new CardPopoverRenderer({
+        getSettings: () => this.settings,
+        isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
+        renderWordHistory: () => '',
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery) => renderWordPills({
+            card,
+            jpdbUrl,
+            settings: this.settings,
+            metaEntries,
+            overrideQuery,
+            isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
+            dictionaryLabel: name => this.dictionaryLabel(name),
+        }),
+        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo),
+        dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+        dictionaryLabel: name => this.dictionaryLabel(name),
+    });
+    private activeLookupPopover?: HTMLElement;
+    private activeLookupBackdrop?: HTMLElement;
+    private activeLookupAnchor?: HTMLElement;
     private dictionaryStyles = new DictionaryStyleController({
         loadCss: () => this.settings.localDictionariesEnabled
             ? this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences)
@@ -135,8 +184,9 @@ class NewTabRuntime {
             jpdbReviewBridge: this.jpdbReviewBridge,
             parser: this.parser,
             dictionaries: this.dictionaries,
-            ensureStarterDictionary: onProgress => this.settingsDialog.ensureStarterDictionaryInstalled(onProgress),
             parseContent: root => this.parseNewTabContent(root),
+            lookupText: (text, reading, anchor) => this.lookupText(text, reading, anchor),
+            lookupDictionaryReference: (query, reading, _dictionary, anchor) => this.lookupText(query, reading || query, anchor),
             setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
             onSettingsChange: () => saveSettings(this.settings),
             applyTheme: () => this.applyTheme(),
@@ -172,9 +222,107 @@ class NewTabRuntime {
     private dismiss(): void {
         this.activeDialog?.remove();
         this.activeBackdrop?.remove();
+        this.activeLookupPopover?.remove();
+        this.activeLookupBackdrop?.remove();
         this.activeDialog = undefined;
         this.activeBackdrop = undefined;
+        this.activeLookupPopover = undefined;
+        this.activeLookupBackdrop = undefined;
+        this.activeLookupAnchor = undefined;
         this.restoreSettingsPreviewState();
+    }
+
+    private async lookupText(text: string, reading = text, anchor?: HTMLElement): Promise<void> {
+        const term = text.trim();
+        if (!HAS_JAPANESE.test(term)) return;
+        const sentence = anchor?.dataset.sentence || term;
+        const card = await this.lookupCard(term, reading);
+        const renderData = this.cardRenderData.load(card);
+        const initialEntries = await renderData.localEntries.catch(() => []);
+        const popover = createReaderPopover(APP_NAME, this.settings);
+        const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData(initialEntries, fallbackAnkiLookup)));
+        this.mountLookupPopover(popover, anchor);
+        void renderData.all.then(data => {
+            if (this.activeLookupPopover !== popover || !popover.isConnected) return;
+            setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', { ...data, loading: false }));
+            this.dictionarySourceState.installTracking(popover);
+            void this.parseNewTabContent(popover);
+            this.repositionLookupPopover();
+        });
+        void this.parseNewTabContent(popover);
+    }
+
+    private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
+        const parsed = await this.parser.parse([term]).catch(() => [[]]);
+        const token = pickTokenForSelection(parsed[0] ?? [], term);
+        if (token) return token.card;
+        const localEntry = await this.localLookupEntry(term, reading);
+        return localEntry ? this.parser.localCardFromEntry(localEntry) : this.parser.fallbackCardFromText(term);
+    }
+
+    private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
+        if (!this.settings.localDictionariesEnabled) return undefined;
+        const entries = await this.dictionaries.lookup(term, reading || term, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []);
+        return entries[0];
+    }
+
+    private mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement): void {
+        this.activeLookupPopover?.remove();
+        this.activeLookupBackdrop?.remove();
+        const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
+        document.body.append(backdrop, popover);
+        this.activeLookupBackdrop = backdrop;
+        this.activeLookupPopover = popover;
+        this.activeLookupAnchor = anchor;
+        this.dictionarySourceState.installTracking(popover);
+        this.repositionLookupPopover();
+        requestAnimationFrame(() => this.repositionLookupPopover());
+    }
+
+    private dismissLookupPopover(): void {
+        this.activeLookupPopover?.remove();
+        this.activeLookupBackdrop?.remove();
+        this.activeLookupPopover = undefined;
+        this.activeLookupBackdrop = undefined;
+        this.activeLookupAnchor = undefined;
+    }
+
+    private repositionLookupPopover(): void {
+        if (!this.activeLookupPopover) return;
+        positionPopover(this.activeLookupPopover, this.activeLookupAnchor);
+    }
+
+    private renderDefinitionSources(card: JPDBCard, entries: YomitanTermEntry[], _sentence?: string, jpdbVocabularyInfo: JpdbVocabularyInfo | null = null): string {
+        const grouped = groupTermEntriesByDictionary(entries);
+        const sourceIds = orderedDefinitionSourceIds(this.settings, [...grouped.keys()]);
+        const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
+        let renderedDictionaries = false;
+        const sections = sourceIds.map(sourceId => {
+            if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
+                return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo);
+            }
+            if (grouped.has(sourceId)) {
+                if (renderedDictionaries) return '';
+                renderedDictionaries = true;
+                return renderLocalDefinitionSourcesSection(
+                    dictionarySourceIds,
+                    grouped,
+                    this.settings,
+                    (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+                    name => this.dictionaryLabel(name),
+                    card,
+                );
+            }
+            return '';
+        }).filter(Boolean);
+        return sections.length
+            ? `<div class="jpdb-reader-definition-stack">${sections.join('')}</div>`
+            : '<div class="jpdb-reader-help jpdb-reader-no-definitions">No definitions found.</div>';
+    }
+
+    private dictionaryLabel(name: string): string {
+        return this.settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
     }
 
     private restoreSettingsPreviewState(): void {
