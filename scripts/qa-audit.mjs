@@ -516,9 +516,18 @@ function pathKanji(url) {
 
 function mockImmersionMedia(url) {
     const mediaPath = url.searchParams.get('path') ?? '';
-    if (mediaPath.endsWith('.mp3')) return textQaResponse('fake-mp3', 'audio/mpeg');
-    const label = mediaPath.includes('steins_gate') || mediaPath.includes('Steins') ? 'Steins Gate' : 'Example';
-    return textQaResponse(mockImageSvg(label), 'image/svg+xml; charset=utf-8');
+    if (isMockImmersionAudio(mediaPath)) return textQaResponse('fake-mp3', 'audio/mpeg');
+    return textQaResponse(mockImageSvg(mockImmersionImageLabel(mediaPath)), 'image/svg+xml; charset=utf-8');
+}
+
+function isMockImmersionAudio(mediaPath) {
+    return mediaPath.endsWith('.mp3');
+}
+
+function mockImmersionImageLabel(mediaPath) {
+    if (mediaPath.includes('steins_gate')) return 'Steins Gate';
+    if (mediaPath.includes('Steins')) return 'Steins Gate';
+    return 'Example';
 }
 
 function immersionAudioRequestCount(requests) {
@@ -752,14 +761,27 @@ async function auditNoSecretLeak() {
         return;
     }
     const files = await listFiles(ROOT, new Set(['.git', 'node_modules', 'qa-artifacts']));
-    const offenders = [];
-    for (const file of files) {
-        if (!/\.(?:ts|js|mjs|cjs|json|md|html|yml|yaml|css|user\.js)$/.test(file)) continue;
-        const text = await readFile(file, 'utf8').catch(() => '');
-        if (text.includes(API_KEY)) offenders.push(path.relative(ROOT, file));
-    }
+    const offenders = await secretLeakOffenders(files);
     assertAudit(!offenders.length, `test API key is present in source files: ${offenders.join(', ')}`);
     record('secret leak scan', 'pass', 'test key is only supplied by environment');
+}
+
+async function secretLeakOffenders(files) {
+    const offenders = [];
+    for (const file of files) {
+        if (await fileContainsSecret(file)) offenders.push(path.relative(ROOT, file));
+    }
+    return offenders;
+}
+
+async function fileContainsSecret(file) {
+    if (!isSecretLeakAuditedFile(file)) return false;
+    const text = await readFile(file, 'utf8').catch(() => '');
+    return text.includes(API_KEY);
+}
+
+function isSecretLeakAuditedFile(file) {
+    return /\.(?:ts|js|mjs|cjs|json|md|html|yml|yaml|css|user\.js)$/.test(file);
 }
 
 async function listFiles(dir, ignoredNames) {
@@ -881,11 +903,30 @@ function summarizeRequestBody(body) {
     const json = readJsonBody(body);
     const note = json?.params?.note;
     return {
-        action: typeof json?.action === 'string' ? json.action : undefined,
-        ankiSentence: typeof note?.fields?.Sentence === 'string' ? textFromHtml(note.fields.Sentence) : undefined,
-        ankiSource: typeof note?.fields?.Source === 'string' ? note.fields.Source : undefined,
-        ankiHasPicture: Array.isArray(note?.picture) && note.picture.length > 0,
+        action: requestActionSummary(json),
+        ankiSentence: requestNoteFieldText(note, 'Sentence'),
+        ankiSource: requestNoteField(note, 'Source'),
+        ankiHasPicture: requestHasPicture(note),
     };
+}
+
+function requestActionSummary(json) {
+    return typeof json?.action === 'string' ? json.action : undefined;
+}
+
+function requestNoteField(note, field) {
+    const value = note?.fields?.[field];
+    return typeof value === 'string' ? value : undefined;
+}
+
+function requestNoteFieldText(note, field) {
+    const value = requestNoteField(note, field);
+    return value === undefined ? undefined : textFromHtml(value);
+}
+
+function requestHasPicture(note) {
+    if (!Array.isArray(note?.picture)) return false;
+    return note.picture.length > 0;
 }
 
 function textFromHtml(value) {
@@ -975,8 +1016,8 @@ function mockJpdbKanjiHtml(kanji) {
 }
 
 function mockRtkHtml(kanji) {
-    const keyword = kanji === '読' ? 'read' : kanji === '本' ? 'book' : kanji === '日' ? 'day' : 'now';
-    const elements = kanji === '読' ? '言、売' : '人、一';
+    const keyword = mockRtkKeyword(kanji);
+    const elements = mockRtkElements(kanji);
     return `<!doctype html><html><body>
         <h2><code title="372">${htmlEscape(keyword)}</code></h2>
         <h3>On-Yomi: ドク — Kun-Yomi: よ.む</h3>
@@ -985,6 +1026,20 @@ function mockRtkHtml(kanji) {
         <h2>Heisig comment:</h2><p>QA comment for ${htmlEscape(keyword)}.</p>
         <h2>Koohii stories:</h2><p>QA Koohii story.</p>
     </body></html>`;
+}
+
+const RTK_KEYWORDS = new Map([
+    ['読', 'read'],
+    ['本', 'book'],
+    ['日', 'day'],
+]);
+
+function mockRtkKeyword(kanji) {
+    return RTK_KEYWORDS.get(kanji) ?? 'now';
+}
+
+function mockRtkElements(kanji) {
+    return kanji === '読' ? '言、売' : '人、一';
 }
 
 function mockUchisenHtml(kanji) {
@@ -1415,15 +1470,31 @@ function readSettingsSnapshot(page) {
 
 function assertSettingsSnapshot(snapshot) {
     assertAudit(snapshot.title === 'よむ Settings', 'settings dialog title is wrong');
-    assertAudit(snapshot.saveText === 'Save' && snapshot.cancelText === 'Cancel', 'settings actions are missing');
+    assertAudit(hasSettingsActionButtons(snapshot), 'settings actions are missing');
     assertAudit(snapshot.saveBottom <= snapshot.viewportHeight, 'settings Save button is below the visible viewport');
-    assertAudit(snapshot.fiveRows > 0 && snapshot.passFailRows === 0, 'five-grade and pass/fail shortcut settings are both visible');
-    assertAudit(snapshot.localOcrHidden && snapshot.cloudOcrHidden, 'irrelevant OCR provider fields are visible by default');
+    assertAudit(hasSingleShortcutScale(snapshot), 'five-grade and pass/fail shortcut settings are both visible');
+    assertAudit(hasHiddenOcrProviderFields(snapshot), 'irrelevant OCR provider fields are visible by default');
     assertAudit(snapshot.hoverShortcut === 'Shift+H', 'shortcut field did not capture a pressed key combo');
     assertAudit(hasRecommendedDictionaryDownloads(snapshot), 'recommended dictionary downloads are missing from settings');
     assertAudit(snapshot.settingsTabs >= 6, 'settings are not organized into modular tabs');
     assertAudit(snapshot.dictionarySources >= 3, 'definition source ordering rows are missing');
-    assertAudit(snapshot.supportLinks >= 4 && snapshot.hasMigakuComparison, 'support/donation links or free-vs-paid copy are missing');
+    assertAudit(hasSupportComparison(snapshot), 'support/donation links or free-vs-paid copy are missing');
+}
+
+function hasSettingsActionButtons(snapshot) {
+    return snapshot.saveText === 'Save' && snapshot.cancelText === 'Cancel';
+}
+
+function hasSingleShortcutScale(snapshot) {
+    return snapshot.fiveRows > 0 && snapshot.passFailRows === 0;
+}
+
+function hasHiddenOcrProviderFields(snapshot) {
+    return snapshot.localOcrHidden && snapshot.cloudOcrHidden;
+}
+
+function hasSupportComparison(snapshot) {
+    return snapshot.supportLinks >= 4 && snapshot.hasMigakuComparison;
 }
 
 function hasRecommendedDictionaryDownloads(snapshot) {
@@ -2673,7 +2744,7 @@ function isMobileTranscriptSheet(layout) {
 }
 
 async function runAudit(name, fn, options = {}) {
-    if (options.requiresApiKey && !QA_API_KEY) {
+    if (shouldSkipAudit(options)) {
         record(name, 'skip', 'YOMU_TEST_API_KEY is not set');
         return;
     }
@@ -2682,6 +2753,10 @@ async function runAudit(name, fn, options = {}) {
     } catch (error) {
         record(name, 'fail', error instanceof Error ? error.message : String(error));
     }
+}
+
+function shouldSkipAudit(options) {
+    return options.requiresApiKey && !QA_API_KEY;
 }
 
 async function main() {

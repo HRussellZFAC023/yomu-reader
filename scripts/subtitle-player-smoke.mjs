@@ -62,6 +62,10 @@ function isUsableBox(box, minWidth, minHeight) {
 
 function isBoxInsideViewport(box, viewport) {
     if (!box) return false;
+    return hasViewportBounds(box, viewport);
+}
+
+function hasViewportBounds(box, viewport) {
     return box.left >= -1
         && box.top >= -1
         && box.right <= viewport.width + 1

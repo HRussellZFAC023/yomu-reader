@@ -59,16 +59,21 @@ async function listTypeScriptFiles(dir) {
     const entries = await readdir(dir, { withFileTypes: true });
     const found = [];
     for (const entry of entries) {
-        const full = path.join(dir, entry.name);
-        const relative = path.relative(ROOT, full);
-        if (entry.isDirectory()) {
-            if (isIgnoredPath(relative)) continue;
-            found.push(...await listTypeScriptFiles(full));
-        } else if (isAuditedTypeScriptFile(entry.name)) {
-            found.push(full);
-        }
+        found.push(...await auditedFilesForEntry(dir, entry));
     }
     return found;
+}
+
+async function auditedFilesForEntry(dir, entry) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return auditedDirectoryFiles(full);
+    if (isAuditedTypeScriptFile(entry.name)) return [full];
+    return [];
+}
+
+async function auditedDirectoryFiles(dir) {
+    if (isIgnoredPath(path.relative(ROOT, dir))) return [];
+    return listTypeScriptFiles(dir);
 }
 
 function isIgnoredPath(relative) {
@@ -100,18 +105,32 @@ function isFunctionLike(node) {
 }
 
 function functionName(node) {
-    if (node.name?.getText) return node.name.getText();
+    const ownName = ownFunctionName(node);
+    if (ownName) return ownName;
+
     const parent = node.parent;
     const assignedName = assignedFunctionName(parent);
     if (assignedName) return assignedName;
-    if (ts.isCallExpression(parent) && parent.expression) return callbackFunctionName(parent);
-    return '<anonymous>';
+
+    const callbackName = callExpressionFunctionName(parent);
+    return callbackName || '<anonymous>';
+}
+
+function ownFunctionName(node) {
+    if (!node.name) return '';
+    if (!node.name.getText) return '';
+    return node.name.getText();
 }
 
 function assignedFunctionName(parent) {
-    if (ts.isVariableDeclaration(parent) && parent.name) return parent.name.getText();
-    if (ts.isPropertyAssignment(parent) && parent.name) return parent.name.getText();
+    if (ts.isVariableDeclaration(parent)) return parent.name.getText();
+    if (ts.isPropertyAssignment(parent)) return parent.name.getText();
     return '';
+}
+
+function callExpressionFunctionName(parent) {
+    if (!ts.isCallExpression(parent)) return '';
+    return callbackFunctionName(parent);
 }
 
 function callbackFunctionName(parent) {
