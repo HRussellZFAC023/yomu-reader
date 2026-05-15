@@ -38,7 +38,7 @@ import {
 import type { ReaderParser } from './reader-parser';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import type { RtkClient, RtkInfo } from './rtk';
-import { gmStorageGet, gmStorageSet } from './storage';
+import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -148,12 +148,14 @@ interface NewTabLoadResult {
     cards: JPDBCard[];
     sourceLabel: string;
     needsDictionarySetup: boolean;
+    reviewCountMode?: boolean;
 }
 
 interface NewTabLoadAccumulator {
     cards: JPDBCard[];
     labels: string[];
     dictionarySetupRequired: boolean;
+    reviewCountMode: boolean;
 }
 
 type NewTabWordSource = Exclude<ReaderSettings['newTabSource'], 'auto'>;
@@ -208,6 +210,10 @@ const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     '[contenteditable="true"]',
 ].join(',');
 
+export function clearNewTabOfflineCache(): Promise<void> {
+    return gmStorageDelete(NEW_TAB_CACHE_KEY);
+}
+
 export class NewTabController {
     private allWords: JPDBCard[] = [];
     private visibleWords: JPDBCard[] = [];
@@ -228,8 +234,10 @@ export class NewTabController {
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
     private dictionarySetupRequired = false;
+    private reviewCountMode = false;
     private loadGeneration = 0;
     private rootEventController: AbortController | undefined;
+    private lastPointerNavigation: { action: 'next' | 'previous'; time: number } | null = null;
 
     constructor(private readonly dependencies: NewTabControllerDependencies) {
         const saved = loadNewTabUiState();
@@ -266,7 +274,7 @@ export class NewTabController {
         }
         this.syncThemeToggle(root);
 
-        if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, true);
+        if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, false);
         else this.applyWords(root, true);
     }
 
@@ -310,6 +318,7 @@ export class NewTabController {
         this.sourceLabel = '';
         this.visiblePoolSignature = '';
         this.dictionarySetupRequired = false;
+        this.reviewCountMode = false;
         this.liveCards.clear();
         this.keywordCache.clear();
         this.kanjiInfoCache.clear();
@@ -425,16 +434,19 @@ export class NewTabController {
             if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
             if (action === 'next') {
                 event.preventDefault();
+                if (!this.acceptPointerNavigation('next', event)) return;
                 this.showNextWord();
                 return;
             }
             if (action === 'skip') {
                 event.preventDefault();
+                if (!this.acceptPointerNavigation('next', event)) return;
                 this.showNextWord();
                 return;
             }
             if (action === 'previous') {
                 event.preventDefault();
+                if (!this.acceptPointerNavigation('previous', event)) return;
                 this.showPreviousWord();
                 return;
             }
@@ -496,6 +508,13 @@ export class NewTabController {
             }
         }, { signal: controller.signal });
         this.rootEventController = controller;
+    }
+
+    private acceptPointerNavigation(action: 'next' | 'previous', event: MouseEvent): boolean {
+        const time = event.timeStamp || Date.now();
+        if (this.lastPointerNavigation?.action === action && time - this.lastPointerNavigation.time < 220) return false;
+        this.lastPointerNavigation = { action, time };
+        return true;
     }
 
     private handleNestedLookupClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
@@ -605,6 +624,7 @@ export class NewTabController {
     private async applyLoadedWords(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number, result: NewTabLoadResult): Promise<void> {
         this.dictionarySetupRequired = result.needsDictionarySetup;
         this.allWords = dedupeWords(result.cards).slice(0, NEW_TAB_WORD_LIMIT);
+        this.reviewCountMode = result.reviewCountMode === true;
         this.sourceLabel = result.sourceLabel;
         if (this.allWords.length) void this.writeOfflineCache(this.allWords, this.sourceLabel);
         if (!this.allWords.length) await this.applyOfflineCacheIfAvailable(root, loadGeneration);
@@ -622,6 +642,7 @@ export class NewTabController {
         const cached = await this.readOfflineCache();
         if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length) return;
         this.allWords = cached.cards;
+        this.reviewCountMode = false;
         this.sourceLabel = `${cached.sourceLabel} (offline)`;
         this.setStatus(root, 'Offline cache');
     }
@@ -640,6 +661,7 @@ export class NewTabController {
         if (!this.isCurrentLoad(loadGeneration)) return;
         if (cached.cards.length) {
             this.allWords = cached.cards;
+            this.reviewCountMode = false;
             this.sourceLabel = `${cached.sourceLabel} (offline)`;
             this.dependencies.parser.cacheCards(this.allWords);
             this.applyWords(root, preferStoredWord);
@@ -690,11 +712,11 @@ export class NewTabController {
 
     private async loadAnkiWords(): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        if (!settings.ankiEnabled) return { cards: [], sourceLabel: 'Anki', needsDictionarySetup: false };
+        if (!settings.ankiEnabled) return { cards: [], sourceLabel: 'Anki', needsDictionarySetup: false, reviewCountMode: true };
         const cards = await this.dependencies.anki.listNewTabCards(80).catch(() => {
             return [];
         });
-        return { cards, sourceLabel: cards.length ? 'Anki' : 'Anki', needsDictionarySetup: false };
+        return { cards, sourceLabel: cards.length ? 'Anki' : 'Anki', needsDictionarySetup: false, reviewCountMode: true };
     }
 
     private async loadDictionaryWords(_onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
@@ -702,7 +724,7 @@ export class NewTabController {
         try {
             const summary = await this.dependencies.dictionaries.summary().catch(() => null);
             if (!summary?.dictionaries.length) {
-                return { cards: [], sourceLabel: 'Dictionaries', needsDictionarySetup: true };
+                return { cards: [], sourceLabel: 'Dictionaries', needsDictionarySetup: true, reviewCountMode: false };
             }
 
             const entries = await this.dependencies.dictionaries.listRandomTopTerms(90, 4000, settings.dictionaryPreferences);
@@ -710,9 +732,10 @@ export class NewTabController {
                 cards: entries.map(entry => this.dependencies.parser.localCardFromEntry(entry)),
                 sourceLabel: 'Dictionaries',
                 needsDictionarySetup: false,
+                reviewCountMode: false,
             };
         } catch {
-            return { cards: [], sourceLabel: 'Dictionaries', needsDictionarySetup: false };
+            return { cards: [], sourceLabel: 'Dictionaries', needsDictionarySetup: false, reviewCountMode: false };
         }
     }
 
@@ -720,7 +743,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         const live = this.loadLiveJpdbReviewWords(settings);
         if (live) return live;
-        if (!settings.apiKey.trim()) return { cards: [], sourceLabel: 'JPDB', needsDictionarySetup: false };
+        if (!settings.apiKey.trim()) return { cards: [], sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: true };
 
         const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
         const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck);
@@ -732,10 +755,10 @@ export class NewTabController {
     private loadLiveJpdbReviewWords(settings: ReaderSettings): NewTabLoadResult | null {
         if (settings.newTabJpdbReviewMode === 'api-vocabulary') return null;
         const live = this.liveCardFromBridge();
-        if (live) return { cards: [live], sourceLabel: 'JPDB live review', needsDictionarySetup: false };
+        if (live) return { cards: [live], sourceLabel: 'JPDB live review', needsDictionarySetup: false, reviewCountMode: true };
         this.dependencies.jpdbReviewBridge.requestCurrent();
         return settings.newTabJpdbReviewMode === 'live-review'
-            ? { cards: [], sourceLabel: 'JPDB live review', needsDictionarySetup: false }
+            ? { cards: [], sourceLabel: 'JPDB live review', needsDictionarySetup: false, reviewCountMode: true }
             : null;
     }
 
@@ -743,7 +766,7 @@ export class NewTabController {
         if (selectedDeck === JPDB_ALL_DECKS) return null;
         try {
             const cards = await this.dependencies.jpdb.listDeckCards(selectedDeck, 90);
-            return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false };
+            return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: cards.some(card => isReviewSource(card.reviewSource)) };
         } catch {
             return null;
         }
@@ -762,7 +785,7 @@ export class NewTabController {
             }
         }
 
-        return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false };
+        return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: false };
     }
 
     private isCurrentLoad(loadGeneration: number): boolean {
@@ -886,7 +909,7 @@ export class NewTabController {
 
         this.renderPromptForMode(slots, card, state);
 
-        if (slots.count) slots.count.textContent = `${this.index + 1} / ${this.visibleWords.length}`;
+        if (slots.count) slots.count.textContent = this.newTabCountLabel(card);
         if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
         this.renderControls(slots, card);
         this.renderInstallCta(root);
@@ -900,6 +923,11 @@ export class NewTabController {
 
     private revealButtonLabel(): string {
         return this.state.revealAnswer ? 'Hide' : 'Reveal';
+    }
+
+    private newTabCountLabel(card: JPDBCard): string {
+        if (this.reviewCountMode || this.isReviewCard(card)) return `${this.index + 1} / ${this.visibleWords.length}`;
+        return `${this.index + 1}`;
     }
 
     private studySlots(root: HTMLElement): NewTabStudySlots {
@@ -1800,11 +1828,12 @@ function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: 
 }
 
 function emptyNewTabLoadAccumulator(): NewTabLoadAccumulator {
-    return { cards: [], labels: [], dictionarySetupRequired: false };
+    return { cards: [], labels: [], dictionarySetupRequired: false, reviewCountMode: false };
 }
 
 function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, result: NewTabLoadResult): void {
     accumulator.dictionarySetupRequired ||= result.needsDictionarySetup;
+    accumulator.reviewCountMode ||= result.reviewCountMode === true;
     appendLoadedWords(result, accumulator.cards, accumulator.labels);
 }
 
@@ -1813,6 +1842,7 @@ function newTabLoadResult(accumulator: NewTabLoadAccumulator): NewTabLoadResult 
         cards: accumulator.cards,
         sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : 'No source',
         needsDictionarySetup: accumulator.cards.length === 0 && accumulator.dictionarySetupRequired,
+        reviewCountMode: accumulator.reviewCountMode,
     };
 }
 

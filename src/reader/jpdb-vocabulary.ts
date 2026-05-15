@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { getUserscriptHttpRequest } from './userscript';
 
 export interface JpdbVocabularyCompound {
@@ -27,6 +28,8 @@ const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 export class JpdbVocabularyClient {
     private cache = new Map<string, Promise<JpdbVocabularyInfo | null>>();
 
+    constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
+
     lookup(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
         if (!spelling) return Promise.resolve(null);
         const key = `${vid}:${spelling}:${reading}`;
@@ -40,7 +43,7 @@ export class JpdbVocabularyClient {
 
     private async fetchInfo(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
         for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
-            const html = await requestText(url).catch(error => {
+            const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
                 log.warn('Vocabulary page request failed', { vid, spelling, url }, error);
                 return '';
             });
@@ -267,7 +270,7 @@ function unique<T>(values: T[]): T[] {
     return [...new Set(values)];
 }
 
-function requestText(url: string): Promise<string> {
+function requestText(url: string, proxyUrl = ''): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
         return new Promise((resolve, reject) => {
@@ -284,11 +287,7 @@ function requestText(url: string): Promise<string> {
             });
         });
     }
-    const fetchUrl = publicFetchUrl(url);
-    if (!fetchUrl) {
-        return Promise.reject(new Error('Cross-origin JPDB vocabulary request needs a userscript HTTP bridge.'));
-    }
-    return fetch(fetchUrl, { credentials: 'include', redirect: 'follow', signal: AbortSignal.timeout(8000) })
+    return fetchWithCorsFallbacks(url, proxyUrl, { credentials: 'omit', redirect: 'follow', timeoutMs: 8000 })
         .then(response => {
             if (!response.ok) throw new Error(`JPDB vocabulary request failed (${response.status}).`);
             return response.text();
@@ -299,14 +298,4 @@ function requestText(url: string): Promise<string> {
             }
             throw error;
         });
-}
-
-function publicFetchUrl(url: string): string | null {
-    try {
-        const target = new URL(url, location.href);
-        if (target.origin === location.origin) return target.href;
-        return null;
-    } catch {
-        return url;
-    }
 }

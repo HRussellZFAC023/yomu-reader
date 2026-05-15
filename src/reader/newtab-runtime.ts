@@ -63,16 +63,16 @@ class NewTabRuntime {
     private newTab?: NewTabController;
 
     private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
-    private jpdbKanji = new JpdbKanjiClient();
-    private jpdbPublicPitch = new JpdbPublicPitchClient();
-    private jpdbVocabulary = new JpdbVocabularyClient();
+    private jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
+    private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
+    private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
     private kanjiVG = new KanjiVGClient();
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
-    private dictionaries = new YomitanDictionaryStore();
+    private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl);
     private dictionarySourceState = new DictionarySourceStateController({
         getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),

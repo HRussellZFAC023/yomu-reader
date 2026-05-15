@@ -264,7 +264,7 @@
   .jpdb-reader-newtab-study {
   grid-template-rows: auto auto auto auto;
   align-content: start;
-  gap: 8px;
+  gap: clamp(12px, 1.8vh, 20px);
 }
 
 .jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
@@ -316,6 +316,7 @@
 .jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
   .jpdb-reader-newtab-prompt {
   font-size: clamp(3.5rem, 9vh, 5rem);
+  margin-bottom: 4px;
 }
 
 .jpdb-reader-newtab-sentence {
@@ -515,12 +516,12 @@
 }
 
 .jpdb-reader-newtab-kanji-answer {
-  width: min(540px, calc(100vw - 32px));
+  width: min(660px, calc(100vw - 32px));
   display: grid;
   grid-template-columns: repeat(2, minmax(150px, 1fr));
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: clamp(14px, 2.4vw, 20px);
 }
 
 .jpdb-reader-newtab-kanji-front {
@@ -706,9 +707,9 @@
 
 .jpdb-reader-newtab-kanji-details {
   display: grid;
-  gap: 9px;
-  width: min(720px, calc(100vw - 32px));
-  margin-top: 4px;
+  gap: 12px;
+  width: min(760px, calc(100vw - 32px));
+  margin-top: 6px;
   text-align: left;
 }
 

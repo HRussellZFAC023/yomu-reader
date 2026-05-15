@@ -233,6 +233,7 @@ export interface ReaderSettings {
     newTabSource: NewTabWordSource;
     newTabJpdbDeck: string;
     newTabJpdbReviewMode: NewTabJpdbReviewMode;
+    corsProxyUrl: string;
     newTabKanjiKeywordSource: NewTabKanjiKeywordSource;
     newTabParsingEnabled: boolean;
     newTabOfflineEnabled: boolean;

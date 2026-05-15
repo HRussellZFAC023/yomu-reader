@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { getUserscriptHttpRequest } from './userscript';
 
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
@@ -8,6 +9,8 @@ const log = Logger.scope('JpdbPublicPitch');
 
 export class JpdbPublicPitchClient {
     private cache = new Map<string, Promise<string[]>>();
+
+    constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
     lookup(spelling: string, reading: string): Promise<string[]> {
         const normalizedSpelling = cleanText(spelling);
@@ -26,7 +29,7 @@ export class JpdbPublicPitchClient {
     private async fetchPitch(spelling: string, reading: string): Promise<string[]> {
         for (const query of unique([spelling, reading].filter(Boolean))) {
             const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
-            const html = await requestText(url).catch(error => {
+            const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
                 log.warn('Public JPDB pitch request failed', { query }, error);
                 return '';
             });
@@ -182,7 +185,7 @@ function unique<T>(values: T[]): T[] {
     return [...new Set(values)];
 }
 
-function requestText(url: string): Promise<string> {
+function requestText(url: string, proxyUrl = ''): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
         return new Promise((resolve, reject) => {
@@ -200,23 +203,8 @@ function requestText(url: string): Promise<string> {
         });
     }
 
-    const fetchUrl = publicFetchUrl(url);
-    if (!fetchUrl) {
-        return Promise.reject(new Error('Cross-origin JPDB public request needs a userscript HTTP bridge.'));
-    }
-
-    return fetch(fetchUrl).then(response => {
+    return fetchWithCorsFallbacks(url, proxyUrl, { timeoutMs: REQUEST_TIMEOUT_MS }).then(response => {
         if (!response.ok) throw new Error(`Public JPDB pitch request failed (${response.status}).`);
         return response.text();
     });
-}
-
-function publicFetchUrl(url: string): string | null {
-    try {
-        const target = new URL(url, location.href);
-        if (target.origin === location.origin) return target.href;
-        return null;
-    } catch {
-        return url;
-    }
 }

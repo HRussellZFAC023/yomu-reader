@@ -6,6 +6,7 @@ import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
 import { setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { Logger, loggingSettingsSummary } from './logger';
+import { clearNewTabOfflineCache } from './new-tab-controller';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from './recommended-dictionaries';
 import { mergeDictionaryPreferences, saveSettings } from './settings';
 import { exportStoredValues, importStoredValues } from './storage';
@@ -15,6 +16,7 @@ import {
     downloadBlob,
     getFormInterfaceLanguage,
     getReaderSettingsExport,
+    installSourceRowDrag,
     installShortcutCapture,
     localizeSettingsForm,
     pickFile,
@@ -286,6 +288,7 @@ export class SettingsDialogController {
         form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.addEventListener('change', () => void this.refreshDeckControls(form));
         form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
         installShortcutCapture(form);
+        installSourceRowDrag(form);
         form.addEventListener('click', event => {
             const control = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             const action = control?.dataset.action;
@@ -562,6 +565,7 @@ export class SettingsDialogController {
         control?.setAttribute('disabled', 'true');
         setStatus(`Removing ${dictionary}...`);
         await this.dependencies.dictionaries.deleteDictionary(dictionary);
+        await clearNewTabOfflineCache().catch(() => undefined);
         this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
         await saveSettings(this.settings);
         await this.dependencies.refreshDictionaryStyles();

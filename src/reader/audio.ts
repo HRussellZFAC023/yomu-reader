@@ -1,6 +1,7 @@
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
+import { fetchWithCorsFallbacks } from './proxy-fetch';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -27,6 +28,7 @@ interface AudioRequestOptions {
     method?: 'GET' | 'POST';
     headers?: Record<string, string>;
     data?: string;
+    proxyUrl?: string;
 }
 
 interface AudioSourcePlayResult {
@@ -177,7 +179,7 @@ export class AudioPlayer {
         if (!sources.length) return;
 
         for (const source of sources) {
-            void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs)
+            void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl)
                 .then(candidates => {
                     const triedUrls = new Set<string>();
                     for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
@@ -231,7 +233,7 @@ export class AudioPlayer {
     ): Promise<boolean> {
         if (isTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
 
-        const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
+        const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const bagKey = getAudioBagKey(source, card);
         return await this.playFromAudioCandidates(candidates, settings, requestId, triedUrls, isCurrent, bagKey);
@@ -353,7 +355,7 @@ export class AudioPlayer {
         return true;
     }
 
-    private getCachedAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
+    private getCachedAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
         const key = getAudioCandidateCacheKey(source, card);
         const now = Date.now();
         const cached = this.candidateCache.get(key);
@@ -362,7 +364,7 @@ export class AudioPlayer {
         }
 
         let promise!: Promise<AudioCandidate[]>;
-        promise = getAudioCandidates(source, card, timeoutMs)
+        promise = getAudioCandidates(source, card, timeoutMs, proxyUrl)
             .then(candidates => cloneAudioCandidates(candidates))
             .catch(error => {
                 if (this.candidateCache.get(key)?.promise === promise) this.candidateCache.delete(key);
@@ -373,7 +375,7 @@ export class AudioPlayer {
     }
 
     private async fetchAudioAsBlobUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
-        const response = await requestUrl(url, 'blob', timeoutMs);
+        const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl: this.getSettings().corsProxyUrl });
         if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode);
 
         if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
@@ -663,20 +665,20 @@ function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
     };
 }
 
-async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
-    return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs);
+async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
+    return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
 }
 
-type AudioCandidateLoader = (source: AudioSourceSetting, card: JPDBCard, timeoutMs: number) => Promise<AudioCandidate[]>;
+type AudioCandidateLoader = (source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string) => Promise<AudioCandidate[]>;
 
 const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoader>> = {
     custom: loadCustomAudioCandidates,
     'custom-json': loadCustomJsonAudioCandidates,
     jpod101: loadJapanesePod101AudioCandidates,
-    'language-pod-101': async (_source, card, timeoutMs) => urlsToAudioCandidates(await getLanguagePod101AudioUrls(card, timeoutMs)),
-    jisho: async (_source, card, timeoutMs) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs)),
-    'lingua-libre': async (_source, card, timeoutMs) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs)),
-    wiktionary: async (_source, card, timeoutMs) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs)),
+    'language-pod-101': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl)),
+    jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
+    'lingua-libre': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs, proxyUrl)),
+    wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs, proxyUrl)),
 };
 
 async function loadNoAudioCandidates(): Promise<AudioCandidate[]> {
@@ -689,10 +691,10 @@ async function loadCustomAudioCandidates(source: AudioSourceSetting, card: JPDBC
     return [{ url, sourceUrl: url }];
 }
 
-async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
+async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
     if (!source.url.trim()) return [];
     const sourceUrl = formatAudioUrl(source.url, card);
-    const response = await requestUrl(sourceUrl, 'text', timeoutMs);
+    const response = await requestUrl(sourceUrl, 'text', timeoutMs, { proxyUrl });
     const urls = typeof response === 'string' ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
     return urls.map(url => ({ url, sourceUrl }));
 }
@@ -786,18 +788,18 @@ function isJapanesePod101Url(value: string): boolean {
     }
 }
 
-async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number): Promise<string[]> {
+async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestUrl(url, 'text', timeoutMs);
+    const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl });
     if (typeof response !== 'string') return [];
 
     const audioHtml = findHtmlElementById(response, 'audio', `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, 'audio');
     return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
 }
 
-async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number): Promise<string[]> {
+async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     const url = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
-    const response = await requestUrl(url, 'text', timeoutMs, languagePod101RequestOptions(card));
+    const response = await requestUrl(url, 'text', timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl });
     if (typeof response !== 'string') return [];
 
     const urls: string[] = [];
@@ -834,14 +836,14 @@ function languagePod101RowKana(row: string): string {
     return stripHtml(kanaHtml ?? '').trim();
 }
 
-async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number): Promise<string[]> {
+async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     const apiUrl = commonsSearchApiUrl(term, source);
-    const response = await requestUrl(apiUrl, 'text', timeoutMs);
+    const response = await requestUrl(apiUrl, 'text', timeoutMs, { proxyUrl });
     if (typeof response !== 'string') return [];
 
     const urls: string[] = [];
     for (const title of commonsSearchTitles(response)) {
-        urls.push(...await getCommonsAudioUrlsForTitle(title, term, source, timeoutMs));
+        urls.push(...await getCommonsAudioUrlsForTitle(title, term, source, timeoutMs, proxyUrl));
     }
     return urls;
 }
@@ -858,8 +860,8 @@ function commonsSearchTitles(response: string): string[] {
     return pages.slice(0, 6).map(page => page.title).filter((title): title is string => Boolean(title));
 }
 
-async function getCommonsAudioUrlsForTitle(title: string, term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number): Promise<string[]> {
-    const info = await requestUrl(commonsImageInfoUrl(title), 'text', timeoutMs).catch(() => null);
+async function getCommonsAudioUrlsForTitle(title: string, term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number, proxyUrl = ''): Promise<string[]> {
+    const info = await requestUrl(commonsImageInfoUrl(title), 'text', timeoutMs, { proxyUrl }).catch(() => null);
     if (typeof info !== 'string') return [];
     return commonsImageInfoUrls(info, title, term, source);
 }
@@ -878,20 +880,20 @@ function commonsImageInfoUrls(info: string, title: string, term: string, source:
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
-    const browserUrl = getBrowserFetchUrl(responseUrl);
+    const proxyUrl = options.proxyUrl ?? '';
     if (userscriptRequest) {
         return requestViaUserscriptAudio(responseUrl, responseType, timeoutMs, options, userscriptRequest)
             .catch(error => {
-                if (!browserUrl) throw error;
-                return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
+                if (!canAttemptBrowserAudioFetch(responseUrl, proxyUrl)) throw error;
+                return requestViaAudioFetch(responseUrl, responseType, timeoutMs, options);
             });
     }
 
-    if (!browserUrl) {
+    if (!canAttemptBrowserAudioFetch(responseUrl, proxyUrl)) {
         return Promise.reject(new Error('Cross-origin audio request needs a userscript HTTP bridge.'));
     }
 
-    return requestViaAudioFetch(browserUrl, responseType, timeoutMs, options);
+    return requestViaAudioFetch(responseUrl, responseType, timeoutMs, options);
 }
 
 function requestViaUserscriptAudio(
@@ -935,11 +937,11 @@ function requestViaUserscriptAudio(
 }
 
 function requestViaAudioFetch(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions): Promise<unknown> {
-    return fetch(responseUrl, {
+    return fetchWithCorsFallbacks(responseUrl, options.proxyUrl ?? '', {
         method: options.method ?? 'GET',
         headers: options.headers,
         body: options.data,
-        signal: AbortSignal.timeout(timeoutMs),
+        timeoutMs,
     }).then(async response => {
         if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
         return responseType === 'blob' ? await response.blob() : await response.text();
@@ -1164,20 +1166,16 @@ function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT
     document.head?.append(link);
 }
 
-function getBrowserFetchUrl(url: string): string | null {
-    if (!isHttpAudioUrl(url)) return url;
-    return sameOriginAudioUrl(url);
-}
-
 function isHttpAudioUrl(url: string): boolean {
     return /^https?:\/\//i.test(url);
 }
 
-function sameOriginAudioUrl(url: string): string | null {
+function canAttemptBrowserAudioFetch(url: string, proxyUrl: string): boolean {
+    if (!isHttpAudioUrl(url) || proxyUrl) return true;
     try {
-        return new URL(url).origin === location.origin ? url : null;
+        return new URL(url).origin === location.origin;
     } catch {
-        return null;
+        return false;
     }
 }
 

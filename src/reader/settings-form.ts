@@ -130,6 +130,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
                         ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: Anki + JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
+                        ${input('corsProxyUrl', 'Cross-origin proxy URL', settings.corsProxyUrl, 'url', { placeholder: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev' })}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
                         ${checkbox('newTabKanjiAutogradeEnabled', 'Autograde kanji drawing', settings.newTabKanjiAutogradeEnabled)}
@@ -1048,8 +1049,9 @@ export function renderAudioSourceEditor(sources: AudioSourceSetting[]): string {
     `;
 }
 
-function miniIcon(name: 'up' | 'down' | 'remove'): string {
+function miniIcon(name: 'drag' | 'up' | 'down' | 'remove'): string {
     const paths = {
+        drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
         up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
         down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
         remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
@@ -1083,6 +1085,7 @@ function renderAudioSourceRows(rows: AudioSourceSetting[]): string {
                     </select>
                 </div>
                 <div class="jpdb-reader-row-tools" aria-label="Audio source order">
+                    <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                 </div>
@@ -1229,6 +1232,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
                     <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
                     <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? 'open')}">
                     <div class="jpdb-reader-row-tools" aria-label="Lookup pill order">
+                        <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                         <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                         <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                     </div>
@@ -1333,6 +1337,63 @@ export function updateSourceRowEditor(action: string, control?: HTMLElement | nu
     const index = rows.indexOf(row);
     const targetIndex = action === 'dictionary-source-up' ? index - 1 : index + 1;
     moveSourceRow(container, index, targetIndex);
+}
+
+export function installSourceRowDrag(root: HTMLElement): void {
+    let drag: SourceRowDragState | null = null;
+
+    root.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-source-drag-handle]');
+        if (!handle || !root.contains(handle)) return;
+        const row = handle.closest<HTMLElement>('[data-source-row]');
+        const container = row?.closest<HTMLElement>('[data-source-editor]');
+        if (!row || !container) return;
+        event.preventDefault();
+        handle.setPointerCapture?.(event.pointerId);
+        drag = { active: false, container, handle, pointerId: event.pointerId, row, startY: event.clientY };
+        row.classList.add('jpdb-reader-order-row-drag-pending');
+    });
+
+    root.addEventListener('pointermove', event => {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
+        event.preventDefault();
+        drag.active = true;
+        drag.row.classList.add('jpdb-reader-order-row-dragging');
+        moveSourceRowToPointer(drag.container, drag.row, event.clientY);
+    });
+
+    const finishDrag = (event: PointerEvent): void => {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        drag.handle.releasePointerCapture?.(event.pointerId);
+        drag.row.classList.remove('jpdb-reader-order-row-drag-pending', 'jpdb-reader-order-row-dragging');
+        syncSourceRowOrder(drag.container);
+        drag = null;
+    };
+    root.addEventListener('pointerup', finishDrag);
+    root.addEventListener('pointercancel', finishDrag);
+}
+
+interface SourceRowDragState {
+    active: boolean;
+    container: HTMLElement;
+    handle: HTMLElement;
+    pointerId: number;
+    row: HTMLElement;
+    startY: number;
+}
+
+function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, clientY: number): void {
+    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'))
+        .filter(candidate => candidate !== row);
+    const target = rows.find(candidate => {
+        const rect = candidate.getBoundingClientRect();
+        return clientY < rect.top + rect.height / 2;
+    });
+    if (target) container.insertBefore(row, target);
+    else container.appendChild(row);
+    syncSourceRowOrder(container);
 }
 
 function moveSourceRow(container: HTMLElement, index: number, targetIndex: number): void {
@@ -1526,7 +1587,7 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
         <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${options.showAlias ? '' : 'compact'}">
             <span>On</span>
             <span>${escapeHtml(options.sourceLabel)}</span>
-            ${options.showAlias ? '<span>Alias</span>' : ''}
+            ${options.showAlias ? '<span>Display name</span>' : ''}
             <span>Order</span>
             <span>Remove</span>
         </div>
@@ -1539,10 +1600,11 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
                 </label>
                 ${sourceField(row.name, row.prefix, 'name', options.sourceLabel)}
                 ${options.showAlias ? (row.readonly
-                    ? sourceField(row.alias, row.prefix, 'alias', 'Dictionary alias')
-                    : `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary alias">`) : ''}
+                    ? sourceField(row.alias, row.prefix, 'alias', 'Display name')
+                    : `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml(row.name)}">`) : ''}
                 <div class="jpdb-reader-row-tools">
                     <input name="${row.prefix}.priority" type="hidden" value="${index}" aria-label="${escapeHtml(options.sourceLabel)} priority">
+                    <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
                 </div>
@@ -1770,6 +1832,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         newTabJpdbReviewMode: readOption(get('newTabJpdbReviewMode'), ['auto', 'api-vocabulary', 'live-review'] as const, current.newTabJpdbReviewMode),
+        corsProxyUrl: get('corsProxyUrl').trim(),
         newTabKanjiKeywordSource: readOption(get('newTabKanjiKeywordSource'), ['auto', 'rtk', 'jpdb', 'local'] as const, current.newTabKanjiKeywordSource),
         newTabParsingEnabled: has('newTabParsingEnabled'),
         newTabOfflineEnabled: has('newTabOfflineEnabled'),
