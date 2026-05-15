@@ -2,6 +2,7 @@ export interface ProxyFetchOptions extends RequestInit {
     timeoutMs?: number;
     allowPublicProxies?: boolean;
     allowConfiguredProxy?: boolean;
+    allowDirectCrossOrigin?: boolean;
 }
 
 type ProxyUrlBuilder = (targetUrl: string) => string;
@@ -22,6 +23,7 @@ const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(['GET', 'HEAD']);
+const PUBLIC_PROXY_METHODS = new Set(['GET', 'HEAD', 'POST']);
 
 export function proxyUrlCandidates(targetUrl: string, configuredProxyUrl = '', allowPublicProxies = true): string[] {
     const candidates = [
@@ -67,12 +69,12 @@ export async function fetchWithCorsFallbacks(
 }
 
 function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): FetchUrlCandidate[] {
-    const direct = browserReadableUrl(targetUrl);
+    const direct = options.allowDirectCrossOrigin ? targetUrl : browserReadableUrl(targetUrl);
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configured = proxySafe && options.allowConfiguredProxy !== false
         ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl)
         : null;
-    const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isReadMethod(options.method);
+    const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isPublicProxyMethod(options.method);
     const publicProxies = publicProxySafe ? BUILT_IN_PROXY_BUILDERS.map(builder => builder(targetUrl)) : [];
     return uniqueFetchCandidates([
         direct ? { url: direct, kind: 'direct' } : null,
@@ -120,6 +122,7 @@ function fetchWithTimeout(url: string, options: ProxyFetchOptions): Promise<Resp
         timeoutMs,
         allowPublicProxies: _allowPublicProxies,
         allowConfiguredProxy: _allowConfiguredProxy,
+        allowDirectCrossOrigin: _allowDirectCrossOrigin,
         signal,
         ...init
     } = options;
@@ -177,4 +180,8 @@ function hasSensitiveUrlParams(targetUrl: string): boolean {
 
 function isReadMethod(method: RequestInit['method'] | undefined): boolean {
     return READ_METHODS.has(String(method ?? 'GET').toUpperCase());
+}
+
+function isPublicProxyMethod(method: RequestInit['method'] | undefined): boolean {
+    return PUBLIC_PROXY_METHODS.has(String(method ?? 'GET').toUpperCase());
 }

@@ -1,6 +1,5 @@
 import { Logger } from './logger';
-import { fetchWithCorsFallbacks } from './proxy-fetch';
-import { getUserscriptHttpRequest } from './userscript';
+import { requestText as requestReaderText } from './reader-http';
 
 export interface JpdbKanjiReading {
     reading: string;
@@ -421,19 +420,19 @@ function requestText(
     const body = requestTextBody(options.payload);
     const requestUrl = requestTextUrl(url, method, body);
     const headers = requestTextHeaders(method);
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return requestTextViaUserscript(userscriptRequest, method, requestUrl, headers, body);
-
-    return requestTextViaFetch(
-        requestUrl,
-        proxyUrl,
+    return requestReaderText(requestUrl, {
         method,
         headers,
-        body,
-        options.allowProxyFallback ?? method === 'GET',
-        options.allowConfiguredProxy,
-        options.credentials ?? 'omit',
-    );
+        data: method === 'POST' ? body : undefined,
+        proxyUrl,
+        credentials: options.credentials ?? 'omit',
+        redirect: 'follow',
+        timeoutMs: 8000,
+        allowPublicProxies: options.allowProxyFallback ?? method === 'GET',
+        allowConfiguredProxy: options.allowConfiguredProxy,
+        failureLabel: 'JPDB kanji request',
+        timeoutLabel: 'JPDB kanji request timed out.',
+    });
 }
 
 function requestTextBody(payload: Record<string, string> | undefined): string {
@@ -446,53 +445,4 @@ function requestTextUrl(url: string, method: 'GET' | 'POST', body: string): stri
 
 function requestTextHeaders(method: 'GET' | 'POST'): Record<string, string> | undefined {
     return method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : undefined;
-}
-
-function requestTextViaUserscript(
-    userscriptRequest: NonNullable<ReturnType<typeof getUserscriptHttpRequest>>,
-    method: 'GET' | 'POST',
-    requestUrl: string,
-    headers: Record<string, string> | undefined,
-    body: string,
-): Promise<string> {
-    return new Promise((resolve, reject) => {
-        userscriptRequest({
-            method,
-            url: requestUrl,
-            headers,
-            data: method === 'POST' ? body : undefined,
-            timeout: 8000,
-            onload: response => {
-                if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
-                else reject(new Error(`JPDB kanji request failed (${response.status}).`));
-            },
-            onerror: reject,
-            ontimeout: () => reject(new Error('JPDB kanji request timed out.')),
-        });
-    });
-}
-
-function requestTextViaFetch(
-    requestUrl: string,
-    proxyUrl: string,
-    method: 'GET' | 'POST',
-    headers: Record<string, string> | undefined,
-    body: string,
-    allowProxyFallback: boolean,
-    allowConfiguredProxy: boolean | undefined,
-    credentials: RequestCredentials,
-): Promise<string> {
-    return fetchWithCorsFallbacks(requestUrl, proxyUrl, {
-        method,
-        headers,
-        body: method === 'POST' ? body : undefined,
-        credentials,
-        redirect: 'follow',
-        timeoutMs: 8000,
-        allowPublicProxies: allowProxyFallback,
-        allowConfiguredProxy,
-    }).then(response => {
-        if (!response.ok) throw new Error(`JPDB kanji request failed (${response.status}).`);
-        return response.text();
-    });
 }

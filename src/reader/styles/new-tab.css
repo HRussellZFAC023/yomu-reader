@@ -531,13 +531,15 @@
 }
 
 .jpdb-reader-newtab-kanji-answer {
+  --jpdb-reader-newtab-kanji-panel: min(304px, calc((100vw - 74px) / 2));
   width: min(700px, 100%);
   max-width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, var(--jpdb-reader-newtab-kanji-panel)));
   justify-content: center;
   align-items: start;
+  justify-items: center;
   gap: clamp(18px, 3vw, 28px);
   justify-self: center;
   margin-block: clamp(4px, 1.4vh, 14px) clamp(12px, 2.8vh, 28px);
@@ -574,6 +576,7 @@
 .jpdb-reader-newtab-kanji-svg,
 .jpdb-reader-newtab-doodle,
 .jpdb-reader-newtab-doodle-preview {
+  width: var(--jpdb-reader-newtab-kanji-panel, 100%);
   min-width: 0;
   max-width: 100%;
   border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
@@ -587,7 +590,6 @@
 }
 
 .jpdb-reader-newtab-kanji-svg {
-  width: 100%;
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -747,7 +749,6 @@
 .jpdb-reader-newtab-doodle-preview {
   display: grid;
   place-items: center;
-  width: 100%;
   aspect-ratio: 1;
   overflow: hidden;
 }
@@ -1146,6 +1147,7 @@
   }
 
   .jpdb-reader-newtab-kanji-answer {
+    --jpdb-reader-newtab-kanji-panel: min(280px, 100%);
     grid-template-columns: 1fr;
   }
 

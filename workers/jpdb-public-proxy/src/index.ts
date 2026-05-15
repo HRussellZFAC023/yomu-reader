@@ -77,6 +77,7 @@ function isAllowedPublicProxyRequest(request: Request, target: URL): boolean {
 }
 
 function isAllowedGetTarget(target: URL): boolean {
+  if (isBlockedPublicGetTarget(target)) return false;
   switch (target.hostname) {
     case 'assets.languagepod101.com':
       return target.pathname === '/dictionary/japanese/audiomp3.php';
@@ -103,8 +104,25 @@ function isAllowedGetTarget(target: URL): boolean {
     case 'upload.wikimedia.org':
       return isPublicMediaPath(target.pathname);
     default:
-      return false;
+      return true;
   }
+}
+
+function isBlockedPublicGetTarget(target: URL): boolean {
+  if (isPrivateHostname(target.hostname)) return true;
+  if (target.hostname === 'jpdb.io' && !isPublicJpdbPath(target.pathname)) return true;
+  return false;
+}
+
+function isPrivateHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (/^(?:0|10|127)\./.test(host)) return true;
+  if (/^169\.254\./.test(host)) return true;
+  if (/^192\.168\./.test(host)) return true;
+  if (/^172\.(?:1[6-9]|2\d|3[0-1])\./.test(host)) return true;
+  if (host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')) return true;
+  return false;
 }
 
 function isAllowedPostTarget(target: URL): boolean {

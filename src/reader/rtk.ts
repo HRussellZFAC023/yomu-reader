@@ -1,6 +1,6 @@
 import { Logger } from './logger';
+import { requestText as requestReaderText } from './reader-http';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
-import { getUserscriptHttpRequest } from './userscript';
 
 export interface RtkInfo {
     kanji: string;
@@ -187,25 +187,9 @@ function cleanText(value: string): string {
 }
 
 function requestText(url: string): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                timeout: 8000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
-                    else reject(new Error(`RTK request failed (${response.status}).`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('RTK request timed out.')),
-            });
-        });
-    }
-
-    return fetch(url).then(response => {
-        if (!response.ok) throw new Error(`RTK request failed (${response.status}).`);
-        return response.text();
+    return requestReaderText(url, {
+        timeoutMs: 8000,
+        failureLabel: 'RTK request',
+        timeoutLabel: 'RTK request timed out.',
     });
 }

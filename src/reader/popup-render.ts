@@ -468,7 +468,7 @@ function renderKanjiRadicalFrames(radicalFrames: string[]): string {
 function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const model = buildKanjiOriginGraphRenderModel(graph);
     if (!model) return '';
-    const { hasOutboundEdges, markerId } = model;
+    const { hasOutboundEdges, markerId, outboundMarkerId } = model;
     const lines = renderOriginGraphLines(model);
     const nodeButtons = renderOriginGraphNodeButtons(model);
     return `
@@ -476,6 +476,9 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
+                    </marker>
+                    <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
                         <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
                     </marker>
                 </defs>
@@ -523,6 +526,11 @@ const OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES = new Map<string, OriginComponentZo
     ['夫\u0000僕', 'lower'],
 ]);
 
+const INBOUND_COMPONENT_PLACEMENT_OVERRIDES = new Map<string, { zone: OriginComponentZone; x: number; y: number }>([
+    ['友\u0000ナ', { zone: 'upper', x: 33, y: 39 }],
+    ['友\u0000又', { zone: 'bottom', x: 58, y: 72 }],
+]);
+
 interface OriginEdgeGroup {
     from: string;
     to: string;
@@ -552,6 +560,7 @@ interface OriginGraphRenderModel {
     primaryIds: Set<string>;
     outboundIds: Set<string>;
     markerId: string;
+    outboundMarkerId: string;
     hasOutboundEdges: boolean;
 }
 
@@ -560,6 +569,7 @@ interface OriginNodeState extends PositionedOriginNode {
     vy: number;
     anchorX: number;
     anchorY: number;
+    anchorPinned: boolean;
     collision: number;
 }
 
@@ -579,6 +589,7 @@ function buildKanjiOriginGraphRenderModel(graph: KanjiOriginGraph | null): Origi
         positioned,
         ...roles,
         markerId: originGraphMarkerId(positioned),
+        outboundMarkerId: `${originGraphMarkerId(positioned)}-outbound`,
         hasOutboundEdges: visible.edgeGroups.some(edge => isOriginOutboundEdge(edge, base.current.id)),
     };
 }
@@ -698,16 +709,10 @@ function renderOriginGraphEdgeGroup(
     const label = edge.labels.join(' / ');
     const outbound = isOriginOutboundEdge(edge, model.current.id);
     const outboundAttrs = outbound ? ' data-origin-outbound="true"' : '';
+    const markerId = outbound ? model.outboundMarkerId : model.markerId;
     return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}>
-        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${model.markerId})"><title>${escapeHtml(label)}</title></path>
-        ${renderOriginGraphEdgeParticles(edgePath.points)}
+        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
     </g>`;
-}
-
-function renderOriginGraphEdgeParticles(points: Array<{ x: number; y: number }>): string {
-    return points
-        .map(point => `<circle class="jpdb-reader-origin-edge-particle" cx="${formatGraphNumber(point.x)}" cy="${formatGraphNumber(point.y)}" r="0.55"></circle>`)
-        .join('');
 }
 
 function renderOriginGraphNodeButtons(model: OriginGraphRenderModel): string {
@@ -786,7 +791,7 @@ function isOriginOutboundEdge(edge: OriginEdgeGroup, currentId: string): boolean
 function originEdgeTargetZone(edge: OriginEdgeGroup, currentId: string, nodeById: Map<string, OriginGraphNode>): GraphAnchorZone {
     if (edge.to === currentId) {
         const source = nodeById.get(edge.from);
-        return source ? inferInboundComponentZone(source) : 'auto';
+        return source ? inferInboundComponentZone(source, currentId) : 'auto';
     }
     if (edge.from === currentId) {
         const target = nodeById.get(edge.to);
@@ -826,7 +831,7 @@ function forceLayoutOriginGraph(nodes: OriginGraphNode[], edges: OriginEdgeGroup
     return positionOriginNodes(states);
 }
 
-function createOriginNodeStates(nodes: OriginGraphNode[], anchors: Map<string, { x: number; y: number }>): OriginNodeState[] {
+function createOriginNodeStates(nodes: OriginGraphNode[], anchors: Map<string, { x: number; y: number; pinned?: boolean }>): OriginNodeState[] {
     return nodes.map((node, index) => {
         const { rx, ry } = originNodeRadii(node);
         const anchor = anchors.get(node.id) ?? { x: 50, y: 50 };
@@ -841,6 +846,7 @@ function createOriginNodeStates(nodes: OriginGraphNode[], anchors: Map<string, {
             vy: 0,
             anchorX: anchor.x,
             anchorY: anchor.y,
+            anchorPinned: anchor.pinned === true,
             collision: Math.max(rx * 1.35, ry) + 3.8,
         };
     });
@@ -903,7 +909,7 @@ function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, curren
 
 function applyOriginAnchorPulls(states: OriginNodeState[], currentId: string, alpha: number): void {
     for (const state of states) {
-        const anchorStrength = state.node.id === currentId ? 0.32 : 0.16;
+        const anchorStrength = state.node.id === currentId ? 0.32 : state.anchorPinned ? 0.38 : 0.16;
         state.vx += (state.anchorX - state.x) * anchorStrength * alpha;
         state.vy += (state.anchorY - state.y) * anchorStrength * alpha;
     }
@@ -941,8 +947,8 @@ function positionOriginNodes(states: OriginNodeState[]): PositionedOriginNode[] 
     }));
 }
 
-function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): Map<string, { x: number; y: number }> {
-    const anchors = new Map<string, { x: number; y: number }>();
+function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], currentId: string): Map<string, { x: number; y: number; pinned?: boolean }> {
+    const anchors = new Map<string, { x: number; y: number; pinned?: boolean }>();
     const current = nodes.find(node => node.id === currentId);
     if (current) anchors.set(current.id, { x: 50, y: 50 });
     const incoming = nodes.filter(node => node.id !== currentId && edges.some(edge => edge.from === node.id && edge.to === currentId));
@@ -951,10 +957,10 @@ function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], 
     const others = nodes.filter(node => node.id !== currentId && !attached.has(node.id));
 
     if (outgoing.length) {
-        spreadInboundComponents(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+        spreadInboundComponents(incoming, currentId).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
         spreadOutboundComponents(outgoing, currentId).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
     } else {
-        spreadInboundComponents(incoming).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
+        spreadInboundComponents(incoming, currentId).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
     }
     others.forEach((node, index) => {
         const t = (index + 1) / (others.length + 1);
@@ -963,15 +969,17 @@ function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], 
     return anchors;
 }
 
-function spreadInboundComponents(nodes: OriginGraphNode[]): Array<{ node: OriginGraphNode; x: number; y: number }> {
+function spreadInboundComponents(nodes: OriginGraphNode[], currentId = ''): Array<{ node: OriginGraphNode; x: number; y: number; pinned?: boolean }> {
     if (!nodes.length) return [];
-    const ordered = [...nodes].sort((a, b) => componentZoneSort(inferInboundComponentZone(a)) - componentZoneSort(inferInboundComponentZone(b)) || a.label.localeCompare(b.label, 'ja'));
+    const ordered = [...nodes].sort((a, b) => componentZoneSort(inferInboundComponentZone(a, currentId)) - componentZoneSort(inferInboundComponentZone(b, currentId)) || a.label.localeCompare(b.label, 'ja'));
     const usedByZone = new Map<OriginComponentZone, number>();
     return ordered.map((node, index) => {
-        const zone = inferInboundComponentZone(node);
+        const override = inboundPlacementOverride(currentId, node);
+        if (override) return { node, x: override.x, y: override.y, pinned: true };
+        const zone = inferInboundComponentZone(node, currentId);
         const used = usedByZone.get(zone) ?? 0;
         usedByZone.set(zone, used + 1);
-        const anchor = inboundZoneAnchor(zone, used, ordered.filter(item => inferInboundComponentZone(item) === zone).length);
+        const anchor = inboundZoneAnchor(zone, used, ordered.filter(item => inferInboundComponentZone(item, currentId) === zone).length);
         const fallback = spreadConstellation(ordered)[index] ?? { x: 30, y: 50 };
         return { node, x: anchor?.x ?? fallback.x, y: anchor?.y ?? fallback.y };
     });
@@ -990,11 +998,18 @@ function spreadOutboundComponents(nodes: OriginGraphNode[], currentId: string): 
     });
 }
 
-function inferInboundComponentZone(node: OriginGraphNode): OriginComponentZone {
+function inferInboundComponentZone(node: OriginGraphNode, currentId = ''): OriginComponentZone {
+    const override = inboundPlacementOverride(currentId, node);
+    if (override) return override.zone;
     const position = (node.position ?? '').toLowerCase();
     return zoneFromComponentPosition(position)
         ?? zoneFromKnownComponent(node)
         ?? 'center';
+}
+
+function inboundPlacementOverride(currentId: string, node: OriginGraphNode): { zone: OriginComponentZone; x: number; y: number } | undefined {
+    return INBOUND_COMPONENT_PLACEMENT_OVERRIDES.get(`${currentId}\u0000${node.id}`)
+        ?? INBOUND_COMPONENT_PLACEMENT_OVERRIDES.get(`${currentId}\u0000${node.label}`);
 }
 
 function zoneFromComponentPosition(position: string): OriginComponentZone | null {

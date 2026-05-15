@@ -1,6 +1,5 @@
 import { Logger } from './logger';
-import { fetchWithCorsFallbacks } from './proxy-fetch';
-import { getUserscriptHttpRequest } from './userscript';
+import { requestText as requestReaderText } from './reader-http';
 
 export interface JpdbVocabularyCompound {
     term: string;
@@ -271,31 +270,10 @@ function unique<T>(values: T[]): T[] {
 }
 
 function requestText(url: string, proxyUrl = ''): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                timeout: 8000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
-                    else reject(new Error(`JPDB vocabulary request failed (${response.status}).`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('JPDB vocabulary request timed out.')),
-            });
-        });
-    }
-    return fetchWithCorsFallbacks(url, proxyUrl, { credentials: 'omit', redirect: 'follow', timeoutMs: 8000 })
-        .then(response => {
-            if (!response.ok) throw new Error(`JPDB vocabulary request failed (${response.status}).`);
-            return response.text();
-        })
-        .catch(error => {
-            if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
-                throw new Error('JPDB vocabulary request timed out.');
-            }
-            throw error;
-        });
+    return requestReaderText(url, {
+        proxyUrl,
+        timeoutMs: 8000,
+        failureLabel: 'JPDB vocabulary request',
+        timeoutLabel: 'JPDB vocabulary request timed out.',
+    });
 }

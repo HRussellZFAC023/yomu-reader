@@ -95,7 +95,7 @@ export class JpdbClient {
             id,
             fetch_occurences: false,
         });
-        const pairs = sampleVocabularyPairs(normalizeVocabularyPairs(response.vocabulary), Math.max(1, limit));
+        const pairs = normalizeVocabularyPairs(response.vocabulary).slice(0, Math.max(1, limit));
         if (!pairs.length) {
             done();
             return [];
@@ -220,16 +220,6 @@ function normalizeVocabularyPairs(value: unknown): Array<[number, number]> {
             return Number.isInteger(vid) && Number.isInteger(sid) ? [vid, sid] as [number, number] : null;
         })
         .filter((item): item is [number, number] => item !== null);
-}
-
-function sampleVocabularyPairs(pairs: Array<[number, number]>, limit: number): Array<[number, number]> {
-    if (pairs.length <= limit) return pairs;
-    const sampled = pairs.slice();
-    for (let index = sampled.length - 1; index > 0; index--) {
-        const swap = Math.floor(Math.random() * (index + 1));
-        [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
-    }
-    return sampled.slice(0, limit);
 }
 
 function normalizeDeck(value: unknown): JPDBDeck | null {

@@ -1,6 +1,6 @@
 import { escapeHtml } from './dom';
 import { Logger } from './logger';
-import { getUserscriptHttpRequest } from './userscript';
+import { requestText as requestReaderText } from './reader-http';
 
 const KANJIVG_RAW_BASE = 'https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji';
 const log = Logger.scope('KanjiVG');
@@ -324,25 +324,9 @@ function cleanComponent(value: string): string {
 }
 
 function requestText(url: string): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                timeout: 8000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
-                    else reject(new Error(`Stroke-order request failed (${response.status}).`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('Stroke-order request timed out.')),
-            });
-        });
-    }
-
-    return fetch(url).then(response => {
-        if (!response.ok) throw new Error(`Stroke-order request failed (${response.status}).`);
-        return response.text();
+    return requestReaderText(url, {
+        timeoutMs: 8000,
+        failureLabel: 'Stroke-order request',
+        timeoutLabel: 'Stroke-order request timed out.',
     });
 }

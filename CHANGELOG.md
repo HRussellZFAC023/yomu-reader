@@ -8,6 +8,10 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+### Fixed
+
+- Tightened the new-tab kanji reveal layout so the reference and drawing panels align cleanly, and removed the repeated lower JPDB detail card stack.
+
 ## [0.4.10] - 2026-05-15
 
 ### Fixed

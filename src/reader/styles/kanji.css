@@ -198,6 +198,11 @@
     var(--jpdb-reader-text, #f2f4f8) 72%,
     transparent
   );
+  --jpdb-reader-origin-graph-outbound-line: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 76%,
+    var(--jpdb-reader-text, #f2f4f8)
+  );
   --jpdb-reader-origin-graph-frame: color-mix(
     in srgb,
     var(--jpdb-reader-bg, #181b20) 84%,
@@ -254,10 +259,14 @@
 .jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow {
   fill: var(--jpdb-reader-origin-graph-line);
 }
-.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-particle {
-  fill: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 88%, var(--jpdb-reader-accent, #5ea780));
-  stroke: var(--jpdb-reader-origin-graph-bg);
-  stroke-width: 0.12;
+.jpdb-reader-origin-graph-lines
+  .jpdb-reader-origin-edge-arrow-outbound
+  .jpdb-reader-origin-edge-arrow {
+  fill: var(--jpdb-reader-origin-graph-outbound-line);
+}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.outbound .jpdb-reader-origin-edge {
+  stroke: var(--jpdb-reader-origin-graph-outbound-line);
+  stroke-dasharray: 2.6 3.2;
 }
 .jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked))
   [data-origin-outbound="true"] {

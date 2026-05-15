@@ -1,8 +1,8 @@
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
+import { requestBlob as requestReaderBlob, requestJson as requestReaderJson } from './reader-http';
 import type { ReaderSettings } from './types';
-import { getUserscriptHttpRequest } from './userscript';
 
 const API_BASE = 'https://apiv2express.immersionkit.com';
 const LEGACY_API_BASE = 'https://apiv2.immersionkit.com';
@@ -476,150 +476,27 @@ function requestError(error: unknown, fallback: string): Error {
 }
 
 function requestJsonCandidate(url: string, timeoutMs: number): Promise<unknown> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return requestImmersionJsonViaUserscript(url, timeoutMs, userscriptRequest)
-            .catch(error => {
-                if (!canUsePageFetch(url) || !isUserscriptTransportError(error)) throw error;
-                return requestImmersionJsonViaFetch(url, timeoutMs);
-            });
-    }
-
-    if (!canUsePageFetch(url)) {
-        return Promise.reject(new Error('Immersion Kit search needs the Yomu userscript request bridge.'));
-    }
-    return requestImmersionJsonViaFetch(url, timeoutMs);
+    return requestReaderJson(url, {
+        timeoutMs,
+        allowDirectCrossOrigin: true,
+        failureLabel: 'Immersion Kit request',
+        timeoutLabel: 'Immersion Kit request timed out.',
+    }).catch(error => {
+        if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
+            throw new Error('Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings.');
+        }
+        throw requestError(error, 'Immersion Kit request failed.');
+    });
 }
 
 function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return requestImmersionBlobViaUserscript(url, timeoutMs, userscriptRequest)
-            .catch(error => {
-                if (!canUsePageFetch(url) || !isUserscriptTransportError(error)) throw error;
-                return requestImmersionBlobViaFetch(url, timeoutMs);
-            });
-    }
-
-    if (!canUsePageFetch(url)) {
-        return Promise.reject(new Error('Immersion Kit media needs the Yomu userscript request bridge.'));
-    }
-    return requestImmersionBlobViaFetch(url, timeoutMs);
-}
-
-function requestImmersionJsonViaUserscript(url: string, timeoutMs: number, userscriptRequest: UserscriptHttpRequest): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => {
-            if (response.status < 200 || response.status >= 300) {
-                reject(new Error(`Immersion Kit returned HTTP ${response.status}.`));
-                return;
-            }
-            try {
-                resolve(JSON.parse(String(response.responseText ?? response.response ?? 'null')));
-            } catch {
-                reject(new Error('Immersion Kit returned invalid JSON.'));
-            }
-        };
-        const result = userscriptRequest({
-            method: 'GET',
-            url,
-            responseType: 'text',
-            timeout: timeoutMs,
-            onload: handleLoad,
-            onerror: () => reject(new Error('Immersion Kit request failed.')),
-            ontimeout: () => reject(new Error('Immersion Kit request timed out.')),
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Immersion Kit request failed.')));
-        }
-    });
-}
-
-function requestImmersionJsonViaFetch(requestUrl: string, timeoutMs: number): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        fetch(requestUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', signal: controller.signal })
-            .then(response => {
-                if (!response.ok) throw new Error(`Immersion Kit returned HTTP ${response.status}.`);
-                return response.json();
-            })
-            .then(resolve)
-            .catch(error => {
-                if (error instanceof Error) {
-                    if (error.name === 'AbortError') {
-                        reject(new Error('Immersion Kit request timed out.'));
-                        return;
-                    }
-                    if (error.name === 'TypeError') {
-                        reject(new Error('Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings.'));
-                        return;
-                    }
-                }
-                reject(error instanceof Error ? error : new Error('Immersion Kit request failed.'));
-            })
-            .finally(() => {
-                clearTimeout(timeout);
-            });
-    });
-}
-
-function requestImmersionBlobViaUserscript(url: string, timeoutMs: number, userscriptRequest: UserscriptHttpRequest): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => {
-            if (response.status < 200 || response.status >= 300 || !(response.response instanceof Blob)) {
-                reject(new Error(`Media returned HTTP ${response.status}.`));
-                return;
-            }
-            if (isErrorDocumentBlob(response.response)) {
-                reject(new Error('Media request returned an error document instead of audio or image.'));
-                return;
-            }
-            resolve(response.response);
-        };
-        const result = userscriptRequest({
-            method: 'GET',
-            url,
-            responseType: 'blob',
-            timeout: timeoutMs,
-            onload: handleLoad,
-            onerror: () => reject(new Error('Media request failed.')),
-            ontimeout: () => reject(new Error('Media request timed out.')),
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => reject(new Error('Media request failed.')));
-        }
-    });
-}
-
-function requestImmersionBlobViaFetch(requestUrl: string, timeoutMs: number): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        fetch(requestUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', signal: controller.signal })
-            .then(response => {
-                if (!response.ok) throw new Error(`Media returned HTTP ${response.status}.`);
-                return response.blob();
-            })
-            .then(blob => {
-                if (isErrorDocumentBlob(blob)) throw new Error('Media request returned an error document instead of audio or image.');
-                return blob;
-            })
-            .then(resolve)
-            .catch(error => {
-                if (error instanceof Error && error.name === 'AbortError') {
-                    reject(new Error('Media request timed out.'));
-                    return;
-                }
-                if (error instanceof Error && error.name === 'TypeError') {
-                    reject(new Error('Immersion Kit media is blocked in this browser. Configure browser/CORS or use a different source.'));
-                    return;
-                }
-                reject(error instanceof Error ? error : new Error('Media request failed.'));
-            })
-            .finally(() => {
-                clearTimeout(timeout);
-            });
+    return requestReaderBlob(url, {
+        timeoutMs,
+        failureLabel: 'Media request',
+        timeoutLabel: 'Media request timed out.',
+    }).then(blob => {
+        if (isErrorDocumentBlob(blob)) throw new Error('Media request returned an error document instead of audio or image.');
+        return blob;
     });
 }
 
@@ -667,25 +544,6 @@ function blobToDataUrl(blob: Blob): Promise<string> {
         reader.onerror = () => reject(reader.error ?? new Error('Could not read media.'));
         reader.readAsDataURL(blob);
     });
-}
-
-function canUsePageFetch(url: string): boolean {
-    try {
-        const target = new URL(url, location.href);
-        return target.origin === location.origin || isKnownCorsImmersionKitUrl(target);
-    } catch {
-        return false;
-    }
-}
-
-function isKnownCorsImmersionKitUrl(url: URL): boolean {
-    return API_BASES.some(base => url.origin === new URL(base).origin)
-        || url.origin === new URL(OBJECT_STORE_BASE).origin;
-}
-
-function isUserscriptTransportError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    return /request (failed|timed out)/i.test(message);
 }
 
 function apiUrls(path: string): string[] {

@@ -300,6 +300,45 @@ describe('new tab review helpers', () => {
         expect(loadDictionary).not.toHaveBeenCalled();
     });
 
+    it('marks JPDB API deck cards as review cards for stable new-tab counts', async () => {
+        const jpdbCard = newTabTestCard({ spelling: '安定', reading: 'あんてい', source: 'jpdb' });
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                newTabSource: 'jpdb',
+                newTabJpdbDeck: 'deck',
+            }),
+            anki: {
+                listNewTabCards: vi.fn(async () => []),
+            } as never,
+            jpdb: {
+                listDeckCards: vi.fn(async () => [jpdbCard]),
+            } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; reviewCountMode?: boolean }> }).loadWords();
+
+        expect(result.reviewCountMode).toBe(true);
+        expect(result.cards).toHaveLength(1);
+        expect(result.cards[0]?.reviewSource).toBe('jpdb-api');
+    });
+
     it('uses the JPDB-style new-tab kanji front canvas and reveal preview flow', async () => {
         vi.stubGlobal('ResizeObserver', class {
             observe(): void {}
@@ -1213,7 +1252,7 @@ describe('new tab review helpers', () => {
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 
-    it('marks kanji origin graphs ready and suppresses lookup clicks after node drags', () => {
+    it('omits popover-style kanji source cards from new-tab kanji details', () => {
         vi.stubGlobal('CSS', { ...(globalThis.CSS ?? {}), escape: (value: string) => value });
         const controller = new NewTabController({
             getSettings: () => ({
@@ -1254,32 +1293,8 @@ describe('new tab review helpers', () => {
             loggedIn: false,
             kanjiReviewsEnabled: false,
         }, null, null, [], []);
-        const wrap = details.querySelector<HTMLElement>('.jpdb-reader-origin-graph-wrap');
-        expect(wrap?.dataset.graphReady).toBe('true');
-        expect(wrap).not.toBeNull();
-        wrap!.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
-        const node = wrap!.querySelector<HTMLElement>('[data-graph-node="亻"]');
-        expect(node).not.toBeNull();
-
-        node!.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), {
-            button: 0,
-            clientX: 20,
-            clientY: 20,
-            pointerId: 1,
-            pointerType: 'mouse',
-        }));
-        node!.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), {
-            clientX: 120,
-            clientY: 120,
-            pointerId: 1,
-            pointerType: 'mouse',
-        }));
-        node!.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), {
-            pointerId: 1,
-            pointerType: 'mouse',
-        }));
-
-        expect(Number(node!.dataset.x)).toBeGreaterThan(50);
-        expect(node!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).toBe(false);
+        expect(details.querySelector('.jpdb-reader-newtab-kanji-sources')).toBeNull();
+        expect(details.querySelector('.jpdb-reader-origin-graph-wrap')).not.toBeNull();
+        expect(details.querySelector('.jpdb-reader-component-card')).not.toBeNull();
     });
 });

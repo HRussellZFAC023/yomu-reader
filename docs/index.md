@@ -9,19 +9,19 @@ hero:
     alt: よむ app icon
   actions:
     - theme: brand
-      text: New Tab
+      text: Try New Tab
       link: /newtab/index.html
       target: _self
     - theme: alt
       text: Start Here
       link: /getting-started
     - theme: alt
+      text: See Features
+      link: /features
+    - theme: alt
       text: Video Player
       link: https://hrussellzfac023.github.io/yomu-reader/video-player/index.html
       target: _self
-    - theme: alt
-      text: See Features
-      link: /features
 features:
   - title: Friendly first install
     details: Step-by-step setup for Chrome, Firefox, Safari, iPhone, and iPad. No coding knowledge needed.
