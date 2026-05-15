@@ -107,18 +107,25 @@ export class FloatingButtonController {
 }
 
 function avoidVideoOverlap(button: HTMLButtonElement, settings: ReaderSettings, saveSettings: () => void): void {
-    if (!button.isConnected || document.fullscreenElement) return;
+    if (!canAvoidVideoOverlap(button)) return;
     const rect = button.getBoundingClientRect();
     const video = overlappingVideo(rect);
     button.classList.toggle('jpdb-reader-fab-over-video', Boolean(video));
-    if (!video || button.matches(':hover, :focus, :focus-visible')) return;
+    if (!shouldMoveAwayFromVideo(button, video)) return;
 
-    const videoRect = video.getBoundingClientRect();
-    for (const position of nonOverlappingPuckPositions(button, rect, videoRect)) {
+    for (const position of nonOverlappingPuckPositions(button, rect, video.getBoundingClientRect())) {
         movePuck(button, position, settings, saveSettings);
         button.classList.remove('jpdb-reader-fab-over-video');
         return;
     }
+}
+
+function canAvoidVideoOverlap(button: HTMLButtonElement): boolean {
+    return button.isConnected && !document.fullscreenElement;
+}
+
+function shouldMoveAwayFromVideo(button: HTMLButtonElement, video: HTMLVideoElement | undefined): video is HTMLVideoElement {
+    return Boolean(video && !button.matches(':hover, :focus, :focus-visible'));
 }
 
 function overlappingVideo(rect: DOMRect): HTMLVideoElement | undefined {

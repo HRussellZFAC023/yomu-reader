@@ -44,13 +44,22 @@ function aliasedCardState(...keys: string[]): CardState | undefined {
 }
 
 export function normalizeCardStates(value: unknown, fallback: CardState = 'not-in-deck'): CardState[] {
-    const rawStates = Array.isArray(value) ? value : [value];
+    const states = uniqueNormalizedCardStates(Array.isArray(value) ? value : [value]);
+    return states.length ? states : [fallback];
+}
+
+function uniqueNormalizedCardStates(rawStates: unknown[]): CardState[] {
     const states: CardState[] = [];
     for (const rawState of rawStates) {
-        const state = normalizeCardState(rawState);
-        if (state && !states.includes(state)) states.push(state);
+        appendNormalizedCardState(states, rawState);
     }
-    return states.length ? states : [fallback];
+    return states;
+}
+
+function appendNormalizedCardState(states: CardState[], rawState: unknown): void {
+    const state = normalizeCardState(rawState);
+    if (!state || states.includes(state)) return;
+    states.push(state);
 }
 
 export function primaryCardState(value: unknown): CardState {

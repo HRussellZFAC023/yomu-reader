@@ -50,12 +50,22 @@ function panelSizeDelta(before, after) {
 }
 
 function assertDrawerLayout(layout, label) {
-    assert(layout.panel?.width >= 260 && layout.panel?.height >= 80, `Expected transcript panel during ${label}`, layout);
-    assert(layout.video?.width >= 240 && layout.video?.height >= 120, `Expected usable video during ${label}`, layout);
+    assert(isUsableBox(layout.panel, 260, 80), `Expected transcript panel during ${label}`, layout);
+    assert(isUsableBox(layout.video, 240, 120), `Expected usable video during ${label}`, layout);
     assert(!overlaps(layout.panel, layout.video), `Transcript panel overlapped the video during ${label}`, layout);
-    assert(layout.panel.left >= -1 && layout.panel.top >= -1
-        && layout.panel.right <= layout.viewport.width + 1
-        && layout.panel.bottom <= layout.viewport.height + 1, `Transcript panel left the viewport during ${label}`, layout);
+    assert(isBoxInsideViewport(layout.panel, layout.viewport), `Transcript panel left the viewport during ${label}`, layout);
+}
+
+function isUsableBox(box, minWidth, minHeight) {
+    return Boolean(box && box.width >= minWidth && box.height >= minHeight);
+}
+
+function isBoxInsideViewport(box, viewport) {
+    if (!box) return false;
+    return box.left >= -1
+        && box.top >= -1
+        && box.right <= viewport.width + 1
+        && box.bottom <= viewport.height + 1;
 }
 
 async function readDrawerLayout(page) {

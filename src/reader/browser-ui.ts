@@ -24,6 +24,27 @@ interface PopoverPositionOptions {
     maxHeight?: number;
 }
 
+interface PopoverWritingLayout {
+    horizontalOffset: number;
+    verticalOffset: number;
+    preferAfter: boolean;
+}
+
+interface PopoverRectCandidate {
+    rect: PopoverRect;
+    index: number;
+    canOverlap: boolean;
+}
+
+const DEFAULT_POPOVER_WRITING_MODE: NormalizedWritingMode = 'horizontal-tb';
+const SUPPORTED_POPOVER_WRITING_MODES = new Set<NormalizedWritingMode>([
+    'horizontal-tb',
+    'vertical-rl',
+    'vertical-lr',
+    'sideways-rl',
+    'sideways-lr',
+]);
+
 export function pauseActiveVideo(): void {
     const videos = Array.from(document.querySelectorAll('video'));
     const playable = videos
@@ -135,12 +156,19 @@ function anchorPopoverRects(anchor: HTMLElement | undefined): PopoverRect[] {
 
 function selectionPopoverRects(): PopoverRect[] {
     const selection = window.getSelection();
-    if (!selection?.rangeCount) return [];
-    const range = selection.getRangeAt(0);
-    const selectionRects = typeof range.getClientRects === 'function'
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (!range) return [];
+    const clientRects = rangeClientPopoverRects(range);
+    return clientRects.length ? clientRects : rangeBoundingPopoverRects(range);
+}
+
+function rangeClientPopoverRects(range: Range): PopoverRect[] {
+    return typeof range.getClientRects === 'function'
         ? rectListToPopoverRects(range.getClientRects())
         : [];
-    if (selectionRects.length) return selectionRects;
+}
+
+function rangeBoundingPopoverRects(range: Range): PopoverRect[] {
     if (typeof range.getBoundingClientRect !== 'function') return [];
     const rect = domRectToPopoverRect(range.getBoundingClientRect());
     return hasRectArea(rect) ? [rect] : [];
@@ -179,12 +207,12 @@ function getPopoverViewport(): PopoverRect {
 }
 
 function getPopoverWritingMode(anchor: HTMLElement | undefined): NormalizedWritingMode {
-    if (!anchor) return 'horizontal-tb';
-    const writingMode = getComputedStyle(anchor).writingMode;
-    if (writingMode === 'vertical-rl' || writingMode === 'vertical-lr' || writingMode === 'sideways-rl' || writingMode === 'sideways-lr') {
-        return writingMode;
-    }
-    return 'horizontal-tb';
+    return anchor ? normalizePopoverWritingMode(getComputedStyle(anchor).writingMode) : DEFAULT_POPOVER_WRITING_MODE;
+}
+
+function normalizePopoverWritingMode(writingMode: string): NormalizedWritingMode {
+    const normalized = writingMode as NormalizedWritingMode;
+    return SUPPORTED_POPOVER_WRITING_MODES.has(normalized) ? normalized : DEFAULT_POPOVER_WRITING_MODE;
 }
 
 function getYomitanLikePopoverPosition(
@@ -194,21 +222,39 @@ function getYomitanLikePopoverPosition(
     frameWidth: number,
     frameHeight: number,
 ): PopoverSizeRect {
-    const horizontal = writingMode === 'horizontal-tb';
+    const horizontal = isHorizontalPopoverMode(writingMode);
     const layout = popoverWritingLayout(writingMode, horizontal);
+    return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout)
+        ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
+}
 
+function bestYomitanPopoverPosition(
+    sourceRects: PopoverRect[],
+    horizontal: boolean,
+    viewport: PopoverRect,
+    frameWidth: number,
+    frameHeight: number,
+    layout: PopoverWritingLayout,
+): PopoverSizeRect | null {
     let best: PopoverSizeRect | null = null;
-    const candidates = popoverSourceRectCandidates(sourceRects);
-    for (const { rect, index, canOverlap } of candidates) {
-        const result = getPositionForWritingMode(rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
-        if (!canOverlap && isOverlapping(result, sourceRects, index)) continue;
+    for (const candidate of popoverSourceRectCandidates(sourceRects)) {
+        const result = getPositionForWritingMode(candidate.rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
+        if (!canUsePopoverPosition(candidate, result, sourceRects)) continue;
         best = tallerPopoverPosition(best, result);
         if (result.height >= frameHeight) break;
     }
-    return best ?? { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
+    return best;
 }
 
-function popoverWritingLayout(writingMode: NormalizedWritingMode, horizontal: boolean): { horizontalOffset: number; verticalOffset: number; preferAfter: boolean } {
+function isHorizontalPopoverMode(writingMode: NormalizedWritingMode): boolean {
+    return writingMode === DEFAULT_POPOVER_WRITING_MODE;
+}
+
+function fallbackPopoverPosition(viewport: PopoverRect, frameWidth: number, frameHeight: number): PopoverSizeRect {
+    return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
+}
+
+function popoverWritingLayout(writingMode: NormalizedWritingMode, horizontal: boolean): PopoverWritingLayout {
     return {
         horizontalOffset: horizontal ? 0 : 10,
         verticalOffset: horizontal ? 10 : 0,
@@ -220,7 +266,11 @@ function tallerPopoverPosition(best: PopoverSizeRect | null, next: PopoverSizeRe
     return best === null || next.height > best.height ? next : best;
 }
 
-function popoverSourceRectCandidates(sourceRects: PopoverRect[]): Array<{ rect: PopoverRect; index: number; canOverlap: boolean }> {
+function canUsePopoverPosition(candidate: PopoverRectCandidate, position: PopoverSizeRect, sourceRects: PopoverRect[]): boolean {
+    return candidate.canOverlap || !isOverlapping(position, sourceRects, candidate.index);
+}
+
+function popoverSourceRectCandidates(sourceRects: PopoverRect[]): PopoverRectCandidate[] {
     const candidates = sourceRects.map((rect, index) => ({ rect, index, canOverlap: false }));
     return sourceRects.length > 1
         ? [...candidates, { rect: getBoundingSourceRect(sourceRects), index: sourceRects.length, canOverlap: true }]

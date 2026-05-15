@@ -159,10 +159,18 @@ function profileFormData(entries) {
 
 function appendProfileFormDataEntry(formData, entry) {
     if (entry.blob) {
-        formData.append(entry.name, new Blob([Buffer.from(entry.blob.bytes ?? [])], { type: entry.blob.type || 'application/octet-stream' }), entry.blob.filename || 'file');
+        formData.append(entry.name, profileBlob(entry.blob), profileBlobFilename(entry.blob));
         return;
     }
     formData.append(entry.name, entry.value ?? '');
+}
+
+function profileBlob(blob) {
+    return new Blob([Buffer.from(blob.bytes ?? [])], { type: blob.type || 'application/octet-stream' });
+}
+
+function profileBlobFilename(blob) {
+    return blob.filename || 'file';
 }
 
 await page.addInitScript(({ settings, live }) => {

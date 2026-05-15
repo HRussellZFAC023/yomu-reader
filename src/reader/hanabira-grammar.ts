@@ -175,8 +175,12 @@ function betterCandidateMatch(
 ): { candidate: string; index: number } | null {
     if (!next) return best;
     if (!best) return next;
-    if (next.index < best.index) return next;
-    return next.index === best.index && next.candidate.length > best.candidate.length ? next : best;
+    return isBetterCandidateMatch(next, best) ? next : best;
+}
+
+function isBetterCandidateMatch(next: { candidate: string; index: number }, best: { candidate: string; index: number }): boolean {
+    return next.index < best.index
+        || (next.index === best.index && next.candidate.length > best.candidate.length);
 }
 
 async function loadHanabiraGrammarIndexUncached(): Promise<HanabiraGrammarIndexItem[]> {

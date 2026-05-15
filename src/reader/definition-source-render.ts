@@ -28,18 +28,32 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
 }
 
 function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null): string[] {
-    if (card.source !== 'local' && card.source !== 'anki' && card.source !== 'fallback') {
-        const cardMeanings = card.meanings.slice(0, 6)
-            .map(meaning => meaning.glosses.join('; ').trim())
-            .filter(Boolean);
-        if (cardMeanings.length) return cardMeanings;
-    }
+    if (shouldPreferCardMeanings(card)) return cardDefinitionMeanings(card, info);
     return (info?.meanings ?? []).slice(0, 6);
 }
 
 function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes): string {
-    if (!info || (!info.compounds.length && !info.examples.length)) return '';
-    const compounds = info.compounds.length ? `
+    if (!hasJpdbVocabularyExtras(info)) return '';
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbExamples(info, sourceAttributes)}</div>`;
+}
+
+function shouldPreferCardMeanings(card: JPDBCard): boolean {
+    return card.source !== 'local' && card.source !== 'anki' && card.source !== 'fallback';
+}
+
+function cardDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null): string[] {
+    const cardMeanings = card.meanings.slice(0, 6)
+        .map(meaning => meaning.glosses.join('; ').trim())
+        .filter(Boolean);
+    return cardMeanings.length ? cardMeanings : (info?.meanings ?? []).slice(0, 6);
+}
+
+function hasJpdbVocabularyExtras(info: JpdbVocabularyInfo | null): info is JpdbVocabularyInfo {
+    return Boolean(info && (info.compounds.length || info.examples.length));
+}
+
+function renderJpdbCompounds(info: JpdbVocabularyInfo): string {
+    return info.compounds.length ? `
         <section class="jpdb-reader-jpdb-extra">
             <ul class="jpdb-reader-jpdb-compounds">
                 ${info.compounds.map(compound => `
@@ -63,7 +77,10 @@ function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttri
             </ul>
         </section>
     ` : '';
-    const examples = info.examples.length ? `
+}
+
+function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes): string {
+    return info.examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">JPDB examples</span>
@@ -81,7 +98,6 @@ function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttri
             </div>
         </details>
     ` : '';
-    return `<div class="jpdb-reader-jpdb-extras">${compounds}${examples}</div>`;
 }
 
 export function renderLocalDefinitionSourcesSection(

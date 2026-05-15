@@ -238,6 +238,11 @@ export class ImmersionPopoverController {
     preloadForTokens(tokens: JPDBToken[]): void {
         const settings = this.options.getSettings();
         if (!settings.immersionKitEnabled) return;
+        const queued = this.queuePreloads(tokens, settings);
+        if (queued) log.debugThrottled('immersion-preload', 2500, 'Immersion Kit preloads queued', { queued });
+    }
+
+    private queuePreloads(tokens: JPDBToken[], settings: ReaderSettings): number {
         let queued = 0;
         for (const token of tokens) {
             const term = this.nextPreloadTerm(token);
@@ -246,7 +251,7 @@ export class ImmersionPopoverController {
             queued++;
             if (queued >= 2) break;
         }
-        if (queued) log.debugThrottled('immersion-preload', 2500, 'Immersion Kit preloads queued', { queued });
+        return queued;
     }
 
     private nextPreloadTerm(token: JPDBToken): string {
