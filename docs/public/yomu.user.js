@@ -20474,127 +20474,190 @@ ${normalizedReading}`;
     log$d.debug("Kanji doodle install skipped", { hasStage: Boolean(stage), hasCanvas: Boolean(canvas), hasGhost: Boolean(ghost) });
     return null;
   }
+  const GRAPH_ANCHOR_ZONES = /* @__PURE__ */ new Set(["top", "upper", "left", "right", "lower", "bottom", "center"]);
+  const DEFAULT_NODE_POSITION = 50;
   function installKanjiGraphDrag(root) {
+    const context = kanjiGraphDragContext(root);
+    if (!context) return;
+    installOutboundVisibilityToggle(context);
+    context.nodes.forEach((node) => installDraggableGraphNode(context, node));
+    requestAnimationFrame(() => updateGraphLines(context));
+  }
+  function kanjiGraphDragContext(root) {
     const graph = root.querySelector(".jpdb-reader-origin-graph-wrap");
-    if (!graph) return;
+    if (!graph) return null;
     const nodes = Array.from(graph.querySelectorAll("[data-graph-node]"));
     const edgeGroups = Array.from(graph.querySelectorAll(".jpdb-reader-origin-edge-group[data-from][data-to]"));
-    const nodeById = new Map(nodes.map((node) => [node.dataset.graphNode ?? "", node]));
+    const context = {
+      graph,
+      nodes,
+      edgeGroups,
+      nodeById: new Map(nodes.map((node) => [node.dataset.graphNode ?? "", node])),
+      scheduleLineUpdate: () => void 0
+    };
+    context.scheduleLineUpdate = createLineUpdateScheduler(context);
+    return context;
+  }
+  function createLineUpdateScheduler(context) {
     let updateScheduled = false;
-    const readNodeGeometry = (node) => {
-      const graphRect = graph.getBoundingClientRect();
-      const nodeRect = node.getBoundingClientRect();
-      const fallbackX = Number(node.dataset.x ?? 50);
-      const fallbackY = Number(node.dataset.y ?? 50);
-      if (!graphRect.width || !graphRect.height || !nodeRect.width || !nodeRect.height) {
-        return {
-          x: fallbackX,
-          y: fallbackY,
-          rx: Number(node.dataset.rx ?? 6),
-          ry: Number(node.dataset.ry ?? 8)
-        };
-      }
-      return {
-        x: (nodeRect.left + nodeRect.width / 2 - graphRect.left) / graphRect.width * 100,
-        y: (nodeRect.top + nodeRect.height / 2 - graphRect.top) / graphRect.height * 100,
-        rx: nodeRect.width / graphRect.width * 50,
-        ry: nodeRect.height / graphRect.height * 50
-      };
-    };
-    const updateLines = () => {
-      var _a;
-      for (const group of edgeGroups) {
-        const from = group.dataset.from ? nodeById.get(group.dataset.from) : void 0;
-        const to = group.dataset.to ? nodeById.get(group.dataset.to) : void 0;
-        if (!from || !to) continue;
-        const path = graphEdgePath(readNodeGeometry(from), readNodeGeometry(to), graphAnchorZone(group.dataset.targetZone));
-        (_a = group.querySelector(".jpdb-reader-origin-edge")) == null ? void 0 : _a.setAttribute("d", path.d);
-        group.querySelectorAll(".jpdb-reader-origin-edge-particle").forEach((particle, index) => {
-          const point = path.points[index];
-          if (!point) return;
-          particle.setAttribute("cx", formatGraphCoordinate(point.x));
-          particle.setAttribute("cy", formatGraphCoordinate(point.y));
-        });
-      }
-    };
-    const scheduleLineUpdate = () => {
+    return () => {
       if (updateScheduled) return;
       updateScheduled = true;
       requestAnimationFrame(() => {
         updateScheduled = false;
-        updateLines();
+        updateGraphLines(context);
       });
     };
-    const outboundToggle = graph.querySelector("[data-origin-outbound-toggle]");
-    if (outboundToggle) {
-      const syncOutboundVisibility = () => {
-        graph.classList.toggle("show-outbound", outboundToggle.checked);
-        scheduleLineUpdate();
-      };
-      outboundToggle.addEventListener("change", syncOutboundVisibility);
-      syncOutboundVisibility();
-    }
-    for (const node of nodes) {
-      let pointerId = -1;
-      let startX = 0;
-      let startY = 0;
-      let startLeft = Number(node.dataset.x ?? 50);
-      let startTop = Number(node.dataset.y ?? 50);
-      let moved = false;
-      node.addEventListener("pointerdown", (event) => {
-        var _a;
-        if (event.button !== 0) return;
-        pointerId = event.pointerId;
-        startX = event.clientX;
-        startY = event.clientY;
-        startLeft = Number(node.dataset.x ?? 50);
-        startTop = Number(node.dataset.y ?? 50);
-        moved = false;
-        node.classList.add("dragging");
-        (_a = node.setPointerCapture) == null ? void 0 : _a.call(node, event.pointerId);
-        event.preventDefault();
-      });
-      node.addEventListener("pointermove", (event) => {
-        if (event.pointerId !== pointerId) return;
-        const rect = graph.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        const nodeRect = node.getBoundingClientRect();
-        const padX = Math.max(6, nodeRect.width / rect.width * 50 + 2);
-        const padY = Math.max(9, nodeRect.height / rect.height * 50 + 2);
-        const nextX = Math.max(padX, Math.min(100 - padX, startLeft + (event.clientX - startX) / rect.width * 100));
-        const nextY = Math.max(padY, Math.min(100 - padY, startTop + (event.clientY - startY) / rect.height * 100));
-        if (Math.abs(event.clientX - startX) > 3 || Math.abs(event.clientY - startY) > 3) moved = true;
-        node.dataset.x = String(nextX);
-        node.dataset.y = String(nextY);
-        node.style.left = `${nextX}%`;
-        node.style.top = `${nextY}%`;
-        scheduleLineUpdate();
-        event.preventDefault();
-      });
-      const finish = (event) => {
-        var _a;
-        if (event.pointerId !== pointerId) return;
-        (_a = node.releasePointerCapture) == null ? void 0 : _a.call(node, pointerId);
-        pointerId = -1;
-        node.classList.remove("dragging");
-        if (moved) node.dataset.dragged = "true";
-        updateLines();
-      };
-      node.addEventListener("pointerup", finish);
-      node.addEventListener("pointercancel", finish);
-      node.addEventListener("click", (event) => {
-        if (node.dataset.dragged !== "true") return;
-        delete node.dataset.dragged;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      }, true);
-    }
-    requestAnimationFrame(updateLines);
+  }
+  function updateGraphLines(context) {
+    context.edgeGroups.forEach((group) => updateGraphEdgeGroup(context, group));
+  }
+  function updateGraphEdgeGroup(context, group) {
+    var _a;
+    const from = graphNodeByDatasetId(context, group.dataset.from);
+    const to = graphNodeByDatasetId(context, group.dataset.to);
+    if (!from || !to) return;
+    const path = graphEdgePath(
+      readNodeGeometry(context.graph, from),
+      readNodeGeometry(context.graph, to),
+      graphAnchorZone(group.dataset.targetZone)
+    );
+    (_a = group.querySelector(".jpdb-reader-origin-edge")) == null ? void 0 : _a.setAttribute("d", path.d);
+    updateEdgeParticles(group, path.points);
+  }
+  function graphNodeByDatasetId(context, id) {
+    return id ? context.nodeById.get(id) : void 0;
+  }
+  function updateEdgeParticles(group, points) {
+    group.querySelectorAll(".jpdb-reader-origin-edge-particle").forEach((particle, index) => {
+      const point = points[index];
+      if (!point) return;
+      particle.setAttribute("cx", formatGraphCoordinate(point.x));
+      particle.setAttribute("cy", formatGraphCoordinate(point.y));
+    });
+  }
+  function readNodeGeometry(graph, node) {
+    const graphRect = graph.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    return hasUsableGraphRect(graphRect, nodeRect) ? measuredNodeGeometry(graphRect, nodeRect) : fallbackNodeGeometry(node);
+  }
+  function hasUsableGraphRect(graphRect, nodeRect) {
+    return Boolean(graphRect.width && graphRect.height && nodeRect.width && nodeRect.height);
+  }
+  function measuredNodeGeometry(graphRect, nodeRect) {
+    return {
+      x: (nodeRect.left + nodeRect.width / 2 - graphRect.left) / graphRect.width * 100,
+      y: (nodeRect.top + nodeRect.height / 2 - graphRect.top) / graphRect.height * 100,
+      rx: nodeRect.width / graphRect.width * 50,
+      ry: nodeRect.height / graphRect.height * 50
+    };
+  }
+  function fallbackNodeGeometry(node) {
+    return {
+      x: numericDatasetValue(node, "x", DEFAULT_NODE_POSITION),
+      y: numericDatasetValue(node, "y", DEFAULT_NODE_POSITION),
+      rx: numericDatasetValue(node, "rx", 6),
+      ry: numericDatasetValue(node, "ry", 8)
+    };
+  }
+  function numericDatasetValue(node, key, fallback) {
+    return Number(node.dataset[key] ?? fallback);
+  }
+  function installOutboundVisibilityToggle(context) {
+    const toggle = context.graph.querySelector("[data-origin-outbound-toggle]");
+    if (!toggle) return;
+    const syncOutboundVisibility = () => {
+      context.graph.classList.toggle("show-outbound", toggle.checked);
+      context.scheduleLineUpdate();
+    };
+    toggle.addEventListener("change", syncOutboundVisibility);
+    syncOutboundVisibility();
+  }
+  function installDraggableGraphNode(context, node) {
+    const state = initialNodeDragState(node);
+    node.addEventListener("pointerdown", (event) => beginNodeDrag(node, state, event));
+    node.addEventListener("pointermove", (event) => moveNodeDrag(context, node, state, event));
+    node.addEventListener("pointerup", (event) => finishNodeDrag(context, node, state, event));
+    node.addEventListener("pointercancel", (event) => finishNodeDrag(context, node, state, event));
+    node.addEventListener("click", (event) => suppressClickAfterDrag(node, event), true);
+  }
+  function initialNodeDragState(node) {
+    return {
+      pointerId: -1,
+      startX: 0,
+      startY: 0,
+      startLeft: numericDatasetValue(node, "x", DEFAULT_NODE_POSITION),
+      startTop: numericDatasetValue(node, "y", DEFAULT_NODE_POSITION),
+      moved: false
+    };
+  }
+  function beginNodeDrag(node, state, event) {
+    var _a;
+    if (event.button !== 0) return;
+    state.pointerId = event.pointerId;
+    state.startX = event.clientX;
+    state.startY = event.clientY;
+    state.startLeft = numericDatasetValue(node, "x", DEFAULT_NODE_POSITION);
+    state.startTop = numericDatasetValue(node, "y", DEFAULT_NODE_POSITION);
+    state.moved = false;
+    node.classList.add("dragging");
+    (_a = node.setPointerCapture) == null ? void 0 : _a.call(node, event.pointerId);
+    event.preventDefault();
+  }
+  function moveNodeDrag(context, node, state, event) {
+    if (event.pointerId !== state.pointerId) return;
+    const rect = context.graph.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const position = nextNodeDragPosition(node, state, event, rect);
+    state.moved = state.moved || pointerMovedPastClickSlop(state, event);
+    applyNodePosition(node, position);
+    context.scheduleLineUpdate();
+    event.preventDefault();
+  }
+  function nextNodeDragPosition(node, state, event, graphRect) {
+    const padding = nodeDragPadding(node, graphRect);
+    return {
+      x: clampPercent(state.startLeft + (event.clientX - state.startX) / graphRect.width * 100, padding.x),
+      y: clampPercent(state.startTop + (event.clientY - state.startY) / graphRect.height * 100, padding.y)
+    };
+  }
+  function nodeDragPadding(node, graphRect) {
+    const nodeRect = node.getBoundingClientRect();
+    return {
+      x: Math.max(6, nodeRect.width / graphRect.width * 50 + 2),
+      y: Math.max(9, nodeRect.height / graphRect.height * 50 + 2)
+    };
+  }
+  function clampPercent(value, padding) {
+    return Math.max(padding, Math.min(100 - padding, value));
+  }
+  function pointerMovedPastClickSlop(state, event) {
+    return Math.abs(event.clientX - state.startX) > 3 || Math.abs(event.clientY - state.startY) > 3;
+  }
+  function applyNodePosition(node, position) {
+    node.dataset.x = String(position.x);
+    node.dataset.y = String(position.y);
+    node.style.left = `${position.x}%`;
+    node.style.top = `${position.y}%`;
+  }
+  function finishNodeDrag(context, node, state, event) {
+    var _a;
+    if (event.pointerId !== state.pointerId) return;
+    (_a = node.releasePointerCapture) == null ? void 0 : _a.call(node, state.pointerId);
+    state.pointerId = -1;
+    node.classList.remove("dragging");
+    if (state.moved) node.dataset.dragged = "true";
+    updateGraphLines(context);
+  }
+  function suppressClickAfterDrag(node, event) {
+    if (node.dataset.dragged !== "true") return;
+    delete node.dataset.dragged;
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }
   function graphAnchorZone(value) {
     return GRAPH_ANCHOR_ZONES.has(value) ? value : "auto";
   }
-  const GRAPH_ANCHOR_ZONES = /* @__PURE__ */ new Set(["top", "upper", "left", "right", "lower", "bottom", "center"]);
   const AUTO_SCAN_OBSERVER_OPTIONS = {
     childList: true,
     subtree: true,
