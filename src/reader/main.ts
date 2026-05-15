@@ -26,7 +26,6 @@ import {
 import {
     definitionSourceStateKey,
     kanjiSourceStateKey,
-    localDictionaryStateKey,
     renderFrequencyPills,
     renderJpdbDefinitionSource,
     renderKanjiDefinitions,
@@ -43,7 +42,7 @@ import { JpdbClient } from './jpdb';
 import { JpdbExtensionsController, installUchisenCarousel, loadUchisenImages } from './jpdb-extensions';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
-import { createJpdbReviewBridgeClient, initJpdbReviewPageBridge } from './jpdb-review-bridge';
+import { initJpdbReviewPageBridge } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from './kanji-origin';
 import { installKanjiDoodle } from './kanji-doodle';
@@ -62,7 +61,7 @@ import {
 } from './mining-context';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, nestedParseAlreadyScheduled, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
-import { resolveUiLanguage, uiText } from './i18n';
+import { uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
 import {
@@ -139,7 +138,6 @@ import {
 } from './yomitan';
 
 const log = Logger.scope('ReaderApp');
-const LOCAL_DICTIONARIES_SOURCE_ID = '__local_dictionaries__';
 const CARD_RENDER_DATA_CACHE_TTL_MS = 30_000;
 const CARD_RENDER_DETAIL_TIMEOUT_MS = 9_000;
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
@@ -498,7 +496,6 @@ export class ReaderApp {
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private rtk = new RtkClient();
-    private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore();
     private cardActions = new CardActionController({
         getSettings: () => this.settings,
@@ -2556,36 +2553,6 @@ export class ReaderApp {
         });
     }
 
-    private showLocalDictionaryPopup(term: string, entries: YomitanTermEntry[], anchor?: HTMLElement, trigger: 'modal' | 'hover' = 'modal'): void {
-        log.debug('Rendering local dictionary popup', { term, entries: entries.length, trigger });
-        const popover = this.createPopover();
-        const grouped = groupTermEntriesByDictionary(entries);
-        setInnerHtml(popover, `
-            <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-header">
-                <div>
-                    <div class="jpdb-reader-spelling">${escapeHtml(term)}</div>
-                    <div class="jpdb-reader-reading">Yomitan dictionaries</div>
-                </div>
-            </div>
-            <div class="jpdb-reader-definition-stack">
-                ${renderLocalDefinitionSourcesSection(
-                    Array.from(grouped.keys()),
-                    grouped,
-                    this.settings,
-                    (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded),
-                    name => this.dictionaryLabel(name),
-                    { spelling: term, reading: '' },
-                )}
-            </div>
-        `);
-        popover.addEventListener('click', event => {
-            this.handleDictionaryLookupLink(event, anchor, trigger);
-        });
-        this.mountPopover(popover, anchor, { mode: trigger });
-        void this.parsePopoverJapanese(popover);
-    }
-
     private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: CardDisplayOptions = {}): Promise<void> {
         this.lastCard = card;
         this.lastCardSentence = sentence;
@@ -3658,7 +3625,7 @@ export class ReaderApp {
         if (this.settings.uchisenEnabled) {
             void this.renderUchisenInto(popover, kanji);
         }
-        void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
+        void this.renderKanjiDetailsInto(popover, detailsPromises, kanji, language);
         if (this.settings.kanjivgEnabled) {
             void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
         }
@@ -3706,7 +3673,6 @@ export class ReaderApp {
     private async renderKanjiDetailsInto(
         popover: HTMLElement,
         detailsPromises: KanjiDetailPromises,
-        card: JPDBCard,
         kanji: string,
         language: InterfaceLanguage,
     ): Promise<void> {
@@ -3896,15 +3862,6 @@ export class ReaderApp {
 
         section.addEventListener('toggle', load);
         load();
-    }
-
-    private async renderSimilarKanjiWordsInto(popover: HTMLElement, promise: Promise<YomitanTermEntry[]>, jpdbVocabulary: JpdbKanjiVocabulary[], kanji: string, card: JPDBCard): Promise<void> {
-        const mount = popover.querySelector<HTMLElement>('[data-kanji-similar-mount]');
-        if (!mount) return;
-        const entries = await promise;
-        if (!popover.isConnected || !mount.isConnected) return;
-        log.debug('Similar kanji words loaded', { kanji, entries: entries.length, jpdbVocabulary: jpdbVocabulary.length });
-        setInnerHtml(mount, renderSimilarKanjiWordsContent(entries, jpdbVocabulary, card, this.settings, name => this.dictionaryLabel(name)));
     }
 
     private async renderKanjiVGInto(popover: HTMLElement, kanjiVGPromise: Promise<KanjiVGInfo | null>, kanji: string, language: InterfaceLanguage): Promise<void> {

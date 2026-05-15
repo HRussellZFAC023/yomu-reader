@@ -72,7 +72,6 @@ interface HeldExampleImage {
 
 export class ImmersionPopoverController {
     private audioElement?: HTMLAudioElement;
-    private audioBlobUrl?: string;
     private audioKey = '';
     private audioLoadingKey = '';
     private audioRequestId = 0;
@@ -638,7 +637,6 @@ export class ImmersionPopoverController {
         const audio = new Audio(src);
         audio.preload = 'auto';
         audio.playbackRate = this.options.getSettings().immersionKitPlaybackRate;
-        this.audioBlobUrl = src;
         this.audioElement = audio;
         this.audioLoadingKey = '';
         const cleanup = () => {
@@ -660,7 +658,6 @@ export class ImmersionPopoverController {
         this.audioElement = undefined;
         this.audioKey = '';
         this.audioLoadingKey = '';
-        this.audioBlobUrl = undefined;
     }
 
     private isAudioBusy(key: string): boolean {

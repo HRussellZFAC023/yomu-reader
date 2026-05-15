@@ -795,7 +795,7 @@ function applyTokenToIndexedFragments(
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
 
     if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings);
-    else insertMultiFragmentToken(range, tokenWithSentence, settings);
+    else insertMultiFragmentToken(range, tokenWithSentence);
     range.detach();
 }
 
@@ -833,8 +833,8 @@ function insertSingleFragmentToken(
     range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, { allowRuby }));
 }
 
-function insertMultiFragmentToken(range: Range, token: JPDBToken, settings: ReaderSettings): void {
-    const shell = renderTokenShell(token, settings);
+function insertMultiFragmentToken(range: Range, token: JPDBToken): void {
+    const shell = renderTokenShell(token);
     shell.append(range.extractContents());
     range.insertNode(shell);
 }
@@ -1093,7 +1093,7 @@ function renderToken(
 ): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
-    span.className = readerWordClassName(state, token, settings);
+    span.className = readerWordClassName(state, token);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
@@ -1110,10 +1110,10 @@ function renderToken(
     return span;
 }
 
-function renderTokenShell(token: JPDBToken, settings: ReaderSettings): HTMLElement {
+function renderTokenShell(token: JPDBToken): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
-    span.className = readerWordClassName(state, token, settings);
+    span.className = readerWordClassName(state, token);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
@@ -1126,7 +1126,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const state = primaryCardState(token.card.cardState);
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
-    const classes = [readerWordClassName(state, token, settings), hasRuby ? 'jpdb-reader-has-furi' : ''].filter(Boolean).join(' ');
+    const classes = [readerWordClassName(state, token), hasRuby ? 'jpdb-reader-has-furi' : ''].filter(Boolean).join(' ');
     return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
 }
 
@@ -1148,7 +1148,7 @@ function hasDifficultKanji(surface: string): boolean {
     return false;
 }
 
-function readerWordClassName(state: string, token: JPDBToken, settings: ReaderSettings): string {
+function readerWordClassName(state: string, token: JPDBToken): string {
     const classes = ['jpdb-reader-word', `jpdb-${state}`, `jpdb-pitch-${safePitchClass(token.pitchClass)}`];
     return classes.join(' ');
 }

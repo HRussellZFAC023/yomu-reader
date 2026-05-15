@@ -672,15 +672,6 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     });
 }
 
-function safeHost(value: string | string[]): string {
-    try {
-        const url = Array.isArray(value) ? value[0] : value;
-        return new URL(url, location.href).host;
-    } catch {
-        return 'invalid-url';
-    }
-}
-
 function proxiedImmersionKitUrl(url: string): string {
     if (!isLoopbackPage()) return url;
     try {

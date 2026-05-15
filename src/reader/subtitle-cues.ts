@@ -720,10 +720,6 @@ function compactTextOffsetSteps(text: string): Array<{ index: number; seen: numb
     return steps;
 }
 
-function firstCodePoint(text: string): string {
-    return Array.from(text)[0] ?? '';
-}
-
 function parseYouTubeSrv3WordNodes(element: Element, cueStart: number, cueEnd: number): SubtitleWordTiming[] {
     const nodes = Array.from(element.querySelectorAll('s'));
     if (!nodes.length) return [];

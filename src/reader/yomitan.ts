@@ -1,11 +1,11 @@
 import JSZip from 'jszip';
 import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from './deinflect';
 import { Logger } from './logger';
-import { normalizeAudioSource, normalizeDictionaryPreferences } from './settings';
-import type { DictionaryPreference, ReaderSettings } from './types';
+import { normalizeDictionaryPreferences } from './settings';
+import type { DictionaryPreference } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './yomitan-dexie-stream';
-import { glossaryToHtml, glossaryToText, renderDictionaryScopedStyles } from './yomitan-glossary';
+import { renderDictionaryScopedStyles } from './yomitan-glossary';
 import {
     compareMetaEntries,
     dictionaryEnabled,
@@ -22,7 +22,6 @@ import type {
     YomitanDictionaryInfo,
     YomitanKanjiEntry,
     YomitanMetaEntry,
-    YomitanSettingsImport,
     YomitanTermEntry,
     YomitanTermMatch,
 } from './yomitan-types';

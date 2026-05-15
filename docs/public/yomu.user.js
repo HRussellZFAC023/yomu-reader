@@ -2453,7 +2453,7 @@
     range.deleteContents();
     range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, { allowRuby }));
   }
-  function insertMultiFragmentToken(range, token, settings) {
+  function insertMultiFragmentToken(range, token) {
     const shell = renderTokenShell(token);
     shell.append(range.extractContents());
     range.insertNode(shell);
@@ -2641,7 +2641,7 @@
     }
     return span;
   }
-  function renderTokenShell(token, settings) {
+  function renderTokenShell(token) {
     const span = document.createElement("span");
     const state = primaryCardState(token.card.cardState);
     span.className = readerWordClassName(state, token);
@@ -2674,7 +2674,7 @@
     }
     return false;
   }
-  function readerWordClassName(state, token, settings) {
+  function readerWordClassName(state, token) {
     const classes = ["jpdb-reader-word", `jpdb-${state}`, `jpdb-pitch-${safePitchClass(token.pitchClass)}`];
     return classes.join(" ");
   }
@@ -12822,7 +12822,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       kanjiReviewsEnabled: visibleActions.length > 0
     };
   }
-  function parsedJpdbKanjiPage(doc, kanji) {
+  function parsedJpdbKanjiPage(doc) {
     const infoRows = infoTableRows(doc);
     return {
       frequency: infoRows.get("Frequency") ?? "",
@@ -13634,7 +13634,7 @@ ${entry.reading}`;
   function renderKanjiOriginGraph(graph, language) {
     const model = buildKanjiOriginGraphRenderModel(graph);
     if (!model) return "";
-    const { current, edgeGroups, hasOutboundEdges, markerId, positioned } = model;
+    const { edgeGroups, hasOutboundEdges, markerId, positioned } = model;
     const graphClass = `jpdb-reader-origin-graph-wrap${hasOutboundEdges ? " show-outbound" : ""}`;
     const lines = renderOriginGraphLines(model);
     const nodeButtons = renderOriginGraphNodeButtons(model);
@@ -15315,7 +15315,6 @@ ${entry.reading}`;
   class ImmersionPopoverController {
     constructor(options) {
       __publicField(this, "audioElement");
-      __publicField(this, "audioBlobUrl");
       __publicField(this, "audioKey", "");
       __publicField(this, "audioLoadingKey", "");
       __publicField(this, "audioRequestId", 0);
@@ -15780,7 +15779,6 @@ ${entry.reading}`;
       const audio = new Audio(src);
       audio.preload = "auto";
       audio.playbackRate = this.options.getSettings().immersionKitPlaybackRate;
-      this.audioBlobUrl = src;
       this.audioElement = audio;
       this.audioLoadingKey = "";
       const cleanup = () => {
@@ -15802,7 +15800,6 @@ ${entry.reading}`;
       this.audioElement = void 0;
       this.audioKey = "";
       this.audioLoadingKey = "";
-      this.audioBlobUrl = void 0;
     }
     isAudioBusy(key) {
       if (this.audioLoadingKey === key) return true;
@@ -19441,45 +19438,6 @@ ${normalizedReading}`;
     return typeof location !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
   }
   const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
-  const EMPTY_STATUS = {
-    connected: false,
-    loginRequired: false,
-    card: null,
-    message: "Open JPDB review in another tab to use live reviews."
-  };
-  function createJpdbReviewBridgeClient() {
-    if (typeof BroadcastChannel !== "function") {
-      return {
-        latestStatus: () => EMPTY_STATUS,
-        requestCurrent: () => void 0,
-        reveal: () => void 0,
-        grade: () => void 0,
-        onUpdate: () => () => void 0,
-        close: () => void 0
-      };
-    }
-    const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
-    const listeners = /* @__PURE__ */ new Set();
-    let latest = EMPTY_STATUS;
-    channel.onmessage = (event) => {
-      const message = event.data;
-      if (!message || message.source !== "jpdb" || message.type !== "status") return;
-      latest = normalizeStatus(message.status);
-      listeners.forEach((listener) => listener(latest));
-    };
-    const post = (message) => channel.postMessage(message);
-    return {
-      latestStatus: () => latest,
-      requestCurrent: () => post({ type: "request-current", source: "newtab" }),
-      reveal: () => post({ type: "command", source: "newtab", command: "reveal" }),
-      grade: (grade) => post({ type: "command", source: "newtab", command: "grade", grade }),
-      onUpdate(listener) {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-      close: () => channel.close()
-    };
-  }
   function initJpdbReviewPageBridge() {
     if (typeof BroadcastChannel !== "function") return;
     if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return;
@@ -19672,16 +19630,6 @@ ${normalizedReading}`;
       element2.className,
       element2.getAttribute("data-grade")
     ].filter(Boolean).join(" ")).toLocaleLowerCase();
-  }
-  function normalizeStatus(value) {
-    if (!value || typeof value !== "object") return EMPTY_STATUS;
-    const status = value;
-    return {
-      connected: Boolean(status.connected),
-      loginRequired: Boolean(status.loginRequired),
-      card: status.card ?? null,
-      message: typeof status.message === "string" ? status.message : ""
-    };
   }
   function sectionText(doc, label) {
     var _a, _b;
@@ -25006,7 +24954,7 @@ ${spelling}`);
     const [link] = links.splice(from, 1);
     links.splice(to, 0, link);
   }
-  function updateSourceRowEditor(form, action, control) {
+  function updateSourceRowEditor(action, control) {
     const row = control == null ? void 0 : control.closest("[data-source-row]");
     const container = row == null ? void 0 : row.closest("[data-source-editor]");
     if (!container || !row) return;
@@ -26206,7 +26154,7 @@ ${spelling}`);
       }
       if (isDictionarySourceOrderAction(action)) {
         log$6.debug("Dictionary source order changed", { action });
-        updateSourceRowEditor(form, action, control);
+        updateSourceRowEditor(action, control);
         return true;
       }
       if (isAudioSourceEditorAction(action)) {
@@ -30583,9 +30531,6 @@ ${spelling}`);
       this.root.classList.toggle("jpdb-subtitle-transcript-bottom", this.effectiveTranscriptPlacement === "bottom");
       this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
     }
-    shouldStayInTrackSetup() {
-      return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && this.panelMode === "tracks");
-    }
     hasTranscriptSurface() {
       var _a;
       return Boolean(this.cues.length || ((_a = this.currentCue) == null ? void 0 : _a.text) || this.selectedTrackId);
@@ -32046,7 +31991,6 @@ ${spelling}`);
       __publicField(this, "audio", new AudioPlayer(() => this.settings));
       __publicField(this, "anki", new AnkiConnectClient(() => this.settings));
       __publicField(this, "rtk", new RtkClient());
-      __publicField(this, "jpdbReviewBridge", createJpdbReviewBridgeClient());
       __publicField(this, "dictionaries", new YomitanDictionaryStore());
       __publicField(this, "cardActions", new CardActionController({
         getSettings: () => this.settings,
@@ -33791,35 +33735,6 @@ ${spelling}`);
         previousNavigationEntry: context.previousNavigationEntry
       });
     }
-    showLocalDictionaryPopup(term, entries, anchor, trigger = "modal") {
-      log$1.debug("Rendering local dictionary popup", { term, entries: entries.length, trigger });
-      const popover = this.createPopover();
-      const grouped = groupTermEntriesByDictionary(entries);
-      setInnerHtml(popover, `
-            <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-header">
-                <div>
-                    <div class="jpdb-reader-spelling">${escapeHtml$1(term)}</div>
-                    <div class="jpdb-reader-reading">Yomitan dictionaries</div>
-                </div>
-            </div>
-            <div class="jpdb-reader-definition-stack">
-                ${renderLocalDefinitionSourcesSection(
-      Array.from(grouped.keys()),
-      grouped,
-      this.settings,
-      (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded),
-      (name) => this.dictionaryLabel(name),
-      { spelling: term, reading: "" }
-    )}
-            </div>
-        `);
-      popover.addEventListener("click", (event) => {
-        this.handleDictionaryLookupLink(event, anchor, trigger);
-      });
-      this.mountPopover(popover, anchor, { mode: trigger });
-      void this.parsePopoverJapanese(popover);
-    }
     async showCard(card, sentence, anchor, options = {}) {
       this.lastCard = card;
       this.lastCardSentence = sentence;
@@ -34697,7 +34612,7 @@ ${spelling}`);
       if (this.settings.uchisenEnabled) {
         void this.renderUchisenInto(popover, kanji);
       }
-      void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
+      void this.renderKanjiDetailsInto(popover, detailsPromises, kanji, language);
       if (this.settings.kanjivgEnabled) {
         void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
       }
@@ -34739,7 +34654,7 @@ ${spelling}`);
         return "";
       }).join("");
     }
-    async renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language) {
+    async renderKanjiDetailsInto(popover, detailsPromises, kanji, language) {
       let jpdbInfo = null;
       let kanjiEntries = [];
       let rtkInfo = null;
@@ -34909,14 +34824,6 @@ ${spelling}`);
       };
       section.addEventListener("toggle", load);
       load();
-    }
-    async renderSimilarKanjiWordsInto(popover, promise, jpdbVocabulary, kanji, card) {
-      const mount = popover.querySelector("[data-kanji-similar-mount]");
-      if (!mount) return;
-      const entries = await promise;
-      if (!popover.isConnected || !mount.isConnected) return;
-      log$1.debug("Similar kanji words loaded", { kanji, entries: entries.length, jpdbVocabulary: jpdbVocabulary.length });
-      setInnerHtml(mount, renderSimilarKanjiWordsContent(entries, jpdbVocabulary, card, this.settings, (name) => this.dictionaryLabel(name)));
     }
     async renderKanjiVGInto(popover, kanjiVGPromise, kanji, language) {
       var _a;

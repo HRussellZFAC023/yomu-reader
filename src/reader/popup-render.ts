@@ -478,7 +478,7 @@ function renderKanjiRadicalFrames(radicalFrames: string[]): string {
 function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const model = buildKanjiOriginGraphRenderModel(graph);
     if (!model) return '';
-    const { current, edgeGroups, hasOutboundEdges, markerId, positioned } = model;
+    const { edgeGroups, hasOutboundEdges, markerId, positioned } = model;
     const graphClass = `jpdb-reader-origin-graph-wrap${hasOutboundEdges ? ' show-outbound' : ''}`;
     const lines = renderOriginGraphLines(model);
     const nodeButtons = renderOriginGraphNodeButtons(model);

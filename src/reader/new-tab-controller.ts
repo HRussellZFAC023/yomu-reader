@@ -923,7 +923,7 @@ export class NewTabController {
     }
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
-        if (this.state.mode === 'kanji') this.renderKanjiPrompt(slots, card, state);
+        if (this.state.mode === 'kanji') this.renderKanjiPrompt(slots, card);
         else this.renderWordPrompt(slots, card, state);
     }
 
@@ -943,13 +943,13 @@ export class NewTabController {
         };
     }
 
-    private renderKanjiPrompt(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
+    private renderKanjiPrompt(slots: NewTabStudySlots, card: JPDBCard): void {
         const kanji = kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '字';
         const keyword = this.kanjiKeyword(card, kanji);
         this.renderKanjiPromptQuestion(slots.prompt, kanji, keyword);
         this.renderKanjiPromptAnswer(slots, card, kanji);
         if (slots.meaning && !this.state.revealAnswer) slots.meaning.replaceChildren();
-        void this.enrichKanjiCard(slots, card, kanji, state);
+        void this.enrichKanjiCard(slots, card, kanji);
     }
 
     private renderKanjiPromptQuestion(prompt: HTMLElement | null, kanji: string, keyword: string): void {
@@ -1258,14 +1258,14 @@ export class NewTabController {
             || kanji;
     }
 
-    private async enrichKanjiCard(slots: NewTabStudySlots, card: JPDBCard, kanji: string, state: ReturnType<typeof primaryCardState>): Promise<void> {
+    private async enrichKanjiCard(slots: NewTabStudySlots, card: JPDBCard, kanji: string): Promise<void> {
         const key = cardKey(card);
         const details = await this.loadKanjiDetails(kanji);
         if (cardKey(this.visibleWords[this.index]) !== key) return;
 
         this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
         this.applyEnrichedKanjiSvg(slots.answer, details.vg?.svg);
-        this.applyEnrichedKanjiMeaning(slots, card, kanji, details, state);
+        this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
     }
 
     private applyEnrichedKanjiKeyword(slots: NewTabStudySlots, card: JPDBCard, kanji: string, details: KanjiDetailBundle): void {
@@ -1302,10 +1302,9 @@ export class NewTabController {
         card: JPDBCard,
         kanji: string,
         details: KanjiDetailBundle,
-        state: ReturnType<typeof primaryCardState>,
     ): void {
         if (!this.state.revealAnswer || !slots.meaning) return;
-        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar, state));
+        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar));
         void this.dependencies.parseContent?.(slots.meaning);
     }
 
@@ -1317,7 +1316,6 @@ export class NewTabController {
         vg: KanjiVGInfo | null,
         localEntries: YomitanKanjiEntry[],
         similarEntries: YomitanTermEntry[],
-        state: ReturnType<typeof primaryCardState>,
     ): HTMLElement {
         const settings = this.dependencies.getSettings();
         const fullInfo = info ? normalizeJpdbKanjiInfo(info) : null;
