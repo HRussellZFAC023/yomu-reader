@@ -167,13 +167,22 @@ function expandDeinflectionQueue(queue: DeinflectedTerm[], results: DeinflectedT
 }
 
 function expandDeinflectedTerm(current: DeinflectedTerm, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
-    if (current.depth >= 2) return;
+    if (isDeinflectionDepthLimitReached(current)) return;
     for (const rule of RULES) {
-        const next = deinflectedCandidate(current, rule);
-        if (!next || !rememberDeinflectedCandidate(next, seen)) continue;
-        results.push(next);
-        queue.push(next);
+        rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
+}
+
+function isDeinflectionDepthLimitReached(current: DeinflectedTerm): boolean {
+    return current.depth >= 2;
+}
+
+function rememberExpandedDeinflection(current: DeinflectedTerm, rule: DeinflectionRule, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
+    const next = deinflectedCandidate(current, rule);
+    if (!next) return;
+    if (!rememberDeinflectedCandidate(next, seen)) return;
+    results.push(next);
+    queue.push(next);
 }
 
 function sortDeinflectedTerms(results: DeinflectedTerm[]): DeinflectedTerm[] {

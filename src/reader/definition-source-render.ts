@@ -264,8 +264,19 @@ function renderLocalTermHead(group: LearnerTermGroup, reference?: Pick<JPDBCard,
 }
 
 function repeatsLookupHeadword(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): boolean {
-    if (!reference || group.expression !== reference.spelling) return false;
-    return !reference.reading || group.reading === reference.reading || group.reading === group.expression;
+    if (!matchesLookupExpression(group, reference)) return false;
+    return matchesLookupReading(group, reference);
+}
+
+function matchesLookupExpression(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): reference is Pick<JPDBCard, 'spelling' | 'reading'> {
+    if (!reference) return false;
+    return group.expression === reference.spelling;
+}
+
+function matchesLookupReading(group: LearnerTermGroup, reference: Pick<JPDBCard, 'spelling' | 'reading'>): boolean {
+    if (!reference.reading) return true;
+    if (group.reading === reference.reading) return true;
+    return group.reading === group.expression;
 }
 
 function renderLocalTermReading(group: LearnerTermGroup): string {

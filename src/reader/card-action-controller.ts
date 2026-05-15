@@ -9,6 +9,13 @@ import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
 import type { GrammarHint } from './study-tools';
 
+interface ShowCardOptions {
+    autoPlay?: boolean;
+    trigger?: 'modal' | 'hover';
+    navigation?: 'reset' | 'preserve' | 'push-current';
+    preservePosition?: boolean;
+}
+
 interface CardActionControllerOptions {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
@@ -16,7 +23,7 @@ interface CardActionControllerOptions {
     dictionaries: YomitanDictionaryStore;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     resolveMiningContext: (card: JPDBCard, sentence?: string) => Promise<MiningContext>;
-    showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: { autoPlay?: boolean; trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; preservePosition?: boolean }) => Promise<void>;
+    showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: ShowCardOptions) => Promise<void>;
     getActivePopoverAnchor: () => HTMLElement | undefined;
     getActivePopoverMode: () => 'modal' | 'hover' | undefined;
     showSettings: (panel?: string) => void;
@@ -27,10 +34,9 @@ interface CardActionControllerOptions {
     toast: (message: string) => void;
 }
 
-function isStudyGrammarToggleAction(action: string | undefined): boolean {
-    return action === 'study-grammar-toggle-known'
-        || action === 'study-grammar-toggle-known-visibility';
-}
+type StudyActionHandler = () => boolean | Promise<boolean>;
+type MiningActionHandler = () => Promise<void>;
+type JpdbDeckState = 'never-forget' | 'blacklisted';
 
 function assertReviewableJpdbCardState(states: string[]): void {
     if (states.includes('blacklisted')) throw new Error('This word is blacklisted. Unlist it before reviewing.');
@@ -54,11 +60,19 @@ export class CardActionController {
     }
 
     private async performStudyAction(action: string | undefined, button: HTMLButtonElement, sentence?: string): Promise<boolean | undefined> {
-        if (isStudyGrammarToggleAction(action)) return this.performStudyGrammarToggle(button, sentence);
-        if (action === 'study-translate') return this.performStudyTool(button, action, sentence);
-        if (action === 'study-grammar') return this.performStudyGrammarTool(button, sentence);
-        if (action === 'study-read-sentence') return this.performStudyReadSentence(sentence);
-        return undefined;
+        if (!action) return undefined;
+        return this.studyActionHandler(action, button, sentence)?.();
+    }
+
+    private studyActionHandler(action: string, button: HTMLButtonElement, sentence?: string): StudyActionHandler | undefined {
+        const handlers: Record<string, StudyActionHandler> = {
+            'study-grammar-toggle-known': () => this.performStudyGrammarToggle(button, sentence),
+            'study-grammar-toggle-known-visibility': () => this.performStudyGrammarToggle(button, sentence),
+            'study-translate': () => this.performStudyTool(button, action, sentence),
+            'study-grammar': () => this.performStudyGrammarTool(button, sentence),
+            'study-read-sentence': () => this.performStudyReadSentence(sentence),
+        };
+        return handlers[action];
     }
 
     private performStudyGrammarToggle(button: HTMLButtonElement, sentence?: string): boolean {
@@ -112,11 +126,20 @@ export class CardActionController {
     }
 
     private async performMiningAction(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<boolean | undefined> {
-        if (action === 'add') return this.finishMiningAction(this.addToSelectedDeck(button, card, sentence));
-        if (action === 'anki') return this.finishMiningAction(this.addToAnki(card, sentence));
-        if (action === 'anki-edit') return this.finishMiningAction(this.openAnkiNote(button));
-        if (action === 'grade') return this.finishMiningAction(this.gradeCard(button, card, sentence));
+        if (!action) return undefined;
+        const handler = this.miningActionHandler(action, button, card, sentence);
+        if (handler) return this.finishMiningAction(handler());
         return this.performJpdbDeckMiningAction(action, card);
+    }
+
+    private miningActionHandler(action: string, button: HTMLButtonElement, card: JPDBCard, sentence?: string): MiningActionHandler | undefined {
+        const handlers: Record<string, MiningActionHandler> = {
+            add: () => this.addToSelectedDeck(button, card, sentence),
+            anki: () => this.addToAnki(card, sentence),
+            'anki-edit': () => this.openAnkiNote(button),
+            grade: () => this.gradeCard(button, card, sentence),
+        };
+        return handlers[action];
     }
 
     private async performJpdbDeckMiningAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
@@ -157,7 +180,7 @@ export class CardActionController {
         }
         this.assertJpdbActionAllowed(card, 'Add a JPDB API key to add cards to JPDB, or use Add to Anki.');
         await this.addToSelectedJpdbDeck(card, sentence, deck.id);
-        if (settings.ankiEnabled && settings.ankiMineWithJpdb) await this.addToAnki(card, sentence, settings.ankiDeck);
+        if (shouldMineAnkiAlongsideJpdb(settings)) await this.addToAnki(card, sentence, settings.ankiDeck);
         this.options.toast(`${uiText(settings.interfaceLanguage, 'add')} JPDB.`);
     }
 
@@ -168,7 +191,7 @@ export class CardActionController {
         this.options.toast('Opened in Anki.');
     }
 
-    private async changeJpdbDeckState(card: JPDBCard, state: 'never-forget' | 'blacklisted', deck: string, message: string): Promise<void> {
+    private async changeJpdbDeckState(card: JPDBCard, state: JpdbDeckState, deck: string, message: string): Promise<void> {
         this.assertJpdbActionAllowed(card, message);
         await this.toggleDeck(card, state, deck);
     }
@@ -253,7 +276,7 @@ export class CardActionController {
             : Promise.resolve([]);
     }
 
-    private async toggleDeck(card: JPDBCard, state: 'never-forget' | 'blacklisted', deck: string): Promise<void> {
+    private async toggleDeck(card: JPDBCard, state: JpdbDeckState, deck: string): Promise<void> {
         if (normalizeCardStates(card.cardState).includes(state)) {
             await this.options.jpdb.removeFromDeck(deck, card);
             this.options.toast('Removed from deck.');
@@ -265,9 +288,9 @@ export class CardActionController {
 
     private async addToSelectedJpdbDeck(card: JPDBCard, sentence: string | undefined, deckId: string): Promise<void> {
         const settings = this.options.getSettings();
-        const targetDeck = deckId.trim() || settings.miningDeck.trim() || 'forq';
+        const targetDeck = selectedJpdbDeckId(deckId, settings);
         await this.options.jpdb.addToDeck(targetDeck, card, sentence);
-        if (settings.addToForq && targetDeck !== 'forq') await this.options.jpdb.addToDeck('forq', card, sentence);
+        if (shouldAlsoAddToForq(settings, targetDeck)) await this.options.jpdb.addToDeck('forq', card, sentence);
     }
 }
 
@@ -289,14 +312,49 @@ function ankiSourceUrl(sourceUrl: string | undefined): string {
 }
 
 function selectedDeckChoice(button: HTMLButtonElement, settings: ReaderSettings): SelectedDeckChoice {
-    const source = button.dataset.deckSource === 'anki' ? 'anki' : 'jpdb';
-    const id = button.dataset.deckId?.trim();
+    const source = selectedDeckSource(button);
     return {
         source,
-        id: id || (source === 'anki' ? settings.ankiDeck || 'よむ' : defaultJpdbDeckId(settings)),
+        id: selectedDeckId(button, settings, source),
     };
+}
+
+function selectedDeckSource(button: HTMLButtonElement): SelectedDeckChoice['source'] {
+    if (button.dataset.deckSource === 'anki') return 'anki';
+    return 'jpdb';
+}
+
+function selectedDeckId(button: HTMLButtonElement, settings: ReaderSettings, source: SelectedDeckChoice['source']): string {
+    const id = button.dataset.deckId?.trim();
+    if (id) return id;
+    return defaultDeckIdForSource(source, settings);
+}
+
+function defaultDeckIdForSource(source: SelectedDeckChoice['source'], settings: ReaderSettings): string {
+    if (source === 'anki') return defaultAnkiDeckName(settings);
+    return defaultJpdbDeckId(settings);
+}
+
+function defaultAnkiDeckName(settings: ReaderSettings): string {
+    return settings.ankiDeck || 'よむ';
 }
 
 function defaultJpdbDeckId(settings: ReaderSettings): string {
     return settings.miningDeck.trim() || 'forq';
+}
+
+function selectedJpdbDeckId(deckId: string, settings: ReaderSettings): string {
+    const selectedDeckId = deckId.trim();
+    if (selectedDeckId) return selectedDeckId;
+    return defaultJpdbDeckId(settings);
+}
+
+function shouldAlsoAddToForq(settings: ReaderSettings, targetDeck: string): boolean {
+    if (!settings.addToForq) return false;
+    return targetDeck !== 'forq';
+}
+
+function shouldMineAnkiAlongsideJpdb(settings: ReaderSettings): boolean {
+    if (!settings.ankiEnabled) return false;
+    return settings.ankiMineWithJpdb;
 }
