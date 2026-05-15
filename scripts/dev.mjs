@@ -59,10 +59,6 @@ async function routeRequest(url, res) {
         await handler(res);
         return;
     }
-    if (isProxyPath(url.pathname)) {
-        await proxy(url, res);
-        return;
-    }
     await serveStaticPath(url.pathname, res);
 }
 
@@ -76,12 +72,6 @@ const FIXED_ROUTES = new Map([
     [versionPath, serveVersion],
     ['/', serveIndex],
 ]);
-
-function isProxyPath(pathname) {
-    return pathname === '/__jpdb-reader-audio-proxy'
-        || pathname === '/__jpdb-reader-dictionary-proxy'
-        || pathname === '/__jpdb-reader-immersion-proxy';
-}
 
 function isUserscriptPath(pathname) {
     return pathname === installPath || pathname === '/dist/yomu.user.js';
@@ -427,20 +417,6 @@ function devBootstrap() {
     return url + separator + 't=' + Date.now();
   }
 })();`;
-}
-
-async function proxy(url, res) {
-    const target = url.searchParams.get('url');
-    if (!target) {
-        send(res, 400, 'Missing url');
-        return;
-    }
-    const response = await fetch(target, { redirect: 'follow' });
-    const body = Buffer.from(await response.arrayBuffer());
-    res.statusCode = response.status;
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
-    res.end(body);
 }
 
 async function resolveStatic(pathname) {

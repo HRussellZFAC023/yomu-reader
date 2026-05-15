@@ -1,4 +1,3 @@
-import { Logger } from './logger';
 import { primaryCardState } from './card-state';
 import { effectiveFuriganaMode } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
@@ -9,7 +8,6 @@ const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         .split(''),
 );
-const log = Logger.scope('Dom');
 type TrustedTypesFactory = {
     createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
     getPolicy?: (name: string) => { createHTML: (value: string) => unknown } | null;
@@ -497,7 +495,6 @@ export function unwrapReaderWords(root: ParentNode = document): number {
     }
 
     parents.forEach(parent => parent.normalize());
-    log.debug('Unwrapped reader words', { count: words.length });
     return words.length;
 }
 
@@ -753,12 +750,6 @@ export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: 
     }
 
     applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
-    log.debugThrottled('apply-fragment', 1000, 'Applied tokens to fragment target', {
-        tokens: safeTokens.length,
-        fragments: target.fragments.length,
-        textLength: target.text.length,
-        parserId: target.parserId,
-    });
 }
 
 function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): boolean {
@@ -849,12 +840,6 @@ function applyTokensToFragmentPieces(
     for (const fragmentInfo of target.fragments) {
         globalOffset = applyTokensToFragmentPiece(target, fragmentInfo, safeTokens, settings, sentence, globalOffset);
     }
-    log.debugThrottled('apply-fragment-pieces', 1000, 'Applied tokens to native ruby fragment target', {
-        tokens: safeTokens.length,
-        fragments: target.fragments.length,
-        textLength: target.text.length,
-        parserId: target.parserId,
-    });
 }
 
 function applyTokensToFragmentPiece(

@@ -89,7 +89,6 @@ const OCR_ENGINE_ALIASES = new Map<string, string>([
     ['MangaOcrAdapter', 'MangaOCR'],
     ['PpOcrAdapter', 'PaddleOCR'],
     ['AppleVisionAdapter', 'AppleVision'],
-    ['Google Lens', 'auto'],
 ]);
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
@@ -117,18 +116,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleTextColorSource: 'auto',
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
-    jpdbExtensionsEnabled: true,
-    jpdbUchisenEnabled: true,
-    jpdbRtkEnabled: true,
-    jpdbImmersionKitEnabled: true,
-    jpdbImmersionKitAutoPlayReviewAudio: true,
-    jpdbWordAudioAutoPlayReviewAudio: false,
-    jpdbLocalDictionariesEnabled: true,
-    jpdbReviewUiEnabled: true,
-    jpdbAutoRevealSentenceEnabled: true,
-    jpdbKanjiDoodleEnabled: true,
-    jpdbKanjiAutogradeEnabled: true,
-    jpdbPageParsingEnabled: true,
     jpdbKanjiEnabled: true,
     jpdbKanjiPriority: 10,
     uchisenEnabled: true,
@@ -140,7 +127,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     kanjiOriginsEnabled: true,
     kanjiOriginsPriority: 50,
     kanjiOriginKanjiMapEnabled: true,
-    kanjiOriginWiktionaryEnabled: false,
     kanjiOriginGraphEnabled: true,
     kanjiOriginRadicalImagesEnabled: true,
     similarKanjiWords: true,
@@ -201,10 +187,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: false,
-    ocrProvider: 'google-lens',
+    ocrProvider: 'local-service',
     ocrEndpointUrl: '',
     ocrEngine: 'auto',
-    ocrCloudVisionApiKey: '',
     ocrLanguage: 'ja-JP',
     ocrMaxImagePixels: 1200000,
     ocrMinImageArea: 45000,
@@ -243,8 +228,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
-    youtubeImmersionEnabled: false,
-    youtubeShowFilterNotice: false,
     ankiEnabled: false,
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
@@ -281,7 +264,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         nextSubtitle: 'Alt+ArrowRight',
         copySubtitle: 'Alt+C',
         toggleOcr: 'Alt+O',
-        toggleYoutubeImmersion: 'Alt+Y',
         scanImages: 'Alt+I',
         gradeNothing: '1',
         gradeSomething: '2',
@@ -402,8 +384,6 @@ function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): 
 
 function normalizeKanjiSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        jpdbKanjiDoodleEnabled: typeof value?.jpdbKanjiDoodleEnabled === 'boolean' ? value.jpdbKanjiDoodleEnabled : DEFAULT_SETTINGS.jpdbKanjiDoodleEnabled,
-        jpdbKanjiAutogradeEnabled: typeof value?.jpdbKanjiAutogradeEnabled === 'boolean' ? value.jpdbKanjiAutogradeEnabled : DEFAULT_SETTINGS.jpdbKanjiAutogradeEnabled,
         jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === 'boolean' ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
         jpdbKanjiPriority: clampNumber(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
         uchisenEnabled: typeof value?.uchisenEnabled === 'boolean' ? value.uchisenEnabled : DEFAULT_SETTINGS.uchisenEnabled,
@@ -456,8 +436,6 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
 }
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
-    const jpdbWordAudioAutoPlayReviewAudio = booleanSetting(value, 'jpdbWordAudioAutoPlayReviewAudio');
-    const jpdbImmersionKitAvailable = immersionKitAvailable(value);
     return {
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
@@ -469,8 +447,6 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
         immersionKitPlaybackRate: clampNumber(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
         immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
-        jpdbImmersionKitAutoPlayReviewAudio: jpdbImmersionReviewAudioEnabled(value, jpdbImmersionKitAvailable, jpdbWordAudioAutoPlayReviewAudio),
-        jpdbWordAudioAutoPlayReviewAudio,
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: booleanSetting(value, 'immersionKitPlayOnImageClick'),
         ocrProvider: normalizeOcrProvider(value?.ocrProvider),
@@ -481,14 +457,6 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
         ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
     };
-}
-
-function immersionKitAvailable(value: Partial<ReaderSettings> | null): boolean {
-    return booleanSetting(value, 'immersionKitEnabled') && booleanSetting(value, 'jpdbImmersionKitEnabled');
-}
-
-function jpdbImmersionReviewAudioEnabled(value: Partial<ReaderSettings> | null, kitAvailable: boolean, jpdbWordAudioEnabled: boolean): boolean {
-    return kitAvailable && !jpdbWordAudioEnabled && booleanSetting(value, 'jpdbImmersionKitAutoPlayReviewAudio');
 }
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -730,17 +698,10 @@ function bootstrapAudioSources(settings: ReaderSettings, audio: string): AudioSo
 
 export function normalizeOcrProvider(value: unknown): OcrProvider {
     if (typeof value !== 'string') return DEFAULT_SETTINGS.ocrProvider;
-    return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider);
+    return OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider;
 }
 
-const OCR_PROVIDER_ALIASES: Record<string, OcrProvider> = {
-    auto: 'google-lens',
-    fast: 'google-lens',
-    'page-text': 'google-lens',
-    'custom-json': 'local-service',
-};
-
-const OCR_PROVIDERS = new Set<OcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
+const OCR_PROVIDERS = new Set<OcrProvider>(['local-service', 'off']);
 
 export function normalizeOcrEngine(value: unknown): string {
     const normalized = normalizedOcrEngineInput(value);
@@ -754,7 +715,6 @@ function normalizedOcrEngineInput(value: unknown): string {
 export async function loadSettings(): Promise<ReaderSettings> {
     try {
         const settings = mergeSettings(await gmStorageGet<Partial<ReaderSettings> | null>(STORAGE_KEY, null));
-        log.debug('Loaded settings from storage', settingsSummary(settings));
         return settings;
     } catch (error) {
         log.warn('Settings load failed, using defaults', { error });
@@ -765,7 +725,6 @@ export async function loadSettings(): Promise<ReaderSettings> {
 export async function saveSettings(settings: ReaderSettings): Promise<void> {
     try {
         await gmStorageSet(STORAGE_KEY, settings);
-        log.debug('Saved settings to storage', settingsSummary(settings));
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
@@ -1081,27 +1040,4 @@ function inferDictionaryTypeFromName(name: string): DictionaryPreference['type']
     if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return 'frequency';
     if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return 'kanji';
     return 'terms';
-}
-
-function settingsSummary(settings: ReaderSettings): Record<string, unknown> {
-    return {
-        enableLogging: settings.enableLogging,
-        hasApiKey: Boolean(settings.apiKey.trim()),
-        dictionaries: settings.dictionaryPreferences.length,
-        localDictionariesEnabled: settings.localDictionariesEnabled,
-        ocrEnabled: settings.ocrEnabled,
-        subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-        youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
-        ankiEnabled: settings.ankiEnabled,
-        jpdbMiningEnabled: settings.jpdbMiningEnabled,
-        furiganaMode: settings.furiganaMode,
-        wordHighlightMode: settings.wordHighlightMode,
-        wordHighlightColorSource: settings.wordHighlightColorSource,
-        wordUnderlineColorSource: settings.wordUnderlineColorSource,
-        wordTextColorSource: settings.wordTextColorSource,
-        subtitleHighlightColorSource: settings.subtitleHighlightColorSource,
-        subtitleUnderlineColorSource: settings.subtitleUnderlineColorSource,
-        subtitleTextColorSource: settings.subtitleTextColorSource,
-        theme: settings.theme,
-    };
 }

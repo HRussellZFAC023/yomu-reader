@@ -1,13 +1,9 @@
-import { Logger } from './logger';
 import { normalizeDictionaryPreferences } from './settings';
 import type { DictionaryPreference } from './types';
 import type { YomitanMetaEntry, YomitanTermMatch } from './yomitan-types';
 
-const log = Logger.scope('YomitanRanking');
-
 export function dictionaryRank(preferences: DictionaryPreference[]): Map<string, DictionaryPreference> {
     const rank = new Map(normalizeDictionaryPreferences(preferences).map(item => [item.name, item]));
-    log.debugThrottled('dictionary-rank', 2000, 'Built dictionary rank map', { preferences: preferences.length, enabled: [...rank.values()].filter(item => item.enabled).length });
     return rank;
 }
 
@@ -89,7 +85,6 @@ export function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number
         if (selected.length >= limit) break;
     }
     const result = selected.sort((a, b) => a.start - b.start);
-    log.debug('Selected non-overlapping matches', { input: matches.length, result: result.length, limit });
     return result;
 }
 

@@ -36,8 +36,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
   https://docs.asbplayer.dev/docs/reference/settings/, and
   https://docs.asbplayer.dev/docs/guides/mining-in-depth/.
 - YomiNinja sets the OCR expectation: text extraction from visual content, auto OCR, overlays that
-  can be scanned by popup dictionaries, and support for Google Lens, Cloud Vision, MangaOCR,
-  PaddleOCR, and Apple Vision style engines. See https://github.com/matt-m-o/YomiNinja.
+  can be scanned by popup dictionaries, and support for local OCR responses from MangaOCR,
+  PaddleOCR, Apple Vision, and YomiNinja-style engines. See https://github.com/matt-m-o/YomiNinja.
 - AnkiConnect sets the Anki integration boundary: desktop Anki exposes deck/model/note/media actions
   over a local HTTP API; mobile support needs a reachable bridge or fallback export path. See
   https://foosoft.net/projects/anki-connect/ and the AnkiConnect API ecosystem.
@@ -80,8 +80,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 - [ ] Settings are grouped by task, not implementation: Reading, Dictionaries, Mining, Audio,
   Images, Video, YouTube, Anki, Shortcuts, Appearance, Support.
-- [ ] Irrelevant fields are hidden based on dropdowns; for example Cloud Vision key appears only in
-  Cloud Vision mode, local OCR URL appears only in local OCR mode, and pass/fail shortcuts appear
+- [ ] Irrelevant fields are hidden based on dropdowns; for example the local OCR URL appears only
+  in local OCR mode, and pass/fail shortcuts appear
   only in pass/fail review mode.
 - [ ] Accent color previews and applied UI update live before Save.
 - [ ] Cancel reverts unsaved changes and updates live preview back.
@@ -169,7 +169,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ### OCR and images
 
-- [ ] Default image reading is Google Lens/recommended mode; no endpoint required.
+- [ ] Default image reading uses embedded OCR metadata when present and a local OCR endpoint when configured.
 - [ ] Page text/alt text is not shown as OCR unless a page provides explicit OCR metadata.
 - [ ] Auto image scan is quiet, near-viewport, cached, throttled, and cancelled when images leave view.
 - [ ] Manual per-image toggle exists for users who want control; global scan appears only when useful.
@@ -181,8 +181,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] Horizontal and vertical Japanese, manga panels, rotated/scaled images, responsive images, lazy
   images, and long pages are handled.
 - [ ] Font size is computed from OCR box size and device viewport, with clamps that prevent clipping.
-- [ ] Cloud Vision mode works with a key; local OCR mode works with MangaOCR, PaddleOCR, Apple Vision,
-  and YomiNinja-shaped responses.
+- [ ] Local OCR mode works with MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-shaped responses.
 - [ ] iPhone/iPad path avoids heavy work: low image count, lazy queue, and clear fallback if OCR cannot
   run.
 
@@ -283,7 +282,7 @@ Keep this document as the source of truth. Any new feature must add:
 
 - Unit tests: parsing, dictionary normalization, JPDB response mapping, RTK/KanjiVG/KanjiMap parsing,
   audio source selection, OCR box normalization, subtitle parsing, Anki field generation.
-- Contract tests: mocked JPDB, mocked AnkiConnect, mocked Google Lens/Cloud Vision/local OCR, mocked
+- Contract tests: mocked JPDB, mocked AnkiConnect, mocked local OCR, mocked
   dictionary downloads, mocked YouTube cards/caption metadata.
 - Browser regression tests: local pages for article text, NHK-style ruby, forms/buttons, manga images,
   vertical OCR, video with dual subtitles, YouTube-like recommendations, strict Trusted Types page.
@@ -307,7 +306,7 @@ For each release candidate, run these as written and save QA evidence:
    starter, reorder sources, disable JPDB definitions, refresh, and confirm local results remain.
 5. Audio: JapanesePod101 hit, JapanesePod101 miss, Jisho fallback, LanguagePod101 fallback, custom JSON
    list with random clip, iOS blob path, autoplay once.
-6. OCR: Bloomee default Google Lens path, embedded OCR metadata, local OCR regression page, Cloud Vision mock,
+6. OCR: embedded OCR metadata, local OCR regression page, structured local OCR mock,
    per-image toggle, vertical text, copy/select OCR text, popup from individual OCR word.
 7. Video: local dual-subtitle regression page, YouTube test video, CI Japanese video, load own subtitle file,
    toggle secondary track, seek cues, copy subtitle, tap subtitle word, mine with screenshot.
@@ -332,7 +331,7 @@ A build should not be published until:
 ## Likely unfinished or fragile areas
 
 - Real Anki end-to-end needs stronger coverage than mocks, including note type creation and media.
-- OCR needs the strictest UX audit: word-level selection, overlay positioning, Google Lens fallback,
+- OCR needs the strictest UX audit: word-level selection, overlay positioning, local OCR fallback,
   and mobile throttling are where regressions are most likely.
 - Video support should be described honestly as "ASB-style subtitle mining" unless/until it matches
   ASBPlayer's fuller playback modes.

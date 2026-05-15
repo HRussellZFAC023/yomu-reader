@@ -1,5 +1,6 @@
 import { AudioPlayer } from './audio';
 import { AnkiConnectClient } from './anki';
+import { listNewTabAnkiCards } from './anki-new-tab';
 import { appendToDocumentHead } from './dom';
 import { DictionaryStyleController } from './dictionary-styles';
 import { ImmersionKitClient } from './immersion-kit';
@@ -77,8 +78,6 @@ class NewTabRuntime {
         audio: this.audio,
         subtitles: refreshableNoop(),
         ocr: refreshableNoop(),
-        youtube: refreshableNoop(),
-        jpdbExtensions: refreshableNoop(),
         createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
         mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
         dismiss: () => this.dismiss(),
@@ -124,7 +123,10 @@ class NewTabRuntime {
     private createNewTabController(): NewTabController {
         return new NewTabController({
             getSettings: () => this.settings,
-            anki: this.anki,
+            anki: {
+                listNewTabCards: limit => listNewTabAnkiCards(this.anki, this.settings, limit),
+                answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),
+            },
             jpdb: this.jpdb,
             jpdbKanji: this.jpdbKanji,
             kanjiVG: this.kanjiVG,
@@ -223,8 +225,7 @@ class NewTabRuntime {
             if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
-        } catch (error) {
-            log.debug('New tab nested text parsing failed quietly', error);
+        } catch {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey);
         }

@@ -11,12 +11,7 @@
   color: var(--jpdb-reader-text);
   border: 1px solid var(--jpdb-reader-border);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
-  font:
-    13px/1.35 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 13px/1.35 var(--jpdb-reader-font);
 }
 
 .jpdb-reader-settings {
@@ -44,8 +39,6 @@
 .jpdb-reader-settings textarea {
   box-shadow: none;
   transform: none;
-  transition-property:
-    background-color, border-color, box-shadow, color, opacity;
 }
 .jpdb-reader-settings input:hover,
 .jpdb-reader-settings input:focus,
@@ -75,21 +68,10 @@
   border-radius: 999px;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-muted);
-  font:
-    800 12px/1 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 800 12px/1 var(--jpdb-reader-font);
   cursor: pointer;
   white-space: nowrap;
   transform: translateY(-0.01rem);
-  transition:
-    background 0.2s ease-in-out,
-    border-color 0.2s ease-in-out,
-    box-shadow 0.2s ease-in-out,
-    color 0.2s ease-in-out,
-    transform 0.2s ease-in-out;
 }
 .jpdb-reader-settings-tab[aria-selected="true"] {
   border-color: var(--jpdb-reader-accent);
@@ -147,19 +129,9 @@
   border: 1px solid var(--jpdb-reader-border);
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
-  font:
-    700 12px/1.2 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 700 12px/1.2 var(--jpdb-reader-font);
   height: 38px;
   padding: 8px;
-  transition:
-    background-color 0.14s ease,
-    border-color 0.14s ease,
-    box-shadow 0.14s ease,
-    color 0.14s ease;
 }
 .jpdb-reader-btn {
   display: inline-flex;
@@ -172,16 +144,10 @@
   border-radius: 8px;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
-  font:
-    800 12px/1 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 800 12px/1 var(--jpdb-reader-font);
   cursor: pointer;
   text-align: center;
   text-decoration: none !important;
-  transition: all 0.2s ease-in-out;
 }
 .jpdb-reader-btn:where(:link, :visited) {
   color: var(--jpdb-reader-text) !important;
@@ -308,12 +274,7 @@
 }
 .jpdb-reader-theme-title {
   min-width: 0;
-  font:
-    750 12px/1.2 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 750 12px/1.2 var(--jpdb-reader-font);
 }
 .jpdb-reader-settings .jpdb-reader-theme-appearance {
   display: flex;
@@ -336,9 +297,6 @@
   background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
   cursor: pointer;
   transform: translateY(-1px);
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease;
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch .check {
   position: absolute;
@@ -351,9 +309,6 @@
   border-radius: 999px;
   background: var(--jpdb-reader-bg);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
-  transition:
-    transform 0.18s ease,
-    background 0.18s ease;
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .check {
   transform: translateX(18px);
@@ -373,7 +328,6 @@
   place-items: center;
   font-size: 11px;
   line-height: 1;
-  transition: opacity 0.18s ease;
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch .sun::before {
   content: "☀";
@@ -394,80 +348,6 @@
   border-color: var(--jpdb-reader-accent);
   outline: 2px solid var(--jpdb-reader-accent-soft);
   outline-offset: 3px;
-}
-.jpdb-reader-segment-field {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  margin: 10px 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-}
-.jpdb-reader-segment-title {
-  font:
-    750 12px/1.2 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
-.jpdb-reader-segmented {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 2px;
-  min-height: 38px;
-  padding: 3px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-}
-.jpdb-reader-segmented label {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  min-height: 30px;
-  margin: 0;
-  color: var(--jpdb-reader-muted) !important;
-  cursor: pointer;
-}
-.jpdb-reader-segmented input {
-  position: absolute;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.jpdb-reader-segmented span {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  min-height: 30px;
-  padding: 0 8px;
-  border-radius: 6px;
-  color: inherit;
-  font:
-    850 12px/1 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
-.jpdb-reader-segmented input:checked + span {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 18%,
-    var(--jpdb-reader-surface-2)
-  );
-  color: var(--jpdb-reader-accent-readable);
-}
-.jpdb-reader-segmented input:focus-visible + span {
-  outline: 2px solid var(--jpdb-reader-accent);
-  outline-offset: 2px;
 }
 .jpdb-reader-shortcut-group {
   display: contents;
@@ -536,7 +416,7 @@
   box-shadow: 0 6px 16px
     color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
-.jpdb-reader-support-card {
+.jpdb-reader-help-card {
   display: grid;
   gap: 12px;
   border: 1px solid var(--jpdb-reader-border);
@@ -544,32 +424,23 @@
   background: var(--jpdb-reader-surface);
   padding: 14px;
 }
-.jpdb-reader-support-title {
+.jpdb-reader-help-title {
   color: var(--jpdb-reader-text);
   font-size: 15px;
   font-weight: 850;
 }
-.jpdb-reader-support-card p {
+.jpdb-reader-help-card p {
   margin: 8px 0 0;
   color: var(--jpdb-reader-muted);
   font-size: 13px;
   line-height: 1.45;
 }
-.jpdb-reader-support-actions {
+.jpdb-reader-help-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.jpdb-reader-support-card + .jpdb-reader-support-card {
-  margin-top: 12px;
-}
-.jpdb-reader-help-links-card {
-  /* removed redundant margin-bottom */
-}
-.jpdb-reader-help-links-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.jpdb-reader-support-actions .jpdb-reader-btn {
+.jpdb-reader-help-actions .jpdb-reader-btn {
   min-height: 42px;
   padding-inline: 10px;
 }
@@ -668,37 +539,6 @@
   background: var(--jpdb-reader-surface);
   padding: 8px;
   width: 100%;
-  cursor: grab;
-}
-.jpdb-reader-order-row.jpdb-reader-dragging {
-  opacity: 0.58;
-  border-color: var(--jpdb-reader-accent);
-  cursor: grabbing;
-}
-.jpdb-reader-order-row.jpdb-reader-touch-dragging {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-.jpdb-reader-order-row.jpdb-reader-drop-before,
-.jpdb-reader-order-row.jpdb-reader-drop-after {
-  border-color: var(--jpdb-reader-accent);
-}
-.jpdb-reader-order-row.jpdb-reader-drop-before::before,
-.jpdb-reader-order-row.jpdb-reader-drop-after::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-accent);
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
-  pointer-events: none;
-}
-.jpdb-reader-order-row.jpdb-reader-drop-before::before {
-  top: -7px;
-}
-.jpdb-reader-order-row.jpdb-reader-drop-after::after {
-  bottom: -7px;
 }
 .jpdb-reader-dictionary-row-help {
   grid-column: 2 / -1;
@@ -777,19 +617,8 @@
   background: transparent;
   color: var(--jpdb-reader-text);
   cursor: pointer;
-  font:
-    800 13px/1 system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 800 13px/1 var(--jpdb-reader-font);
   transform: translateY(-0.01rem);
-  transition:
-    background 0.2s ease-in-out,
-    border-color 0.2s ease-in-out,
-    box-shadow 0.2s ease-in-out,
-    color 0.2s ease-in-out,
-    transform 0.2s ease-in-out;
 }
 .jpdb-reader-icon-mini svg {
   display: block;

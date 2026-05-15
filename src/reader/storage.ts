@@ -15,8 +15,6 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-newtab-install-dictionary',
     'jpdb-reader-newtab-ui',
     'jpdb-reader-transcript-panel-size',
-    'yomu-jpdb-doodle-current-drawing',
-    'yomu-jpdb-review-examples-open',
     'yomu.grammarPreferences.v1',
     'yomu.hanabiraGrammarIndex.v1',
     'yomu:enable-logs',

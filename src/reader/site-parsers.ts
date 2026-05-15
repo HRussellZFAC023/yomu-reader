@@ -4,8 +4,6 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from './dom';
-import { Logger } from './logger';
-
 export interface SiteParserProfile {
     id: string;
     name: string;
@@ -90,8 +88,6 @@ const GENERIC_PROSE_EXCLUDE = [
     '[aria-label*="音声"]',
     'time',
 ].join(',');
-const log = Logger.scope('SiteParsers');
-
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: 'jpdb-parser',
@@ -236,14 +232,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'Mokuro',
         description: 'Mokuro manga text boxes.',
         roots: ['.textBox', '#manga-panel .textBox', '#pagesContainer .textBox'],
-        matches: url => url.hostname === 'reader.mokuro.app',
-    },
-    {
-        id: 'mokuro-legacy-parser',
-        name: 'Mokuro legacy',
-        description: 'Local Mokuro HTML exports.',
-        roots: ['.textBox', '#manga-panel .textBox', '#pagesContainer .textBox'],
-        matches: url => url.protocol === 'file:' && /mokuro/i.test(decodeURIComponent(url.pathname)),
+        matches: url => url.hostname === 'reader.mokuro.app'
+            || (url.protocol === 'file:' && /mokuro/i.test(decodeURIComponent(url.pathname))),
     },
     {
         id: 'wikipedia-parser',
@@ -433,7 +423,6 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
         includeUiChrome: true,
         minLength: 1,
     });
-    log.debugThrottled('whole-page-targets', 2500, 'Collected whole-page scan targets', { targets: targets.length });
     return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
 }
 
@@ -446,7 +435,6 @@ function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
         if (genericProseCollectionFull(collection)) break;
     }
 
-    log.debugThrottled('generic-prose-targets', 2500, 'Collected generic prose targets', { roots: roots.length, targets: collection.targets.length });
     return collection.targets;
 }
 
@@ -493,7 +481,6 @@ function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
         roots.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
     }
     const result = uniqueVisibleRoots(roots);
-    log.debugThrottled(`parser-roots:${profile.id}`, 2000, 'Queried parser roots', { parserId: profile.id, roots: result.length });
     return result;
 }
 

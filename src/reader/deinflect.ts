@@ -1,13 +1,9 @@
-import { Logger } from './logger';
-
 export interface DeinflectedTerm {
     term: string;
     rules: string[];
     reasons: string[];
     depth: number;
 }
-
-const log = Logger.scope('Deinflect');
 
 interface DeinflectionRule {
     from: string;
@@ -152,11 +148,6 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
     expandDeinflectionQueue(queue, results, seen);
 
     const sorted = sortDeinflectedTerms(results);
-    log.debugThrottled('deinflect-term', 1000, 'Deinflected Japanese term', {
-        source,
-        candidates: sorted.length,
-        derived: sorted.filter(candidate => candidate.depth > 0).length,
-    });
     return sorted;
 }
 

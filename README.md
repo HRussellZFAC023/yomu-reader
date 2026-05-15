@@ -22,14 +22,14 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
 - Optional Anki mining through AnkiConnect, with a よむ note type created automatically, existing-card detection, Anki grading, and best-effort context images from Immersion Kit, video, OCR, or image mining.
-- Yomitan dictionary imports: automatic JMdict starter download, settings JSON, dictionary ZIPs, and Dexie exports.
+- Yomitan dictionary imports: automatic JMdict starter download with a bundled starter fallback, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
 - Furigana and word-color modes for all parsed text: automatic, difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
 - Immersion Kit example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, browser text-to-speech, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
-- Manga/image OCR that works without setup through Google Lens, with Cloud Vision and local OCR app support for MangaOCR, PaddleOCR, and Apple Vision style results.
+- Manga/image OCR from embedded page metadata or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style results.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
 - Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/` for opening browser-supported local video and subtitle files without a desktop bridge.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
@@ -48,7 +48,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. Immersion Kit searches send the looked-up term to Immersion Kit and fetch example media only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; otherwise Google Lens is the default and receives the image pixels for nearby readable images. Google Cloud Vision and local OCR app modes only run when selected. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
+Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. Immersion Kit searches send the looked-up term to Immersion Kit and fetch example media only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; local OCR app mode sends image pixels only to the endpoint you configure. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 
@@ -94,7 +94,7 @@ Use this address as a browser new-tab/home-page URL or add it to the iPad Home S
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is enabled and reachable, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ downloads JMdict as the starter dictionary and shows downloading progress instead of a setup warning. Tapping a word opens the same popup dictionary used on normal pages.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is enabled and reachable, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ tries to download JMdict as the starter dictionary; when a standalone browser blocks the GitHub ZIP download, it installs a small bundled starter dictionary so the hosted demo still becomes usable. Tapping a word opens the same popup dictionary used on normal pages.
 
 ## OCR
 
@@ -102,8 +102,7 @@ OCR is designed for manga and image-heavy pages on iPhone/iPad:
 
 - Images near the viewport are detected and queued quietly when auto-scan is enabled.
 - Embedded image OCR metadata is available instantly when a site provides it.
-- Google Lens is the default deeper OCR path, with the protobuf endpoint first and the web upload path as a fallback.
-- Advanced modes support Google Cloud Vision directly with an API key, or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style OCR outputs.
+- Local OCR app/server mode supports simple line output plus MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style structured outputs.
 - OCR results are cached per image for the current page.
 - Recognized Japanese lines become transparent touch targets, so the image is not covered.
 - Tapping or hovering recognized text opens the normal JPDB/Yomitan popup and mining flow.
@@ -135,7 +134,7 @@ The response can use either a simple line format:
 }
 ```
 
-or YomiNinja-style structured result shapes with `context_resolution`, `results`, `ocr_regions`, `text`, `text_lines`, percentage boxes, and Cloud Vision `fullTextAnnotation` responses.
+or YomiNinja-style structured result shapes with `context_resolution`, `results`, `ocr_regions`, `text`, `text_lines`, and percentage boxes.
 
 ## Development
 
@@ -207,14 +206,14 @@ npm run publish:greasyfork
 ## Notes
 
 - Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
-- JMdict is available as the starter dictionary download in settings and can be installed automatically for dictionary-backed new-tab cards. Users can still import any Yomitan ZIP, Dexie export, or settings export manually.
+- JMdict is available as the starter dictionary download in settings and can be installed automatically for dictionary-backed new-tab cards. If a browser blocks the remote release ZIP, the new-tab setup falls back to a small bundled starter dictionary; users can still import any Yomitan ZIP, Dexie export, or settings export manually.
 - Definition sources can be reordered in settings. When a JPDB API key is missing or parsing fails, imported Yomitan dictionaries are used for local parsing with common deinflection rules; JPDB-only mining and kanji pages still require JPDB access.
 - RTK information is enabled by default and can be turned off in settings.
 - Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
 - Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, component graph, and radical images can be toggled separately.
-- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles. JPDB page add-ons for Uchisen, RTK, Immersion Kit, local dictionaries, compact review navigation, auto-revealed review example sentences, always-visible review examples, and kanji doodling can be toggled independently. Review reveal audio can use either Immersion Kit example audio or よむ's configured word audio sources, and those two autoplay options stay mutually exclusive.
+- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles, and the JPDB review bridge feeds live review cards to the new-tab study page.
 - OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
-- OCR engine coverage mirrors YomiNinja where it can in a userscript: Google Lens runs directly, Cloud Vision can run with a key, and native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
+- OCR engine coverage mirrors YomiNinja response shapes where it can in a userscript: native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
 - iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, the hosted video player, and the new-tab study page. Desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
 - Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but support still helps soften that cost and keep the project moving. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
@@ -251,7 +250,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 - [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) and [aramrw/yomichan_audio_server](https://github.com/aramrw/yomichan_audio_server) for local/hosted audio setup patterns.
 - [Immersion Kit](https://www.immersionkit.com/) for searchable example sentences, audio, and stills used at runtime in the examples section.
 - [AnkiConnect](https://foosoft.net/projects/anki-connect/) for local Anki card creation.
-- [JPDB](https://jpdb.io), [Google Lens](https://lens.google.com), and [Google Cloud Vision](https://cloud.google.com/vision) for the external services users can connect to or use through the reader.
+- [JPDB](https://jpdb.io), Immersion Kit, RTK, and user-configured local OCR/audio services for the external services users can connect to or use through the reader.
 
 ## Source Licenses
 
@@ -263,6 +262,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |
 | [The Kanji Map](https://thekanjimap.com/) / [source](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms. よむ uses it as inspiration and fetches compact public per-kanji data at runtime when enabled. |
 | [Yomitan](https://github.com/yomidevs/yomitan) | GPL-3.0-or-later; used for interoperable dictionary formats, structured glossary behavior, audio-source conventions, and UX reference |
+| [fflate](https://github.com/101arrowz/fflate) | MIT; bundled for compressed ZIP dictionary import fallback when browser-native decompression is unavailable |
 | [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) | MIT license file; JPDB/Yomitan dictionary-on-JPDB UX reference only, with no code copied |
 | [asbplayer](https://github.com/asbplayer/asbplayer) | MIT; used as a subtitle-mining and video-reader UX reference |
 | [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) | MIT; used as a JPDB reader behavior and parser-edge-case reference |

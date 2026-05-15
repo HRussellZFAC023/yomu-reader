@@ -103,7 +103,6 @@ function claimYomuRuntime(kind: YomuRuntimeKind): string | null {
     const existing = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
     const existingKind = normalizeRuntimeKind(existing?.dataset.yomuRuntimeKind);
     if (existing && runtimePriority(existingKind) >= runtimePriority(kind)) {
-        log.debug('Skipping boot because another Yomu runtime owns the page', { existingKind, kind });
         return null;
     }
 

@@ -1,6 +1,5 @@
-import type { AnkiConnectClient } from './anki';
 import { primaryCardState } from './card-state';
-import { APP_NAME, SUPPORT_LINKS } from './constants';
+import { APP_NAME, DOCS_BASE_URL } from './constants';
 import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import type { ImmersionKitClient, ImmersionKitExample } from './immersion-kit';
@@ -50,7 +49,10 @@ import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanTermEntry } from
 
 export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
-    anki: AnkiConnectClient;
+    anki: {
+        listNewTabCards: (limit?: number) => Promise<JPDBCard[]>;
+        answerCard: (cardId: number, grade: JPDBGrade) => Promise<void>;
+    };
     jpdb: JpdbClient;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
@@ -380,7 +382,7 @@ export class NewTabController {
                 ),
                 el('a', {
                     class: 'jpdb-reader-newtab-install',
-                    href: SUPPORT_LINKS.docs,
+                    href: DOCS_BASE_URL,
                     target: '_blank',
                     rel: 'noopener',
                     hidden: true,
@@ -716,8 +718,7 @@ export class NewTabController {
     private async loadAnkiWords(): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
         if (!settings.ankiEnabled) return { cards: [], sourceLabel: 'Anki', needsDictionarySetup: false };
-        const cards = await this.dependencies.anki.listNewTabCards(80).catch(error => {
-            log.debug('Anki new tab source unavailable', error);
+        const cards = await this.dependencies.anki.listNewTabCards(80).catch(() => {
             return [];
         });
         return { cards, sourceLabel: cards.length ? 'Anki' : 'Anki', needsDictionarySetup: false };
@@ -737,8 +738,7 @@ export class NewTabController {
                 sourceLabel: 'Dictionaries',
                 needsDictionarySetup: false,
             };
-        } catch (error) {
-            log.debug('Dictionary word load failed', error);
+        } catch {
             return { cards: [], sourceLabel: 'Dictionaries', needsDictionarySetup: false };
         }
     }
@@ -771,8 +771,7 @@ export class NewTabController {
         try {
             const cards = await this.dependencies.jpdb.listDeckCards(selectedDeck, 90);
             return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false };
-        } catch (error) {
-            log.debug('JPDB selected deck load failed', { deckId: selectedDeck }, error);
+        } catch {
             return null;
         }
     }
@@ -786,8 +785,7 @@ export class NewTabController {
         for (const deck of eligibleDecks) {
             try {
                 cards.push(...await this.dependencies.jpdb.listDeckCards(deck.id, JPDB_WORDS_PER_DECK));
-            } catch (error) {
-                log.debug('JPDB all-decks sample failed', { deck: deck.id }, error);
+            } catch {
             }
         }
 
@@ -1549,11 +1547,6 @@ export class NewTabController {
     }
 
     private async installStarterDictionary(root: HTMLElement): Promise<void> {
-        if (!hasYomuRuntime()) {
-            this.setStatus(root, '');
-            this.dependencies.showSettings('dictionaries');
-            return;
-        }
         this.setStatus(root, 'Adding dictionary...');
         try {
             const installed = await this.dependencies.ensureStarterDictionary(message => this.setStatus(root, message));
@@ -1748,7 +1741,7 @@ export class NewTabController {
             at: Date.now(),
             sourceLabel,
             cards: cards.slice(0, limit),
-        }).catch(error => log.debug('New tab offline cache write failed', error));
+        }).catch(() => undefined);
     }
 
     private async readOfflineCache(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> {

@@ -121,14 +121,6 @@ interface AnkiFieldContext {
     sourceTitle: string;
 }
 
-interface NewTabAnkiCardLoad {
-    query: string;
-    sampledCardIds: number[];
-    dueCards: AnkiCardInfo[];
-    notes: AnkiNoteInfo[];
-    result: JPDBCard[];
-}
-
 interface ParsedAnkiImageDataUrl {
     extension: string;
     data: string;
@@ -143,7 +135,6 @@ export class AnkiConnectClient {
     async isConnected(): Promise<boolean> {
         try {
             await this.invoke<number>('version');
-            log.debug('AnkiConnect reachable');
             return true;
         } catch (error) {
             log.warnOnce('connection-unavailable', 'AnkiConnect unavailable', error);
@@ -153,110 +144,25 @@ export class AnkiConnectClient {
 
     async deckNames(): Promise<string[]> {
         const decks = await this.invoke<string[]>('deckNames');
-        log.debug('Deck names loaded', { decks: decks.length });
         return decks;
     }
 
     async modelNames(): Promise<string[]> {
         const models = await this.invoke<string[]>('modelNames');
-        log.debug('Model names loaded', { models: models.length });
         return models;
-    }
-
-    async listNewTabCards(limit = 80): Promise<JPDBCard[]> {
-        const settings = this.getSettings();
-        if (this.shouldSkipNewTabCards(settings)) return [];
-
-        try {
-            const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });
-            const load = await this.loadNewTabCards(settings, limit);
-            if (this.isEmptyNewTabCardLoad(load, done)) return [];
-            const result = this.newTabCardsFromLoad(load, limit);
-            done();
-            log.debug('Anki new tab cards loaded', { notes: load.notes.length, cards: result.length, dueCards: load.dueCards.length });
-            return result;
-        } catch (error) {
-            log.warn('Anki new tab lookup failed; entering cooldown', error);
-            this.unavailableUntil = Date.now() + 30000;
-            return [];
-        }
-    }
-
-    private shouldSkipNewTabCards(settings: ReaderSettings): boolean {
-        return !settings.ankiEnabled || Date.now() < this.unavailableUntil;
-    }
-
-    private async loadNewTabCards(settings: ReaderSettings, limit: number): Promise<NewTabAnkiCardLoad> {
-        const query = newTabAnkiQuery(settings);
-        const sampledCardIds = await this.sampleNewTabCardIds(query, limit);
-        const dueCards = sampledCardIds.length ? await this.loadDueNewTabCards(sampledCardIds) : [];
-        const notes = dueCards.length ? await this.loadNewTabNotes(dueCards) : [];
-        return {
-            query,
-            sampledCardIds,
-            dueCards,
-            notes,
-            result: this.newTabCardsFromNotes(notes, dueCards, limit),
-        };
-    }
-
-    private async sampleNewTabCardIds(query: string, limit: number): Promise<number[]> {
-        const foundCardIds = await this.invoke<number[]>('findCards', { query });
-        return sampleAnkiIds(foundCardIds, Math.max(1, limit * 4));
-    }
-
-    private async loadDueNewTabCards(sampledCardIds: number[]): Promise<AnkiCardInfo[]> {
-        const dueFlags = await this.invoke<boolean[]>('areDue', { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
-        const cards = await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: sampledCardIds }).catch((): AnkiCardInfo[] => []);
-        return cards.filter((cardInfo, index) => isReviewableAnkiCard(cardInfo, dueFlags[index]));
-    }
-
-    private async loadNewTabNotes(dueCards: AnkiCardInfo[]): Promise<AnkiNoteInfo[]> {
-        const noteIds = unique(dueCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
-        return await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: noteIds });
-    }
-
-    private newTabCardsFromLoad(load: NewTabAnkiCardLoad, limit: number): JPDBCard[] {
-        return load.result.slice(0, Math.max(1, limit));
-    }
-
-    private newTabCardsFromNotes(notes: AnkiNoteInfo[], dueCards: AnkiCardInfo[], limit: number): JPDBCard[] {
-        const cardsByNote = cardsByNoteId(dueCards);
-        return notes
-            .map(note => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? []))
-            .filter((card): card is JPDBCard => card !== null)
-            .slice(0, Math.max(1, limit));
-    }
-
-    private isEmptyNewTabCardLoad(load: NewTabAnkiCardLoad, done: () => void): boolean {
-        if (!load.sampledCardIds.length) return this.finishEmptyNewTabCards(done, 'No due Anki cards available for new tab', { query: load.query });
-        if (!load.dueCards.length) {
-            return this.finishEmptyNewTabCards(done, 'Anki cards found but none are reviewable for new tab', {
-                query: load.query,
-                cards: load.sampledCardIds.length,
-            });
-        }
-        return false;
-    }
-
-    private finishEmptyNewTabCards(done: () => void, message: string, detail: Record<string, unknown>): true {
-        done();
-        log.debug(message, detail);
-        return true;
     }
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         const empty = emptyAnkiLookupResult();
-        if (this.isLookupCoolingDown(card)) return empty;
+        if (this.isLookupCoolingDown()) return empty;
         const cacheKey = `${card.spelling}|${card.reading}`;
-        const cached = this.readLookupCache(cacheKey, card);
+        const cached = this.readLookupCache(cacheKey);
         if (cached) return cached;
         return await this.findExistingCardsUncached(card, cacheKey, empty);
     }
 
-    private isLookupCoolingDown(card: JPDBCard): boolean {
+    private isLookupCoolingDown(): boolean {
         if (Date.now() >= this.unavailableUntil) return false;
-        log.debug('Anki lookup skipped during cooldown', { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
         return true;
     }
 
@@ -266,15 +172,13 @@ export class AnkiConnectClient {
             const noteIds = await this.findCandidateNoteIds(card);
             if (!noteIds.size) {
                 this.writeLookupCache(cacheKey, empty);
-                log.debug('No Anki notes found', { term: card.spelling });
                 done();
                 return empty;
             }
 
-            const { existing, candidateNotes } = await this.loadExistingNotes(card, noteIds);
+            const { existing } = await this.loadExistingNotes(card, noteIds);
             if (!existing.length) {
                 this.writeLookupCache(cacheKey, empty);
-                log.debug('Anki notes found but none matched Yomu card', { term: card.spelling, candidateNotes });
                 done();
                 return empty;
             }
@@ -285,7 +189,6 @@ export class AnkiConnectClient {
                 primary: pickPrimaryExistingNote(existing),
             };
             this.writeLookupCache(cacheKey, result);
-            log.debug('Anki lookup completed', { term: card.spelling, notes: existing.length, state: result.state });
             done();
             return result;
         } catch (error) {
@@ -295,10 +198,9 @@ export class AnkiConnectClient {
         }
     }
 
-    private readLookupCache(cacheKey: string, card: JPDBCard): AnkiLookupResult | null {
+    private readLookupCache(cacheKey: string): AnkiLookupResult | null {
         const cached = this.lookupCache.get(cacheKey);
         if (!cached || Date.now() - cached.at >= 45000) return null;
-        log.debug('Anki lookup cache hit', { term: card.spelling, state: cached.result.state });
         return cached.result;
     }
 
@@ -347,7 +249,6 @@ export class AnkiConnectClient {
     async addCard(card: JPDBCard, sentence = '', options: AnkiCardContext = {}): Promise<number | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) {
-            log.debug('Anki add skipped because Anki is disabled', { term: card.spelling });
             return null;
         }
         const note = this.buildAnkiNote(card, sentence, settings, options);
@@ -429,15 +330,13 @@ export class AnkiConnectClient {
         const settings = this.getSettings();
         const deckName = resolvedAnkiDeckName(deckOverride, settings);
         const modelName = resolvedAnkiModelName(settings);
-        log.debug('Ensuring Anki deck/model', { deckName, modelName });
         await this.ensureDeck(deckName);
         const modelNames = await this.modelNames().catch((): string[] => []);
         await this.ensureYomuModel(modelNames, modelName, settings);
     }
 
     private async ensureDeck(deckName: string): Promise<void> {
-        await this.invoke<null>('createDeck', { deck: deckName }).catch(error => {
-            log.debug('createDeck ignored', { deckName }, error);
+        await this.invoke<null>('createDeck', { deck: deckName }).catch(() => {
             return null;
         });
     }
@@ -446,7 +345,6 @@ export class AnkiConnectClient {
         await this.ensureModelFields(modelName);
         await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
         await this.invoke<null>('updateModelStyling', { model: { name: modelName, css: yomuCardCss() } });
-        log.debug('Anki model updated', { modelName });
     }
 
     private async ensureYomuModel(modelNames: string[], modelName: string, settings: ReaderSettings): Promise<void> {
@@ -470,17 +368,15 @@ export class AnkiConnectClient {
         const existing = new Set(fieldNames);
         for (const fieldName of YOMU_MODEL_FIELDS) {
             if (!existing.has(fieldName)) {
-                log.debug('Adding missing Anki model field', { modelName, fieldName });
                 await this.invoke<null>('modelFieldAdd', { modelName, fieldName });
             }
         }
     }
 
-    private async invoke<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+    async invoke<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
         const settings = this.getSettings();
         const url = settings.ankiConnectUrl || 'http://127.0.0.1:8765';
         const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-        log.debug('Invoking AnkiConnect action', { action });
         const response = await postJson<AnkiResponse<T>>(url, body);
         if (response.error) {
             log.warn('AnkiConnect action returned error', { action, error: response.error });
@@ -495,7 +391,6 @@ export function captureActiveVideoFrame(): string | undefined {
         .filter(item => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0)
         .sort((a, b) => visibleArea(b) - visibleArea(a))[0];
     if (!video) {
-        log.debug('No active video available for Anki screenshot');
         return undefined;
     }
     try {
@@ -508,7 +403,6 @@ export function captureActiveVideoFrame(): string | undefined {
         if (!context) return undefined;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
-        log.debug('Captured active video frame', { width: canvas.width, height: canvas.height });
         return dataUrl;
     } catch (error) {
         log.warn('Active video frame capture failed', error);
@@ -747,17 +641,6 @@ function unique<T>(items: T[]): T[] {
     return [...new Set(items)];
 }
 
-function sampleAnkiIds(ids: number[], limit: number): number[] {
-    const uniqueIds = unique(ids).filter(id => Number.isFinite(Number(id)));
-    if (uniqueIds.length <= limit) return uniqueIds.reverse();
-    const sampled = uniqueIds.slice();
-    for (let index = sampled.length - 1; index > 0; index--) {
-        const swap = Math.floor(Math.random() * (index + 1));
-        [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
-    }
-    return sampled.slice(0, limit);
-}
-
 function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, string> {
     const out: Record<string, string> = {};
     Object.entries(fields ?? {}).forEach(([name, value]) => {
@@ -768,25 +651,6 @@ function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, strin
 
 function emptyAnkiLookupResult(): AnkiLookupResult {
     return { state: 'not-in-deck', notes: [], primary: null };
-}
-
-function newTabAnkiQuery(settings: ReaderSettings): string {
-    return [
-        settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : '',
-        settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : '',
-        '-is:suspended',
-        '(is:due OR is:new OR is:learn)',
-    ].filter(Boolean).join(' ');
-}
-
-function isReviewableAnkiCard(cardInfo: AnkiCardInfo, dueFlag: boolean | undefined): boolean {
-    if (cardInfo.queue === -1) return false;
-    if (isReviewableAnkiQueueOrType(cardInfo.queue, cardInfo.type)) return true;
-    return Boolean(dueFlag);
-}
-
-function isReviewableAnkiQueueOrType(queue: number, type: number): boolean {
-    return [0, 1, 3].includes(queue) || [0, 1, 3].includes(type);
 }
 
 function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]> {
@@ -835,112 +699,6 @@ function ankiNoteReviewMetrics(noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote
 
 function sumAnkiCardMetric(cards: AnkiCardInfo[], metric: 'reps' | 'lapses'): number {
     return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
-}
-
-function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | null {
-    const fields = ankiNoteCardFields(note);
-    if (!fields) return null;
-    const state = stateFromAnkiCards(cards);
-    const primaryCardId = ankiNoteCardId(note, cards);
-    return {
-        vid: -stableAnkiId(String(note.noteId)),
-        sid: -stableAnkiId(`${note.noteId}:${fields.spelling}`),
-        rid: primaryCardId ?? 0,
-        spelling: fields.spelling,
-        reading: fields.reading,
-        frequencyRank: null,
-        partOfSpeech: ankiPartOfSpeechList(fields.partOfSpeech),
-        meanings: [ankiCardMeaning(fields)],
-        cardState: [state],
-        pitchAccent: [],
-        wordWithReading: null,
-        source: 'anki',
-        sentence: fields.sentence,
-        reviewSource: 'anki',
-        ankiCardId: primaryCardId ?? undefined,
-    };
-}
-
-function ankiNoteCardId(note: AnkiNoteInfo, cards: AnkiCardInfo[]): number | undefined {
-    return pickPrimaryCard(cards)?.cardId ?? note.cards?.[0];
-}
-
-interface AnkiNoteCardFields {
-    spelling: string;
-    reading: string;
-    meaning: string;
-    partOfSpeech: string;
-    sentence: string;
-}
-
-function ankiNoteCardFields(note: AnkiNoteInfo): AnkiNoteCardFields | null {
-    const fields = flattenNoteFields(note.fields);
-    const spelling = ankiNoteSpelling(fields);
-    if (!spelling) return null;
-    return {
-        spelling,
-        reading: ankiNoteReading(fields, spelling),
-        meaning: ankiNoteMeaning(fields),
-        partOfSpeech: firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']),
-        sentence: firstField(fields, ['Sentence', 'Example', 'Context', 'ExpressionSentence', 'SentenceAudio']) || '',
-    };
-}
-
-function ankiNoteSpelling(fields: Record<string, string>): string {
-    return firstField(fields, ['Expression', 'Word', 'Vocab', 'Vocabulary', 'Term', 'Front', 'Expression Reading'])
-        || firstJapaneseValue(fields);
-}
-
-function ankiNoteReading(fields: Record<string, string>, spelling: string): string {
-    return firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling;
-}
-
-function ankiNoteMeaning(fields: Record<string, string>): string {
-    return firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '';
-}
-
-function ankiCardMeaning(fields: AnkiNoteCardFields): JPDBCard['meanings'][number] {
-    return {
-        glosses: meaningToGlosses(fields.meaning),
-        partOfSpeech: ankiPartOfSpeechList(fields.partOfSpeech),
-    };
-}
-
-function ankiPartOfSpeechList(value: string): string[] {
-    return value ? [value] : [];
-}
-
-function firstField(fields: Record<string, string>, names: string[]): string {
-    for (const name of names) {
-        const value = fields[name]?.replace(/\s+/g, ' ').trim();
-        if (value) return value;
-    }
-    return '';
-}
-
-function firstJapaneseValue(fields: Record<string, string>): string {
-    for (const value of Object.values(fields)) {
-        const normalized = value.replace(/\s+/g, ' ').trim();
-        if (/[\u3040-\u30ff\u3400-\u9fff]/.test(normalized)) return normalized.slice(0, 80);
-    }
-    return '';
-}
-
-function meaningToGlosses(value: string): string[] {
-    return value
-        .split(/\n+|[;；]/)
-        .map(item => item.replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
-        .slice(0, 8);
-}
-
-function stableAnkiId(value: string): number {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) || 1;
 }
 
 function noteLooksLikeCard(note: AnkiNoteInfo, card: JPDBCard): boolean {

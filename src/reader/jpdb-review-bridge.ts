@@ -294,7 +294,7 @@ function clickGradeControl(grade: JPDBGrade): void {
 function findControl(terms: string[]): HTMLElement | null {
     const controls = Array.from(document.querySelectorAll<HTMLElement>('button, input[type="submit"], a[href]'));
     return controls.find(control => {
-        if (control.closest('[data-yomu-jpdb-addon], [data-jpdb-reader-root]')) return false;
+        if (control.closest('[data-jpdb-reader-root]')) return false;
         const text = formText(control);
         return terms.some(term => text.includes(term));
     }) ?? null;

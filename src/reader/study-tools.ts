@@ -192,7 +192,6 @@ export function detectGrammarHints(sentence: string): GrammarHint[] {
         .slice(0, 10)
         .sort((a, b) => a.index - b.index || a.priority - b.priority || a.name.localeCompare(b.name))
         .map(({ priority: _priority, ...hint }) => hint);
-    log.debug('Grammar hints detected', { sentenceLength: sentence.length, hints: hints.map(hint => hint.name) });
     return hints;
 }
 
@@ -306,12 +305,10 @@ export async function translateJapaneseSentence(sentence: string): Promise<strin
     if (!trimmed) return '';
     const cached = translationCache.get(trimmed);
     if (cached) {
-        log.debug('Translation cache hit', { sentenceLength: trimmed.length });
         return cached;
     }
     const inFlight = translationInFlight.get(trimmed);
     if (inFlight) {
-        log.debug('Translation in-flight cache hit', { sentenceLength: trimmed.length });
         return inFlight;
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
@@ -466,7 +463,6 @@ interface GoogleTranslateResponse {
 function requestJson<T>(url: string): Promise<T> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-        log.debug('Translation request using userscript request');
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'GET',
@@ -475,7 +471,6 @@ function requestJson<T>(url: string): Promise<T> {
                 timeout: 8000,
                 onload: response => {
                     if (response.status >= 200 && response.status < 300) {
-                        log.debug('Translation request completed', { status: response.status });
                         resolve((response.response ?? JSON.parse(String(response.responseText ?? '{}'))) as T);
                     } else {
                         log.warn('Translation request returned HTTP error', { status: response.status });
@@ -493,13 +488,11 @@ function requestJson<T>(url: string): Promise<T> {
             });
         });
     }
-    log.debug('Translation request using fetch');
     return fetch(url).then(async response => {
         if (!response.ok) {
             log.warn('Translation request returned HTTP error', { status: response.status });
             throw new Error(`Translation request failed (${response.status}).`);
         }
-        log.debug('Translation request completed', { status: response.status });
         return response.json() as Promise<T>;
     });
 }

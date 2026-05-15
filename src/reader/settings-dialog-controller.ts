@@ -2,7 +2,7 @@ import { AudioPlayer } from './audio';
 import { AnkiConnectClient } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
-import { NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_LINKS } from './constants';
+import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
 import { setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { Logger, loggingSettingsSummary } from './logger';
@@ -16,7 +16,6 @@ import {
     getFormInterfaceLanguage,
     getReaderSettingsExport,
     installShortcutCapture,
-    installSourceRowDrag,
     isRecommendedDictionaryInstalled,
     localizeSettingsForm,
     pickFile,
@@ -36,7 +35,7 @@ import {
     updateSourceRowEditor,
 } from './settings-form';
 import type { InterfaceLanguage, ReaderSettings } from './types';
-import { resolveUiLanguage, uiText } from './i18n';
+import { uiText } from './i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from './yomitan';
 
 interface Refreshable {
@@ -52,8 +51,6 @@ interface SettingsDialogDependencies {
     audio: AudioPlayer;
     subtitles: Refreshable;
     ocr: Refreshable;
-    youtube: Refreshable;
-    jpdbExtensions: Refreshable;
     createBackdrop: () => HTMLElement;
     mountDialog: (backdrop: HTMLElement, form: HTMLFormElement) => void;
     dismiss: () => void;
@@ -246,8 +243,6 @@ export class SettingsDialogController {
         this.dependencies.installFab();
         this.dependencies.subtitles.refresh();
         this.dependencies.ocr.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.jpdbExtensions.refresh();
         this.dependencies.clearSettingsPreview();
         this.dependencies.dismiss();
         this.dependencies.scheduleDictionaryRescan();
@@ -289,32 +284,6 @@ export class SettingsDialogController {
         };
         form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]')?.addEventListener('change', syncImmersionTranslationReveal);
         syncImmersionTranslationReveal();
-        const syncJpdbRevealAudio = () => {
-            const audioEnabled = form.querySelector<HTMLInputElement>('input[name="audioEnabled"]');
-            const immersionEnabled = form.querySelector<HTMLInputElement>('input[name="immersionKitEnabled"]');
-            const jpdbImmersionEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbImmersionKitEnabled"]');
-            const immersionRevealAudio = form.querySelector<HTMLInputElement>('input[name="jpdbImmersionKitAutoPlayReviewAudio"]');
-            const wordRevealAudio = form.querySelector<HTMLInputElement>('input[name="jpdbWordAudioAutoPlayReviewAudio"]');
-            if (!immersionRevealAudio || !wordRevealAudio) return;
-
-            const wordAvailable = audioEnabled?.checked ?? true;
-            const immersionAvailable = (immersionEnabled?.checked ?? true) && (jpdbImmersionEnabled?.checked ?? true);
-            if (!wordAvailable) wordRevealAudio.checked = false;
-            wordRevealAudio.disabled = !wordAvailable;
-            if (!immersionAvailable || wordRevealAudio.checked) immersionRevealAudio.checked = false;
-            immersionRevealAudio.disabled = !immersionAvailable || wordRevealAudio.checked;
-            if (immersionRevealAudio.checked) wordRevealAudio.checked = false;
-        };
-        [
-            'audioEnabled',
-            'immersionKitEnabled',
-            'jpdbImmersionKitEnabled',
-            'jpdbImmersionKitAutoPlayReviewAudio',
-            'jpdbWordAudioAutoPlayReviewAudio',
-        ].forEach(name => {
-            form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.addEventListener('change', syncJpdbRevealAudio);
-        });
-        syncJpdbRevealAudio();
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
@@ -326,7 +295,6 @@ export class SettingsDialogController {
         form.querySelector<HTMLSelectElement>('select[name="ocrProvider"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             form.querySelectorAll<HTMLElement>('[data-local-ocr]').forEach(node => { node.hidden = value !== 'local-service'; });
-            form.querySelectorAll<HTMLElement>('[data-cloud-ocr]').forEach(node => { node.hidden = value !== 'cloud-vision'; });
         });
     }
 
@@ -340,7 +308,6 @@ export class SettingsDialogController {
         form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.addEventListener('change', () => void this.refreshDeckControls(form));
         form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
         installShortcutCapture(form);
-        installSourceRowDrag(form);
         form.addEventListener('click', event => {
             const control = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             const action = control?.dataset.action;
@@ -389,7 +356,6 @@ export class SettingsDialogController {
         if (!container) return;
         const apiKey = form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.value.trim() ?? this.settings.apiKey.trim();
         if (!apiKey) {
-            log.debug('Deck controls rendered without API key');
             setInnerHtml(container, renderDeckControls(this.settings, [], false));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             return;
@@ -399,7 +365,6 @@ export class SettingsDialogController {
         this.settings.apiKey = apiKey;
         try {
             const decks = await this.dependencies.jpdb.listDecks();
-            log.debug('Deck controls loaded', { decks: decks.length });
             setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true));
         } catch (error) {
             log.warn('Deck controls failed to load', error);
@@ -422,7 +387,6 @@ export class SettingsDialogController {
     }
 
     private async applyDictionaryStatus(form: HTMLFormElement, elements: DictionaryStatusElements, summary: DictionarySummary): Promise<void> {
-        log.debug('Dictionary status loaded', summary);
         await this.mergeDictionaryPreferencesFromSummary(summary);
         await this.dependencies.refreshDictionaryStyles();
         renderDictionaryStatusElements(elements, summary, this.settings);
@@ -460,9 +424,24 @@ export class SettingsDialogController {
     ): Promise<number> {
         onProgress?.(`Downloading ${dictionary.name} (${index + 1}/${total})...`);
         log.info('Downloading starter dictionary', { dictionary: dictionary.name, index: index + 1, total });
-        const imported = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => onProgress?.(message));
+        const imported = await this.importStarterDictionary(dictionary, onProgress);
         await this.persistDictionaryImport(imported);
         return imported.entries;
+    }
+
+    private async importStarterDictionary(
+        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
+        onProgress?: (message: string) => void,
+    ): Promise<ImportSummary> {
+        try {
+            return await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => onProgress?.(message));
+        } catch (error) {
+            if (dictionary.id !== 'jmdict') throw error;
+            const message = error instanceof Error ? error.message : 'Dictionary download failed.';
+            log.warn('Starter dictionary download unavailable; using bundled starter dictionary', { dictionary: dictionary.name, message });
+            onProgress?.(`${message} Using the bundled starter dictionary instead.`);
+            return await this.dependencies.dictionaries.installBundledStarterDictionary(message => onProgress?.(message));
+        }
     }
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
@@ -492,24 +471,20 @@ export class SettingsDialogController {
     private handleSettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {
         if (action === 'settings-panel') {
             const panel = selectedSettingsPanel(control);
-            log.debug('Settings panel selected', { panel });
             activateSettingsPanel(form, panel);
             return true;
         }
         if (isDictionarySourceOrderAction(action)) {
-            log.debug('Dictionary source order changed', { action });
             updateSourceRowEditor(action, control);
             return true;
         }
         if (isAudioSourceEditorAction(action)) {
-            log.debug('Audio source editor changed', { action });
             updateAudioSourceEditor(form, action, control);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             syncBrowserTtsVoiceOptions(form);
             return true;
         }
         if (isLookupLinkEditorAction(action)) {
-            log.debug('Lookup link editor changed', { action });
             updateDictionaryLookupLinkEditor(form, action, control);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             return true;
@@ -576,8 +551,6 @@ export class SettingsDialogController {
                 settings: this.settings,
                 storage: await exportStoredValues([
                     'yomu-mining-context:',
-                    'yomu-jpdb-review-examples-open',
-                    'yomu-jpdb-source-open:',
                     'yomu-jpdb-uchisen-star:',
                     'yomu-jpdb-uchisen-index:',
                     'jpdb-reader-newtab-ui',
@@ -624,9 +597,8 @@ export class SettingsDialogController {
     }
 
     private ankiReadyMessage(language: InterfaceLanguage): string {
-        return resolveUiLanguage(language) === 'ja'
-            ? `接続できました。デッキ「${this.settings.ankiDeck}」とノートタイプ「${this.settings.ankiModel}」を準備しました。`
-            : `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+        void language;
+        return `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {
@@ -634,15 +606,8 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsSupportAction(action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (action === 'copy-discord') {
-            await copyText(SUPPORT_LINKS.discordUsername);
-            log.debug('Support Discord username copied');
-            this.dependencies.toast(`Copied Discord username: ${SUPPORT_LINKS.discordUsername}`);
-            return true;
-        }
         if (action === 'copy-newtab-url') {
             await copyText(NEW_TAB_PAGE_URL);
-            log.debug('New tab URL copied');
             this.dependencies.toast('New tab address copied.');
             return true;
         }
@@ -763,8 +728,6 @@ export class SettingsDialogController {
         this.dependencies.scheduleDictionaryRescan();
         this.dependencies.installFab();
         this.dependencies.subtitles.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.jpdbExtensions.refresh();
         this.dependencies.clearSettingsPreview();
         log.info('Settings imported', loggingSettingsSummary(this.settings));
         this.open();

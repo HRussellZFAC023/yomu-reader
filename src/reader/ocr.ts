@@ -49,27 +49,15 @@ interface OcrControllerOptions {
 }
 
 const MAX_CACHE_ITEMS = 36;
-const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
-const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
-const LENS_PLATFORM_WEB = 3;
-const LENS_SURFACE_CHROMIUM = 4;
-const LENS_AUTO_FILTER = 7;
-const LENS_WRITING_TOP_TO_BOTTOM = 2;
 const log = Logger.scope('OCR');
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'local-service': recognizeViaLocalService,
-    'cloud-vision': recognizeViaCloudVision,
-    'google-lens': recognizeViaGoogleLens,
 };
 const OCR_PROVIDER_CONFIGURED: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => boolean>> = {
     'local-service': settings => Boolean(settings.ocrEndpointUrl.trim()),
-    'cloud-vision': settings => Boolean(settings.ocrCloudVisionApiKey.trim()),
-    'google-lens': () => true,
 };
 const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => string | null>> = {
     'local-service': localServiceProviderLabel,
-    'cloud-vision': cloudVisionProviderLabel,
-    'google-lens': googleLensProviderLabel,
 };
 
 function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
@@ -117,11 +105,10 @@ function finishOcrScan(state: ImageState): void {
     state.manualRequested = false;
 }
 
-function renderNoOcrLines(state: ImageState, provider: string, manualRequested: boolean): void {
+function renderNoOcrLines(state: ImageState, manualRequested: boolean): void {
     state.autoSkipped = !manualRequested;
     state.status.textContent = 'No Japanese text found';
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
-    log.debug('OCR found no lines', { provider, manualRequested });
 }
 
 function renderOcrErrorStatus(state: ImageState, provider: string, manualRequested: boolean, error: unknown): void {
@@ -129,12 +116,6 @@ function renderOcrErrorStatus(state: ImageState, provider: string, manualRequest
     state.autoSkipped = !manualRequested;
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
     log.warn('OCR scan failed', { provider, manualRequested }, error);
-}
-
-interface ProtoField {
-    field: number;
-    wire: number;
-    value: bigint | number | string | Uint8Array;
 }
 
 export class ImageOcrController {
@@ -183,12 +164,10 @@ export class ImageOcrController {
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) {
             this.clear();
-            log.debug('OCR disabled; cleared overlays');
             return;
         }
         if (this.shouldSkipRefresh(settings, options)) {
             this.clear();
-            log.debugThrottled('refresh-skipped', 5000, 'OCR auto-scan skipped until Japanese text appears');
             return;
         }
 
@@ -200,7 +179,6 @@ export class ImageOcrController {
             this.observeRefreshImage(image, settings);
         }
         this.schedulePosition();
-        log.debugThrottled('refresh', 2500, 'OCR refreshed image candidates', { images: images.length });
     }
 
     private shouldSkipRefresh(settings: ReaderSettings, options: { userRequested?: boolean }): boolean {
@@ -249,7 +227,6 @@ export class ImageOcrController {
         this.refresh({ userRequested: true });
         const images = [...this.states.keys()].filter(image => isNearViewport(image, 120));
         if (!images.length) {
-            log.debug('Manual OCR scan found no nearby images');
             this.options.onToast('No readable images nearby.');
             return;
         }
@@ -263,7 +240,6 @@ export class ImageOcrController {
         const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
         if (!state) return undefined;
         const image = captureImageElement(state.image);
-        log.debug('Captured OCR source image for mining', { success: Boolean(image) });
         return image;
     }
 
@@ -281,7 +257,6 @@ export class ImageOcrController {
                 if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
             }
         }, { rootMargin });
-        log.debug('OCR observer configured', { rootMargin });
     }
 
     private ensureState(image: HTMLImageElement): ImageState {
@@ -306,7 +281,6 @@ export class ImageOcrController {
             this.scheduleRefresh(80);
         });
         this.states.set(image, state);
-        log.debug('OCR state created for image', imageSummary(image));
         return state;
     }
 
@@ -326,7 +300,6 @@ export class ImageOcrController {
     private queueOcrRequest(image: HTMLImageElement, state: ImageState, userRequested: boolean): void {
         this.queueImageForOcr(image);
         if (userRequested) showOcrReadingStatus(state);
-        log.debug('OCR image queued', { userRequested, queue: this.queue.length, image: imageSummary(image) });
         this.drainQueue();
     }
 
@@ -347,7 +320,6 @@ export class ImageOcrController {
         this.busy = true;
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
         const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
-        log.debug('OCR queue draining', { delay, hasFastText, remaining: this.queue.length });
         void waitForIdle(delay)
             .then(() => this.scanImage(image))
             .finally(() => {
@@ -362,7 +334,7 @@ export class ImageOcrController {
         const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
-        if (await this.renderCachedOcrResult(state, image, key)) return;
+        if (await this.renderCachedOcrResult(state, key)) return;
 
         const scan = beginOcrScan(state, image, settings, manualRequested);
 
@@ -376,10 +348,9 @@ export class ImageOcrController {
         }
     }
 
-    private async renderCachedOcrResult(state: ImageState, image: HTMLImageElement, key: string): Promise<boolean> {
+    private async renderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
         const cached = this.cache.get(key);
         if (!cached) return false;
-        log.debug('OCR cache hit', { image: imageSummary(image), lines: cached.lines.length });
         await this.renderResult(state, cached);
         state.manualRequested = false;
         return true;
@@ -397,7 +368,7 @@ export class ImageOcrController {
         const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
-            renderNoOcrLines(state, provider, manualRequested);
+            renderNoOcrLines(state, manualRequested);
             return;
         }
 
@@ -444,17 +415,11 @@ export class ImageOcrController {
             state.overlay.append(this.renderOcrLineElement(state, result, line, parsed[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
-        log.debug('OCR overlay lines positioned', {
-            lines: result.lines.length,
-            parsedTokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0),
-            forcedOverlay: forceOverlay,
-        });
     }
 
     private async parseOcrLines(lines: OcrLine[], settings: ReaderSettings): Promise<JPDBToken[][]> {
         if (!settings.apiKey.trim() && !settings.localDictionariesEnabled) return lines.map(() => []);
-        return Promise.all(lines.map(line => this.options.parseJapanese(line.text).catch(error => {
-            log.debug('OCR line parse failed quietly', { textLength: line.text.length }, error);
+        return Promise.all(lines.map(line => this.options.parseJapanese(line.text).catch(() => {
             return [];
         })));
     }
@@ -529,7 +494,6 @@ export class ImageOcrController {
         state.autoSkipped = false;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
         state.status.hidden = true;
-        log.debug('OCR image state reset after source change', { image: imageSummary(state.image) });
     }
 
     private remember(key: string, result: OcrResult): void {
@@ -628,7 +592,6 @@ export class ImageOcrController {
         this.queue = [];
         for (const state of this.states.values()) state.overlay.remove();
         this.states.clear();
-        log.debug('OCR state cleared');
     }
 
     private pruneDisconnectedStates(): void {
@@ -716,9 +679,6 @@ function captureImageElement(image: HTMLImageElement): string | undefined {
 export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHeight = 1): OcrResult | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-    if (cloudVision) return cloudVision;
-
     const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
     const lines = collectGenericOcrLines(record, width, height);
     return japaneseOcrResult(width, height, lines);
@@ -886,7 +846,6 @@ function clampNumber(value: number, min: number, max: number): number {
 }
 
 async function recognizeViaLocalService(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
-    log.debug('Recognizing image via local OCR service', { endpointHost: safeHost(settings.ocrEndpointUrl), engine: settings.ocrEngine });
     const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
     const engine = settings.ocrEngine === 'auto' ? '' : settings.ocrEngine;
     const body = JSON.stringify({
@@ -916,35 +875,6 @@ function isOcrProviderConfigured(settings: ReaderSettings): boolean {
     return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
 }
 
-async function recognizeViaCloudVision(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
-    log.debug('Recognizing image via Cloud Vision');
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
-    const body = JSON.stringify({
-        requests: [{
-            image: { content: payload.base64 },
-            features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
-            imageContext: { languageHints: ['ja'] },
-        }],
-    });
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(settings.ocrCloudVisionApiKey.trim())}`;
-    const response = await requestJson(url, body, settings.audioTimeoutMs);
-    return normalizeOcrResult(response, payload.width, payload.height);
-}
-
-async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
-    log.debug('Recognizing image via Google Lens');
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88);
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    try {
-        const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
-        return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-    } catch (error) {
-        log.warn('Google Lens protobuf endpoint failed; trying upload fallback', error);
-        return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
-    }
-}
-
 async function imageToBase64Payload(image: HTMLImageElement, maxPixels: number): Promise<{ base64: string; width: number; height: number }> {
     const { canvas, blob } = await imageToBlobPayload(image, maxPixels, 'image/jpeg', 0.86);
     return { base64: (await blobToDataUrl(blob)).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
@@ -954,19 +884,10 @@ async function imageToBlobPayload(image: HTMLImageElement, maxPixels: number, ty
     const canvas = await imageToCanvas(image, maxPixels);
     try {
         return { canvas, blob: await canvasToBlob(canvas, type, quality) };
-    } catch (error) {
-        log.debug('Canvas export failed; retrying OCR image through blob fallback', { image: imageSummary(image) }, error);
+    } catch {
         const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
         return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
     }
-}
-
-async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: number, timeout: number): Promise<OcrResult | null> {
-    log.debug('Recognizing image via Google Lens upload fallback', { width, height, size: blob.size });
-    const data = new FormData();
-    data.append('encoded_image', blob, 'image.jpg');
-    const response = await requestTextForm('https://lens.google.com/v3/upload?stcs=' + Date.now().toString().slice(0, 10), data, timeout);
-    return parseGoogleLensUploadHtml(response, width, height);
 }
 
 async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
@@ -974,8 +895,7 @@ async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promis
         const canvas = drawImageToCanvas(image, maxPixels);
         assertCanvasReadable(canvas);
         return canvas;
-    } catch (error) {
-        log.debug('Direct image canvas unavailable; fetching image blob fallback', { image: imageSummary(image) }, error);
+    } catch {
         return imageBlobToCanvas(image, maxPixels);
     }
 }
@@ -1027,155 +947,6 @@ function assertCanvasReadable(canvas: HTMLCanvasElement): void {
     canvas.getContext('2d')?.getImageData(0, 0, 1, 1);
 }
 
-function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
-    const [language = 'ja', region = 'US'] = (locale || 'ja-JP').split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    const requestId = protoMessage(
-        protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1000000))),
-        protoVarintField(2, 1),
-        protoVarintField(3, 1),
-        protoBytesField(4, randomBytes(16)),
-    );
-    const localeContext = protoMessage(
-        protoStringField(1, language || 'ja'),
-        protoStringField(2, region || 'US'),
-        protoStringField(3, timeZone),
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-        protoVarintField(1, LENS_PLATFORM_WEB),
-        protoVarintField(2, LENS_SURFACE_CHROMIUM),
-        protoMessageField(4, localeContext),
-        protoMessageField(17, clientFilters),
-    );
-    const requestContext = protoMessage(
-        protoMessageField(3, requestId),
-        protoMessageField(4, clientContext),
-    );
-    const imageData = protoMessage(
-        protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-        protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height))),
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-        protoMessageField(1, requestContext),
-        protoMessageField(3, imageData),
-    )));
-}
-
-function parseGoogleLensResponse(bytes: Uint8Array, width: number, height: number): OcrResult | null {
-    const root = decodeProtoMessage(bytes);
-    const objectsResponse = protoFirstMessage(root, 2);
-    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-    const layout = text ? protoFirstMessage(text, 1) : null;
-    if (!layout) return null;
-
-    const lines = protoMessages(layout, 1).flatMap(paragraph => googleLensParagraphLines(paragraph, width, height));
-    return lines.length ? { width, height, lines } : null;
-}
-
-interface GoogleLensWord {
-    text: string;
-    separator: string;
-    box: OcrRect | null;
-}
-
-function googleLensParagraphLines(paragraph: ProtoField[], width: number, height: number): OcrLine[] {
-    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-    return protoMessages(paragraph, 2)
-        .map(line => googleLensLine(line, width, height, vertical, paragraphBox))
-        .filter((line): line is OcrLine => line !== null);
-}
-
-function googleLensLine(line: ProtoField[], width: number, height: number, paragraphVertical: boolean, paragraphBox: OcrRect | null): OcrLine | null {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = googleLensWords(line, width, height);
-    const text = cleanOcrText(googleLensLineText(words, paragraphVertical));
-    if (!text || !HAS_JAPANESE.test(text)) return null;
-    const box = googleLensLineBox(lineBox, words, paragraphBox);
-    return box ? { text, box, vertical: googleLensLineIsVertical(paragraphVertical, box, text) } : null;
-}
-
-function googleLensLineBox(lineBox: OcrRect | null, words: GoogleLensWord[], paragraphBox: OcrRect | null): OcrRect | null {
-    return lineBox ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item))) ?? paragraphBox;
-}
-
-function googleLensLineIsVertical(paragraphVertical: boolean, box: OcrRect, text: string): boolean {
-    return paragraphVertical || (box.height > box.width * 1.25 && text.length > 1);
-}
-
-function googleLensWords(line: ProtoField[], width: number, height: number): GoogleLensWord[] {
-    return protoMessages(line, 1).map(word => ({
-        text: protoString(word, 2),
-        separator: protoString(word, 3),
-        box: protoBox(protoFirstMessage(word, 4), width, height),
-    })).filter(word => word.text);
-}
-
-function googleLensLineText(words: GoogleLensWord[], paragraphVertical: boolean): string {
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    return orderedWords
-        .map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? ' ' : '')))
-        .join('');
-}
-
-function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
-    try {
-        const callback = parseGoogleLensUploadCallback(html);
-        if (!callback) return null;
-        const lines = googleLensUploadBlocks(callback)
-            .flatMap(block => googleLensUploadLineItems(block))
-            .map(item => googleLensUploadLine(item, width, height))
-            .filter((line): line is OcrLine => line !== null);
-        return lines.length ? { width, height, lines } : null;
-    } catch {
-        return null;
-    }
-}
-
-function parseGoogleLensUploadCallback(html: string): { data?: unknown[] } | null {
-    const match = html.match(/AF_initDataCallback\((\{key:\s*['"]ds:1['"][\s\S]*?\})\);/);
-    return match ? Function(`"use strict";return (${match[1]});`)() as { data?: unknown[] } : null;
-}
-
-function googleLensUploadBlocks(callback: { data?: unknown[] }): unknown[] {
-    return (((callback.data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
-}
-
-function googleLensUploadLineItems(block: unknown): unknown[] {
-    const blockData = block as unknown[];
-    const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
-    const lineItems = rawLines?.[0] as unknown[] | undefined;
-    return Array.isArray(lineItems) ? lineItems : [];
-}
-
-function googleLensUploadLine(item: unknown, width: number, height: number): OcrLine | null {
-    const lineData = item as unknown[];
-    const text = cleanOcrText(googleLensUploadWordsText(lineData[0]));
-    const box = googleLensUploadBox(lineData[1], width, height);
-    return text && box && HAS_JAPANESE.test(text)
-        ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
-        : null;
-}
-
-function googleLensUploadWordsText(value: unknown): string {
-    const words = Array.isArray(value) ? value : [];
-    return words.map(word => {
-        const wordData = word as unknown[];
-        return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
-    }).join('');
-}
-
-function googleLensUploadBox(value: unknown, width: number, height: number): OcrRect | null {
-    const boxData = Array.isArray(value) ? value as number[] : [];
-    return boxData.length >= 4 ? clampBox({
-        top: Number(boxData[0]) * height,
-        left: Number(boxData[1]) * width,
-        width: Number(boxData[2]) * width,
-        height: Number(boxData[3]) * height,
-    }, width, height) : null;
-}
-
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
     const record = asRecord(value);
     if (!record) return null;
@@ -1195,137 +966,6 @@ function simpleLineBox(record: Record<string, unknown>, width: number, height: n
 
 function simpleLineIsVertical(record: Record<string, unknown>): boolean {
     return Boolean(record.vertical ?? record.is_vertical);
-}
-
-function normalizeCloudVisionResponse(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): OcrResult | null {
-    const responses = cloudVisionResponses(record);
-    const lines: OcrLine[] = [];
-    let width = fallbackWidth;
-    let height = fallbackHeight;
-    for (const response of responses) {
-        const pageResult = collectCloudVisionPageLines(response, width, height);
-        width = pageResult.width;
-        height = pageResult.height;
-        lines.push(...pageResult.lines);
-        if (!lines.length) lines.push(...normalizeCloudVisionTextAnnotations(response, width, height));
-    }
-    return lines.length ? { width, height, lines } : null;
-}
-
-function cloudVisionResponses(record: Record<string, unknown>): unknown[] {
-    if (Array.isArray(record.responses)) return record.responses;
-    return 'fullTextAnnotation' in record ? [record] : [];
-}
-
-function collectCloudVisionPageLines(response: unknown, fallbackWidth: number, fallbackHeight: number): OcrResult {
-    const lines: OcrLine[] = [];
-    let width = fallbackWidth;
-    let height = fallbackHeight;
-    for (const pageRecord of cloudVisionPages(response)) {
-        width = numberFrom(pageRecord.width) || width;
-        height = numberFrom(pageRecord.height) || height;
-        for (const paragraph of cloudVisionPageParagraphs(pageRecord)) {
-            pushCloudVisionParagraphLines(paragraph, lines, width, height);
-        }
-    }
-    return { width, height, lines };
-}
-
-function cloudVisionPages(response: unknown): Record<string, unknown>[] {
-    if (!response || typeof response !== 'object') return [];
-    const annotation = (response as Record<string, unknown>).fullTextAnnotation as Record<string, unknown> | undefined;
-    return Array.isArray(annotation?.pages) ? annotation.pages.filter(isRecord) : [];
-}
-
-function cloudVisionPageParagraphs(page: Record<string, unknown>): Record<string, unknown>[] {
-    const blocks = Array.isArray(page.blocks) ? page.blocks.filter(isRecord) : [];
-    return blocks.flatMap(block => Array.isArray(block.paragraphs) ? block.paragraphs.filter(isRecord) : []);
-}
-
-function normalizeCloudVisionTextAnnotations(response: unknown, width: number, height: number): OcrLine[] {
-    if (!response || typeof response !== 'object') return [];
-    const annotations = (response as Record<string, unknown>).textAnnotations;
-    if (!Array.isArray(annotations) || annotations.length <= 1) return [];
-    return annotations.slice(1)
-        .map(item => normalizeCloudVisionTextAnnotation(item, width, height))
-        .filter((line): line is OcrLine => Boolean(line));
-}
-
-function normalizeCloudVisionTextAnnotation(item: unknown, width: number, height: number): OcrLine | null {
-    if (!isRecord(item)) return null;
-    const text = cleanOcrText(item.description);
-    const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
-    return japaneseOcrLine(text, box);
-}
-
-function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
-    const accumulator: CloudVisionLineAccumulator = { text: '', boxes: [] };
-    for (const word of cloudVisionParagraphWords(paragraph)) {
-        for (const symbol of cloudVisionWordSymbols(word)) appendCloudVisionSymbol(accumulator, symbol, lines, width, height);
-    }
-    pushCloudVisionLine(accumulator, lines);
-}
-
-interface CloudVisionLineAccumulator {
-    text: string;
-    boxes: OcrRect[];
-}
-
-function cloudVisionParagraphWords(paragraph: Record<string, unknown>): unknown[] {
-    return Array.isArray(paragraph.words) ? paragraph.words : [];
-}
-
-function cloudVisionWordSymbols(word: unknown): unknown[] {
-    return isRecord(word) && Array.isArray(word.symbols) ? word.symbols : [];
-}
-
-function appendCloudVisionSymbol(accumulator: CloudVisionLineAccumulator, symbol: unknown, lines: OcrLine[], width: number, height: number): void {
-    const record = cloudVisionSymbolRecord(symbol);
-    if (!record) return;
-    accumulator.text += String(record.text ?? '');
-    appendCloudVisionSymbolBox(accumulator, record, width, height);
-    const breakType = cloudVisionDetectedBreak(record);
-    if (isCloudVisionSpaceBreak(breakType)) accumulator.text += ' ';
-    if (isCloudVisionLineBreak(breakType)) pushCloudVisionLine(accumulator, lines);
-}
-
-function cloudVisionSymbolRecord(symbol: unknown): Record<string, unknown> | null {
-    return isRecord(symbol) ? symbol : null;
-}
-
-function appendCloudVisionSymbolBox(accumulator: CloudVisionLineAccumulator, symbol: Record<string, unknown>, width: number, height: number): void {
-    const box = normalizeCloudVisionVertices((symbol.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
-    if (box) accumulator.boxes.push(box);
-}
-
-function pushCloudVisionLine(accumulator: CloudVisionLineAccumulator, lines: OcrLine[]): void {
-    const value = cleanOcrText(accumulator.text);
-    const box = unionBoxes(accumulator.boxes);
-    const line = japaneseOcrLine(value, box);
-    if (line) lines.push(line);
-    accumulator.text = '';
-    accumulator.boxes = [];
-}
-
-function cloudVisionDetectedBreak(symbol: Record<string, unknown>): unknown {
-    return ((symbol.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
-}
-
-function isCloudVisionSpaceBreak(value: unknown): boolean {
-    return value === 'SPACE' || value === 'SURE_SPACE' || value === 'UNKNOWN';
-}
-
-function isCloudVisionLineBreak(value: unknown): boolean {
-    return value === 'LINE_BREAK' || value === 'EOL_SURE_SPACE' || value === 'HYPHEN';
-}
-
-function normalizeCloudVisionVertices(value: unknown, width: number, height: number): OcrRect | null {
-    if (!Array.isArray(value) || value.length < 2) return null;
-    const xs = value.map(vertex => numberFrom((vertex as Record<string, unknown>)?.x) ?? 0);
-    const ys = value.map(vertex => numberFrom((vertex as Record<string, unknown>)?.y) ?? 0);
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
 }
 
 function normalizeStructuredOcrResult(value: unknown, width: number, height: number): OcrLine[] {
@@ -1671,9 +1311,7 @@ function intersectionArea(a: DOMRect, b: DOMRect): number {
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (settings.ocrProvider === 'off') return false;
     if (readFallbackOcrResult(image, false)) return true;
-    if (settings.ocrProvider === 'local-service') return Boolean(settings.ocrEndpointUrl.trim());
-    if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
-    return settings.ocrProvider === 'google-lens';
+    return settings.ocrProvider === 'local-service' && Boolean(settings.ocrEndpointUrl.trim());
 }
 
 function hasFallbackOcrMetadata(image: HTMLImageElement): boolean {
@@ -1698,167 +1336,9 @@ function imageCacheKey(image: HTMLImageElement): string {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
 }
 
-function protoMessage(...parts: Uint8Array[]): Uint8Array {
-    return concatBytes(parts);
-}
-
-function protoMessageField(field: number, value: Uint8Array): Uint8Array {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-}
-
-function protoBytesField(field: number, value: Uint8Array): Uint8Array {
-    return protoMessageField(field, value);
-}
-
-function protoStringField(field: number, value: string): Uint8Array {
-    return protoBytesField(field, new TextEncoder().encode(value));
-}
-
-function protoVarintField(field: number, value: number | bigint): Uint8Array {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-}
-
-function protoTag(field: number, wire: number): Uint8Array {
-    return encodeVarint((field << 3) | wire);
-}
-
-function encodeVarint(value: number | bigint): Uint8Array {
-    let item = BigInt(value);
-    const bytes: number[] = [];
-    do {
-        let byte = Number(item & 0x7fn);
-        item >>= 7n;
-        if (item) byte |= 0x80;
-        bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-}
-
-function decodeProtoMessage(bytes: Uint8Array): ProtoField[] {
-    const fields: ProtoField[] = [];
-    let offset = 0;
-    while (offset < bytes.length) {
-        const [tag, nextOffset] = readVarint(bytes, offset);
-        offset = nextOffset;
-        const field = Number(tag >> 3n);
-        const wire = Number(tag & 7n);
-        if (!field) break;
-        const decoded = readProtoWireValue(bytes, offset, wire);
-        if (!decoded) break;
-        fields.push({ field, wire, value: decoded.value });
-        offset = decoded.offset;
-    }
-    return fields;
-}
-
-function readProtoWireValue(bytes: Uint8Array, offset: number, wire: number): { value: ProtoField['value']; offset: number } | null {
-    if (wire === 0) {
-        const [value, afterValue] = readVarint(bytes, offset);
-        return { value, offset: afterValue };
-    }
-    if (wire === 1) return { value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true), offset: offset + 8 };
-    if (wire === 2) return readProtoLengthDelimitedValue(bytes, offset);
-    if (wire === 5) return { value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true), offset: offset + 4 };
-    return null;
-}
-
-function readProtoLengthDelimitedValue(bytes: Uint8Array, offset: number): { value: Uint8Array; offset: number } {
-    const [length, afterLength] = readVarint(bytes, offset);
-    const start = afterLength;
-    const end = start + Number(length);
-    return { value: bytes.slice(start, end), offset: end };
-}
-
-function readVarint(bytes: Uint8Array, offset: number): [bigint, number] {
-    let shift = 0n;
-    let result = 0n;
-    while (offset < bytes.length) {
-        const byte = bytes[offset++];
-        result |= BigInt(byte & 0x7f) << shift;
-        if (!(byte & 0x80)) return [result, offset];
-        shift += 7n;
-    }
-    return [result, offset];
-}
-
-function protoMessages(fields: ProtoField[], field: number): ProtoField[][] {
-    return fields
-        .filter(item => item.field === field && item.wire === 2 && item.value instanceof Uint8Array)
-        .map(item => decodeProtoMessage(item.value as Uint8Array));
-}
-
-function protoFirstMessage(fields: ProtoField[], field: number): ProtoField[] | null {
-    return protoMessages(fields, field)[0] ?? null;
-}
-
-function protoString(fields: ProtoField[], field: number): string {
-    const item = fields.find(value => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-    return item ? new TextDecoder().decode(item.value as Uint8Array) : '';
-}
-
-function protoNumber(fields: ProtoField[], field: number): number {
-    const item = fields.find(value => value.field === field);
-    if (!item) return 0;
-    return typeof item.value === 'bigint' ? Number(item.value) : typeof item.value === 'number' ? item.value : 0;
-}
-
-function protoBox(geometry: ProtoField[] | null, width: number, height: number): OcrRect | null {
-    const box = geometry ? protoFirstMessage(geometry, 1) : null;
-    if (!box) return null;
-    const geometryBox = readProtoGeometryBox(box);
-    return geometryBox ? clampBox(scaleProtoGeometryBox(geometryBox, width, height), width, height) : null;
-}
-
-interface ProtoGeometryBox {
-    centerX: number;
-    centerY: number;
-    width: number;
-    height: number;
-}
-
-function readProtoGeometryBox(box: ProtoField[]): ProtoGeometryBox | null {
-    const geometry = {
-        centerX: protoNumber(box, 1),
-        centerY: protoNumber(box, 2),
-        width: protoNumber(box, 3),
-        height: protoNumber(box, 4),
-    };
-    return geometry.width && geometry.height ? geometry : null;
-}
-
-function scaleProtoGeometryBox(box: ProtoGeometryBox, imageWidth: number, imageHeight: number): OcrRect {
-    const normalized = Math.max(box.centerX, box.centerY, box.width, box.height) <= 2;
-    const scaledWidth = normalized ? box.width * imageWidth : box.width;
-    const scaledHeight = normalized ? box.height * imageHeight : box.height;
-    return {
-        left: (normalized ? box.centerX * imageWidth : box.centerX) - scaledWidth / 2,
-        top: (normalized ? box.centerY * imageHeight : box.centerY) - scaledHeight / 2,
-        width: scaledWidth,
-        height: scaledHeight,
-    };
-}
-
-function concatBytes(parts: Uint8Array[]): Uint8Array {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-        result.set(part, offset);
-        offset += part.length;
-    }
-    return result;
-}
-
-function randomBytes(length: number): Uint8Array {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return bytes;
-}
-
 function requestJson(url: string, data: string, timeout: number): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-        log.debug('JSON OCR request via userscript API', { host: safeHost(url), bytes: data.length });
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'POST',
@@ -1875,77 +1355,13 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
             });
         });
     }
-    log.debug('JSON OCR request via fetch', { host: safeHost(url), bytes: data.length });
     return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: data })
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
-}
-
-function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
-    const body = new Uint8Array(data);
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        log.debug('ArrayBuffer OCR request via userscript API', { host: safeHost(url), bytes: body.byteLength });
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'POST',
-                url,
-                headers: {
-                    'content-type': 'application/x-protobuf',
-                    'x-goog-api-key': GOOGLE_LENS_API_KEY,
-                    accept: '*/*',
-                    'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
-                },
-                data: body.buffer,
-                responseType: 'arraybuffer',
-                timeout,
-                onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(response.response as ArrayBuffer)
-                    : reject(new Error(`Google Lens returned ${response.status}.`)),
-                onerror: reject,
-                ontimeout: () => reject(new Error('Google Lens timed out.')),
-            });
-        });
-    }
-    log.debug('ArrayBuffer OCR request via fetch', { host: safeHost(url), bytes: body.byteLength });
-    return fetch(url, {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/x-protobuf',
-            'x-goog-api-key': GOOGLE_LENS_API_KEY,
-            accept: '*/*',
-            'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
-        },
-        body: body.buffer,
-    }).then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
-}
-
-function requestTextForm(url: string, data: FormData, timeout: number): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        log.debug('Form OCR request via userscript API', { host: safeHost(url) });
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'POST',
-                url,
-                data,
-                responseType: 'text',
-                timeout,
-                onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(String(response.responseText ?? response.response ?? ''))
-                    : reject(new Error(`Google Lens upload returned ${response.status}.`)),
-                onerror: reject,
-                ontimeout: () => reject(new Error('Google Lens upload timed out.')),
-            });
-        });
-    }
-    log.debug('Form OCR request via fetch', { host: safeHost(url) });
-    return fetch(url, { method: 'POST', body: data }).then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
 }
 
 function requestBlob(url: string): Promise<Blob> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-        log.debug('Image blob request via userscript API', { host: safeHost(url) });
         return new Promise((resolve, reject) => {
             userscriptRequest({
                 method: 'GET',
@@ -1958,7 +1374,6 @@ function requestBlob(url: string): Promise<Blob> {
             });
         });
     }
-    log.debug('Image blob request via fetch', { host: safeHost(url) });
     return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
 }
 
@@ -2033,14 +1448,6 @@ function configuredOcrProviderLabel(settings: ReaderSettings): string | null {
 
 function localServiceProviderLabel(settings: ReaderSettings): string | null {
     return settings.ocrEndpointUrl.trim() ? `local-service:${ocrEngineLabel(settings)}` : null;
-}
-
-function cloudVisionProviderLabel(settings: ReaderSettings): string | null {
-    return settings.ocrCloudVisionApiKey.trim() ? 'cloud-vision' : null;
-}
-
-function googleLensProviderLabel(_settings: ReaderSettings): string {
-    return 'google-lens';
 }
 
 function ocrEngineLabel(settings: ReaderSettings): string {

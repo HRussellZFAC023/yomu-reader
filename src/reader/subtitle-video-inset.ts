@@ -268,12 +268,14 @@ function rememberGenericVideoInsetStyles(target: HTMLElement): void {
 }
 
 function applyGenericBottomInset(target: HTMLElement, size: number): void {
+    restoreGenericSideInsetStyles(target);
     setStylePropertyIfChanged(target, 'height', `${Math.round(size)}px`);
     setStylePropertyIfChanged(target, 'max-height', `${Math.round(size)}px`);
     setStylePropertyIfChanged(target, 'min-height', '0px');
 }
 
 function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide, size: number): void {
+    restoreGenericBottomInsetStyles(target);
     const rect = target.getBoundingClientRect();
     const inset = Number.parseFloat(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')) || 0;
     const margin = side === 'left'
@@ -284,6 +286,24 @@ function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide
     setStylePropertyIfChanged(target, 'min-width', '0px');
     setStylePropertyIfChanged(target, side === 'left' ? 'margin-left' : 'margin-right', `${margin}px`);
     setStylePropertyIfChanged(target, side === 'left' ? 'margin-right' : 'margin-left', '0px');
+}
+
+function restoreGenericSideInsetStyles(target: HTMLElement): void {
+    const previous = genericVideoInsetStyles.get(target);
+    if (!previous) return;
+    setRestoredStyleProperty(target, 'width', previous.width);
+    setRestoredStyleProperty(target, 'max-width', previous.maxWidth);
+    setRestoredStyleProperty(target, 'min-width', previous.minWidth);
+    setRestoredStyleProperty(target, 'margin-left', previous.marginLeft);
+    setRestoredStyleProperty(target, 'margin-right', previous.marginRight);
+}
+
+function restoreGenericBottomInsetStyles(target: HTMLElement): void {
+    const previous = genericVideoInsetStyles.get(target);
+    if (!previous) return;
+    setRestoredStyleProperty(target, 'height', previous.height);
+    setRestoredStyleProperty(target, 'max-height', previous.maxHeight);
+    setRestoredStyleProperty(target, 'min-height', previous.minHeight);
 }
 
 function clearGenericVideoInset(video: HTMLVideoElement): void {

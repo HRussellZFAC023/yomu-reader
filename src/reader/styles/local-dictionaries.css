@@ -67,26 +67,6 @@
 .jpdb-reader-source-card[open] > :last-child {
   margin-bottom: 7px;
 }
-.jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
-  display: inline-flex;
-  width: 20px;
-  min-height: 20px;
-  padding: 0;
-  justify-content: center;
-}
-.jpdb-reader-source-card > summary.jpdb-reader-inline-source-summary::after {
-  margin: 0;
-  font-size: 13px;
-}
-.jpdb-reader-source-card
-  > summary.jpdb-reader-inline-source-summary
-  + .jpdb-reader-local-terms {
-  padding-top: 0;
-}
 .jpdb-reader-dictionary-source-list,
 .jpdb-reader-dictionaries-section .jpdb-reader-local-terms {
   gap: 0;
@@ -289,11 +269,6 @@
   --list-padding1: 1.1em;
   --list-padding2: 1.45em;
   --compact-list-separator: " / ";
-}
-.jpdb-reader-local-more {
-  margin-top: 6px;
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding-top: 5px;
 }
 .jpdb-reader-local-glossary-entry.no-index {
   display: block;

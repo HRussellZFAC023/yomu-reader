@@ -305,13 +305,8 @@ function publicFetchUrl(url: string): string | null {
     try {
         const target = new URL(url, location.href);
         if (target.origin === location.origin) return target.href;
-        if (isLoopbackPage()) return `/__jpdb-reader-dictionary-proxy?url=${encodeURIComponent(target.href)}`;
         return null;
     } catch {
         return url;
     }
-}
-
-function isLoopbackPage(): boolean {
-    return typeof location !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 }

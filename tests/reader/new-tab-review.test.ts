@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AnkiConnectClient } from '../../src/reader/anki';
+import { listNewTabAnkiCards } from '../../src/reader/anki-new-tab';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/new-tab-controller';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb-review-bridge';
 import { installKanjiDoodle } from '../../src/reader/kanji-doodle';
@@ -102,13 +103,14 @@ describe('new tab review helpers', () => {
             return new Response(JSON.stringify({ result, error: null }), { status: 200 });
         });
 
-        const client = new AnkiConnectClient(() => ({
+        const settings = {
             ...DEFAULT_SETTINGS,
             ankiEnabled: true,
             ankiDeck: 'Yomu',
             ankiModel: 'Yomu Japanese',
-        }));
-        const cards = await client.listNewTabCards(10);
+        };
+        const client = new AnkiConnectClient(() => settings);
+        const cards = await listNewTabAnkiCards(client, settings, 10);
 
         expect(actions).toEqual(['findCards', 'areDue', 'cardsInfo', 'notesInfo']);
         expect(cards.map(card => card.spelling)).toEqual(['読む', '書く']);
@@ -623,8 +625,9 @@ describe('new tab review helpers', () => {
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
     });
 
-    it('opens dictionary settings instead of showing a no-userscript download status', async () => {
+    it('tries to install the starter dictionary without requiring an installed userscript', async () => {
         const showSettings = vi.fn();
+        const ensureStarterDictionary = vi.fn(async () => false);
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS }),
             anki: {} as never,
@@ -638,7 +641,7 @@ describe('new tab review helpers', () => {
             } as never,
             parser: {} as never,
             dictionaries: {} as never,
-            ensureStarterDictionary: vi.fn(),
+            ensureStarterDictionary,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings,
@@ -649,8 +652,9 @@ describe('new tab review helpers', () => {
 
         await (controller as unknown as { installStarterDictionary(root: HTMLElement): Promise<void> }).installStarterDictionary(root);
 
-        expect(showSettings).toHaveBeenCalledWith('dictionaries');
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+        expect(showSettings).not.toHaveBeenCalled();
+        expect(ensureStarterDictionary).toHaveBeenCalledTimes(1);
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary was not added.');
     });
 
     it('allows the hosted demo runtime to install the starter dictionary', async () => {

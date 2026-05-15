@@ -81,7 +81,6 @@ const settings = {
         nextSubtitle: 'Alt+ArrowRight',
         copySubtitle: 'Alt+C',
         toggleOcr: 'Alt+O',
-        toggleYoutubeImmersion: 'Alt+Y',
         scanImages: 'Alt+I',
         gradeNothing: '1',
         gradeSomething: '2',
@@ -234,22 +233,10 @@ await page.addInitScript(({ settings, live }) => {
 if (!LIVE) await page.route('**/*', mockProfileRoute);
 
 async function mockProfileRoute(route) {
-    const url = profileRouteUrl(route.request().url());
+    const url = new URL(route.request().url());
     const response = await profileRouteResponse(route, url);
     if (response) return route.fulfill(response);
     return route.continue();
-}
-
-function profileRouteUrl(value) {
-    const url = new URL(value);
-    if (!isProfileAudioProxyUrl(url)) return url;
-    return new URL(url.searchParams.get('url'));
-}
-
-function isProfileAudioProxyUrl(url) {
-    return url.hostname === '127.0.0.1'
-        && url.pathname === '/__jpdb-reader-audio-proxy'
-        && url.searchParams.has('url');
 }
 
 async function profileRouteResponse(route, url) {

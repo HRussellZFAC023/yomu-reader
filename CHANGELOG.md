@@ -6,6 +6,13 @@ Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
 
 Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 
+## [Unreleased]
+
+### Fixed
+
+- Let the standalone hosted new-tab page use normal browser CORS for Immersion Kit examples/media, so Chrome, Safari/WebKit, Firefox, and mobile browsers do not need an installed userscript just to load examples.
+- Added a bundled starter dictionary fallback when the browser blocks the remote JMdict release ZIP, and kept compressed Yomitan ZIP imports working when `DecompressionStream` is unavailable or unreliable.
+
 ## [0.4.9] - 2026-05-14
 
 ### Fixed
