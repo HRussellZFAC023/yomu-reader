@@ -10,6 +10,7 @@ export const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_R
 export const RAW_USERSCRIPT_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}/main/dist/yomu.user.js`;
 export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
 export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+export const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = 'yomu-userscript-http-bridge-ready';
 export const FALLBACK_SETUP_SOURCE_ID = '__fallback_setup__';
 export const JPDB_DEFINITION_SOURCE_ID = '__jpdb__';
 export const JPDB_DEFINITION_EXAMPLES_SOURCE_ID = '__jpdb_examples__';

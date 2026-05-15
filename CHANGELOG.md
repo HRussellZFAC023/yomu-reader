@@ -8,10 +8,13 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+## [0.4.10] - 2026-05-15
+
 ### Fixed
 
 - Added a Cloudflare-hosted public-resource proxy fallback for hosted-page JPDB kanji/vocabulary, pitch, audio, and dictionary downloads without sending logged-in JPDB actions through public proxies.
 - Reworked the hosted new-tab iPad flow so missing dictionaries send users to Settings, dictionary downloads do not open surprise tabs, new-tab word taps open the lookup popover, kanji graph nodes drag, and the bottom controls stay fixed.
+- Kept the Dictionaries settings source-order table compact on iPad when no imported dictionaries exist, removing the empty Display name and Remove columns until they are useful.
 - Added hosted-page userscript coverage back for the new-tab page so JPDB kanji, Uchisen, RTK, and remote dictionary downloads can use the userscript request bridge on iPad.
 - Improved the settings Help and tablet layout, including visible donation/support links and better wrapping for settings rows.
 - Treat mobile Anki handoff as a valid iPad/Android path instead of reporting mobile-only setups as broken AnkiConnect.

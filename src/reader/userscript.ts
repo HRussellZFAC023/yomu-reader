@@ -1,4 +1,5 @@
 import { monkeyWindow } from 'vite-plugin-monkey/dist/client';
+import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 type UserscriptRequestSource = {
     GM_xmlhttpRequest?: UserscriptHttpRequest;
     GM?: {
@@ -34,7 +35,11 @@ export function installUserscriptHttpBridge(): void {
     const bridgeCandidate = userscriptRequestCandidates()
         .map(candidate => ({ candidate, request: asUserscriptRequest(candidate.request) }))
         .find(item => item.request);
-    if (!bridgeCandidate?.request || document.documentElement.dataset[BRIDGE_MARKER] === 'true') return;
+    if (!bridgeCandidate?.request) return;
+    if (document.documentElement.dataset[BRIDGE_MARKER] === 'true') {
+        dispatchUserscriptBridgeReady();
+        return;
+    }
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     document.documentElement.dataset[BRIDGE_MARKER] = 'true';
     window.addEventListener(BRIDGE_REQUEST_EVENT, event => {
@@ -60,6 +65,11 @@ export function installUserscriptHttpBridge(): void {
             send('error', undefined, error instanceof Error ? error.message : String(error || 'Request failed.'));
         }
     });
+    dispatchUserscriptBridgeReady();
+}
+
+function dispatchUserscriptBridgeReady(): void {
+    window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
 }
 
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {

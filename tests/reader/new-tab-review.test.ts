@@ -691,6 +691,104 @@ describe('new tab review helpers', () => {
         document.documentElement.style.removeProperty('--jpdb-reader-text');
     });
 
+    it('keeps Apple Pencil doodle strokes when the pointer leaves the canvas and suppresses text selection', () => {
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        const originalGetContext = HTMLCanvasElement.prototype.getContext;
+        const context = {
+            strokeStyle: '',
+            fillStyle: '',
+            lineCap: '',
+            lineJoin: '',
+            lineWidth: 0,
+            clearRect: vi.fn(),
+            beginPath: vi.fn(),
+            moveTo: vi.fn(),
+            lineTo: vi.fn(),
+            arc: vi.fn(),
+            fill: vi.fn(),
+            stroke: vi.fn(),
+            save: vi.fn(),
+            restore: vi.fn(),
+        };
+        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+            configurable: true,
+            value: vi.fn(() => context),
+        });
+        const onChange = vi.fn();
+        const root = document.createElement('div');
+        root.innerHTML = `
+            <div class="jpdb-reader-doodle-stage" data-kanji="会">
+                <div class="jpdb-reader-doodle-ghost"></div>
+                <canvas class="jpdb-reader-doodle-canvas"></canvas>
+            </div>
+            <div class="jpdb-reader-doodle-tools">
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>Show trace</button>
+            </div>
+        `;
+        document.body.append(root);
+        const stage = root.querySelector<HTMLElement>('.jpdb-reader-doodle-stage')!;
+        const canvas = root.querySelector<HTMLCanvasElement>('canvas')!;
+        const trace = root.querySelector<HTMLButtonElement>('[data-doodle-trace]')!;
+        stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+        canvas.getBoundingClientRect = stage.getBoundingClientRect;
+
+        installKanjiDoodle(root, () => DEFAULT_SETTINGS.interfaceLanguage, { onChange });
+        canvas.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), {
+            clientX: 10,
+            clientY: 10,
+            pointerId: 9,
+            pointerType: 'pen',
+            pressure: 0.4,
+        }));
+        document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), {
+            clientX: 120,
+            clientY: 120,
+            pointerId: 9,
+            pointerType: 'pen',
+            pressure: 0.6,
+            getCoalescedEvents: () => [
+                { clientX: 40, clientY: 45, pressure: 0.5 },
+                { clientX: 80, clientY: 88, pressure: 0.6 },
+            ],
+        }));
+        document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), {
+            clientX: 120,
+            clientY: 120,
+            pointerId: 9,
+            pointerType: 'pen',
+            pressure: 0,
+        }));
+
+        expect(onChange).toHaveBeenCalledWith([
+            expect.arrayContaining([
+                expect.objectContaining({ x: 0.1, y: 0.1 }),
+                expect.objectContaining({ x: 0.4, y: 0.45 }),
+                expect.objectContaining({ x: 0.8, y: 0.88 }),
+            ]),
+        ]);
+        expect(context.arc).toHaveBeenCalled();
+        expect(context.lineTo).toHaveBeenCalled();
+
+        const range = document.createRange();
+        range.selectNodeContents(trace);
+        document.getSelection()?.removeAllRanges();
+        document.getSelection()?.addRange(range);
+        const selectStart = new Event('selectstart', { bubbles: true, cancelable: true });
+        trace.dispatchEvent(selectStart);
+        expect(selectStart.defaultPrevented).toBe(true);
+        expect(document.getSelection()?.isCollapsed).toBe(true);
+
+        root.remove();
+        document.documentElement.classList.remove('jpdb-reader-doodle-active');
+        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+            configurable: true,
+            value: originalGetContext,
+        });
+    });
+
     it('keeps new-tab word readings and meanings off the front side until reveal', async () => {
         const card: JPDBCard = {
             vid: 1,
@@ -874,6 +972,7 @@ describe('new tab review helpers', () => {
             score: 1,
             dictionary: 'Local',
         }]);
+        const invalidateCaches = vi.fn();
         const controller = new NewTabController({
             getSettings: () => settings,
             anki: {} as never,
@@ -906,6 +1005,81 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
 
         expect(summary).toHaveBeenCalledTimes(2);
+        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 4000, settings.dictionaryPreferences);
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionaries');
+        document.body.replaceChildren();
+    });
+
+    it('can force-retry dictionary setup when dictionaries appear outside settings', async () => {
+        document.body.replaceChildren();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            newTabEnabled: true,
+            newTabSource: 'dictionary' as const,
+            localDictionariesEnabled: true,
+            dictionaryPreferences: [{ name: 'Local', alias: 'Local', enabled: true, priority: 0, type: 'terms' as const }],
+            immersionKitEnabled: false,
+            newTabOfflineEnabled: false,
+        };
+        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local' });
+        const summary = vi.fn()
+            .mockResolvedValueOnce({
+                dictionaries: [],
+                terms: 0,
+                kanji: 0,
+                termMeta: 0,
+                kanjiMeta: 0,
+            })
+            .mockResolvedValueOnce({
+                dictionaries: [{ title: 'Local', alias: 'Local', enabled: true, priority: 0, type: 'terms' as const }],
+                terms: 1,
+                kanji: 0,
+                termMeta: 0,
+                kanjiMeta: 0,
+            });
+        const listRandomTopTerms = vi.fn(async () => [{
+            expression: '書く',
+            reading: 'かく',
+            glossary: ['to write'],
+            score: 1,
+            dictionary: 'Local',
+        }]);
+        const invalidateCaches = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => settings,
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+            } as never,
+            parser: {
+                cacheCards: vi.fn(),
+                localCardFromEntry: vi.fn(() => localCard),
+            } as never,
+            dictionaries: {
+                invalidateCaches,
+                summary,
+                listRandomTopTerms,
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await controller.renderPage();
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
+
+        await controller.refreshExternalData();
+
+        expect(summary).toHaveBeenCalledTimes(2);
+        expect(invalidateCaches).toHaveBeenCalledTimes(1);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 4000, settings.dictionaryPreferences);
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionaries');

@@ -1207,7 +1207,8 @@ describe('reader helpers', () => {
 
             await expect(client.lookup('易しい', 'やさしい')).resolves.toEqual([]);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls[0]).toBe(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
+            expect(urls[0]).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
+            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
             expect(urls).toContain(`https://corsproxy.io/?url=${encodeURIComponent('https://jpdb.io/search?q=%E3%82%84%E3%81%95%E3%81%97%E3%81%84')}`);
         } finally {
             vi.unstubAllGlobals();
@@ -1223,7 +1224,8 @@ describe('reader helpers', () => {
 
             await expect(client.lookup(123, '読む', 'よむ')).resolves.toBeNull();
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls[0]).toBe(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
+            expect(urls[0]).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
+            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
             expect(urls).toContain(`https://corsproxy.io/?url=${encodeURIComponent('https://jpdb.io/search?q=%E3%82%88%E3%82%80')}`);
         } finally {
             vi.unstubAllGlobals();
@@ -1333,6 +1335,20 @@ describe('reader helpers', () => {
         expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
     });
 
+    it('keeps definition source ordering compact until editable dictionaries exist', () => {
+        document.body.innerHTML = `<form>${renderDictionarySourceRows(DEFAULT_SETTINGS)}</form>`;
+
+        const header = document.querySelector<HTMLElement>('.jpdb-reader-dictionary-head');
+        const row = document.querySelector<HTMLElement>('[data-dictionary-source-row]');
+
+        expect(header?.textContent).not.toContain('Display name');
+        expect(header?.textContent).not.toContain('Remove');
+        expect(header?.classList.contains('compact')).toBe(true);
+        expect(header?.classList.contains('no-remove')).toBe(true);
+        expect(row?.classList.contains('compact')).toBe(true);
+        expect(row?.classList.contains('no-remove')).toBe(true);
+    });
+
     it('saves editable dictionary display names without changing dictionary titles', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -1348,6 +1364,8 @@ describe('reader helpers', () => {
         const form = document.querySelector('form')!;
         const alias = form.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.0.alias"]');
 
+        expect(form.textContent).toContain('Display name');
+        expect(form.textContent).toContain('Remove');
         expect(alias?.type).toBe('text');
         alias!.value = 'Jitendex';
 
@@ -1538,6 +1556,7 @@ describe('reader helpers', () => {
             expect(await response.text()).toBe('ok');
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
                 `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
             ]);
         } finally {
@@ -3687,6 +3706,7 @@ describe('reader helpers', () => {
                 .rejects.toThrow(/blocked in this browser/i);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls.map(([url]) => String(url));
             expect(urls).toEqual([
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
                 `https://api.allorigins.win/raw?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
                 `https://corsproxy.io/?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
             ]);

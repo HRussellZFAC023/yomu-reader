@@ -553,9 +553,17 @@
 .jpdb-reader-lookup-link-row {
   grid-template-columns: 50px minmax(160px, 1fr) minmax(150px, 0.9fr) max-content 42px;
 }
+.jpdb-reader-dictionary-head.no-remove,
+.jpdb-reader-dictionary-row.no-remove {
+  grid-template-columns: 50px minmax(160px, 1fr) minmax(150px, 0.9fr) max-content;
+}
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
   grid-template-columns: 50px minmax(220px, 1fr) max-content 42px;
+}
+.jpdb-reader-dictionary-head.compact.no-remove,
+.jpdb-reader-dictionary-row.compact.no-remove {
+  grid-template-columns: 50px minmax(220px, 1fr) max-content;
 }
 .jpdb-reader-order-head {
   padding: 0 10px;
@@ -730,9 +738,19 @@
     grid-template-columns: 46px minmax(130px, 0.95fr) minmax(180px, 1.1fr) max-content 42px;
   }
 
+  .jpdb-reader-dictionary-head.no-remove,
+  .jpdb-reader-dictionary-row.no-remove {
+    grid-template-columns: 46px minmax(130px, 0.95fr) minmax(180px, 1.1fr) max-content;
+  }
+
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
     grid-template-columns: 46px minmax(220px, 1fr) max-content 42px;
+  }
+
+  .jpdb-reader-dictionary-head.compact.no-remove,
+  .jpdb-reader-dictionary-row.compact.no-remove {
+    grid-template-columns: 46px minmax(220px, 1fr) max-content;
   }
 
   .jpdb-reader-recommended-item {

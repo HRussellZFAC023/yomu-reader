@@ -55,6 +55,7 @@
 .jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell {
   grid-template-rows: auto auto auto;
   align-content: start;
+  padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
 }
 
 .jpdb-reader-newtab-topbar {
@@ -266,6 +267,16 @@
   grid-template-rows: auto auto auto auto;
   align-content: start;
   gap: clamp(14px, 2vh, 24px);
+}
+
+.jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
+  .jpdb-reader-newtab-answer,
+.jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
+  .jpdb-reader-newtab-meaning {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  justify-items: center;
 }
 
 .jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
@@ -520,12 +531,15 @@
 }
 
 .jpdb-reader-newtab-kanji-answer {
-  width: min(700px, calc(100vw - 32px));
+  width: min(700px, 100%);
+  max-width: 100%;
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   justify-content: center;
   align-items: start;
   gap: clamp(18px, 3vw, 28px);
+  justify-self: center;
   margin-block: clamp(4px, 1.4vh, 14px) clamp(12px, 2.8vh, 28px);
 }
 
@@ -536,6 +550,20 @@
   width: min(420px, calc(100vw - 32px));
   margin-block: clamp(12px, 3vh, 36px);
   margin-inline: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jpdb-reader-newtab-kanji-front *,
+.jpdb-reader-newtab-doodle-actions,
+.jpdb-reader-newtab-doodle-actions button {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
@@ -546,6 +574,8 @@
 .jpdb-reader-newtab-kanji-svg,
 .jpdb-reader-newtab-doodle,
 .jpdb-reader-newtab-doodle-preview {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   background: color-mix(
@@ -606,6 +636,10 @@
   margin-inline: auto;
   overflow: hidden;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   --jpdb-reader-doodle-ink: var(--jpdb-reader-text, #f2f4f8);
   background:
     linear-gradient(
@@ -650,6 +684,11 @@
 .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas {
   z-index: 2;
   display: block;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(
@@ -721,17 +760,108 @@
 
 .jpdb-reader-newtab-kanji-details {
   display: grid;
-  gap: 12px;
-  width: min(760px, calc(100vw - 32px));
-  margin-top: 6px;
+  gap: 16px;
+  width: min(760px, 100%);
+  max-width: 100%;
+  min-width: 0;
+  justify-self: center;
+  margin-inline: auto;
+  margin-top: 10px;
   text-align: left;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-kanji-details > *,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-newtab-kanji-sources,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-source-card,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-entry,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-glossary,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-similar-grid,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-origin-graph-wrap,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-rtk-elements,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-head {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-source-card {
+  margin-top: 0;
+  padding-top: 14px;
+  overflow: hidden;
+  border-top: 1px solid
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 72%,
+      transparent
+    );
+  background: transparent;
+  box-shadow: none;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-kanji-details
+  .jpdb-reader-source-card
+  > summary.jpdb-reader-local-title {
+  min-height: 28px;
+  padding: 0 0 8px;
+  color: var(--jpdb-reader-muted, #aab2c0);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.jpdb-reader-newtab-kanji-details
+  .jpdb-reader-source-card
+  > summary.jpdb-reader-local-title::after {
+  color: var(--jpdb-reader-faint, #6f7a89);
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-entry {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-glossary,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-origin-detail,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-rtk p,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-jpdb-kanji p {
+  overflow-wrap: anywhere;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-facts {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 0 18px;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-facts span {
+  min-height: 0;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 56%,
+      transparent
+    );
+  border-radius: 0;
+  background: transparent;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings span,
@@ -742,13 +872,9 @@
   gap: 5px;
   min-height: 28px;
   padding: 4px 8px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
-  border-radius: 8px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface, #20242b) 82%,
-    transparent
-  );
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--jpdb-reader-muted, #aab2c0);
   font-size: 11px;
   font-weight: 760;
@@ -756,31 +882,47 @@
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 0 18px;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-component-card {
   display: grid;
-  justify-items: center;
-  gap: 2px;
-  min-height: 48px;
-  padding: 6px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
-  border-radius: 8px;
+  justify-items: start;
+  gap: 3px;
+  min-height: 0;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 56%,
+      transparent
+    );
+  border-radius: 0;
   background: transparent;
   color: var(--jpdb-reader-text, #f2f4f8);
-  text-align: center;
+  text-align: left;
 }
 
 .jpdb-reader-newtab-kanji-vocab {
   display: grid;
-  gap: 5px;
+  gap: 0;
 }
 
 .jpdb-reader-newtab-kanji-vocab span,
 .jpdb-reader-newtab-kanji-vocab button {
   justify-content: flex-start;
+  width: 100%;
+  min-height: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 56%,
+      transparent
+    );
+  text-align: left;
 }
 
 .jpdb-reader-newtab-kanji-vocab strong {
@@ -793,7 +935,7 @@
   font-size: 12px;
   font-weight: 650;
   line-height: 1.45;
-  text-align: center;
+  text-align: left;
 }
 
 .jpdb-reader-newtab-doodle-pass .jpdb-reader-newtab-doodle-result {

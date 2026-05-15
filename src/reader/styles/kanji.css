@@ -548,6 +548,23 @@
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+.jpdb-reader-doodle-tools,
+.jpdb-reader-doodle-tools *,
+.jpdb-reader-btn.jpdb-reader-doodle-control {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html.jpdb-reader-doodle-active,
+html.jpdb-reader-doodle-active body,
+html.jpdb-reader-doodle-active * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
 .jpdb-reader-kanjivg-svg {
   width: 90%;
   max-height: 90%;

@@ -317,6 +317,18 @@ export class NewTabController {
         if (root) delete root.dataset.newtabBound;
     }
 
+    async refreshExternalData(): Promise<void> {
+        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        if (!root) return;
+        this.dependencies.dictionaries.invalidateCaches?.();
+        this.dictionarySetupRequired = false;
+        this.dictionarySetupSignature = '';
+        this.allWords = [];
+        this.visibleWords = [];
+        this.visiblePoolSignature = '';
+        await this.loadWordsInto(root, true);
+    }
+
     invalidateForFactoryReset(): void {
         this.loadGeneration++;
         this.allWords = [];
@@ -2136,6 +2148,11 @@ function passingNewTabGrade(grade: JPDBGrade): boolean {
 
 function installOriginGraphDrag(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('.jpdb-reader-origin-graph-wrap').forEach(wrap => {
+        if (wrap.dataset.graphDragInstalled === 'true') {
+            refreshOriginGraphEdgesAfterLayout(wrap);
+            return;
+        }
+        wrap.dataset.graphDragInstalled = 'true';
         let active: { node: HTMLElement; pointerId: number; moved: boolean } | null = null;
         let suppressClick = false;
         wrap.addEventListener('pointerdown', event => {
@@ -2176,9 +2193,17 @@ function installOriginGraphDrag(root: HTMLElement): void {
             event.preventDefault();
             event.stopPropagation();
         }, true);
-        refreshOriginGraphEdges(wrap);
-        wrap.dataset.graphReady = 'true';
+        refreshOriginGraphEdgesAfterLayout(wrap);
     });
+}
+
+function refreshOriginGraphEdgesAfterLayout(wrap: HTMLElement): void {
+    refreshOriginGraphEdges(wrap);
+    wrap.dataset.graphReady = 'true';
+    const requestFrame = typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0);
+    requestFrame(() => refreshOriginGraphEdges(wrap));
 }
 
 function moveOriginGraphNode(node: HTMLElement, x: number, y: number): void {
@@ -2207,13 +2232,26 @@ function refreshOriginGraphEdges(wrap: HTMLElement): void {
 
 function originGraphNodeGeometry(wrap: HTMLElement, id: string | undefined): { x: number; y: number; rx: number; ry: number } | null {
     if (!id) return null;
-    const node = wrap.querySelector<HTMLElement>(`.jpdb-reader-origin-graph-node[data-graph-node="${CSS.escape(id)}"]`);
+    const node = Array.from(wrap.querySelectorAll<HTMLElement>('.jpdb-reader-origin-graph-node'))
+        .find(candidate => candidate.dataset.graphNode === id);
     if (!node) return null;
+    const measured = measuredOriginGraphNodeRadii(wrap, node);
     return {
         x: Number(node.dataset.x || 0),
         y: Number(node.dataset.y || 0),
-        rx: Number(node.dataset.rx || 5),
-        ry: Number(node.dataset.ry || 5),
+        rx: measured.rx || Number(node.dataset.rx || 5),
+        ry: measured.ry || Number(node.dataset.ry || 5),
+    };
+}
+
+function measuredOriginGraphNodeRadii(wrap: HTMLElement, node: HTMLElement): { rx: number; ry: number } {
+    const wrapRect = wrap.getBoundingClientRect();
+    if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
+    const width = node.offsetWidth || node.getBoundingClientRect().width;
+    const height = node.offsetHeight || node.getBoundingClientRect().height;
+    return {
+        rx: width > 0 ? (width / 2 / wrapRect.width) * 100 : 0,
+        ry: height > 0 ? (height / 2 / wrapRect.height) * 100 : 0,
     };
 }
 
