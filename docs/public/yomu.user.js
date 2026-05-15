@@ -1151,7 +1151,7 @@
   function normalizeNewTabSettings(value) {
     return {
       newTabEnabled: typeof (value == null ? void 0 : value.newTabEnabled) === "boolean" ? value.newTabEnabled : DEFAULT_SETTINGS.newTabEnabled,
-      newTabSource: normalizeNewTabSource(value == null ? void 0 : value.newTabSource),
+      newTabSource: normalizeNewTabSource$1(value == null ? void 0 : value.newTabSource),
       newTabJpdbDeck: normalizeDeckIdSetting(value == null ? void 0 : value.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
       newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value == null ? void 0 : value.newTabJpdbReviewMode),
       newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value == null ? void 0 : value.newTabKanjiKeywordSource),
@@ -1352,7 +1352,7 @@
   function normalizeSubtitleTranscriptPlacement(value) {
     return value === "left" || value === "bottom" || value === "right" ? value : DEFAULT_SETTINGS.subtitleTranscriptPlacement;
   }
-  function normalizeNewTabSource(value) {
+  function normalizeNewTabSource$1(value) {
     return value === "jpdb" || value === "anki" || value === "auto" || value === "dictionary" ? value : DEFAULT_SETTINGS.newTabSource;
   }
   function normalizeNewTabJpdbReviewMode(value) {
@@ -3811,16 +3811,31 @@
     { value: "local", label: "Dictionary" }
   ];
   function isYomuNewTabUrl(value) {
+    const url = parseNewTabUrl(value);
+    return url ? isYomuNewTabUrlObject(url) : false;
+  }
+  function parseNewTabUrl(value) {
     try {
-      const url = new URL(value);
-      if (url.searchParams.has("yomu-newtab")) return true;
-      const path = url.pathname.replace(/\/index\.html$/, "/");
-      if (url.hostname === "hrussellzfac023.github.io") return path === `/${APP_REPOSITORY_NAME}/newtab/`;
-      if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname)) return path.endsWith("/newtab/");
-      return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
+      return new URL(value);
     } catch {
-      return false;
+      return null;
     }
+  }
+  function isYomuNewTabUrlObject(url) {
+    const path = normalizedNewTabPath(url);
+    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+  }
+  function normalizedNewTabPath(url) {
+    return url.pathname.replace(/\/index\.html$/, "/");
+  }
+  function isHostedNewTabPath(url, path) {
+    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
+  }
+  function isLocalNewTabPath(url, path) {
+    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
+  }
+  function isRepositoryNewTabPath(path) {
+    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
   }
   function resolveNewTabBrandAssets(value) {
     try {
@@ -3854,14 +3869,20 @@
     });
   }
   function firstCardMeaning(card) {
-    const meanings = card.meanings ?? [];
-    const first2 = meanings.find((meaning) => meaning.glosses.some((gloss) => gloss.trim()));
-    if (!(first2 == null ? void 0 : first2.glosses.length)) return "";
-    const plain = first2.glosses.filter(Boolean);
-    if (card.source !== "local" && card.source !== "fallback") {
-      return plain.join("; ");
-    }
+    const plain = firstCardMeaningGlosses(card);
+    if (!plain.length) return "";
+    if (!shouldCleanCardMeaning(card)) return plain.join("; ");
     const cleaned = plain.map((meaning) => cleanupNewTabMeaning(meaning)).filter(Boolean);
+    return preferredCardMeaning(cleaned, plain);
+  }
+  function firstCardMeaningGlosses(card) {
+    var _a;
+    return ((_a = (card.meanings ?? []).find((meaning) => meaning.glosses.some((gloss) => gloss.trim()))) == null ? void 0 : _a.glosses.filter(Boolean)) ?? [];
+  }
+  function shouldCleanCardMeaning(card) {
+    return card.source === "local" || card.source === "fallback";
+  }
+  function preferredCardMeaning(cleaned, plain) {
     return cleaned.length ? cleaned.join("; ") : plain.join("; ");
   }
   function cardKey$2(card) {
@@ -3872,12 +3893,27 @@
   }
   function normalizeNewTabUiState(value) {
     return {
-      mode: (value == null ? void 0 : value.mode) === "kanji" ? "kanji" : DEFAULT_NEW_TAB_UI_STATE.mode,
-      sort: isNewTabSort(value == null ? void 0 : value.sort) ? value.sort : DEFAULT_NEW_TAB_UI_STATE.sort,
-      filter: isNewTabFilter(value == null ? void 0 : value.filter) ? value.filter : DEFAULT_NEW_TAB_UI_STATE.filter,
-      source: isNewTabSource(value == null ? void 0 : value.source) ? value.source : DEFAULT_NEW_TAB_UI_STATE.source,
-      revealAnswer: typeof (value == null ? void 0 : value.revealAnswer) === "boolean" ? value.revealAnswer : DEFAULT_NEW_TAB_UI_STATE.revealAnswer
+      mode: normalizeNewTabMode(value == null ? void 0 : value.mode),
+      sort: normalizeNewTabSort(value == null ? void 0 : value.sort),
+      filter: normalizeNewTabFilter(value == null ? void 0 : value.filter),
+      source: normalizeNewTabSource(value == null ? void 0 : value.source),
+      revealAnswer: normalizeNewTabRevealAnswer(value == null ? void 0 : value.revealAnswer)
     };
+  }
+  function normalizeNewTabMode(value) {
+    return value === "kanji" ? "kanji" : DEFAULT_NEW_TAB_UI_STATE.mode;
+  }
+  function normalizeNewTabSort(value) {
+    return isNewTabSort(value) ? value : DEFAULT_NEW_TAB_UI_STATE.sort;
+  }
+  function normalizeNewTabFilter(value) {
+    return isNewTabFilter(value) ? value : DEFAULT_NEW_TAB_UI_STATE.filter;
+  }
+  function normalizeNewTabSource(value) {
+    return isNewTabSource(value) ? value : DEFAULT_NEW_TAB_UI_STATE.source;
+  }
+  function normalizeNewTabRevealAnswer(value) {
+    return typeof value === "boolean" ? value : DEFAULT_NEW_TAB_UI_STATE.revealAnswer;
   }
   function loadNewTabUiState() {
     try {
@@ -4228,24 +4264,40 @@
     return `${CONTEXT_PREFIX}${term}`;
   }
   function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
+    const record = storedMiningContextRecord(value, expectedTerm);
+    if (!record) return null;
+    const sourceKind = storedMiningSourceKind(record.sourceKind);
+    if (!sourceKind) return null;
+    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, expectedTerm, now);
+    if (updatedAt === null) return null;
+    const context = createStoredMiningContext(expectedTerm, {
+      sentence: text$1(record.sentence),
+      sourceKind,
+      sourceTitle: text$1(record.sourceTitle),
+      sourceUrl: text$1(record.sourceUrl),
+      imageUrl: optionalText(record.imageUrl),
+      immersionIndex: optionalNumber(record.immersionIndex),
+      immersionTotal: optionalNumber(record.immersionTotal)
+    }, updatedAt);
+    return context;
+  }
+  function storedMiningContextRecord(value, expectedTerm) {
     if (!isRecord$3(value)) return null;
-    if (text$1(value.term) !== expectedTerm) return null;
-    if (!isMiningSourceKind(value.sourceKind)) return null;
-    const updatedAt = Number(value.updatedAt);
-    if (!Number.isFinite(updatedAt) || now - updatedAt > CONTEXT_MAX_AGE_MS) {
+    return text$1(value.term) === expectedTerm ? value : null;
+  }
+  function storedMiningSourceKind(value) {
+    return isMiningSourceKind(value) ? value : null;
+  }
+  function storedMiningContextUpdatedAt(value, expectedTerm, now) {
+    const updatedAt = Number(value);
+    if (!isStoredMiningContextFresh(updatedAt, now)) {
       log$B.debug("Mining context cache entry expired", { term: expectedTerm, updatedAt });
       return null;
     }
-    const context = createStoredMiningContext(expectedTerm, {
-      sentence: text$1(value.sentence),
-      sourceKind: value.sourceKind,
-      sourceTitle: text$1(value.sourceTitle),
-      sourceUrl: text$1(value.sourceUrl),
-      imageUrl: optionalText(value.imageUrl),
-      immersionIndex: optionalNumber(value.immersionIndex),
-      immersionTotal: optionalNumber(value.immersionTotal)
-    }, updatedAt);
-    return context;
+    return updatedAt;
+  }
+  function isStoredMiningContextFresh(updatedAt, now) {
+    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
   }
   function isMiningSourceKind(value) {
     return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
@@ -20785,14 +20837,21 @@ ${normalizedReading}`;
     return sentence;
   }
   function renderNewTabImmersionTranslation(example, settings) {
-    if (!settings.immersionKitShowTranslation || !example.translation) return null;
-    return el("div", {
+    if (!shouldRenderNewTabImmersionTranslation(example, settings)) return null;
+    return el("div", newTabImmersionTranslationAttributes(settings), example.translation);
+  }
+  function shouldRenderNewTabImmersionTranslation(example, settings) {
+    return settings.immersionKitShowTranslation && Boolean(example.translation);
+  }
+  function newTabImmersionTranslationAttributes(settings) {
+    return {
       class: "jpdb-reader-example-translation jpdb-reader-parseable",
       dataset: newTabImmersionTranslationDataset(settings),
-      role: settings.immersionKitRevealTranslationOnClick ? "button" : void 0,
-      tabindex: settings.immersionKitRevealTranslationOnClick ? "0" : void 0,
-      "aria-label": settings.immersionKitRevealTranslationOnClick ? "Reveal translation" : void 0
-    }, example.translation);
+      ...newTabImmersionTranslationRevealAttributes(settings)
+    };
+  }
+  function newTabImmersionTranslationRevealAttributes(settings) {
+    return settings.immersionKitRevealTranslationOnClick ? { role: "button", tabindex: "0", "aria-label": "Reveal translation" } : {};
   }
   function newTabImmersionTranslationDataset(settings) {
     return settings.immersionKitRevealTranslationOnClick ? { yomuImmersionTranslationBlurred: true } : void 0;
@@ -21317,25 +21376,26 @@ ${normalizedReading}`;
       this.dictionarySetupRetryAttempts = 0;
     }
     async loadWords(onProgress) {
-      const sourceOrder = this.wordSourceOrder();
-      const labels = [];
-      const cards = [];
-      let dictionarySetupRequired = false;
-      for (const item of sourceOrder) {
-        const result = await this.loadWordsFromSource(item, onProgress);
-        dictionarySetupRequired || (dictionarySetupRequired = result.needsDictionarySetup);
-        appendLoadedWords(result, cards, labels);
+      const accumulator = await this.loadConfiguredWordSources(onProgress);
+      await this.loadAutoDictionaryWordsIfNeeded(accumulator, onProgress);
+      return newTabLoadResult(accumulator);
+    }
+    async loadConfiguredWordSources(onProgress) {
+      const accumulator = emptyNewTabLoadAccumulator();
+      for (const source of this.wordSourceOrder()) {
+        await this.appendLoadedWordsFromSource(accumulator, source, onProgress);
       }
-      if (this.state.source === "auto" && cards.length === 0) {
-        const result = await this.loadDictionaryWords(onProgress);
-        dictionarySetupRequired || (dictionarySetupRequired = result.needsDictionarySetup);
-        appendLoadedWords(result, cards, labels);
-      }
-      return {
-        cards,
-        sourceLabel: labels.length ? labels.join(" + ") : "No source",
-        needsDictionarySetup: cards.length === 0 && dictionarySetupRequired
-      };
+      return accumulator;
+    }
+    async appendLoadedWordsFromSource(accumulator, source, onProgress) {
+      appendNewTabLoadResult(accumulator, await this.loadWordsFromSource(source, onProgress));
+    }
+    async loadAutoDictionaryWordsIfNeeded(accumulator, onProgress) {
+      if (!this.shouldLoadAutoDictionaryWords(accumulator)) return;
+      appendNewTabLoadResult(accumulator, await this.loadDictionaryWords(onProgress));
+    }
+    shouldLoadAutoDictionaryWords(accumulator) {
+      return this.state.source === "auto" && accumulator.cards.length === 0;
     }
     wordSourceOrder() {
       return this.state.source === "auto" ? ["anki", "jpdb"] : [this.state.source];
@@ -21841,9 +21901,20 @@ ${normalizedReading}`;
     }
     applyEnrichedKanjiSvg(answer, svgMarkup) {
       if (!answer || !svgMarkup) return;
-      const svg = answer.querySelector("[data-newtab-kanji-svg]");
-      const ghost = answer.querySelector("[data-newtab-doodle-ghost]");
+      const mounts = this.enrichedKanjiSvgMounts(answer);
+      this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
+      this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
+    }
+    enrichedKanjiSvgMounts(answer) {
+      return {
+        svg: answer.querySelector("[data-newtab-kanji-svg]"),
+        ghost: answer.querySelector("[data-newtab-doodle-ghost]")
+      };
+    }
+    applyRevealedKanjiSvg(svg, svgMarkup) {
       if (this.state.revealAnswer && svg) setInnerHtml(svg, svgMarkup);
+    }
+    applyDoodleGhostSvg(ghost, svgMarkup) {
       if (ghost) setInnerHtml(ghost, svgMarkup);
     }
     applyEnrichedKanjiMeaning(slots, card, kanji, details, state) {
@@ -22004,21 +22075,26 @@ ${normalizedReading}`;
       if (result) result.textContent = "";
     }
     renderEmpty(root, prompt, message) {
+      this.enterEmptyMode(root);
+      const slots = this.studySlots(root);
+      this.renderPromptSlot(slots.prompt, prompt);
+      setOptionalText(slots.answer, message);
+      setOptionalText(slots.meaning, "");
+      setOptionalText(slots.count, "");
+      setOptionalText(slots.status, "");
+      this.renderEmptyControls(slots.controls);
+    }
+    enterEmptyMode(root) {
       var _a;
       root.classList.add("jpdb-reader-newtab-revealed");
       root.classList.add("jpdb-reader-newtab-empty-mode");
       root.classList.remove("jpdb-reader-newtab-setup-mode", "jpdb-reader-newtab-review-mode");
       (_a = root.querySelector("[data-newtab-study]")) == null ? void 0 : _a.removeAttribute("data-newtab-card");
-      const slots = this.studySlots(root);
-      if (slots.prompt) {
-        delete slots.prompt.dataset.newtabExpression;
-        slots.prompt.textContent = prompt;
-      }
-      if (slots.answer) slots.answer.textContent = message;
-      if (slots.meaning) slots.meaning.textContent = "";
-      if (slots.count) slots.count.textContent = "";
-      if (slots.status) slots.status.textContent = "";
-      this.renderEmptyControls(slots.controls);
+    }
+    renderPromptSlot(promptSlot, prompt) {
+      if (!promptSlot) return;
+      delete promptSlot.dataset.newtabExpression;
+      promptSlot.textContent = prompt;
     }
     renderEmptyControls(controls) {
       if (!controls) return;
@@ -22030,23 +22106,23 @@ ${normalizedReading}`;
       );
     }
     renderDictionarySetup(root) {
+      this.enterDictionarySetupMode(root);
+      this.syncThemeToggle(root);
+      const slots = this.studySlots(root);
+      this.renderPromptSlot(slots.prompt, "Start with a dictionary");
+      setOptionalText(slots.answer, "Add a dictionary to turn this page into study cards.");
+      setOptionalText(slots.meaning, "It stays in this browser and is ready whenever a new tab opens.");
+      setOptionalText(slots.count, "");
+      setOptionalText(slots.status, "");
+      this.renderDictionarySetupControls(slots.controls);
+      this.scheduleDictionarySetupRetry(root);
+    }
+    enterDictionarySetupMode(root) {
       var _a;
       root.classList.add("jpdb-reader-newtab-revealed");
       root.classList.add("jpdb-reader-newtab-setup-mode");
       root.classList.remove("jpdb-reader-newtab-empty-mode", "jpdb-reader-newtab-review-mode", "jpdb-reader-newtab-kanji-mode");
-      this.syncThemeToggle(root);
       (_a = root.querySelector("[data-newtab-study]")) == null ? void 0 : _a.removeAttribute("data-newtab-card");
-      const slots = this.studySlots(root);
-      if (slots.prompt) {
-        delete slots.prompt.dataset.newtabExpression;
-        slots.prompt.textContent = "Start with a dictionary";
-      }
-      if (slots.answer) slots.answer.textContent = "Add a dictionary to turn this page into study cards.";
-      if (slots.meaning) slots.meaning.textContent = "It stays in this browser and is ready whenever a new tab opens.";
-      if (slots.count) slots.count.textContent = "";
-      if (slots.status) slots.status.textContent = "";
-      this.renderDictionarySetupControls(slots.controls);
-      this.scheduleDictionarySetupRetry(root);
     }
     renderDictionarySetupControls(controls) {
       if (!controls) return;
@@ -22086,28 +22162,23 @@ ${normalizedReading}`;
     }
     renderControls(slots, card) {
       if (!slots.controls) return;
-      if (!this.isReviewCard(card)) {
-        replaceChildrenWith(
-          slots.controls,
-          el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": "Previous word" }, "Previous"),
-          el("button", { type: "button", dataset: { newtabAction: "reveal" } }, this.state.revealAnswer ? "Hide" : "Reveal"),
-          el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": "Next word" }, "Next")
-        );
-        return;
-      }
-      if (!this.state.revealAnswer) {
-        replaceChildrenWith(
-          slots.controls,
-          el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": "Previous word" }, "Previous"),
-          el("button", { type: "button", dataset: { newtabAction: "reveal" } }, "Reveal"),
-          el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": "Next word" }, "Next")
-        );
-        return;
-      }
+      replaceChildrenWith(slots.controls, this.controlButtonsForCard(card));
+    }
+    controlButtonsForCard(card) {
+      if (!this.isReviewCard(card)) return this.navigationControlButtons(this.state.revealAnswer ? "Hide" : "Reveal");
+      if (!this.state.revealAnswer) return this.navigationControlButtons("Reveal");
+      return this.gradeControlButtons();
+    }
+    navigationControlButtons(revealLabel) {
+      return [
+        el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": "Previous word" }, "Previous"),
+        el("button", { type: "button", dataset: { newtabAction: "reveal" } }, revealLabel),
+        el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": "Next word" }, "Next")
+      ];
+    }
+    gradeControlButtons() {
       const grades = this.dependencies.getSettings().twoButtonReviews ? [["fail", "Fail"], ["pass", "Pass"]] : [["nothing", "Nothing"], ["something", "Something"], ["hard", "Hard"], ["okay", "Okay"], ["easy", "Easy"]];
-      replaceChildrenWith(slots.controls, grades.map(
-        ([grade, label]) => el("button", { type: "button", dataset: { newtabAction: "grade", grade } }, label)
-      ));
+      return grades.map(([grade, label]) => el("button", { type: "button", dataset: { newtabAction: "grade", grade } }, label));
     }
     renderInstallCta(root) {
       const install = root.querySelector("[data-newtab-install]");
@@ -22158,18 +22229,23 @@ ${normalizedReading}`;
       return root && card ? { root, card } : null;
     }
     async submitGrade(card, grade) {
-      if (card.reviewSource === "jpdb-live") {
-        this.dependencies.jpdbReviewBridge.grade(grade);
-        this.dependencies.jpdbReviewBridge.requestCurrent();
-        return;
-      }
-      if (card.source === "anki" || card.reviewSource === "anki") {
-        await this.submitAnkiGrade(card, grade);
-        return;
-      }
-      if (card.source === "jpdb" || card.reviewSource === "jpdb-api") {
-        await this.dependencies.jpdb.reviewCard(card, grade);
-      }
+      if (this.submitLiveJpdbGrade(card, grade)) return;
+      if (await this.submitAnkiGradeIfNeeded(card, grade)) return;
+      await this.submitJpdbApiGradeIfNeeded(card, grade);
+    }
+    submitLiveJpdbGrade(card, grade) {
+      if (card.reviewSource !== "jpdb-live") return false;
+      this.dependencies.jpdbReviewBridge.grade(grade);
+      this.dependencies.jpdbReviewBridge.requestCurrent();
+      return true;
+    }
+    async submitAnkiGradeIfNeeded(card, grade) {
+      if (card.source !== "anki" && card.reviewSource !== "anki") return false;
+      await this.submitAnkiGrade(card, grade);
+      return true;
+    }
+    async submitJpdbApiGradeIfNeeded(card, grade) {
+      if (card.source === "jpdb" || card.reviewSource === "jpdb-api") await this.dependencies.jpdb.reviewCard(card, grade);
     }
     async submitAnkiGrade(card, grade) {
       const cardId = card.ankiCardId ?? card.rid;
@@ -22318,16 +22394,39 @@ ${normalizedReading}`;
     cards.push(...result.cards);
     labels.push(result.sourceLabel);
   }
+  function emptyNewTabLoadAccumulator() {
+    return { cards: [], labels: [], dictionarySetupRequired: false };
+  }
+  function appendNewTabLoadResult(accumulator, result) {
+    accumulator.dictionarySetupRequired || (accumulator.dictionarySetupRequired = result.needsDictionarySetup);
+    appendLoadedWords(result, accumulator.cards, accumulator.labels);
+  }
+  function newTabLoadResult(accumulator) {
+    return {
+      cards: accumulator.cards,
+      sourceLabel: accumulator.labels.length ? accumulator.labels.join(" + ") : "No source",
+      needsDictionarySetup: accumulator.cards.length === 0 && accumulator.dictionarySetupRequired
+    };
+  }
+  function setOptionalText(element2, text2) {
+    if (element2) element2.textContent = text2;
+  }
   function dedupeWords(cards) {
     const seen = /* @__PURE__ */ new Map();
     for (const card of cards) {
-      const key = card.reviewSource === "jpdb-live" ? `jpdb-live
-${card.jpdbReviewId ?? card.spelling}` : `${card.spelling}
-${card.reading}`;
+      const key = dedupeWordKey(card);
       const existing = seen.get(key);
-      if (!existing || sourcePriority(card) < sourcePriority(existing)) seen.set(key, card);
+      if (shouldReplaceDedupeWord(card, existing)) seen.set(key, card);
     }
     return [...seen.values()];
+  }
+  function dedupeWordKey(card) {
+    return card.reviewSource === "jpdb-live" ? `jpdb-live
+${card.jpdbReviewId ?? card.spelling}` : `${card.spelling}
+${card.reading}`;
+  }
+  function shouldReplaceDedupeWord(card, existing) {
+    return !existing || sourcePriority(card) < sourcePriority(existing);
   }
   function sourcePriority(card) {
     if (card.reviewSource === "jpdb-live") return -1;
@@ -22418,10 +22517,16 @@ ${card.reading}`;
   }
   function hasYomuRuntime() {
     const runtime = globalThis;
-    const marker = typeof document !== "undefined" ? document.getElementById("jpdb-reader-runtime-owner") : null;
-    return Boolean(
-      runtime.GM_info || runtime.__YOMU_READER_RUNTIME__ || runtime.__yomuDemoApp || runtime.__yomuReaderAppInitialized && (marker == null ? void 0 : marker.dataset.yomuRuntimeKind) === "demo"
-    );
+    return hasDirectYomuRuntime(runtime) || hasDemoYomuRuntime(runtime, yomuRuntimeOwnerMarker());
+  }
+  function hasDirectYomuRuntime(runtime) {
+    return Boolean(runtime.GM_info || runtime.__YOMU_READER_RUNTIME__ || runtime.__yomuDemoApp);
+  }
+  function hasDemoYomuRuntime(runtime, marker) {
+    return Boolean(runtime.__yomuReaderAppInitialized && (marker == null ? void 0 : marker.dataset.yomuRuntimeKind) === "demo");
+  }
+  function yomuRuntimeOwnerMarker() {
+    return typeof document !== "undefined" ? document.getElementById("jpdb-reader-runtime-owner") : null;
   }
   function shouldShowInStudyQueue(card) {
     if (card.source === "local" || card.source === "fallback") return true;
@@ -22456,14 +22561,21 @@ ${card.reading}`;
     snapshot.width = canvas.width;
     snapshot.height = canvas.height;
     const context = snapshot.getContext("2d");
-    if (!context || typeof context.fillRect !== "function" || typeof context.drawImage !== "function") {
-      return canvas.toDataURL("image/png");
-    }
-    const stage = canvas.closest(".jpdb-reader-doodle-stage");
-    context.fillStyle = getComputedStyle(stage ?? canvas).backgroundColor || "#181b20";
+    if (!canPaintDoodlePreview(context)) return canvas.toDataURL("image/png");
+    paintDoodlePreview(context, snapshot, canvas);
+    return snapshot.toDataURL("image/png");
+  }
+  function canPaintDoodlePreview(context) {
+    return Boolean(context && typeof context.fillRect === "function" && typeof context.drawImage === "function");
+  }
+  function paintDoodlePreview(context, snapshot, canvas) {
+    context.fillStyle = doodlePreviewBackground(canvas);
     context.fillRect(0, 0, snapshot.width, snapshot.height);
     context.drawImage(canvas, 0, 0);
-    return snapshot.toDataURL("image/png");
+  }
+  function doodlePreviewBackground(canvas) {
+    const stage = canvas.closest(".jpdb-reader-doodle-stage");
+    return getComputedStyle(stage ?? canvas).backgroundColor || "#181b20";
   }
   function passingNewTabGrade(grade) {
     return grade === "pass" || grade === "easy" || grade === "okay";
@@ -22474,22 +22586,34 @@ ${card.reading}`;
       sid: 0,
       rid: 0,
       spelling,
-      reading: card.reading || spelling,
+      reading: liveJpdbCardReading(card, spelling),
       frequencyRank: null,
       partOfSpeech: [],
       meanings: [{
-        glosses: card.kind === "kanji" ? [card.keyword || card.prompt].filter(Boolean) : [],
+        glosses: liveJpdbCardGlosses(card),
         partOfSpeech: []
       }],
       cardState: ["due"],
       pitchAccent: [],
       wordWithReading: null,
       source: "jpdb",
-      sentence: card.sentence || card.prompt,
+      sentence: liveJpdbCardSentence(card),
       reviewSource: "jpdb-live",
       jpdbReviewId: card.id,
-      kanjiKeyword: card.keyword || card.prompt
+      kanjiKeyword: liveJpdbCardKeyword(card)
     };
+  }
+  function liveJpdbCardReading(card, spelling) {
+    return card.reading || spelling;
+  }
+  function liveJpdbCardGlosses(card) {
+    return card.kind === "kanji" ? [liveJpdbCardKeyword(card)].filter(Boolean) : [];
+  }
+  function liveJpdbCardSentence(card) {
+    return card.sentence || card.prompt;
+  }
+  function liveJpdbCardKeyword(card) {
+    return card.keyword || card.prompt;
   }
   const log$b = Logger.scope("Onboarding");
   function selectedOnboardingLanguage(value, fallback) {
@@ -22701,6 +22825,21 @@ ${card.reading}`;
   const LENS_AUTO_FILTER = 7;
   const LENS_WRITING_TOP_TO_BOTTOM = 2;
   const log$a = Logger.scope("OCR");
+  const OCR_RECOGNIZERS = {
+    "local-service": recognizeViaLocalService,
+    "cloud-vision": recognizeViaCloudVision,
+    "google-lens": recognizeViaGoogleLens
+  };
+  const OCR_PROVIDER_CONFIGURED = {
+    "local-service": (settings) => Boolean(settings.ocrEndpointUrl.trim()),
+    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
+    "google-lens": () => true
+  };
+  const OCR_PROVIDER_LABELS = {
+    "local-service": localServiceProviderLabel,
+    "cloud-vision": cloudVisionProviderLabel,
+    "google-lens": googleLensProviderLabel
+  };
   function shouldSkipOcrRequest(state, userRequested) {
     return state.autoSkipped && !userRequested;
   }
@@ -22708,6 +22847,9 @@ ${card.reading}`;
     state.overlayRequested || (state.overlayRequested = userRequested || Boolean(readFallbackOcrResult(image, false)));
     state.manualRequested || (state.manualRequested = userRequested);
     if (userRequested) state.autoSkipped = false;
+  }
+  function isOcrImageStateIdle(state) {
+    return !state.result && !state.loading && !state.autoSkipped;
   }
   function showOcrReadingStatus(state) {
     state.status.hidden = false;
@@ -22820,8 +22962,11 @@ ${card.reading}`;
       if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
     }
     shouldAutoEnqueueImage(image, state, settings) {
+      return this.canAutoScanImage(settings) && isOcrImageStateIdle(state) && isNearViewport(image, settings.ocrPrefetchMargin);
+    }
+    canAutoScanImage(settings) {
       var _a, _b;
-      return settings.ocrAutoScanImages && ((_b = (_a = this.options).shouldAutoScan) == null ? void 0 : _b.call(_a)) !== false && !state.result && !state.loading && !state.autoSkipped && isNearViewport(image, settings.ocrPrefetchMargin);
+      return settings.ocrAutoScanImages && ((_b = (_a = this.options).shouldAutoScan) == null ? void 0 : _b.call(_a)) !== false;
     }
     toggle() {
       const settings = this.options.getSettings();
@@ -22891,10 +23036,16 @@ ${card.reading}`;
     }
     enqueue(image, userRequested = false) {
       const state = this.states.get(image) ?? this.ensureState(image);
-      if (shouldSkipOcrRequest(state, userRequested)) return;
+      if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
+      this.queueOcrRequest(image, state, userRequested);
+    }
+    shouldQueueOcrRequest(state, image, userRequested) {
+      if (shouldSkipOcrRequest(state, userRequested)) return false;
       updateOcrRequestFlags(state, image, userRequested);
-      if (this.renderExistingOcrResult(state, userRequested)) return;
-      if (state.loading) return;
+      if (this.renderExistingOcrResult(state, userRequested)) return false;
+      return !state.loading;
+    }
+    queueOcrRequest(image, state, userRequested) {
       this.queueImageForOcr(image);
       if (userRequested) showOcrReadingStatus(state);
       log$a.debug("OCR image queued", { userRequested, queue: this.queue.length, image: imageSummary(image) });
@@ -22970,10 +23121,8 @@ ${card.reading}`;
       renderOcrErrorStatus(state, provider, manualRequested, error);
     }
     recognizeImage(image, settings) {
-      if (settings.ocrProvider === "local-service" && settings.ocrEndpointUrl.trim()) return recognizeViaLocalService(image, settings);
-      if (settings.ocrProvider === "cloud-vision" && settings.ocrCloudVisionApiKey.trim()) return recognizeViaCloudVision(image, settings);
-      if (settings.ocrProvider === "google-lens") return recognizeViaGoogleLens(image, settings);
-      return Promise.resolve(null);
+      const recognizer = ocrRecognizer(settings);
+      return recognizer ? recognizer(image, settings) : Promise.resolve(null);
     }
     async renderResult(state, result, forceOverlay = false) {
       state.result = result;
@@ -23126,13 +23275,6 @@ ${card.reading}`;
       const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
       const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
       const top = clampNumber$3(!vertical ? baselineAlignedTop : centeredTop, 0, Math.max(0, imageHeight - frameHeight));
-      if (vertical) {
-        element2.style.left = `${left}px`;
-        element2.style.top = `${top}px`;
-        element2.style.width = `${frameWidth}px`;
-        element2.style.height = `${frameHeight}px`;
-        return;
-      }
       element2.style.left = `${left}px`;
       element2.style.top = `${top}px`;
       element2.style.width = `${frameWidth}px`;
@@ -23234,12 +23376,17 @@ ${card.reading}`;
     return { width, height };
   }
   function collectGenericOcrLines(record, width, height) {
-    const rawLines = Array.isArray(record.lines) ? record.lines : Array.isArray(record.regions) ? record.regions : void 0;
     const lines = [];
-    if (rawLines) lines.push(...normalizeSimpleLines(rawLines, width, height));
-    if (Array.isArray(record.results)) lines.push(...normalizeStructuredOcrResults(record.results, width, height));
-    if (Array.isArray(record.ocr_regions)) lines.push(...normalizeOcrRegionResults(record.ocr_regions, width, height));
+    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
     return lines;
+  }
+  function genericRawLines(record) {
+    return Array.isArray(record.lines) ? record.lines : record.regions;
+  }
+  function appendGenericOcrLines(lines, value, width, height, normalize) {
+    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
   }
   function normalizeSimpleLines(values, width, height) {
     return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
@@ -23272,6 +23419,9 @@ ${card.reading}`;
   function japaneseOcrResult(width, height, lines) {
     const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE$2.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+  }
+  function japaneseOcrLine(text2, box) {
+    return text2 && box && HAS_JAPANESE$2.test(text2) ? { text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 } : null;
   }
   function readFallbackOcrResult(image, _includeAccessibleText = false) {
     const width = image.naturalWidth || image.width || 1;
@@ -23366,6 +23516,14 @@ ${card.reading}`;
     const response = await requestJson(settings.ocrEndpointUrl.trim(), body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
+  function ocrRecognizer(settings) {
+    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
+    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
+  }
+  function isOcrProviderConfigured(settings) {
+    var _a;
+    return ((_a = OCR_PROVIDER_CONFIGURED[settings.ocrProvider]) == null ? void 0 : _a.call(OCR_PROVIDER_CONFIGURED, settings)) ?? false;
+  }
   async function recognizeViaCloudVision(image, settings) {
     log$a.debug("Recognizing image via Cloud Vision");
     const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
@@ -23439,17 +23597,28 @@ ${card.reading}`;
     }
   }
   function drawImageToCanvas(image, maxPixels) {
+    const size = loadedImageSize(image);
+    const canvas = scaledCanvas(size, maxPixels);
+    drawableCanvasContext(canvas).drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+  function loadedImageSize(image) {
     const width = image.naturalWidth || image.width;
     const height = image.naturalHeight || image.height;
     if (!width || !height) throw new Error("Image is not loaded yet.");
-    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (width * height)));
+    return { width, height };
+  }
+  function scaledCanvas(size, maxPixels) {
+    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.width = Math.max(1, Math.round(size.width * scale));
+    canvas.height = Math.max(1, Math.round(size.height * scale));
+    return canvas;
+  }
+  function drawableCanvasContext(canvas) {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Canvas unavailable.");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
+    return context;
   }
   function assertCanvasReadable(canvas) {
     var _a;
@@ -23646,7 +23815,7 @@ ${card.reading}`;
     if (!isRecord(item)) return null;
     const text2 = cleanOcrText(item.description);
     const box = normalizeCloudVisionVertices((_a = item.boundingPoly) == null ? void 0 : _a.vertices, width, height);
-    return text2 && box && HAS_JAPANESE$2.test(text2) ? { text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 } : null;
+    return japaneseOcrLine(text2, box);
   }
   function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
     const accumulator = { text: "", boxes: [] };
@@ -23662,21 +23831,27 @@ ${card.reading}`;
     return isRecord(word) && Array.isArray(word.symbols) ? word.symbols : [];
   }
   function appendCloudVisionSymbol(accumulator, symbol, lines, width, height) {
-    var _a;
-    if (!isRecord(symbol)) return;
-    accumulator.text += String(symbol.text ?? "");
-    const box = normalizeCloudVisionVertices((_a = symbol.boundingBox) == null ? void 0 : _a.vertices, width, height);
-    if (box) accumulator.boxes.push(box);
-    const breakType = cloudVisionDetectedBreak(symbol);
+    const record = cloudVisionSymbolRecord(symbol);
+    if (!record) return;
+    accumulator.text += String(record.text ?? "");
+    appendCloudVisionSymbolBox(accumulator, record, width, height);
+    const breakType = cloudVisionDetectedBreak(record);
     if (isCloudVisionSpaceBreak(breakType)) accumulator.text += " ";
     if (isCloudVisionLineBreak(breakType)) pushCloudVisionLine(accumulator, lines);
+  }
+  function cloudVisionSymbolRecord(symbol) {
+    return isRecord(symbol) ? symbol : null;
+  }
+  function appendCloudVisionSymbolBox(accumulator, symbol, width, height) {
+    var _a;
+    const box = normalizeCloudVisionVertices((_a = symbol.boundingBox) == null ? void 0 : _a.vertices, width, height);
+    if (box) accumulator.boxes.push(box);
   }
   function pushCloudVisionLine(accumulator, lines) {
     const value = cleanOcrText(accumulator.text);
     const box = unionBoxes(accumulator.boxes);
-    if (value && box && HAS_JAPANESE$2.test(value)) {
-      lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
-    }
+    const line = japaneseOcrLine(value, box);
+    if (line) lines.push(line);
     accumulator.text = "";
     accumulator.boxes = [];
   }
@@ -23800,15 +23975,19 @@ ${card.reading}`;
     }, width, height, "percent-100");
   }
   function normalizeDirectBox(record, width, height) {
-    const box = {
+    const box = directBoxNumbers(record);
+    return boxFromNumbers(box, width, height, directBoxScale(box));
+  }
+  function directBoxNumbers(record) {
+    return {
       left: numberFrom(record.left ?? record.x),
       top: numberFrom(record.top ?? record.y),
       width: numberFrom(record.width ?? record.w),
       height: numberFrom(record.height ?? record.h)
     };
-    const values = Object.values(box);
-    const scale = values.every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
-    return boxFromNumbers(box, width, height, scale);
+  }
+  function directBoxScale(box) {
+    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
   }
   function normalizePointBox(record, width, height) {
     const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
@@ -24252,10 +24431,20 @@ ${card.reading}`;
     };
   }
   function inlineProviderLabel(settings) {
-    if (settings.ocrProvider === "local-service" && settings.ocrEndpointUrl.trim()) return `local-service:${ocrEngineLabel(settings)}`;
-    if (settings.ocrProvider === "cloud-vision" && settings.ocrCloudVisionApiKey.trim()) return "cloud-vision";
-    if (settings.ocrProvider === "google-lens") return "google-lens";
-    return settings.ocrProvider;
+    return configuredOcrProviderLabel(settings) ?? settings.ocrProvider;
+  }
+  function configuredOcrProviderLabel(settings) {
+    var _a;
+    return ((_a = OCR_PROVIDER_LABELS[settings.ocrProvider]) == null ? void 0 : _a.call(OCR_PROVIDER_LABELS, settings)) ?? null;
+  }
+  function localServiceProviderLabel(settings) {
+    return settings.ocrEndpointUrl.trim() ? `local-service:${ocrEngineLabel(settings)}` : null;
+  }
+  function cloudVisionProviderLabel(settings) {
+    return settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null;
+  }
+  function googleLensProviderLabel(_settings) {
+    return "google-lens";
   }
   function ocrEngineLabel(settings) {
     return settings.ocrEngine || "auto";
@@ -34615,15 +34804,18 @@ ${spelling}`);
       if (!sentence) return;
       const done = log$1.time("lookupTextAtPointer", { length: sentence.length, offset: candidate.offset, trigger });
       try {
-        if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
-        if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options)) return;
-        if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options)) return;
-        log$1.debug("Pointer text lookup found no local entry", { offset: candidate.offset });
+        await this.showFirstPointerTextCandidate(candidate, sentence, trigger, options);
       } catch (error) {
         log$1.debug("Pointer text lookup failed quietly", { offset: candidate.offset }, error);
       } finally {
         done();
       }
+    }
+    async showFirstPointerTextCandidate(candidate, sentence, trigger, options) {
+      if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
+      if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options)) return;
+      if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options)) return;
+      log$1.debug("Pointer text lookup found no local entry", { offset: candidate.offset });
     }
     async showParsedPointerTextCandidate(candidate, sentence, trigger, options) {
       const [tokens] = await this.parseJapanese([candidate.text]);
@@ -34665,56 +34857,88 @@ ${spelling}`);
       return await this.lookupLocalEntryInRun(text2, run);
     }
     async lookupLocalEntryInRun(text2, run) {
+      return await this.lookupForwardLocalEntryInRun(text2, run) ?? await this.lookupBackwardLocalEntryInRun(text2, run);
+    }
+    async lookupForwardLocalEntryInRun(text2, run) {
       const maxEnd = Math.min(run.end, run.offset + 18);
       for (let end = maxEnd; end > run.offset; end--) {
         const surface = text2.slice(run.offset, end);
-        const entries = await this.dictionaries.lookup(surface, surface, 1, this.settings.dictionaryPreferences).catch(() => []);
-        if (entries[0]) return { entry: entries[0], start: run.offset, end };
-      }
-      if (run.offset > run.start) {
-        for (let start = run.offset - 1; start >= run.start; start--) {
-          const surface = text2.slice(start, run.offset + 1);
-          const entries = await this.dictionaries.lookup(surface, surface, 1, this.settings.dictionaryPreferences).catch(() => []);
-          if (entries[0]) return { entry: entries[0], start, end: run.offset + 1 };
-        }
+        const entry = await this.lookupSingleLocalSurface(surface);
+        if (entry) return { entry, start: run.offset, end };
       }
       return void 0;
     }
-    async scanVisiblePage(options = {}) {
-      if (this.visiblePageScanInFlight) {
-        log$1.debugThrottled("visible-page-scan-skipped", 1e3, "Visible page scan skipped because one is already running");
-        return;
+    async lookupBackwardLocalEntryInRun(text2, run) {
+      if (run.offset <= run.start) return void 0;
+      for (let start = run.offset - 1; start >= run.start; start--) {
+        const surface = text2.slice(start, run.offset + 1);
+        const entry = await this.lookupSingleLocalSurface(surface);
+        if (entry) return { entry, start, end: run.offset + 1 };
       }
-      this.visiblePageScanInFlight = true;
-      const done = log$1.time("scanVisiblePage", { silent: Boolean(options.silent) });
+      return void 0;
+    }
+    async lookupSingleLocalSurface(surface) {
+      return (await this.dictionaries.lookup(surface, surface, 1, this.settings.dictionaryPreferences).catch(() => []))[0];
+    }
+    async scanVisiblePage(options = {}) {
+      const silent = Boolean(options.silent);
+      if (!this.beginVisiblePageScan()) return;
+      const done = log$1.time("scanVisiblePage", { silent });
       try {
-        const targets = collectScanTargets();
-        if (!targets.length) {
-          this.handleEmptyVisiblePageScan(Boolean(options.silent));
-          return;
-        }
-        const parsed = await this.parseJapanese(targets.map((target) => target.text));
-        this.pauseAutoScanObserver(() => {
-          targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
-        });
-        this.preloadTermAudioForTokens(parsed.flat());
-        this.immersionPopover.preloadForTokens(parsed.flat());
-        void this.enrichAnkiWords(parsed.flat());
-        log$1.debugThrottled("visible-page-scan-applied", 2500, "Visible page scan applied tokens", {
-          targets: targets.length,
-          tokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0)
-        });
+        await this.runVisiblePageScan(silent);
       } catch (error) {
-        log$1.warn("Visible page scan failed", error);
-        if (!options.silent) this.toast(error instanceof Error ? error.message : "JPDB scan failed.");
+        this.handleVisiblePageScanError(error, silent);
       } finally {
-        this.visiblePageScanInFlight = false;
+        this.finishVisiblePageScan();
         done();
       }
+    }
+    beginVisiblePageScan() {
+      if (!this.visiblePageScanInFlight) {
+        this.visiblePageScanInFlight = true;
+        return true;
+      }
+      log$1.debugThrottled("visible-page-scan-skipped", 1e3, "Visible page scan skipped because one is already running");
+      return false;
+    }
+    async runVisiblePageScan(silent) {
+      const targets = collectScanTargets();
+      if (!targets.length) {
+        this.handleEmptyVisiblePageScan(silent);
+        return;
+      }
+      const parsed = await this.parseJapanese(targets.map((target) => target.text));
+      this.applyVisiblePageScanTokens(targets, parsed);
+      this.preloadVisiblePageScanTokens(parsed);
+      this.logVisiblePageScanApplied(targets, parsed);
+    }
+    applyVisiblePageScanTokens(targets, parsed) {
+      this.pauseAutoScanObserver(() => {
+        targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
+      });
+    }
+    preloadVisiblePageScanTokens(parsed) {
+      const tokens = parsed.flat();
+      this.preloadTermAudioForTokens(tokens);
+      this.immersionPopover.preloadForTokens(tokens);
+      void this.enrichAnkiWords(tokens);
+    }
+    logVisiblePageScanApplied(targets, parsed) {
+      log$1.debugThrottled("visible-page-scan-applied", 2500, "Visible page scan applied tokens", {
+        targets: targets.length,
+        tokens: parsed.reduce((sum, tokens) => sum + tokens.length, 0)
+      });
     }
     handleEmptyVisiblePageScan(silent) {
       log$1.debug("Visible page scan found no targets", { silent });
       if (!silent) this.toast("No unscanned Japanese text found.");
+    }
+    handleVisiblePageScanError(error, silent) {
+      log$1.warn("Visible page scan failed", error);
+      if (!silent) this.toast(error instanceof Error ? error.message : "JPDB scan failed.");
+    }
+    finishVisiblePageScan() {
+      this.visiblePageScanInFlight = false;
     }
     async scanAsbPlayerSubtitles() {
       const roots = Array.from(document.querySelectorAll(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
@@ -34778,14 +35002,23 @@ ${spelling}`);
       const trigger = this.renderedWordTrigger(options.trigger, insideReaderPopup);
       const navigation = options.navigation ?? renderedWordNavigationMode(insideReaderPopup, trigger);
       return {
-        sentence: nearestReadableSentenceForElement(word, word.dataset.sentence || "") || void 0,
+        sentence: this.renderedWordSentence(word),
         anchor: renderedWordAnchor(word, insideReaderPopup, this.activePopoverAnchor),
         trigger,
         navigation,
-        hoverLookupKey: trigger === "hover" ? this.hoverLookupKeyForWord(word) : void 0,
-        previousNavigationEntry: options.previousNavigationEntry ?? this.renderedWordPreviousNavigationEntry(insideReaderPopup, trigger, navigation),
+        hoverLookupKey: this.renderedWordHoverLookupKey(word, trigger),
+        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, insideReaderPopup, trigger, navigation),
         insideReaderPopup
       };
+    }
+    renderedWordSentence(word) {
+      return nearestReadableSentenceForElement(word, word.dataset.sentence || "") || void 0;
+    }
+    renderedWordHoverLookupKey(word, trigger) {
+      return trigger === "hover" ? this.hoverLookupKeyForWord(word) : void 0;
+    }
+    renderedWordPreviousNavigationEntryForOptions(options, insideReaderPopup, trigger, navigation) {
+      return options.previousNavigationEntry ?? this.renderedWordPreviousNavigationEntry(insideReaderPopup, trigger, navigation);
     }
     renderedWordTrigger(trigger, insideReaderPopup) {
       if (insideReaderPopup && this.activePopoverMode === "hover") return "hover";
@@ -34797,30 +35030,55 @@ ${spelling}`);
     showTokenList(tokens, selected, anchor, options = {}) {
       if (!tokens.length) return;
       const trigger = options.trigger === "hover" ? "hover" : "modal";
-      if (trigger === "modal" && (options.navigation ?? "reset") === "reset") this.clearWordNavigation();
+      const navigation = options.navigation ?? "reset";
+      this.prepareTokenListNavigation(trigger, navigation);
       log$1.debug("Rendering token disambiguation popup", { selected, tokens: tokens.length, trigger });
       const popover = this.createPopover();
-      setInnerHtml(popover, `
+      setInnerHtml(popover, this.renderTokenListHtml(tokens, selected));
+      this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry: options.previousNavigationEntry });
+      this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition });
+      void this.parsePopoverJapanese(popover);
+    }
+    prepareTokenListNavigation(trigger, navigation) {
+      if (trigger === "modal" && navigation === "reset") this.clearWordNavigation();
+    }
+    renderTokenListHtml(tokens, selected) {
+      return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-pos">Selection</div>
             <div class="jpdb-reader-meanings">
-                ${tokens.map((token) => `
-                    <button class="jpdb-reader-btn" data-vid="${token.card.vid}" data-sid="${token.card.sid}">
-                        ${escapeHtml$1(token.card.spelling)} ${token.card.reading !== token.card.spelling ? `<span class="jpdb-reader-reading">${escapeHtml$1(token.card.reading)}</span>` : ""}
-                    </button>
-                `).join("")}
+                ${tokens.map((token) => this.renderTokenListButton(token)).join("")}
             </div>
             <div class="jpdb-reader-help">Parsed from: ${escapeHtml$1(selected)}</div>
-        `);
+        `;
+    }
+    renderTokenListButton(token) {
+      return `
+            <button class="jpdb-reader-btn" data-vid="${token.card.vid}" data-sid="${token.card.sid}">
+                ${escapeHtml$1(token.card.spelling)} ${this.renderTokenListReading(token)}
+            </button>
+        `;
+    }
+    renderTokenListReading(token) {
+      return token.card.reading !== token.card.spelling ? `<span class="jpdb-reader-reading">${escapeHtml$1(token.card.reading)}</span>` : "";
+    }
+    installTokenListHandlers(popover, tokens, anchor, context) {
       popover.addEventListener("click", (event) => {
-        var _a;
         const button2 = event.target.closest("button[data-vid]");
         if (!button2) return;
-        const card = this.getCachedCard(Number(button2.dataset.vid), Number(button2.dataset.sid));
-        if (card) void this.showCard(card, (_a = tokens.find((t) => t.card === card)) == null ? void 0 : _a.sentence, anchor, { trigger, navigation: options.navigation ?? "reset", preservePosition: true, previousNavigationEntry: options.previousNavigationEntry });
+        this.showTokenListCard(button2, tokens, anchor, context);
       });
-      this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition });
-      void this.parsePopoverJapanese(popover);
+    }
+    showTokenListCard(button2, tokens, anchor, context) {
+      var _a;
+      const card = this.getCachedCard(Number(button2.dataset.vid), Number(button2.dataset.sid));
+      if (!card) return;
+      void this.showCard(card, (_a = tokens.find((token) => token.card === card)) == null ? void 0 : _a.sentence, anchor, {
+        trigger: context.trigger,
+        navigation: context.navigation,
+        preservePosition: true,
+        previousNavigationEntry: context.previousNavigationEntry
+      });
     }
     showLocalDictionaryPopup(term, entries, anchor, trigger = "modal") {
       log$1.debug("Rendering local dictionary popup", { term, entries: entries.length, trigger });
@@ -34924,12 +35182,23 @@ ${spelling}`);
       return context.options.preservePosition ?? (context.trigger === "modal" && context.navigation !== "reset");
     }
     installInitialCardBehaviors(popover, card, sentence, context, instantLocalEntries) {
-      if (context.options.autoPlay !== false && context.isCurrentHoverCard() && this.shouldAutoPlay(card)) {
-        void this.playAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
-      }
-      if (instantLocalEntries == null ? void 0 : instantLocalEntries.length) void this.parsePopoverJapanese(popover);
+      this.maybeAutoPlayInitialCard(card, context);
+      this.maybeParseInstantLocalEntries(popover, instantLocalEntries);
       this.installStudyTranslationLoader(popover, sentence);
       this.installStudyGrammarLoader(popover, sentence);
+      this.maybeLoadImmersionExamples(popover, card);
+    }
+    maybeAutoPlayInitialCard(card, context) {
+      if (!this.shouldAutoPlayInitialCard(card, context)) return;
+      void this.playAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
+    }
+    shouldAutoPlayInitialCard(card, context) {
+      return context.options.autoPlay !== false && context.isCurrentHoverCard() && this.shouldAutoPlay(card);
+    }
+    maybeParseInstantLocalEntries(popover, instantLocalEntries) {
+      if (instantLocalEntries == null ? void 0 : instantLocalEntries.length) void this.parsePopoverJapanese(popover);
+    }
+    maybeLoadImmersionExamples(popover, card) {
       if (this.settings.immersionKitEnabled) void this.immersionPopover.loadExamples(popover, card);
     }
     renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard) {
@@ -35070,10 +35339,20 @@ ${spelling}`);
       return miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button></div>' : "";
     }
     renderJpdbMiningActions(cardStates, language, data, hasJpdb) {
-      if (!hasJpdb || !this.settings.apiKey.trim() || !this.settings.jpdbMiningEnabled) return "";
-      const deckOptions = this.renderDeckChoiceOptions(data.jpdbDecks, data.ankiDecks, true);
-      const addDeckSelect = deckOptions ? `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}">${deckOptions}</select>` : "";
+      if (!this.canRenderJpdbMiningActions(hasJpdb)) return "";
       const state = miningActionState(cardStates, language);
+      const addDeckSelect = this.renderAddDeckSelect(data, language);
+      return this.renderJpdbMiningActionDetails(language, state, addDeckSelect);
+    }
+    canRenderJpdbMiningActions(hasJpdb) {
+      return hasJpdb && Boolean(this.settings.apiKey.trim()) && this.settings.jpdbMiningEnabled;
+    }
+    renderAddDeckSelect(data, language) {
+      const deckOptions = this.renderDeckChoiceOptions(data.jpdbDecks, data.ankiDecks, true);
+      if (!deckOptions) return "";
+      return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}">${deckOptions}</select>`;
+    }
+    renderJpdbMiningActionDetails(language, state, addDeckSelect) {
       const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
       return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
@@ -35340,18 +35619,33 @@ ${spelling}`);
       drag.button.style.setProperty("--jpdb-reader-mining-drawer-drag-y", `${Math.max(-10, Math.min(10, delta * 0.18))}px`);
     }
     finishMiningControlsDrag(event, commit) {
-      var _a, _b;
+      const drag = this.currentMiningControlsDragForEvent(event);
+      if (!drag) return;
+      this.clearMiningControlsDrag(drag);
+      if (!this.shouldCommitMiningControlsDrag(drag, commit)) return;
+      this.commitMiningControlsDrag(drag);
+    }
+    currentMiningControlsDragForEvent(event) {
       const drag = this.miningControlsDrag;
-      if (!drag || event.pointerId !== drag.pointerId) return;
+      return drag && event.pointerId === drag.pointerId ? drag : void 0;
+    }
+    clearMiningControlsDrag(drag) {
+      var _a, _b;
       this.miningControlsDrag = void 0;
       (_b = (_a = drag.button).releasePointerCapture) == null ? void 0 : _b.call(_a, drag.pointerId);
       drag.button.classList.remove("jpdb-reader-mining-drawer-handle-dragging");
       drag.button.style.removeProperty("--jpdb-reader-mining-drawer-drag-y");
-      if (!this.shouldCommitMiningControlsDrag(drag, commit)) return;
+    }
+    commitMiningControlsDrag(drag) {
       this.suppressedMiningToggleClicks.add(drag.button);
+      const expanded = this.miningControlsExpandedAfterDrag(drag);
+      if (expanded !== void 0) this.setMiningControlsExpanded(drag.button, expanded);
+    }
+    miningControlsExpandedAfterDrag(drag) {
       const delta = drag.lastY - drag.startY;
-      if (delta <= -24) this.setMiningControlsExpanded(drag.button, true);
-      else if (delta >= 24) this.setMiningControlsExpanded(drag.button, false);
+      if (delta <= -24) return true;
+      if (delta >= 24) return false;
+      return void 0;
     }
     shouldCommitMiningControlsDrag(drag, commit) {
       return commit && drag.moved;
@@ -35568,12 +35862,21 @@ ${spelling}`);
     }
     wordPillContext(card, overrideQuery) {
       return {
-        query: overrideQuery || card.spelling || card.reading,
-        word: overrideQuery || card.spelling,
-        reading: overrideQuery || card.reading || card.spelling,
+        query: this.wordPillQuery(card, overrideQuery),
+        word: this.wordPillWord(card, overrideQuery),
+        reading: this.wordPillReading(card, overrideQuery),
         vid: String(Math.max(0, card.vid)),
         sid: String(Math.max(0, card.sid))
       };
+    }
+    wordPillQuery(card, overrideQuery) {
+      return overrideQuery || card.spelling || card.reading;
+    }
+    wordPillWord(card, overrideQuery) {
+      return overrideQuery || card.spelling;
+    }
+    wordPillReading(card, overrideQuery) {
+      return overrideQuery || card.reading || card.spelling;
     }
     async showKanjiCard(card, kanji, sentence, anchor, options = {}) {
       if (!isKanjiCharacter(kanji)) return;
@@ -35931,20 +36234,42 @@ ${spelling}`);
     async renderKanjiOriginsInto(popover, kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries) {
       const mount = popover.querySelector("[data-kanji-origin-mount]");
       if (!mount) return;
-      const sourceInfo = await this.kanjiOrigin.lookup(kanji, { ...this.settings, kanjiOriginWiktionaryEnabled: false }).catch((error) => {
+      const sourceInfo = await this.lookupKanjiOriginSourceInfo(kanji);
+      if (!this.canRenderKanjiOriginMount(popover, mount)) return;
+      log$1.debug("Kanji origin rendered", { kanji, hasSourceInfo: Boolean(sourceInfo) });
+      this.renderKanjiOriginMount(mount, kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
+      this.installKanjiOriginImageFallbacks(mount);
+      installKanjiGraphDrag(mount);
+    }
+    async lookupKanjiOriginSourceInfo(kanji) {
+      return await this.kanjiOrigin.lookup(kanji, { ...this.settings, kanjiOriginWiktionaryEnabled: false }).catch((error) => {
         log$1.warn("Kanji origin lookup failed", { kanji }, error);
         return null;
       });
-      if (!popover.isConnected || !mount.isConnected) return;
-      log$1.debug("Kanji origin rendered", { kanji, hasSourceInfo: Boolean(sourceInfo) });
+    }
+    canRenderKanjiOriginMount(popover, mount) {
+      return popover.isConnected && mount.isConnected;
+    }
+    renderKanjiOriginMount(mount, kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
       const facts = buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries, sourceInfo);
-      const graph = this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo, kanjiVGInfo) : null;
       const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
-      setInnerHtml(mount, renderKanjiOrigins(facts, graph, sourceInfo, this.settings, this.settings.interfaceLanguage, this.isDictionarySourceOpen(sourceStateKey), sourceStateKey));
+      setInnerHtml(mount, renderKanjiOrigins(
+        facts,
+        this.kanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo),
+        sourceInfo,
+        this.settings,
+        this.settings.interfaceLanguage,
+        this.isDictionarySourceOpen(sourceStateKey),
+        sourceStateKey
+      ));
+    }
+    kanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
+      return this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo, kanjiVGInfo) : null;
+    }
+    installKanjiOriginImageFallbacks(mount) {
       mount.querySelectorAll("[data-radical-frame]").forEach((image) => {
         image.addEventListener("error", () => image.remove(), { once: true });
       });
-      installKanjiGraphDrag(mount);
     }
     renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo = null) {
       const grouped = groupTermEntriesByDictionary(entries);
@@ -36124,14 +36449,17 @@ ${spelling}`);
       }
     }
     async loadStudyTranslation(popover, sentence, container) {
-      if (!container || !sentence) return;
+      if (!sentence) return;
       try {
         const translation = await this.loadStudyTranslationContent(sentence);
-        if (!this.isCurrentPopoverRoot(popover) || !container.isConnected) return;
+        if (!this.canApplyStudyTranslation(popover, container)) return;
         this.applyStudyTranslation(popover, sentence, container, translation);
       } catch (error) {
         this.renderStudyTranslationError(sentence, container, error);
       }
+    }
+    canApplyStudyTranslation(popover, container) {
+      return this.isCurrentPopoverRoot(popover) && container.isConnected;
     }
     async loadStudyTranslationContent(sentence) {
       const [tokens, translated] = await Promise.all([
@@ -36216,11 +36544,17 @@ ${spelling}`);
     }
     preloadTermAudioForTokens(tokens) {
       if (!this.canPreloadReaderAudio()) return;
+      this.logTermAudioPreloadsQueued(this.queueTermAudioPreloads(tokens));
+    }
+    queueTermAudioPreloads(tokens) {
       let queued = 0;
       for (const token of tokens) {
         if (this.preloadTermAudioForToken(token)) queued++;
         if (queued >= TERM_AUDIO_PRELOAD_LIMIT) break;
       }
+      return queued;
+    }
+    logTermAudioPreloadsQueued(queued) {
       if (queued) log$1.debugThrottled("term-audio-preload", 2500, "Term audio preloads queued", { queued });
     }
     preloadTermAudioForToken(token) {
@@ -36420,14 +36754,22 @@ ${spelling}`);
       popover.focus();
     }
     repositionActivePopover() {
-      var _a;
       const popover = this.repositionableActivePopover();
       if (!popover) return;
+      this.prepareActivePopoverForPositioning(popover);
+      if (this.repositionLockedActivePopoverIfNeeded(popover)) return;
+      this.repositionUnlockedActivePopover(popover);
+    }
+    prepareActivePopoverForPositioning(popover) {
       if (this.shouldUseFixedModalHeight(popover)) popover.style.height = "";
-      if (this.activePopoverPositionLocked) {
-        this.repositionLockedActivePopover();
-        return;
-      }
+    }
+    repositionLockedActivePopoverIfNeeded(popover) {
+      if (!this.activePopoverPositionLocked) return false;
+      this.repositionLockedActivePopover(popover);
+      return true;
+    }
+    repositionUnlockedActivePopover(popover) {
+      var _a;
       this.refreshActivePopoverAnchorRect();
       positionPopover(
         popover,
@@ -36445,9 +36787,8 @@ ${spelling}`);
       if (this.activePopover.classList.contains("jpdb-reader-sheet")) return null;
       return this.activePopover;
     }
-    repositionLockedActivePopover() {
-      if (!this.activePopover) return;
-      placePopoverAtViewportPosition(this.activePopover, this.activePopover.getBoundingClientRect(), popoverMaxHeightSetting(this.settings));
+    repositionLockedActivePopover(popover) {
+      placePopoverAtViewportPosition(popover, popover.getBoundingClientRect(), popoverMaxHeightSetting(this.settings));
       this.syncActivePopoverFixedHeight();
     }
     refreshActivePopoverAnchorRect() {

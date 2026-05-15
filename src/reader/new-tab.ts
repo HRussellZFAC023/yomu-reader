@@ -71,16 +71,40 @@ export const NEW_TAB_SORT_OPTIONS: Array<{ value: NewTabSort; label: string }> =
 ];
 
 export function isYomuNewTabUrl(value: string): boolean {
+    const url = parseNewTabUrl(value);
+    return url ? isYomuNewTabUrlObject(url) : false;
+}
+
+function parseNewTabUrl(value: string): URL | null {
     try {
-        const url = new URL(value);
-        if (url.searchParams.has('yomu-newtab')) return true;
-        const path = url.pathname.replace(/\/index\.html$/, '/');
-        if (url.hostname === 'hrussellzfac023.github.io') return path === `/${APP_REPOSITORY_NAME}/newtab/`;
-        if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname)) return path.endsWith('/newtab/');
-        return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith('/newtab/');
+        return new URL(value);
     } catch {
-        return false;
+        return null;
     }
+}
+
+function isYomuNewTabUrlObject(url: URL): boolean {
+    const path = normalizedNewTabPath(url);
+    return url.searchParams.has('yomu-newtab')
+        || isHostedNewTabPath(url, path)
+        || isLocalNewTabPath(url, path)
+        || isRepositoryNewTabPath(path);
+}
+
+function normalizedNewTabPath(url: URL): string {
+    return url.pathname.replace(/\/index\.html$/, '/');
+}
+
+function isHostedNewTabPath(url: URL, path: string): boolean {
+    return url.hostname === 'hrussellzfac023.github.io' && path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
+
+function isLocalNewTabPath(url: URL, path: string): boolean {
+    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith('/newtab/');
+}
+
+function isRepositoryNewTabPath(path: string): boolean {
+    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith('/newtab/');
 }
 
 export function resolveNewTabBrandAssets(value: string): { homeHref: string; iconSrc: string } {
@@ -136,18 +160,28 @@ export function uniqueStrings(values: string[]): string[] {
 }
 
 export function firstCardMeaning(card: JPDBCard): string {
-    const meanings = card.meanings ?? [];
-    const first = meanings.find(meaning => meaning.glosses.some(gloss => gloss.trim()));
-    if (!first?.glosses.length) return '';
-
-    const plain = first.glosses.filter(Boolean);
-    if (card.source !== 'local' && card.source !== 'fallback') {
-        return plain.join('; ');
-    }
+    const plain = firstCardMeaningGlosses(card);
+    if (!plain.length) return '';
+    if (!shouldCleanCardMeaning(card)) return plain.join('; ');
 
     const cleaned = plain
         .map(meaning => cleanupNewTabMeaning(meaning))
         .filter(Boolean);
+    return preferredCardMeaning(cleaned, plain);
+}
+
+function firstCardMeaningGlosses(card: JPDBCard): string[] {
+    return (card.meanings ?? [])
+        .find(meaning => meaning.glosses.some(gloss => gloss.trim()))
+        ?.glosses
+        .filter(Boolean) ?? [];
+}
+
+function shouldCleanCardMeaning(card: JPDBCard): boolean {
+    return card.source === 'local' || card.source === 'fallback';
+}
+
+function preferredCardMeaning(cleaned: string[], plain: string[]): string {
     return cleaned.length ? cleaned.join('; ') : plain.join('; ');
 }
 
@@ -161,12 +195,32 @@ export function kanjiCharacters(value: string): string[] {
 
 export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | undefined): NewTabUiState {
     return {
-        mode: value?.mode === 'kanji' ? 'kanji' : DEFAULT_NEW_TAB_UI_STATE.mode,
-        sort: isNewTabSort(value?.sort) ? value.sort : DEFAULT_NEW_TAB_UI_STATE.sort,
-        filter: isNewTabFilter(value?.filter) ? value.filter : DEFAULT_NEW_TAB_UI_STATE.filter,
-        source: isNewTabSource(value?.source) ? value.source : DEFAULT_NEW_TAB_UI_STATE.source,
-        revealAnswer: typeof value?.revealAnswer === 'boolean' ? value.revealAnswer : DEFAULT_NEW_TAB_UI_STATE.revealAnswer,
+        mode: normalizeNewTabMode(value?.mode),
+        sort: normalizeNewTabSort(value?.sort),
+        filter: normalizeNewTabFilter(value?.filter),
+        source: normalizeNewTabSource(value?.source),
+        revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
     };
+}
+
+function normalizeNewTabMode(value: unknown): NewTabMode {
+    return value === 'kanji' ? 'kanji' : DEFAULT_NEW_TAB_UI_STATE.mode;
+}
+
+function normalizeNewTabSort(value: unknown): NewTabSort {
+    return isNewTabSort(value) ? value : DEFAULT_NEW_TAB_UI_STATE.sort;
+}
+
+function normalizeNewTabFilter(value: unknown): NewTabFilter {
+    return isNewTabFilter(value) ? value : DEFAULT_NEW_TAB_UI_STATE.filter;
+}
+
+function normalizeNewTabSource(value: unknown): NewTabWordSource {
+    return isNewTabSource(value) ? value : DEFAULT_NEW_TAB_UI_STATE.source;
+}
+
+function normalizeNewTabRevealAnswer(value: unknown): boolean {
+    return typeof value === 'boolean' ? value : DEFAULT_NEW_TAB_UI_STATE.revealAnswer;
 }
 
 export function loadNewTabUiState(): NewTabUiState {
@@ -260,12 +314,18 @@ export function cardStateLabel(card: JPDBCard): string {
 function matchesFilter(card: JPDBCard, filter: NewTabFilter): boolean {
     if (filter === 'all') return true;
     if (filter === 'local') return card.source === 'local';
-    if (filter === 'study') {
-        return card.source === 'local'
-            || card.source === 'anki'
-            || card.cardState.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'not-in-deck');
-    }
+    if (filter === 'study') return matchesStudyFilter(card);
     return card.cardState.includes(filter);
+}
+
+function matchesStudyFilter(card: JPDBCard): boolean {
+    return card.source === 'local'
+        || card.source === 'anki'
+        || card.cardState.some(isStudyCardState);
+}
+
+function isStudyCardState(state: CardState): boolean {
+    return state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'not-in-deck';
 }
 
 function stateRank(card: JPDBCard): number {
