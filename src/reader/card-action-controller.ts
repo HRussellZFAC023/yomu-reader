@@ -85,23 +85,30 @@ export class CardActionController {
     }
 
     private async performReaderAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
-        switch (action) {
-            case 'copy-word':
-                await copyText(card.spelling);
-                this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'copiedWord'));
-                return false;
-            case 'audio':
-                await this.options.playAudio(card);
-                return false;
-            case 'setup-dictionaries':
-                this.options.showSettings('dictionaries');
-                return false;
-            case 'setup-jpdb':
-                this.options.showSettings('basics');
-                return false;
-            default:
-                return undefined;
-        }
+        if (!action) return undefined;
+        const handlers: Record<string, () => Promise<boolean>> = {
+            'copy-word': () => this.copyWord(card),
+            audio: () => this.playCardAudio(card),
+            'setup-dictionaries': () => this.openSettingsPanel('dictionaries'),
+            'setup-jpdb': () => this.openSettingsPanel('basics'),
+        };
+        return handlers[action]?.();
+    }
+
+    private async copyWord(card: JPDBCard): Promise<boolean> {
+        await copyText(card.spelling);
+        this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'copiedWord'));
+        return false;
+    }
+
+    private async playCardAudio(card: JPDBCard): Promise<boolean> {
+        await this.options.playAudio(card);
+        return false;
+    }
+
+    private async openSettingsPanel(panel: string): Promise<boolean> {
+        this.options.showSettings(panel);
+        return false;
     }
 
     private async performMiningAction(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<boolean | undefined> {

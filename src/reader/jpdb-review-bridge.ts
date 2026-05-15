@@ -170,8 +170,12 @@ function reviewDocumentText(doc: Document): { kindLabel: string; sentence: strin
         kindLabel: cleanText(doc.querySelector<HTMLElement>('.kind')?.textContent ?? ''),
         sentence: cleanText(sentenceElement?.textContent ?? ''),
         highlighted: cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? ''),
-        keyword: sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? ''),
+        keyword: reviewKeywordText(doc),
     };
+}
+
+function reviewKeywordText(doc: Document): string {
+    return sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? '');
 }
 
 function reviewCardTextFields(

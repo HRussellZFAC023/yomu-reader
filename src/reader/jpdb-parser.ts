@@ -224,6 +224,14 @@ interface PitchProfile {
     moraCount: number;
 }
 
+const PITCH_PROFILE_CLASSIFIERS: Array<[string, (profile: PitchProfile) => boolean]> = [
+    ['atamadaka', isAtamadaka],
+    ['odaka', isOdaka],
+    ['heiban', isHeiban],
+    ['nakadaka', isNakadaka],
+    ['kifuku', isKifuku],
+];
+
 function pitchLevels(pitchAccent: string[]): string[] {
     return pitchAccent.length
         ? Array.from(pitchAccent[0]).filter(level => level === 'H' || level === 'L')
@@ -231,12 +239,7 @@ function pitchLevels(pitchAccent: string[]): string[] {
 }
 
 function classifyPitchProfile(profile: PitchProfile): string {
-    if (isAtamadaka(profile)) return 'atamadaka';
-    if (isOdaka(profile)) return 'odaka';
-    if (isHeiban(profile)) return 'heiban';
-    if (isNakadaka(profile)) return 'nakadaka';
-    if (isKifuku(profile)) return 'kifuku';
-    return '';
+    return PITCH_PROFILE_CLASSIFIERS.find(([, matches]) => matches(profile))?.[0] ?? '';
 }
 
 function isAtamadaka(profile: PitchProfile): boolean {

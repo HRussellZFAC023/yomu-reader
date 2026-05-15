@@ -77,39 +77,6 @@ export function renderJpdbDictionarySupplement(
     examplesSourceAttributes = '',
 ): string {
     if (!compounds.length && !examples.length) return '';
-    const compoundHtml = compounds.length
-        ? `<section class="yomu-jpdb-dictionary-section">
-            <div class="yomu-jpdb-compounds">
-                ${compounds.map(compound => `
-                    <a class="yomu-jpdb-compound" href="${escapeHtml(compound.url || '#')}" ${compound.url ? '' : 'aria-disabled="true"'}>
-                        <span class="yomu-jpdb-compound-head">
-                            <span class="yomu-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(compound.term)}</span>
-                            ${compound.reading && compound.reading !== compound.term ? `<span class="yomu-jpdb-compound-reading">${escapeHtml(compound.reading)}</span>` : ''}
-                        </span>
-                        ${compound.meaning ? `<span class="yomu-jpdb-compound-meaning">${escapeHtml(compound.meaning)}</span>` : ''}
-                    </a>
-                `).join('')}
-            </div>
-        </section>`
-        : '';
-    const examplesHtml = examples.length
-        ? `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-page-examples-group" ${examplesSourceAttributes || 'open'}>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">JPDB examples</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-            <div class="yomu-jpdb-page-examples">
-                ${examples.map(example => `
-                    <div class="yomu-jpdb-page-example">
-                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
-                        ${example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>` : ''}
-                    </div>
-                `).join('')}
-            </div>
-            </div>
-        </details>`
-        : '';
     return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-page-dictionary" ${sourceAttributes}>
             <summary class="jpdb-reader-local-head">
@@ -117,10 +84,77 @@ export function renderJpdbDictionarySupplement(
                 <span class="jpdb-reader-local-dict">${compounds.length + examples.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                ${compoundHtml}
-                ${examplesHtml}
+                ${renderJpdbSupplementCompounds(compounds)}
+                ${renderJpdbSupplementExamples(examples, examplesSourceAttributes)}
             </div>
         </details>
+    `;
+}
+
+function renderJpdbSupplementCompounds(compounds: JpdbPageCompound[]): string {
+    if (!compounds.length) return '';
+    return `<section class="yomu-jpdb-dictionary-section">
+        <div class="yomu-jpdb-compounds">
+            ${compounds.map(renderJpdbSupplementCompound).join('')}
+        </div>
+    </section>`;
+}
+
+function renderJpdbSupplementCompound(compound: JpdbPageCompound): string {
+    const href = compoundHref(compound);
+    const disabledAttrs = compoundDisabledAttrs(compound);
+    const readingHtml = compoundReadingHtml(compound);
+    const meaningHtml = compoundMeaningHtml(compound);
+    return `
+        <a class="yomu-jpdb-compound" href="${escapeHtml(href)}" ${disabledAttrs}>
+            <span class="yomu-jpdb-compound-head">
+                <span class="yomu-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(compound.term)}</span>
+                ${readingHtml}
+            </span>
+            ${meaningHtml}
+        </a>
+    `;
+}
+
+function compoundHref(compound: JpdbPageCompound): string {
+    return compound.url || '#';
+}
+
+function compoundDisabledAttrs(compound: JpdbPageCompound): string {
+    return compound.url ? '' : 'aria-disabled="true"';
+}
+
+function compoundReadingHtml(compound: JpdbPageCompound): string {
+    return compound.reading && compound.reading !== compound.term
+        ? `<span class="yomu-jpdb-compound-reading">${escapeHtml(compound.reading)}</span>`
+        : '';
+}
+
+function compoundMeaningHtml(compound: JpdbPageCompound): string {
+    return compound.meaning ? `<span class="yomu-jpdb-compound-meaning">${escapeHtml(compound.meaning)}</span>` : '';
+}
+
+function renderJpdbSupplementExamples(examples: JpdbPageExample[], examplesSourceAttributes: string): string {
+    if (!examples.length) return '';
+    return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-page-examples-group" ${examplesSourceAttributes || 'open'}>
+        <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+            <span class="jpdb-reader-example-source">JPDB examples</span>
+            <span class="jpdb-reader-source-status jpdb-reader-example-count">${examples.length}</span>
+        </summary>
+        <div class="jpdb-reader-local-glossary">
+        <div class="yomu-jpdb-page-examples">
+            ${examples.map(renderJpdbSupplementExample).join('')}
+        </div>
+        </div>
+    </details>`;
+}
+
+function renderJpdbSupplementExample(example: JpdbPageExample): string {
+    return `
+        <div class="yomu-jpdb-page-example">
+            <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
+            ${example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>` : ''}
+        </div>
     `;
 }
 

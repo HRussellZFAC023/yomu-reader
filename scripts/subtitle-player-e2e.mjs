@@ -289,20 +289,25 @@ async function waitForSubtitleSurface(page, site) {
     }, null, { timeout: site.readyTimeout ?? 25000 });
 
     await openTracksPanel(page);
-    const rows = await page.locator('.jpdb-subtitle-list-row').count();
-    if (!rows) {
-        const firstJapanese = page.locator('.jpdb-subtitle-track-row').filter({ hasText: /Japanese|日本語|JA/i }).first();
-        if (await firstJapanese.count()) {
-            const button = firstJapanese.locator('[data-action="primary-track"]').first();
-            if (await button.getAttribute('aria-pressed') !== 'true') {
-                await button.click({ force: true });
-            }
-        }
-    }
+    await maybeSelectFirstJapaneseTrack(page);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0
         || Boolean(document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim())
         || document.querySelector('.jpdb-subtitle-track-row.active'), null, { timeout: site.readyTimeout ?? 25000 });
     await openLinesOrTracksPanel(page);
+}
+
+async function maybeSelectFirstJapaneseTrack(page) {
+    const rows = await page.locator('.jpdb-subtitle-list-row').count();
+    if (rows) return;
+    const firstJapanese = page.locator('.jpdb-subtitle-track-row').filter({ hasText: /Japanese|日本語|JA/i }).first();
+    if (!await firstJapanese.count()) return;
+    await pressPrimaryTrackIfNeeded(firstJapanese);
+}
+
+async function pressPrimaryTrackIfNeeded(track) {
+    const button = track.locator('[data-action="primary-track"]').first();
+    if (await button.getAttribute('aria-pressed') === 'true') return;
+    await button.click({ force: true });
 }
 
 async function dismissBlockingOverlays(page) {

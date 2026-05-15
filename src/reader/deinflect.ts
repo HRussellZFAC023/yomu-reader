@@ -149,27 +149,35 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
     const results: DeinflectedTerm[] = [{ term: source, rules: [], reasons: [], depth: 0 }];
     const seen = new Set([candidateKey(results[0])]);
     const queue = [results[0]];
+    expandDeinflectionQueue(queue, results, seen);
 
-    for (let index = 0; index < queue.length; index++) {
-        const current = queue[index];
-        if (current.depth >= 2) continue;
-
-        for (const rule of RULES) {
-            const next = deinflectedCandidate(current, rule);
-            if (next && rememberDeinflectedCandidate(next, seen)) {
-                results.push(next);
-                queue.push(next);
-            }
-        }
-    }
-
-    const sorted = results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+    const sorted = sortDeinflectedTerms(results);
     log.debugThrottled('deinflect-term', 1000, 'Deinflected Japanese term', {
         source,
         candidates: sorted.length,
         derived: sorted.filter(candidate => candidate.depth > 0).length,
     });
     return sorted;
+}
+
+function expandDeinflectionQueue(queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
+    for (let index = 0; index < queue.length; index++) {
+        expandDeinflectedTerm(queue[index], queue, results, seen);
+    }
+}
+
+function expandDeinflectedTerm(current: DeinflectedTerm, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
+    if (current.depth >= 2) return;
+    for (const rule of RULES) {
+        const next = deinflectedCandidate(current, rule);
+        if (!next || !rememberDeinflectedCandidate(next, seen)) continue;
+        results.push(next);
+        queue.push(next);
+    }
+}
+
+function sortDeinflectedTerms(results: DeinflectedTerm[]): DeinflectedTerm[] {
+    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
 }
 
 function deinflectedCandidate(current: DeinflectedTerm, rule: DeinflectionRule): DeinflectedTerm | null {
@@ -198,13 +206,12 @@ function rememberDeinflectedCandidate(candidate: DeinflectedTerm, seen: Set<stri
 
 export function termRulesMatch(entryRules: string | undefined, candidateRules: string[]): boolean {
     if (!candidateRules.length) return true;
-    const entryRuleSet = new Set((entryRules ?? '').split(/\s+/).filter(Boolean));
-    if (!entryRuleSet.size) return false;
+    const entryRuleSet = entryRulesSet(entryRules);
+    return entryRuleSet.size > 0 && candidateRules.some(rule => termRuleMatches(rule, entryRuleSet));
+}
 
-    for (const rule of candidateRules) {
-        if (termRuleMatches(rule, entryRuleSet)) return true;
-    }
-    return false;
+function entryRulesSet(entryRules: string | undefined): Set<string> {
+    return new Set((entryRules ?? '').split(/\s+/).filter(Boolean));
 }
 
 function termRuleMatches(rule: string, entryRuleSet: Set<string>): boolean {

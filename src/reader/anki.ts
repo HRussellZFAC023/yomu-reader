@@ -152,7 +152,7 @@ export class AnkiConnectClient {
 
     async listNewTabCards(limit = 80): Promise<JPDBCard[]> {
         const settings = this.getSettings();
-        if (!settings.ankiEnabled || Date.now() < this.unavailableUntil) return [];
+        if (this.shouldSkipNewTabCards(settings)) return [];
 
         try {
             const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });
@@ -189,6 +189,10 @@ export class AnkiConnectClient {
         }
     }
 
+    private shouldSkipNewTabCards(settings: ReaderSettings): boolean {
+        return !settings.ankiEnabled || Date.now() < this.unavailableUntil;
+    }
+
     private async loadDueNewTabCards(sampledCardIds: number[]): Promise<AnkiCardInfo[]> {
         const dueFlags = await this.invoke<boolean[]>('areDue', { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
         const cards = await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: sampledCardIds }).catch((): AnkiCardInfo[] => []);
@@ -197,15 +201,20 @@ export class AnkiConnectClient {
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         const empty = emptyAnkiLookupResult();
-        if (Date.now() < this.unavailableUntil) {
-            log.debug('Anki lookup skipped during cooldown', { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
-            return empty;
-        }
-
+        if (this.isLookupCoolingDown(card)) return empty;
         const cacheKey = `${card.spelling}|${card.reading}`;
         const cached = this.readLookupCache(cacheKey, card);
         if (cached) return cached;
+        return await this.findExistingCardsUncached(card, cacheKey, empty);
+    }
 
+    private isLookupCoolingDown(card: JPDBCard): boolean {
+        if (Date.now() >= this.unavailableUntil) return false;
+        log.debug('Anki lookup skipped during cooldown', { term: card.spelling, cooldownMs: this.unavailableUntil - Date.now() });
+        return true;
+    }
+
+    private async findExistingCardsUncached(card: JPDBCard, cacheKey: string, empty: AnkiLookupResult): Promise<AnkiLookupResult> {
         try {
             const done = log.time('findExistingCards', { term: card.spelling });
             const noteIds = await this.findCandidateNoteIds(card);
@@ -757,16 +766,28 @@ interface AnkiNoteCardFields {
 
 function ankiNoteCardFields(note: AnkiNoteInfo): AnkiNoteCardFields | null {
     const fields = flattenNoteFields(note.fields);
-    const spelling = firstField(fields, ['Expression', 'Word', 'Vocab', 'Vocabulary', 'Term', 'Front', 'Expression Reading'])
-        || firstJapaneseValue(fields);
+    const spelling = ankiNoteSpelling(fields);
     if (!spelling) return null;
     return {
         spelling,
-        reading: firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling,
-        meaning: firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '',
+        reading: ankiNoteReading(fields, spelling),
+        meaning: ankiNoteMeaning(fields),
         partOfSpeech: firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']),
         sentence: firstField(fields, ['Sentence', 'Example', 'Context', 'ExpressionSentence', 'SentenceAudio']) || '',
     };
+}
+
+function ankiNoteSpelling(fields: Record<string, string>): string {
+    return firstField(fields, ['Expression', 'Word', 'Vocab', 'Vocabulary', 'Term', 'Front', 'Expression Reading'])
+        || firstJapaneseValue(fields);
+}
+
+function ankiNoteReading(fields: Record<string, string>, spelling: string): string {
+    return firstField(fields, ['Reading', 'Kana', 'Yomi', 'Pronunciation']) || spelling;
+}
+
+function ankiNoteMeaning(fields: Record<string, string>): string {
+    return firstField(fields, ['Meaning', 'Definition', 'Definitions', 'Glossary', 'Back', 'DictionaryDefinitions']) || '';
 }
 
 function ankiCardMeaning(fields: AnkiNoteCardFields): JPDBCard['meanings'][number] {
@@ -1089,12 +1110,16 @@ function renderFrequency(card: JPDBCard, entries: YomitanMetaEntry[], preference
     const chips: string[] = [];
     if (card.frequencyRank) chips.push(`<span class="yomu-chip">JPDB #${card.frequencyRank}</span>`);
     for (const entry of entries) {
-        if (entry.mode !== 'freq') continue;
-        const value = formatMetaFrequency(entry.data);
-        if (value) chips.push(`<span class="yomu-chip">${escapeHtml(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml(value)}</span>`);
+        appendFrequencyChip(chips, entry, preferences);
         if (chips.length >= 8) break;
     }
     return chips.filter(uniqueValue).join(' ');
+}
+
+function appendFrequencyChip(chips: string[], entry: YomitanMetaEntry, preferences: DictionaryPreference[]): void {
+    if (entry.mode !== 'freq') return;
+    const value = formatMetaFrequency(entry.data);
+    if (value) chips.push(`<span class="yomu-chip">${escapeHtml(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml(value)}</span>`);
 }
 
 function renderPitchField(card: JPDBCard, entries: YomitanMetaEntry[], preferences: DictionaryPreference[]): string {

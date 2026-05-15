@@ -49,6 +49,7 @@ const SKIP_SELECTOR = [
 ].join(',');
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
+const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
 
 const FRAGMENT_SKIP_SELECTOR = [
     'script',
@@ -190,18 +191,26 @@ export function getSelectionText(): string {
 }
 
 export function getSelectionSentence(): string {
-    const selection = window.getSelection();
-    if (!selection?.rangeCount) return getSelectionText();
-
-    const range = selection.getRangeAt(0);
-    const container = range.commonAncestorContainer;
-    const host = (container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Element)
-        ?.closest('p, li, blockquote, td, th, div, article, section');
-    const fullText = host?.textContent?.replace(/\s+/g, ' ').trim();
     const selected = getSelectionText();
+    const fullText = selectionHostText(window.getSelection());
     if (!fullText || !selected) return selected;
 
     return sentenceAroundSurface(fullText, selected) || selected;
+}
+
+function selectionHostText(selection: Selection | null): string {
+    return selectionSentenceHost(selection)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+}
+
+function selectionSentenceHost(selection: Selection | null): Element | null {
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (!range) return null;
+    return rangeContainerElement(range.commonAncestorContainer)?.closest('p, li, blockquote, td, th, div, article, section') ?? null;
+}
+
+function rangeContainerElement(container: Node): Element | null {
+    if (container.nodeType === Node.TEXT_NODE) return container.parentElement;
+    return container instanceof Element ? container : null;
 }
 
 export function collectVisibleTextTargets(limit = 40): TextTarget[] {
@@ -210,15 +219,24 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
 
 export function documentHasJapaneseText(limit = 200000): boolean {
     if (!document.body) return false;
-    let inspected = 0;
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-            const parent = node.parentElement;
-            if (!parent || parent.closest(SKIP_SELECTOR) || parent.closest(READER_ROOT_SELECTOR)) return NodeFilter.FILTER_REJECT;
-            return NodeFilter.FILTER_ACCEPT;
-        },
-    });
+    return textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+}
 
+function visibleTextWalker(root: HTMLElement): TreeWalker {
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: visibleTextNodeFilter });
+}
+
+function visibleTextNodeFilter(node: Node): number {
+    return canInspectTextNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+}
+
+function canInspectTextNode(node: Node): boolean {
+    const parent = node.parentElement;
+    return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR));
+}
+
+function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
+    let inspected = 0;
     let node: Node | null;
     while ((node = walker.nextNode())) {
         const text = node.textContent ?? '';
@@ -457,7 +475,7 @@ function canReadSentenceContextFrom(element: HTMLElement): boolean {
 
 export function sentenceAroundSurface(value: string, surface = '', fallback = ''): string {
     const text = cleanReadableSentence(value);
-    if (!text || !HAS_JAPANESE.test(text)) return '';
+    if (!isJapaneseSentenceContext(text)) return '';
 
     const search = sentenceSearchText(text, surface, fallback);
     const index = search ? text.indexOf(search) : 0;
@@ -468,6 +486,10 @@ export function sentenceAroundSurface(value: string, surface = '', fallback = ''
     if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
 
     return clampLongSentence(hardClean, search);
+}
+
+function isJapaneseSentenceContext(text: string): boolean {
+    return Boolean(text && HAS_JAPANESE.test(text));
 }
 
 function sentenceSearchText(text: string, surface: string, fallback: string): string {
@@ -625,28 +647,39 @@ function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, st
 }
 
 export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
-    if (!tokens.length || !target.fragments.length) return;
+    if (!hasFragmentTokenWork(target, tokens)) return;
 
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
-    if (target.fragments.some(fragment => fragment.hasNativeRuby)) {
+    if (fragmentTargetHasNativeRuby(target)) {
         applyTokensToFragmentPieces(target, safeTokens, settings, sentence);
         return;
     }
 
-    const indexedFragments = indexTextFragments(target.fragments);
-
-    for (let index = safeTokens.length - 1; index >= 0; index--) {
-        applyTokenToIndexedFragments(target, indexedFragments, safeTokens[index], settings, sentence);
-    }
+    applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
     log.debugThrottled('apply-fragment', 1000, 'Applied tokens to fragment target', {
         tokens: safeTokens.length,
         fragments: target.fragments.length,
         textLength: target.text.length,
         parserId: target.parserId,
     });
+}
+
+function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): boolean {
+    return Boolean(tokens.length && target.fragments.length);
+}
+
+function fragmentTargetHasNativeRuby(target: FragmentTextTarget): boolean {
+    return target.fragments.some(fragment => fragment.hasNativeRuby);
+}
+
+function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings, sentence: string): void {
+    const indexedFragments = indexTextFragments(target.fragments);
+    for (let index = tokens.length - 1; index >= 0; index--) {
+        applyTokenToIndexedFragments(target, indexedFragments, tokens[index], settings, sentence);
+    }
 }
 
 function applyTokenToIndexedFragments(
@@ -875,7 +908,10 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
 export function renderHighlightedTextHtml(text: string, targets: string[], className: string): string {
     const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
     if (!text || !needles.length) return escapeHtml(text);
+    return renderHighlightChunks(text, needles, className);
+}
 
+function renderHighlightChunks(text: string, needles: string[], className: string): string {
     let html = '';
     let offset = 0;
     while (offset < text.length) {
@@ -913,9 +949,12 @@ function betterHighlightMatch(
 ): { index: number; needle: string } | null {
     if (!candidate) return current;
     if (!current) return candidate;
-    if (candidate.index < current.index) return candidate;
-    if (candidate.index === current.index && candidate.needle.length > current.needle.length) return candidate;
-    return current;
+    return isBetterHighlightMatch(candidate, current) ? candidate : current;
+}
+
+function isBetterHighlightMatch(candidate: { index: number; needle: string }, current: { index: number; needle: string }): boolean {
+    return candidate.index < current.index
+        || (candidate.index === current.index && candidate.needle.length > current.needle.length);
 }
 
 function uniqueNonEmptyStrings(values: string[]): string[] {
@@ -926,11 +965,18 @@ function nonOverlappingTokens(tokens: JPDBToken[], textLength: number): JPDBToke
     const safe: JPDBToken[] = [];
     let offset = 0;
     for (const token of tokens) {
-        if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > textLength) continue;
+        if (!isSafeTokenSpan(token, offset, textLength)) continue;
         safe.push(token);
         offset = token.end;
     }
     return safe;
+}
+
+function isSafeTokenSpan(token: JPDBToken, offset: number, textLength: number): boolean {
+    return token.start >= offset
+        && token.start >= 0
+        && token.end > token.start
+        && token.end <= textLength;
 }
 
 function renderToken(
@@ -999,9 +1045,7 @@ function readerWordClassName(state: string, token: JPDBToken, settings: ReaderSe
 }
 
 function safePitchClass(value: string): string {
-    return value === 'heiban' || value === 'atamadaka' || value === 'nakadaka' || value === 'odaka' || value === 'kifuku'
-        ? value
-        : 'unknown';
+    return PITCH_CLASSES.has(value) ? value : 'unknown';
 }
 
 export function renderRuby(surface: string, token: JPDBToken): string {
@@ -1191,7 +1235,12 @@ function hasFourLineHeightLimit(style: CSSStyleDeclaration): boolean {
     const maxHeight = cssPixels(style.maxHeight);
     const explicitHeight = cssPixels(style.height);
     const lineHeight = cssPixels(style.lineHeight) || cssPixels(style.fontSize) * 1.25;
-    return lineHeight > 0 && ((maxHeight > 0 && maxHeight <= lineHeight * 4) || (explicitHeight > 0 && explicitHeight <= lineHeight * 4));
+    if (lineHeight <= 0) return false;
+    return isWithinFourLines(maxHeight, lineHeight) || isWithinFourLines(explicitHeight, lineHeight);
+}
+
+function isWithinFourLines(size: number, lineHeight: number): boolean {
+    return size > 0 && size <= lineHeight * 4;
 }
 
 function hasUiBox(style: CSSStyleDeclaration): boolean {
@@ -1247,9 +1296,19 @@ function linkHasControlMedia(link: HTMLElement): boolean {
 function linkHasControlShape(link: HTMLElement, text: string): boolean {
     const style = getComputedStyle(link);
     const rect = link.getBoundingClientRect();
-    const textLength = Array.from(text.replace(/\s+/g, '')).length;
-    const linkTextLength = Array.from((link.textContent ?? '').replace(/\s+/g, '')).length;
-    return hasControlLinkStyle(style) && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
+    return hasControlLinkStyle(style) && hasShortControlLinkText(link, text) && hasControlLinkWidth(rect);
+}
+
+function hasShortControlLinkText(link: HTMLElement, text: string): boolean {
+    return compactLength(text) <= 16 && compactLength(link.textContent ?? '') <= 40;
+}
+
+function compactLength(value: string): number {
+    return Array.from(value.replace(/\s+/g, '')).length;
+}
+
+function hasControlLinkWidth(rect: DOMRect): boolean {
+    return rect.width > 0 && rect.width < 360;
 }
 
 function hasControlLinkStyle(style: CSSStyleDeclaration): boolean {

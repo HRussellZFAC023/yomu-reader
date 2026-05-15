@@ -54,21 +54,22 @@ async function startDocsServer(root) {
 
 async function resolveDocsFile(root, pathname) {
     const clean = path.normalize(pathname).replace(/^(\.\.[/\\])+/, '');
-    const candidates = [];
-    if (clean === '/' || clean === '') {
-        candidates.push(path.join(root, 'index.html'));
-    } else if (clean.endsWith('/')) {
-        candidates.push(path.join(root, clean, 'index.html'));
-    } else {
-        candidates.push(path.join(root, clean));
-        candidates.push(path.join(root, `${clean}.html`));
-        candidates.push(path.join(root, clean, 'index.html'));
-    }
+    const candidates = docsFileCandidates(root, clean);
     for (const candidate of candidates) {
         const info = await stat(candidate).catch(() => null);
         if (info?.isFile()) return candidate;
     }
     throw new Error(`No docs file for ${pathname}`);
+}
+
+function docsFileCandidates(root, clean) {
+    if (clean === '/' || clean === '') return [path.join(root, 'index.html')];
+    if (clean.endsWith('/')) return [path.join(root, clean, 'index.html')];
+    return [
+        path.join(root, clean),
+        path.join(root, `${clean}.html`),
+        path.join(root, clean, 'index.html'),
+    ];
 }
 
 function contentType(filePath) {

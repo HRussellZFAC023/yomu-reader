@@ -76,8 +76,7 @@ function vocabularyRoot(doc: Document, spelling: string, reading: string): Paren
     const matches = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
     const matched = firstVocabularyRoot(matches);
     if (matched) return matched;
-    if (canUseGenericVocabularyRoot(roots, spelling, reading)) return roots[0] ?? doc;
-    if (documentMatchesVocabulary(doc, spelling, reading)) return roots[0] ?? doc;
+    if (canUseFallbackVocabularyRoot(doc, roots, spelling, reading)) return roots[0] ?? doc;
     return null;
 }
 
@@ -88,6 +87,11 @@ function firstVocabularyRoot(matches: Element[]): Element | null {
 function canUseGenericVocabularyRoot(roots: Element[], spelling: string, reading: string): boolean {
     const hasRequestedIdentity = Boolean(cleanText(spelling) || cleanText(reading));
     return !hasRequestedIdentity && roots.length <= 1;
+}
+
+function canUseFallbackVocabularyRoot(doc: Document, roots: Element[], spelling: string, reading: string): boolean {
+    return canUseGenericVocabularyRoot(roots, spelling, reading)
+        || documentMatchesVocabulary(doc, spelling, reading);
 }
 
 function vocabularyRootMatches(root: Element, spelling: string, reading: string): boolean {
@@ -111,15 +115,19 @@ function vocabularyIdentityFromUrl(value: string): { expression: string; reading
     if (!value) return null;
     try {
         const parsed = new URL(value, 'https://jpdb.io');
-        const parts = parsed.pathname.split('/').filter(Boolean);
-        if (parts[0] !== 'vocabulary') return null;
-        return {
-            expression: decodePathPart(parts[2] ?? ''),
-            reading: decodePathPart(parts[3] ?? ''),
-        };
+        return vocabularyIdentityFromPath(parsed.pathname);
     } catch {
         return null;
     }
+}
+
+function vocabularyIdentityFromPath(pathname: string): { expression: string; reading: string } | null {
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts[0] !== 'vocabulary') return null;
+    return {
+        expression: decodePathPart(parts[2] ?? ''),
+        reading: decodePathPart(parts[3] ?? ''),
+    };
 }
 
 function vocabularyIdentityMatches(identity: { expression: string; reading: string }, spelling: string, reading: string): boolean {
@@ -155,12 +163,17 @@ function extractMeanings(root: ParentNode, doc: Document, spelling: string, read
         .filter(Boolean);
     if (meanings.length) return unique(meanings).slice(0, 8);
 
-    if (!spelling && !reading) return [];
+    return shouldReadMetaMeanings(spelling, reading) ? metaDescriptionMeanings(doc) : [];
+}
+
+function shouldReadMetaMeanings(spelling: string, reading: string): boolean {
+    return Boolean(spelling || reading);
+}
+
+function metaDescriptionMeanings(doc: Document): string[] {
     const description = doc.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? '';
     const match = /\s[—-]\s(.+)$/.exec(description);
-    return match?.[1]
-        ? match[1].split(/;\s+/).map(cleanMeaning).filter(Boolean).slice(0, 8)
-        : [];
+    return match?.[1]?.split(/;\s+/).map(cleanMeaning).filter(Boolean).slice(0, 8) ?? [];
 }
 
 function extractCompounds(root: ParentNode): JpdbVocabularyCompound[] {
@@ -206,15 +219,21 @@ function extractExamples(root: ParentNode): JpdbVocabularyExample[] {
 function baseText(root: Node): string {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
     if (root.nodeType !== Node.ELEMENT_NODE) return '';
-    const element = root as HTMLElement;
-    if (element.tagName === 'RT' || element.tagName === 'RP') return '';
+    return baseElementText(root as HTMLElement);
+}
+
+function baseElementText(element: HTMLElement): string {
+    if (isRubyAnnotation(element)) return '';
     return Array.from(element.childNodes).map(baseText).join('');
 }
 
 function readingText(root: Node): string {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
     if (root.nodeType !== Node.ELEMENT_NODE) return '';
-    const element = root as HTMLElement;
+    return readingElementText(root as HTMLElement);
+}
+
+function readingElementText(element: HTMLElement): string {
     if (isRubyAnnotation(element)) return '';
     if (element.tagName === 'RUBY') return rubyReadingText(element);
     return Array.from(element.childNodes).map(readingText).join('');

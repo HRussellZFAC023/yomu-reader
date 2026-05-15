@@ -413,13 +413,16 @@ async function startStaticServer(root) {
 }
 
 function contentType(filePath) {
-    if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
-    if (filePath.endsWith('.vtt')) return 'text/vtt; charset=utf-8';
-    if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
-    if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
-    if (filePath.endsWith('.svg')) return 'image/svg+xml; charset=utf-8';
-    return 'application/octet-stream';
+    return QA_CONTENT_TYPES.find(({ extension }) => filePath.endsWith(extension))?.type ?? 'application/octet-stream';
 }
+
+const QA_CONTENT_TYPES = [
+    { extension: '.html', type: 'text/html; charset=utf-8' },
+    { extension: '.vtt', type: 'text/vtt; charset=utf-8' },
+    { extension: '.js', type: 'text/javascript; charset=utf-8' },
+    { extension: '.css', type: 'text/css; charset=utf-8' },
+    { extension: '.svg', type: 'image/svg+xml; charset=utf-8' },
+];
 
 function jsonQaResponse(value) {
     const responseText = JSON.stringify(value);
@@ -1519,24 +1522,8 @@ async function auditSettingsMobile(browser, server) {
 }
 
 async function auditNewTabDictionaryFallback(browser, server) {
-    const consoleErrors = [];
-    const pageErrors = [];
-    const { page } = await newAuditedPage(browser, {
-        ...baseSettings,
-        apiKey: '',
-        ankiEnabled: false,
-        newTabEnabled: false,
-        newTabSource: 'auto',
-        showFloatingButton: false,
-        dictionaryPreferences: [
-            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 },
-            { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 1 },
-        ],
-    }, { width: 390, height: 844 });
-    page.on('console', message => {
-        if (message.type() === 'error') consoleErrors.push(message.text());
-    });
-    page.on('pageerror', error => pageErrors.push(error.message));
+    const { page } = await newAuditedPage(browser, newTabDictionaryFallbackSettings(), { width: 390, height: 844 });
+    const browserErrors = collectPageBrowserErrors(page);
     await page.goto(`${server.origin}/newtab/index.html?static=1`, { waitUntil: 'domcontentloaded' });
     await waitForAudit(page, () => {
         const body = document.body.textContent ?? '';
@@ -1552,14 +1539,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
         hasSettings: Boolean(document.querySelector('[data-newtab-action="settings"]')),
         body: document.body.textContent ?? '',
     }));
-    assertAudit(
-        setupSnapshot.hasLoadDictionary
-            && setupSnapshot.loadDictionaryCount === 1
-            && !setupSnapshot.hasConnectJpdb
-            && setupSnapshot.hasSettings,
-        `new-tab setup actions are missing or duplicated: ${JSON.stringify(setupSnapshot)}`,
-    );
-    assertAudit(!/今日|今朝|今週|読む/.test(setupSnapshot.body), 'first-run new-tab setup rendered hardcoded dictionary words before the user loaded a dictionary');
+    assertNewTabSetupSnapshot(setupSnapshot);
 
     await seedLocalKanjiDictionaries(page);
     await injectUserscript(page);
@@ -1637,20 +1617,66 @@ async function auditNewTabDictionaryFallback(browser, server) {
         hasSettingsControl: Boolean(document.querySelector('[data-newtab-action="settings"]')),
         body: document.body.textContent ?? '',
     }));
-    assertAudit(snapshot.title.includes('New Tab'), 'new-tab document title is missing');
-    assertAudit(snapshot.brandHref === '/' || snapshot.brandHref === 'https://hrussellzfac023.github.io/yomu-reader/', 'new-tab brand link does not open the docs home page');
-    assertAudit(/今日|今朝|今週|読む/.test(snapshot.expression), `new-tab did not render a top dictionary word: ${JSON.stringify(snapshot)}`);
-    assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.status.includes('Dictionaries'), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
-    assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
-    assertAudit(!consoleErrors.length && !pageErrors.length, `new-tab produced browser errors: ${JSON.stringify({ consoleErrors, pageErrors })}`);
+    assertNewTabDictionarySnapshot(snapshot);
+    assertNoPageBrowserErrors(browserErrors, 'new-tab');
     await waitForAudit(page, () => [...document.querySelectorAll('.jpdb-reader-newtab img')]
         .every(image => image.complete && image.naturalWidth > 0), 3000, 'new-tab brand image did not load');
     await assertAccessibleSurface(page, 'new-tab dictionary fallback', '.jpdb-reader-newtab');
     await page.screenshot({ path: path.join(ARTIFACTS, 'newtab-dictionary.png'), fullPage: false });
     await page.close();
     record('new-tab dictionary fallback', 'pass', 'first-run setup is explicit, then seeded local dictionaries render without setup warnings');
+}
+
+function newTabDictionaryFallbackSettings() {
+    return {
+        ...baseSettings,
+        apiKey: '',
+        ankiEnabled: false,
+        newTabEnabled: false,
+        newTabSource: 'auto',
+        showFloatingButton: false,
+        dictionaryPreferences: [
+            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 },
+            { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 1 },
+        ],
+    };
+}
+
+function collectPageBrowserErrors(page) {
+    const errors = { consoleErrors: [], pageErrors: [] };
+    page.on('console', message => {
+        if (message.type() === 'error') errors.consoleErrors.push(message.text());
+    });
+    page.on('pageerror', error => errors.pageErrors.push(error.message));
+    return errors;
+}
+
+function assertNewTabSetupSnapshot(snapshot) {
+    const hasExpectedActions = snapshot.hasLoadDictionary
+        && snapshot.loadDictionaryCount === 1
+        && !snapshot.hasConnectJpdb
+        && snapshot.hasSettings;
+    assertAudit(hasExpectedActions, `new-tab setup actions are missing or duplicated: ${JSON.stringify(snapshot)}`);
+    assertAudit(!/今日|今朝|今週|読む/.test(snapshot.body), 'first-run new-tab setup rendered hardcoded dictionary words before the user loaded a dictionary');
+}
+
+function assertNewTabDictionarySnapshot(snapshot) {
+    assertAudit(snapshot.title.includes('New Tab'), 'new-tab document title is missing');
+    assertAudit(isDocsHomeHref(snapshot.brandHref), 'new-tab brand link does not open the docs home page');
+    assertAudit(/今日|今朝|今週|読む/.test(snapshot.expression), `new-tab did not render a top dictionary word: ${JSON.stringify(snapshot)}`);
+    assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.status.includes('Dictionaries'), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
+    assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
+}
+
+function isDocsHomeHref(href) {
+    return href === '/' || href === 'https://hrussellzfac023.github.io/yomu-reader/';
+}
+
+function assertNoPageBrowserErrors(errors, label) {
+    const quiet = !errors.consoleErrors.length && !errors.pageErrors.length;
+    assertAudit(quiet, `${label} produced browser errors: ${JSON.stringify(errors)}`);
 }
 
 async function auditBloomeeAutoScan(browser) {
@@ -2090,9 +2116,7 @@ async function auditJpdbPageAddons(browser) {
         immersion: document.querySelector('#yomu-jpdb-immersion')?.textContent ?? '',
         cards: document.querySelectorAll('.yomu-jpdb-addon-card').length,
     }));
-    assertAudit(snapshot.uchisen.includes('QA Uchisen story') && snapshot.uchisen.includes('1/2'), 'Uchisen carousel did not render on kanji page');
-    assertAudit(snapshot.rtk.includes('Heisig story') && snapshot.rtk.includes('QA story'), 'RTK panel did not render on kanji page');
-    assertAudit(snapshot.immersion.includes('Immersion Kit') && snapshot.immersion.includes('Steins Gate'), 'Immersion Kit panel did not render on kanji page');
+    assertJpdbKanjiAddonSnapshot(snapshot);
     assertAudit(snapshot.cards >= 3, 'JPDB kanji add-on cards are missing');
     await page.locator('#yomu-jpdb-uchisen [data-uchisen-action="next"]').click();
     await waitForAudit(page, () => document.querySelector('#yomu-jpdb-uchisen')?.textContent?.includes('2/2'), 3000, 'Uchisen next button did not update the carousel');
@@ -2143,12 +2167,26 @@ async function auditJpdbPageAddons(browser) {
     }));
     assertAudit(!snapshot.sentenceBlurred, 'auto reveal did not unblur the review answer sentence');
     assertAudit(snapshot.preview, 'kanji doodle preview did not carry to review back');
-    assertAudit(snapshot.uchisen && snapshot.rtk, 'kanji review back did not render Uchisen and RTK panels');
+    assertAudit(hasReviewBackPanels(snapshot), 'kanji review back did not render Uchisen and RTK panels');
     assertAudit(snapshot.examplesVisible, 'JPDB review examples were not opened by default');
     await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-addons-review.png'), fullPage: false });
 
     await page.close();
     record('jpdb.io page add-ons', 'pass', 'Uchisen, RTK, Immersion Kit, dictionaries, review UI, auto reveal, and doodle all work on JPDB fixtures');
+}
+
+function assertJpdbKanjiAddonSnapshot(snapshot) {
+    assertAudit(includesAll(snapshot.uchisen, ['QA Uchisen story', '1/2']), 'Uchisen carousel did not render on kanji page');
+    assertAudit(includesAll(snapshot.rtk, ['Heisig story', 'QA story']), 'RTK panel did not render on kanji page');
+    assertAudit(includesAll(snapshot.immersion, ['Immersion Kit', 'Steins Gate']), 'Immersion Kit panel did not render on kanji page');
+}
+
+function includesAll(value, needles) {
+    return needles.every(needle => value.includes(needle));
+}
+
+function hasReviewBackPanels(snapshot) {
+    return Boolean(snapshot.uchisen && snapshot.rtk);
 }
 
 async function auditImmersionKitPopover(browser, server) {

@@ -64,24 +64,22 @@ export function renderReviewButtons(
     options: { disabled?: boolean; title?: string } = {},
 ): string {
     const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : '';
-    const disabledAttrs = options.disabled
-        ? ` disabled title="${escapeHtml(options.title || 'Unavailable')}"`
-        : (options.title ? ` title="${escapeHtml(options.title)}"` : '');
-    if (settings.twoButtonReviews) {
-        return `
-            <div class="jpdb-reader-row" style="--cols: 2">
-                <button class="jpdb-reader-btn fail" data-action="grade" data-grade="fail"${ankiAttrs}${disabledAttrs}>Fail</button>
-                <button class="jpdb-reader-btn pass" data-action="grade" data-grade="pass"${ankiAttrs}${disabledAttrs}>Pass</button>
-            </div>
-        `;
-    }
+    const disabledAttrs = reviewButtonDisabledAttrs(options);
+    const grades = reviewButtonGrades(settings);
     return `
-        <div class="jpdb-reader-row jpdb-reader-grades" style="--cols: 5">
-            <button class="jpdb-reader-btn nothing" data-action="grade" data-grade="nothing"${ankiAttrs}${disabledAttrs}>Nothing</button>
-            <button class="jpdb-reader-btn something" data-action="grade" data-grade="something"${ankiAttrs}${disabledAttrs}>Something</button>
-            <button class="jpdb-reader-btn hard" data-action="grade" data-grade="hard"${ankiAttrs}${disabledAttrs}>Hard</button>
-            <button class="jpdb-reader-btn okay" data-action="grade" data-grade="okay"${ankiAttrs}${disabledAttrs}>Okay</button>
-            <button class="jpdb-reader-btn easy" data-action="grade" data-grade="easy"${ankiAttrs}${disabledAttrs}>Easy</button>
+        <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}">
+            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${disabledAttrs}>${label}</button>`).join('')}
         </div>
     `;
+}
+
+function reviewButtonDisabledAttrs(options: { disabled?: boolean; title?: string }): string {
+    if (options.disabled) return ` disabled title="${escapeHtml(options.title || 'Unavailable')}"`;
+    return options.title ? ` title="${escapeHtml(options.title)}"` : '';
+}
+
+function reviewButtonGrades(settings: ReaderSettings): Array<[string, string]> {
+    return settings.twoButtonReviews
+        ? [['fail', 'Fail'], ['pass', 'Pass']]
+        : [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']];
 }

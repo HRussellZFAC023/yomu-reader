@@ -709,7 +709,7 @@ export class JpdbExtensionsController {
 
     private maybeAutoPlayReviewWordAudio(): void {
         const settings = this.options.getSettings();
-        if (!settings.audioEnabled || !settings.jpdbWordAudioAutoPlayReviewAudio || !isReviewAnswer()) return;
+        if (!shouldAutoPlayReviewWordAudio(settings)) return;
         const target = currentJpdbTermTarget();
         if (!target?.term) return;
         const key = `${location.href}:${target.term}:${target.reading}`;
@@ -779,11 +779,9 @@ export class JpdbExtensionsController {
                 log.warn('JPDB add-on Immersion Kit search failed', { term: target.term, query }, error);
                 return [];
             });
-            const accurateExamples = requireOriginalSurface
-                ? examples.filter(example => immersionSentenceContainsQuery(example.sentence, target.term))
-                : examples;
+            const accurateExamples = filterJpdbImmersionExamples(examples, target.term, requireOriginalSurface);
             if (accurateExamples.length) return { examples: accurateExamples, query };
-            if (query === target.term && pageExamples.length) return { examples: pageExamples, query: target.term };
+            if (shouldUseJpdbPageExamples(query, target.term, pageExamples)) return { examples: pageExamples, query: target.term };
         }
         return { examples: pageExamples, query: target.term };
     }
@@ -993,6 +991,20 @@ export class JpdbExtensionsController {
     }
 }
 
+function shouldAutoPlayReviewWordAudio(settings: ReaderSettings): boolean {
+    return settings.audioEnabled && settings.jpdbWordAudioAutoPlayReviewAudio && isReviewAnswer();
+}
+
+function filterJpdbImmersionExamples(examples: ImmersionKitExample[], term: string, requireOriginalSurface: boolean): ImmersionKitExample[] {
+    return requireOriginalSurface
+        ? examples.filter(example => immersionSentenceContainsQuery(example.sentence, term))
+        : examples;
+}
+
+function shouldUseJpdbPageExamples(query: string, term: string, examples: ImmersionKitExample[]): boolean {
+    return query === term && examples.length > 0;
+}
+
 export function parseUchisenImages(html: string): UchisenImage[] {
     if (!html.trim()) return [];
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -1047,11 +1059,10 @@ export async function installUchisenCarousel(
     images: UchisenImage[],
     options: UchisenCarouselOptions = {},
 ): Promise<() => void> {
-    let index = await storageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
+    const storedIndex = await storageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
     const starred = await storageGet<string | null>(`${UCHISEN_STAR_PREFIX}${kanji}`, null);
-    const starredIndex = starred ? images.findIndex(item => item.url === starred) : -1;
-    if (starredIndex >= 0) index = starredIndex;
-    if (!Number.isFinite(index) || index < 0 || index >= images.length) index = 0;
+    let index = preferredUchisenIndex(storedIndex, starred, images);
+    if (!isValidUchisenIndex(index, images)) index = 0;
 
     let currentStarred = starred;
     let currentImageUrl = '';
@@ -1130,6 +1141,15 @@ export async function installUchisenCarousel(
     });
     render();
     return cleanup;
+}
+
+function preferredUchisenIndex(storedIndex: number, starred: string | null, images: UchisenImage[]): number {
+    const starredIndex = starred ? images.findIndex(item => item.url === starred) : -1;
+    return starredIndex >= 0 ? starredIndex : storedIndex;
+}
+
+function isValidUchisenIndex(index: number, images: UchisenImage[]): boolean {
+    return Number.isFinite(index) && index >= 0 && index < images.length;
 }
 
 function renderImmersionPanel(
@@ -1424,13 +1444,29 @@ function ensureTermAddonSlot(name: string): HTMLElement | null {
 }
 
 function findEarlyTermAddonAnchor(): HTMLElement | null {
+    const existing = existingTermAddonAnchor();
+    if (existing) return existing;
+    return mnemonicTermAddonAnchor() ?? fallbackTermAddonAnchor();
+}
+
+function existingTermAddonAnchor(): HTMLElement | null {
     const existing = lastConnectedElement([RTK_ID, UCHISEN_ID]);
     if (existing) return existing;
-    const existingDoodle = document.querySelector<HTMLElement>('[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode]');
-    if (existingDoodle?.isConnected) return existingDoodle;
+    return connectedDoodleAnchor();
+}
+
+function connectedDoodleAnchor(): HTMLElement | null {
+    const doodle = document.querySelector<HTMLElement>('[data-yomu-jpdb-addon="doodle"][data-yomu-doodle-mode]');
+    return doodle?.isConnected ? doodle : null;
+}
+
+function mnemonicTermAddonAnchor(): HTMLElement | null {
     const labels = Array.from(document.querySelectorAll<HTMLElement>('h6.subsection-label'));
     const mnemonic = labels.find(label => label.textContent?.trim().toLowerCase().startsWith('mnemonic'));
-    if (mnemonic?.nextElementSibling instanceof HTMLElement) return mnemonic.nextElementSibling;
+    return mnemonic?.nextElementSibling instanceof HTMLElement ? mnemonic.nextElementSibling : null;
+}
+
+function fallbackTermAddonAnchor(): HTMLElement | null {
     return document.querySelector<HTMLElement>('.mnemonic')?.closest<HTMLElement>('.subsection')
         ?? document.querySelector<HTMLElement>('.result.kanji')
         ?? document.querySelector<HTMLElement>('main');

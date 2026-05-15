@@ -18,6 +18,11 @@ interface AudioPreloadOptions {
     candidateLimit?: number;
 }
 
+interface AudioPreloadLimits {
+    sourceLimit: number;
+    candidateLimit: number;
+}
+
 interface AudioRequestOptions {
     method?: 'GET' | 'POST';
     headers?: Record<string, string>;
@@ -29,12 +34,25 @@ interface AudioSourcePlayResult {
     errors: string[];
 }
 
+interface SoftChimeNote {
+    frequency: number;
+    offset: number;
+    duration: number;
+    gain: number;
+}
+
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
+const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const SOFT_CHIME_NOTES: SoftChimeNote[] = [
+    { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
+    { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
+];
+const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
 
@@ -114,10 +132,7 @@ export class AudioPlayer {
         }
         try {
             const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
-            if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
-            if (!played) return 'miss';
-            log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
-            return 'played';
+            return this.audioSourceAttemptResult(played, source, card, requestId, isCurrent);
         } catch (error) {
             log.debug('Audio source failed; trying next source', { term: card.spelling, source: source.type }, error);
             errors.push(error instanceof Error ? error.message : String(error));
@@ -125,11 +140,23 @@ export class AudioPlayer {
         }
     }
 
+    private audioSourceAttemptResult(
+        played: boolean,
+        source: AudioSourceSetting,
+        card: JPDBCard,
+        requestId: number,
+        isCurrent: () => boolean,
+    ): AudioSourcePlayResult['state'] {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
+        if (!played) return 'miss';
+        log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
+        return 'played';
+    }
+
     preload(card: JPDBCard, options: AudioPreloadOptions = {}): void {
         const settings = this.getSettings();
         if (!settings.audioEnabled) return;
-        const sourceLimit = Math.max(1, options.sourceLimit ?? 1);
-        const candidateLimit = Math.max(1, options.candidateLimit ?? 1);
+        const { sourceLimit, candidateLimit } = audioPreloadLimits(options);
         const sources = getOrderedAudioSources(settings)
             .filter(source => source.type !== 'text-to-speech' && source.type !== 'text-to-speech-reading')
             .slice(0, sourceLimit);
@@ -385,50 +412,68 @@ export class AudioPlayer {
     }
 
     private async playSoftChime(requestId: number, isCurrent: () => boolean): Promise<boolean> {
-        const AudioContextCtor = window.AudioContext
-            ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        const AudioContextCtor = getAudioContextConstructor();
         if (!AudioContextCtor) return false;
 
         const context = new AudioContextCtor();
         this.fallbackChimeContext = context;
-        if (context.state === 'suspended') await context.resume().catch(() => undefined);
+        await resumeAudioContext(context);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
 
-        const start = context.currentTime + 0.015;
-        const filter = context.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1800, start);
-
-        const master = context.createGain();
-        master.gain.setValueAtTime(0.72, start);
-        filter.connect(master);
-        master.connect(context.destination);
-
-        [
-            { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
-            { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
-        ].forEach(note => {
-            const noteStart = start + note.offset;
-            const oscillator = context.createOscillator();
-            const gain = context.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(note.frequency, noteStart);
-            gain.gain.setValueAtTime(0.0001, noteStart);
-            gain.gain.exponentialRampToValueAtTime(note.gain, noteStart + 0.018);
-            gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + note.duration);
-            oscillator.connect(gain);
-            gain.connect(filter);
-            oscillator.start(noteStart);
-            oscillator.stop(noteStart + note.duration + 0.03);
-        });
-
-        await new Promise(resolve => window.setTimeout(resolve, 460));
+        scheduleSoftChime(context, context.currentTime + 0.015);
+        await waitForSoftChime();
         if (this.fallbackChimeContext === context) {
             this.fallbackChimeContext = undefined;
             await context.close().catch(() => undefined);
         }
         return true;
     }
+}
+
+function getAudioContextConstructor(): typeof AudioContext | undefined {
+    return window.AudioContext
+        ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+}
+
+async function resumeAudioContext(context: AudioContext): Promise<void> {
+    if (context.state !== 'suspended') return;
+    await context.resume().catch(() => undefined);
+}
+
+function scheduleSoftChime(context: AudioContext, start: number): void {
+    const output = createSoftChimeOutput(context, start);
+    SOFT_CHIME_NOTES.forEach(note => scheduleSoftChimeNote(context, output, start, note));
+}
+
+function createSoftChimeOutput(context: AudioContext, start: number): BiquadFilterNode {
+    const filter = context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1800, start);
+
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.72, start);
+    filter.connect(master);
+    master.connect(context.destination);
+    return filter;
+}
+
+function scheduleSoftChimeNote(context: AudioContext, output: AudioNode, start: number, note: SoftChimeNote): void {
+    const noteStart = start + note.offset;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+    gain.gain.setValueAtTime(0.0001, noteStart);
+    gain.gain.exponentialRampToValueAtTime(note.gain, noteStart + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + note.duration);
+    oscillator.connect(gain);
+    gain.connect(output);
+    oscillator.start(noteStart);
+    oscillator.stop(noteStart + note.duration + 0.03);
+}
+
+function waitForSoftChime(): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, 460));
 }
 
 export class ShuffledAudioDeck {
@@ -579,6 +624,13 @@ function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] 
     ];
 }
 
+function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
+    return {
+        sourceLimit: Math.max(1, options.sourceLimit ?? 1),
+        candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+    };
+}
+
 async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
     return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs);
 }
@@ -714,27 +766,41 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number): Promise<str
 
 async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number): Promise<string[]> {
     const url = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
-    const data = new URLSearchParams({
+    const response = await requestUrl(url, 'text', timeoutMs, languagePod101RequestOptions(card));
+    if (typeof response !== 'string') return [];
+
+    const urls: string[] = [];
+    for (const row of findHtmlBlocksByClass(response, 'dc-result-row')) {
+        if (!languagePod101RowMatchesCard(row, card)) continue;
+        urls.push(...extractAudioSourceUrls(row, url));
+    }
+    return uniqueAudioUrls(urls);
+}
+
+function languagePod101RequestOptions(card: JPDBCard): AudioRequestOptions {
+    return {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        data: languagePod101RequestBody(card),
+    };
+}
+
+function languagePod101RequestBody(card: JPDBCard): string {
+    return new URLSearchParams({
         post: 'dictionary_reference',
         match_type: 'exact',
         search_query: card.spelling,
         vulgar: 'true',
     }).toString();
-    const response = await requestUrl(url, 'text', timeoutMs, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        data,
-    });
-    if (typeof response !== 'string') return [];
+}
 
-    const urls: string[] = [];
-    for (const row of findHtmlBlocksByClass(response, 'dc-result-row')) {
-        const kanaHtml = findHtmlElementByClass(row, 'span', 'dc-vocab_kana');
-        const kana = stripHtml(kanaHtml ?? '').trim();
-        if (card.reading !== card.spelling && kana !== card.reading) continue;
-        urls.push(...extractAudioSourceUrls(row, url));
-    }
-    return uniqueAudioUrls(urls);
+function languagePod101RowMatchesCard(row: string, card: JPDBCard): boolean {
+    return card.reading === card.spelling || languagePod101RowKana(row) === card.reading;
+}
+
+function languagePod101RowKana(row: string): string {
+    const kanaHtml = findHtmlElementByClass(row, 'span', 'dc-vocab_kana');
+    return stripHtml(kanaHtml ?? '').trim();
 }
 
 async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number): Promise<string[]> {
@@ -945,19 +1011,31 @@ function isValidCommonsAudioFilename(filename: string | undefined, fileUser: str
 function normalizeAudioUrl(value: string, sourceUrl?: string): string {
     try {
         const nested = new URL(value);
-        if (!sourceUrl) return nested.href.replace(/\\/g, '/');
-
-        const source = new URL(sourceUrl);
-        const nestedIsLoopback = ['localhost', '127.0.0.1', '::1'].includes(nested.hostname);
-        const sourceIsLoopback = ['localhost', '127.0.0.1', '::1'].includes(source.hostname);
-        if (nestedIsLoopback && !sourceIsLoopback && nested.port === source.port) {
-            nested.protocol = source.protocol;
-            nested.hostname = source.hostname;
-        }
-        return nested.href.replace(/\\/g, '/');
+        if (sourceUrl) alignLoopbackAudioUrl(nested, new URL(sourceUrl));
+        return normalizeAudioUrlSlashes(nested.href);
     } catch {
-        return value.replace(/\\/g, '/');
+        return normalizeAudioUrlSlashes(value);
     }
+}
+
+function alignLoopbackAudioUrl(nested: URL, source: URL): void {
+    if (!shouldAlignLoopbackAudioUrl(nested, source)) return;
+    nested.protocol = source.protocol;
+    nested.hostname = source.hostname;
+}
+
+function shouldAlignLoopbackAudioUrl(nested: URL, source: URL): boolean {
+    return isLoopbackAudioHost(nested.hostname)
+        && !isLoopbackAudioHost(source.hostname)
+        && nested.port === source.port;
+}
+
+function isLoopbackAudioHost(hostname: string): boolean {
+    return LOOPBACK_AUDIO_HOSTS.has(hostname);
+}
+
+function normalizeAudioUrlSlashes(value: string): string {
+    return value.replace(/\\/g, '/');
 }
 
 function normalizeAttemptedAudioUrl(value: string): string {
@@ -1027,22 +1105,30 @@ function isAppleMobileBrowser(): boolean {
 }
 
 function preconnectAudioUrl(value: string): void {
-    let origin = '';
-    try {
-        origin = new URL(value, location.href).origin;
-    } catch {
-        return;
-    }
+    const origin = audioPreconnectOrigin(value);
     if (!origin || preconnectedAudioOrigins.has(origin)) return;
     preconnectedAudioOrigins.add(origin);
+    appendAudioPreconnectLinks(origin);
+}
 
-    for (const rel of ['preconnect', 'dns-prefetch']) {
-        const link = document.createElement('link');
-        link.rel = rel;
-        link.href = origin;
-        if (rel === 'preconnect') link.crossOrigin = 'anonymous';
-        document.head?.append(link);
+function audioPreconnectOrigin(value: string): string | null {
+    try {
+        return new URL(value, location.href).origin;
+    } catch {
+        return null;
     }
+}
+
+function appendAudioPreconnectLinks(origin: string): void {
+    for (const rel of AUDIO_PRECONNECT_RELS) appendAudioPreconnectLink(origin, rel);
+}
+
+function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT_RELS)[number]): void {
+    const link = document.createElement('link');
+    link.rel = rel;
+    link.href = origin;
+    if (rel === 'preconnect') link.crossOrigin = 'anonymous';
+    document.head?.append(link);
 }
 
 function getBrowserFetchUrl(url: string): string | null {

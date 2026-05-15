@@ -1,8 +1,13 @@
 import { ReaderApp } from './main';
 import { addWindowEventListener } from './window-events';
 
+type YomuDemoWindow = typeof window & {
+    __yomuDemoApp?: ReaderApp;
+    __yomuRealApp?: ReaderApp;
+};
+
 export function initDemo() {
-    const bootWindow = window as any;
+    const bootWindow = window as YomuDemoWindow;
     const isRealExtension = typeof GM_getValue === 'function';
 
     if (isRealExtension) {

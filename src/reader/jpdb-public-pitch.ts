@@ -81,10 +81,15 @@ function readPitchPatterns(root: ParentNode): string[] {
 }
 
 function pitchSegmentPattern(segment: HTMLElement): string {
-    const style = segment.getAttribute('style') ?? '';
-    const level = style.includes('--pitch-high') ? 'H' : style.includes('--pitch-low') ? 'L' : '';
+    const level = pitchSegmentLevel(segment);
     if (!level) return '';
     return level.repeat(splitMorae(cleanText(segment.textContent ?? '')).length);
+}
+
+function pitchSegmentLevel(segment: HTMLElement): string {
+    const style = segment.getAttribute('style') ?? '';
+    if (style.includes('--pitch-high')) return 'H';
+    return style.includes('--pitch-low') ? 'L' : '';
 }
 
 function vocabularyRootMatches(root: Element, spelling: string, reading: string): boolean {
@@ -108,15 +113,19 @@ function vocabularyIdentityFromUrl(value: string): { expression: string; reading
     if (!value) return null;
     try {
         const parsed = new URL(value, 'https://jpdb.io');
-        const parts = parsed.pathname.split('/').filter(Boolean);
-        if (parts[0] !== 'vocabulary') return null;
-        return {
-            expression: decodePathPart(parts[2] ?? ''),
-            reading: decodePathPart(parts[3] ?? ''),
-        };
+        return vocabularyIdentityFromPath(parsed.pathname);
     } catch {
         return null;
     }
+}
+
+function vocabularyIdentityFromPath(pathname: string): { expression: string; reading: string } | null {
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts[0] !== 'vocabulary') return null;
+    return {
+        expression: decodePathPart(parts[2] ?? ''),
+        reading: decodePathPart(parts[3] ?? ''),
+    };
 }
 
 function vocabularyIdentityMatches(identity: { expression: string; reading: string }, spelling: string, reading: string): boolean {

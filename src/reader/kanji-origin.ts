@@ -182,12 +182,24 @@ export function parseKanjiMapInfo(raw: unknown, kanji: string, sourceUrl: string
 
 function readKanjiMapMetrics(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): Pick<KanjiMapKanjiInfo, 'meaning' | 'grade' | 'jlpt' | 'strokeCount' | 'frequencyRank'> {
     return {
-        meaning: stringValue(jisho?.meaning) || stringValue(kanjiAlive?.meaning),
-        grade: normalizeGrade(stringValue(jisho?.taughtIn) || numberValue(kanjiAlive?.grade)) ?? '',
+        meaning: kanjiMapMeaning(kanjiAlive, jisho),
+        grade: kanjiMapGrade(kanjiAlive, jisho),
         jlpt: normalizeJlpt(stringValue(jisho?.jlptLevel)) ?? '',
-        strokeCount: numberValue(jisho?.strokeCount) ?? numberValue(kanjiAlive?.kstroke),
+        strokeCount: kanjiMapStrokeCount(kanjiAlive, jisho),
         frequencyRank: normalizeFrequency(stringValue(jisho?.newspaperFrequencyRank)),
     };
+}
+
+function kanjiMapMeaning(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): string {
+    return stringValue(jisho?.meaning) || stringValue(kanjiAlive?.meaning);
+}
+
+function kanjiMapGrade(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): string {
+    return normalizeGrade(stringValue(jisho?.taughtIn) || numberValue(kanjiAlive?.grade)) ?? '';
+}
+
+function kanjiMapStrokeCount(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): number | undefined {
+    return numberValue(jisho?.strokeCount) ?? numberValue(kanjiAlive?.kstroke);
 }
 
 function readKanjiMapReadings(kanjiAlive: Record<string, unknown> | undefined, jisho: Record<string, unknown> | undefined): Pick<KanjiMapKanjiInfo, 'kunyomi' | 'onyomi'> {
@@ -209,7 +221,7 @@ function stripHtml(value: string): string {
 
 export function parseWiktionaryInfo(raw: unknown, kanji: string): WiktionaryKanjiInfo | undefined {
     const html = wiktionaryHtml(raw);
-    if (!html || typeof DOMParser === 'undefined') return undefined;
+    if (!canParseWiktionaryHtml(html)) return undefined;
 
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const glyphNodes = sectionNodes(doc, ['Glyph origin', 'Glyph_origin']);
@@ -217,13 +229,21 @@ export function parseWiktionaryInfo(raw: unknown, kanji: string): WiktionaryKanj
     const glyphOrigin = extractSectionText(glyphNodes, 3);
     const etymology = extractSectionText(etymologyNodes, 2);
     const images = extractSectionImages(glyphNodes, 4);
-    if (!glyphOrigin.length && !etymology.length && !images.length) return undefined;
+    if (!hasWiktionaryOriginContent(glyphOrigin, etymology, images)) return undefined;
     return {
         pageUrl: `https://en.wiktionary.org/wiki/${encodeURIComponent(kanji)}`,
         glyphOrigin,
         etymology,
         images,
     };
+}
+
+function canParseWiktionaryHtml(html: string): boolean {
+    return Boolean(html && typeof DOMParser !== 'undefined');
+}
+
+function hasWiktionaryOriginContent(glyphOrigin: string[], etymology: string[], images: Array<{ src: string; alt: string }>): boolean {
+    return Boolean(glyphOrigin.length || etymology.length || images.length);
 }
 
 export function buildKanjiFacts(
@@ -278,9 +298,17 @@ function kanjiMeaningFact(
 function kanjiTypeFact(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
     return {
         label: 'Type',
-        value: normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade) ?? '',
-        source: jpdbInfo?.type ? 'JPDB' : local.typeSource ?? 'Kanji Alive / Jisho',
+        value: kanjiTypeValue(jpdbInfo, local, map),
+        source: kanjiTypeSource(jpdbInfo, local),
     };
+}
+
+function kanjiTypeValue(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): string {
+    return normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade) ?? '';
+}
+
+function kanjiTypeSource(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts): string {
+    return jpdbInfo?.type ? 'JPDB' : local.typeSource ?? 'Kanji Alive / Jisho';
 }
 
 function kanjiJlptFact(local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
@@ -298,9 +326,17 @@ function kanjiStrokeFact(kanjiVGInfo: KanjiVGInfo | null, local: LocalKanjiFacts
 function kanjiFrequencyFact(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): KanjiFact {
     return {
         label: 'Frequency',
-        value: jpdbInfo?.frequency || local.frequency || map?.frequencyRank || '',
-        source: jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho',
+        value: kanjiFrequencyValue(jpdbInfo, local, map),
+        source: kanjiFrequencySource(jpdbInfo, local),
     };
+}
+
+function kanjiFrequencyValue(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts, map: KanjiMapKanjiInfo | undefined): string {
+    return jpdbInfo?.frequency || local.frequency || map?.frequencyRank || '';
+}
+
+function kanjiFrequencySource(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiFacts): string {
+    return jpdbInfo?.frequency ? 'JPDB' : local.frequencySource ?? 'Jisho';
 }
 
 function kanjiRadicalFact(map: KanjiMapKanjiInfo | undefined): KanjiFact {
@@ -708,6 +744,10 @@ function sectionNodes(doc: Document, labels: string[]): Element[] {
 
     const level = Number(heading.tagName.slice(1)) || 6;
     const wrapper = heading.parentElement?.classList.contains('mw-heading') ? heading.parentElement : heading;
+    return sectionSiblingNodes(wrapper, level);
+}
+
+function sectionSiblingNodes(wrapper: Element, level: number): Element[] {
     const nodes: Element[] = [];
     let next = wrapper.nextElementSibling;
     while (next) {
@@ -806,8 +846,12 @@ function unknownArray(value: unknown): unknown[] {
 function stringValue(value: unknown): string {
     if (value === undefined || value === null) return '';
     if (typeof value === 'string') return value.trim();
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (isFiniteNumber(value)) return String(value);
     return '';
+}
+
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
 }
 
 function numberValue(value: unknown): number | undefined {

@@ -355,10 +355,14 @@ function sanitizeObjectForConsole(value: object, depth: number, seen: WeakSet<ob
     if (special.handled) return special.value;
     if (seen.has(value)) return '[circular]';
     seen.add(value);
-    if (depth >= 5) return `[${value.constructor?.name || 'Object'}]`;
+    if (depth >= 5) return `[${consoleObjectName(value)}]`;
     if (Array.isArray(value)) return value.map(item => sanitizeForConsole(item, depth + 1, seen));
 
     return sanitizeRecordForConsole(value, depth, seen);
+}
+
+function consoleObjectName(value: object): string {
+    return value.constructor?.name || 'Object';
 }
 
 function sanitizeSpecialConsoleValue(value: object, depth: number, seen: WeakSet<object>): { handled: boolean; value?: unknown } {

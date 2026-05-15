@@ -70,10 +70,8 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
     let ghostAvailable = Boolean(glyph);
     let traceVisible = false;
     let canvasRect = canvas.getBoundingClientRect();
-    let strokeStyle = getComputedStyle(stage).getPropertyValue('--jpdb-reader-doodle-ink').trim()
-        || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
-        || '#111';
-    let guideStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || 'rgba(128,128,128,0.35)';
+    let strokeStyle = doodleStrokeStyle(stage);
+    let guideStyle = doodleGuideStyle();
     const cleanup: Array<() => void> = [];
     const add = <K extends keyof HTMLElementEventMap>(target: HTMLElement | Window, type: K, listener: (event: HTMLElementEventMap[K]) => void, addOptions?: AddEventListenerOptions) => {
         target.addEventListener(type, listener as EventListener, addOptions);
@@ -214,10 +212,8 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
         drawing = true;
         pointerId = event.pointerId;
         canvasRect = canvas.getBoundingClientRect();
-        strokeStyle = getComputedStyle(stage).getPropertyValue('--jpdb-reader-doodle-ink').trim()
-            || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
-            || '#111';
-        guideStyle = getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || guideStyle;
+        strokeStyle = doodleStrokeStyle(stage);
+        guideStyle = doodleGuideStyle(guideStyle);
         current = [point(event)];
         try {
             canvas.setPointerCapture?.(event.pointerId);
@@ -318,18 +314,36 @@ async function loadDoodleGhost(
     glyph: string,
     loadGhostSvg: (glyph: string) => Promise<string>,
 ): Promise<DoodleGhostStatus> {
-    if (!glyph) return { available: false, expectedStrokes: 0 };
+    if (!glyph) return unavailableDoodleGhost();
     try {
         const svg = await loadGhostSvg(glyph);
-        if (!root.isConnected || !svg.includes('<svg')) return { available: false, expectedStrokes: 0 };
+        if (!isUsableDoodleGhostSvg(root, svg)) return unavailableDoodleGhost();
         const info = parseKanjiVGSvg(svg, glyph);
         setInnerHtml(ghost, info?.svg ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
         const expectedStrokes = ghost.querySelectorAll('path').length;
         root.querySelector<HTMLElement>('[data-doodle-stroke-count]')?.replaceChildren(`${expectedStrokes} strokes`);
         return { available: true, expectedStrokes };
     } catch {
-        return { available: false, expectedStrokes: 0 };
+        return unavailableDoodleGhost();
     }
+}
+
+function doodleStrokeStyle(stage: HTMLElement): string {
+    return getComputedStyle(stage).getPropertyValue('--jpdb-reader-doodle-ink').trim()
+        || getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-text').trim()
+        || '#111';
+}
+
+function doodleGuideStyle(fallback = 'rgba(128,128,128,0.35)'): string {
+    return getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-border') || fallback;
+}
+
+function unavailableDoodleGhost(): DoodleGhostStatus {
+    return { available: false, expectedStrokes: 0 };
+}
+
+function isUsableDoodleGhostSvg(root: HTMLElement, svg: string): boolean {
+    return root.isConnected && svg.includes('<svg');
 }
 
 function formatAssessment(assessment: KanjiStrokeAssessment): string {

@@ -62,13 +62,21 @@ async function listTypeScriptFiles(dir) {
         const full = path.join(dir, entry.name);
         const relative = path.relative(ROOT, full);
         if (entry.isDirectory()) {
-            if ([...IGNORED_DIRS].some(ignored => relative === ignored || relative.startsWith(`${ignored}${path.sep}`))) continue;
+            if (isIgnoredPath(relative)) continue;
             found.push(...await listTypeScriptFiles(full));
-        } else if (/\.(?:ts|mts|mjs)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+        } else if (isAuditedTypeScriptFile(entry.name)) {
             found.push(full);
         }
     }
     return found;
+}
+
+function isIgnoredPath(relative) {
+    return [...IGNORED_DIRS].some(ignored => relative === ignored || relative.startsWith(`${ignored}${path.sep}`));
+}
+
+function isAuditedTypeScriptFile(name) {
+    return /\.(?:ts|mts|mjs)$/.test(name) && !name.endsWith('.d.ts');
 }
 
 function sourceKind(file) {

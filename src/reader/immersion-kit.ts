@@ -210,22 +210,12 @@ export class ImmersionKitClient {
     }
 
     mediaUrls(example: ImmersionKitExample, kind: 'image' | 'sound'): string[] {
-        const direct = kind === 'image' ? example.imageUrl : example.soundUrl;
+        const direct = directMediaUrl(example, kind);
         if (direct) return [direct];
 
-        const file = kind === 'image' ? example.imageFile : example.soundFile;
+        const file = mediaFileName(example, kind);
         if (!file) return [];
-        const category = example.category || categoryFromId(example.id);
-        const titles = mediaTitleCandidates(example, file);
-
-        // The API proxy mirrors the Immersion Kit app and avoids some CORS/object-store edge cases.
-        return uniqueStrings(titles.flatMap(title => {
-            const path = `media/${category}/${title}/media/${file}`;
-            return [
-                ...apiUrls(`/download_media?${new URLSearchParams({ path })}`),
-                `${OBJECT_STORE_BASE}/${path.split('/').map(encodeURIComponent).join('/')}`,
-            ];
-        })).slice(0, MEDIA_CANDIDATE_LIMIT);
+        return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
     }
 
     preload(term: string, settings: ReaderSettings): void {
@@ -308,15 +298,17 @@ function isSearchExampleSurfaceMatch(example: ImmersionKitExample, query: string
 }
 
 function normalizeExample(value: unknown): ImmersionKitExample | null {
-    if (!isRecord(value)) return null;
-    const record = value;
+    return isRecord(value) ? normalizeExampleRecord(value) : null;
+}
+
+function normalizeExampleRecord(record: Record<string, unknown>): ImmersionKitExample | null {
     const id = text(record.id);
     const sentence = firstText(record, ['sentence', 'text']);
     if (!sentence) return null;
 
-    const titleSlug = firstText(record, ['title', 'deck', 'source']) || titleSlugFromId(id);
-    const sourceTitle = firstText(record, ['sourceTitle', 'display_title', 'displayTitle']) || titleFromSlug(titleSlug);
-    const category = text(record.category) || categoryFromId(id);
+    const titleSlug = exampleTitleSlug(record, id);
+    const sourceTitle = exampleSourceTitle(record, titleSlug);
+    const category = exampleCategory(record, id);
     const soundFile = firstText(record, ['sound', 'audio', 'audio_file', 'audioFile']);
     const imageFile = firstText(record, ['image', 'image_file', 'imageFile']);
 
@@ -333,6 +325,39 @@ function normalizeExample(value: unknown): ImmersionKitExample | null {
         soundUrl: absoluteMediaUrl(firstText(record, ['sound_url', 'audio_url', 'soundUrl', 'audioUrl'])),
         imageUrl: absoluteMediaUrl(firstText(record, ['image_url', 'imageUrl'])),
     };
+}
+
+function directMediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
+    return kind === 'image' ? example.imageUrl : example.soundUrl;
+}
+
+function mediaFileName(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
+    return kind === 'image' ? example.imageFile : example.soundFile;
+}
+
+function mediaFileUrls(example: ImmersionKitExample, file: string): string[] {
+    const category = example.category || categoryFromId(example.id);
+    return uniqueStrings(mediaTitleCandidates(example, file).flatMap(title => mediaFileTitleUrls(category, title, file)));
+}
+
+function mediaFileTitleUrls(category: string, title: string, file: string): string[] {
+    const path = `media/${category}/${title}/media/${file}`;
+    return [
+        ...apiUrls(`/download_media?${new URLSearchParams({ path })}`),
+        `${OBJECT_STORE_BASE}/${path.split('/').map(encodeURIComponent).join('/')}`,
+    ];
+}
+
+function exampleTitleSlug(record: Record<string, unknown>, id: string): string {
+    return firstText(record, ['title', 'deck', 'source']) || titleSlugFromId(id);
+}
+
+function exampleSourceTitle(record: Record<string, unknown>, titleSlug: string): string {
+    return firstText(record, ['sourceTitle', 'display_title', 'displayTitle']) || titleFromSlug(titleSlug);
+}
+
+function exampleCategory(record: Record<string, unknown>, id: string): string {
+    return text(record.category) || categoryFromId(id);
 }
 
 function firstText(record: Record<string, unknown>, keys: string[]): string {
