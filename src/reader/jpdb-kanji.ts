@@ -200,22 +200,30 @@ function kanjiActions(doc: Document, kanji: string): JpdbKanjiAction[] {
 }
 
 function labelForControl(element: Element): string {
-    if (element instanceof HTMLInputElement) return element.getAttribute('aria-label') || element.title || element.value || element.name;
+    if (element instanceof HTMLInputElement) return inputControlLabel(element);
     return element.getAttribute('aria-label') || (element as HTMLElement).title || element.textContent || '';
 }
 
 function classifyKanjiAction(label: string, context: string): JpdbKanjiActionRole {
     const labelText = label.toLowerCase();
     const text = `${label} ${context}`.toLowerCase();
-    if (/\b(enable|settings?|configure|preferences?|history|stats?|open|view)\b/.test(labelText)) return 'other';
-    if (/\b(blacklist|unblacklist|block|ignore|suspend)\b/.test(text)) return 'blacklist';
-    if (/\b(never[-\s]?forget|always\s+remember)\b/.test(text)) return 'neverforget';
-    if (/\b(forget|remove|delete|unlearn)\b/.test(text)) return 'forget';
-    if (/\b(known|know|learned|mark\s+known|remember)\b/.test(text)) return 'known';
-    if (/\b(review|due|study)\b/.test(text)) return 'review';
-    if (/\b(add|mine|mining|deck|prioriti[sz]e|learn)\b/.test(text)) return 'mine';
-    return 'other';
+    if (KANJI_ACTION_OTHER_RE.test(labelText)) return 'other';
+    return KANJI_ACTION_PATTERNS.find(({ pattern }) => pattern.test(text))?.role ?? 'other';
 }
+
+function inputControlLabel(element: HTMLInputElement): string {
+    return element.getAttribute('aria-label') || element.title || element.value || element.name;
+}
+
+const KANJI_ACTION_OTHER_RE = /\b(enable|settings?|configure|preferences?|history|stats?|open|view)\b/;
+const KANJI_ACTION_PATTERNS: Array<{ role: JpdbKanjiActionRole; pattern: RegExp }> = [
+    { role: 'blacklist', pattern: /\b(blacklist|unblacklist|block|ignore|suspend)\b/ },
+    { role: 'neverforget', pattern: /\b(never[-\s]?forget|always\s+remember)\b/ },
+    { role: 'forget', pattern: /\b(forget|remove|delete|unlearn)\b/ },
+    { role: 'known', pattern: /\b(known|know|learned|mark\s+known|remember)\b/ },
+    { role: 'review', pattern: /\b(review|due|study)\b/ },
+    { role: 'mine', pattern: /\b(add|mine|mining|deck|prioriti[sz]e|learn)\b/ },
+];
 
 function formPayload(form: HTMLFormElement, submitter: Element | null): Record<string, string> {
     const payload: Record<string, string> = {};
@@ -384,32 +392,55 @@ function escapeRegExp(value: string): string {
 
 function requestText(url: string, options: { method?: 'GET' | 'POST'; payload?: Record<string, string> } = {}): Promise<string> {
     const method = options.method ?? 'GET';
-    const body = options.payload && Object.keys(options.payload).length ? new URLSearchParams(options.payload).toString() : '';
-    const requestUrl = method === 'GET' && body ? `${url}${url.includes('?') ? '&' : '?'}${body}` : url;
-    const headers = method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : undefined;
+    const body = requestTextBody(options.payload);
+    const requestUrl = requestTextUrl(url, method, body);
+    const headers = requestTextHeaders(method);
     const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        log.debug('Kanji page request via userscript API');
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method,
-                url: requestUrl,
-                headers,
-                data: method === 'POST' ? body : undefined,
-                timeout: 8000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
-                    else reject(new Error(`JPDB kanji request failed (${response.status}).`));
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error('JPDB kanji request timed out.')),
-            });
-        });
-    }
+    if (userscriptRequest) return requestTextViaUserscript(userscriptRequest, method, requestUrl, headers, body);
 
     const fetchUrl = publicFetchUrl(requestUrl, method);
     if (!fetchUrl) return Promise.reject(new Error('Cross-origin JPDB kanji request needs a userscript HTTP bridge.'));
+    return requestTextViaFetch(fetchUrl, method, headers, body);
+}
 
+function requestTextBody(payload: Record<string, string> | undefined): string {
+    return payload && Object.keys(payload).length ? new URLSearchParams(payload).toString() : '';
+}
+
+function requestTextUrl(url: string, method: 'GET' | 'POST', body: string): string {
+    return method === 'GET' && body ? `${url}${url.includes('?') ? '&' : '?'}${body}` : url;
+}
+
+function requestTextHeaders(method: 'GET' | 'POST'): Record<string, string> | undefined {
+    return method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : undefined;
+}
+
+function requestTextViaUserscript(
+    userscriptRequest: NonNullable<ReturnType<typeof getUserscriptHttpRequest>>,
+    method: 'GET' | 'POST',
+    requestUrl: string,
+    headers: Record<string, string> | undefined,
+    body: string,
+): Promise<string> {
+    log.debug('Kanji page request via userscript API');
+    return new Promise((resolve, reject) => {
+        userscriptRequest({
+            method,
+            url: requestUrl,
+            headers,
+            data: method === 'POST' ? body : undefined,
+            timeout: 8000,
+            onload: response => {
+                if (response.status >= 200 && response.status < 300) resolve(String(response.responseText ?? ''));
+                else reject(new Error(`JPDB kanji request failed (${response.status}).`));
+            },
+            onerror: reject,
+            ontimeout: () => reject(new Error('JPDB kanji request timed out.')),
+        });
+    });
+}
+
+function requestTextViaFetch(fetchUrl: string, method: 'GET' | 'POST', headers: Record<string, string> | undefined, body: string): Promise<string> {
     log.debug('Kanji page request via fetch');
     return fetch(fetchUrl, {
         method,

@@ -24,6 +24,14 @@ export interface DoodlePoint {
 
 export type DoodleStroke = DoodlePoint[];
 
+interface DoodleElements {
+    stage: HTMLElement;
+    canvas: HTMLCanvasElement;
+    ghost: HTMLElement;
+    result: HTMLElement | null;
+    context: CanvasRenderingContext2D;
+}
+
 export function findDoodleCanvasMount(): HTMLElement | null {
     return document.querySelector<HTMLElement>('.bugfix')
         ?? document.querySelector<HTMLElement>('.result.kanji > .vbox')
@@ -41,13 +49,9 @@ export function findDoodlePreviewMount(): HTMLElement | null {
 }
 
 export function installDoodle(root: HTMLElement, glyph: string, options: DoodleInstallOptions): void {
-    const stage = root.querySelector<HTMLElement>('.yomu-doodle-stage, .jpdb-reader-doodle-stage');
-    const canvas = root.querySelector<HTMLCanvasElement>('.yomu-doodle-canvas, .jpdb-reader-doodle-canvas');
-    const ghost = root.querySelector<HTMLElement>('.yomu-doodle-ghost, .jpdb-reader-doodle-ghost');
-    const result = root.querySelector<HTMLElement>('[data-doodle-result]');
-    if (!stage || !canvas || !ghost) return;
-    const context = canvas.getContext('2d');
-    if (!context) return;
+    const elements = doodleElements(root);
+    if (!elements) return;
+    const { stage, canvas, ghost, result, context } = elements;
 
     let dpr = Math.max(1, window.devicePixelRatio || 1);
     let drawing = false;
@@ -268,29 +272,56 @@ export function installDoodle(root: HTMLElement, glyph: string, options: DoodleI
     resize();
     setTraceVisible(false);
 
-    if (glyph) {
-        void options.loadGhostSvg(glyph)
-            .then(svg => {
-                if (!root.isConnected || !svg.includes('<svg')) return;
-                const info = parseKanjiVGSvg(svg, glyph);
-                setInnerHtml(ghost, info?.svg ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
-                expectedStrokes = ghost.querySelectorAll('path').length || expectedStrokes;
-                root.querySelector<HTMLElement>('[data-doodle-stroke-count]')?.replaceChildren(`${expectedStrokes} strokes`);
-                ghostAvailable = true;
-                setTraceVisible(false);
-                renderAssessment();
-            })
-            .catch(() => {
-                ghostAvailable = false;
-                setTraceVisible(false);
-            });
-    }
-    else {
-        ghostAvailable = false;
+    const applyGhost = (status: DoodleGhostStatus) => {
+        expectedStrokes = status.expectedStrokes || expectedStrokes;
+        ghostAvailable = status.available;
         setTraceVisible(false);
-    }
+        if (status.available) renderAssessment();
+    };
+    loadDoodleGhost(root, ghost, glyph, options.loadGhostSvg).then(applyGhost);
 
     (root as DoodleRoot).__yomuDoodle = { resizeObserver, cleanup };
+}
+
+function doodleElements(root: HTMLElement): DoodleElements | null {
+    const stage = root.querySelector<HTMLElement>('.yomu-doodle-stage, .jpdb-reader-doodle-stage');
+    const canvas = root.querySelector<HTMLCanvasElement>('.yomu-doodle-canvas, .jpdb-reader-doodle-canvas');
+    const ghost = root.querySelector<HTMLElement>('.yomu-doodle-ghost, .jpdb-reader-doodle-ghost');
+    if (!stage || !canvas || !ghost) return null;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    return {
+        stage,
+        canvas,
+        ghost,
+        result: root.querySelector<HTMLElement>('[data-doodle-result]'),
+        context,
+    };
+}
+
+interface DoodleGhostStatus {
+    available: boolean;
+    expectedStrokes: number;
+}
+
+async function loadDoodleGhost(
+    root: HTMLElement,
+    ghost: HTMLElement,
+    glyph: string,
+    loadGhostSvg: (glyph: string) => Promise<string>,
+): Promise<DoodleGhostStatus> {
+    if (!glyph) return { available: false, expectedStrokes: 0 };
+    try {
+        const svg = await loadGhostSvg(glyph);
+        if (!root.isConnected || !svg.includes('<svg')) return { available: false, expectedStrokes: 0 };
+        const info = parseKanjiVGSvg(svg, glyph);
+        setInnerHtml(ghost, info?.svg ?? svg.replace(/<script[\s\S]*?<\/script>/gi, ''));
+        const expectedStrokes = ghost.querySelectorAll('path').length;
+        root.querySelector<HTMLElement>('[data-doodle-stroke-count]')?.replaceChildren(`${expectedStrokes} strokes`);
+        return { available: true, expectedStrokes };
+    } catch {
+        return { available: false, expectedStrokes: 0 };
+    }
 }
 
 function formatAssessment(assessment: KanjiStrokeAssessment): string {

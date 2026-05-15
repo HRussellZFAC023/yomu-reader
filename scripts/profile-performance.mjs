@@ -119,26 +119,14 @@ page.on('response', response => {
     }
 });
 
-await page.exposeFunction('__yomuProfileRequest', async request => {
+await page.exposeFunction('__yomuProfileRequest', profileBridgeRequest);
+
+async function profileBridgeRequest(request) {
     const started = performance.now();
-    let body = request.data;
-    if (body?.kind === 'arraybuffer') {
-        body = Buffer.from(body.bytes ?? []);
-    } else if (body?.kind === 'formdata') {
-        const formData = new FormData();
-        for (const entry of body.entries ?? []) {
-            if (entry.blob) {
-                formData.append(entry.name, new Blob([Buffer.from(entry.blob.bytes ?? [])], { type: entry.blob.type || 'application/octet-stream' }), entry.blob.filename || 'file');
-            } else {
-                formData.append(entry.name, entry.value ?? '');
-            }
-        }
-        body = formData;
-    }
     const response = await fetch(request.url, {
         method: request.method,
         headers: request.headers,
-        body,
+        body: profileRequestBody(request.data),
     });
     const buffer = Buffer.from(await response.arrayBuffer());
     requests.push({
@@ -155,7 +143,27 @@ await page.exposeFunction('__yomuProfileRequest', async request => {
         bytes: [...buffer],
         contentType: response.headers.get('content-type') ?? '',
     };
-});
+}
+
+function profileRequestBody(body) {
+    if (body?.kind === 'arraybuffer') return Buffer.from(body.bytes ?? []);
+    if (body?.kind === 'formdata') return profileFormData(body.entries ?? []);
+    return body;
+}
+
+function profileFormData(entries) {
+    const formData = new FormData();
+    for (const entry of entries) appendProfileFormDataEntry(formData, entry);
+    return formData;
+}
+
+function appendProfileFormDataEntry(formData, entry) {
+    if (entry.blob) {
+        formData.append(entry.name, new Blob([Buffer.from(entry.blob.bytes ?? [])], { type: entry.blob.type || 'application/octet-stream' }), entry.blob.filename || 'file');
+        return;
+    }
+    formData.append(entry.name, entry.value ?? '');
+}
 
 await page.addInitScript(({ settings, live }) => {
     localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify(settings));
@@ -207,42 +215,100 @@ await page.addInitScript(({ settings, live }) => {
     };
 }, { settings, live: LIVE });
 
-if (!LIVE) await page.route('**/*', async route => {
+if (!LIVE) await page.route('**/*', mockProfileRoute);
+
+async function mockProfileRoute(route) {
     let url = new URL(route.request().url());
     if (url.hostname === '127.0.0.1' && url.pathname === '/__jpdb-reader-audio-proxy' && url.searchParams.get('url')) {
         url = new URL(url.searchParams.get('url'));
     }
+    const response = await profileRouteResponse(route, url);
+    return response ? route.fulfill(response) : route.continue();
+}
+
+async function profileRouteResponse(route, url) {
+    for (const handler of PROFILE_ROUTE_HANDLERS) {
+        const response = await handler(route, url);
+        if (response) return response;
+    }
+    return null;
+}
+
+const PROFILE_ROUTE_HANDLERS = [
+    jpdbParseProfileResponse,
+    jpdbKanjiProfileResponse,
+    githubRawProfileResponseAdapter,
+    uchisenProfileResponse,
+    immersionSearchProfileResponse,
+    immersionMediaProfileResponse,
+    audioProfileResponseAdapter,
+];
+
+async function jpdbParseProfileResponse(route, url) {
     if (url.hostname === 'jpdb.io' && url.pathname === '/api/v1/parse') {
         const body = JSON.parse(route.request().postData() || '{}');
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockParse(body)) });
+        return { status: 200, contentType: 'application/json', body: JSON.stringify(mockParse(body)) };
     }
+    return null;
+}
+
+async function jpdbKanjiProfileResponse(_route, url) {
     if (url.hostname === 'jpdb.io' && url.pathname.startsWith('/kanji/')) {
         await delay(SLOW_MS);
         const kanji = decodeURIComponent(url.pathname.split('/').pop() || '読');
-        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: mockKanjiHtml(kanji) });
+        return { status: 200, contentType: 'text/html; charset=utf-8', body: mockKanjiHtml(kanji) };
     }
+    return null;
+}
+
+function githubRawProfileResponseAdapter(_route, url) {
     if (url.hostname === 'raw.githubusercontent.com') {
-        return route.fulfill({ status: 200, contentType: url.pathname.endsWith('.svg') ? 'image/svg+xml' : 'application/json', body: url.pathname.endsWith('.svg') ? mockKanjiVgSvg() : JSON.stringify(mockKanjiMap()) });
+        return githubRawProfileResponse(url);
     }
+    return null;
+}
+
+function uchisenProfileResponse(_route, url) {
     if (url.hostname === 'hrussellzfac023.github.io') {
-        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<html><body><div class="entry"><h2>read</h2><p>Elements: 言, 売</p></div></body></html>' });
+        return { status: 200, contentType: 'text/html; charset=utf-8', body: '<html><body><div class="entry"><h2>read</h2><p>Elements: 言, 売</p></div></body></html>' };
     }
+    return null;
+}
+
+async function immersionSearchProfileResponse(_route, url) {
     if (isImmersionApiUrl(url, '/search')) {
         await delay(SLOW_MS);
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ examples: [{ id: 'anime_profile_1', title: 'profile', sentence: '今日は本を読みました。', image: 'profile.jpg', sound: 'profile.mp3' }] }) });
+        return { status: 200, contentType: 'application/json', body: JSON.stringify({ examples: [{ id: 'anime_profile_1', title: 'profile', sentence: '今日は本を読みました。', image: 'profile.jpg', sound: 'profile.mp3' }] }) };
     }
+    return null;
+}
+
+function immersionMediaProfileResponse(_route, url) {
     if (isImmersionApiUrl(url, '/download_media')) {
-        return route.fulfill({ status: 200, contentType: url.search.includes('.mp3') ? 'audio/mpeg' : 'image/png', body: 'media' });
+        return { status: 200, contentType: url.search.includes('.mp3') ? 'audio/mpeg' : 'image/png', body: 'media' };
     }
+    return null;
+}
+
+function audioProfileResponseAdapter(_route, url) {
     if (url.hostname === 'audio.profile.test') {
-        await delay(SLOW_MS);
-        if (url.pathname === '/source') {
-            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ audioSources: [{ url: 'https://audio.profile.test/file.mp3' }] }) });
-        }
-        return route.fulfill({ status: 200, contentType: 'audio/mpeg', body: 'audio' });
+        return audioProfileResponse(url);
     }
-    return route.continue();
-});
+    return null;
+}
+
+function githubRawProfileResponse(url) {
+    const svg = url.pathname.endsWith('.svg');
+    return { status: 200, contentType: svg ? 'image/svg+xml' : 'application/json', body: svg ? mockKanjiVgSvg() : JSON.stringify(mockKanjiMap()) };
+}
+
+async function audioProfileResponse(url) {
+    await delay(SLOW_MS);
+    if (url.pathname === '/source') {
+        return { status: 200, contentType: 'application/json', body: JSON.stringify({ audioSources: [{ url: 'https://audio.profile.test/file.mp3' }] }) };
+    }
+    return { status: 200, contentType: 'audio/mpeg', body: 'audio' };
+}
 
 const profileUrl = new URL(`${ORIGIN}/newtab/`);
 profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');

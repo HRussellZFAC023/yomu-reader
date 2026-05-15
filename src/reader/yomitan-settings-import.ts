@@ -14,45 +14,15 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
     }
 
     const settings: YomitanSettingsImport['settings'] = {};
-    const audio = profileOptions.audio as Record<string, unknown> | undefined;
-    const general = profileOptions.general as Record<string, unknown> | undefined;
-    const scanning = profileOptions.scanning as Record<string, unknown> | undefined;
-    const inputs = profileOptions.inputs as { hotkeys?: Array<Record<string, unknown>> } | undefined;
-
-    if (typeof audio?.enabled === 'boolean') settings.audioEnabled = audio.enabled;
-    if (typeof audio?.autoPlay === 'boolean') settings.autoPlayAudio = audio.autoPlay;
-    if (typeof audio?.enableDefaultAudioSources === 'boolean') settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
-    if (Array.isArray(audio?.sources)) {
-        settings.audioSources = audio.sources
-            .map(normalizeAudioSource)
-            .filter((source): source is NonNullable<ReturnType<typeof normalizeAudioSource>> => source !== null);
-        settings.audioSourceUrl = settings.audioSources.find(source => source.url)?.url;
-    }
-    if (general?.popupTheme === 'dark' || general?.popupTheme === 'light') settings.theme = general.popupTheme;
-    if (typeof general?.popupHeight === 'number' && general.popupHeight > 0) {
-        settings.subtitleBottomOffset = Math.max(6, Math.min(24, Math.round(general.popupVerticalOffset as number || 12)));
-    }
-    if (typeof scanning?.selectText === 'boolean') settings.parseSelection = scanning.selectText;
-    if (typeof scanning?.scanWithoutMousemove === 'boolean') settings.autoScanJapanese = scanning.scanWithoutMousemove;
-    applyScanInputSettings(settings, scanning);
-    if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+    const sections = readYomitanProfileSections(profileOptions);
+    applyAudioSettings(settings, sections.audio);
+    applyGeneralSettings(settings, sections.general);
+    applyScanningSettings(settings, sections.scanning);
     const dictionaryNames = readDictionaryNames(profileOptions);
-    if (dictionaryNames.length) {
-        settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryNames.map((name, index) => ({
-            name,
-            alias: name,
-            enabled: true,
-            priority: index,
-        })));
-    }
+    applyDictionarySettings(settings, dictionaryNames);
     settings.yomitanSettingsBackup = value;
+    applyPlayAudioShortcut(settings, sections.inputs);
 
-    const playAudio = inputs?.hotkeys?.find(hotkey => hotkey.action === 'playAudio' && hotkey.enabled !== false);
-    if (playAudio) {
-        const key = String(playAudio.key || '').replace(/^Key/, '');
-        const modifiers = Array.isArray(playAudio.modifiers) ? playAudio.modifiers.map(v => String(v)) : [];
-        settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join('+') };
-    }
     done();
     log.info('Yomitan settings import parsed', {
         hasAudioSources: Boolean(settings.audioSources?.length),
@@ -61,6 +31,63 @@ export function parseYomitanSettingsExport(value: unknown): YomitanSettingsImpor
         theme: settings.theme,
     });
     return { settings, dictionaryNames };
+}
+
+function readYomitanProfileSections(profileOptions: Record<string, unknown>): {
+    audio: Record<string, unknown> | undefined;
+    general: Record<string, unknown> | undefined;
+    scanning: Record<string, unknown> | undefined;
+    inputs: { hotkeys?: Array<Record<string, unknown>> } | undefined;
+} {
+    return {
+        audio: profileOptions.audio as Record<string, unknown> | undefined,
+        general: profileOptions.general as Record<string, unknown> | undefined,
+        scanning: profileOptions.scanning as Record<string, unknown> | undefined,
+        inputs: profileOptions.inputs as { hotkeys?: Array<Record<string, unknown>> } | undefined,
+    };
+}
+
+function applyAudioSettings(settings: YomitanSettingsImport['settings'], audio: Record<string, unknown> | undefined): void {
+    if (typeof audio?.enabled === 'boolean') settings.audioEnabled = audio.enabled;
+    if (typeof audio?.autoPlay === 'boolean') settings.autoPlayAudio = audio.autoPlay;
+    if (typeof audio?.enableDefaultAudioSources === 'boolean') settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
+    if (!Array.isArray(audio?.sources)) return;
+    settings.audioSources = audio.sources
+        .map(normalizeAudioSource)
+        .filter((source): source is NonNullable<ReturnType<typeof normalizeAudioSource>> => source !== null);
+    settings.audioSourceUrl = settings.audioSources.find(source => source.url)?.url;
+}
+
+function applyGeneralSettings(settings: YomitanSettingsImport['settings'], general: Record<string, unknown> | undefined): void {
+    if (general?.popupTheme === 'dark' || general?.popupTheme === 'light') settings.theme = general.popupTheme;
+    if (typeof general?.popupHeight === 'number' && general.popupHeight > 0) {
+        settings.subtitleBottomOffset = Math.max(6, Math.min(24, Math.round(general.popupVerticalOffset as number || 12)));
+    }
+    if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+}
+
+function applyScanningSettings(settings: YomitanSettingsImport['settings'], scanning: Record<string, unknown> | undefined): void {
+    if (typeof scanning?.selectText === 'boolean') settings.parseSelection = scanning.selectText;
+    if (typeof scanning?.scanWithoutMousemove === 'boolean') settings.autoScanJapanese = scanning.scanWithoutMousemove;
+    applyScanInputSettings(settings, scanning);
+}
+
+function applyDictionarySettings(settings: YomitanSettingsImport['settings'], dictionaryNames: string[]): void {
+    if (!dictionaryNames.length) return;
+    settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryNames.map((name, index) => ({
+        name,
+        alias: name,
+        enabled: true,
+        priority: index,
+    })));
+}
+
+function applyPlayAudioShortcut(settings: YomitanSettingsImport['settings'], inputs: { hotkeys?: Array<Record<string, unknown>> } | undefined): void {
+    const playAudio = inputs?.hotkeys?.find(hotkey => hotkey.action === 'playAudio' && hotkey.enabled !== false);
+    if (!playAudio) return;
+    const key = String(playAudio.key || '').replace(/^Key/, '');
+    const modifiers = Array.isArray(playAudio.modifiers) ? playAudio.modifiers.map(v => String(v)) : [];
+    settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join('+') };
 }
 
 function readDictionaryNames(profileOptions: Record<string, unknown>): string[] {
@@ -74,9 +101,7 @@ function readDictionaryNames(profileOptions: Record<string, unknown>): string[] 
 }
 
 function applyScanInputSettings(settings: YomitanSettingsImport['settings'], scanning: Record<string, unknown> | undefined): void {
-    const scanInput = Array.isArray(scanning?.inputs)
-        ? (scanning.inputs as Array<Record<string, unknown>>).find(input => input && typeof input === 'object')
-        : null;
+    const scanInput = firstScanInput(scanning);
     if (!scanInput) return;
     const include = String(scanInput.include ?? '').toLowerCase();
     const modifier = ['shift', 'alt', 'ctrl', 'meta'].find(key => include.includes(key));
@@ -86,27 +111,53 @@ function applyScanInputSettings(settings: YomitanSettingsImport['settings'], sca
         return;
     }
     const options = scanInput.options as Record<string, unknown> | undefined;
-    if (options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === '') {
+    if (shouldEnablePlainHoverScan(options, include)) {
         settings.lookupOnHover = true;
         settings.shortcuts = { ...settings.shortcuts, hoverLookup: '' };
     }
 }
 
+function firstScanInput(scanning: Record<string, unknown> | undefined): Record<string, unknown> | null {
+    if (!Array.isArray(scanning?.inputs)) return null;
+    return (scanning.inputs as Array<Record<string, unknown>>).find(isRecordScanInput) ?? null;
+}
+
+function isRecordScanInput(input: unknown): input is Record<string, unknown> {
+    return Boolean(input && typeof input === 'object');
+}
+
+function shouldEnablePlainHoverScan(options: Record<string, unknown> | undefined, include: string): boolean {
+    return options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === '';
+}
+
 function getYomitanProfileOptions(value: unknown): Record<string, unknown> | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    const rootOptions = record.options;
-    if (rootOptions && typeof rootOptions === 'object') {
-        const rootOptionRecord = rootOptions as Record<string, unknown>;
-        const profiles = Array.isArray(rootOptionRecord.profiles) ? rootOptionRecord.profiles as Array<Record<string, unknown>> : [];
-        const profileOptions = profiles.find(item => item && typeof item === 'object')?.options;
-        if (profileOptions && typeof profileOptions === 'object') return profileOptions as Record<string, unknown>;
-        return rootOptionRecord;
-    }
-    const profiles = Array.isArray(record.profiles) ? record.profiles as Array<Record<string, unknown>> : [];
-    const profile = profiles.find(item => item && typeof item === 'object') ?? record;
-    const options = (profile as Record<string, unknown>).options;
+    return profileOptionsFromRoot(record.options)
+        ?? profileOptionsFromProfiles(record.profiles, record);
+}
+
+function profileOptionsFromRoot(rootOptions: unknown): Record<string, unknown> | null {
+    if (!rootOptions || typeof rootOptions !== 'object') return null;
+    const rootOptionRecord = rootOptions as Record<string, unknown>;
+    return firstNestedProfileOptions(rootOptionRecord.profiles) ?? rootOptionRecord;
+}
+
+function profileOptionsFromProfiles(profilesValue: unknown, fallback: Record<string, unknown>): Record<string, unknown> | null {
+    const profile = firstProfileRecord(profilesValue) ?? fallback;
+    const options = profile.options;
     return options && typeof options === 'object' ? options as Record<string, unknown> : null;
+}
+
+function firstNestedProfileOptions(profilesValue: unknown): Record<string, unknown> | null {
+    const options = firstProfileRecord(profilesValue)?.options;
+    return options && typeof options === 'object' ? options as Record<string, unknown> : null;
+}
+
+function firstProfileRecord(value: unknown): Record<string, unknown> | null {
+    if (!Array.isArray(value)) return null;
+    const profile = value.find(item => item && typeof item === 'object');
+    return profile ? profile as Record<string, unknown> : null;
 }
 
 function capitalize(value: string): string {

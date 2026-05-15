@@ -56,26 +56,44 @@ export function detectHanabiraGrammarHintsFromIndex(sentence: string, index: Han
     if (!normalized) return [];
     const ranked: Array<GrammarHint & { candidateLength: number }> = [];
     for (const item of index) {
-        const match = bestCandidateMatch(normalized, item.candidates);
-        if (!match) continue;
-        ranked.push({
-            ruleId: hanabiraRuleId(item.title),
-            name: item.title,
-            level: item.level,
-            kind: 'Hanabira grammar',
-            short: item.short || item.formation || item.title,
-            detail: item.detail || item.short || item.formation || item.title,
-            url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
-            match: match.candidate,
-            confidence: match.candidate.length >= 4 ? 'high' : 'medium',
-            index: match.index,
-            candidateLength: match.candidate.length,
-        });
+        const hint = grammarHintFromIndexItem(normalized, item);
+        if (hint) ranked.push(hint);
     }
     return ranked
-        .sort((a, b) => a.index - b.index || b.candidateLength - a.candidateLength || grammarLevelRank(a.level) - grammarLevelRank(b.level))
+        .sort(compareGrammarHints)
         .slice(0, 10)
         .map(({ candidateLength: _candidateLength, ...hint }) => hint);
+}
+
+function grammarHintFromIndexItem(normalizedSentence: string, item: HanabiraGrammarIndexItem): GrammarHint & { candidateLength: number } | null {
+    const match = bestCandidateMatch(normalizedSentence, item.candidates);
+    if (!match) return null;
+    return grammarHintFromMatch(item, match);
+}
+
+function grammarHintFromMatch(item: HanabiraGrammarIndexItem, match: NonNullable<ReturnType<typeof bestCandidateMatch>>): GrammarHint & { candidateLength: number } {
+    return {
+        ruleId: hanabiraRuleId(item.title),
+        name: item.title,
+        level: item.level,
+        kind: 'Hanabira grammar',
+        short: item.short || item.formation || item.title,
+        detail: item.detail || item.short || item.formation || item.title,
+        url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
+        match: match.candidate,
+        confidence: match.candidate.length >= 4 ? 'high' : 'medium',
+        index: match.index,
+        candidateLength: match.candidate.length,
+    };
+}
+
+function compareGrammarHints(
+    a: GrammarHint & { candidateLength: number },
+    b: GrammarHint & { candidateLength: number },
+): number {
+    return a.index - b.index
+        || b.candidateLength - a.candidateLength
+        || grammarLevelRank(a.level) - grammarLevelRank(b.level);
 }
 
 export function buildHanabiraGrammarIndex(points: HanabiraGrammarPoint[]): HanabiraGrammarIndexItem[] {

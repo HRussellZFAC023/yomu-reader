@@ -155,23 +155,11 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
         if (current.depth >= 2) continue;
 
         for (const rule of RULES) {
-            if (!current.term.endsWith(rule.from)) continue;
-            if (current.term.length <= rule.from.length && rule.to.length === 0) continue;
-
-            const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-            if (!term || term === current.term) continue;
-
-            const next: DeinflectedTerm = {
-                term,
-                rules: rule.rules,
-                reasons: [...current.reasons, rule.reason],
-                depth: current.depth + 1,
-            };
-            const key = candidateKey(next);
-            if (seen.has(key)) continue;
-            seen.add(key);
-            results.push(next);
-            queue.push(next);
+            const next = deinflectedCandidate(current, rule);
+            if (next && rememberDeinflectedCandidate(next, seen)) {
+                results.push(next);
+                queue.push(next);
+            }
         }
     }
 
@@ -184,20 +172,52 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
     return sorted;
 }
 
+function deinflectedCandidate(current: DeinflectedTerm, rule: DeinflectionRule): DeinflectedTerm | null {
+    if (!canApplyDeinflectionRule(current.term, rule)) return null;
+    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
+    if (!term || term === current.term) return null;
+    return {
+        term,
+        rules: rule.rules,
+        reasons: [...current.reasons, rule.reason],
+        depth: current.depth + 1,
+    };
+}
+
+function canApplyDeinflectionRule(term: string, rule: DeinflectionRule): boolean {
+    return term.endsWith(rule.from)
+        && (term.length > rule.from.length || rule.to.length > 0);
+}
+
+function rememberDeinflectedCandidate(candidate: DeinflectedTerm, seen: Set<string>): boolean {
+    const key = candidateKey(candidate);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+}
+
 export function termRulesMatch(entryRules: string | undefined, candidateRules: string[]): boolean {
     if (!candidateRules.length) return true;
     const entryRuleSet = new Set((entryRules ?? '').split(/\s+/).filter(Boolean));
     if (!entryRuleSet.size) return false;
 
     for (const rule of candidateRules) {
-        if (entryRuleSet.has(rule)) return true;
-        if (rule.startsWith('v5') && entryRuleSet.has('v5')) return true;
-        if (rule === 'v5' && [...entryRuleSet].some(entryRule => entryRule.startsWith('v5'))) return true;
-        if (rule === 'i-adj' && entryRuleSet.has('adj-i')) return true;
-        if (rule === 'adj-i' && entryRuleSet.has('i-adj')) return true;
+        if (termRuleMatches(rule, entryRuleSet)) return true;
     }
     return false;
 }
+
+function termRuleMatches(rule: string, entryRuleSet: Set<string>): boolean {
+    return TERM_RULE_MATCHERS.some(matches => matches(rule, entryRuleSet));
+}
+
+const TERM_RULE_MATCHERS: Array<(rule: string, entryRuleSet: Set<string>) => boolean> = [
+    (rule, entryRuleSet) => entryRuleSet.has(rule),
+    (rule, entryRuleSet) => rule.startsWith('v5') && entryRuleSet.has('v5'),
+    (rule, entryRuleSet) => rule === 'v5' && [...entryRuleSet].some(entryRule => entryRule.startsWith('v5')),
+    (rule, entryRuleSet) => rule === 'i-adj' && entryRuleSet.has('adj-i'),
+    (rule, entryRuleSet) => rule === 'adj-i' && entryRuleSet.has('i-adj'),
+];
 
 function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
     const rules = row.rules;

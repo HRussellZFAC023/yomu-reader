@@ -35,32 +35,54 @@ export function replaceChildrenWith(parent: Element | DocumentFragment, ...child
 function applyAttrs(element: HTMLElement, attrs?: DomAttrs | null): void {
     if (!attrs) return;
     for (const [name, value] of Object.entries(attrs)) {
-        if (value === false || value === null || value === undefined) continue;
-        if (name === 'class' || name === 'className') {
-            element.className = String(value);
-            continue;
-        }
-        if (name === 'dataset') {
-            for (const [key, dataValue] of Object.entries((value as DomAttrs['dataset']) ?? {})) {
-                if (dataValue !== false && dataValue !== null && dataValue !== undefined) {
-                    element.dataset[key] = String(dataValue);
-                }
-            }
-            continue;
-        }
-        if (name === 'text') {
-            element.textContent = String(value);
-            continue;
-        }
-        if (name in element && name !== 'role' && !name.startsWith('aria')) {
-            try {
-                (element as unknown as Record<string, unknown>)[name] = value;
-                continue;
-            } catch {
-                // Fall back to an attribute for read-only DOM properties.
-            }
-        }
-        element.setAttribute(name, value === true ? '' : String(value));
+        applyAttr(element, name, value);
+    }
+}
+
+function applyAttr(element: HTMLElement, name: string, value: unknown): void {
+    if (isSkippedAttrValue(value)) return;
+    if (applySpecialAttr(element, name, value)) return;
+    element.setAttribute(name, value === true ? '' : String(value));
+}
+
+function applySpecialAttr(element: HTMLElement, name: string, value: unknown): boolean {
+    return applyClassAttr(element, name, value)
+        || applyDatasetAttr(element, name, value)
+        || applyTextAttr(element, name, value)
+        || applyElementProperty(element, name, value);
+}
+
+function isSkippedAttrValue(value: unknown): boolean {
+    return value === false || value === null || value === undefined;
+}
+
+function applyClassAttr(element: HTMLElement, name: string, value: unknown): boolean {
+    if (name !== 'class' && name !== 'className') return false;
+    element.className = String(value);
+    return true;
+}
+
+function applyDatasetAttr(element: HTMLElement, name: string, value: unknown): boolean {
+    if (name !== 'dataset') return false;
+    for (const [key, dataValue] of Object.entries((value as DomAttrs['dataset']) ?? {})) {
+        if (!isSkippedAttrValue(dataValue)) element.dataset[key] = String(dataValue);
+    }
+    return true;
+}
+
+function applyTextAttr(element: HTMLElement, name: string, value: unknown): boolean {
+    if (name !== 'text') return false;
+    element.textContent = String(value);
+    return true;
+}
+
+function applyElementProperty(element: HTMLElement, name: string, value: unknown): boolean {
+    if (!(name in element) || name === 'role' || name.startsWith('aria')) return false;
+    try {
+        (element as unknown as Record<string, unknown>)[name] = value;
+        return true;
+    } catch {
+        return false;
     }
 }
 
@@ -72,12 +94,22 @@ function appendChildren(parent: ParentNode, children: DomChild[]): void {
 
 function collectChildren(nodes: Node[], children: DomChild[]): void {
     for (const child of children) {
-        if (Array.isArray(child)) {
-            collectChildren(nodes, child);
-        } else if (child instanceof Node) {
-            nodes.push(child);
-        } else if (child !== false && child !== null && child !== undefined) {
-            nodes.push(document.createTextNode(String(child)));
-        }
+        appendDomChild(nodes, child);
     }
+}
+
+function appendDomChild(nodes: Node[], child: DomChild): void {
+    if (Array.isArray(child)) {
+        collectChildren(nodes, child);
+        return;
+    }
+    if (child instanceof Node) {
+        nodes.push(child);
+        return;
+    }
+    if (!isSkippedChild(child)) nodes.push(document.createTextNode(String(child)));
+}
+
+function isSkippedChild(child: PrimitiveChild): boolean {
+    return child === false || child === null || child === undefined;
 }

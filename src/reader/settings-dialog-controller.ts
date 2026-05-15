@@ -71,9 +71,61 @@ interface SettingsDialogDependencies {
 }
 
 type SettingsStatusSetter = (message: string) => void;
+type DictionarySummary = Awaited<ReturnType<YomitanDictionaryStore['summary']>>;
+
+interface DictionaryStatusElements {
+    status: HTMLElement | null;
+    priorities: HTMLElement | null;
+    recommended: HTMLElement | null;
+}
 
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
+
+function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter {
+    return message => {
+        if (status) status.textContent = message;
+    };
+}
+
+function handleSettingsActionError(
+    action: string,
+    control: HTMLElement | null | undefined,
+    setStatus: SettingsStatusSetter,
+    error: unknown,
+): void {
+    log.warn('Settings action failed', { action }, error);
+    if (shouldReenableSettingsAction(action)) control?.removeAttribute('disabled');
+    setStatus(error instanceof Error ? error.message : 'Import failed.');
+}
+
+function shouldReenableSettingsAction(action: string): boolean {
+    return action === 'download-recommended-dictionary' || action === 'delete-yomitan-dictionary';
+}
+
+function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElements {
+    return {
+        status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
+        priorities: form.querySelector<HTMLElement>('.jpdb-reader-dictionary-priorities'),
+        recommended: form.querySelector<HTMLElement>('[data-recommended-dictionaries]'),
+    };
+}
+
+function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
+    if (elements.status) elements.status.textContent = dictionaryStatusText(summary);
+    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
+    if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
+}
+
+function dictionaryStatusText(summary: DictionarySummary): string {
+    return summary.dictionaries.length
+        ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.`
+        : 'No local dictionaries imported yet.';
+}
+
+function setDictionaryStatusError(status: HTMLElement | null, error: unknown): void {
+    if (status) status.textContent = error instanceof Error ? error.message : 'Dictionary status unavailable.';
+}
 
 export class SettingsDialogController {
     private starterDictionaryDownload?: Promise<boolean>;
@@ -314,32 +366,31 @@ export class SettingsDialogController {
     }
 
     private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
-        const status = form.querySelector<HTMLElement>('[data-dictionary-status]');
-        const priorities = form.querySelector<HTMLElement>('.jpdb-reader-dictionary-priorities');
-        const recommended = form.querySelector<HTMLElement>('[data-recommended-dictionaries]');
+        const elements = dictionaryStatusElements(form);
         try {
             const summary = await this.dependencies.dictionaries.summary();
-            log.debug('Dictionary status loaded', summary);
-            const names = summary.dictionaries.map(item => item.title);
-            const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
-            const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
-            if (merged.length !== this.settings.dictionaryPreferences.length) {
-                this.settings.dictionaryPreferences = merged;
-                await saveSettings(this.settings);
-            }
-            await this.dependencies.refreshDictionaryStyles();
-            if (status) {
-                status.textContent = summary.dictionaries.length
-                    ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.`
-                    : 'No local dictionaries imported yet.';
-            }
-            if (priorities) setInnerHtml(priorities, renderDictionarySourceRows(this.settings));
-            if (recommended) setInnerHtml(recommended, renderRecommendedDictionaries(summary.dictionaries));
-            localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+            await this.applyDictionaryStatus(form, elements, summary);
         } catch (error) {
             log.warn('Dictionary status unavailable', error);
-            if (status) status.textContent = error instanceof Error ? error.message : 'Dictionary status unavailable.';
+            setDictionaryStatusError(elements.status, error);
         }
+    }
+
+    private async applyDictionaryStatus(form: HTMLFormElement, elements: DictionaryStatusElements, summary: DictionarySummary): Promise<void> {
+        log.debug('Dictionary status loaded', summary);
+        await this.mergeDictionaryPreferencesFromSummary(summary);
+        await this.dependencies.refreshDictionaryStyles();
+        renderDictionaryStatusElements(elements, summary, this.settings);
+        localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+
+    private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {
+        const names = summary.dictionaries.map(item => item.title);
+        const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
+        const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
+        if (merged.length === this.settings.dictionaryPreferences.length) return;
+        this.settings.dictionaryPreferences = merged;
+        await saveSettings(this.settings);
     }
 
     private async downloadStarterDictionaries(onProgress?: (message: string) => void, force = false): Promise<boolean> {
@@ -368,9 +419,7 @@ export class SettingsDialogController {
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
         const status = form.querySelector<HTMLElement>('[data-import-status]');
-        const setStatus: SettingsStatusSetter = message => {
-            if (status) status.textContent = message;
-        };
+        const setStatus = settingsStatusSetter(status);
 
         try {
             if (this.handleSettingsEditorAction(form, action, control)) return;
@@ -380,9 +429,7 @@ export class SettingsDialogController {
             if (await this.handleSettingsConnectionAction(form, action, control)) return;
             await this.handleSettingsSupportAction(action, setStatus);
         } catch (error) {
-            log.warn('Settings action failed', { action }, error);
-            if (action === 'download-recommended-dictionary' || action === 'delete-yomitan-dictionary') control?.removeAttribute('disabled');
-            setStatus(error instanceof Error ? error.message : 'Import failed.');
+            handleSettingsActionError(action, control, setStatus, error);
         }
     }
 
@@ -392,19 +439,19 @@ export class SettingsDialogController {
             activateSettingsPanel(form, control?.dataset.panel ?? 'basics');
             return true;
         }
-        if (action === 'dictionary-source-up' || action === 'dictionary-source-down') {
+        if (isDictionarySourceOrderAction(action)) {
             log.debug('Dictionary source order changed', { action });
             updateSourceRowEditor(form, action, control);
             return true;
         }
-        if (action === 'audio-source-add' || action === 'audio-source-remove' || action === 'audio-source-up' || action === 'audio-source-down') {
+        if (isAudioSourceEditorAction(action)) {
             log.debug('Audio source editor changed', { action });
             updateAudioSourceEditor(form, action, control);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             syncBrowserTtsVoiceOptions(form);
             return true;
         }
-        if (action === 'lookup-link-add' || action === 'lookup-link-remove' || action === 'lookup-link-up' || action === 'lookup-link-down') {
+        if (isLookupLinkEditorAction(action)) {
             log.debug('Lookup link editor changed', { action });
             updateDictionaryLookupLinkEditor(form, action, control);
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -585,21 +632,8 @@ export class SettingsDialogController {
         control?.setAttribute('disabled', 'true');
         setStatus(`${control?.dataset.installed === 'true' ? 'Updating' : 'Downloading'} ${dictionary.name}...`);
         log.info('Downloading selected dictionary', { dictionary: dictionary.name });
-        let summary: ImportSummary;
-        try {
-            summary = await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Dictionary download failed.';
-            if (this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) {
-                window.open(dictionary.downloadUrl, '_blank');
-                setStatus(`${message} Opened the dictionary link in a new tab. Download the ZIP and use Import dictionary above.`);
-                log.warn('Dictionary auto-download unavailable, opened manual fallback', { dictionary: dictionary.name, message });
-                control?.removeAttribute('disabled');
-                return;
-            }
-            control?.removeAttribute('disabled');
-            throw error;
-        }
+        const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
+        if (!summary) return;
         this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
         await saveSettings(this.settings);
         await this.dependencies.refreshDictionaryStyles();
@@ -608,6 +642,33 @@ export class SettingsDialogController {
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
         log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
+    }
+
+    private async downloadRecommendedDictionary(
+        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+    ): Promise<ImportSummary | null> {
+        try {
+            return await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
+        } catch (error) {
+            return this.handleRecommendedDictionaryDownloadError(dictionary, control, setStatus, error);
+        }
+    }
+
+    private handleRecommendedDictionaryDownloadError(
+        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+        error: unknown,
+    ): null {
+        const message = error instanceof Error ? error.message : 'Dictionary download failed.';
+        control?.removeAttribute('disabled');
+        if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
+        window.open(dictionary.downloadUrl, '_blank');
+        setStatus(`${message} Opened the dictionary link in a new tab. Download the ZIP and use Import dictionary above.`);
+        log.warn('Dictionary auto-download unavailable, opened manual fallback', { dictionary: dictionary.name, message });
+        return null;
     }
 
     private shouldPromptManualDictionaryDownload(error: unknown, downloadUrl: string): boolean {
@@ -659,6 +720,18 @@ export class SettingsDialogController {
         const importedTypes = Object.fromEntries(importedSummary.dictionaries.map(item => [item.title, item.type]));
         this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames, importedTypes);
     }
+}
+
+function isDictionarySourceOrderAction(action: string): boolean {
+    return action === 'dictionary-source-up' || action === 'dictionary-source-down';
+}
+
+function isAudioSourceEditorAction(action: string): boolean {
+    return action === 'audio-source-add' || action === 'audio-source-remove' || action === 'audio-source-up' || action === 'audio-source-down';
+}
+
+function isLookupLinkEditorAction(action: string): boolean {
+    return action === 'lookup-link-add' || action === 'lookup-link-remove' || action === 'lookup-link-up' || action === 'lookup-link-down';
 }
 
 function getReaderStorageExport(value: unknown): unknown {

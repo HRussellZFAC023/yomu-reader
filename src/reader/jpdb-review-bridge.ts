@@ -31,6 +31,19 @@ type BridgeMessage =
     | { type: 'command'; source: 'newtab'; command: 'grade'; grade: JPDBGrade }
     | { type: 'status'; source: 'jpdb'; status: JpdbReviewBridgeStatus };
 
+interface ParsedReviewDocument {
+    cardValue: string;
+    phase: JpdbReviewBridgeCard['phase'];
+    kind: JpdbReviewBridgeCard['kind'];
+    prompt: string;
+    answer: string;
+    spelling: string;
+    reading: string;
+    sentence: string;
+    kanji: string;
+    keyword: string;
+}
+
 export interface JpdbReviewBridgeClient {
     latestStatus(): JpdbReviewBridgeStatus;
     requestCurrent(): void;
@@ -115,24 +128,12 @@ export function initJpdbReviewPageBridge(): void {
 }
 
 export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBridgeStatus {
-    const url = safeUrl(href);
-    const { cardValue, response } = reviewRequestState(doc, url);
-    const cardState = parseJpdbReviewCardValue(cardValue, response);
     if (reviewLoginRequired(doc)) {
         return { connected: true, loginRequired: true, card: null, message: 'Log in to JPDB, then open /review again.' };
     }
 
-    const kindLabel = cleanText(doc.querySelector<HTMLElement>('.kind')?.textContent ?? '');
-    const sentenceElement = doc.querySelector<HTMLElement>('.card-sentence .sentence, .sentence, .plain');
-    const sentence = cleanText(sentenceElement?.textContent ?? '');
-    const highlighted = cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? '');
-    const { kanji, isKanji } = reviewKindInfo(doc, cardState, kindLabel, highlighted);
-    const phase = reviewPhase(doc, url, cardState.phase);
-    const keyword = sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? '');
-    const spelling = isKanji ? kanji : highlighted || firstJapaneseRun(sentence) || cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '');
-    const prompt = isKanji ? keyword || cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '') || kanji : sentence || spelling;
-    const answer = isKanji ? kanji : spelling;
-    if (!hasDetectedReviewCard(spelling, kanji, cardValue)) {
+    const parsed = parsedReviewDocument(doc, href);
+    if (!hasDetectedReviewCard(parsed.spelling, parsed.kanji, parsed.cardValue)) {
         return { connected: true, loginRequired: false, card: null, message: 'JPDB review is open but no review card was detected.' };
     }
 
@@ -140,20 +141,74 @@ export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBri
         connected: true,
         loginRequired: false,
         message: '',
-        card: {
-            id: cardValue || `${spelling}:${readingFromDocument(doc)}`,
-            kind: isKanji ? 'kanji' : 'vocabulary',
-            phase,
-            prompt,
-            answer,
-            spelling: spelling || kanji,
-            reading: isKanji ? '' : readingFromDocument(doc),
-            sentence,
-            kanji,
-            keyword,
-            itemsLeft: itemsLeft(doc),
-            href,
-        },
+        card: reviewBridgeCard(parsed, doc, href),
+    };
+}
+
+function parsedReviewDocument(doc: Document, href: string): ParsedReviewDocument {
+    const url = safeUrl(href);
+    const { cardValue, response } = reviewRequestState(doc, url);
+    const cardState = parseJpdbReviewCardValue(cardValue, response);
+    const kindLabel = cleanText(doc.querySelector<HTMLElement>('.kind')?.textContent ?? '');
+    const sentenceElement = doc.querySelector<HTMLElement>('.card-sentence .sentence, .sentence, .plain');
+    const sentence = cleanText(sentenceElement?.textContent ?? '');
+    const highlighted = cleanText(doc.querySelector<HTMLElement>('.highlight')?.textContent ?? '');
+    const { kanji, isKanji } = reviewKindInfo(doc, cardState, kindLabel, highlighted);
+    const phase = reviewPhase(doc, url, cardState.phase);
+    const keyword = sectionText(doc, 'Keyword') || cleanText(doc.querySelector<HTMLElement>('.keyword')?.textContent ?? '');
+    const fields = reviewCardTextFields(doc, isKanji, sentence, highlighted, kanji, keyword);
+    return {
+        cardValue,
+        phase,
+        kind: isKanji ? 'kanji' : 'vocabulary',
+        keyword,
+        sentence,
+        kanji,
+        ...fields,
+    };
+}
+
+function reviewCardTextFields(
+    doc: Document,
+    isKanji: boolean,
+    sentence: string,
+    highlighted: string,
+    kanji: string,
+    keyword: string,
+): Pick<ParsedReviewDocument, 'prompt' | 'answer' | 'spelling' | 'reading'> {
+    const plain = cleanText(doc.querySelector<HTMLElement>('.plain')?.textContent ?? '');
+    const spelling = reviewCardSpelling(isKanji, kanji, highlighted, sentence, plain);
+    const prompt = reviewCardPrompt(isKanji, keyword, plain, kanji, sentence, spelling);
+    return {
+        prompt,
+        answer: isKanji ? kanji : spelling,
+        spelling,
+        reading: isKanji ? '' : readingFromDocument(doc),
+    };
+}
+
+function reviewCardSpelling(isKanji: boolean, kanji: string, highlighted: string, sentence: string, plain: string): string {
+    return isKanji ? kanji : highlighted || firstJapaneseRun(sentence) || plain;
+}
+
+function reviewCardPrompt(isKanji: boolean, keyword: string, plain: string, kanji: string, sentence: string, spelling: string): string {
+    return isKanji ? keyword || plain || kanji : sentence || spelling;
+}
+
+function reviewBridgeCard(parsed: ParsedReviewDocument, doc: Document, href: string): JpdbReviewBridgeCard {
+    return {
+        id: parsed.cardValue || `${parsed.spelling}:${parsed.reading}`,
+        kind: parsed.kind,
+        phase: parsed.phase,
+        prompt: parsed.prompt,
+        answer: parsed.answer,
+        spelling: parsed.spelling || parsed.kanji,
+        reading: parsed.reading,
+        sentence: parsed.sentence,
+        kanji: parsed.kanji,
+        keyword: parsed.keyword,
+        itemsLeft: itemsLeft(doc),
+        href,
     };
 }
 
@@ -233,25 +288,18 @@ function findControl(terms: string[]): HTMLElement | null {
 }
 
 function gradeTerms(grade: JPDBGrade): string[] {
-    switch (grade) {
-        case 'nothing':
-            return ['nothing', 'again', 'forgot'];
-        case 'something':
-            return ['something'];
-        case 'hard':
-            return ['hard'];
-        case 'okay':
-            return ['okay', 'ok', 'good'];
-        case 'easy':
-            return ['easy'];
-        case 'fail':
-            return ['fail', 'nothing', 'again'];
-        case 'pass':
-            return ['pass', 'okay', 'good', 'easy'];
-        default:
-            return [grade];
-    }
+    return JPDB_GRADE_CONTROL_TERMS[grade] ?? [grade];
 }
+
+const JPDB_GRADE_CONTROL_TERMS: Record<JPDBGrade, string[]> = {
+    nothing: ['nothing', 'again', 'forgot'],
+    something: ['something'],
+    hard: ['hard'],
+    okay: ['okay', 'ok', 'good'],
+    easy: ['easy'],
+    fail: ['fail', 'nothing', 'again'],
+    pass: ['pass', 'okay', 'good', 'easy'],
+};
 
 function formText(element: HTMLElement): string {
     const input = element as HTMLInputElement;

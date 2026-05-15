@@ -12,6 +12,10 @@ interface OnboardingOptions {
     showSettings: (panel?: string) => void;
 }
 
+function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
+    return value === 'en' || value === 'ja' || value === 'auto' ? value : fallback;
+}
+
 export class OnboardingController {
     private panel?: HTMLElement;
     private backdrop?: HTMLElement;
@@ -157,23 +161,12 @@ export class OnboardingController {
 
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
         const done = log.time('Onboarding complete', { openSettings });
-        const language = this.languageSelect?.value;
-        const settings = {
-            ...this.options.getSettings(),
-            onboardingSeen: true,
-            jpdbDefinitionsEnabled: openSettings === true,
-            localDictionariesEnabled: openSettings !== true,
-            dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
-            interfaceLanguage: language === 'en' || language === 'ja' || language === 'auto'
-                ? language
-                : this.options.getSettings().interfaceLanguage,
-        };
+        const settings = this.completedOnboardingSettings(openSettings);
         try {
             this.options.setSettings(settings);
             await saveSettings(settings);
             this.close();
-            if (openSettings === 'dictionaries') this.options.showSettings('dictionaries');
-            else if (openSettings) this.options.showSettings();
+            this.openPostOnboardingSettings(openSettings);
             log.info('Onboarding completed', { openSettings, language: settings.interfaceLanguage });
         } catch (error) {
             log.warn('Onboarding completion failed', { openSettings, error });
@@ -181,6 +174,23 @@ export class OnboardingController {
         } finally {
             done();
         }
+    }
+
+    private completedOnboardingSettings(openSettings: boolean | 'dictionaries'): ReaderSettings {
+        const current = this.options.getSettings();
+        return {
+            ...current,
+            onboardingSeen: true,
+            jpdbDefinitionsEnabled: openSettings === true,
+            localDictionariesEnabled: openSettings !== true,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
+            interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
+        };
+    }
+
+    private openPostOnboardingSettings(openSettings: boolean | 'dictionaries'): void {
+        if (openSettings === 'dictionaries') this.options.showSettings('dictionaries');
+        else if (openSettings) this.options.showSettings();
     }
 
     private close(): void {

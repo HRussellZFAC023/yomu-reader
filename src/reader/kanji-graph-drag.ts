@@ -122,13 +122,7 @@ export function installKanjiGraphDrag(root: HTMLElement): void {
     }
 
 function graphAnchorZone(value: string | undefined): GraphAnchorZone {
-    return value === 'top'
-        || value === 'upper'
-        || value === 'left'
-        || value === 'right'
-        || value === 'lower'
-        || value === 'bottom'
-        || value === 'center'
-        ? value
-        : 'auto';
+    return GRAPH_ANCHOR_ZONES.has(value as GraphAnchorZone) ? value as GraphAnchorZone : 'auto';
 }
+
+const GRAPH_ANCHOR_ZONES = new Set<GraphAnchorZone>(['top', 'upper', 'left', 'right', 'lower', 'bottom', 'center']);

@@ -44,6 +44,51 @@ function isEffectivelyUnblurred(filter) {
     return filter === 'none' || (blur && Number(blur[1]) < 0.1);
 }
 
+function panelSizeDelta(before, after) {
+    if (!before || !after) return 0;
+    return Math.max(Math.abs(before.width - after.width), Math.abs(before.height - after.height));
+}
+
+function assertDrawerLayout(layout, label) {
+    assert(layout.panel?.width >= 260 && layout.panel?.height >= 80, `Expected transcript panel during ${label}`, layout);
+    assert(layout.video?.width >= 240 && layout.video?.height >= 120, `Expected usable video during ${label}`, layout);
+    assert(!overlaps(layout.panel, layout.video), `Transcript panel overlapped the video during ${label}`, layout);
+    assert(layout.panel.left >= -1 && layout.panel.top >= -1
+        && layout.panel.right <= layout.viewport.width + 1
+        && layout.panel.bottom <= layout.viewport.height + 1, `Transcript panel left the viewport during ${label}`, layout);
+}
+
+async function readDrawerLayout(page) {
+    return page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
+        const video = document.querySelector('video')?.getBoundingClientRect();
+        return {
+            placement: document.querySelector('.jpdb-subtitle-player')?.dataset.transcriptPlacement,
+            panel: panel?.toJSON(),
+            video: video?.toJSON(),
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+        };
+    });
+}
+
+async function resizeDrawer(page, placement) {
+    const handle = await page.locator('[data-resize-transcript]').boundingBox();
+    assert(handle, 'Expected transcript drawer resize handle');
+    const x = handle.x + handle.width / 2;
+    const y = handle.y + handle.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    if (placement === 'bottom') {
+        await page.mouse.move(x, y - 120, { steps: 6 });
+    } else if (placement === 'left') {
+        await page.mouse.move(x + 140, y, { steps: 6 });
+    } else {
+        await page.mouse.move(x - 140, y, { steps: 6 });
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(350);
+}
+
 async function ensureUserscript(page) {
     const hasRoot = await page.locator('.jpdb-subtitle-player').count();
     if (!hasRoot) {
@@ -82,27 +127,23 @@ async function runLocalSmoke(browser) {
     await page.evaluate(() => { document.querySelector('video').currentTime = 1.4; });
     await page.waitForTimeout(600);
 
-    const initial = await page.evaluate(() => {
+    const subtitleState = await page.evaluate(() => {
         const rows = [...document.querySelectorAll('.jpdb-subtitle-list-row')].map(row => row.textContent?.trim() ?? '');
-        const panel = document.querySelector('.jpdb-subtitle-list').getBoundingClientRect();
-        const video = document.querySelector('video').getBoundingClientRect();
         const secondary = document.querySelector('.jpdb-subtitle-secondary');
         return {
             rowCount: rows.length,
             containsNativeInRows: rows.some(text => /English native subtitle/i.test(text)),
             karaokeWords: document.querySelectorAll('.jpdb-subtitle-karaoke-word').length,
             secondaryFilter: secondary ? getComputedStyle(secondary).filter : '',
-            placement: document.querySelector('.jpdb-subtitle-player')?.dataset.transcriptPlacement,
-            panel: panel.toJSON(),
-            video: video.toJSON(),
         };
     });
+    const initial = { ...subtitleState, ...await readDrawerLayout(page) };
 
     assert(initial.rowCount >= 3, 'Expected full transcript rows to load', initial);
     assert(!initial.containsNativeInRows, 'Native subtitles should not appear in transcript rows', initial);
     assert(initial.karaokeWords > 0, 'Expected karaoke word spans in the player', initial);
     assert(initial.secondaryFilter.includes('blur'), 'Expected native subtitle blur to default on', initial);
-    assert(!overlaps(initial.panel, initial.video), 'Transcript panel overlapped the video', initial);
+    assertDrawerLayout(initial, 'initial load');
 
     const box = await page.locator('.jpdb-subtitle-secondary').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -118,25 +159,13 @@ async function runLocalSmoke(browser) {
     const clickedFilter = await page.locator('.jpdb-subtitle-secondary').evaluate(element => getComputedStyle(element).filter);
     assert(isEffectivelyUnblurred(clickedFilter), 'Click should persist native subtitle blur off', { clickedFilter });
 
-    for (const action of ['transcript-bottom', 'transcript-left', 'transcript-right']) {
-        await page.locator(`[data-action="${action}"]`).click({ force: true });
-        await page.waitForTimeout(250);
-        const layout = await page.evaluate(() => {
-            const panel = document.querySelector('.jpdb-subtitle-list').getBoundingClientRect();
-            const video = document.querySelector('video').getBoundingClientRect();
-            return {
-                placement: document.querySelector('.jpdb-subtitle-player')?.dataset.transcriptPlacement,
-                panel: panel.toJSON(),
-                video: video.toJSON(),
-                pressed: [...document.querySelectorAll('.jpdb-subtitle-placement button')].map(button => [button.dataset.action, button.getAttribute('aria-pressed')]),
-            };
-        });
-        assert(!overlaps(layout.panel, layout.video), `Panel overlapped video after ${action}`, layout);
-        assert(layout.pressed.some(([, pressed]) => pressed === 'true'), `No placement button selected after ${action}`, layout);
-    }
+    await resizeDrawer(page, initial.placement);
+    const resized = await readDrawerLayout(page);
+    assertDrawerLayout(resized, 'drawer resize');
+    assert(panelSizeDelta(initial.panel, resized.panel) >= 24, 'Transcript drawer did not resize', { initial, resized });
 
     await page.close();
-    return initial;
+    return { initial, resized };
 }
 
 async function runYouTubeSmoke(browser) {

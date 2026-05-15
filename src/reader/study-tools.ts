@@ -219,6 +219,10 @@ function isDuplicateGrammarHint(existing: GrammarHint, next: GrammarHint): boole
     if (existingHanabira === nextHanabira || !grammarHintRangesOverlap(existing, next)) return false;
     const hanabira = existingHanabira ? existing : next;
     const local = existingHanabira ? next : existing;
+    return hanabiraHintContainsLocalText(hanabira, local);
+}
+
+function hanabiraHintContainsLocalText(hanabira: GrammarHint, local: GrammarHint): boolean {
     const hanabiraName = normalizeGrammarTextForDedupe(hanabira.name);
     const localName = normalizeGrammarTextForDedupe(local.name);
     const localMatch = normalizeGrammarTextForDedupe(local.match);
@@ -326,23 +330,53 @@ export async function translateJapaneseSentence(sentence: string): Promise<strin
 export function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences()): string {
     if (!hints.length) return '';
     const knownRuleIds = new Set(preferences.knownRuleIds);
-    const visibleHints = preferences.showKnown
-        ? hints
-        : hints.filter(hint => !knownRuleIds.has(hint.ruleId));
-    const knownCount = hints.filter(hint => knownRuleIds.has(hint.ruleId)).length;
-    const hiddenKnownCount = preferences.showKnown ? 0 : knownCount;
+    const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
+    const knownCount = countKnownGrammarHints(hints, knownRuleIds);
+    return `
+        ${renderGrammarSentence(sentence)}
+        ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown)}
+        ${renderGrammarHintList(visibleHints, knownRuleIds)}`;
+}
+
+function visibleGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>, showKnown: boolean): GrammarHint[] {
+    return showKnown ? hints : hints.filter(hint => !knownRuleIds.has(hint.ruleId));
+}
+
+function countKnownGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>): number {
+    return hints.filter(hint => knownRuleIds.has(hint.ruleId)).length;
+}
+
+function renderGrammarSentence(sentence: string): string {
     return `
         <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block" data-grammar-sentence>
             <div class="jpdb-reader-study-original jpdb-reader-parseable">${escapeHtml(sentence)}</div>
-        </div>
+        </div>`;
+}
+
+function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnown: boolean): string {
+    const hiddenKnownCount = showKnown ? 0 : knownCount;
+    return `
         <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
-            <div class="jpdb-reader-grammar-summary">${escapeHtml(grammarSummary(visibleHints.length, hiddenKnownCount))}</div>
-            ${knownCount ? `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${preferences.showKnown ? 'true' : 'false'}">${preferences.showKnown ? 'Hide known' : 'Show known'}</button>` : ''}
-        </div>
-        ${visibleHints.length ? `<ol class="jpdb-reader-study-list" data-grammar-list>
-        ${visibleHints.map(hint => {
-            const known = knownRuleIds.has(hint.ruleId);
-            return `
+            <div class="jpdb-reader-grammar-summary">${escapeHtml(grammarSummary(visibleCount, hiddenKnownCount))}</div>
+            ${renderGrammarKnownVisibilityButton(knownCount, showKnown)}
+        </div>`;
+}
+
+function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boolean): string {
+    if (!knownCount) return '';
+    const label = showKnown ? 'Hide known' : 'Show known';
+    return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
+}
+
+function renderGrammarHintList(visibleHints: GrammarHint[], knownRuleIds: Set<string>): string {
+    if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">All detected grammar for this sentence is marked known.</div>`;
+    return `<ol class="jpdb-reader-study-list" data-grammar-list>
+        ${visibleHints.map(hint => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId))).join('')}
+        </ol>`;
+}
+
+function renderGrammarHintItem(hint: GrammarHint, known: boolean): string {
+    return `
             <li class="jpdb-reader-study-item${known ? ' known' : ''}" data-grammar-rule-id="${escapeHtml(hint.ruleId)}">
                 <div class="jpdb-reader-study-name">
                     <span>${escapeHtml(hint.name)}</span>
@@ -358,12 +392,14 @@ export function renderGrammarHints(hints: GrammarHint[], sentence: string, prefe
                         <summary>Details</summary>
                         <div class="jpdb-reader-study-detail">${escapeHtml(hint.detail)}</div>
                         <div class="jpdb-reader-study-match"><span>Found in</span>${escapeHtml(hint.match)}</div>
-                        ${hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">Guide</a>` : ''}
+                        ${renderGrammarHintGuide(hint)}
                     </details>
                 </div>
             </li>`;
-        }).join('')}
-        </ol>` : `<div class="jpdb-reader-study-empty">All detected grammar for this sentence is marked known.</div>`}`;
+}
+
+function renderGrammarHintGuide(hint: GrammarHint): string {
+    return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">Guide</a>` : '';
 }
 
 function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHint[] {

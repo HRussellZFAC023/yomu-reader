@@ -24,6 +24,11 @@ interface AudioRequestOptions {
     data?: string;
 }
 
+interface AudioSourcePlayResult {
+    state: 'played' | 'superseded' | 'miss';
+    errors: string[];
+}
+
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
@@ -60,35 +65,64 @@ export class AudioPlayer {
         }
 
         const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: true });
+        const result = await this.playFromSources(sources, card, settings, requestId, isCurrent);
+        done();
+        return this.finishPlaybackResult(card, settings, requestId, isCurrent, result);
+    }
+
+    private async finishPlaybackResult(
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+        result: AudioSourcePlayResult,
+    ): Promise<boolean> {
+        if (result.state === 'played') return true;
+        if (result.state === 'superseded' || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        log.warn('No playable audio found', { term: card.spelling, errors: result.errors });
+        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+    }
+
+    private async playFromSources(
+        sources: AudioSourceSetting[],
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+    ): Promise<AudioSourcePlayResult> {
         const errors: string[] = [];
         const triedUrls = new Set<string>();
         for (const source of sources) {
-            if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-                log.debug('Audio request superseded', { term: card.spelling, requestId });
-                done();
-                return false;
-            }
-            try {
-                const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
-                if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-                    done();
-                    return false;
-                }
-                if (played) {
-                    log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
-                    done();
-                    return true;
-                }
-            } catch (error) {
-                log.debug('Audio source failed; trying next source', { term: card.spelling, source: source.type }, error);
-                errors.push(error instanceof Error ? error.message : String(error));
-            }
+            const result = await this.playSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors);
+            if (result !== 'miss') return { state: result, errors };
         }
+        return { state: 'miss', errors };
+    }
 
-        done();
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-        log.warn('No playable audio found', { term: card.spelling, errors });
-        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+    private async playSourceWithErrors(
+        source: AudioSourceSetting,
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        triedUrls: Set<string>,
+        isCurrent: () => boolean,
+        errors: string[],
+    ): Promise<AudioSourcePlayResult['state']> {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+            log.debug('Audio request superseded', { term: card.spelling, requestId });
+            return 'superseded';
+        }
+        try {
+            const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
+            if (!played) return 'miss';
+            log.debug('Audio source succeeded', { term: card.spelling, source: source.type });
+            return 'played';
+        } catch (error) {
+            log.debug('Audio source failed; trying next source', { term: card.spelling, source: source.type }, error);
+            errors.push(error instanceof Error ? error.message : String(error));
+            return 'miss';
+        }
     }
 
     preload(card: JPDBCard, options: AudioPreloadOptions = {}): void {
@@ -156,39 +190,65 @@ export class AudioPlayer {
         triedUrls: Set<string>,
         isCurrent: () => boolean,
     ): Promise<boolean> {
-        if (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') {
-            if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-            await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
-            log.debug('Text-to-speech playback started', { source: source.type, voice: source.voice || 'auto' });
-            return this.isPlaybackCurrent(requestId, isCurrent);
-        }
+        if (isTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         log.debug('Audio candidates resolved', { source: source.type, candidates: candidates.length });
         const bagKey = getAudioBagKey(source, card);
+        return await this.playFromAudioCandidates(source, candidates, settings, requestId, triedUrls, isCurrent, bagKey);
+    }
+
+    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
+        log.debug('Text-to-speech playback started', { source: source.type, voice: source.voice || 'auto' });
+        return this.isPlaybackCurrent(requestId, isCurrent);
+    }
+
+    private async playFromAudioCandidates(
+        source: AudioSourceSetting,
+        candidates: AudioCandidate[],
+        settings: ReaderSettings,
+        requestId: number,
+        triedUrls: Set<string>,
+        isCurrent: () => boolean,
+        bagKey: string,
+    ): Promise<boolean> {
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
-            const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
-            if (triedUrls.has(candidateKey)) {
-                log.debug('Skipping duplicate audio candidate', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) });
-                continue;
-            }
-            triedUrls.add(candidateKey);
-            try {
-                const audio = settings.audioViaBlob
-                    ? await this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
-                    : this.createAudioElement(candidate.url);
-                if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-                const played = await this.playPreparedAudio(audio, requestId, isCurrent);
-                if (!played) return false;
-                this.shuffledAudio.markPlayed(bagKey, id);
-                log.debug('Audio candidate playing', { source: source.type, viaBlob: audio.src.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
-                return true;
-            } catch (error) {
-                log.debug('Audio candidate failed', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) }, error);
-            }
+            if (!registerAudioAttempt(triedUrls, source, candidate)) continue;
+            if (await this.playAudioCandidate(source, candidate, id, bagKey, settings, requestId, isCurrent)) return true;
         }
         return false;
+    }
+
+    private async playAudioCandidate(
+        source: AudioSourceSetting,
+        candidate: AudioCandidate,
+        id: string,
+        bagKey: string,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+    ): Promise<boolean> {
+        try {
+            const audio = await this.createPlayableAudio(candidate, settings);
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+            const played = await this.playPreparedAudio(audio, requestId, isCurrent);
+            if (!played) return false;
+            this.shuffledAudio.markPlayed(bagKey, id);
+            log.debug('Audio candidate playing', { source: source.type, viaBlob: audio.src.startsWith('blob:'), sourceHost: safeHost(candidate.sourceUrl) });
+            return true;
+        } catch (error) {
+            log.debug('Audio candidate failed', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) }, error);
+            return false;
+        }
+    }
+
+    private createPlayableAudio(candidate: AudioCandidate, settings: ReaderSettings): Promise<HTMLAudioElement> | HTMLAudioElement {
+        return settings.audioViaBlob
+            ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
+            : this.createAudioElement(candidate.url);
     }
 
     private isPlaybackCurrent(requestId: number, isCurrent: () => boolean): boolean {
@@ -274,20 +334,20 @@ export class AudioPlayer {
 
     private async fetchAudioAsBlobUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
         const response = await requestUrl(url, 'blob', timeoutMs);
-        if (response instanceof Blob && response.type.includes('json')) {
-            const json = JSON.parse(await response.text()) as unknown;
-            const nestedUrl = findAudioUrl(json, sourceUrl, mode);
-            if (!nestedUrl) throw new Error('Audio JSON did not include a playable URL.');
-            return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
-        }
+        if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode);
 
         if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
-        if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
-            throw new Error('JapanesePod101 has no audio for this term.');
-        }
+        await assertPlayableAudioBlob(response, url, sourceUrl);
         const blobUrl = await createPageMediaUrl(response);
         log.debug('Audio media URL created', { sourceHost: safeHost(sourceUrl), type: response.type, size: response.size, viaDataUrl: blobUrl.startsWith('data:') });
         return blobUrl;
+    }
+
+    private async fetchNestedAudioBlobUrl(response: Blob, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
+        const json = JSON.parse(await response.text()) as unknown;
+        const nestedUrl = findAudioUrl(json, sourceUrl, mode);
+        if (!nestedUrl) throw new Error('Audio JSON did not include a playable URL.');
+        return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
     }
 
     private playTextToSpeech(text: string, voiceName: string): Promise<void> {
@@ -372,7 +432,7 @@ export class AudioPlayer {
 }
 
 export class ShuffledAudioDeck {
-    private bags = new Map<string, { signature: string; remaining: string[]; lastPlayed?: string }>();
+    private bags = new Map<string, ShuffledAudioBag>();
 
     constructor(private random: () => number = Math.random) {}
 
@@ -381,17 +441,18 @@ export class ShuffledAudioDeck {
 
         const signature = ids.join('\u0000');
         const current = this.bags.get(key);
-        if (!current || current.signature !== signature || !current.remaining.length) {
-            const next = this.shuffle(ids);
-            const lastPlayed = current?.signature === signature ? current.lastPlayed : undefined;
-            if (lastPlayed && next.length > 1 && next[0] === lastPlayed) {
-                next.push(next.shift()!);
-            }
-            this.bags.set(key, { signature, remaining: next, lastPlayed });
-            return [...next];
-        }
+        if (reusableAudioBag(current, signature)) return [...current.remaining];
 
-        return [...current.remaining];
+        const next = this.buildAudioBag(ids, signature, current);
+        this.bags.set(key, next);
+        return [...next.remaining];
+    }
+
+    private buildAudioBag(ids: string[], signature: string, current: ShuffledAudioBag | undefined): ShuffledAudioBag {
+        const remaining = this.shuffle(ids);
+        const lastPlayed = current?.signature === signature ? current.lastPlayed : undefined;
+        rotateRepeatedAudioLead(remaining, lastPlayed);
+        return { signature, remaining, lastPlayed };
     }
 
     markPlayed(key: string, id: string): void {
@@ -411,6 +472,20 @@ export class ShuffledAudioDeck {
         }
         return shuffled;
     }
+}
+
+interface ShuffledAudioBag {
+    signature: string;
+    remaining: string[];
+    lastPlayed?: string;
+}
+
+function reusableAudioBag(bag: ShuffledAudioBag | undefined, signature: string): bag is ShuffledAudioBag {
+    return Boolean(bag && bag.signature === signature && bag.remaining.length);
+}
+
+function rotateRepeatedAudioLead(ids: string[], lastPlayed: string | undefined): void {
+    if (lastPlayed && ids.length > 1 && ids[0] === lastPlayed) ids.push(ids.shift()!);
 }
 
 export function formatAudioUrl(template: string, card: JPDBCard): string {
@@ -433,34 +508,39 @@ export function findAudioUrl(value: unknown, sourceUrl?: string, mode: AudioSele
 
 export function findAudioUrls(value: unknown, sourceUrl?: string): string[] {
     if (!value) return [];
-    if (typeof value === 'string') {
-        if (value.startsWith('data:audio/')) return [value];
-        if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
-        return [];
-    }
-    if (Array.isArray(value)) {
-        return uniqueAudioUrls(value.flatMap(item => findAudioUrls(item, sourceUrl)));
-    }
-    if (typeof value === 'object') {
-        const record = value as Record<string, unknown>;
-        const preferred = [
-            ...findAudioUrls(record.audioSources, sourceUrl),
-            ...findAudioUrls(record.sources, sourceUrl),
-            ...findAudioUrls(record.audio, sourceUrl),
-            ...findAudioUrls(record.audioUrl, sourceUrl),
-            ...findAudioUrls(record.src, sourceUrl),
-            ...findAudioUrls(record.source, sourceUrl),
-        ];
-        const directUrl = typeof record.url === 'string' && isLikelyAudioRecord(record)
-            ? findAudioUrls(record.url, sourceUrl)
-            : [];
-        const known = uniqueAudioUrls([...preferred, ...directUrl]);
-        if (known.length) return known;
-        return uniqueAudioUrls(Object.entries(record)
-            .filter(([key]) => !['url', 'audioSources', 'sources', 'audio', 'audioUrl', 'src', 'source'].includes(key))
-            .flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
-    }
+    if (typeof value === 'string') return findAudioUrlsInString(value, sourceUrl);
+    if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap(item => findAudioUrls(item, sourceUrl)));
+    if (typeof value === 'object') return findAudioUrlsInRecord(value as Record<string, unknown>, sourceUrl);
     return [];
+}
+
+function findAudioUrlsInString(value: string, sourceUrl?: string): string[] {
+    if (value.startsWith('data:audio/')) return [value];
+    if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
+    return [];
+}
+
+function findAudioUrlsInRecord(record: Record<string, unknown>, sourceUrl?: string): string[] {
+    const known = uniqueAudioUrls([...preferredAudioRecordUrls(record, sourceUrl), ...directAudioRecordUrls(record, sourceUrl)]);
+    return known.length ? known : nestedAudioRecordUrls(record, sourceUrl);
+}
+
+function preferredAudioRecordUrls(record: Record<string, unknown>, sourceUrl?: string): string[] {
+    return ['audioSources', 'sources', 'audio', 'audioUrl', 'src', 'source']
+        .flatMap(key => findAudioUrls(record[key], sourceUrl));
+}
+
+function directAudioRecordUrls(record: Record<string, unknown>, sourceUrl?: string): string[] {
+    return typeof record.url === 'string' && isLikelyAudioRecord(record)
+        ? findAudioUrls(record.url, sourceUrl)
+        : [];
+}
+
+function nestedAudioRecordUrls(record: Record<string, unknown>, sourceUrl?: string): string[] {
+    const knownKeys = new Set(['url', 'audioSources', 'sources', 'audio', 'audioUrl', 'src', 'source']);
+    return uniqueAudioUrls(Object.entries(record)
+        .filter(([key]) => !knownKeys.has(key))
+        .flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
 }
 
 export async function isUnavailableJapanesePod101Audio(blob: Blob): Promise<boolean> {
@@ -473,6 +553,16 @@ export async function isUnavailableJapanesePod101Audio(blob: Blob): Promise<bool
         return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
     } catch {
         return true;
+    }
+}
+
+function isJsonAudioResponse(response: unknown): response is Blob {
+    return response instanceof Blob && response.type.includes('json');
+}
+
+async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: string): Promise<void> {
+    if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
+        throw new Error('JapanesePod101 has no audio for this term.');
     }
 }
 
@@ -490,30 +580,46 @@ function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] 
 }
 
 async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
-    switch (source.type) {
-        case 'custom':
-            if (!source.url.trim()) return [];
-            return [{ url: formatAudioUrl(source.url, card), sourceUrl: formatAudioUrl(source.url, card) }];
-        case 'custom-json': {
-            if (!source.url.trim()) return [];
-            const sourceUrl = formatAudioUrl(source.url, card);
-            const response = await requestUrl(sourceUrl, 'text', timeoutMs);
-            const urls = typeof response === 'string' ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-            return urls.map(url => ({ url, sourceUrl }));
-        }
-        case 'jpod101':
-            return [{ url: getJapanesePod101Url(card), sourceUrl: getJapanesePod101Url(card) }];
-        case 'language-pod-101':
-            return (await getLanguagePod101AudioUrls(card, timeoutMs)).map(url => ({ url, sourceUrl: url }));
-        case 'jisho':
-            return (await getJishoAudioUrls(card, timeoutMs)).map(url => ({ url, sourceUrl: url }));
-        case 'lingua-libre':
-            return (await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs)).map(url => ({ url, sourceUrl: url }));
-        case 'wiktionary':
-            return (await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs)).map(url => ({ url, sourceUrl: url }));
-        default:
-            return [];
-    }
+    return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs);
+}
+
+type AudioCandidateLoader = (source: AudioSourceSetting, card: JPDBCard, timeoutMs: number) => Promise<AudioCandidate[]>;
+
+const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoader>> = {
+    custom: loadCustomAudioCandidates,
+    'custom-json': loadCustomJsonAudioCandidates,
+    jpod101: loadJapanesePod101AudioCandidates,
+    'language-pod-101': async (_source, card, timeoutMs) => urlsToAudioCandidates(await getLanguagePod101AudioUrls(card, timeoutMs)),
+    jisho: async (_source, card, timeoutMs) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs)),
+    'lingua-libre': async (_source, card, timeoutMs) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs)),
+    wiktionary: async (_source, card, timeoutMs) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs)),
+};
+
+async function loadNoAudioCandidates(): Promise<AudioCandidate[]> {
+    return [];
+}
+
+async function loadCustomAudioCandidates(source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {
+    if (!source.url.trim()) return [];
+    const url = formatAudioUrl(source.url, card);
+    return [{ url, sourceUrl: url }];
+}
+
+async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number): Promise<AudioCandidate[]> {
+    if (!source.url.trim()) return [];
+    const sourceUrl = formatAudioUrl(source.url, card);
+    const response = await requestUrl(sourceUrl, 'text', timeoutMs);
+    const urls = typeof response === 'string' ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
+    return urls.map(url => ({ url, sourceUrl }));
+}
+
+async function loadJapanesePod101AudioCandidates(_source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {
+    const url = getJapanesePod101Url(card);
+    return [{ url, sourceUrl: url }];
+}
+
+function urlsToAudioCandidates(urls: string[]): AudioCandidate[] {
+    return urls.map(url => ({ url, sourceUrl: url }));
 }
 
 function orderAudioCandidates(
@@ -532,6 +638,20 @@ function orderAudioCandidates(
     return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
         .map(id => byId.get(id))
         .filter((entry): entry is { candidate: AudioCandidate; id: string } => Boolean(entry));
+}
+
+function isTextToSpeechSource(source: AudioSourceSetting): boolean {
+    return source.type === 'text-to-speech' || source.type === 'text-to-speech-reading';
+}
+
+function registerAudioAttempt(triedUrls: Set<string>, source: AudioSourceSetting, candidate: AudioCandidate): boolean {
+    const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
+    if (triedUrls.has(candidateKey)) {
+        log.debug('Skipping duplicate audio candidate', { source: source.type, sourceHost: safeHost(candidate.sourceUrl) });
+        return false;
+    }
+    triedUrls.add(candidateKey);
+    return true;
 }
 
 function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): string {
@@ -618,28 +738,45 @@ async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number): Pr
 }
 
 async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number): Promise<string[]> {
-    const search = source === 'lingua-libre'
-        ? `intitle:/-(${escapeRegExp(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"`
-        : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp(term)}[0123456789]*.ogg/i`;
-    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
+    const apiUrl = commonsSearchApiUrl(term, source);
     const response = await requestUrl(apiUrl, 'text', timeoutMs);
     if (typeof response !== 'string') return [];
 
-    const pages = (JSON.parse(response) as { query?: { search?: Array<{ title?: string }> } }).query?.search ?? [];
     const urls: string[] = [];
-    for (const page of pages.slice(0, 6)) {
-        if (!page.title) continue;
-        const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(page.title)}`;
-        const info = await requestUrl(infoUrl, 'text', timeoutMs).catch(() => null);
-        if (typeof info !== 'string') continue;
-        const filePages = (JSON.parse(info) as { query?: { pages?: Record<string, { imageinfo?: Array<{ url?: string; user?: string }> }> } }).query?.pages ?? {};
-        for (const filePage of Object.values(filePages)) {
-            const fileUrl = filePage.imageinfo?.[0]?.url;
-            const user = filePage.imageinfo?.[0]?.user ?? '';
-            if (fileUrl && isValidCommonsAudioFilename(page.title, user, term, source)) urls.push(fileUrl);
-        }
+    for (const title of commonsSearchTitles(response)) {
+        urls.push(...await getCommonsAudioUrlsForTitle(title, term, source, timeoutMs));
     }
     return urls;
+}
+
+function commonsSearchApiUrl(term: string, source: 'lingua-libre' | 'wiktionary'): string {
+    const search = source === 'lingua-libre'
+        ? `intitle:/-(${escapeRegExp(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"`
+        : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp(term)}[0123456789]*.ogg/i`;
+    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
+}
+
+function commonsSearchTitles(response: string): string[] {
+    const pages = (JSON.parse(response) as { query?: { search?: Array<{ title?: string }> } }).query?.search ?? [];
+    return pages.slice(0, 6).map(page => page.title).filter((title): title is string => Boolean(title));
+}
+
+async function getCommonsAudioUrlsForTitle(title: string, term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number): Promise<string[]> {
+    const info = await requestUrl(commonsImageInfoUrl(title), 'text', timeoutMs).catch(() => null);
+    if (typeof info !== 'string') return [];
+    return commonsImageInfoUrls(info, title, term, source);
+}
+
+function commonsImageInfoUrl(title: string): string {
+    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(title)}`;
+}
+
+function commonsImageInfoUrls(info: string, title: string, term: string, source: 'lingua-libre' | 'wiktionary'): string[] {
+    const filePages = (JSON.parse(info) as { query?: { pages?: Record<string, { imageinfo?: Array<{ url?: string; user?: string }> }> } }).query?.pages ?? {};
+    return Object.values(filePages)
+        .map(filePage => filePage.imageinfo?.[0])
+        .filter(image => Boolean(image?.url && isValidCommonsAudioFilename(title, image.user ?? '', term, source)))
+        .map(image => image?.url ?? '');
 }
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
@@ -865,7 +1002,17 @@ function uniqueAudioUrls(urls: string[]): string[] {
 }
 
 function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
-    if (!audioViaBlob || candidate.url.startsWith('blob:') || candidate.url.startsWith('data:audio/')) return false;
+    if (!canFetchAudioCandidateAsBlob(candidate, audioViaBlob)) return false;
+    return isBlobFetchableAudioCandidate(candidate);
+}
+
+function canFetchAudioCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
+    return audioViaBlob
+        && !candidate.url.startsWith('blob:')
+        && !candidate.url.startsWith('data:audio/');
+}
+
+function isBlobFetchableAudioCandidate(candidate: AudioCandidate): boolean {
     return /^https?:\/\//i.test(candidate.url)
         || isAppleMobileBrowser()
         || isJapanesePod101Url(candidate.url)

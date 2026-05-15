@@ -33,10 +33,14 @@ export function normalizeCardState(value: unknown): CardState | null {
 
     const dashed = trimmed.replace(/[_\s]+/g, '-');
     const compact = dashed.replace(/-/g, '');
-    const aliased = CARD_STATE_ALIASES[trimmed] ?? CARD_STATE_ALIASES[dashed] ?? CARD_STATE_ALIASES[compact];
+    const aliased = aliasedCardState(trimmed, dashed, compact);
     if (aliased) return aliased;
     if (CARD_STATES.has(dashed as CardState)) return dashed as CardState;
     return null;
+}
+
+function aliasedCardState(...keys: string[]): CardState | undefined {
+    return keys.map(key => CARD_STATE_ALIASES[key]).find(Boolean);
 }
 
 export function normalizeCardStates(value: unknown, fallback: CardState = 'not-in-deck'): CardState[] {

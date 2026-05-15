@@ -810,56 +810,51 @@ function mockJpdbApi(endpoint, body) {
 
 function mockAnkiConnect(body) {
     const request = readJsonBody(body);
-    switch (request.action) {
-        case 'version':
-            return { result: 6, error: null };
-        case 'findNotes':
-            return { result: /読む|よむ|読みました|よみました/.test(String(request.params?.query ?? '')) ? [9001] : [], error: null };
-        case 'notesInfo':
-            return {
-                result: (request.params?.notes ?? []).map(noteId => ({
-                    noteId,
-                    modelName: 'Mining',
-                    tags: ['yomu'],
-                    fields: {
-                        Expression: { value: '読みました', order: 0 },
-                        Reading: { value: 'よみました', order: 1 },
-                        Sentence: { value: '今日は本を読む。', order: 2 },
-                        Meaning: { value: 'to read', order: 3 },
-                        Source: { value: 'QA Anki deck', order: 4 },
-                    },
-                    cards: [8001],
-                })),
-                error: null,
-            };
-        case 'cardsInfo':
-            return {
-                result: (request.params?.cards ?? []).map(cardId => ({
-                    cardId,
-                    note: 9001,
-                    deckName: 'Anime Mining',
-                    queue: 2,
-                    type: 2,
-                    due: 1,
-                    reps: 12,
-                    lapses: 0,
-                    interval: 15,
-                })),
-                error: null,
-            };
-        case 'answerCards':
-        case 'guiBrowse':
-            return { result: null, error: null };
-        case 'deckNames':
-            return { result: ['Yomu'], error: null };
-        case 'modelNames':
-            return { result: [], error: null };
-        case 'createDeck':
-        case 'createModel':
-            return { result: null, error: null };
-        default:
-            return { result: null, error: null };
-    }
+    const handler = ANKI_MOCK_ACTIONS[request.action] ?? (() => ({ result: null, error: null }));
+    return handler(request);
+}
+
+const ANKI_MOCK_ACTIONS = {
+    version: () => ({ result: 6, error: null }),
+    findNotes: request => ({ result: /読む|よむ|読みました|よみました/.test(String(request.params?.query ?? '')) ? [9001] : [], error: null }),
+    notesInfo: request => ({ result: (request.params?.notes ?? []).map(mockAnkiNoteInfo), error: null }),
+    cardsInfo: request => ({ result: (request.params?.cards ?? []).map(mockAnkiCardInfo), error: null }),
+    answerCards: () => ({ result: null, error: null }),
+    guiBrowse: () => ({ result: null, error: null }),
+    deckNames: () => ({ result: ['Yomu'], error: null }),
+    modelNames: () => ({ result: [], error: null }),
+    createDeck: () => ({ result: null, error: null }),
+    createModel: () => ({ result: null, error: null }),
+};
+
+function mockAnkiNoteInfo(noteId) {
+    return {
+        noteId,
+        modelName: 'Mining',
+        tags: ['yomu'],
+        fields: {
+            Expression: { value: '読みました', order: 0 },
+            Reading: { value: 'よみました', order: 1 },
+            Sentence: { value: '今日は本を読む。', order: 2 },
+            Meaning: { value: 'to read', order: 3 },
+            Source: { value: 'QA Anki deck', order: 4 },
+        },
+        cards: [8001],
+    };
+}
+
+function mockAnkiCardInfo(cardId) {
+    return {
+        cardId,
+        note: 9001,
+        deckName: 'Anime Mining',
+        queue: 2,
+        type: 2,
+        due: 1,
+        reps: 12,
+        lapses: 0,
+        interval: 15,
+    };
 }
 
 function readJsonBody(body) {
@@ -1046,39 +1041,67 @@ function mockImageSvg(label) {
 }
 
 function mockKanjiMapData(kanji) {
-    const partsByKanji = {
-        今: ['人', '一'],
-        日: ['口', '一'],
-        本: ['木', '一'],
-        読: ['言', '売'],
-    };
-    const meaningByKanji = { 今: 'now', 日: 'day', 本: 'book', 読: 'read' };
+    const parts = mockKanjiParts(kanji);
+    const meaning = mockKanjiMeaning(kanji);
     return {
-        kanjialiveData: {
-            grade: kanji === '日' || kanji === '本' ? 1 : 2,
-            kstroke: kanji === '読' ? 14 : 4,
-            radical: {
-                character: partsByKanji[kanji]?.[0] ?? '一',
-                strokes: 1,
-                image: 'https://media.kanjialive.com/radical_character/gonben.svg',
-                name: { hiragana: 'いち', romaji: 'ichi' },
-                meaning: { english: 'radical' },
-                position: { hiragana: 'へん' },
-            },
-            examples: [{ japanese: `${kanji}（${kanji}）`, meaning: { english: meaningByKanji[kanji] ?? 'kanji' } }],
+        kanjialiveData: mockKanjiAliveData(kanji, parts, meaning),
+        jishoData: mockJishoKanjiData(kanji, parts, meaning),
+    };
+}
+
+const MOCK_KANJI_PARTS = {
+    今: ['人', '一'],
+    日: ['口', '一'],
+    本: ['木', '一'],
+    読: ['言', '売'],
+};
+
+const MOCK_KANJI_MEANINGS = { 今: 'now', 日: 'day', 本: 'book', 読: 'read' };
+
+function mockKanjiParts(kanji) {
+    return MOCK_KANJI_PARTS[kanji] ?? ['一'];
+}
+
+function mockKanjiMeaning(kanji) {
+    return MOCK_KANJI_MEANINGS[kanji] ?? 'kanji';
+}
+
+function mockKanjiGrade(kanji) {
+    return kanji === '日' || kanji === '本' ? 1 : 2;
+}
+
+function mockKanjiStrokes(kanji) {
+    return kanji === '読' ? 14 : 4;
+}
+
+function mockKanjiAliveData(kanji, parts, meaning) {
+    return {
+        grade: mockKanjiGrade(kanji),
+        kstroke: mockKanjiStrokes(kanji),
+        radical: {
+            character: parts[0] ?? '一',
+            strokes: 1,
+            image: 'https://media.kanjialive.com/radical_character/gonben.svg',
+            name: { hiragana: 'いち', romaji: 'ichi' },
+            meaning: { english: 'radical' },
+            position: { hiragana: 'へん' },
         },
-        jishoData: {
-            meaning: meaningByKanji[kanji] ?? 'kanji',
-            jlptLevel: 'N5',
-            taughtIn: kanji === '日' || kanji === '本' ? 'grade 1' : 'grade 2',
-            strokeCount: kanji === '読' ? 14 : 4,
-            newspaperFrequencyRank: '618',
-            kunyomi: ['よ.む'],
-            onyomi: ['ドク'],
-            parts: partsByKanji[kanji] ?? ['一'],
-            radical: { symbol: partsByKanji[kanji]?.[0] ?? '一', forms: [], meaning: 'radical' },
-            uri: `https://jisho.org/search/${encodeURIComponent(kanji)}%23kanji`,
-        },
+        examples: [{ japanese: `${kanji}（${kanji}）`, meaning: { english: meaning } }],
+    };
+}
+
+function mockJishoKanjiData(kanji, parts, meaning) {
+    return {
+        meaning,
+        jlptLevel: 'N5',
+        taughtIn: `grade ${mockKanjiGrade(kanji)}`,
+        strokeCount: mockKanjiStrokes(kanji),
+        newspaperFrequencyRank: '618',
+        kunyomi: ['よ.む'],
+        onyomi: ['ドク'],
+        parts,
+        radical: { symbol: parts[0] ?? '一', forms: [], meaning: 'radical' },
+        uri: `https://jisho.org/search/${encodeURIComponent(kanji)}%23kanji`,
     };
 }
 
@@ -1303,8 +1326,8 @@ async function auditOnboardingMobile(browser, server) {
     record('mobile onboarding', 'pass', 'language and setup actions are visible without scrolling');
 }
 
-async function auditSettings(browser, server) {
-    const { page } = await newAuditedPage(browser, {
+function settingsAuditSeed() {
+    return {
         ...baseSettings,
         apiKey: '',
         showFloatingButton: true,
@@ -1314,33 +1337,45 @@ async function auditSettings(browser, server) {
             { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 1 },
             { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 2 },
         ],
-    });
-    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
-    await injectUserscript(page);
-    await openSettingsFromPuck(page);
+    };
+}
+
+async function assertSettingsLocaleSwitch(page) {
     await page.selectOption('select[name="interfaceLanguage"]', 'ja');
-    let localeSnapshot = await page.evaluate(() => ({
+    const localeSnapshot = await readSettingsLocaleSnapshot(page);
+    assertAudit(localeSnapshot.title === 'よむ 設定' && localeSnapshot.heading === 'よむ 設定', 'changing settings language does not update the dialog title immediately');
+    assertAudit(localeSnapshot.save === '保存' && localeSnapshot.cancel === 'キャンセル' && localeSnapshot.firstTab === '基本', 'changing settings language does not update visible controls immediately');
+    await page.selectOption('select[name="interfaceLanguage"]', 'en');
+}
+
+function readSettingsLocaleSnapshot(page) {
+    return page.evaluate(() => ({
         title: document.querySelector('.jpdb-reader-settings')?.getAttribute('aria-label'),
         heading: document.querySelector('.jpdb-reader-settings h2')?.textContent?.trim(),
         save: document.querySelector('.jpdb-reader-settings button[type="submit"]')?.textContent?.trim(),
         cancel: document.querySelector('.jpdb-reader-settings [data-action="cancel"]')?.textContent?.trim(),
         firstTab: document.querySelector('.jpdb-reader-settings-tab')?.textContent?.trim(),
     }));
-    assertAudit(localeSnapshot.title === 'よむ 設定' && localeSnapshot.heading === 'よむ 設定', 'changing settings language does not update the dialog title immediately');
-    assertAudit(localeSnapshot.save === '保存' && localeSnapshot.cancel === 'キャンセル' && localeSnapshot.firstTab === '基本', 'changing settings language does not update visible controls immediately');
-    await page.selectOption('select[name="interfaceLanguage"]', 'en');
+}
+
+async function captureSettingsDialog(page) {
     await page.evaluate(() => {
         document.querySelector('[data-theme-field]')?.scrollIntoView({ block: 'center', inline: 'nearest' });
     });
     await page.locator('.jpdb-reader-settings').screenshot({ path: path.join(ARTIFACTS, 'settings.png') });
+}
+
+async function captureHoverShortcut(page) {
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
     const hoverShortcut = page.locator('input[name="shortcuts.hoverLookup"]');
     await hoverShortcut.click();
     await page.keyboard.down('Shift');
     await page.keyboard.press('KeyH');
     await page.keyboard.up('Shift');
+}
 
-    const snapshot = await page.evaluate(() => {
+function readSettingsSnapshot(page) {
+    return page.evaluate(() => {
         const form = document.querySelector('.jpdb-reader-settings');
         const save = form?.querySelector('button[type="submit"]');
         const cancel = form?.querySelector('[data-action="cancel"]');
@@ -1368,28 +1403,28 @@ async function auditSettings(browser, server) {
             hasMigakuComparison: document.querySelector('.jpdb-reader-support-card')?.textContent?.includes('$10/month') ?? false,
         };
     });
+}
+
+function assertSettingsSnapshot(snapshot) {
     assertAudit(snapshot.title === 'よむ Settings', 'settings dialog title is wrong');
     assertAudit(snapshot.saveText === 'Save' && snapshot.cancelText === 'Cancel', 'settings actions are missing');
     assertAudit(snapshot.saveBottom <= snapshot.viewportHeight, 'settings Save button is below the visible viewport');
     assertAudit(snapshot.fiveRows > 0 && snapshot.passFailRows === 0, 'five-grade and pass/fail shortcut settings are both visible');
     assertAudit(snapshot.localOcrHidden && snapshot.cloudOcrHidden, 'irrelevant OCR provider fields are visible by default');
     assertAudit(snapshot.hoverShortcut === 'Shift+H', 'shortcut field did not capture a pressed key combo');
-    assertAudit(
-        snapshot.recommendedDownloads >= 7
-            && /JMdict/i.test(snapshot.recommendedDownloadText)
-            && /Jitendex/i.test(snapshot.recommendedDownloadText)
-            && /JMnedict/i.test(snapshot.recommendedDownloadText)
-            && /KANJIDIC/i.test(snapshot.recommendedDownloadText)
-            && /JPDBv2/i.test(snapshot.recommendedDownloadText)
-            && /BCCWJ/i.test(snapshot.recommendedDownloadText)
-            && /Jiten/i.test(snapshot.recommendedDownloadText),
-        'recommended dictionary downloads are missing from settings',
-    );
+    assertAudit(hasRecommendedDictionaryDownloads(snapshot), 'recommended dictionary downloads are missing from settings');
     assertAudit(snapshot.settingsTabs >= 6, 'settings are not organized into modular tabs');
     assertAudit(snapshot.dictionarySources >= 3, 'definition source ordering rows are missing');
     assertAudit(snapshot.supportLinks >= 4 && snapshot.hasMigakuComparison, 'support/donation links or free-vs-paid copy are missing');
-    await assertAccessibleSurface(page, 'settings dialog', '.jpdb-reader-settings');
+}
 
+function hasRecommendedDictionaryDownloads(snapshot) {
+    const requiredNames = ['JMdict', 'Jitendex', 'JMnedict', 'KANJIDIC', 'JPDBv2', 'BCCWJ', 'Jiten'];
+    return snapshot.recommendedDownloads >= requiredNames.length
+        && requiredNames.every(name => new RegExp(name, 'i').test(snapshot.recommendedDownloadText));
+}
+
+async function assertSettingsAnkiTest(page) {
     await page.locator('[data-action="settings-panel"][data-panel="mining"]').click();
     await page.locator('[data-action="test-anki"]').click();
     const ankiSnapshot = await waitForAudit(page, () => {
@@ -1404,6 +1439,19 @@ async function auditSettings(browser, server) {
     }, 6000, 'Test Anki did not report status in the Anki settings panel');
     assertAudit(ankiSnapshot.tone === 'success' && ankiSnapshot.text.includes('Connected.'), 'Test Anki status is not shown as a successful connection');
     assertAudit(!ankiSnapshot.disabled, 'Test Anki button stayed disabled after the connection check');
+}
+
+async function auditSettings(browser, server) {
+    const { page } = await newAuditedPage(browser, settingsAuditSeed());
+    await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await openSettingsFromPuck(page);
+    await assertSettingsLocaleSwitch(page);
+    await captureSettingsDialog(page);
+    await captureHoverShortcut(page);
+    assertSettingsSnapshot(await readSettingsSnapshot(page));
+    await assertAccessibleSurface(page, 'settings dialog', '.jpdb-reader-settings');
+    await assertSettingsAnkiTest(page);
     await page.close();
     record('settings dialog', 'pass', 'actions visible, irrelevant provider fields hidden, Anki test status shown');
 }

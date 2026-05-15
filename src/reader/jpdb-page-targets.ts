@@ -89,37 +89,77 @@ export function parseJpdbReviewCardValue(value: string | null | undefined, respo
 }
 
 export function extractCurrentKanji(): string {
+    return currentKanjiFromPath()
+        || currentKanjiFromHiddenInput()
+        || currentKanjiFromPageText();
+}
+
+function currentKanjiFromPath(): string {
     const parts = location.pathname.split('/').filter(Boolean);
     if (parts[0] === 'kanji' && parts[1]) return firstReviewGlyph(decodeURIComponent(parts[1])) ?? '';
+    return '';
+}
+
+function currentKanjiFromHiddenInput(): string {
     const hidden = document.querySelector<HTMLInputElement>('input[name="c"]')?.value ?? '';
     const hiddenParts = hidden.split(',');
     if (hiddenParts[0] === 'kb' && hiddenParts[1]) return firstReviewGlyph(hiddenParts[1]) ?? '';
+    return '';
+}
+
+function currentKanjiFromPageText(): string {
     return firstReviewGlyph(document.querySelector<HTMLElement>('.kanji, a.kanji.plain')?.textContent ?? '') ?? '';
 }
 
 export function currentJpdbTermTarget(): JpdbTermTarget | null {
+    return currentKanjiTermTarget() ?? currentVocabularyTermTarget();
+}
+
+function currentKanjiTermTarget(): JpdbTermTarget | null {
     const kanji = extractCurrentKanji();
-    if ((isKanjiPage() || isKanjiReviewBack()) && kanji) {
-        const anchor = currentKanjiAddonAnchor();
-        const queries = uniqueLookupValues([kanji, ...kanjiComponentTerms(document)]);
-        return { term: kanji, reading: kanji, queries: queries.length ? queries : [kanji], examples: extractPageExamples(document), anchor: anchor ?? document.body };
-    }
+    if ((!isKanjiPage() && !isKanjiReviewBack()) || !kanji) return null;
+    const anchor = currentKanjiAddonAnchor();
+    const queries = uniqueLookupValues([kanji, ...kanjiComponentTerms(document)]);
+    return { term: kanji, reading: kanji, queries: queries.length ? queries : [kanji], examples: extractPageExamples(document), anchor: anchor ?? document.body };
+}
+
+function currentVocabularyTermTarget(): JpdbTermTarget | null {
     const pageTerm = extractCurrentTermTarget();
     const searchQuery = extractSearchQuery();
     const term = isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? '';
     if (!term) return null;
-    const anchor = document.querySelector<HTMLElement>('.subsection-meanings')
-        ?? document.querySelector<HTMLElement>('.result.vocabulary')
-        ?? document.querySelector<HTMLElement>('.subsection-used-in')
-        ?? document.querySelector<HTMLElement>('.cross-table')
-        ?? document.querySelector<HTMLElement>('.answer-box')
-        ?? document.querySelector<HTMLElement>('main')
+    const queries = vocabularyTermQueries(term, pageTerm, searchQuery);
+    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor: currentVocabularyAddonAnchor() };
+}
+
+function currentVocabularyAddonAnchor(): HTMLElement {
+    return firstElementForSelectors(VOCABULARY_ADDON_ANCHOR_SELECTORS)
         ?? document.body.firstElementChild as HTMLElement | null
         ?? document.body;
-    const queries = isSearchPage()
-        ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])])
-        : uniqueLookupValues([pageTerm?.term, pageTerm?.reading, term, ...searchResultTerms(8).flatMap(item => [item.term, item.reading])]);
-    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor };
+}
+
+const VOCABULARY_ADDON_ANCHOR_SELECTORS = [
+    '.subsection-meanings',
+    '.result.vocabulary',
+    '.subsection-used-in',
+    '.cross-table',
+    '.answer-box',
+    'main',
+];
+
+function firstElementForSelectors(selectors: string[]): HTMLElement | null {
+    for (const selector of selectors) {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (element) return element;
+    }
+    return null;
+}
+
+function vocabularyTermQueries(term: string, pageTerm: { term: string; reading: string } | null, searchQuery: string): string[] {
+    const searchTerms = searchResultTerms(8).flatMap(item => [item.term, item.reading]);
+    return isSearchPage()
+        ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchTerms])
+        : uniqueLookupValues([pageTerm?.term, pageTerm?.reading, term, ...searchTerms]);
 }
 
 export function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
@@ -170,27 +210,51 @@ function kanjiComponentTerms(root: ParentNode): string[] {
 
 function extractPageCompounds(root: ParentNode): JpdbPageCompound[] {
     const entries: JpdbPageCompound[] = [];
-    const sections = Array.from(root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji'));
-    for (const section of sections) {
-        const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
-        if (label && !label.startsWith('composed of')) continue;
-        const rows = Array.from(section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in'));
-        for (const row of rows) {
-            const link = row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
-            const spelling = row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
-            const term = cleanText(spelling ? extractBaseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
-            const reading = cleanText(spelling ? extractReadingText(spelling) : '') || term;
-            if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term)) continue;
-            const description = row.querySelector<HTMLElement>('.description, .en, .meaning');
-            entries.push({
-                term,
-                reading,
-                meaning: cleanText(description?.textContent ?? ''),
-                url: link?.getAttribute('href') ?? '',
-            });
-        }
+    const seen = new Set<string>();
+    for (const row of compoundRows(root)) {
+        const compound = readPageCompound(row);
+        if (!compound || seen.has(compound.term)) continue;
+        seen.add(compound.term);
+        entries.push(compound);
     }
     return entries.slice(0, 8);
+}
+
+function compoundRows(root: ParentNode): HTMLElement[] {
+    return compoundSections(root).flatMap(section =>
+        Array.from(section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in')),
+    );
+}
+
+function compoundSections(root: ParentNode): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji'))
+        .filter(isComposedOfSection);
+}
+
+function isComposedOfSection(section: HTMLElement): boolean {
+    const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
+    return !label || label.startsWith('composed of');
+}
+
+function readPageCompound(row: HTMLElement): JpdbPageCompound | null {
+    const link = row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
+    const spelling = row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+    const term = readCompoundTerm(spelling);
+    if (!term || !JAPANESE_RE.test(term)) return null;
+    return {
+        term,
+        reading: readCompoundReading(spelling, term),
+        meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .meaning')?.textContent ?? ''),
+        url: link?.getAttribute('href') ?? '',
+    };
+}
+
+function readCompoundTerm(spelling: HTMLElement | HTMLAnchorElement | null): string {
+    return cleanText(spelling ? extractBaseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
+}
+
+function readCompoundReading(spelling: HTMLElement | HTMLAnchorElement | null, term: string): string {
+    return cleanText(spelling ? extractReadingText(spelling) : '') || term;
 }
 
 function extractPageExamples(root: ParentNode): JpdbPageExample[] {
@@ -200,15 +264,24 @@ function extractPageExamples(root: ParentNode): JpdbPageExample[] {
     for (const section of sections) {
         const rows = Array.from(section.querySelectorAll<HTMLElement>('.subsection > div, .example, li, p'));
         for (const row of rows) {
-            const sentenceNode = row.querySelector<HTMLElement>('.sentence, .jp, .japanese, .plain') ?? row;
-            const sentence = cleanText(extractBaseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? '');
-            if (!sentence || !JAPANESE_RE.test(sentence) || seen.has(sentence)) continue;
-            seen.add(sentence);
-            const translation = cleanText(row.querySelector<HTMLElement>('.translation, .en, .english')?.textContent ?? '');
-            examples.push({ sentence, translation });
+            const example = readPageExampleRow(row, seen);
+            if (example) examples.push(example);
         }
     }
     return examples.slice(0, 5);
+}
+
+function readPageExampleRow(row: HTMLElement, seen: Set<string>): JpdbPageExample | null {
+    const sentenceNode = row.querySelector<HTMLElement>('.sentence, .jp, .japanese, .plain') ?? row;
+    const sentence = cleanText(extractBaseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? '');
+    if (!shouldKeepPageExample(sentence, seen)) return null;
+    seen.add(sentence);
+    const translation = cleanText(row.querySelector<HTMLElement>('.translation, .en, .english')?.textContent ?? '');
+    return { sentence, translation };
+}
+
+function shouldKeepPageExample(sentence: string, seen: Set<string>): boolean {
+    return Boolean(sentence && JAPANESE_RE.test(sentence) && !seen.has(sentence));
 }
 
 export function currentAudioTargets(): Array<{ term: string; reading: string; link: HTMLElement }> {
@@ -294,16 +367,19 @@ function isSearchPage(): boolean {
 function extractTermFromAudioLink(link: HTMLElement): { term: string; reading: string } | null {
     const root = link.closest<HTMLElement>('.result.vocabulary, .answer-box') ?? link.parentElement;
     if (!root) return null;
-    const linkToVocabulary = root.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"]');
-    if (linkToVocabulary) {
-        const parts = linkToVocabulary.pathname.split('/').filter(Boolean);
-        if (parts[0] === 'vocabulary' && parts[2]) {
-            const term = decodePathPart(parts[2]);
-            return { term, reading: decodePathPart(parts[3] ?? '') || term };
-        }
-    }
+    const linkedTerm = extractTermFromVocabularyPath(root);
+    if (linkedTerm) return linkedTerm;
     const text = cleanText(extractBaseText(root));
     return text && JAPANESE_RE.test(text) ? { term: firstJapaneseRun(text), reading: firstJapaneseRun(text) } : null;
+}
+
+function extractTermFromVocabularyPath(root: HTMLElement): { term: string; reading: string } | null {
+    const linkToVocabulary = root.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"]');
+    if (!linkToVocabulary) return null;
+    const parts = linkToVocabulary.pathname.split('/').filter(Boolean);
+    if (parts[0] !== 'vocabulary' || !parts[2]) return null;
+    const term = decodePathPart(parts[2]);
+    return { term, reading: decodePathPart(parts[3] ?? '') || term };
 }
 
 function extractCurrentTermTarget(): { term: string; reading: string } | null {
@@ -342,22 +418,28 @@ function decodePathPart(value: string): string {
 }
 
 function extractTermFromElement(root: ParentNode): { term: string; reading: string } | null {
-    const candidates = [
-        '.vocabulary-spelling a',
-        '.vocabulary-spelling',
-        '.horizontal-spelling',
-        '.subsection-spelling',
-        '.answer-box .plain',
-        '.plain',
-    ];
-    for (const selector of candidates) {
+    for (const selector of TERM_TARGET_SELECTORS) {
         const element = root.querySelector<HTMLElement>(selector);
         if (!element) continue;
-        const term = cleanText(extractBaseText(element)) || cleanText(element.textContent ?? '');
-        const reading = cleanText(extractReadingText(element)) || term;
-        if (term && JAPANESE_RE.test(term)) return { term, reading };
+        const target = termTargetFromElement(element);
+        if (target) return target;
     }
     return null;
+}
+
+const TERM_TARGET_SELECTORS = [
+    '.vocabulary-spelling a',
+    '.vocabulary-spelling',
+    '.horizontal-spelling',
+    '.subsection-spelling',
+    '.answer-box .plain',
+    '.plain',
+];
+
+function termTargetFromElement(element: HTMLElement): { term: string; reading: string } | null {
+    const term = cleanText(extractBaseText(element)) || cleanText(element.textContent ?? '');
+    const reading = cleanText(extractReadingText(element)) || term;
+    return term && JAPANESE_RE.test(term) ? { term, reading } : null;
 }
 
 function extractBaseText(root: Node): string {
@@ -372,12 +454,17 @@ function extractReadingText(root: Node): string {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
     if (root.nodeType !== Node.ELEMENT_NODE) return '';
     const element = root as HTMLElement;
-    if (element.tagName === 'RT' || element.tagName === 'RP') return '';
-    if (element.tagName === 'RUBY') {
-        const rt = Array.from(element.children).find(child => child.tagName === 'RT')?.textContent ?? '';
-        return rt || extractBaseText(element);
-    }
+    if (isRubyAnnotation(element)) return '';
+    if (element.tagName === 'RUBY') return rubyReadingText(element, extractBaseText);
     return Array.from(element.childNodes).map(extractReadingText).join('');
+}
+
+function isRubyAnnotation(element: Element): boolean {
+    return element.tagName === 'RT' || element.tagName === 'RP';
+}
+
+function rubyReadingText(element: Element, fallback: (root: Node) => string): string {
+    return Array.from(element.children).find(child => child.tagName === 'RT')?.textContent || fallback(element);
 }
 
 function extractAlternateTerms(root: ParentNode): string[] {

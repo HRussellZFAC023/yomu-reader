@@ -288,35 +288,47 @@ function collectExamples(value: unknown): unknown[] {
 }
 
 function normalizeExample(value: unknown): ImmersionKitExample | null {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Record<string, unknown>;
+    if (!isRecord(value)) return null;
+    const record = value;
     const id = text(record.id);
-    const sentence = text(record.sentence || record.text);
+    const sentence = firstText(record, ['sentence', 'text']);
     if (!sentence) return null;
 
-    const titleSlug = text(record.title || record.deck || record.source) || titleSlugFromId(id);
-    const sourceTitle = text(record.sourceTitle || record.display_title || record.displayTitle) || titleFromSlug(titleSlug);
+    const titleSlug = firstText(record, ['title', 'deck', 'source']) || titleSlugFromId(id);
+    const sourceTitle = firstText(record, ['sourceTitle', 'display_title', 'displayTitle']) || titleFromSlug(titleSlug);
     const category = text(record.category) || categoryFromId(id);
-    const soundFile = text(record.sound || record.audio || record.audio_file || record.audioFile);
-    const imageFile = text(record.image || record.image_file || record.imageFile);
+    const soundFile = firstText(record, ['sound', 'audio', 'audio_file', 'audioFile']);
+    const imageFile = firstText(record, ['image', 'image_file', 'imageFile']);
 
     return {
         id,
         sentence,
-        sentenceWithFurigana: text(record.sentence_with_furigana || record.sentenceWithFurigana),
-        translation: text(record.translation || record.translation_en || record.english),
+        sentenceWithFurigana: firstText(record, ['sentence_with_furigana', 'sentenceWithFurigana']),
+        translation: firstText(record, ['translation', 'translation_en', 'english']),
         sourceTitle,
         titleSlug,
         category,
         soundFile,
         imageFile,
-        soundUrl: absoluteMediaUrl(text(record.sound_url || record.audio_url || record.soundUrl || record.audioUrl)),
-        imageUrl: absoluteMediaUrl(text(record.image_url || record.imageUrl)),
+        soundUrl: absoluteMediaUrl(firstText(record, ['sound_url', 'audio_url', 'soundUrl', 'audioUrl'])),
+        imageUrl: absoluteMediaUrl(firstText(record, ['image_url', 'imageUrl'])),
     };
+}
+
+function firstText(record: Record<string, unknown>, keys: string[]): string {
+    for (const key of keys) {
+        const value = text(record[key]);
+        if (value) return value;
+    }
+    return '';
 }
 
 function text(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function titleSlugFromId(id: string): string {

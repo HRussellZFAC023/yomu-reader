@@ -68,15 +68,24 @@ export function caretTextPositionFromPoint(x: number, y: number): { node: Text; 
 }
 
 export function japaneseRunAt(text: string, offset: number): { start: number; end: number; offset: number } | null {
-    let index = Math.min(Math.max(offset, 0), text.length - 1);
-    if (!JAPANESE_RUN_RE.test(text[index] ?? '') && index > 0 && JAPANESE_RUN_RE.test(text[index - 1] ?? '')) index--;
-    if (!JAPANESE_RUN_RE.test(text[index] ?? '')) return null;
+    const index = japaneseRunIndexAt(text, offset);
+    if (index === null) return null;
 
     let start = index;
     let end = index + 1;
     while (start > 0 && JAPANESE_RUN_RE.test(text[start - 1])) start--;
     while (end < text.length && JAPANESE_RUN_RE.test(text[end])) end++;
     return { start, end, offset: index };
+}
+
+function japaneseRunIndexAt(text: string, offset: number): number | null {
+    let index = Math.min(Math.max(offset, 0), text.length - 1);
+    if (!isJapaneseCharacterAt(text, index) && index > 0 && isJapaneseCharacterAt(text, index - 1)) index--;
+    return isJapaneseCharacterAt(text, index) ? index : null;
+}
+
+function isJapaneseCharacterAt(text: string, index: number): boolean {
+    return JAPANESE_RUN_RE.test(text[index] ?? '');
 }
 
 export function pointerTextCharacterOffset(node: Text, caretOffset: number, x: number, y: number): number | null {
@@ -104,25 +113,54 @@ export function isLowValuePointerText(text: string, parent?: HTMLElement | null)
 function isPointerTextParentEligible(parent: HTMLElement): boolean {
     let current: HTMLElement | null = parent;
     while (current) {
-        if (current.matches(POINTER_TEXT_SKIP_SELECTOR)) return false;
-        if (current.hasAttribute('hidden') || current.hasAttribute('inert')) return false;
-        if (current.getAttribute('aria-hidden')?.toLowerCase() === 'true') return false;
-
-        const style = getComputedStyle(current);
-        if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false;
-        if (Number(style.opacity || '1') <= 0) return false;
-        if (isScreenReaderOnlyElement(current, style)) return false;
+        if (!isPointerTextElementEligible(current)) return false;
         current = current.parentElement;
     }
     return true;
 }
 
+function isPointerTextElementEligible(element: HTMLElement): boolean {
+    const style = getComputedStyle(element);
+    return elementPassesPointerTextAttributes(element)
+        && stylePassesPointerTextLookup(style)
+        && !isScreenReaderOnlyElement(element, style);
+}
+
+function elementPassesPointerTextAttributes(element: HTMLElement): boolean {
+    return !element.matches(POINTER_TEXT_SKIP_SELECTOR)
+        && !element.hasAttribute('hidden')
+        && !element.hasAttribute('inert')
+        && element.getAttribute('aria-hidden')?.toLowerCase() !== 'true';
+}
+
+function stylePassesPointerTextLookup(style: CSSStyleDeclaration): boolean {
+    return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.visibility !== 'collapse'
+        && Number(style.opacity || '1') > 0;
+}
+
 function isScreenReaderOnlyElement(element: HTMLElement, style: CSSStyleDeclaration): boolean {
-    if (SCREEN_READER_ONLY_CLASS_RE.test(element.className || '')) return true;
+    if (hasScreenReaderOnlyClass(element)) return true;
     const rect = element.getBoundingClientRect();
-    const clipped = (style.clip && style.clip !== 'auto') || (style.clipPath && style.clipPath !== 'none');
-    if (clipped && rect.width <= 2 && rect.height <= 2) return true;
-    return style.position === 'absolute' && style.overflow === 'hidden' && rect.width <= 2 && rect.height <= 2;
+    return isTinyClippedElement(rect, style) || isTinyHiddenAbsoluteElement(rect, style);
+}
+
+function hasScreenReaderOnlyClass(element: HTMLElement): boolean {
+    return SCREEN_READER_ONLY_CLASS_RE.test(element.className || '');
+}
+
+function isTinyClippedElement(rect: DOMRect, style: CSSStyleDeclaration): boolean {
+    const clipped = Boolean((style.clip && style.clip !== 'auto') || (style.clipPath && style.clipPath !== 'none'));
+    return clipped && isTinyRect(rect);
+}
+
+function isTinyHiddenAbsoluteElement(rect: DOMRect, style: CSSStyleDeclaration): boolean {
+    return style.position === 'absolute' && style.overflow === 'hidden' && isTinyRect(rect);
+}
+
+function isTinyRect(rect: DOMRect): boolean {
+    return rect.width <= 2 && rect.height <= 2;
 }
 
 function textCharacterContainsPoint(node: Text, offset: number, x: number, y: number): boolean {
@@ -142,10 +180,15 @@ function rectContainsPoint(rect: DOMRect, x: number, y: number): boolean {
     const right = rect.right || rect.left + rect.width;
     const bottom = rect.bottom || rect.top + rect.height;
     const slack = 1;
-    return right > rect.left
-        && bottom > rect.top
-        && x >= rect.left - slack
-        && x <= right + slack
-        && y >= rect.top - slack
-        && y <= bottom + slack;
+    return hasPositiveRectArea(rect, right, bottom)
+        && coordinateInRange(x, rect.left, right, slack)
+        && coordinateInRange(y, rect.top, bottom, slack);
+}
+
+function hasPositiveRectArea(rect: DOMRect, right: number, bottom: number): boolean {
+    return right > rect.left && bottom > rect.top;
+}
+
+function coordinateInRange(value: number, start: number, end: number, slack: number): boolean {
+    return value >= start - slack && value <= end + slack;
 }

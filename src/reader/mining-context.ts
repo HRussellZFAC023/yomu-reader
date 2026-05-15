@@ -109,39 +109,66 @@ export async function resolveMiningContext({
     });
     const cleanSentence = normalizeMiningSentence(sentence);
     try {
-        if (imageDataUrl && cleanSentence) {
-            log.debug('Using direct image mining context', { term, sentenceLength: cleanSentence.length });
-            return miningContextWithImage(term, cleanSentence, 'image', imageDataUrl);
-        }
-        if (videoImageDataUrl && cleanSentence) {
-            log.debug('Using video image mining context', { term, sentenceLength: cleanSentence.length });
-            return miningContextWithImage(term, cleanSentence, 'video', videoImageDataUrl);
-        }
+        const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
+        if (direct) return direct;
 
-        const chosen = activeContext?.term === term ? activeContext : storedContext ?? undefined;
-        if (chosen && shouldUseImmersionContext(settings, chosen)) {
-            const fetchedImageDataUrl = chosen.imageUrl && settings.immersionKitShowImages && fetchImageDataUrl
-                ? await fetchImageDataUrl(chosen.imageUrl, settings.audioTimeoutMs).catch(error => {
-                    log.debug('Mining context image fetch skipped', { term, sourceKind: chosen.sourceKind, error });
-                    return undefined;
-                })
-                : undefined;
-            log.debug('Using immersion mining context', {
-                term,
-                sourceTitle: chosen.sourceTitle,
-                hasImageUrl: Boolean(chosen.imageUrl),
-                fetchedImage: Boolean(fetchedImageDataUrl),
-            });
-            return { ...chosen, imageDataUrl: fetchedImageDataUrl };
-        }
-
-        const context = pageMiningContext(cleanSentence || term, sourceKind ?? inferMiningSourceKind());
-        const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-        log.debug('Using page mining context', { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
-        return result;
+        const immersion = await resolveStoredImmersionMiningContext({
+            term,
+            settings,
+            activeContext,
+            storedContext,
+            fetchImageDataUrl,
+        });
+        return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
     } finally {
         done();
     }
+}
+
+function resolveDirectImageMiningContext(term: string, sentence: string, imageDataUrl?: string, videoImageDataUrl?: string): MiningContext | null {
+    if (imageDataUrl && sentence) {
+        log.debug('Using direct image mining context', { term, sentenceLength: sentence.length });
+        return miningContextWithImage(term, sentence, 'image', imageDataUrl);
+    }
+    if (videoImageDataUrl && sentence) {
+        log.debug('Using video image mining context', { term, sentenceLength: sentence.length });
+        return miningContextWithImage(term, sentence, 'video', videoImageDataUrl);
+    }
+    return null;
+}
+
+async function resolveStoredImmersionMiningContext(options: Pick<MiningContextResolutionOptions, 'term' | 'settings' | 'activeContext' | 'storedContext' | 'fetchImageDataUrl'>): Promise<MiningContext | null> {
+    const { term, settings, activeContext, storedContext, fetchImageDataUrl } = options;
+    const chosen = activeContext?.term === term ? activeContext : storedContext ?? undefined;
+    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
+    const fetchedImageDataUrl = await fetchMiningContextImage(chosen, settings, term, fetchImageDataUrl);
+    log.debug('Using immersion mining context', {
+        term,
+        sourceTitle: chosen.sourceTitle,
+        hasImageUrl: Boolean(chosen.imageUrl),
+        fetchedImage: Boolean(fetchedImageDataUrl),
+    });
+    return { ...chosen, imageDataUrl: fetchedImageDataUrl };
+}
+
+function fetchMiningContextImage(
+    context: StoredMiningContext,
+    settings: ReaderSettings,
+    term: string,
+    fetchImageDataUrl: MiningContextResolutionOptions['fetchImageDataUrl'],
+): Promise<string | undefined> {
+    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(undefined);
+    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(error => {
+        log.debug('Mining context image fetch skipped', { term, sourceKind: context.sourceKind, error });
+        return undefined;
+    });
+}
+
+function resolvePageMiningContext(term: string, sentence: string, sourceKind: MiningContextResolutionOptions['sourceKind']): MiningContext {
+    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
+    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
+    log.debug('Using page mining context', { term, sourceKind: result.sourceKind, sentenceLength: result.sentence.length });
+    return result;
 }
 
 export function miningContextWithImage(term: string, sentence: string, sourceKind: 'image' | 'video', imageDataUrl: string): MiningContext {
@@ -228,13 +255,23 @@ export function pageMiningContext(sentence: string, sourceKind: MiningSourceKind
 }
 
 export function contextLabel(context: StoredMiningContext | MiningContext): string {
-    if (context.sourceKind === 'immersion-kit' && context.immersionIndex !== undefined && context.immersionTotal) {
-        return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
-    }
-    if (context.sourceKind === 'video') return `Video: ${context.sourceTitle}`;
-    if (context.sourceKind === 'image') return `Image: ${context.sourceTitle}`;
-    if (context.sourceKind === 'jpdb') return `JPDB: ${context.sourceTitle}`;
+    const immersionLabel = immersionContextLabel(context);
+    if (immersionLabel) return immersionLabel;
+    const prefix = CONTEXT_LABEL_PREFIXES[context.sourceKind];
+    if (prefix) return `${prefix}: ${context.sourceTitle}`;
     return context.sourceTitle || context.sourceUrl || 'Current page';
+}
+
+const CONTEXT_LABEL_PREFIXES: Partial<Record<MiningSourceKind, string>> = {
+    video: 'Video',
+    image: 'Image',
+    jpdb: 'JPDB',
+};
+
+function immersionContextLabel(context: StoredMiningContext | MiningContext): string {
+    return context.sourceKind === 'immersion-kit' && context.immersionIndex !== undefined && context.immersionTotal
+        ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`
+        : '';
 }
 
 export function shouldUseImmersionContext(settings: ReaderSettings, context: StoredMiningContext | null): context is StoredMiningContext {

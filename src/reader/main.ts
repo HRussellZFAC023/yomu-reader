@@ -22,6 +22,7 @@ import {
     renderTokensToHtml,
     setInnerHtml,
     unwrapReaderWords,
+    type ScanTextTarget,
 } from './dom';
 import {
     definitionSourceStateKey,
@@ -154,6 +155,142 @@ const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
 const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const COLOR_CHANNELS = ['highlight', 'underline', 'text'] as const;
 type ColorChannel = typeof COLOR_CHANNELS[number];
+type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
+
+const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
+    ['gradeFail', 'fail'],
+    ['gradePass', 'pass'],
+];
+
+const FIVE_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
+    ['gradeNothing', 'nothing'],
+    ['gradeSomething', 'something'],
+    ['gradeHard', 'hard'],
+    ['gradeOkay', 'okay'],
+    ['gradeEasy', 'easy'],
+];
+
+function matchedReviewShortcutGrade(
+    event: KeyboardEvent,
+    shortcuts: ReaderSettings['shortcuts'],
+    candidates: Array<[ReviewShortcutKey, JPDBGrade]>,
+): JPDBGrade | null {
+    return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
+}
+
+interface MiningActionState {
+    isNeverForget: boolean;
+    isBlacklisted: boolean;
+    neverForgetTitle: string;
+    blacklistTitle: string;
+    neverForgetLabel: string;
+    blacklistLabel: string;
+}
+
+function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): MiningActionState {
+    const isNeverForget = cardStates.includes('never-forget');
+    const isBlacklisted = cardStates.includes('blacklisted');
+    return {
+        isNeverForget,
+        isBlacklisted,
+        neverForgetTitle: isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint'),
+        blacklistTitle: isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint'),
+        neverForgetLabel: isNeverForget ? uiText(language, 'forget') : uiText(language, 'never'),
+        blacklistLabel: isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist'),
+    };
+}
+
+function addDeckChoiceOption(
+    options: Array<[string, string]>,
+    source: 'jpdb' | 'anki',
+    value: string,
+    label: string,
+): void {
+    const normalizedValue = value.trim();
+    const key = `${source}:${normalizedValue}`;
+    if (!normalizedValue || options.some(([existing]) => existing === key)) return;
+    options.push([key, label]);
+}
+
+function renderDeckChoiceOption([value, label]: [string, string]): string {
+    const [source, ...idParts] = value.split(':');
+    const deckId = idParts.join(':');
+    return `<option value="${escapeHtml(value)}" data-deck-source="${escapeHtml(source)}" data-deck-id="${escapeHtml(deckId)}">${escapeHtml(label)}</option>`;
+}
+
+function normalizedLookupText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+function isLookupableJapaneseText(text: string): boolean {
+    return Boolean(text && HAS_JAPANESE.test(text));
+}
+
+function connectedElement<T extends HTMLElement>(element: T | undefined): T | undefined {
+    return element?.isConnected ? element : undefined;
+}
+
+function renderedWordNavigationMode(insideReaderPopup: boolean, trigger: 'modal' | 'hover'): CardNavigationMode {
+    return insideReaderPopup && trigger === 'modal' ? 'push-current' : 'reset';
+}
+
+function renderedWordAnchor(
+    word: HTMLElement,
+    insideReaderPopup: boolean,
+    activePopoverAnchor: HTMLElement | undefined,
+): HTMLElement | undefined {
+    return insideReaderPopup ? activePopoverAnchor ?? undefined : word;
+}
+
+function popoverAnchorRect(anchor: HTMLElement | undefined, fallback: DOMRect | undefined): DOMRect | undefined {
+    const rect = anchor?.getBoundingClientRect();
+    return rect && (rect.width > 0 || rect.height > 0) ? rect : fallback;
+}
+
+function shouldLockMountedPopoverPosition(popover: HTMLElement, state: PopoverMountState): boolean {
+    return state.mode !== 'hover'
+        && !popover.classList.contains('jpdb-reader-sheet')
+        && Boolean(state.previousPopoverRect);
+}
+
+function mountedHoverPointerPosition(
+    state: PopoverMountState,
+    lastPointerPosition: { x: number; y: number } | undefined,
+): { x: number; y: number } | undefined {
+    const hoverPointerPosition = state.previousHoverPointerPosition ?? lastPointerPosition;
+    return state.mode === 'hover' && hoverPointerPosition ? { ...hoverPointerPosition } : undefined;
+}
+
+function newTabNestedParsePlan(root: HTMLElement): NestedParsePlan | null {
+    const targets = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
+        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, 36, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
+        .slice(0, 36);
+    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+
+function popoverNestedParsePlan(popover: HTMLElement): NestedParsePlan | null {
+    const targets = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
+        .flatMap(root => collectFragmentTextTargetsIn(root, 24, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
+        .slice(0, 24);
+    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+
+function nestedParseKey(targets: ScanTextTarget[]): string {
+    return targets.map(target => target.text).join('\n\n');
+}
+
+function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {
+    return root.dataset.jpdbReaderParseKey === parseKey
+        || root.dataset.jpdbReaderParseLoadingKey === parseKey;
+}
+
+function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][], settings: ReaderSettings): void {
+    plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
+}
+
+function clearNestedParseLoadingKey(root: HTMLElement, parseKey: string): void {
+    if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
+}
 
 interface KanjiDetailPromises {
     jpdbInfo: Promise<JpdbKanjiInfo | null>;
@@ -189,6 +326,57 @@ interface CardDisplayOptions {
     insideReaderPopup?: boolean;
 }
 
+type PointerTextDisplayOptions = Pick<CardDisplayOptions, 'navigation' | 'preservePosition' | 'hoverLookupGeneration'>;
+
+function canSchedulePointerTextHoverLookup(hoverEnabled: boolean, candidate: PointerTextLookup | null): candidate is PointerTextLookup {
+    return hoverEnabled && Boolean(candidate);
+}
+
+function samePointerTextLookupTarget(active: ActivePointerTextLookup, candidate: PointerTextLookup): boolean {
+    return active.anchor === candidate.anchor && active.text === candidate.text;
+}
+
+function pointerOffsetInsideLookup(active: ActivePointerTextLookup, offset: number): boolean {
+    return (active.start <= offset && offset < active.end)
+        || (active.start < offset && offset <= active.end);
+}
+
+interface RenderedWordDisplayContext {
+    sentence?: string;
+    anchor?: HTMLElement;
+    trigger: 'modal' | 'hover';
+    navigation: CardNavigationMode;
+    hoverLookupKey?: string;
+    previousNavigationEntry?: PopupNavigationEntry;
+    insideReaderPopup: boolean;
+}
+
+interface TextLookupOptions {
+    navigation?: CardNavigationMode;
+    preservePosition?: boolean;
+    previousNavigationEntry?: PopupNavigationEntry;
+    anchor?: HTMLElement;
+}
+
+interface TextLookupDisplayContext {
+    selected: string;
+    anchor?: HTMLElement;
+    trigger: 'modal' | 'hover';
+    navigation: CardNavigationMode;
+    preservePosition: boolean;
+    previousNavigationEntry?: PopupNavigationEntry;
+}
+
+interface PressLookupState {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    source: 'primary' | 'middle';
+    captureTarget?: Element;
+    lastWord?: HTMLElement;
+}
+
 interface CardRenderData {
     localEntries: YomitanTermEntry[];
     kanjiEntries: YomitanKanjiEntry[];
@@ -202,6 +390,53 @@ interface CardRenderData {
 interface CardRenderDataLoad {
     localEntries: Promise<YomitanTermEntry[]>;
     all: Promise<CardRenderData>;
+}
+
+interface CardPopoverRenderView {
+    cardStates: ReturnType<typeof normalizeCardStates>;
+    state: ReturnType<typeof primaryCardState>;
+    storedContext: ReturnType<typeof loadMiningContext> | null;
+    jpdbUrl: string;
+    cardPos: string;
+    cardPosDetails: string;
+    language: InterfaceLanguage;
+    hasJpdb: boolean;
+    miningActions: string;
+    ankiActions: string;
+    reviewButtons: string;
+    metaItems: string[];
+    loadingDetails: string;
+}
+
+interface MountedCardShell {
+    instantLocalEntries: YomitanTermEntry[] | null;
+    requestId: number;
+}
+
+interface StudyTranslationResult {
+    tokens: JPDBToken[];
+    translated: string;
+}
+
+interface NestedParsePlan {
+    targets: ScanTextTarget[];
+    parseKey: string;
+}
+
+interface MountPopoverOptions {
+    mode?: 'modal' | 'hover';
+    preservePosition?: boolean;
+    hoverLookupKey?: string;
+    pointerTextLookup?: ActivePointerTextLookup;
+}
+
+interface PopoverMountState {
+    mode: 'modal' | 'hover';
+    backdrop?: HTMLElement;
+    resolvedAnchor?: HTMLElement;
+    anchorRect?: DOMRect;
+    previousPopoverRect?: DOMRect;
+    previousHoverPointerPosition?: { x: number; y: number };
 }
 
 interface ModalNavigationOptions {
@@ -437,15 +672,7 @@ export class ReaderApp {
     private suppressSelectionLookupUntil = 0;
     private suppressWordClickUntil = 0;
     private pageHasJapaneseText = false;
-    private pressLookup?: {
-        pointerId: number;
-        startX: number;
-        startY: number;
-        active: boolean;
-        source: 'primary' | 'middle';
-        captureTarget?: Element;
-        lastWord?: HTMLElement;
-    };
+    private pressLookup?: PressLookupState;
     private suppressMiddleAuxClickUntil = 0;
 
     constructor() {
@@ -454,54 +681,75 @@ export class ReaderApp {
 
     async init(options?: ReaderAppInitOptions): Promise<void> {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
+        const shouldShowWelcome = await this.loadInitialSettings(options);
+        const dictionaryWarmup = this.startDictionaryWarmup();
+        await this.installCoreSurfaces();
+        if (await this.renderNewTabPageIfCurrent(dictionaryWarmup)) return done();
+        if (this.leaveHostedPassivePage()) return done();
+        await this.initReaderPage(shouldShowWelcome);
+        done();
+    }
+
+    private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
         this.bindFactoryResetSignals();
         this.settings = await loadSettings();
-        if (options?.isDemo) {
-            this.settings.onboardingSeen = true;
-            this.isDemo = true;
-        }
+        if (options?.isDemo) this.enableDemoMode();
         const shouldShowWelcome = options?.showWelcome ?? !this.isDemo;
         this.settings = applyUrlBootstrapSettings(this.settings);
         this.pageHasJapaneseText = documentHasJapaneseText();
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
-        const shouldWarmDictionaries = this.settings.localDictionariesEnabled && this.newTab.isCurrentPage();
-        const dictionaryWarmup = shouldWarmDictionaries
-            ? this.dictionaries.warm(this.settings.dictionaryPreferences).catch(error => {
-                log.warn('Local dictionary warmup failed', error);
-            })
-            : Promise.resolve();
+        return shouldShowWelcome;
+    }
+
+    private enableDemoMode(): void {
+        this.settings.onboardingSeen = true;
+        this.isDemo = true;
+    }
+
+    private startDictionaryWarmup(): Promise<unknown> {
+        if (!this.settings.localDictionariesEnabled || !this.newTab.isCurrentPage()) return Promise.resolve();
+        return this.dictionaries.warm(this.settings.dictionaryPreferences).catch(error => {
+            log.warn('Local dictionary warmup failed', error);
+        });
+    }
+
+    private async installCoreSurfaces(): Promise<void> {
         this.installStyles();
         this.applyTheme();
         await this.refreshDictionaryStyles();
         this.registerMenuCommands();
         this.bindEvents();
         initJpdbReviewPageBridge();
-        if (this.newTab.isCurrentPage()) {
-            await dictionaryWarmup;
-            await this.newTab.renderPage();
-            done();
-            return;
-        }
+    }
 
-        if (isYomuHostedPassivePage(location.href)) {
-            log.info('Hosted Yomu content page left passive', { href: location.href, demo: this.isDemo });
-            done();
-            return;
-        }
+    private async renderNewTabPageIfCurrent(dictionaryWarmup: Promise<unknown>): Promise<boolean> {
+        if (!this.newTab.isCurrentPage()) return false;
+        await dictionaryWarmup;
+        await this.newTab.renderPage();
+        return true;
+    }
 
+    private leaveHostedPassivePage(): boolean {
+        if (!isYomuHostedPassivePage(location.href)) return false;
+        log.info('Hosted Yomu content page left passive', { href: location.href, demo: this.isDemo });
+        return true;
+    }
+
+    private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
         this.installFab();
         this.subtitles.init();
         this.ocr.init();
         this.youtube.init();
         this.jpdbExtensions.init();
         this.setupAutoScan();
-        if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) {
-            await this.onboarding.showIfNeeded();
-        }
-        if (this.canParseJapanese() && (this.settings.scanVisiblePage || this.settings.autoScanJapanese) && this.pageHasJapaneseText) {
-            void this.scanVisiblePage({ silent: true });
-        }
-        done();
+        if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
+        if (this.shouldScanInitialPage()) void this.scanVisiblePage({ silent: true });
+    }
+
+    private shouldScanInitialPage(): boolean {
+        return this.canParseJapanese()
+            && (this.settings.scanVisiblePage || this.settings.autoScanJapanese)
+            && this.pageHasJapaneseText;
     }
 
     private registerMenuCommands(): void {
@@ -1039,17 +1287,10 @@ export class ReaderApp {
 
     private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {
         if (!this.settings.enableReviews) return null;
-        if (this.settings.twoButtonReviews) {
-            if (matchesShortcut(event, this.settings.shortcuts.gradeFail)) return 'fail';
-            if (matchesShortcut(event, this.settings.shortcuts.gradePass)) return 'pass';
-            return null;
-        }
-        if (matchesShortcut(event, this.settings.shortcuts.gradeNothing)) return 'nothing';
-        if (matchesShortcut(event, this.settings.shortcuts.gradeSomething)) return 'something';
-        if (matchesShortcut(event, this.settings.shortcuts.gradeHard)) return 'hard';
-        if (matchesShortcut(event, this.settings.shortcuts.gradeOkay)) return 'okay';
-        if (matchesShortcut(event, this.settings.shortcuts.gradeEasy)) return 'easy';
-        return null;
+        const shortcuts = this.settings.twoButtonReviews
+            ? TWO_BUTTON_REVIEW_SHORTCUTS
+            : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        return matchedReviewShortcutGrade(event, this.settings.shortcuts, shortcuts);
     }
 
     private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {
@@ -1057,19 +1298,26 @@ export class ReaderApp {
     }
 
     private beginPressLookup(event: PointerEvent): void {
-        if (this.isDestroyed) return;
-        if (this.isInsideActivePopover(event.target as Node | null)) return;
         const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
-        if (!isMiddleScan) {
-            if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return;
-            if (event.pointerType === 'mouse' && event.button !== 0) return;
-        }
-
+        if (!this.canBeginPressLookup(event, isMiddleScan)) return;
         const word = this.wordFromEventTarget(event.target);
         if (!isMiddleScan && !word) return;
         if (isMiddleScan) this.captureMiddleMouseLookup(event);
 
-        this.pressLookup = {
+        this.pressLookup = this.createPressLookup(event, isMiddleScan);
+        if (isMiddleScan) this.updatePressLookup(event);
+    }
+
+    private canBeginPressLookup(event: PointerEvent, isMiddleScan: boolean): boolean {
+        if (this.isDestroyed) return false;
+        if (this.isInsideActivePopover(event.target as Node | null)) return false;
+        if (isMiddleScan) return true;
+        if (!this.settings.lookupOnClick && !this.settings.lookupOnHover) return false;
+        return event.pointerType !== 'mouse' || event.button === 0;
+    }
+
+    private createPressLookup(event: PointerEvent, isMiddleScan: boolean): PressLookupState {
+        return {
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
@@ -1077,8 +1325,6 @@ export class ReaderApp {
             source: isMiddleScan ? 'middle' : 'primary',
             captureTarget: isMiddleScan && event.target instanceof Element ? event.target : undefined,
         };
-
-        if (isMiddleScan) this.updatePressLookup(event);
     }
 
     private updatePressLookup(event: PointerEvent): void {
@@ -1087,17 +1333,14 @@ export class ReaderApp {
         if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
 
-        if (!pressLookup.active) {
-            const distance = Math.hypot(event.clientX - pressLookup.startX, event.clientY - pressLookup.startY);
-            if (distance < 8) return;
-            pressLookup.active = true;
-            this.suppressWordClickUntil = Date.now() + 700;
-            this.suppressedHoverWord = undefined;
-        }
+        if (!this.activatePressLookupIfNeeded(pressLookup, event)) return;
 
         event.preventDefault();
         event.stopPropagation();
+        this.updateActivePressLookupTarget(pressLookup, event);
+    }
 
+    private updateActivePressLookupTarget(pressLookup: PressLookupState, event: PointerEvent): void {
         const targetAtPointer = document.elementFromPoint(event.clientX, event.clientY);
         if (this.isInsideActivePopover(targetAtPointer)) {
             this.cancelHoverClose();
@@ -1109,11 +1352,12 @@ export class ReaderApp {
             if (pressLookup.source === 'middle') this.scheduleHoverClose();
             return;
         }
+        this.showPressLookupWord(pressLookup, word, event);
+    }
+
+    private showPressLookupWord(pressLookup: PressLookupState, word: HTMLElement, event: PointerEvent): void {
         this.rememberHoverPopoverPointer(event);
-        if (word === pressLookup.lastWord) {
-            if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) this.scheduleActivePopoverReposition();
-            return;
-        }
+        if (this.refreshPressLookupWord(pressLookup, word)) return;
         pressLookup.lastWord = word;
         this.cancelHoverClose();
         window.clearTimeout(this.hoverLookupTimer);
@@ -1125,21 +1369,41 @@ export class ReaderApp {
         void this.showWord(word, { trigger: 'hover', hoverLookupGeneration });
     }
 
+    private activatePressLookupIfNeeded(pressLookup: PressLookupState, event: PointerEvent): boolean {
+        if (pressLookup.active) return true;
+        const distance = Math.hypot(event.clientX - pressLookup.startX, event.clientY - pressLookup.startY);
+        if (distance < 8) return false;
+        pressLookup.active = true;
+        this.suppressWordClickUntil = Date.now() + 700;
+        this.suppressedHoverWord = undefined;
+        return true;
+    }
+
+    private refreshPressLookupWord(pressLookup: PressLookupState, word: HTMLElement): boolean {
+        if (word !== pressLookup.lastWord) return false;
+        if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) this.scheduleActivePopoverReposition();
+        return true;
+    }
+
     private endPressLookup(event: PointerEvent): void {
         if (this.isDestroyed) return;
         const pressLookup = this.pressLookup;
         if (!pressLookup || pressLookup.pointerId !== event.pointerId) return;
-        if (pressLookup.active) {
-            this.suppressWordClickUntil = Date.now() + 700;
-            this.suppressSelectionLookupUntil = Date.now() + 350;
-        }
-        if (pressLookup.source === 'middle') {
-            event.preventDefault();
-            event.stopPropagation();
-            this.finishMiddleMouseLookup(pressLookup);
-            if (this.activePopoverMode === 'hover' && !this.isHoverContextActive()) this.scheduleHoverClose();
-        }
+        if (pressLookup.active) this.suppressPressLookupAfterRelease();
+        if (pressLookup.source === 'middle') this.finishMiddlePressLookup(event, pressLookup);
         this.pressLookup = undefined;
+    }
+
+    private suppressPressLookupAfterRelease(): void {
+        this.suppressWordClickUntil = Date.now() + 700;
+        this.suppressSelectionLookupUntil = Date.now() + 350;
+    }
+
+    private finishMiddlePressLookup(event: PointerEvent, pressLookup: PressLookupState): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.finishMiddleMouseLookup(pressLookup);
+        if (this.activePopoverMode === 'hover' && !this.isHoverContextActive()) this.scheduleHoverClose();
     }
 
     private shouldCaptureMiddleMouseLookup(event: MouseEvent | PointerEvent): boolean {
@@ -1210,8 +1474,8 @@ export class ReaderApp {
 
     private preloadReaderWordAudio(word: HTMLElement, options: { sourceLimit?: number; candidateLimit?: number } = {}): boolean {
         if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
-        const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
-        if (!card || !isUsefulImmersionPreloadQuery(card.spelling)) return false;
+        const card = this.preloadableReaderWordCard(word);
+        if (!card) return false;
         const key = cardKey(card);
         if (this.preloadedTermAudioKeys.has(key)) return false;
         this.preloadedTermAudioKeys.add(key);
@@ -1220,6 +1484,11 @@ export class ReaderApp {
             candidateLimit: options.candidateLimit ?? 1,
         });
         return true;
+    }
+
+    private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
+        const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        return card && isUsefulImmersionPreloadQuery(card.spelling) ? card : null;
     }
 
     private preloadNearbyReaderWordAudio(word: HTMLElement): void {
@@ -1256,29 +1525,50 @@ export class ReaderApp {
             return;
         }
 
-        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (!word || !this.canHoverLookupReaderWord(word)) {
-            const candidate = this.shouldLookupOnHover(event)
-                ? this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target)
-                : null;
-            if (candidate && this.isActivePointerTextLookup(candidate)) {
-                this.rememberHoverPopoverPointer(event);
-                this.cancelHoverClose();
-                this.refreshActiveHoverAnchor(candidate.anchor);
-                this.scheduleActivePopoverReposition();
-                return;
-            }
-            if (!candidate) this.cancelPendingHoverLookup();
-            if (this.activePopoverMode === 'hover' && !this.isHoverContextActive({ ignoreCssHover: true })) {
-                this.scheduleHoverClose(undefined, { ignoreCssHover: true });
-            }
-            if (!this.shouldLookupOnHover(event)) return;
-            if (candidate) {
-                this.rememberHoverPopoverPointer(event);
-                this.schedulePointerTextLookup(candidate, event);
-            }
+        const word = this.hoverReaderWordForEvent(event);
+        if (!word) {
+            this.handlePointerTextHover(event);
             return;
         }
+        this.handleReaderWordHover(word, event);
+    }
+
+    private hoverReaderWordForEvent(event: PointerEvent): HTMLElement | null {
+        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+        return word && this.canHoverLookupReaderWord(word) ? word : null;
+    }
+
+    private handlePointerTextHover(event: PointerEvent): void {
+        const hoverEnabled = this.shouldLookupOnHover(event);
+        const candidate = hoverEnabled ? this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target) : null;
+        if (candidate && this.refreshActivePointerTextHover(candidate, event)) return;
+        this.cancelMissingPointerTextCandidate(candidate);
+        this.scheduleInactiveHoverClose();
+        if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
+        this.rememberHoverPopoverPointer(event);
+        this.schedulePointerTextLookup(candidate, event);
+    }
+
+    private refreshActivePointerTextHover(candidate: PointerTextLookup, event: PointerEvent): boolean {
+        if (!this.isActivePointerTextLookup(candidate)) return false;
+        this.rememberHoverPopoverPointer(event);
+        this.cancelHoverClose();
+        this.refreshActiveHoverAnchor(candidate.anchor);
+        this.scheduleActivePopoverReposition();
+        return true;
+    }
+
+    private cancelMissingPointerTextCandidate(candidate: PointerTextLookup | null): void {
+        if (!candidate) this.cancelPendingHoverLookup();
+    }
+
+    private scheduleInactiveHoverClose(): void {
+        if (this.activePopoverMode === 'hover' && !this.isHoverContextActive({ ignoreCssHover: true })) {
+            this.scheduleHoverClose(undefined, { ignoreCssHover: true });
+        }
+    }
+
+    private handleReaderWordHover(word: HTMLElement, event: PointerEvent): void {
         this.rememberHoverPopoverPointer(event);
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
         if (this.isActiveHoverLookup(hoverLookupKey)) {
@@ -1301,28 +1591,51 @@ export class ReaderApp {
         if (this.isDestroyed) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
-        if (this.isInsideActivePopover(event.target as Node | null)) {
-            if (this.isInsideActivePopover(related) || (this.activeHoverWord && this.isInsideNode(related, this.activeHoverWord))) return;
-            this.scheduleHoverClose(undefined, { ignoreCssHover: true });
-            return;
-        }
+        if (this.handleActivePopoverPointerOut(event, related)) return;
+        this.handleReaderWordPointerOut(event, related);
+    }
 
-        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (!word || (related && word.contains(related))) return;
+    private handleActivePopoverPointerOut(event: PointerEvent, related: Node | null): boolean {
+        if (this.isInsideActivePopover(event.target as Node | null)) {
+            if (this.isInsideActivePopover(related) || (this.activeHoverWord && this.isInsideNode(related, this.activeHoverWord))) return true;
+            this.scheduleHoverClose(undefined, { ignoreCssHover: true });
+            return true;
+        }
+        return false;
+    }
+
+    private handleReaderWordPointerOut(event: PointerEvent, related: Node | null): void {
+        const word = this.pointerOutReaderWord(event, related);
+        if (!word) return;
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
+        this.cancelPendingHoverLookupForWord(word, hoverLookupKey);
+        this.clearSuppressedHoverForWord(word, hoverLookupKey);
+        this.handleActiveHoverWordPointerOut(word, related);
+    }
+
+    private pointerOutReaderWord(event: PointerEvent, related: Node | null): HTMLElement | null {
+        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+        return word && !(related && word.contains(related)) ? word : null;
+    }
+
+    private cancelPendingHoverLookupForWord(word: HTMLElement, hoverLookupKey: string): void {
         if (this.hoverPendingWord === word || this.hoverPendingLookupKey === hoverLookupKey || this.hoverLookupInFlightKey === hoverLookupKey) {
             this.cancelPendingHoverLookup();
         }
+    }
+
+    private clearSuppressedHoverForWord(word: HTMLElement, hoverLookupKey: string): void {
         if (this.suppressedHoverWord === word) this.suppressedHoverWord = undefined;
         if (this.suppressedHoverLookupKey === hoverLookupKey) this.suppressedHoverLookupKey = '';
+    }
 
-        if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) {
-            if (this.isInsideActivePopover(related)) {
-                this.cancelHoverClose();
-                return;
-            }
-            this.scheduleHoverClose(undefined, { ignoreCssHover: true });
+    private handleActiveHoverWordPointerOut(word: HTMLElement, related: Node | null): void {
+        if (this.activePopoverMode !== 'hover' || this.activeHoverWord !== word) return;
+        if (this.isInsideActivePopover(related)) {
+            this.cancelHoverClose();
+            return;
         }
+        this.scheduleHoverClose(undefined, { ignoreCssHover: true });
     }
 
     private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
@@ -1376,14 +1689,7 @@ export class ReaderApp {
 
     private scheduleHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent): void {
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
-        if (this.suppressedHoverWord === word || (hoverLookupKey && this.suppressedHoverLookupKey === hoverLookupKey)) return;
-        if (this.isActiveHoverLookup(hoverLookupKey)) {
-            this.refreshActiveHoverAnchor(word);
-            return;
-        }
-        if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) return;
-        if ((this.hoverPendingWord === word || (hoverLookupKey && this.hoverPendingLookupKey === hoverLookupKey)) && this.hoverLookupTimer) return;
-        if (hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey) return;
+        if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
 
         this.preloadHoverWordAudio(word);
         this.cancelHoverClose();
@@ -1391,36 +1697,79 @@ export class ReaderApp {
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = word;
         this.hoverPendingLookupKey = hoverLookupKey;
-        const runLookup = () => {
-            if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
-            this.hoverLookupTimer = undefined;
-            this.hoverPendingWord = undefined;
-            this.hoverPendingLookupKey = '';
-            let activeWord = word;
-            if (!activeWord.isConnected && this.lastPointerPosition) {
-                activeWord = this.wordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? activeWord;
-            }
-            if (!activeWord.isConnected || this.suppressedHoverWord === activeWord) return;
-            const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
-            if (activeHoverLookupKey && this.suppressedHoverLookupKey === activeHoverLookupKey) return;
-            if (this.isActiveHoverLookup(activeHoverLookupKey)) {
-                this.refreshActiveHoverAnchor(activeWord);
-                return;
-            }
-            if (!this.isWordHoverActive(activeWord) || !this.settings.lookupOnHover) return;
-            if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
-            if (activeWord.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
-            if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-            void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
-                if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
-            });
-        };
-        const delay = Math.max(0, this.settings.hoverOpenDelayMs);
-        if (delay === 0) {
-            runLookup();
-            return;
+        this.installHoverLookupTimer(() => this.runScheduledHoverLookup(word, event, hoverLookupGeneration));
+    }
+
+    private shouldSkipHoverLookupSchedule(word: HTMLElement, hoverLookupKey: string): boolean {
+        if (this.isSuppressedHoverLookup(word, hoverLookupKey)) return true;
+        if (this.isActiveHoverLookup(hoverLookupKey)) {
+            this.refreshActiveHoverAnchor(word);
+            return true;
         }
-        this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+        return this.isSameActiveHoverWord(word)
+            || this.isPendingHoverLookup(word, hoverLookupKey)
+            || this.isInFlightHoverLookup(hoverLookupKey);
+    }
+
+    private isSuppressedHoverLookup(word: HTMLElement, hoverLookupKey: string): boolean {
+        return this.suppressedHoverWord === word || Boolean(hoverLookupKey && this.suppressedHoverLookupKey === hoverLookupKey);
+    }
+
+    private isSameActiveHoverWord(word: HTMLElement): boolean {
+        return this.activePopoverMode === 'hover' && this.activeHoverWord === word;
+    }
+
+    private isPendingHoverLookup(word: HTMLElement, hoverLookupKey: string): boolean {
+        return Boolean((this.hoverPendingWord === word || (hoverLookupKey && this.hoverPendingLookupKey === hoverLookupKey)) && this.hoverLookupTimer);
+    }
+
+    private isInFlightHoverLookup(hoverLookupKey: string): boolean {
+        return Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
+    }
+
+    private installHoverLookupTimer(runLookup: () => void): void {
+        const delay = Math.max(0, this.settings.hoverOpenDelayMs);
+        if (delay === 0) runLookup();
+        else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+    }
+
+    private runScheduledHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent, hoverLookupGeneration: number): void {
+        if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
+        this.hoverLookupTimer = undefined;
+        this.hoverPendingWord = undefined;
+        this.hoverPendingLookupKey = '';
+        const activeWord = this.resolveScheduledHoverWord(word);
+        if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
+        const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
+        if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
+        void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
+            if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
+        });
+    }
+
+    private resolveScheduledHoverWord(word: HTMLElement): HTMLElement | null {
+        if (word.isConnected) return word;
+        return this.lastPointerPosition
+            ? this.wordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? null
+            : null;
+    }
+
+    private canRunScheduledHoverLookup(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
+        const hoverLookupKey = this.hoverLookupKeyForWord(activeWord);
+        if (!activeWord.isConnected || this.isSuppressedHoverLookup(activeWord, hoverLookupKey)) return false;
+        if (this.isActiveHoverLookup(hoverLookupKey)) {
+            this.refreshActiveHoverAnchor(activeWord);
+            return false;
+        }
+        if (!this.canOpenHoverLookupForWord(activeWord, event)) return false;
+        if (activeWord.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
+        return true;
+    }
+
+    private canOpenHoverLookupForWord(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
+        return this.isWordHoverActive(activeWord)
+            && this.settings.lookupOnHover
+            && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }
 
     private schedulePointerTextLookup(candidate: PointerTextLookup, event: MouseEvent | KeyboardEvent): void {
@@ -1429,8 +1778,7 @@ export class ReaderApp {
             return;
         }
         const hoverLookupKey = this.pendingPointerTextLookupKey(candidate);
-        if (hoverLookupKey && (this.hoverPendingLookupKey === hoverLookupKey && this.hoverLookupTimer)) return;
-        if (hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey) return;
+        if (this.isPointerTextLookupAlreadyQueued(hoverLookupKey)) return;
         this.cancelHoverClose();
         window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
@@ -1455,6 +1803,13 @@ export class ReaderApp {
         this.hoverLookupTimer = window.setTimeout(runLookup, delay);
     }
 
+    private isPointerTextLookupAlreadyQueued(hoverLookupKey: string): boolean {
+        return Boolean(hoverLookupKey && (
+            (this.hoverPendingLookupKey === hoverLookupKey && this.hoverLookupTimer)
+            || this.hoverLookupInFlightKey === hoverLookupKey
+        ));
+    }
+
     private cancelHoverClose(): void {
         window.clearTimeout(this.hoverCloseTimer);
         this.hoverCloseTimer = undefined;
@@ -1472,11 +1827,23 @@ export class ReaderApp {
 
     private isHoverContextActive(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
         if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options)) return true;
-        if (!options.ignoreCssHover && this.activePopover?.matches(':hover')) return true;
-        if (options.ignorePointerPosition) return false;
-        if (!this.lastPointerPosition) return false;
-        const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-        return this.isInsideActivePopover(target) || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
+        if (this.isPopoverCssHoverActive(options)) return true;
+        const target = this.currentHoverPointerTarget(options);
+        return target ? this.isInsideActiveHoverContext(target) : false;
+    }
+
+    private isPopoverCssHoverActive(options: { ignoreCssHover?: boolean }): boolean {
+        return !options.ignoreCssHover && Boolean(this.activePopover?.matches(':hover'));
+    }
+
+    private currentHoverPointerTarget(options: { ignorePointerPosition?: boolean }): Element | null {
+        if (options.ignorePointerPosition || !this.lastPointerPosition) return null;
+        return document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+    }
+
+    private isInsideActiveHoverContext(target: Element): boolean {
+        return this.isInsideActivePopover(target)
+            || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
     }
 
     private isWordHoverActive(word: HTMLElement, options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
@@ -1516,20 +1883,31 @@ export class ReaderApp {
 
     private isActivePointerTextLookup(candidate: PointerTextLookup): boolean {
         const active = this.activePointerTextLookup;
-        if (!active || this.activePopoverMode !== 'hover' || !this.activePopover) return false;
-        if (active.anchor !== candidate.anchor || active.text !== candidate.text) return false;
-        return (active.start <= candidate.offset && candidate.offset < active.end)
-            || (active.start < candidate.offset && candidate.offset <= active.end);
+        if (!active || !this.hasActiveHoverPopover()) return false;
+        if (!samePointerTextLookupTarget(active, candidate)) return false;
+        return pointerOffsetInsideLookup(active, candidate.offset);
+    }
+
+    private hasActiveHoverPopover(): boolean {
+        return this.activePopoverMode === 'hover' && Boolean(this.activePopover);
     }
 
     private refreshActiveHoverAnchor(anchor: HTMLElement): void {
-        if (!this.activePopover || this.activePopoverMode !== 'hover' || !anchor.isConnected) return;
+        if (!this.canRefreshActiveHoverAnchor(anchor)) return;
         if (this.activePopoverAnchor === anchor && this.activeHoverWord === anchor) return;
         this.activePopoverAnchor = anchor;
         this.activeHoverWord = anchor;
+        this.captureActiveHoverAnchorRect(anchor);
+        this.repositionActivePopover();
+    }
+
+    private canRefreshActiveHoverAnchor(anchor: HTMLElement): boolean {
+        return Boolean(this.activePopover && this.activePopoverMode === 'hover' && anchor.isConnected);
+    }
+
+    private captureActiveHoverAnchorRect(anchor: HTMLElement): void {
         const rect = anchor.getBoundingClientRect();
         if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
-        this.repositionActivePopover();
     }
 
     private isInsideActivePopover(node: Node | null): boolean {
@@ -1583,55 +1961,86 @@ export class ReaderApp {
         await this.lookupText(selected, getSelectionSentence());
     }
 
-    private async lookupText(text: string, sentence = text, options: { navigation?: CardNavigationMode; preservePosition?: boolean; previousNavigationEntry?: PopupNavigationEntry; anchor?: HTMLElement } = {}): Promise<void> {
-        const selected = text.replace(/\s+/g, ' ').trim();
-        if (!selected || !HAS_JAPANESE.test(selected)) return;
-        const anchor = options.anchor ?? (this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined);
-        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
-        const navigation = options.navigation ?? 'reset';
-        const preservePosition = options.preservePosition ?? (navigation !== 'reset' && Boolean(this.activePopover));
-        const previousNavigationEntry = options.previousNavigationEntry ?? (
-            trigger === 'modal' && navigation === 'push-current'
-                ? this.activeKanjiNavigationEntry()
-                : undefined
-        );
-        const done = log.time('lookupText', { length: selected.length, trigger });
+    private async lookupText(text: string, sentence = text, options: TextLookupOptions = {}): Promise<void> {
+        const context = this.textLookupDisplayContext(text, options);
+        if (!context) return;
+        const done = log.time('lookupText', { length: context.selected.length, trigger: context.trigger });
         try {
             const [tokens] = await this.parseJapanese([sentence]);
-            const selectedToken = pickTokenForSelection(tokens, selected);
-            if (!selectedToken) {
-                if (tokens.length) {
-                    log.debug('Lookup produced token list', { selected, tokenCount: tokens.length });
-                    this.showTokenList(tokens, selected, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
-                    return;
-                }
-                const localEntries = this.settings.localDictionariesEnabled
-                    ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
-                    : [];
-                if (localEntries.length) {
-                    log.debug('Lookup fell back to local dictionary entry', { selected, entries: localEntries.length });
-                    void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
-                    return;
-                }
-                log.debug('Lookup found no entries; showing fallback card', { selected });
-                void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
-                return;
-            }
-            log.debug('Lookup selected token', { selected, term: selectedToken.card.spelling, source: selectedToken.card.source ?? 'jpdb' });
-            void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
+            await this.showTextLookupResult(context, tokens, sentence);
         } catch (error) {
-            log.warn('Lookup failed; trying local fallback', { selected }, error);
-            const localEntries = this.settings.localDictionariesEnabled
-                ? await this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
-                : [];
-            if (localEntries.length) void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
-            else {
-                this.toast(error instanceof Error ? error.message : 'JPDB lookup failed.');
-                void this.showCard(this.parser.fallbackCardFromText(selected), sentence, anchor, { trigger, navigation, preservePosition, previousNavigationEntry });
-            }
+            log.warn('Lookup failed; trying local fallback', { selected: context.selected }, error);
+            await this.showLocalOrFallbackLookupCard(context, sentence, error);
         } finally {
             done();
         }
+    }
+
+    private textLookupDisplayContext(text: string, options: TextLookupOptions): TextLookupDisplayContext | null {
+        const selected = normalizedLookupText(text);
+        if (!isLookupableJapaneseText(selected)) return null;
+        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
+        const navigation = options.navigation ?? 'reset';
+        return {
+            selected,
+            anchor: options.anchor ?? connectedElement(this.activePopoverAnchor),
+            trigger,
+            navigation,
+            preservePosition: options.preservePosition ?? this.shouldPreserveLookupPosition(navigation),
+            previousNavigationEntry: options.previousNavigationEntry ?? this.textLookupPreviousNavigationEntry(trigger, navigation),
+        };
+    }
+
+    private shouldPreserveLookupPosition(navigation: CardNavigationMode): boolean {
+        return navigation !== 'reset' && Boolean(this.activePopover);
+    }
+
+    private textLookupPreviousNavigationEntry(trigger: 'modal' | 'hover', navigation: CardNavigationMode): PopupNavigationEntry | undefined {
+        return trigger === 'modal' && navigation === 'push-current'
+            ? this.activeKanjiNavigationEntry()
+            : undefined;
+    }
+
+    private async showTextLookupResult(context: TextLookupDisplayContext, tokens: JPDBToken[], sentence: string): Promise<void> {
+        const selectedToken = pickTokenForSelection(tokens, context.selected);
+        if (selectedToken) {
+            log.debug('Lookup selected token', { selected: context.selected, term: selectedToken.card.spelling, source: selectedToken.card.source ?? 'jpdb' });
+            void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, context.anchor, this.textLookupCardOptions(context));
+            return;
+        }
+        if (tokens.length) {
+            log.debug('Lookup produced token list', { selected: context.selected, tokenCount: tokens.length });
+            this.showTokenList(tokens, context.selected, context.anchor, this.textLookupCardOptions(context));
+            return;
+        }
+        await this.showLocalOrFallbackLookupCard(context, sentence);
+    }
+
+    private async showLocalOrFallbackLookupCard(context: TextLookupDisplayContext, sentence: string, error?: unknown): Promise<void> {
+        const localEntries = await this.localLookupEntries(context.selected);
+        if (localEntries.length) {
+            log.debug('Lookup fell back to local dictionary entry', { selected: context.selected, entries: localEntries.length });
+            void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, this.textLookupCardOptions(context));
+            return;
+        }
+        if (error) this.toast(error instanceof Error ? error.message : 'JPDB lookup failed.');
+        else log.debug('Lookup found no entries; showing fallback card', { selected: context.selected });
+        void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, this.textLookupCardOptions(context));
+    }
+
+    private async localLookupEntries(selected: string): Promise<YomitanTermEntry[]> {
+        return this.settings.localDictionariesEnabled
+            ? this.dictionaries.lookup(selected, selected, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
+            : [];
+    }
+
+    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry'> {
+        return {
+            trigger: context.trigger,
+            navigation: context.navigation,
+            preservePosition: context.preservePosition,
+            previousNavigationEntry: context.previousNavigationEntry,
+        };
     }
 
     private handleDictionaryLookupLink(event: MouseEvent, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean {
@@ -1680,21 +2089,33 @@ export class ReaderApp {
         if (!element || this.isNativeTextLookupTarget(element)) return null;
 
         const position = caretTextPositionFromPoint(x, y);
-        if (!position || !position.node.parentElement) return null;
-        if (!element.contains(position.node) && !position.node.parentElement.contains(element)) return null;
-        if (position.node.parentElement.closest('.jpdb-reader-word')) return null;
+        if (!this.isUsablePointerTextPosition(element, position)) return null;
 
         const characterOffset = pointerTextCharacterOffset(position.node, position.offset, x, y);
         if (characterOffset === null) return null;
-        const run = japaneseRunAt(position.node.data, characterOffset);
-        if (!run) return null;
-        if (isLowValuePointerText(position.node.data, position.node.parentElement)) return null;
+        return this.lookupCandidateFromTextPosition(position.node, characterOffset);
+    }
+
+    private lookupCandidateFromTextPosition(node: Text, characterOffset: number): PointerTextLookup | null {
+        const run = japaneseRunAt(node.data, characterOffset);
+        if (!run || isLowValuePointerText(node.data, node.parentElement)) return null;
+        return this.pointerTextLookupFromRun(node, run);
+    }
+
+    private isUsablePointerTextPosition(element: Element, position: ReturnType<typeof caretTextPositionFromPoint>): position is NonNullable<ReturnType<typeof caretTextPositionFromPoint>> {
+        return Boolean(position
+            && position.node.parentElement
+            && (element.contains(position.node) || position.node.parentElement.contains(element))
+            && !position.node.parentElement.closest('.jpdb-reader-word'));
+    }
+
+    private pointerTextLookupFromRun(node: Text, run: NonNullable<ReturnType<typeof japaneseRunAt>>): PointerTextLookup {
         return {
-            text: position.node.data,
+            text: node.data,
             offset: run.offset,
             start: run.start,
             end: run.end,
-            anchor: position.node.parentElement,
+            anchor: node.parentElement as HTMLElement,
         };
     }
 
@@ -1717,53 +2138,9 @@ export class ReaderApp {
         if (!sentence || !HAS_JAPANESE.test(sentence)) return;
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
         try {
-            const [tokens] = await this.parseJapanese([candidate.text]);
-            const token = (tokens ?? []).find(item =>
-                (item.start <= candidate.offset && candidate.offset < item.end)
-                || (item.start < candidate.offset && candidate.offset <= item.end),
-            );
-            if (token) {
-                const pointerTextLookup = { anchor: candidate.anchor, text: candidate.text, start: token.start, end: token.end };
-                await this.showCard(token.card, token.sentence ?? sentence, candidate.anchor, {
-                    trigger,
-                    navigation: options.navigation ?? 'reset',
-                    preservePosition: options.preservePosition,
-                    hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, token.start, token.end, token.card) : undefined,
-                    hoverLookupGeneration: options.hoverLookupGeneration,
-                    pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
-                });
-                return;
-            }
-
-            const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
-            if (localMatch) {
-                const card = this.parser.localCardFromEntry(localMatch.entry);
-                const pointerTextLookup = { anchor: candidate.anchor, text: candidate.text, start: localMatch.start, end: localMatch.end };
-                await this.showCard(card, sentence, candidate.anchor, {
-                    trigger,
-                    navigation: options.navigation ?? 'reset',
-                    preservePosition: options.preservePosition,
-                    hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, localMatch.start, localMatch.end, card) : undefined,
-                    hoverLookupGeneration: options.hoverLookupGeneration,
-                    pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
-                });
-                return;
-            }
-            const fallbackTerm = fallbackLookupTermAtOffset(candidate.text, candidate.offset);
-            if (fallbackTerm) {
-                log.debug('Pointer text lookup found no entries; showing fallback card', { fallbackTerm, offset: candidate.offset });
-                const card = this.parser.fallbackCardFromText(fallbackTerm);
-                const pointerTextLookup = { anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end };
-                await this.showCard(card, sentence, candidate.anchor, {
-                    trigger,
-                    navigation: options.navigation ?? 'reset',
-                    preservePosition: options.preservePosition,
-                    hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, candidate.start, candidate.end, card) : undefined,
-                    hoverLookupGeneration: options.hoverLookupGeneration,
-                    pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
-                });
-                return;
-            }
+            if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
+            if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options)) return;
+            if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options)) return;
             log.debug('Pointer text lookup found no local entry', { offset: candidate.offset });
         } catch (error) {
             log.debug('Pointer text lookup failed quietly', { offset: candidate.offset }, error);
@@ -1772,11 +2149,74 @@ export class ReaderApp {
         }
     }
 
+    private async showParsedPointerTextCandidate(
+        candidate: PointerTextLookup,
+        sentence: string,
+        trigger: 'modal' | 'hover',
+        options: PointerTextDisplayOptions,
+    ): Promise<boolean> {
+        const [tokens] = await this.parseJapanese([candidate.text]);
+        const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
+        if (!token) return false;
+        await this.showPointerTextCard(token.card, token.sentence ?? sentence, candidate, { start: token.start, end: token.end }, trigger, options);
+        return true;
+    }
+
+    private async showLocalPointerTextCandidate(
+        candidate: PointerTextLookup,
+        sentence: string,
+        trigger: 'modal' | 'hover',
+        options: PointerTextDisplayOptions,
+    ): Promise<boolean> {
+        const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
+        if (!localMatch) return false;
+        const card = this.parser.localCardFromEntry(localMatch.entry);
+        await this.showPointerTextCard(card, sentence, candidate, localMatch, trigger, options);
+        return true;
+    }
+
+    private async showFallbackPointerTextCandidate(
+        candidate: PointerTextLookup,
+        sentence: string,
+        trigger: 'modal' | 'hover',
+        options: PointerTextDisplayOptions,
+    ): Promise<boolean> {
+        const fallbackTerm = fallbackLookupTermAtOffset(candidate.text, candidate.offset);
+        if (!fallbackTerm) return false;
+        log.debug('Pointer text lookup found no entries; showing fallback card', { fallbackTerm, offset: candidate.offset });
+        const card = this.parser.fallbackCardFromText(fallbackTerm);
+        await this.showPointerTextCard(card, sentence, candidate, candidate, trigger, options);
+        return true;
+    }
+
+    private async showPointerTextCard(
+        card: JPDBCard,
+        sentence: string,
+        candidate: PointerTextLookup,
+        range: { start: number; end: number },
+        trigger: 'modal' | 'hover',
+        options: PointerTextDisplayOptions,
+    ): Promise<void> {
+        const pointerTextLookup = { anchor: candidate.anchor, text: candidate.text, start: range.start, end: range.end };
+        await this.showCard(card, sentence, candidate.anchor, {
+            trigger,
+            navigation: options.navigation ?? 'reset',
+            preservePosition: options.preservePosition,
+            hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, range.start, range.end, card) : undefined,
+            hoverLookupGeneration: options.hoverLookupGeneration,
+            pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
+        });
+    }
+
     private async lookupLocalEntryAtOffset(text: string, offset: number): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined> {
         if (!this.settings.localDictionariesEnabled) return undefined;
         const run = japaneseRunAt(text, offset);
         if (!run) return undefined;
 
+        return await this.lookupLocalEntryInRun(text, run);
+    }
+
+    private async lookupLocalEntryInRun(text: string, run: NonNullable<ReturnType<typeof japaneseRunAt>>): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined> {
         const maxEnd = Math.min(run.end, run.offset + 18);
         for (let end = maxEnd; end > run.offset; end--) {
             const surface = text.slice(run.offset, end);
@@ -1854,47 +2294,76 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry } = {}): Promise<void> {
-        const vid = Number(word.dataset.vid);
-        const sid = Number(word.dataset.sid);
-        const card = this.getCachedCard(vid, sid);
+        const card = this.cardForRenderedWord(word);
         if (!card) {
-            log.warn('Clicked word missing from cache; scheduling page reparse', { vid, sid });
-            this.scheduleVisiblePageReparse();
             return;
         }
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
-        if (insideReaderPopup && word.closest('.jpdb-reader-example-card')) {
-            this.immersionPopover.rememberPageMiningContext(card, word.dataset.sentence || undefined, word);
-        }
-        const sentence = nearestReadableSentenceForElement(word, word.dataset.sentence || '');
-        const anchor = insideReaderPopup
-            ? this.activePopoverAnchor ?? undefined
-            : word;
-        const trigger = insideReaderPopup && this.activePopoverMode === 'hover'
-            ? 'hover'
-            : options.trigger === 'hover' ? 'hover' : 'modal';
-        const navigation = options.navigation ?? (insideReaderPopup && trigger === 'modal' ? 'push-current' : 'reset');
-        const hoverLookupKey = trigger === 'hover' ? this.hoverLookupKeyForWord(word) : undefined;
-        if (hoverLookupKey && this.isActiveHoverLookup(hoverLookupKey)) {
+        this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
+        const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
+        if (context.hoverLookupKey && this.isActiveHoverLookup(context.hoverLookupKey)) {
             this.refreshActiveHoverAnchor(word);
             return;
         }
-        const previousNavigationEntry = options.previousNavigationEntry ?? (
-            insideReaderPopup && trigger === 'modal' && navigation === 'push-current'
-                ? this.activeKanjiNavigationEntry()
-                : undefined
-        );
-        log.debug('Showing word card from rendered token', { term: card.spelling, trigger, source: card.source ?? 'jpdb' });
+        log.debug('Showing word card from rendered token', { term: card.spelling, trigger: context.trigger, source: card.source ?? 'jpdb' });
         this.preloadHoverWordAudio(word);
-        await this.showCard(card, sentence || undefined, anchor, {
+        await this.showCard(card, context.sentence, context.anchor, {
+            trigger: context.trigger,
+            navigation: context.navigation,
+            preservePosition: context.insideReaderPopup,
+            previousNavigationEntry: context.previousNavigationEntry,
+            hoverLookupKey: context.hoverLookupKey,
+            hoverLookupGeneration: options.hoverLookupGeneration,
+            insideReaderPopup: context.insideReaderPopup,
+        });
+    }
+
+    private cardForRenderedWord(word: HTMLElement): JPDBCard | undefined {
+        const vid = Number(word.dataset.vid);
+        const sid = Number(word.dataset.sid);
+        const card = this.getCachedCard(vid, sid);
+        if (card) return card;
+        log.warn('Clicked word missing from cache; scheduling page reparse', { vid, sid });
+        this.scheduleVisiblePageReparse();
+        return undefined;
+    }
+
+    private rememberRenderedWordMiningContext(word: HTMLElement, card: JPDBCard, insideReaderPopup: boolean): void {
+        if (!insideReaderPopup || !word.closest('.jpdb-reader-example-card')) return;
+        this.immersionPopover.rememberPageMiningContext(card, word.dataset.sentence || undefined, word);
+    }
+
+    private renderedWordDisplayContext(
+        word: HTMLElement,
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        insideReaderPopup: boolean,
+    ): RenderedWordDisplayContext {
+        const trigger = this.renderedWordTrigger(options.trigger, insideReaderPopup);
+        const navigation = options.navigation ?? renderedWordNavigationMode(insideReaderPopup, trigger);
+        return {
+            sentence: nearestReadableSentenceForElement(word, word.dataset.sentence || '') || undefined,
+            anchor: renderedWordAnchor(word, insideReaderPopup, this.activePopoverAnchor),
             trigger,
             navigation,
-            preservePosition: insideReaderPopup,
-            previousNavigationEntry,
-            hoverLookupKey,
-            hoverLookupGeneration: options.hoverLookupGeneration,
+            hoverLookupKey: trigger === 'hover' ? this.hoverLookupKeyForWord(word) : undefined,
+            previousNavigationEntry: options.previousNavigationEntry ?? this.renderedWordPreviousNavigationEntry(insideReaderPopup, trigger, navigation),
             insideReaderPopup,
-        });
+        };
+    }
+
+    private renderedWordTrigger(trigger: 'click' | 'hover' | undefined, insideReaderPopup: boolean): 'modal' | 'hover' {
+        if (insideReaderPopup && this.activePopoverMode === 'hover') return 'hover';
+        return trigger === 'hover' ? 'hover' : 'modal';
+    }
+
+    private renderedWordPreviousNavigationEntry(
+        insideReaderPopup: boolean,
+        trigger: 'modal' | 'hover',
+        navigation: CardNavigationMode,
+    ): PopupNavigationEntry | undefined {
+        return insideReaderPopup && trigger === 'modal' && navigation === 'push-current'
+            ? this.activeKanjiNavigationEntry()
+            : undefined;
     }
 
     private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry'> = {}): void {
@@ -1958,8 +2427,6 @@ export class ReaderApp {
     private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: CardDisplayOptions = {}): Promise<void> {
         this.lastCard = card;
         this.lastCardSentence = sentence;
-        const cardStates = normalizeCardStates(card.cardState);
-        const state = primaryCardState(cardStates);
         const popover = this.createPopover();
         const trigger = options.trigger === 'hover' ? 'hover' : 'modal';
         const navigation = options.navigation ?? 'reset';
@@ -1968,108 +2435,174 @@ export class ReaderApp {
         this.updateWordNavigation(card, sentence, trigger, navigation, options.previousNavigationEntry);
         this.clearKanjiNavigation();
         const done = log.time('showCard', { term: card.spelling, source: card.source ?? 'jpdb', trigger });
-        const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover.activeContextFor(card));
-        if (!hasNestedImmersionContext && !this.immersionPopover.hasActiveContext(card, sentence)) {
-            this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
-        }
+        this.rememberCardMiningContext(card, sentence, anchor, options);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
         this.lastAnkiLookup = fallbackAnkiLookup;
         const renderData = this.loadCardRenderData(card);
-        const instantLocalEntries = await waitForInstantData(renderData.localEntries, INSTANT_DICTIONARY_RENDER_WAIT_MS);
-        if (!isCurrentHoverCard()) {
-            log.debug('Discarding stale hover card before mount', { term: card.spelling, hoverLookupGeneration });
+
+        const mounted = await this.mountInitialCardShell(popover, card, sentence, anchor, {
+            trigger,
+            navigation,
+            options,
+            renderData,
+            fallbackAnkiLookup,
+            isCurrentHoverCard,
+            hoverLookupGeneration,
+        });
+        if (!mounted) {
             done();
             return;
         }
-        const initialData: CardRenderData & { loading: boolean } = {
-            localEntries: instantLocalEntries ?? [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: fallbackAnkiLookup,
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: true,
-        };
-        setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, initialData));
-        this.installCardPopoverHandlers(popover, card, sentence, anchor, trigger);
+
+        const renderState = { fullRenderCompleted: false };
+        this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard);
+
+        const fullData = await renderData.all;
+        renderState.fullRenderCompleted = true;
+        if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) {
+            log.debug('Discarding stale card render', { term: card.spelling, requestId: mounted.requestId });
+            done();
+            return;
+        }
+        this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData);
+        done();
+    }
+
+    private rememberCardMiningContext(card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: CardDisplayOptions): void {
+        const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover.activeContextFor(card));
+        if (hasNestedImmersionContext || this.immersionPopover.hasActiveContext(card, sentence)) return;
+        this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
+    }
+
+    private async mountInitialCardShell(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        anchor: HTMLElement | undefined,
+        context: {
+            trigger: 'modal' | 'hover';
+            navigation: CardNavigationMode;
+            options: CardDisplayOptions;
+            renderData: CardRenderDataLoad;
+            fallbackAnkiLookup: AnkiLookupResult;
+            isCurrentHoverCard: () => boolean;
+            hoverLookupGeneration?: number;
+        },
+    ): Promise<MountedCardShell | null> {
+        const instantLocalEntries = await waitForInstantData(context.renderData.localEntries, INSTANT_DICTIONARY_RENDER_WAIT_MS);
+        if (!context.isCurrentHoverCard()) {
+            log.debug('Discarding stale hover card before mount', { term: card.spelling, hoverLookupGeneration: context.hoverLookupGeneration });
+            return null;
+        }
+        setInnerHtml(popover, this.renderCardPopoverContent(
+            card,
+            sentence,
+            context.trigger,
+            this.loadingCardRenderData(instantLocalEntries ?? [], context.fallbackAnkiLookup),
+        ));
+        this.installCardPopoverHandlers(popover, card, sentence, anchor, context.trigger);
         this.mountPopover(popover, anchor, {
-            mode: trigger,
-            preservePosition: options.preservePosition ?? (trigger === 'modal' && navigation !== 'reset'),
-            hoverLookupKey: options.hoverLookupKey,
-            pointerTextLookup: options.pointerTextLookup,
+            mode: context.trigger,
+            preservePosition: context.options.preservePosition ?? (context.trigger === 'modal' && context.navigation !== 'reset'),
+            hoverLookupKey: context.options.hoverLookupKey,
+            pointerTextLookup: context.options.pointerTextLookup,
         });
         const requestId = ++this.cardRenderRequest;
-        log.debug('Card shell mounted', { term: card.spelling, trigger, instantLocalEntries: instantLocalEntries?.length ?? 0 });
-        if (options.autoPlay !== false && isCurrentHoverCard() && this.shouldAutoPlay(card)) {
-            void this.playAudio(card, { hoverLookupGeneration });
+        log.debug('Card shell mounted', { term: card.spelling, trigger: context.trigger, instantLocalEntries: instantLocalEntries?.length ?? 0 });
+        this.installInitialCardBehaviors(popover, card, sentence, context, instantLocalEntries);
+        return { instantLocalEntries: instantLocalEntries ?? null, requestId };
+    }
+
+    private installInitialCardBehaviors(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        context: {
+            options: CardDisplayOptions;
+            isCurrentHoverCard: () => boolean;
+            hoverLookupGeneration?: number;
+        },
+        instantLocalEntries: YomitanTermEntry[] | null,
+    ): void {
+        if (context.options.autoPlay !== false && context.isCurrentHoverCard() && this.shouldAutoPlay(card)) {
+            void this.playAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
         }
         if (instantLocalEntries?.length) void this.parsePopoverJapanese(popover);
         this.installStudyTranslationLoader(popover, sentence);
         this.installStudyGrammarLoader(popover, sentence);
-        if (this.settings.immersionKitEnabled) {
-            void this.immersionPopover.loadExamples(popover, card);
-        }
+        if (this.settings.immersionKitEnabled) void this.immersionPopover.loadExamples(popover, card);
+    }
 
-        let fullRenderCompleted = false;
-        if (!instantLocalEntries) {
-            void renderData.localEntries.then(localEntries => {
-                if (!isCurrentHoverCard() || fullRenderCompleted || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) return;
-                setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, {
-                    localEntries,
-                    kanjiEntries: [],
-                    metaEntries: [],
-                    ankiLookup: this.lastAnkiLookup ?? fallbackAnkiLookup,
-                    jpdbDecks: [],
-                    ankiDecks: [],
-                    jpdbVocabularyInfo: null,
-                    loading: true,
-                }));
-                log.debug('Card local dictionaries rendered', { term: card.spelling, localEntries: localEntries.length });
-                this.repositionActivePopover();
-                void this.parsePopoverJapanese(popover);
-            });
-        }
+    private renderDeferredCardLocalEntries(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        renderData: CardRenderDataLoad,
+        fallbackAnkiLookup: AnkiLookupResult,
+        mounted: MountedCardShell,
+        renderState: { fullRenderCompleted: boolean },
+        isCurrentHoverCard: () => boolean,
+    ): void {
+        if (mounted.instantLocalEntries !== null) return;
+        void renderData.localEntries.then(localEntries => {
+            if (renderState.fullRenderCompleted || !this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+            setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, this.loadingCardRenderData(localEntries, this.lastAnkiLookup ?? fallbackAnkiLookup)));
+            log.debug('Card local dictionaries rendered', { term: card.spelling, localEntries: localEntries.length });
+            this.repositionActivePopover();
+            void this.parsePopoverJapanese(popover);
+        });
+    }
 
-        const { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo } = await renderData.all;
-        fullRenderCompleted = true;
-        if (!isCurrentHoverCard() || requestId !== this.cardRenderRequest || !popover.isConnected || this.activePopover !== popover) {
-            log.debug('Discarding stale card render', { term: card.spelling, requestId });
-            done();
-            return;
-        }
-        this.lastAnkiLookup = ankiLookup;
-        this.applyAnkiLookupToRenderedWords(card, ankiLookup);
-        setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, {
-            localEntries,
-            kanjiEntries,
-            metaEntries,
-            ankiLookup,
-            jpdbDecks,
-            ankiDecks,
-            jpdbVocabularyInfo,
-            loading: false,
-        }));
+    private renderCompletedCardPopover(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        data: CardRenderData,
+    ): void {
+        this.lastAnkiLookup = data.ankiLookup;
+        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup);
+        setInnerHtml(popover, this.renderCardPopoverContent(card, sentence, trigger, { ...data, loading: false }));
 
         log.debug('Card rendered', {
             term: card.spelling,
-            localEntries: localEntries.length,
-            kanjiEntries: kanjiEntries.length,
-            metaEntries: metaEntries.length,
-            ankiState: ankiLookup.state,
+            localEntries: data.localEntries.length,
+            kanjiEntries: data.kanjiEntries.length,
+            metaEntries: data.metaEntries.length,
+            ankiState: data.ankiLookup.state,
             hasJpdb: this.isJpdbBackedCard(card),
         });
         this.repositionActivePopover();
         void this.parsePopoverJapanese(popover);
         if (this.settings.immersionKitEnabled) {
             const immersionExamples = this.immersionPopover.searchExamples(card, {
-                relatedQueries: this.immersionRelatedQueries(jpdbVocabularyInfo),
+                relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
             });
             void this.immersionPopover.loadExamples(popover, card, immersionExamples);
         }
         this.installStudyTranslationLoader(popover, sentence);
         this.installStudyGrammarLoader(popover, sentence);
-        done();
+    }
+
+    private loadingCardRenderData(localEntries: YomitanTermEntry[], ankiLookup: AnkiLookupResult): CardRenderData & { loading: boolean } {
+        return {
+            localEntries,
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: true,
+        };
+    }
+
+    private isCurrentCardRender(popover: HTMLElement, requestId: number, isCurrentHoverCard: () => boolean): boolean {
+        return isCurrentHoverCard()
+            && requestId === this.cardRenderRequest
+            && popover.isConnected
+            && this.activePopover === popover;
     }
 
     private immersionRelatedQueries(info: JpdbVocabularyInfo | null): string[] {
@@ -2083,54 +2616,101 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         data: CardRenderData & { loading: boolean },
     ): string {
-        const cardStates = normalizeCardStates(card.cardState);
-        const state = primaryCardState(cardStates);
-        const storedContext = data.loading ? null : loadMiningContext(card.spelling);
-        const jpdbUrl = `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
-        const cardPos = formatPartOfSpeech(card.partOfSpeech);
-        const cardPosDetails = formatPartOfSpeechDetails(card.partOfSpeech);
-        const language = this.settings.interfaceLanguage;
-        const hasJpdb = this.isJpdbBackedCard(card);
-        const miningDeckLabel = this.settings.miningDeck.trim() || 'forq';
-        const selectedDeckLabel = this.jpdbDeckLabel(miningDeckLabel, data.jpdbDecks);
-        const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
-        const miningActions = this.renderJpdbMiningActions(cardStates, language, data, hasJpdb);
-        const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, this.settings);
-        const reviewButtons = this.renderCardReviewButtons(cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language);
-        const metaItems = this.renderCardMetaItems(card, hasJpdb, state, data);
-        const loadingDetails = this.renderCardLoadingDetails(data.loading);
+        const view = this.cardPopoverRenderView(card, data);
 
         return `
             <div class="jpdb-reader-popover-body">
                 <div class="jpdb-reader-sheet-handle"></div>
-                ${this.renderWordHistoryNavigation(language, trigger)}
-                <div class="jpdb-reader-header">
-                    <div class="jpdb-reader-heading">
-                        <div class="jpdb-reader-title-row">
-                            <div class="jpdb-reader-spelling jpdb-${state}">${renderSpellingForKanjiNavigation(card.spelling, language)}</div>
-                            ${card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
-                            ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
-                        </div>
-                        ${this.renderWordPills(card, jpdbUrl, data.metaEntries)}
-                    </div>
-                    <div class="jpdb-reader-card-tools">
-                        ${this.settings.showPitchAccent ? renderPitch(card, data.metaEntries) : ''}
-                        <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${uiText(language, 'playAudio')}" title="${uiText(language, 'playAudio')}">${speakerIcon()}</button>
-                    </div>
-                </div>
-                ${cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(cardPosDetails)}">${escapeHtml(cardPos)}</div>` : ''}
+                ${this.renderWordHistoryNavigation(view.language, trigger)}
+                ${this.renderCardHeader(card, data, view)}
+                ${this.renderCardPartOfSpeech(view)}
                 ${this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo)}
-                ${loadingDetails}
-                ${data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, storedContext)}
+                ${view.loadingDetails}
+                ${this.renderCardAnkiExistingSection(data, view)}
                 ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dictionarySourceAttributes(key, initiallyExpanded), name => this.dictionaryLabel(name))}
             </div>
-                <div class="jpdb-reader-actions${miningActions ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : ''}">
-                ${miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button></div>' : ''}
-                ${miningActions}
-                ${ankiActions}
-                ${reviewButtons}
-            </div>
+            ${this.renderCardActions(view)}
         `;
+    }
+
+    private cardPopoverRenderView(card: JPDBCard, data: CardRenderData & { loading: boolean }): CardPopoverRenderView {
+        const cardStates = normalizeCardStates(card.cardState);
+        const state = primaryCardState(cardStates);
+        const language = this.settings.interfaceLanguage;
+        const hasJpdb = this.isJpdbBackedCard(card);
+        const selectedDeckLabel = this.jpdbDeckLabel(this.settings.miningDeck.trim() || 'forq', data.jpdbDecks);
+        const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
+        return {
+            cardStates,
+            state,
+            storedContext: data.loading ? null : loadMiningContext(card.spelling),
+            jpdbUrl: `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`,
+            cardPos: formatPartOfSpeech(card.partOfSpeech),
+            cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
+            language,
+            hasJpdb,
+            miningActions: this.renderJpdbMiningActions(cardStates, language, data, hasJpdb),
+            ankiActions: data.loading ? '' : renderAnkiActionRow(data.ankiLookup, this.settings),
+            reviewButtons: this.renderCardReviewButtons(cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
+            metaItems: this.renderCardMetaItems(card, hasJpdb, state, data),
+            loadingDetails: this.renderCardLoadingDetails(data.loading),
+        };
+    }
+
+    private renderCardHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
+        return `<div class="jpdb-reader-header">
+            <div class="jpdb-reader-heading">
+                ${this.renderCardTitleRow(card, view)}
+                ${this.renderWordPills(card, view.jpdbUrl, data.metaEntries)}
+            </div>
+            <div class="jpdb-reader-card-tools">
+                ${this.renderCardPitch(card, data)}
+                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${uiText(view.language, 'playAudio')}" title="${uiText(view.language, 'playAudio')}">${speakerIcon()}</button>
+            </div>
+        </div>`;
+    }
+
+    private renderCardTitleRow(card: JPDBCard, view: CardPopoverRenderView): string {
+        return `<div class="jpdb-reader-title-row">
+            <div class="jpdb-reader-spelling jpdb-${view.state}">${renderSpellingForKanjiNavigation(card.spelling, view.language)}</div>
+            ${this.renderCardReading(card)}
+            ${this.renderCardMeta(view.metaItems)}
+        </div>`;
+    }
+
+    private renderCardReading(card: JPDBCard): string {
+        return card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : '';
+    }
+
+    private renderCardMeta(metaItems: string[]): string {
+        return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
+    }
+
+    private renderCardPitch(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
+        return this.settings.showPitchAccent ? renderPitch(card, data.metaEntries) : '';
+    }
+
+    private renderCardPartOfSpeech(view: CardPopoverRenderView): string {
+        return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : '';
+    }
+
+    private renderCardAnkiExistingSection(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
+        return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext);
+    }
+
+    private renderCardActions(view: CardPopoverRenderView): string {
+        return `<div class="jpdb-reader-actions${view.miningActions ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : ''}">
+            ${this.renderCardMiningGutter(view.miningActions)}
+            ${view.miningActions}
+            ${view.ankiActions}
+            ${view.reviewButtons}
+        </div>`;
+    }
+
+    private renderCardMiningGutter(miningActions: string): string {
+        return miningActions
+            ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button></div>'
+            : '';
     }
 
     private renderJpdbMiningActions(
@@ -2144,17 +2724,14 @@ export class ReaderApp {
         const addDeckSelect = deckOptions
             ? `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}">${deckOptions}</select>`
             : '';
-        const isNeverForget = cardStates.includes('never-forget');
-        const isBlacklisted = cardStates.includes('blacklisted');
-        const neverForgetTitle = isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint');
-        const blacklistTitle = isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint');
+        const state = miningActionState(cardStates, language);
         const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
         return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
                         <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(neverForgetTitle)}" aria-pressed="${isNeverForget}">${isNeverForget ? uiText(language, 'forget') : uiText(language, 'never')}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(blacklistTitle)}" aria-pressed="${isBlacklisted}">${isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist')}</button>
+                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
                     </div>
                     ${addDeckSelect}
                 </div>
@@ -2169,11 +2746,19 @@ export class ReaderApp {
         reviewBlockReason: string,
         language: InterfaceLanguage,
     ): string {
-        if (reviewBlockReason || data.loading || !this.settings.enableReviews) return '';
-        if (!((hasJpdb && this.settings.apiKey.trim() && this.settings.jpdbMiningEnabled) || data.ankiLookup.primary?.primaryCardId)) return '';
+        if (!this.shouldRenderCardReviewButtons(data, hasJpdb, reviewBlockReason)) return '';
         return renderReviewButtons(this.settings, data.ankiLookup.primary, {
             title: cardStates.includes('not-in-deck') ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '',
         });
+    }
+
+    private shouldRenderCardReviewButtons(data: CardRenderData & { loading: boolean }, hasJpdb: boolean, reviewBlockReason: string): boolean {
+        if (reviewBlockReason || data.loading || !this.settings.enableReviews) return false;
+        return this.canReviewWithJpdb(hasJpdb) || Boolean(data.ankiLookup.primary?.primaryCardId);
+    }
+
+    private canReviewWithJpdb(hasJpdb: boolean): boolean {
+        return hasJpdb && Boolean(this.settings.apiKey.trim()) && this.settings.jpdbMiningEnabled;
     }
 
     private renderCardMetaItems(card: JPDBCard, hasJpdb: boolean, state: string, data: CardRenderData & { loading: boolean }): string[] {
@@ -2190,34 +2775,29 @@ export class ReaderApp {
 
     private renderDeckChoiceOptions(jpdbDecks: JPDBDeck[], ankiDecks: string[], includeJpdb: boolean): string {
         const options: Array<[string, string]> = [];
-        const add = (source: 'jpdb' | 'anki', value: string, label: string): void => {
-            const normalizedValue = value.trim();
-            const key = `${source}:${normalizedValue}`;
-            if (!normalizedValue || options.some(([existing]) => existing === key)) return;
-            options.push([key, label]);
-        };
-        if (includeJpdb) {
-            const selected = this.settings.miningDeck.trim() || 'forq';
-            add('jpdb', 'forq', 'JPDB: FORQ');
-            add('jpdb', selected, `JPDB: ${this.jpdbDeckLabel(selected, jpdbDecks)}`);
-            for (const deck of jpdbDecks) {
-                if (this.isSpecialJpdbDeck(deck)) continue;
-                add('jpdb', deck.id, `JPDB: ${deck.name}`);
-            }
-        }
-        if (this.settings.ankiEnabled) {
-            add('anki', this.settings.ankiDeck || 'よむ', `Anki: ${this.settings.ankiDeck || 'よむ'}`);
-            for (const deck of ankiDecks) add('anki', deck, `Anki: ${deck}`);
-        }
+        if (includeJpdb) this.addJpdbDeckChoiceOptions(options, jpdbDecks);
+        if (this.settings.ankiEnabled) this.addAnkiDeckChoiceOptions(options, ankiDecks);
         if (!options.length) return '';
-        const placeholder = `<option value="" disabled selected>${escapeHtml(uiText(this.settings.interfaceLanguage, 'deck'))}</option>`;
-        return placeholder + options
-            .map(([value, label]) => {
-                const [source, ...idParts] = value.split(':');
-                const deckId = idParts.join(':');
-                return `<option value="${escapeHtml(value)}" data-deck-source="${escapeHtml(source)}" data-deck-id="${escapeHtml(deckId)}">${escapeHtml(label)}</option>`;
-            })
-            .join('');
+        return this.deckChoicePlaceholderOption() + options.map(renderDeckChoiceOption).join('');
+    }
+
+    private addJpdbDeckChoiceOptions(options: Array<[string, string]>, jpdbDecks: JPDBDeck[]): void {
+        const selected = this.settings.miningDeck.trim() || 'forq';
+        addDeckChoiceOption(options, 'jpdb', 'forq', 'JPDB: FORQ');
+        addDeckChoiceOption(options, 'jpdb', selected, `JPDB: ${this.jpdbDeckLabel(selected, jpdbDecks)}`);
+        for (const deck of jpdbDecks) {
+            if (!this.isSpecialJpdbDeck(deck)) addDeckChoiceOption(options, 'jpdb', deck.id, `JPDB: ${deck.name}`);
+        }
+    }
+
+    private addAnkiDeckChoiceOptions(options: Array<[string, string]>, ankiDecks: string[]): void {
+        const configuredDeck = this.settings.ankiDeck || 'よむ';
+        addDeckChoiceOption(options, 'anki', configuredDeck, `Anki: ${configuredDeck}`);
+        for (const deck of ankiDecks) addDeckChoiceOption(options, 'anki', deck, `Anki: ${deck}`);
+    }
+
+    private deckChoicePlaceholderOption(): string {
+        return `<option value="" disabled selected>${escapeHtml(uiText(this.settings.interfaceLanguage, 'deck'))}</option>`;
     }
 
     private jpdbDeckLabel(deckId: string, decks: JPDBDeck[]): string {
@@ -2257,72 +2837,99 @@ export class ReaderApp {
     }
 
     private fetchCardRenderData(card: JPDBCard): CardRenderDataLoad {
-        const timeoutMs = Math.max(CARD_RENDER_DETAIL_TIMEOUT_MS, this.settings.audioTimeoutMs + 1_000);
-        const withFallback = <T>(detail: string, promise: Promise<T>, fallback: T): Promise<T> =>
-            cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
-        const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
-        const localEntriesPromise = this.settings.localDictionariesEnabled
-            ? withFallback('local term dictionary', this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(error => {
-                log.warn('Local term lookup failed while rendering card', { term: card.spelling }, error);
-                return [];
-            }), [] as YomitanTermEntry[])
-            : Promise.resolve([]);
-        const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji
-            ? withFallback('local kanji dictionary', this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(error => {
-                log.warn('Local kanji lookup failed while rendering card', { term: card.spelling }, error);
-                return [];
-            }), [] as YomitanKanjiEntry[])
-            : Promise.resolve([]);
-        const metaEntriesPromise = this.settings.localDictionariesEnabled
-            ? withFallback('local metadata dictionary', this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(error => {
-                log.warn('Local metadata lookup failed while rendering card', { term: card.spelling }, error);
-                return [];
-            }), [] as YomitanMetaEntry[])
-            : Promise.resolve([]);
-        const jpdbPublicPitchPromise = this.settings.showPitchAccent && !card.pitchAccent.length
-            ? withFallback('JPDB public pitch', this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
-                log.warn('Public JPDB pitch lookup failed while rendering card', { term: card.spelling }, error);
-                return [];
-            }), [] as string[])
-            : Promise.resolve([]);
-        const jpdbVocabularyInfoPromise = this.settings.jpdbDefinitionsEnabled
-            ? withFallback('JPDB vocabulary details', this.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(error => {
-                log.warn('JPDB vocabulary page lookup failed while rendering card', { term: card.spelling }, error);
-                return null;
-            }), null as JpdbVocabularyInfo | null)
-            : Promise.resolve(null);
-        const ankiLookupPromise = this.settings.ankiEnabled
-            ? withFallback('Anki existing cards', this.anki.findExistingCards(card).catch(error => {
-                log.warn('Anki lookup failed while rendering card', { term: card.spelling }, error);
-                return fallbackAnkiLookup;
-            }), fallbackAnkiLookup)
-            : Promise.resolve(fallbackAnkiLookup);
-        const jpdbDecksPromise = this.settings.jpdbMiningEnabled && this.settings.apiKey.trim() && this.isJpdbBackedCard(card)
-            ? withFallback('JPDB deck list', this.jpdb.listDecks().catch(error => {
-                log.warn('JPDB deck list failed while rendering card', { term: card.spelling }, error);
-                return [];
-            }), [] as JPDBDeck[])
-            : Promise.resolve([]);
-        const ankiDecksPromise = this.settings.ankiEnabled
-            ? withFallback('Anki deck list', this.anki.deckNames().catch(error => {
-                log.warn('Anki deck list failed while rendering card', { term: card.spelling }, error);
-                return [];
-            }), [] as string[])
-            : Promise.resolve([]);
-        const all = Promise.all([
-            localEntriesPromise,
-            kanjiEntriesPromise,
-            metaEntriesPromise,
-            jpdbPublicPitchPromise,
-            ankiLookupPromise,
-            jpdbDecksPromise,
-            ankiDecksPromise,
-            jpdbVocabularyInfoPromise,
-        ]).then(([localEntries, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
+        const timeoutMs = this.cardRenderDetailTimeoutMs();
+        const localEntries = this.loadLocalTermRenderEntries(card, timeoutMs);
+        const all = this.loadAllCardRenderData(card, timeoutMs, localEntries);
+        return { localEntries, all };
+    }
+
+    private cardRenderDetailTimeoutMs(): number {
+        return Math.max(CARD_RENDER_DETAIL_TIMEOUT_MS, this.settings.audioTimeoutMs + 1_000);
+    }
+
+    private withCardRenderFallback<T>(card: JPDBCard, timeoutMs: number, detail: string, promise: Promise<T>, fallback: T): Promise<T> {
+        return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
+    }
+
+    private loadLocalTermRenderEntries(card: JPDBCard, timeoutMs: number): Promise<YomitanTermEntry[]> {
+        if (!this.settings.localDictionariesEnabled) return Promise.resolve([]);
+        return this.withCardRenderFallback(card, timeoutMs, 'local term dictionary', this.dictionaries.lookup(card.spelling, card.reading, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(error => {
+            log.warn('Local term lookup failed while rendering card', { term: card.spelling }, error);
+            return [];
+        }), [] as YomitanTermEntry[]);
+    }
+
+    private loadLocalKanjiRenderEntries(card: JPDBCard, timeoutMs: number): Promise<YomitanKanjiEntry[]> {
+        if (!this.settings.localDictionariesEnabled || !this.settings.localDictionaryShowKanji) return Promise.resolve([]);
+        return this.withCardRenderFallback(card, timeoutMs, 'local kanji dictionary', this.dictionaries.lookupKanji(card.spelling, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(error => {
+            log.warn('Local kanji lookup failed while rendering card', { term: card.spelling }, error);
+            return [];
+        }), [] as YomitanKanjiEntry[]);
+    }
+
+    private loadLocalMetaRenderEntries(card: JPDBCard, timeoutMs: number): Promise<YomitanMetaEntry[]> {
+        if (!this.settings.localDictionariesEnabled) return Promise.resolve([]);
+        return this.withCardRenderFallback(card, timeoutMs, 'local metadata dictionary', this.dictionaries.lookupTermMeta(card.spelling, 12, this.settings.dictionaryPreferences).catch(error => {
+            log.warn('Local metadata lookup failed while rendering card', { term: card.spelling }, error);
+            return [];
+        }), [] as YomitanMetaEntry[]);
+    }
+
+    private loadPublicPitchRenderData(card: JPDBCard, timeoutMs: number): Promise<string[]> {
+        if (!this.settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
+        return this.withCardRenderFallback(card, timeoutMs, 'JPDB public pitch', this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
+            log.warn('Public JPDB pitch lookup failed while rendering card', { term: card.spelling }, error);
+            return [];
+        }), [] as string[]);
+    }
+
+    private loadJpdbVocabularyRenderInfo(card: JPDBCard, timeoutMs: number): Promise<JpdbVocabularyInfo | null> {
+        if (!this.settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+        return this.withCardRenderFallback(card, timeoutMs, 'JPDB vocabulary details', this.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(error => {
+            log.warn('JPDB vocabulary page lookup failed while rendering card', { term: card.spelling }, error);
+            return null;
+        }), null as JpdbVocabularyInfo | null);
+    }
+
+    private loadAnkiRenderLookup(card: JPDBCard, timeoutMs: number): Promise<AnkiLookupResult> {
+        const fallback: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        if (!this.settings.ankiEnabled) return Promise.resolve(fallback);
+        return this.withCardRenderFallback(card, timeoutMs, 'Anki existing cards', this.anki.findExistingCards(card).catch(error => {
+            log.warn('Anki lookup failed while rendering card', { term: card.spelling }, error);
+            return fallback;
+        }), fallback);
+    }
+
+    private loadJpdbDeckRenderList(card: JPDBCard, timeoutMs: number): Promise<JPDBDeck[]> {
+        if (!this.settings.jpdbMiningEnabled || !this.settings.apiKey.trim() || !this.isJpdbBackedCard(card)) return Promise.resolve([]);
+        return this.withCardRenderFallback(card, timeoutMs, 'JPDB deck list', this.jpdb.listDecks().catch(error => {
+            log.warn('JPDB deck list failed while rendering card', { term: card.spelling }, error);
+            return [];
+        }), [] as JPDBDeck[]);
+    }
+
+    private loadAnkiDeckRenderList(card: JPDBCard, timeoutMs: number): Promise<string[]> {
+        if (!this.settings.ankiEnabled) return Promise.resolve([]);
+        return this.withCardRenderFallback(card, timeoutMs, 'Anki deck list', this.anki.deckNames().catch(error => {
+            log.warn('Anki deck list failed while rendering card', { term: card.spelling }, error);
+            return [];
+        }), [] as string[]);
+    }
+
+    private loadAllCardRenderData(card: JPDBCard, timeoutMs: number, localEntries: Promise<YomitanTermEntry[]>): Promise<CardRenderData> {
+        return Promise.all([
+            localEntries,
+            this.loadLocalKanjiRenderEntries(card, timeoutMs),
+            this.loadLocalMetaRenderEntries(card, timeoutMs),
+            this.loadPublicPitchRenderData(card, timeoutMs),
+            this.loadAnkiRenderLookup(card, timeoutMs),
+            this.loadJpdbDeckRenderList(card, timeoutMs),
+            this.loadAnkiDeckRenderList(card, timeoutMs),
+            this.loadJpdbVocabularyRenderInfo(card, timeoutMs),
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
             if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
-            return { localEntries, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
+            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
         });
-        return { localEntries: localEntriesPromise, all };
     }
 
     private cardRenderDataCacheKey(card: JPDBCard): string {
@@ -2500,24 +3107,22 @@ export class ReaderApp {
         }
 
         const next: CardNavigationEntry = { card, sentence };
-        if (mode === 'reset') {
-            this.wordNavigationStack = [];
-            this.currentWordNavigation = next;
-            return;
-        }
-
-        const previous = previousNavigationEntry ?? (
-            this.currentWordNavigation && !this.isSameNavigationCard(this.currentWordNavigation, next)
-                ? this.wordNavigationEntry(this.currentWordNavigation)
-                : undefined
-        );
-        if (mode === 'push-current' && previous && !this.isSameNavigationEntryAsWord(previous, next)) {
-            const lastStackEntry = this.wordNavigationStack[this.wordNavigationStack.length - 1];
-            if (!lastStackEntry || !this.isSamePopupNavigationEntry(lastStackEntry, previous)) {
-                this.wordNavigationStack.push(previous);
-            }
-        }
+        if (mode === 'reset') this.wordNavigationStack = [];
+        else this.pushPreviousWordNavigation(mode, next, previousNavigationEntry);
         this.currentWordNavigation = next;
+    }
+
+    private pushPreviousWordNavigation(mode: CardNavigationMode, next: CardNavigationEntry, previousNavigationEntry?: PopupNavigationEntry): void {
+        const previous = previousNavigationEntry ?? this.previousWordNavigationEntry(next);
+        if (mode !== 'push-current' || !previous || this.isSameNavigationEntryAsWord(previous, next)) return;
+        const lastStackEntry = this.wordNavigationStack[this.wordNavigationStack.length - 1];
+        if (!lastStackEntry || !this.isSamePopupNavigationEntry(lastStackEntry, previous)) this.wordNavigationStack.push(previous);
+    }
+
+    private previousWordNavigationEntry(next: CardNavigationEntry): PopupNavigationEntry | undefined {
+        return this.currentWordNavigation && !this.isSameNavigationCard(this.currentWordNavigation, next)
+            ? this.wordNavigationEntry(this.currentWordNavigation)
+            : undefined;
     }
 
     private clearWordNavigation(): void {
@@ -2679,47 +3284,46 @@ export class ReaderApp {
         this.updateKanjiNavigation(card, kanji, sentence, navigation);
         log.debug('Rendering kanji card', { term: card.spelling, kanji });
         const popover = this.createPopover();
-        const kanjiCharacters = uniqueKanji(card.spelling);
-        const index = Math.max(0, kanjiCharacters.indexOf(kanji));
-        const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
-        const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
-        const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
         const language = this.settings.interfaceLanguage;
-        const hasJpdbKanji = this.settings.jpdbKanjiEnabled;
-        const needsKanjiVG = this.settings.kanjivgEnabled || (this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled);
-        const kanjiVGPromise = needsKanjiVG
-            ? this.kanjiVG.lookup(kanji).catch(() => null)
-            : Promise.resolve(null);
-        const detailsPromises: KanjiDetailPromises = {
-            jpdbInfo: hasJpdbKanji ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null),
-            kanjiEntries: this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji
-                ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
-                : Promise.resolve([]),
-            rtkInfo: this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null),
-            kanjiVGInfo: kanjiVGPromise,
-        };
-        const kanjiNavigationControls = kanjiCharacters.length > 1 ? `
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}" title="${escapeHtml(uiText(language, 'previousKanji'))}">‹</button>
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}" title="${escapeHtml(uiText(language, 'nextKanji'))}">›</button>
-        ` : '';
-        const previousKanji = this.kanjiNavigationStack[this.kanjiNavigationStack.length - 1];
-        const modalBack = previousKanji
-            ? {
-                backAction: 'kanji-history-back',
-                backTitle: `${uiText(language, 'backToKanji')}: ${previousKanji.kanji}`,
-                label: previousKanji.kanji,
-            }
-            : {
-                backAction: 'word-back',
-                backTitle: `${uiText(language, 'backToWord')}: ${card.spelling}`,
-                label: card.spelling,
-            };
+        const kanjiCharacters = uniqueKanji(card.spelling);
+        const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
+        const detailsPromises = this.kanjiDetailPromises(kanji);
+        this.renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language);
+        this.installKanjiCardActions(popover, card, kanji, sentence, anchor);
+        this.mountPopover(popover, anchor, { preservePosition: options.preservePosition });
+        this.startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language);
+    }
 
+    private kanjiDetailPromises(kanji: string): KanjiDetailPromises {
+        const needsKanjiVG = this.settings.kanjivgEnabled || (this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled);
+        return {
+            jpdbInfo: this.jpdbKanjiDetailPromise(kanji),
+            kanjiEntries: this.localKanjiEntriesPromise(kanji),
+            rtkInfo: this.rtkDetailPromise(kanji),
+            kanjiVGInfo: needsKanjiVG ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null),
+        };
+    }
+
+    private jpdbKanjiDetailPromise(kanji: string): Promise<JpdbKanjiInfo | null> {
+        return this.settings.jpdbKanjiEnabled ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null);
+    }
+
+    private localKanjiEntriesPromise(kanji: string): Promise<YomitanKanjiEntry[]> {
+        return this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji
+            ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
+            : Promise.resolve([]);
+    }
+
+    private rtkDetailPromise(kanji: string): Promise<RtkInfo | null> {
+        return this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null);
+    }
+
+    private renderKanjiCardShell(popover: HTMLElement, card: JPDBCard, kanji: string, kanjiCharacters: string[], jpdbUrl: string, language: InterfaceLanguage): void {
         setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             ${this.renderModalNavigation({
-                ...modalBack,
-                controlsHtml: kanjiNavigationControls,
+                ...this.kanjiModalBack(card, language),
+                controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language),
             })}
             <div class="jpdb-reader-header">
                 <div class="jpdb-reader-heading">
@@ -2735,7 +3339,35 @@ export class ReaderApp {
                 ${this.renderKanjiSourceMounts(kanji, language)}
             </div>
         `);
+    }
 
+    private renderKanjiNavigationControls(kanjiCharacters: string[], kanji: string, language: InterfaceLanguage): string {
+        if (kanjiCharacters.length <= 1) return '';
+        const index = Math.max(0, kanjiCharacters.indexOf(kanji));
+        const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
+        const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
+        return `
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml(previous)}" title="${escapeHtml(uiText(language, 'previousKanji'))}">‹</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml(next)}" title="${escapeHtml(uiText(language, 'nextKanji'))}">›</button>
+        `;
+    }
+
+    private kanjiModalBack(card: JPDBCard, language: InterfaceLanguage): { backAction: string; backTitle: string; label: string } {
+        const previousKanji = this.kanjiNavigationStack[this.kanjiNavigationStack.length - 1];
+        return previousKanji
+            ? {
+                backAction: 'kanji-history-back',
+                backTitle: `${uiText(language, 'backToKanji')}: ${previousKanji.kanji}`,
+                label: previousKanji.kanji,
+            }
+            : {
+                backAction: 'word-back',
+                backTitle: `${uiText(language, 'backToWord')}: ${card.spelling}`,
+                label: card.spelling,
+            };
+    }
+
+    private installKanjiCardActions(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
         popover.addEventListener('click', event => {
             const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             const action = actionButton?.dataset.action;
@@ -2757,7 +3389,9 @@ export class ReaderApp {
             if (action === 'kanji') void this.showKanjiCard(card, actionButton.dataset.kanji ?? kanji, sentence, anchor, { navigation: 'push-current', preservePosition: true });
             if (action === 'similar-word') void this.lookupText(actionButton.dataset.expression ?? '', actionButton.dataset.expression ?? '', { navigation: 'push-current', preservePosition: true });
         });
-        this.mountPopover(popover, anchor, { preservePosition: options.preservePosition });
+    }
+
+    private startKanjiProgressiveRender(popover: HTMLElement, detailsPromises: KanjiDetailPromises, card: JPDBCard, kanji: string, language: InterfaceLanguage): void {
         installKanjiDoodle(popover, () => this.settings.interfaceLanguage);
         if (this.settings.similarKanjiWords) {
             void this.renderSimilarKanjiWordsProgressively(popover, detailsPromises.jpdbInfo, kanji, card);
@@ -2767,7 +3401,7 @@ export class ReaderApp {
         }
         void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
         if (this.settings.kanjivgEnabled) {
-            void this.renderKanjiVGInto(popover, kanjiVGPromise, kanji, language);
+            void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
         }
     }
 
@@ -3243,23 +3877,41 @@ export class ReaderApp {
     private async loadStudyTranslation(popover: HTMLElement, sentence: string | undefined, container: HTMLElement): Promise<void> {
         if (!container || !sentence) return;
         try {
-            const [tokens, translated] = await Promise.all([
-                this.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
-                translateJapaneseSentence(sentence),
-            ]);
+            const translation = await this.loadStudyTranslationContent(sentence);
             if (!this.isCurrentPopoverRoot(popover) || !container.isConnected) return;
-            const original = container.querySelector<HTMLElement>('[data-study-original-render]');
-            if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings));
-            const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-            if (result) result.textContent = translated;
-            void this.parsePopoverJapanese(popover);
-            void this.enrichAnkiWords(tokens);
+            this.applyStudyTranslation(popover, sentence, container, translation);
         } catch (error) {
-            log.warn('Automatic sentence translation failed', { sentenceLength: sentence.length }, error);
-            if (!container.isConnected) return;
-            const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-            if (result) result.textContent = 'Translation unavailable.';
+            this.renderStudyTranslationError(sentence, container, error);
         }
+    }
+
+    private async loadStudyTranslationContent(sentence: string): Promise<StudyTranslationResult> {
+        const [tokens, translated] = await Promise.all([
+            this.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
+            translateJapaneseSentence(sentence),
+        ]);
+        return { tokens, translated };
+    }
+
+    private applyStudyTranslation(
+        popover: HTMLElement,
+        sentence: string,
+        container: HTMLElement,
+        translation: StudyTranslationResult,
+    ): void {
+        const original = container.querySelector<HTMLElement>('[data-study-original-render]');
+        if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings));
+        const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
+        if (result) result.textContent = translation.translated;
+        void this.parsePopoverJapanese(popover);
+        void this.enrichAnkiWords(translation.tokens);
+    }
+
+    private renderStudyTranslationError(sentence: string, container: HTMLElement, error: unknown): void {
+        log.warn('Automatic sentence translation failed', { sentenceLength: sentence.length }, error);
+        if (!container.isConnected) return;
+        const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
+        if (result) result.textContent = 'Translation unavailable.';
     }
 
     private isStudyDetailsOpen(container: HTMLDetailsElement): boolean {
@@ -3274,55 +3926,43 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
-        const targets = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
-            .flatMap(root => collectFragmentTextTargetsIn(root, 24, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
-            .slice(0, 24);
-        if (!targets.length) return;
-        const parseKey = targets.map(target => target.text).join('\n\n');
-        if (popover.dataset.jpdbReaderParseKey === parseKey || popover.dataset.jpdbReaderParseLoadingKey === parseKey) return;
-        popover.dataset.jpdbReaderParseLoadingKey = parseKey;
-
-        try {
-            const parsed = await this.parseJapanese(targets.map(target => target.text));
-            if (!this.isCurrentPopoverRoot(popover) || popover.dataset.jpdbReaderParseLoadingKey !== parseKey) return;
-            targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
-            popover.dataset.jpdbReaderParseKey = parseKey;
-            const tokens = parsed.flat();
-            this.preloadTermAudioForTokens(tokens);
-            void this.enrichAnkiWords(tokens);
-            log.debug('Popover nested text parsed', { targets: targets.length, tokens: tokens.length });
-        } catch (error) {
-            log.debug('Popover nested text parsing failed quietly', error);
-            // The primary popup already succeeded; nested text parsing is a quiet enhancement.
-        } finally {
-            if (popover.dataset.jpdbReaderParseLoadingKey === parseKey) delete popover.dataset.jpdbReaderParseLoadingKey;
-        }
+        const plan = popoverNestedParsePlan(popover);
+        if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
+        await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover), 'Popover');
     }
 
     private async parseNewTabContent(root: HTMLElement): Promise<void> {
         if (!root.isConnected || !this.canParseJapanese()) return;
-        const targets = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-parseable'))
-            .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, 36, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
-            .slice(0, 36);
-        if (!targets.length) return;
-        const parseKey = targets.map(target => target.text).join('\n\n');
-        if (root.dataset.jpdbReaderParseKey === parseKey || root.dataset.jpdbReaderParseLoadingKey === parseKey) return;
-        root.dataset.jpdbReaderParseLoadingKey = parseKey;
+        const plan = newTabNestedParsePlan(root);
+        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+        await this.parseNestedJapaneseContent(root, plan, () => root.isConnected, 'New tab');
+    }
 
+    private async parseNestedJapaneseContent(
+        root: HTMLElement,
+        plan: NestedParsePlan,
+        isCurrent: () => boolean,
+        label: 'Popover' | 'New tab',
+    ): Promise<void> {
+        root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
-            const parsed = await this.parseJapanese(targets.map(target => target.text));
-            if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== parseKey) return;
-            targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.settings));
-            root.dataset.jpdbReaderParseKey = parseKey;
-            const tokens = parsed.flat();
-            this.preloadTermAudioForTokens(tokens);
-            void this.enrichAnkiWords(tokens);
-            log.debug('New tab nested text parsed', { targets: targets.length, tokens: tokens.length });
+            const parsed = await this.parseJapanese(plan.targets.map(target => target.text));
+            if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
+            applyNestedParsePlan(plan, parsed, this.settings);
+            root.dataset.jpdbReaderParseKey = plan.parseKey;
+            this.afterNestedJapaneseParsed(plan, parsed, label);
         } catch (error) {
-            log.debug('New tab nested text parsing failed quietly', error);
+            log.debug(`${label} nested text parsing failed quietly`, error);
         } finally {
-            if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
+            clearNestedParseLoadingKey(root, plan.parseKey);
         }
+    }
+
+    private afterNestedJapaneseParsed(plan: NestedParsePlan, parsed: JPDBToken[][], label: 'Popover' | 'New tab'): void {
+        const tokens = parsed.flat();
+        this.preloadTermAudioForTokens(tokens);
+        void this.enrichAnkiWords(tokens);
+        log.debug(`${label} nested text parsed`, { targets: plan.targets.length, tokens: tokens.length });
     }
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {
@@ -3350,15 +3990,19 @@ export class ReaderApp {
 
         let queued = 0;
         for (const token of tokens) {
-            if (!isUsefulImmersionPreloadQuery(token.card.spelling)) continue;
-            const key = cardKey(token.card);
-            if (this.preloadedTermAudioKeys.has(key)) continue;
-            this.preloadedTermAudioKeys.add(key);
-            this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1 });
-            queued++;
+            if (this.preloadTermAudioForToken(token)) queued++;
             if (queued >= TERM_AUDIO_PRELOAD_LIMIT) break;
         }
         if (queued) log.debugThrottled('term-audio-preload', 2500, 'Term audio preloads queued', { queued });
+    }
+
+    private preloadTermAudioForToken(token: JPDBToken): boolean {
+        if (!isUsefulImmersionPreloadQuery(token.card.spelling)) return false;
+        const key = cardKey(token.card);
+        if (this.preloadedTermAudioKeys.has(key)) return false;
+        this.preloadedTermAudioKeys.add(key);
+        this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1 });
+        return true;
     }
 
     private dictionaryLabel(name: string): string {
@@ -3495,88 +4139,112 @@ export class ReaderApp {
     private mountPopover(
         popover: HTMLElement,
         anchor?: HTMLElement,
-        options: { mode?: 'modal' | 'hover'; preservePosition?: boolean; hoverLookupKey?: string; pointerTextLookup?: ActivePointerTextLookup } = {},
+        options: MountPopoverOptions = {},
     ): void {
+        const state = this.popoverMountState(anchor, options);
+        this.dismiss({ suppressHoverTarget: false, preserveNavigation: true, preserveHoverGeneration: state.mode === 'hover' });
+        this.appendMountedPopover(popover, state);
+        this.activateMountedPopover(popover, state, options);
+        this.installDictionarySourceStateTracking(popover);
+        this.installMountedPopoverSurface(popover, state);
+        this.finishMountedPopoverLifecycle(popover, state.mode);
+        log.debug('Popover mounted', {
+            mode: state.mode,
+            sheet: popover.classList.contains('jpdb-reader-sheet'),
+            hasAnchor: Boolean(state.resolvedAnchor),
+            hasBackdrop: Boolean(state.backdrop),
+        });
+    }
+
+    private popoverMountState(anchor: HTMLElement | undefined, options: MountPopoverOptions): PopoverMountState {
         const mode = options.mode ?? 'modal';
-        const useBackdrop = mode !== 'hover';
-        const backdrop = useBackdrop ? createReaderBackdrop(() => this.dismiss()) : undefined;
-        const previousRect = this.activePopoverAnchorRect;
+        const backdrop = mode === 'hover' ? undefined : createReaderBackdrop(() => this.dismiss());
+        const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
+        const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
         const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : undefined;
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
-        const resolvedAnchor = anchor?.isConnected
-            ? anchor
-            : this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
-        const resolvedRect = resolvedAnchor ? resolvedAnchor.getBoundingClientRect() : undefined;
-        const anchorRect = resolvedRect && (resolvedRect.width > 0 || resolvedRect.height > 0)
-            ? resolvedRect
-            : previousRect;
-        this.dismiss({ suppressHoverTarget: false, preserveNavigation: true, preserveHoverGeneration: mode === 'hover' });
-        popover.setAttribute('aria-modal', String(useBackdrop));
-        if (backdrop) document.body.append(backdrop, popover);
-        else document.body.append(popover);
-        this.activeBackdrop = backdrop;
-        this.activePopover = popover;
-        this.activePopoverMode = mode;
-        this.activePopoverAnchor = resolvedAnchor;
-        this.activePopoverAnchorRect = anchorRect;
-        const shouldLockPopoverPosition = mode !== 'hover' && !popover.classList.contains('jpdb-reader-sheet');
-        this.activePopoverPositionLocked = shouldLockPopoverPosition && Boolean(previousPopoverRect);
-        this.activeHoverWord = mode === 'hover' ? resolvedAnchor : undefined;
-        this.activeHoverLookupKey = mode === 'hover' ? options.hoverLookupKey ?? '' : '';
-        this.activePointerTextLookup = mode === 'hover' ? options.pointerTextLookup : undefined;
-        const hoverPointerPosition = previousHoverPointerPosition ?? this.lastPointerPosition;
-        this.hoverPopoverPointerPosition = mode === 'hover' && hoverPointerPosition ? { ...hoverPointerPosition } : undefined;
-        this.installDictionarySourceStateTracking(popover);
+        return { mode, backdrop, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+    }
 
+    private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
+        const useBackdrop = state.mode !== 'hover';
+        popover.setAttribute('aria-modal', String(useBackdrop));
+        if (state.backdrop) document.body.append(state.backdrop, popover);
+        else document.body.append(popover);
+    }
+
+    private activateMountedPopover(popover: HTMLElement, state: PopoverMountState, options: MountPopoverOptions): void {
+        this.activeBackdrop = state.backdrop;
+        this.activePopover = popover;
+        this.activePopoverMode = state.mode;
+        this.activePopoverAnchor = state.resolvedAnchor;
+        this.activePopoverAnchorRect = state.anchorRect;
+        this.activePopoverPositionLocked = shouldLockMountedPopoverPosition(popover, state);
+        this.activeHoverWord = state.mode === 'hover' ? state.resolvedAnchor : undefined;
+        this.activeHoverLookupKey = state.mode === 'hover' ? options.hoverLookupKey ?? '' : '';
+        this.activePointerTextLookup = state.mode === 'hover' ? options.pointerTextLookup : undefined;
+        this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
+    }
+
+    private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
             this.activePopoverResizeObserver.observe(popover);
-            if (previousPopoverRect) {
-                placePopoverAtViewportPosition(popover, previousPopoverRect, popoverMaxHeightSetting(this.settings));
+            if (state.previousPopoverRect) {
+                placePopoverAtViewportPosition(popover, state.previousPopoverRect, popoverMaxHeightSetting(this.settings));
                 this.syncActivePopoverFixedHeight();
             }
             else this.repositionActivePopover();
-            this.activePopoverPositionLocked = shouldLockPopoverPosition;
+            this.activePopoverPositionLocked = state.mode !== 'hover';
             requestAnimationFrame(() => this.repositionActivePopover());
         } else {
             installSheetHandle(popover, () => this.dismiss());
         }
+    }
+
+    private finishMountedPopoverLifecycle(popover: HTMLElement, mode: 'modal' | 'hover'): void {
         if (mode === 'hover') {
             this.installHoverPopoverLifecycle(popover);
             this.startHoverWatch();
+            return;
         }
-        else popover.focus();
-        log.debug('Popover mounted', {
-            mode,
-            sheet: popover.classList.contains('jpdb-reader-sheet'),
-            hasAnchor: Boolean(resolvedAnchor),
-            hasBackdrop: Boolean(backdrop),
-        });
+        popover.focus();
     }
 
     private repositionActivePopover(): void {
         if (!this.activePopover || this.activePopover.classList.contains('jpdb-reader-sheet')) return;
         if (this.shouldUseFixedModalHeight(this.activePopover)) this.activePopover.style.height = '';
         if (this.activePopoverPositionLocked) {
-            placePopoverAtViewportPosition(this.activePopover, this.activePopover.getBoundingClientRect(), popoverMaxHeightSetting(this.settings));
-            this.syncActivePopoverFixedHeight();
+            this.repositionLockedActivePopover();
             return;
         }
-        if (this.activePopoverAnchor?.isConnected) {
-            const rect = this.activePopoverAnchor.getBoundingClientRect();
-            if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
-        }
-        const shouldFollowPointer = this.activePopoverMode === 'hover' && Boolean(this.activePointerTextLookup);
+        this.refreshActivePopoverAnchorRect();
         positionPopover(
             this.activePopover,
             this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined,
             this.activePopoverAnchorRect,
             {
-                followPoint: shouldFollowPointer ? this.hoverPopoverPointerPosition : undefined,
+                followPoint: this.shouldFollowActivePointerText() ? this.hoverPopoverPointerPosition : undefined,
                 maxHeight: popoverMaxHeightSetting(this.settings),
             },
         );
         this.syncActivePopoverFixedHeight();
+    }
+
+    private repositionLockedActivePopover(): void {
+        if (!this.activePopover) return;
+        placePopoverAtViewportPosition(this.activePopover, this.activePopover.getBoundingClientRect(), popoverMaxHeightSetting(this.settings));
+        this.syncActivePopoverFixedHeight();
+    }
+
+    private refreshActivePopoverAnchorRect(): void {
+        if (!this.activePopoverAnchor?.isConnected) return;
+        const rect = this.activePopoverAnchor.getBoundingClientRect();
+        if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
+    }
+
+    private shouldFollowActivePointerText(): boolean {
+        return this.activePopoverMode === 'hover' && Boolean(this.activePointerTextLookup);
     }
 
     private shouldUseFixedModalHeight(popover: HTMLElement): boolean {
@@ -3657,6 +4325,23 @@ export class ReaderApp {
     private dismiss(options: { suppressHoverTarget?: boolean; preserveNavigation?: boolean; preserveHoverGeneration?: boolean } = { suppressHoverTarget: true }): void {
         const hadDialog = Boolean(this.activePopover || this.activeBackdrop);
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
+        this.clearHoverDismissState(options);
+        this.audio.stop();
+        this.immersionPopover.stopAudio();
+        this.updateSuppressedHoverTarget(options);
+        this.cardRenderRequest++;
+        this.restoreSettingsPreviewState();
+        this.removeReaderDialogNodes();
+        this.clearActivePopoverState();
+        if (!options.preserveNavigation) {
+            this.clearWordNavigation();
+            this.clearKanjiNavigation();
+        }
+        if (hadDialog) log.debug('Reader dialog dismissed', { suppressHoverTarget: Boolean(options.suppressHoverTarget) });
+        if (hadSettingsDialog) this.schedulePendingDictionaryRescan();
+    }
+
+    private clearHoverDismissState(options: { preserveHoverGeneration?: boolean }): void {
         window.clearTimeout(this.hoverLookupTimer);
         window.clearTimeout(this.hoverCloseTimer);
         window.clearTimeout(this.hoverWatchTimer);
@@ -3672,8 +4357,9 @@ export class ReaderApp {
         this.hoverPendingLookupKey = '';
         this.hoverLookupInFlightKey = '';
         if (!options.preserveHoverGeneration) this.nextHoverLookupGeneration();
-        this.audio.stop();
-        this.immersionPopover.stopAudio();
+    }
+
+    private updateSuppressedHoverTarget(options: { suppressHoverTarget?: boolean }): void {
         const suppressTarget = this.activePopoverMode === 'hover' ? this.activeHoverWord : this.activePopoverAnchor;
         if (options.suppressHoverTarget && suppressTarget?.isConnected && suppressTarget.classList.contains('jpdb-reader-word')) {
             this.suppressedHoverWord = suppressTarget;
@@ -3681,7 +4367,9 @@ export class ReaderApp {
         } else {
             this.suppressedHoverLookupKey = '';
         }
-        this.cardRenderRequest++;
+    }
+
+    private restoreSettingsPreviewState(): void {
         if (this.settingsPreviewOriginalAccent !== undefined && this.activePopover?.classList.contains('jpdb-reader-settings')) {
             this.applyAccentColor(this.settingsPreviewOriginalAccent);
             this.applyWordColors();
@@ -3696,11 +4384,17 @@ export class ReaderApp {
         this.settingsPreviewOriginalAccent = undefined;
         this.settingsPreviewOriginalLanguage = undefined;
         this.settingsPreviewOriginalTheme = undefined;
+    }
+
+    private removeReaderDialogNodes(): void {
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
         this.activePopoverResizeObserver?.disconnect();
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop')
             .forEach(element => element.remove());
+    }
+
+    private clearActivePopoverState(): void {
         this.activePopover = undefined;
         this.activeBackdrop = undefined;
         this.activePopoverResizeObserver = undefined;
@@ -3711,15 +4405,12 @@ export class ReaderApp {
         this.activeHoverWord = undefined;
         this.activeHoverLookupKey = '';
         this.activePointerTextLookup = undefined;
-        if (!options.preserveNavigation) {
-            this.clearWordNavigation();
-            this.clearKanjiNavigation();
-        }
-        if (hadDialog) log.debug('Reader dialog dismissed', { suppressHoverTarget: Boolean(options.suppressHoverTarget) });
-        if (hadSettingsDialog && this.dictionaryRescanPending) {
-            this.dictionaryRescanPending = false;
-            window.setTimeout(() => this.scheduleDictionaryRescan(), 80);
-        }
+    }
+
+    private schedulePendingDictionaryRescan(): void {
+        if (!this.dictionaryRescanPending) return;
+        this.dictionaryRescanPending = false;
+        window.setTimeout(() => this.scheduleDictionaryRescan(), 80);
     }
 
     private toast(message: string): void {
@@ -3750,4 +4441,13 @@ function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise
 
 function delay(ms: number): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function pointerTokenAtOffset(tokens: JPDBToken[], offset: number): JPDBToken | undefined {
+    return tokens.find(token => tokenContainsPointerOffset(token, offset));
+}
+
+function tokenContainsPointerOffset(token: JPDBToken, offset: number): boolean {
+    return (token.start <= offset && offset < token.end)
+        || (token.start < offset && offset <= token.end);
 }

@@ -48,6 +48,7 @@ const SKIP_SELECTOR = [
     '.jpdb-reader-word',
 ].join(',');
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 
 const FRAGMENT_SKIP_SELECTOR = [
     'script',
@@ -353,19 +354,31 @@ function isInlineSentenceListItem(element: HTMLElement): boolean {
 
 function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
     const trimmed = fragments.map(fragment => ({ ...fragment }));
-    while (trimmed.length) {
-        const first = trimmed[0];
-        while (first.start < first.end && /\s/u.test(first.node.data[first.start] ?? '')) first.start += 1;
-        if (first.start < first.end) break;
-        trimmed.shift();
-    }
-    while (trimmed.length) {
-        const last = trimmed[trimmed.length - 1];
-        while (last.end > last.start && /\s/u.test(last.node.data[last.end - 1] ?? '')) last.end -= 1;
-        if (last.start < last.end) break;
-        trimmed.pop();
-    }
+    trimFragmentStart(trimmed);
+    trimFragmentEnd(trimmed);
     return trimmed;
+}
+
+function trimFragmentStart(fragments: TextFragment[]): void {
+    while (fragments.length) {
+        const first = fragments[0];
+        while (first.start < first.end && isWhitespaceAt(first.node.data, first.start)) first.start += 1;
+        if (first.start < first.end) break;
+        fragments.shift();
+    }
+}
+
+function trimFragmentEnd(fragments: TextFragment[]): void {
+    while (fragments.length) {
+        const last = fragments[fragments.length - 1];
+        while (last.end > last.start && isWhitespaceAt(last.node.data, last.end - 1)) last.end -= 1;
+        if (last.start < last.end) break;
+        fragments.pop();
+    }
+}
+
+function isWhitespaceAt(value: string, index: number): boolean {
+    return /\s/u.test(value[index] ?? '');
 }
 
 export function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {
@@ -412,32 +425,43 @@ export function readerWordSurfaceText(element: Element): string {
 export function nearestReadableSentenceForElement(element: HTMLElement, fallback = ''): string {
     const surface = readerWordSurfaceText(element).trim() || element.textContent?.trim() || '';
     const cleanFallback = cleanReadableSentence(fallback);
+    const nearest = nearestReadableAncestorSentence(element, surface, cleanFallback);
+    return nearest || fallbackReadableSentence(cleanFallback, surface);
+}
+
+function nearestReadableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
     let current: HTMLElement | null = element.parentElement;
 
     while (current && current !== document.body && current !== document.documentElement) {
-        if (!current.closest(READER_ROOT_SELECTOR) || current.closest('.jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-ocr-layer')) {
-            const sentence = sentenceAroundSurface(readableSurfaceText(current), surface, cleanFallback);
-            if (isUsefulContextSentence(sentence, cleanFallback, surface)) return sentence;
-        }
+        const sentence = readableAncestorSentence(current, surface, cleanFallback);
+        if (sentence) return sentence;
         current = current.parentElement;
     }
+    return '';
+}
 
+function readableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
+    if (!canReadSentenceContextFrom(element)) return '';
+    const sentence = sentenceAroundSurface(readableSurfaceText(element), surface, cleanFallback);
+    return isUsefulContextSentence(sentence, cleanFallback, surface) ? sentence : '';
+}
+
+function fallbackReadableSentence(cleanFallback: string, surface: string): string {
     return sentenceAroundSurface(cleanFallback, surface) || cleanFallback;
+}
+
+function canReadSentenceContextFrom(element: HTMLElement): boolean {
+    return !element.closest(READER_ROOT_SELECTOR)
+        || Boolean(element.closest('.jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-ocr-layer'));
 }
 
 export function sentenceAroundSurface(value: string, surface = '', fallback = ''): string {
     const text = cleanReadableSentence(value);
     if (!text || !HAS_JAPANESE.test(text)) return '';
 
-    const cleanSurface = cleanReadableSentence(surface);
-    const cleanFallback = cleanReadableSentence(fallback);
-    const search = cleanSurface && text.includes(cleanSurface)
-        ? cleanSurface
-        : cleanFallback && text.includes(cleanFallback)
-            ? cleanFallback
-            : '';
+    const search = sentenceSearchText(text, surface, fallback);
     const index = search ? text.indexOf(search) : 0;
-    if (index < 0) return text.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text : text.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+    if (index < 0) return clampContextText(text);
 
     const hardBounded = hardBoundedSentence(text, index, search.length);
     const hardClean = trimSoftSentenceBoundary(hardBounded, search);
@@ -446,10 +470,32 @@ export function sentenceAroundSurface(value: string, surface = '', fallback = ''
     return clampLongSentence(hardClean, search);
 }
 
+function sentenceSearchText(text: string, surface: string, fallback: string): string {
+    const cleanSurface = cleanReadableSentence(surface);
+    const cleanFallback = cleanReadableSentence(fallback);
+    if (cleanSurface && text.includes(cleanSurface)) return cleanSurface;
+    return cleanFallback && text.includes(cleanFallback) ? cleanFallback : '';
+}
+
+function clampContextText(text: string): string {
+    return text.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text : text.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+}
+
 function isUsefulContextSentence(sentence: string, fallback: string, surface: string): boolean {
-    if (!sentence || !HAS_JAPANESE.test(sentence)) return false;
-    if (surface && !sentence.includes(surface)) return false;
-    if (!fallback) return true;
+    if (!isJapaneseContextSentence(sentence)) return false;
+    if (!containsSurfaceContext(sentence, surface)) return false;
+    return fallback ? isRicherThanFallback(sentence, fallback) : true;
+}
+
+function isJapaneseContextSentence(sentence: string): boolean {
+    return Boolean(sentence && HAS_JAPANESE.test(sentence));
+}
+
+function containsSurfaceContext(sentence: string, surface: string): boolean {
+    return !surface || sentence.includes(surface);
+}
+
+function isRicherThanFallback(sentence: string, fallback: string): boolean {
     if (sentence === fallback) return false;
     if (sentence.length <= fallback.length + 2) return false;
     return sentence.length >= 8 || /[。！？]/u.test(sentence);
@@ -460,12 +506,16 @@ function readableSurfaceText(node: Node): string {
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
     const element = node as Element;
-    if (element.tagName === 'RT' || element.tagName === 'RP' || element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return '';
-    if (element.matches('button,svg,use,[aria-hidden="true"],[role="button"]')) return '';
+    if (isIgnoredReadableElement(element)) return '';
 
     let text = '';
     element.childNodes.forEach(child => { text += readableSurfaceText(child); });
     return text;
+}
+
+function isIgnoredReadableElement(element: Element): boolean {
+    return READABLE_IGNORED_TAGS.has(element.tagName)
+        || element.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
 }
 
 function cleanReadableSentence(value: string): string {
@@ -505,9 +555,12 @@ function trimSoftSentenceBoundary(sentence: string, surface: string): string {
     const end = softBoundaryEnd(clean, index + surface.length);
     const trimmed = clean.slice(start, end).trim();
     const omitted = `${clean.slice(0, start)}${clean.slice(end)}`;
-    if (!trimmed || trimmed === clean) return clean;
-    if (clean.length > 48 || /[。！？!?]/u.test(omitted)) return trimmed;
-    return clean;
+    return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
+}
+
+function shouldUseSoftSentenceTrim(clean: string, trimmed: string, omitted: string): boolean {
+    if (!trimmed || trimmed === clean) return false;
+    return clean.length > 48 || /[。！？!?]/u.test(omitted);
 }
 
 function softBoundaryStart(text: string, index: number): number {
@@ -549,25 +602,26 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     const safeTokens = nonOverlappingTokens(tokens, text.length);
     if (!safeTokens.length) return;
 
+    target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
+    log.debugThrottled('apply-text-node', 1000, 'Applied tokens to text node', { tokens: safeTokens.length, textLength: text.length, parent: nodeLabel(target.parent) });
+}
+
+function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): DocumentFragment {
     const fragment = document.createDocumentFragment();
     let offset = 0;
-
-    for (const token of safeTokens) {
-        if (token.start > offset) {
-            fragment.append(document.createTextNode(text.slice(offset, token.start)));
-        }
-        fragment.append(renderToken(text.slice(token.start, token.end), token, settings, {
+    for (const token of tokens) {
+        appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
+        fragment.append(renderToken(target.text.slice(token.start, token.end), token, settings, {
             allowRuby: !target.hasNativeRuby && !target.suppressRuby,
         }));
         offset = token.end;
     }
+    appendPlainTextBeforeToken(fragment, target.text, offset, target.text.length);
+    return fragment;
+}
 
-    if (offset < text.length) {
-        fragment.append(document.createTextNode(text.slice(offset)));
-    }
-
-    target.node.replaceWith(fragment);
-    log.debugThrottled('apply-text-node', 1000, 'Applied tokens to text node', { tokens: safeTokens.length, textLength: text.length, parent: nodeLabel(target.parent) });
+function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number): void {
+    if (end > start) fragment.append(document.createTextNode(text.slice(start, end)));
 }
 
 export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
@@ -585,30 +639,7 @@ export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: 
     const indexedFragments = indexTextFragments(target.fragments);
 
     for (let index = safeTokens.length - 1; index >= 0; index--) {
-        const token = safeTokens[index];
-        const start = findFragmentBoundary(indexedFragments, token.start, 'start');
-        const end = findFragmentBoundary(indexedFragments, token.end, 'end');
-        if (!start || !end || !start.fragment.node.parentElement || !end.fragment.node.parentElement) continue;
-
-        const tokenWithSentence = { ...token, sentence: token.sentence ?? sentence };
-        const isSingleFragment = start.fragment === end.fragment;
-        const allowRuby = isSingleFragment
-            && !start.fragment.hasNativeRuby
-            && !start.fragment.suppressRuby
-            && !target.suppressRuby;
-        const range = document.createRange();
-        range.setStart(start.fragment.node, start.localOffset);
-        range.setEnd(end.fragment.node, end.localOffset);
-
-        if (isSingleFragment) {
-            range.deleteContents();
-            range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, { allowRuby }));
-        } else {
-            const shell = renderTokenShell(tokenWithSentence, settings);
-            shell.append(range.extractContents());
-            range.insertNode(shell);
-        }
-        range.detach();
+        applyTokenToIndexedFragments(target, indexedFragments, safeTokens[index], settings, sentence);
     }
     log.debugThrottled('apply-fragment', 1000, 'Applied tokens to fragment target', {
         tokens: safeTokens.length,
@@ -618,6 +649,62 @@ export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: 
     });
 }
 
+function applyTokenToIndexedFragments(
+    target: FragmentTextTarget,
+    indexedFragments: IndexedTextFragment[],
+    token: JPDBToken,
+    settings: ReaderSettings,
+    sentence: string,
+): void {
+    const start = findFragmentBoundary(indexedFragments, token.start, 'start');
+    const end = findFragmentBoundary(indexedFragments, token.end, 'end');
+    const bounds = attachableFragmentRange(start, end);
+    if (!bounds) return;
+
+    const tokenWithSentence = { ...token, sentence: token.sentence ?? sentence };
+    const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
+    const range = document.createRange();
+    range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
+    range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
+
+    if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings);
+    else insertMultiFragmentToken(range, tokenWithSentence, settings);
+    range.detach();
+}
+
+interface FragmentBoundaryMatch {
+    fragment: IndexedTextFragment;
+    localOffset: number;
+}
+
+function attachableFragmentRange(
+    start: { fragment: IndexedTextFragment; localOffset: number } | null,
+    end: { fragment: IndexedTextFragment; localOffset: number } | null,
+): { start: FragmentBoundaryMatch; end: FragmentBoundaryMatch } | null {
+    return start && end && start.fragment.node.parentElement && end.fragment.node.parentElement
+        ? { start, end }
+        : null;
+}
+
+function insertSingleFragmentToken(
+    range: Range,
+    target: FragmentTextTarget,
+    fragment: TextFragment,
+    token: JPDBToken,
+    tokenWithSentence: JPDBToken,
+    settings: ReaderSettings,
+): void {
+    const allowRuby = !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
+    range.deleteContents();
+    range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, { allowRuby }));
+}
+
+function insertMultiFragmentToken(range: Range, token: JPDBToken, settings: ReaderSettings): void {
+    const shell = renderTokenShell(token, settings);
+    shell.append(range.extractContents());
+    range.insertNode(shell);
+}
+
 function applyTokensToFragmentPieces(
     target: FragmentTextTarget,
     safeTokens: JPDBToken[],
@@ -625,41 +712,8 @@ function applyTokensToFragmentPieces(
     sentence: string,
 ): void {
     let globalOffset = 0;
-
     for (const fragmentInfo of target.fragments) {
-        if (!fragmentInfo.node.parentElement) {
-            globalOffset += fragmentInfo.end - fragmentInfo.start;
-            continue;
-        }
-
-        const fragmentLength = fragmentInfo.end - fragmentInfo.start;
-        const fragmentStart = globalOffset;
-        const fragmentEnd = fragmentStart + fragmentLength;
-        const overlappingTokens = safeTokens.filter(token => token.start < fragmentEnd && token.end > fragmentStart);
-        globalOffset = fragmentEnd;
-        if (!overlappingTokens.length) continue;
-
-        const nodeText = fragmentInfo.node.data;
-        const replacement = document.createDocumentFragment();
-        let localOffset = fragmentInfo.start;
-
-        for (const token of overlappingTokens) {
-            const overlapStart = Math.max(token.start, fragmentStart);
-            const overlapEnd = Math.min(token.end, fragmentEnd);
-            const localStart = fragmentInfo.start + overlapStart - fragmentStart;
-            const localEnd = fragmentInfo.start + overlapEnd - fragmentStart;
-            if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
-
-            const surface = nodeText.slice(localStart, localEnd);
-            const fullTokenInFragment = overlapStart === token.start && overlapEnd === token.end;
-            replacement.append(renderToken(surface, { ...token, sentence: token.sentence ?? sentence }, settings, {
-                allowRuby: fullTokenInFragment && !fragmentInfo.hasNativeRuby && !fragmentInfo.suppressRuby && !target.suppressRuby,
-            }));
-            localOffset = localEnd;
-        }
-
-        if (localOffset < fragmentInfo.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragmentInfo.end)));
-        fragmentInfo.node.replaceWith(replacement);
+        globalOffset = applyTokensToFragmentPiece(target, fragmentInfo, safeTokens, settings, sentence, globalOffset);
     }
     log.debugThrottled('apply-fragment-pieces', 1000, 'Applied tokens to native ruby fragment target', {
         tokens: safeTokens.length,
@@ -667,6 +721,76 @@ function applyTokensToFragmentPieces(
         textLength: target.text.length,
         parserId: target.parserId,
     });
+}
+
+function applyTokensToFragmentPiece(
+    target: FragmentTextTarget,
+    fragment: TextFragment,
+    safeTokens: JPDBToken[],
+    settings: ReaderSettings,
+    sentence: string,
+    fragmentStart: number,
+): number {
+    const fragmentEnd = fragmentStart + fragment.end - fragment.start;
+    if (!fragment.node.parentElement) return fragmentEnd;
+    const overlappingTokens = safeTokens.filter(token => tokenOverlapsRange(token, fragmentStart, fragmentEnd));
+    if (overlappingTokens.length) replaceFragmentWithTokens(target, fragment, overlappingTokens, settings, sentence, fragmentStart, fragmentEnd);
+    return fragmentEnd;
+}
+
+function tokenOverlapsRange(token: JPDBToken, start: number, end: number): boolean {
+    return token.start < end && token.end > start;
+}
+
+function replaceFragmentWithTokens(
+    target: FragmentTextTarget,
+    fragment: TextFragment,
+    tokens: JPDBToken[],
+    settings: ReaderSettings,
+    sentence: string,
+    fragmentStart: number,
+    fragmentEnd: number,
+): void {
+    const nodeText = fragment.node.data;
+    const replacement = document.createDocumentFragment();
+    let localOffset = fragment.start;
+    for (const token of tokens) {
+        const nextOffset = appendFragmentToken(replacement, target, fragment, nodeText, token, settings, sentence, fragmentStart, fragmentEnd, localOffset);
+        localOffset = nextOffset;
+    }
+    if (localOffset < fragment.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragment.end)));
+    fragment.node.replaceWith(replacement);
+}
+
+function appendFragmentToken(
+    replacement: DocumentFragment,
+    target: FragmentTextTarget,
+    fragment: TextFragment,
+    nodeText: string,
+    token: JPDBToken,
+    settings: ReaderSettings,
+    sentence: string,
+    fragmentStart: number,
+    fragmentEnd: number,
+    localOffset: number,
+): number {
+    const overlapStart = Math.max(token.start, fragmentStart);
+    const overlapEnd = Math.min(token.end, fragmentEnd);
+    const localStart = fragment.start + overlapStart - fragmentStart;
+    const localEnd = fragment.start + overlapEnd - fragmentStart;
+    if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
+    replacement.append(renderToken(nodeText.slice(localStart, localEnd), { ...token, sentence: token.sentence ?? sentence }, settings, {
+        allowRuby: fragmentTokenAllowsRuby(target, fragment, token, overlapStart, overlapEnd),
+    }));
+    return localEnd;
+}
+
+function fragmentTokenAllowsRuby(target: FragmentTextTarget, fragment: TextFragment, token: JPDBToken, overlapStart: number, overlapEnd: number): boolean {
+    return overlapStart === token.start
+        && overlapEnd === token.end
+        && !fragment.hasNativeRuby
+        && !fragment.suppressRuby
+        && !target.suppressRuby;
 }
 
 type IndexedTextFragment = TextFragment & {
@@ -694,25 +818,42 @@ function findFragmentBoundary(
     side: 'start' | 'end',
 ): { fragment: IndexedTextFragment; localOffset: number } | null {
     for (const fragment of fragments) {
-        const isInside = side === 'start'
-            ? offset >= fragment.globalStart && offset < fragment.globalEnd
-            : offset > fragment.globalStart && offset <= fragment.globalEnd;
-        if (!isInside) continue;
-        return {
-            fragment,
-            localOffset: fragment.start + offset - fragment.globalStart,
-        };
+        if (fragmentContainsBoundary(fragment, offset, side)) return fragmentBoundary(fragment, offset);
     }
+    return edgeFragmentBoundary(fragments, offset, side);
+}
 
-    if (side === 'start' && offset === fragments[fragments.length - 1]?.globalEnd) {
-        const fragment = fragments[fragments.length - 1];
-        return fragment ? { fragment, localOffset: fragment.end } : null;
-    }
-    if (side === 'end' && offset === fragments[0]?.globalStart) {
-        const fragment = fragments[0];
-        return fragment ? { fragment, localOffset: fragment.start } : null;
-    }
-    return null;
+function fragmentContainsBoundary(fragment: IndexedTextFragment, offset: number, side: 'start' | 'end'): boolean {
+    return side === 'start'
+        ? offset >= fragment.globalStart && offset < fragment.globalEnd
+        : offset > fragment.globalStart && offset <= fragment.globalEnd;
+}
+
+function fragmentBoundary(fragment: IndexedTextFragment, offset: number): { fragment: IndexedTextFragment; localOffset: number } {
+    return {
+        fragment,
+        localOffset: fragment.start + offset - fragment.globalStart,
+    };
+}
+
+function edgeFragmentBoundary(
+    fragments: IndexedTextFragment[],
+    offset: number,
+    side: 'start' | 'end',
+): { fragment: IndexedTextFragment; localOffset: number } | null {
+    return side === 'start'
+        ? trailingEdgeFragmentBoundary(fragments, offset)
+        : leadingEdgeFragmentBoundary(fragments, offset);
+}
+
+function trailingEdgeFragmentBoundary(fragments: IndexedTextFragment[], offset: number): { fragment: IndexedTextFragment; localOffset: number } | null {
+    const fragment = fragments[fragments.length - 1];
+    return fragment && offset === fragment.globalEnd ? { fragment, localOffset: fragment.end } : null;
+}
+
+function leadingEdgeFragmentBoundary(fragments: IndexedTextFragment[], offset: number): { fragment: IndexedTextFragment; localOffset: number } | null {
+    const fragment = fragments[0];
+    return fragment && offset === fragment.globalStart ? { fragment, localOffset: fragment.start } : null;
 }
 
 export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: ReaderSettings): string {
@@ -738,23 +879,43 @@ export function renderHighlightedTextHtml(text: string, targets: string[], class
     let html = '';
     let offset = 0;
     while (offset < text.length) {
-        let matchIndex = -1;
-        let matchNeedle = '';
-        for (const needle of needles) {
-            const index = text.indexOf(needle, offset);
-            if (index < 0) continue;
-            if (matchIndex < 0 || index < matchIndex || (index === matchIndex && needle.length > matchNeedle.length)) {
-                matchIndex = index;
-                matchNeedle = needle;
-            }
-        }
-        if (matchIndex < 0 || !matchNeedle) break;
-        if (matchIndex > offset) html += escapeHtml(text.slice(offset, matchIndex));
-        html += `<mark class="${escapeHtml(className)}">${escapeHtml(text.slice(matchIndex, matchIndex + matchNeedle.length))}</mark>`;
-        offset = matchIndex + matchNeedle.length;
+        const match = nextHighlightMatch(text, needles, offset);
+        if (!match) break;
+        html += renderHighlightChunk(text, className, offset, match);
+        offset = match.index + match.needle.length;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
     return html;
+}
+
+function renderHighlightChunk(text: string, className: string, offset: number, match: { index: number; needle: string }): string {
+    const prefix = match.index > offset ? escapeHtml(text.slice(offset, match.index)) : '';
+    const marked = text.slice(match.index, match.index + match.needle.length);
+    return `${prefix}<mark class="${escapeHtml(className)}">${escapeHtml(marked)}</mark>`;
+}
+
+function nextHighlightMatch(text: string, needles: string[], offset: number): { index: number; needle: string } | null {
+    let best: { index: number; needle: string } | null = null;
+    for (const needle of needles) {
+        best = betterHighlightMatch(best, highlightMatchForNeedle(text, needle, offset));
+    }
+    return best;
+}
+
+function highlightMatchForNeedle(text: string, needle: string, offset: number): { index: number; needle: string } | null {
+    const index = text.indexOf(needle, offset);
+    return index < 0 ? null : { index, needle };
+}
+
+function betterHighlightMatch(
+    current: { index: number; needle: string } | null,
+    candidate: { index: number; needle: string } | null,
+): { index: number; needle: string } | null {
+    if (!candidate) return current;
+    if (!current) return candidate;
+    if (candidate.index < current.index) return candidate;
+    if (candidate.index === current.index && candidate.needle.length > current.needle.length) return candidate;
+    return current;
 }
 
 function uniqueNonEmptyStrings(values: string[]): string[] {
@@ -868,17 +1029,18 @@ export function escapeHtml(value: string): string {
 function trustedHtml(value: string): string | unknown {
     const factory = (globalThis as unknown as { trustedTypes?: TrustedTypesFactory }).trustedTypes;
     if (!factory) return value;
-    if (trustedHtmlPolicy === undefined) {
-        trustedHtmlPolicy = factory.getPolicy?.('yomu-reader') ?? null;
-        if (!trustedHtmlPolicy) {
-            try {
-                trustedHtmlPolicy = factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
-            } catch {
-                trustedHtmlPolicy = null;
-            }
-        }
-    }
+    if (trustedHtmlPolicy === undefined) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
     return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
+}
+
+function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (value: string) => unknown } | null {
+    const existing = factory.getPolicy?.('yomu-reader') ?? null;
+    if (existing) return existing;
+    try {
+        return factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
+    } catch {
+        return null;
+    }
 }
 
 function nodeLabel(node: Node): string {
@@ -892,39 +1054,78 @@ function nodeLabel(node: Node): string {
 
 function isVisible(element: HTMLElement): boolean {
     const rect = element.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return false;
-    if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    if (!isVisibleRect(rect)) return false;
     const style = getComputedStyle(element);
-    return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || '1') > 0;
+    return isVisibleStyle(style);
+}
+
+function isVisibleRect(rect: DOMRect): boolean {
+    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+}
+
+function isVisibleStyle(style: CSSStyleDeclaration): boolean {
+    return style.visibility !== 'hidden'
+        && style.display !== 'none'
+        && Number(style.opacity || '1') > 0;
 }
 
 function isParagraphBoundary(element: HTMLElement): boolean {
     const display = getComputedStyle(element).display;
     if (element.tagName === 'BR') return true;
-    if (display === 'inline' || display === 'contents' || display === 'inline-block' || display === 'inline-flex' || display === 'inline-grid') return false;
+    if (isInlineDisplay(display)) return false;
     if (BLOCK_TAGS.has(element.tagName)) return true;
-    return display === 'block'
-        || display === 'flow-root'
-        || display === 'grid'
-        || display === 'list-item'
-        || display === 'table'
-        || display === 'table-row'
-        || display === 'table-cell';
+    return isBlockLikeDisplay(display);
 }
 
-function isFragileUiText(element: HTMLElement, text: string): boolean {
-    if (UI_CLASS_RE.test(element.className || '')) return true;
-    if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
-    if (isInsideControlLikeLink(element, text)) return true;
+function isInlineDisplay(display: string): boolean {
+    return display === 'inline' || display === 'contents' || display === 'inline-block' || display === 'inline-flex' || display === 'inline-grid';
+}
 
+function isBlockLikeDisplay(display: string): boolean {
+    return BLOCK_LIKE_DISPLAY_VALUES.has(display);
+}
+
+const BLOCK_LIKE_DISPLAY_VALUES = new Set(['block', 'flow-root', 'grid', 'list-item', 'table', 'table-row', 'table-cell']);
+
+function isFragileUiText(element: HTMLElement, text: string): boolean {
+    if (isFragileUiContext(element, text)) return true;
+
+    const metrics = fragileTextMetrics(element, text);
+    if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
+    if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;
+    return fragileByInlineControl(text, metrics.style, metrics.rect);
+}
+
+function isFragileUiContext(element: HTMLElement, text: string): boolean {
+    return UI_CLASS_RE.test(element.className || '')
+        || (text.length <= 4 && ancestorClassLooksLikeUi(element))
+        || isInsideControlLikeLink(element, text);
+}
+
+function fragileTextMetrics(element: HTMLElement, text: string): {
+    style: CSSStyleDeclaration;
+    rect: DOMRect;
+    compactLength: number;
+    fontSize: number;
+    lineHeight: number;
+    prose: boolean;
+} {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
     const compactLength = Array.from(text.replace(/\s+/g, '')).length;
     const fontSize = cssPixels(style.fontSize);
     const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
-    const prose = isLikelyProseElement(element);
-    if (fragileByTypography(element, style, compactLength, fontSize, lineHeight, prose)) return true;
-    if (rect.width > 0 && text.length <= 12 && rect.width < 180 && (style.textAlign === 'center' || style.whiteSpace !== 'normal')) return true;
+    return { style, rect, compactLength, fontSize, lineHeight, prose: isLikelyProseElement(element) };
+}
+
+function fragileByCompactLayout(text: string, style: CSSStyleDeclaration, rect: DOMRect): boolean {
+    return rect.width > 0
+        && text.length <= 12
+        && rect.width < 180
+        && (style.textAlign === 'center' || style.whiteSpace !== 'normal');
+}
+
+function fragileByInlineControl(text: string, style: CSSStyleDeclaration, rect: DOMRect): boolean {
     return text.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
 }
 
@@ -939,7 +1140,21 @@ function fragileByTypography(
     const centered = style.textAlign === 'center';
     const heading = DISPLAY_HEADING_RE.test(element.tagName);
     if (heading && isReadableArticleHeading(element, compactLength)) return false;
-    if (heading && compactLength <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35)) return true;
+    if (heading && fragileHeadingTypography(centered, compactLength, fontSize, lineHeight)) return true;
+    return fragileCenteredNonProseTypography(style, centered, compactLength, fontSize, prose);
+}
+
+function fragileHeadingTypography(centered: boolean, compactLength: number, fontSize: number, lineHeight: number): boolean {
+    return compactLength <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35);
+}
+
+function fragileCenteredNonProseTypography(
+    style: CSSStyleDeclaration,
+    centered: boolean,
+    compactLength: number,
+    fontSize: number,
+    prose: boolean,
+): boolean {
     return !prose && centered && compactLength <= 30 && (fontSize >= 17 || Number(style.fontWeight) >= 600);
 }
 
@@ -958,12 +1173,21 @@ function shouldSuppressInjectedRuby(element: HTMLElement): boolean {
 
 function isClippedLineBox(element: HTMLElement): boolean {
     const style = getComputedStyle(element);
+    if (hasWebkitLineClamp(style)) return true;
+    if (!hasClippedOverflow(style)) return false;
+    return hasFourLineHeightLimit(style);
+}
+
+function hasWebkitLineClamp(style: CSSStyleDeclaration): boolean {
     const webkitLineClamp = style.getPropertyValue('-webkit-line-clamp') || (style as CSSStyleDeclaration & { webkitLineClamp?: string }).webkitLineClamp;
-    if (webkitLineClamp && webkitLineClamp !== 'none' && webkitLineClamp !== '0') return true;
+    return Boolean(webkitLineClamp && webkitLineClamp !== 'none' && webkitLineClamp !== '0');
+}
 
-    const overflow = `${style.overflow} ${style.overflowX} ${style.overflowY}`;
-    if (!/(hidden|clip)/.test(overflow)) return false;
+function hasClippedOverflow(style: CSSStyleDeclaration): boolean {
+    return /(hidden|clip)/.test(`${style.overflow} ${style.overflowX} ${style.overflowY}`);
+}
 
+function hasFourLineHeightLimit(style: CSSStyleDeclaration): boolean {
     const maxHeight = cssPixels(style.maxHeight);
     const explicitHeight = cssPixels(style.height);
     const lineHeight = cssPixels(style.lineHeight) || cssPixels(style.fontSize) * 1.25;
@@ -1004,21 +1228,42 @@ function ancestorClassLooksLikeUi(element: HTMLElement): boolean {
 function isInsideControlLikeLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link) return false;
-    if (link.closest('article, main, [role="main"]') && isLikelyProseElement(element)) return false;
-    if (UI_CLASS_RE.test(link.className || '') || link.hasAttribute('onclick') || link.hasAttribute('data-audio')) return true;
-    if (link.querySelector('svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]')) return true;
+    if (isLikelyProseLink(link, element)) return false;
+    return isExplicitControlLink(link) || linkHasControlMedia(link) || linkHasControlShape(link, text);
+}
 
+function isLikelyProseLink(link: HTMLElement, element: HTMLElement): boolean {
+    return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element));
+}
+
+function isExplicitControlLink(link: HTMLElement): boolean {
+    return UI_CLASS_RE.test(link.className || '') || link.hasAttribute('onclick') || link.hasAttribute('data-audio');
+}
+
+function linkHasControlMedia(link: HTMLElement): boolean {
+    return Boolean(link.querySelector('svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
+}
+
+function linkHasControlShape(link: HTMLElement, text: string): boolean {
     const style = getComputedStyle(link);
     const rect = link.getBoundingClientRect();
     const textLength = Array.from(text.replace(/\s+/g, '')).length;
     const linkTextLength = Array.from((link.textContent ?? '').replace(/\s+/g, '')).length;
-    const controlShape = style.display.includes('flex')
-        || style.display.includes('grid')
-        || style.display === 'inline-block'
+    return hasControlLinkStyle(style) && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
+}
+
+function hasControlLinkStyle(style: CSSStyleDeclaration): boolean {
+    return hasControlLinkDisplay(style.display)
         || Number.parseFloat(style.borderRadius) > 0
-        || style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+        || hasVisibleControlLinkBox(style);
+}
+
+function hasControlLinkDisplay(display: string): boolean {
+    return display.includes('flex') || display.includes('grid') || display === 'inline-block';
+}
+
+function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
+    return style.backgroundColor !== 'rgba(0, 0, 0, 0)'
         || style.borderTopStyle !== 'none'
         || style.borderBottomStyle !== 'none';
-
-    return controlShape && textLength <= 16 && linkTextLength <= 40 && rect.width > 0 && rect.width < 360;
 }

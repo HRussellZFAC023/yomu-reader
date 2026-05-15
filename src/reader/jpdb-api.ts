@@ -18,6 +18,17 @@ export class JpdbApiClient {
     async requestByUrl<T>(url: string, body?: Record<string, unknown>, options: { response?: 'json' | 'none' } = {}): Promise<T> {
         const token = this.getApiKey();
         const endpoint = endpointLabel(url);
+        this.assertCanRequest(token, endpoint);
+
+        const done = log.time('request', { endpoint, hasBody: Boolean(body) });
+        const response = await postJson(url, token, body);
+        done();
+        log.debug('Response received', { endpoint, status: response.status, bytes: response.text.length });
+        this.assertSuccessfulResponse(response, endpoint);
+        return parseJpdbApiResponse<T>(response, endpoint, options.response);
+    }
+
+    private assertCanRequest(token: string, endpoint: string): asserts token is string {
         if (!token) {
             log.warn('Request blocked; JPDB API key is missing', { endpoint });
             throw new Error('JPDB API key is not set.');
@@ -26,12 +37,9 @@ export class JpdbApiClient {
             log.warn('Request blocked by JPDB rate-limit backoff', { endpoint, retryAfterMs: this.retryAfter - Date.now() });
             throw new Error('JPDB is rate limited. Try again in a moment.');
         }
+    }
 
-        const done = log.time('request', { endpoint, hasBody: Boolean(body) });
-        const response = await postJson(url, token, body);
-        done();
-        log.debug('Response received', { endpoint, status: response.status, bytes: response.text.length });
-
+    private assertSuccessfulResponse(response: JsonPostResponse, endpoint: string): void {
         if (response.status === 429) {
             this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
             log.warn('JPDB rate limit reached', { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
@@ -45,15 +53,24 @@ export class JpdbApiClient {
             log.warn('JPDB request failed', { endpoint, status: response.status });
             throw new Error(`JPDB request failed (${response.status}).`);
         }
-        if (options.response === 'none' || !response.text) return undefined as T;
-
-        const json = JSON.parse(response.text) as T | { error_message?: string };
-        if (json && typeof json === 'object' && 'error_message' in json && json.error_message) {
-            log.warn('JPDB returned application error', { endpoint, message: json.error_message });
-            throw new Error(json.error_message);
-        }
-        return json as T;
     }
+}
+
+function parseJpdbApiResponse<T>(response: JsonPostResponse, endpoint: string, responseMode: 'json' | 'none' | undefined): T {
+    if (responseMode === 'none' || !response.text) return undefined as T;
+    const json = JSON.parse(response.text) as T | { error_message?: string };
+    if (jpdbApplicationErrorMessage(json)) {
+        log.warn('JPDB returned application error', { endpoint, message: json.error_message });
+        throw new Error(json.error_message);
+    }
+    return json as T;
+}
+
+function jpdbApplicationErrorMessage(value: unknown): value is { error_message: string } {
+    const message = value && typeof value === 'object' && 'error_message' in value
+        ? (value as { error_message?: unknown }).error_message
+        : undefined;
+    return typeof message === 'string' && Boolean(message);
 }
 
 interface JsonPostResponse {

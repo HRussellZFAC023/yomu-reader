@@ -339,9 +339,18 @@ function nowMs(): number {
 }
 
 function sanitizeForConsole(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
-    if (value === null || value === undefined) return value;
-    if (typeof value === 'string') return redactString(value);
-    if (typeof value !== 'object') return value;
+    const primitive = sanitizePrimitiveConsoleValue(value);
+    if (primitive.handled) return primitive.value;
+    return sanitizeObjectForConsole(value as object, depth, seen);
+}
+
+function sanitizePrimitiveConsoleValue(value: unknown): { handled: boolean; value: unknown } {
+    if (value === null || value === undefined) return { handled: true, value };
+    if (typeof value === 'string') return { handled: true, value: redactString(value) };
+    return { handled: typeof value !== 'object', value };
+}
+
+function sanitizeObjectForConsole(value: object, depth: number, seen: WeakSet<object>): unknown {
     const special = sanitizeSpecialConsoleValue(value, depth, seen);
     if (special.handled) return special.value;
     if (seen.has(value)) return '[circular]';
@@ -353,23 +362,45 @@ function sanitizeForConsole(value: unknown, depth = 0, seen = new WeakSet<object
 }
 
 function sanitizeSpecialConsoleValue(value: object, depth: number, seen: WeakSet<object>): { handled: boolean; value?: unknown } {
-    if (value instanceof Error) return { handled: true, value: { name: value.name, message: value.message, stack: value.stack } };
-    if (typeof URL !== 'undefined' && value instanceof URL) return { handled: true, value: value.href };
-    if (typeof Blob !== 'undefined' && value instanceof Blob) return { handled: true, value: { type: value.type, size: value.size } };
-    if (typeof Element !== 'undefined' && value instanceof Element) return { handled: true, value };
-    if (typeof Event !== 'undefined' && value instanceof Event) {
-        return {
-            handled: true,
-            value: {
-                type: value.type,
-                target: typeof Element !== 'undefined' && value.target instanceof Element ? describeElement(value.target) : String(value.target),
-            },
-        };
-    }
-    if (typeof FormData !== 'undefined' && value instanceof FormData) {
-        return { handled: true, value: sanitizeFormDataForConsole(value, depth, seen) };
-    }
-    return { handled: false };
+    return sanitizeErrorForConsole(value)
+        ?? sanitizeUrlForConsole(value)
+        ?? sanitizeBlobForConsole(value)
+        ?? sanitizeElementForConsole(value)
+        ?? sanitizeEventForConsole(value)
+        ?? sanitizeFormDataSpecialForConsole(value, depth, seen)
+        ?? { handled: false };
+}
+
+function sanitizeErrorForConsole(value: object): { handled: true; value: unknown } | null {
+    return value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : null;
+}
+
+function sanitizeUrlForConsole(value: object): { handled: true; value: unknown } | null {
+    return typeof URL !== 'undefined' && value instanceof URL ? { handled: true, value: value.href } : null;
+}
+
+function sanitizeBlobForConsole(value: object): { handled: true; value: unknown } | null {
+    return typeof Blob !== 'undefined' && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : null;
+}
+
+function sanitizeElementForConsole(value: object): { handled: true; value: unknown } | null {
+    return typeof Element !== 'undefined' && value instanceof Element ? { handled: true, value } : null;
+}
+
+function sanitizeEventForConsole(value: object): { handled: true; value: unknown } | null {
+    return typeof Event !== 'undefined' && value instanceof Event
+        ? { handled: true, value: { type: value.type, target: eventTargetForConsole(value) } }
+        : null;
+}
+
+function eventTargetForConsole(event: Event): string {
+    return typeof Element !== 'undefined' && event.target instanceof Element ? describeElement(event.target) : String(event.target);
+}
+
+function sanitizeFormDataSpecialForConsole(value: object, depth: number, seen: WeakSet<object>): { handled: true; value: unknown } | null {
+    return typeof FormData !== 'undefined' && value instanceof FormData
+        ? { handled: true, value: sanitizeFormDataForConsole(value, depth, seen) }
+        : null;
 }
 
 function sanitizeFormDataForConsole(value: FormData, depth: number, seen: WeakSet<object>): Record<string, unknown> {

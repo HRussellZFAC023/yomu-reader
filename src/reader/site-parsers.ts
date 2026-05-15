@@ -333,59 +333,87 @@ export function getMatchingSiteParsers(href = window.location.href): SiteParserP
 
 export function collectSiteScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] | null {
     const profiles = getMatchingSiteParsers(href);
-    if (!profiles.length) {
-        return null;
+    if (!profiles.length) return null;
+
+    const context = createSiteScanContext(profiles, limit);
+    for (const profile of profiles) collectProfileScanTargets(profile, context);
+    return siteScanResult(profiles, context.targets);
+}
+
+interface SiteScanContext {
+    effectiveLimit: number;
+    targets: FragmentTextTarget[];
+    seen: Set<Text>;
+}
+
+function createSiteScanContext(profiles: SiteParserProfile[], limit: number): SiteScanContext {
+    return {
+        effectiveLimit: effectiveScanTargetLimit(profiles, limit),
+        targets: [],
+        seen: new Set(),
+    };
+}
+
+function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScanContext): void {
+    for (const root of queryParserRoots(profile)) {
+        if (!siteScanHasRoom(context)) break;
+        collectRootScanTargets(profile, root, context);
     }
+}
 
-    const effectiveLimit = effectiveScanTargetLimit(profiles, limit);
-    const targets: FragmentTextTarget[] = [];
-    const seen = new Set<Text>();
-
-    for (const profile of profiles) {
-        const roots = queryParserRoots(profile);
-        if (!roots.length) continue;
-
-        for (const root of roots) {
-            const remaining = effectiveLimit - targets.length;
-            if (remaining <= 0) break;
-            const collected = collectFragmentTextTargetsIn(root, remaining, true, profile.exclude ?? COMMON_EXCLUDE, {
-                allowUiText: profile.allowUiText,
-                minLength: profile.minLength,
-                includeUiChrome: profile.includeUiChrome,
-            });
-            for (const target of collected) {
-                const firstNode = target.fragments[0]?.node;
-                if (!firstNode || seen.has(firstNode)) continue;
-                seen.add(firstNode);
-                targets.push({ ...target, parserId: profile.id });
-                if (targets.length >= effectiveLimit) break;
-            }
-        }
+function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
+    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), true, profile.exclude ?? COMMON_EXCLUDE, {
+        allowUiText: profile.allowUiText,
+        minLength: profile.minLength,
+        includeUiChrome: profile.includeUiChrome,
+    });
+    for (const target of collected) {
+        if (!addUniqueSiteScanTarget(profile, target, context)) continue;
+        if (!siteScanHasRoom(context)) break;
     }
+}
 
-    if (targets.length) {
-        return targets;
-    }
+function addUniqueSiteScanTarget(profile: SiteParserProfile, target: FragmentTextTarget, context: SiteScanContext): boolean {
+    const firstNode = target.fragments[0]?.node;
+    if (!firstNode || context.seen.has(firstNode)) return false;
+    context.seen.add(firstNode);
+    context.targets.push({ ...target, parserId: profile.id });
+    return true;
+}
+
+function siteScanRemaining(context: SiteScanContext): number {
+    return context.effectiveLimit - context.targets.length;
+}
+
+function siteScanHasRoom(context: SiteScanContext): boolean {
+    return siteScanRemaining(context) > 0;
+}
+
+function siteScanResult(profiles: SiteParserProfile[], targets: FragmentTextTarget[]): ScanTextTarget[] | null {
+    if (targets.length) return targets;
     return profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
 }
 
 export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href): ScanTextTarget[] {
     const matchingProfiles = getMatchingSiteParsers(href);
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-    if (matchingProfiles.length) {
-        const siteTargets = collectSiteScanTargets(effectiveLimit, href) ?? [];
-        if (siteTargets.length || !matchingProfiles.some(profile => profile.includeGenericPageText)) {
-            return siteTargets;
-        }
-    }
-
+    const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
+    if (siteTargets) return siteTargets;
     const genericTargets = collectGenericProseTargets(effectiveLimit);
-    if (genericTargets.length) {
-        return genericTargets;
-    }
+    if (genericTargets.length) return genericTargets;
 
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
+}
+
+function completeSiteScanTargets(profiles: SiteParserProfile[], limit: number, href: string): ScanTextTarget[] | null {
+    if (!profiles.length) return null;
+    const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+    return siteTargets.length || !hasGenericPageTextFallback(profiles) ? siteTargets : null;
+}
+
+function hasGenericPageTextFallback(profiles: SiteParserProfile[]): boolean {
+    return profiles.some(profile => profile.includeGenericPageText);
 }
 
 function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit: number): number {

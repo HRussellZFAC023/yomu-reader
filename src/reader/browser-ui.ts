@@ -114,17 +114,26 @@ export function positionPopover(popover: HTMLElement, anchor?: HTMLElement, fall
 }
 
 function getPopoverSourceRects(anchor: HTMLElement | undefined, fallbackRect: DOMRect | undefined, options: PopoverPositionOptions): PopoverRect[] {
-    if (options.followPoint) {
-        const { x, y } = options.followPoint;
-        return [{ left: x, top: y, right: x + 1, bottom: y + 1 }];
-    }
-    const anchorRects = anchor ? rectListToPopoverRects(anchor.getClientRects()) : [];
+    if (options.followPoint) return pointPopoverRects(options.followPoint);
+    const anchorRects = anchorPopoverRects(anchor);
     if (anchorRects.length) return anchorRects;
-    if (anchor) {
-        const rect = domRectToPopoverRect(anchor.getBoundingClientRect());
-        if (hasRectArea(rect)) return [rect];
-    }
     if (fallbackRect) return [domRectToPopoverRect(fallbackRect)];
+    return selectionPopoverRects();
+}
+
+function pointPopoverRects(point: { x: number; y: number }): PopoverRect[] {
+    return [{ left: point.x, top: point.y, right: point.x + 1, bottom: point.y + 1 }];
+}
+
+function anchorPopoverRects(anchor: HTMLElement | undefined): PopoverRect[] {
+    if (!anchor) return [];
+    const clientRects = rectListToPopoverRects(anchor.getClientRects());
+    if (clientRects.length) return clientRects;
+    const rect = domRectToPopoverRect(anchor.getBoundingClientRect());
+    return hasRectArea(rect) ? [rect] : [];
+}
+
+function selectionPopoverRects(): PopoverRect[] {
     const selection = window.getSelection();
     if (!selection?.rangeCount) return [];
     const range = selection.getRangeAt(0);
@@ -186,24 +195,51 @@ function getYomitanLikePopoverPosition(
     frameHeight: number,
 ): PopoverSizeRect {
     const horizontal = writingMode === 'horizontal-tb';
-    const horizontalOffset = horizontal ? 0 : 10;
-    const verticalOffset = horizontal ? 10 : 0;
-    const preferAfter = horizontal ? true : isVerticalTextPopupOnRight(writingMode);
+    const layout = popoverWritingLayout(writingMode, horizontal);
 
     let best: PopoverSizeRect | null = null;
-    const sourceRectsLength = sourceRects.length;
-    for (let i = 0, ii = sourceRectsLength > 1 ? sourceRectsLength : 0; i <= ii; ++i) {
-        const sourceRect = i < sourceRectsLength ? sourceRects[i] : getBoundingSourceRect(sourceRects);
-        const result = horizontal
-            ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter)
-            : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter);
-        if (i < ii && isOverlapping(result, sourceRects, i)) continue;
-        if (best === null || result.height > best.height) {
-            best = result;
-            if (result.height >= frameHeight) break;
-        }
+    const candidates = popoverSourceRectCandidates(sourceRects);
+    for (const { rect, index, canOverlap } of candidates) {
+        const result = getPositionForWritingMode(rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
+        if (!canOverlap && isOverlapping(result, sourceRects, index)) continue;
+        best = tallerPopoverPosition(best, result);
+        if (result.height >= frameHeight) break;
     }
     return best ?? { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
+}
+
+function popoverWritingLayout(writingMode: NormalizedWritingMode, horizontal: boolean): { horizontalOffset: number; verticalOffset: number; preferAfter: boolean } {
+    return {
+        horizontalOffset: horizontal ? 0 : 10,
+        verticalOffset: horizontal ? 10 : 0,
+        preferAfter: horizontal ? true : isVerticalTextPopupOnRight(writingMode),
+    };
+}
+
+function tallerPopoverPosition(best: PopoverSizeRect | null, next: PopoverSizeRect): PopoverSizeRect {
+    return best === null || next.height > best.height ? next : best;
+}
+
+function popoverSourceRectCandidates(sourceRects: PopoverRect[]): Array<{ rect: PopoverRect; index: number; canOverlap: boolean }> {
+    const candidates = sourceRects.map((rect, index) => ({ rect, index, canOverlap: false }));
+    return sourceRects.length > 1
+        ? [...candidates, { rect: getBoundingSourceRect(sourceRects), index: sourceRects.length, canOverlap: true }]
+        : candidates;
+}
+
+function getPositionForWritingMode(
+    sourceRect: PopoverRect,
+    horizontal: boolean,
+    frameWidth: number,
+    frameHeight: number,
+    viewport: PopoverRect,
+    horizontalOffset: number,
+    verticalOffset: number,
+    preferAfter: boolean,
+): PopoverSizeRect {
+    return horizontal
+        ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter)
+        : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter);
 }
 
 function getPositionForHorizontalText(
@@ -338,16 +374,16 @@ function isOverlapping(sizeRect: PopoverSizeRect, sourceRects: PopoverRect[], ig
     for (let i = 0, ii = sourceRects.length; i < ii; ++i) {
         if (i === ignoreIndex) continue;
         const sourceRect = sourceRects[i];
-        if (
-            left < sourceRect.right
-            && right > sourceRect.left
-            && top < sourceRect.bottom
-            && bottom > sourceRect.top
-        ) {
-            return true;
-        }
+        if (rectsOverlap({ left, top, right, bottom }, sourceRect)) return true;
     }
     return false;
+}
+
+function rectsOverlap(a: PopoverRect, b: PopoverRect): boolean {
+    return a.left < b.right
+        && a.right > b.left
+        && a.top < b.bottom
+        && a.bottom > b.top;
 }
 
 function getPlacementSide(writingMode: NormalizedWritingMode, position: PopoverSizeRect): 'above' | 'below' | 'left' | 'right' {

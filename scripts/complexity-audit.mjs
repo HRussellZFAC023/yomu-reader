@@ -91,10 +91,20 @@ function isFunctionLike(node) {
 function functionName(node) {
     if (node.name?.getText) return node.name.getText();
     const parent = node.parent;
+    const assignedName = assignedFunctionName(parent);
+    if (assignedName) return assignedName;
+    if (ts.isCallExpression(parent) && parent.expression) return callbackFunctionName(parent);
+    return '<anonymous>';
+}
+
+function assignedFunctionName(parent) {
     if (ts.isVariableDeclaration(parent) && parent.name) return parent.name.getText();
     if (ts.isPropertyAssignment(parent) && parent.name) return parent.name.getText();
-    if (ts.isCallExpression(parent) && parent.expression) return `<callback:${parent.expression.getText().slice(0, 48)}>`;
-    return '<anonymous>';
+    return '';
+}
+
+function callbackFunctionName(parent) {
+    return `<callback:${parent.expression.getText().slice(0, 48)}>`;
 }
 
 function measureFunctionComplexity(node) {

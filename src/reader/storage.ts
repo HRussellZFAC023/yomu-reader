@@ -224,28 +224,47 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
 
 async function storageKeys(prefixes: string[]): Promise<string[]> {
     const keys = new Set<string>();
+    await addGmStorageKeys(keys, prefixes);
+    addLocalStorageKeys(keys, prefixes);
+    await addKnownManagedStorageKeys(keys, prefixes);
+    return [...keys].sort();
+}
+
+async function addGmStorageKeys(keys: Set<string>, prefixes: string[]): Promise<void> {
     const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
-    if (typeof listValues === 'function') {
-        try {
-            for (const key of await listValues()) {
-                if (prefixes.some(prefix => key.startsWith(prefix))) keys.add(key);
-            }
-        } catch (error) {
-            debugStorageError('GM storage list failed', 'GM_listValues', error);
-        }
+    if (typeof listValues !== 'function') return;
+    try {
+        addMatchingStorageKeys(keys, await listValues(), prefixes);
+    } catch (error) {
+        debugStorageError('GM storage list failed', 'GM_listValues', error);
     }
+}
+
+function addLocalStorageKeys(keys: Set<string>, prefixes: string[]): void {
     try {
         for (let index = 0; index < localStorage.length; index++) {
             const key = localStorage.key(index);
-            if (key && prefixes.some(prefix => key.startsWith(prefix))) keys.add(key);
+            if (key && storageKeyMatchesPrefix(key, prefixes)) keys.add(key);
         }
     } catch {
         // Ignore localStorage enumeration failures.
     }
+}
+
+async function addKnownManagedStorageKeys(keys: Set<string>, prefixes: string[]): Promise<void> {
     for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
-        if (prefixes.some(prefix => key.startsWith(prefix)) && await storedValueExists(key)) keys.add(key);
+        if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
     }
-    return [...keys].sort();
+}
+
+function addMatchingStorageKeys(keys: Set<string>, candidates: string[], prefixes: string[]): void {
+    for (const key of candidates) {
+        if (storageKeyMatchesPrefix(key, prefixes)) keys.add(key);
+    }
+}
+
+function storageKeyMatchesPrefix(key: string, prefixes: string[]): boolean {
+    return prefixes.some(prefix => key.startsWith(prefix));
 }
 
 async function allStorageKeys(): Promise<string[]> {
@@ -344,16 +363,27 @@ function normalizeFactoryResetSignal(signal: FactoryResetSignal): FactoryResetSi
 
 function parseFactoryResetSignal(value: unknown): FactoryResetSignal | null {
     const parsed = typeof value === 'string' ? parseJsonRecord(value) : value;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    const record = parsed as Partial<FactoryResetSignal>;
-    if (typeof record.id !== 'string' || !record.id.trim()) return null;
-    if (record.phase !== 'prepare' && record.phase !== 'complete') return null;
+    if (!isFactoryResetSignalRecord(parsed)) return null;
+    const record = parsed;
+    if (!isValidFactoryResetPhase(record.phase)) return null;
     return {
         id: record.id,
         phase: record.phase,
         at: typeof record.at === 'number' && Number.isFinite(record.at) ? record.at : Date.now(),
         href: typeof record.href === 'string' ? record.href : '',
     };
+}
+
+function isFactoryResetSignalRecord(value: unknown): value is Partial<FactoryResetSignal> & { id: string } {
+    return Boolean(value
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && typeof (value as Partial<FactoryResetSignal>).id === 'string'
+        && (value as Partial<FactoryResetSignal>).id?.trim());
+}
+
+function isValidFactoryResetPhase(value: unknown): value is FactoryResetSignal['phase'] {
+    return value === 'prepare' || value === 'complete';
 }
 
 function parseJsonRecord(value: string): unknown {
