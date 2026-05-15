@@ -73,19 +73,29 @@ function grammarHintFromIndexItem(normalizedSentence: string, item: HanabiraGram
 
 function grammarHintFromMatch(item: HanabiraGrammarIndexItem, match: NonNullable<ReturnType<typeof bestCandidateMatch>>): GrammarHint & { candidateLength: number } {
     const fallbackText = hanabiraFallbackText(item);
+    const text = hanabiraHintText(item, fallbackText);
     return {
         ruleId: hanabiraRuleId(item.title),
         name: item.title,
         level: item.level,
         kind: 'Hanabira grammar',
-        short: item.short || fallbackText,
-        detail: item.detail || item.short || fallbackText,
+        short: text.short,
+        detail: text.detail,
         url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
         match: match.candidate,
-        confidence: match.candidate.length >= 4 ? 'high' : 'medium',
+        confidence: hanabiraMatchConfidence(match),
         index: match.index,
         candidateLength: match.candidate.length,
     };
+}
+
+function hanabiraHintText(item: HanabiraGrammarIndexItem, fallbackText: string): { short: string; detail: string } {
+    const short = item.short || fallbackText;
+    return { short, detail: item.detail || short };
+}
+
+function hanabiraMatchConfidence(match: NonNullable<ReturnType<typeof bestCandidateMatch>>): GrammarHint['confidence'] {
+    return match.candidate.length >= 4 ? 'high' : 'medium';
 }
 
 function hanabiraFallbackText(item: HanabiraGrammarIndexItem): string {

@@ -1987,43 +1987,82 @@
     let inspected = 0;
     let node;
     while (node = walker.nextNode()) {
-      const text2 = node.textContent ?? "";
+      const text2 = nodeTextContent(node);
       if (HAS_JAPANESE$2.test(text2)) return true;
-      inspected += text2.length;
+      inspected = inspectedTextLength(inspected, text2);
       if (inspected >= limit) return false;
     }
     return false;
   }
+  function nodeTextContent(node) {
+    return node.textContent ?? "";
+  }
+  function inspectedTextLength(inspected, text2) {
+    return inspected + text2.length;
+  }
   function collectTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
-    var _a;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode(node2) {
-        var _a2;
-        const text2 = ((_a2 = node2.textContent) == null ? void 0 : _a2.trim()) ?? "";
-        if (text2.length < 2 || !HAS_JAPANESE$2.test(text2)) return NodeFilter.FILTER_REJECT;
-        const parent = node2.parentElement;
-        if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
-        if (!options.includeReaderRoot && parent.closest(READER_ROOT_SELECTOR)) return NodeFilter.FILTER_REJECT;
-        if (visibleOnly && !isVisible(parent)) return NodeFilter.FILTER_REJECT;
-        if (isFragileUiText(parent, text2)) return NodeFilter.FILTER_REJECT;
-        if (parent.childNodes.length > 6) return NodeFilter.FILTER_SKIP;
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    });
+    const walker = textTargetWalker(root, visibleOnly, options);
     const targets = [];
     let node;
-    while ((node = walker.nextNode()) && targets.length < limit) {
-      const text2 = ((_a = node.textContent) == null ? void 0 : _a.trim()) ?? "";
-      const parent = node.parentElement;
-      if (parent) targets.push({
-        node,
-        text: text2,
-        parent,
-        hasNativeRuby: Boolean(parent.closest("ruby")),
-        suppressRuby: shouldSuppressInjectedRuby(parent)
-      });
+    while (targets.length < limit) {
+      node = walker.nextNode();
+      if (!node) break;
+      const target = textTargetFromAcceptedNode(node);
+      if (target) targets.push(target);
     }
     return targets;
+  }
+  function textTargetWalker(root, visibleOnly, options) {
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => textTargetFilterResult(node, visibleOnly, options)
+    });
+  }
+  function textTargetFilterResult(node, visibleOnly, options) {
+    const text2 = nodeTextContent(node).trim();
+    if (!isCandidateScanText(text2)) return NodeFilter.FILTER_REJECT;
+    const parent = node.parentElement;
+    if (!parent) return NodeFilter.FILTER_REJECT;
+    return textTargetParentFilterResult(parent, text2, visibleOnly, options);
+  }
+  function isCandidateScanText(text2) {
+    if (text2.length < 2) return false;
+    return HAS_JAPANESE$2.test(text2);
+  }
+  function textTargetParentFilterResult(parent, text2, visibleOnly, options) {
+    if (shouldRejectTextTargetParent(parent, text2, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
+    if (shouldSkipTextTargetParent(parent)) return NodeFilter.FILTER_SKIP;
+    return NodeFilter.FILTER_ACCEPT;
+  }
+  function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
+    if (parent.closest(SKIP_SELECTOR)) return true;
+    if (isInsideExcludedReaderRoot(parent, options)) return true;
+    return shouldRejectTextTargetPresentation(parent, text2, visibleOnly);
+  }
+  function isInsideExcludedReaderRoot(parent, options) {
+    if (options.includeReaderRoot) return false;
+    return Boolean(parent.closest(READER_ROOT_SELECTOR));
+  }
+  function shouldRejectTextTargetPresentation(parent, text2, visibleOnly) {
+    if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
+    return isFragileUiText(parent, text2);
+  }
+  function shouldSkipTextTargetParent(parent) {
+    return parent.childNodes.length > 6;
+  }
+  function shouldRejectInvisibleTextTarget(parent, visibleOnly) {
+    if (!visibleOnly) return false;
+    return !isVisible(parent);
+  }
+  function textTargetFromAcceptedNode(node) {
+    const parent = node.parentElement;
+    if (!parent) return null;
+    return {
+      node,
+      text: nodeTextContent(node).trim(),
+      parent,
+      hasNativeRuby: Boolean(parent.closest("ruby")),
+      suppressRuby: shouldSuppressInjectedRuby(parent)
+    };
   }
   function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
     const targets = [];
@@ -2109,18 +2148,33 @@
   function trimFragmentStart(fragments) {
     while (fragments.length) {
       const first2 = fragments[0];
-      while (first2.start < first2.end && isWhitespaceAt(first2.node.data, first2.start)) first2.start += 1;
-      if (first2.start < first2.end) break;
+      trimFragmentLeadingWhitespace(first2);
+      if (hasFragmentText(first2)) break;
       fragments.shift();
     }
   }
   function trimFragmentEnd(fragments) {
     while (fragments.length) {
       const last = fragments[fragments.length - 1];
-      while (last.end > last.start && isWhitespaceAt(last.node.data, last.end - 1)) last.end -= 1;
-      if (last.start < last.end) break;
+      trimFragmentTrailingWhitespace(last);
+      if (hasFragmentText(last)) break;
       fragments.pop();
     }
+  }
+  function trimFragmentLeadingWhitespace(fragment2) {
+    while (fragmentHasLeadingWhitespace(fragment2)) fragment2.start += 1;
+  }
+  function trimFragmentTrailingWhitespace(fragment2) {
+    while (fragmentHasTrailingWhitespace(fragment2)) fragment2.end -= 1;
+  }
+  function fragmentHasLeadingWhitespace(fragment2) {
+    return hasFragmentText(fragment2) && isWhitespaceAt(fragment2.node.data, fragment2.start);
+  }
+  function fragmentHasTrailingWhitespace(fragment2) {
+    return hasFragmentText(fragment2) && isWhitespaceAt(fragment2.node.data, fragment2.end - 1);
+  }
+  function hasFragmentText(fragment2) {
+    return fragment2.start < fragment2.end;
   }
   function isWhitespaceAt(value, index) {
     return /\s/u.test(value[index] ?? "");
@@ -2168,12 +2222,16 @@
   }
   function nearestReadableAncestorSentence(element2, surface, cleanFallback) {
     let current = element2.parentElement;
-    while (current && current !== document.body && current !== document.documentElement) {
+    while (isReadableAncestorCandidate(current)) {
       const sentence = readableAncestorSentence(current, surface, cleanFallback);
       if (sentence) return sentence;
       current = current.parentElement;
     }
     return "";
+  }
+  function isReadableAncestorCandidate(element2) {
+    if (!element2) return false;
+    return element2 !== document.body && element2 !== document.documentElement;
   }
   function readableAncestorSentence(element2, surface, cleanFallback) {
     if (!canReadSentenceContextFrom(element2)) return "";
@@ -2190,12 +2248,16 @@
     const text2 = cleanReadableSentence(value);
     if (!isJapaneseSentenceContext(text2)) return "";
     const search = sentenceSearchText(text2, surface, fallback);
-    const index = search ? text2.indexOf(search) : 0;
+    const index = sentenceSearchIndex(text2, search);
     if (index < 0) return clampContextText(text2);
     const hardBounded = hardBoundedSentence(text2, index, search.length);
     const hardClean = trimSoftSentenceBoundary(hardBounded, search);
     if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
     return clampLongSentence(hardClean, search);
+  }
+  function sentenceSearchIndex(text2, search) {
+    if (!search) return 0;
+    return text2.indexOf(search);
   }
   function isJapaneseSentenceContext(text2) {
     return Boolean(text2 && HAS_JAPANESE$2.test(text2));
@@ -2203,8 +2265,13 @@
   function sentenceSearchText(text2, surface, fallback) {
     const cleanSurface = cleanReadableSentence(surface);
     const cleanFallback = cleanReadableSentence(fallback);
-    if (cleanSurface && text2.includes(cleanSurface)) return cleanSurface;
-    return cleanFallback && text2.includes(cleanFallback) ? cleanFallback : "";
+    if (textIncludesSearch(text2, cleanSurface)) return cleanSurface;
+    if (textIncludesSearch(text2, cleanFallback)) return cleanFallback;
+    return "";
+  }
+  function textIncludesSearch(text2, search) {
+    if (!search) return false;
+    return text2.includes(search);
   }
   function clampContextText(text2) {
     return text2.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text2 : text2.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
@@ -2226,9 +2293,11 @@
     return sentence.length >= 8 || /[。！？]/u.test(sentence);
   }
   function readableSurfaceText(node) {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+    if (node.nodeType === Node.TEXT_NODE) return nodeTextContent(node);
     if (node.nodeType !== Node.ELEMENT_NODE) return "";
-    const element2 = node;
+    return readableElementSurfaceText(node);
+  }
+  function readableElementSurfaceText(element2) {
     if (isIgnoredReadableElement(element2)) return "";
     let text2 = "";
     element2.childNodes.forEach((child) => {
@@ -2370,7 +2439,15 @@
     range.detach();
   }
   function attachableFragmentRange(start, end) {
-    return start && end && start.fragment.node.parentElement && end.fragment.node.parentElement ? { start, end } : null;
+    const attachedStart = attachedFragmentBoundary(start);
+    const attachedEnd = attachedFragmentBoundary(end);
+    if (!attachedStart || !attachedEnd) return null;
+    return { start: attachedStart, end: attachedEnd };
+  }
+  function attachedFragmentBoundary(boundary) {
+    if (!boundary) return null;
+    if (!boundary.fragment.node.parentElement) return null;
+    return boundary;
   }
   function insertSingleFragmentToken(range, target, fragment2, token, tokenWithSentence, settings) {
     const allowRuby = !fragment2.hasNativeRuby && !fragment2.suppressRuby && !target.suppressRuby;
@@ -2427,7 +2504,17 @@
     return localEnd;
   }
   function fragmentTokenAllowsRuby(target, fragment2, token, overlapStart, overlapEnd) {
-    return overlapStart === token.start && overlapEnd === token.end && !fragment2.hasNativeRuby && !fragment2.suppressRuby && !target.suppressRuby;
+    if (!tokenCoversFragmentOverlap(token, overlapStart, overlapEnd)) return false;
+    return fragmentAllowsInjectedRuby(target, fragment2);
+  }
+  function tokenCoversFragmentOverlap(token, overlapStart, overlapEnd) {
+    if (overlapStart !== token.start) return false;
+    return overlapEnd === token.end;
+  }
+  function fragmentAllowsInjectedRuby(target, fragment2) {
+    if (fragment2.hasNativeRuby) return false;
+    if (fragment2.suppressRuby) return false;
+    return !target.suppressRuby;
   }
   function indexTextFragments(fragments) {
     let globalOffset = 0;
@@ -2469,7 +2556,6 @@
     return fragment2 && offset === fragment2.globalStart ? { fragment: fragment2, localOffset: fragment2.start } : null;
   }
   function renderTokensToHtml(text2, tokens, settings) {
-    if (!tokens.length) return escapeHtml$1(text2);
     let html = "";
     let offset = 0;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
@@ -2479,7 +2565,6 @@
       offset = token.end;
     }
     if (offset < text2.length) html += escapeHtml$1(text2.slice(offset));
-    log$G.debugThrottled("render-token-html", 1e3, "Rendered token HTML", { tokens: safeTokens.length, textLength: text2.length, htmlLength: html.length });
     return html;
   }
   function renderHighlightedTextHtml(text2, targets, className) {
@@ -2576,11 +2661,13 @@
     return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}" tabindex="0">${content}</span>`;
   }
   function shouldRenderRuby(surface, token, settings, allowRuby = true) {
-    if (!allowRuby || !token.rubies.length) return false;
-    const mode = effectiveFuriganaMode(settings);
+    if (!allowRuby) return false;
+    if (!token.rubies.length) return false;
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface);
+  }
+  function furiganaModeAllowsRuby(mode, surface) {
     if (mode === "off") return false;
-    if (mode === "difficult-kanji") return hasDifficultKanji(surface);
-    return true;
+    return mode !== "difficult-kanji" || hasDifficultKanji(surface);
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
@@ -2630,7 +2717,9 @@
   function nodeLabel(node) {
     if (node.nodeType === Node.TEXT_NODE) return "#text";
     if (node.nodeType !== Node.ELEMENT_NODE) return node.nodeName.toLowerCase();
-    const element2 = node;
+    return elementNodeLabel(node);
+  }
+  function elementNodeLabel(element2) {
     const id = element2.id ? `#${element2.id}` : "";
     const classes = element2.classList.length ? `.${[...element2.classList].slice(0, 3).join(".")}` : "";
     return `${element2.tagName.toLowerCase()}${id}${classes}`;
@@ -2655,11 +2744,12 @@
     return isBlockLikeDisplay(display);
   }
   function isInlineDisplay(display) {
-    return display === "inline" || display === "contents" || display === "inline-block" || display === "inline-flex" || display === "inline-grid";
+    return INLINE_DISPLAY_VALUES.has(display);
   }
   function isBlockLikeDisplay(display) {
     return BLOCK_LIKE_DISPLAY_VALUES.has(display);
   }
+  const INLINE_DISPLAY_VALUES = /* @__PURE__ */ new Set(["inline", "contents", "inline-block", "inline-flex", "inline-grid"]);
   const BLOCK_LIKE_DISPLAY_VALUES = /* @__PURE__ */ new Set(["block", "flow-root", "grid", "list-item", "table", "table-row", "table-cell"]);
   function isFragileUiText(element2, text2) {
     if (isFragileUiContext(element2, text2)) return true;
@@ -2669,7 +2759,9 @@
     return fragileByInlineControl(text2, metrics.style, metrics.rect);
   }
   function isFragileUiContext(element2, text2) {
-    return UI_CLASS_RE.test(element2.className || "") || text2.length <= 4 && ancestorClassLooksLikeUi(element2) || isInsideControlLikeLink(element2, text2);
+    if (UI_CLASS_RE.test(String(element2.className))) return true;
+    if (text2.length <= 4 && ancestorClassLooksLikeUi(element2)) return true;
+    return isInsideControlLikeLink(element2, text2);
   }
   function fragileTextMetrics(element2, text2) {
     const style = getComputedStyle(element2);
@@ -2688,8 +2780,9 @@
   function fragileByTypography(element2, style, compactLength2, fontSize, lineHeight, prose) {
     const centered = style.textAlign === "center";
     const heading = DISPLAY_HEADING_RE.test(element2.tagName);
-    if (heading && isReadableArticleHeading(element2, compactLength2)) return false;
-    if (heading && fragileHeadingTypography(centered, compactLength2, fontSize, lineHeight)) return true;
+    if (!heading) return fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose);
+    if (isReadableArticleHeading(element2, compactLength2)) return false;
+    if (fragileHeadingTypography(centered, compactLength2, fontSize, lineHeight)) return true;
     return fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose);
   }
   function fragileHeadingTypography(centered, compactLength2, fontSize, lineHeight) {
@@ -2703,11 +2796,15 @@
   }
   function shouldSuppressInjectedRuby(element2) {
     let current = element2;
-    while (current && current !== document.body) {
-      if (DISPLAY_HEADING_RE.test(current.tagName) || isClippedLineBox(current)) return true;
+    while (current) {
+      if (current === document.body) break;
+      if (shouldSuppressRubyAtAncestor(current)) return true;
       current = current.parentElement;
     }
     return false;
+  }
+  function shouldSuppressRubyAtAncestor(element2) {
+    return DISPLAY_HEADING_RE.test(element2.tagName) || isClippedLineBox(element2);
   }
   function isClippedLineBox(element2) {
     const style = getComputedStyle(element2);
@@ -2733,7 +2830,13 @@
     return size > 0 && size <= lineHeight * 4;
   }
   function hasUiBox(style) {
-    return style.backgroundColor !== "rgba(0, 0, 0, 0)" || style.borderTopStyle !== "none" || Number(style.borderTopWidth.replace("px", "")) > 0 || Number(style.borderBottomWidth.replace("px", "")) > 0 || Number.parseFloat(style.borderRadius) > 0;
+    return [
+      style.backgroundColor !== "rgba(0, 0, 0, 0)",
+      style.borderTopStyle !== "none",
+      Number(style.borderTopWidth.replace("px", "")) > 0,
+      Number(style.borderBottomWidth.replace("px", "")) > 0,
+      Number.parseFloat(style.borderRadius) > 0
+    ].some(Boolean);
   }
   function hasInlineControlShape(display) {
     return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
@@ -2748,8 +2851,9 @@
   }
   function ancestorClassLooksLikeUi(element2) {
     let current = element2;
-    while (current && current !== document.body) {
-      if (UI_CLASS_RE.test(current.className || "")) return true;
+    while (current) {
+      if (current === document.body) break;
+      if (UI_CLASS_RE.test(String(current.className))) return true;
       current = current.parentElement;
     }
     return false;
@@ -16215,7 +16319,10 @@ ${entry.reading}`;
     };
   }
   function canClampPuck(rect, x, y, margin) {
-    return finitePuckPosition(x, y) && finiteViewport() && hasViewportRoom(margin) && rect.width > 0 && rect.height > 0;
+    if (!finitePuckPosition(x, y)) return false;
+    if (!finiteViewport()) return false;
+    if (!hasViewportRoom(margin)) return false;
+    return hasVisiblePuckRect(rect);
   }
   function finitePuckPosition(x, y) {
     return Number.isFinite(x) && Number.isFinite(y);
@@ -16225,6 +16332,9 @@ ${entry.reading}`;
   }
   function hasViewportRoom(margin) {
     return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
+  }
+  function hasVisiblePuckRect(rect) {
+    return rect.width > 0 && rect.height > 0;
   }
   function visibleVideos() {
     return Array.from(document.querySelectorAll("video")).filter((video) => video instanceof HTMLVideoElement).filter((video) => {
@@ -16272,19 +16382,27 @@ ${entry.reading}`;
   }
   function grammarHintFromMatch(item, match) {
     const fallbackText = hanabiraFallbackText(item);
+    const text2 = hanabiraHintText(item, fallbackText);
     return {
       ruleId: hanabiraRuleId(item.title),
       name: item.title,
       level: item.level,
       kind: "Hanabira grammar",
-      short: item.short || fallbackText,
-      detail: item.detail || item.short || fallbackText,
+      short: text2.short,
+      detail: text2.detail,
       url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
       match: match.candidate,
-      confidence: match.candidate.length >= 4 ? "high" : "medium",
+      confidence: hanabiraMatchConfidence(match),
       index: match.index,
       candidateLength: match.candidate.length
     };
+  }
+  function hanabiraHintText(item, fallbackText) {
+    const short = item.short || fallbackText;
+    return { short, detail: item.detail || short };
+  }
+  function hanabiraMatchConfidence(match) {
+    return match.candidate.length >= 4 ? "high" : "medium";
   }
   function hanabiraFallbackText(item) {
     return item.formation || item.title;

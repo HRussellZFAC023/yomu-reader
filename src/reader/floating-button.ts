@@ -189,11 +189,10 @@ function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number
 }
 
 function canClampPuck(rect: DOMRect, x: number, y: number, margin: number): boolean {
-    return finitePuckPosition(x, y)
-        && finiteViewport()
-        && hasViewportRoom(margin)
-        && rect.width > 0
-        && rect.height > 0;
+    if (!finitePuckPosition(x, y)) return false;
+    if (!finiteViewport()) return false;
+    if (!hasViewportRoom(margin)) return false;
+    return hasVisiblePuckRect(rect);
 }
 
 function finitePuckPosition(x: number, y: number): boolean {
@@ -206,6 +205,10 @@ function finiteViewport(): boolean {
 
 function hasViewportRoom(margin: number): boolean {
     return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
+}
+
+function hasVisiblePuckRect(rect: DOMRect): boolean {
+    return rect.width > 0 && rect.height > 0;
 }
 
 function visibleVideos(): HTMLVideoElement[] {
