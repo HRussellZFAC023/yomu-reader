@@ -34,6 +34,13 @@ interface AudioSourcePlayResult {
     errors: string[];
 }
 
+interface AudioPlaybackRequest {
+    requestId: number;
+    isCurrent: () => boolean;
+    settings: ReaderSettings;
+    sources: AudioSourceSetting[];
+}
+
 interface SoftChimeNote {
     frequency: number;
     offset: number;
@@ -69,23 +76,35 @@ export class AudioPlayer {
     constructor(private getSettings: () => ReaderSettings) {}
 
     async play(card: JPDBCard, options: AudioPlaybackOptions = {}): Promise<boolean> {
-        const requestId = ++this.playRequestId;
-        const isCurrent = options.isCurrent ?? (() => true);
-        const settings = this.getSettings();
-        if (!settings.audioEnabled) throw new Error('Audio playback is disabled.');
-        if (!isCurrent()) return false;
-
-        const sources = getOrderedAudioSources(settings);
+        const request = this.audioPlaybackRequest(options);
+        this.ensureAudioEnabled(request.settings);
+        if (!request.isCurrent()) return false;
         this.stopCurrent();
-        if (!sources.length) {
-            log.warn('No audio sources configured', { term: card.spelling });
-            return await this.playMissingAudioFallback(settings, requestId, isCurrent);
-        }
+        if (!request.sources.length) return await this.playNoAudioSources(card, request);
 
-        const done = log.time('play', { term: card.spelling, sources: sources.map(source => source.type), viaBlob: true });
-        const result = await this.playFromSources(sources, card, settings, requestId, isCurrent);
+        const done = log.time('play', { term: card.spelling, sources: request.sources.map(source => source.type), viaBlob: true });
+        const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent);
         done();
-        return this.finishPlaybackResult(card, settings, requestId, isCurrent, result);
+        return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
+    }
+
+    private audioPlaybackRequest(options: AudioPlaybackOptions): AudioPlaybackRequest {
+        const settings = this.getSettings();
+        return {
+            requestId: ++this.playRequestId,
+            isCurrent: options.isCurrent ?? (() => true),
+            settings,
+            sources: getOrderedAudioSources(settings),
+        };
+    }
+
+    private ensureAudioEnabled(settings: ReaderSettings): void {
+        if (!settings.audioEnabled) throw new Error('Audio playback is disabled.');
+    }
+
+    private async playNoAudioSources(card: JPDBCard, request: AudioPlaybackRequest): Promise<boolean> {
+        log.warn('No audio sources configured', { term: card.spelling });
+        return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
 
     private async finishPlaybackResult(
@@ -326,12 +345,20 @@ export class AudioPlayer {
     private async playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): Promise<boolean> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         this.current = audio;
+        this.rewindPreparedAudio(audio);
+        await audio.play();
+        return this.finishPreparedAudio(audio, requestId, isCurrent);
+    }
+
+    private rewindPreparedAudio(audio: HTMLAudioElement): void {
         try {
             if (audio.readyState > HTMLMediaElement.HAVE_NOTHING) audio.currentTime = 0;
         } catch {
             // Some direct remote audio URLs do not allow seeking before metadata loads.
         }
-        await audio.play();
+    }
+
+    private finishPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): boolean {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) {
             audio.pause();
             return false;
@@ -394,21 +421,36 @@ export class AudioPlayer {
     }
 
     private async playMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
-        if (!settings.audioFallbackChimeEnabled) {
-            log.debug('Missing-audio fallback is silent');
-            return false;
-        }
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent)) return false;
+        return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
+    }
 
+    private shouldPlayMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): boolean {
+        if (settings.audioFallbackChimeEnabled) return this.isPlaybackCurrent(requestId, isCurrent);
+        this.logSilentMissingAudioFallback();
+        return false;
+    }
+
+    private logSilentMissingAudioFallback(): void {
+        log.debug('Missing-audio fallback is silent');
+    }
+
+    private async tryPlayMissingAudioFallback(requestId: number, isCurrent: () => boolean): Promise<boolean> {
         try {
             const played = await this.playSoftChime(requestId, isCurrent);
-            if (!played) return false;
-            log.debug('Missing-audio fallback chime played');
-            return true;
+            return this.finishMissingAudioFallback(played);
         } catch (error) {
             log.debug('Missing-audio fallback chime unavailable', {}, error);
             return false;
         }
+    }
+
+    private finishMissingAudioFallback(played: boolean): boolean {
+        if (played) {
+            log.debug('Missing-audio fallback chime played');
+            return true;
+        }
+        return false;
     }
 
     private async playSoftChime(requestId: number, isCurrent: () => boolean): Promise<boolean> {
@@ -552,11 +594,19 @@ export function findAudioUrl(value: unknown, sourceUrl?: string, mode: AudioSele
 }
 
 export function findAudioUrls(value: unknown, sourceUrl?: string): string[] {
+    const direct = directAudioUrlsForValue(value, sourceUrl);
+    return direct ?? [];
+}
+
+function directAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
     if (!value) return [];
     if (typeof value === 'string') return findAudioUrlsInString(value, sourceUrl);
+    return structuredAudioUrlsForValue(value, sourceUrl);
+}
+
+function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
     if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap(item => findAudioUrls(item, sourceUrl)));
-    if (typeof value === 'object') return findAudioUrlsInRecord(value as Record<string, unknown>, sourceUrl);
-    return [];
+    return typeof value === 'object' ? findAudioUrlsInRecord(value as Record<string, unknown>, sourceUrl) : null;
 }
 
 function findAudioUrlsInString(value: string, sourceUrl?: string): string[] {
@@ -949,10 +999,14 @@ function findHtmlElements(html: string, tag: string, attributePattern?: RegExp):
     const matches: string[] = [];
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(html))) {
-        const attributes = match[1] ?? '';
-        if (!attributePattern || attributePattern.test(attributes)) matches.push(match[0]);
+        if (htmlElementMatchesAttributes(match, attributePattern)) matches.push(match[0]);
     }
     return matches;
+}
+
+function htmlElementMatchesAttributes(match: RegExpExecArray, attributePattern?: RegExp): boolean {
+    const attributes = match[1] ?? '';
+    return attributePattern ? attributePattern.test(attributes) : true;
 }
 
 function htmlElementHasClass(element: string, tag: string, className: string): boolean {
@@ -1049,12 +1103,13 @@ function normalizeAttemptedAudioUrl(value: string): string {
 }
 
 function isLikelyAudioRecord(record: Record<string, unknown>): boolean {
-    return typeof record.url === 'string'
-        && (
-            isLikelyAudioUrl(record.url)
-            || ['audio', 'audioSource'].includes(String(record.type ?? ''))
-            || typeof record.name === 'string'
-        );
+    return typeof record.url === 'string' && audioRecordHasPlayableSignal(record);
+}
+
+function audioRecordHasPlayableSignal(record: Record<string, unknown>): boolean {
+    return isLikelyAudioUrl(String(record.url))
+        || ['audio', 'audioSource'].includes(String(record.type ?? ''))
+        || typeof record.name === 'string';
 }
 
 function isLikelyAudioUrl(value: string): boolean {
@@ -1132,8 +1187,20 @@ function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT
 }
 
 function getBrowserFetchUrl(url: string): string | null {
-    if (!/^https?:\/\//i.test(url)) return url;
-    if (isLocalDevHost(location.hostname)) return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+    if (!isHttpAudioUrl(url)) return url;
+    if (isLocalDevHost(location.hostname)) return audioProxyUrl(url);
+    return sameOriginAudioUrl(url);
+}
+
+function isHttpAudioUrl(url: string): boolean {
+    return /^https?:\/\//i.test(url);
+}
+
+function audioProxyUrl(url: string): string {
+    return `/__jpdb-reader-audio-proxy?url=${encodeURIComponent(url)}`;
+}
+
+function sameOriginAudioUrl(url: string): string | null {
     try {
         return new URL(url).origin === location.origin ? url : null;
     } catch {
