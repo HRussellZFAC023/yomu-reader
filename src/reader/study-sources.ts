@@ -1,4 +1,4 @@
-import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
+import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { detectHanabiraGrammarHints } from './hanabira-grammar';
 import { Logger } from './logger';
@@ -45,27 +45,6 @@ export class StudySourceController {
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
                 <summary class="jpdb-reader-local-title">Grammar</summary>
                 ${this.renderGrammarPanel(sentence, hints)}
-            </details>
-        `;
-    }
-
-    renderToolsSource(sentence?: string): string {
-        const settings = this.settings();
-        if (!sentence || !settings.studyTranslationEnabled || !settings.studyGrammarEnabled) return '';
-        const hints = detectFallbackGrammarHints(sentence);
-        return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source jpdb-reader-study-combined-source" data-study-tools ${this.sourceAttributes(STUDY_TOOLS_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">Translation + Grammar</summary>
-                <div class="jpdb-reader-study-combined">
-                    <details class="jpdb-reader-study-part" data-study-translation open>
-                        <summary class="jpdb-reader-study-part-title">Translation</summary>
-                        ${this.renderTranslationPanel(sentence)}
-                    </details>
-                    <details class="jpdb-reader-study-part" data-study-grammar open>
-                        <summary class="jpdb-reader-study-part-title">Grammar</summary>
-                        ${this.renderGrammarPanel(sentence, hints)}
-                    </details>
-                </div>
             </details>
         `;
     }

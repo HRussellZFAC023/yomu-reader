@@ -26,6 +26,8 @@ export type AudioSourceType =
 
 export type AudioSelectionMode = 'first' | 'random';
 
+export type AudioAutoPlayMode = 'all' | 'hover' | 'tap';
+
 export type OcrProvider = 'local-service' | 'off';
 
 export type PopupActivationMode = 'click' | 'hover' | 'modifier';
@@ -196,6 +198,7 @@ export interface ReaderSettings {
     similarKanjiWordLimit: number;
     audioEnabled: boolean;
     autoPlayAudio: boolean;
+    audioAutoPlayMode: AudioAutoPlayMode;
     audioSources: AudioSourceSetting[];
     audioEnableDefaultSources: boolean;
     audioSourceUrl?: string;

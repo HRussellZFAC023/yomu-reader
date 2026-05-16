@@ -23,6 +23,7 @@ interface KanjiDoodleElements {
 const PEN_MIN_DISTANCE = 0.0008;
 const POINTER_MIN_DISTANCE = 0.0035;
 const ACTIVE_DOODLE_CLASS = 'jpdb-reader-doodle-active';
+const NATIVE_GESTURE_SUPPRESS_MS = 900;
 
 export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage, options: KanjiDoodleOptions = {}): void {
     const root = popover as KanjiDoodleRoot;
@@ -49,8 +50,38 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     let points: DoodlePoint[] = [];
     let strokes: DoodleStroke[] = [];
     let canvasRect = canvas.getBoundingClientRect();
+    let suppressNativeGestureUntil = 0;
+    let activeClassRemovalTimer = 0;
     const controller = new AbortController();
     const signal = controller.signal;
+
+    const keepDoodleInteractionActive = (durationMs = NATIVE_GESTURE_SUPPRESS_MS): void => {
+        suppressNativeGestureUntil = Math.max(suppressNativeGestureUntil, Date.now() + durationMs);
+        document.documentElement.classList.add(ACTIVE_DOODLE_CLASS);
+        if (activeClassRemovalTimer) {
+            window.clearTimeout(activeClassRemovalTimer);
+            activeClassRemovalTimer = 0;
+        }
+    };
+
+    const shouldSuppressNativeGesture = (): boolean => drawing || Date.now() < suppressNativeGestureUntil;
+
+    const releaseDoodleInteractionSoon = (): void => {
+        if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
+        activeClassRemovalTimer = window.setTimeout(() => {
+            activeClassRemovalTimer = 0;
+            if (shouldSuppressNativeGesture()) {
+                releaseDoodleInteractionSoon();
+                return;
+            }
+            document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+        }, NATIVE_GESTURE_SUPPRESS_MS);
+    };
+
+    const suppressNativeGestureIfActive = (event: Event): void => {
+        if (!shouldSuppressNativeGesture()) return;
+        suppressNativeCanvasGesture(event);
+    };
 
     const resize = () => {
         const rect = stage.getBoundingClientRect();
@@ -153,7 +184,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         drawing = true;
         pointerId = event.pointerId;
         pointerType = event.pointerType;
-        document.documentElement.classList.add(ACTIVE_DOODLE_CLASS);
+        keepDoodleInteractionActive();
         clearSelection();
         canvasRect = canvas.getBoundingClientRect();
         points = [];
@@ -165,6 +196,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         if (!drawing || event.pointerId !== pointerId) return;
         event.preventDefault();
         event.stopPropagation();
+        keepDoodleInteractionActive();
         applyPointerSamples(event);
     };
 
@@ -182,7 +214,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
 
     const clearActiveSelection = () => {
-        if (drawing) clearSelection();
+        if (shouldSuppressNativeGesture()) clearSelection();
     };
 
     const finishStroke = (releaseCapture = true) => {
@@ -193,7 +225,8 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         pointerId = -1;
         pointerType = '';
         if (releaseCapture) releaseDoodlePointerCapture(canvas, activePointerId);
-        document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+        keepDoodleInteractionActive();
+        releaseDoodleInteractionSoon();
         clearSelection();
         options.onChange?.(strokes.map(stroke => [...stroke]));
     };
@@ -207,6 +240,12 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     window.addEventListener('pointerup', end, { passive: false, signal });
     window.addEventListener('pointercancel', end, { passive: false, signal });
     document.addEventListener('selectionchange', clearActiveSelection, { signal });
+    document.addEventListener('contextmenu', suppressNativeGestureIfActive, { capture: true, signal });
+    document.addEventListener('selectstart', suppressNativeGestureIfActive, { capture: true, signal });
+    document.addEventListener('dragstart', suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener('contextmenu', suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener('selectstart', suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener('dragstart', suppressNativeGestureIfActive, { capture: true, signal });
     for (const target of [stage, canvas, clear, trace]) {
         if (!target) continue;
         target.addEventListener('contextmenu', suppressNativeCanvasGesture, { signal });
@@ -236,6 +275,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     root.__yomuKanjiDoodleCleanup = () => {
         controller.abort();
         resizeObserver.disconnect();
+        if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
         document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
         clearSelection();
         if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;

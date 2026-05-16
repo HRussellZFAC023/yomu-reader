@@ -1,4 +1,4 @@
-import { IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
+import { IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
 import type { ReaderSettings } from './types';
 
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
@@ -177,7 +177,6 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
 
 export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryNames: string[]): string[] {
     const preferences = new Map(settings.dictionaryPreferences.map(item => [item.name, item]));
-    const studyToolsCombined = settings.studyTranslationEnabled && settings.studyGrammarEnabled;
     const sources = [
         {
             id: JPDB_DEFINITION_SOURCE_ID,
@@ -186,20 +185,14 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
             name: 'JPDB',
         },
         {
-            id: STUDY_TOOLS_SOURCE_ID,
-            enabled: studyToolsCombined,
-            priority: Math.min(settings.studyTranslationPriority, settings.studyGrammarPriority),
-            name: 'Study',
-        },
-        {
             id: STUDY_TRANSLATION_SOURCE_ID,
-            enabled: settings.studyTranslationEnabled && !studyToolsCombined,
+            enabled: settings.studyTranslationEnabled,
             priority: settings.studyTranslationPriority,
             name: 'Translation',
         },
         {
             id: STUDY_GRAMMAR_SOURCE_ID,
-            enabled: settings.studyGrammarEnabled && !studyToolsCombined,
+            enabled: settings.studyGrammarEnabled,
             priority: settings.studyGrammarPriority,
             name: 'Grammar',
         },

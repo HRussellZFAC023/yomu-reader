@@ -1,12 +1,13 @@
 import { AudioPlayer } from './audio';
 import { AnkiConnectClient, type AnkiLookupResult } from './anki';
+import { renderReviewButtons } from './anki-render';
 import { listNewTabAnkiCards } from './anki-new-tab';
 import { positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData } from './card-render-data';
 import { cardKey } from './card-utils';
-import { APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
+import { APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 import {
     kanjiSourceStateKey,
     definitionSourceStateKey,
@@ -38,6 +39,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { NewTabController } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
 import { createReaderBackdrop, createReaderPopover, installSheetHandle } from './popover-shell';
+import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
     groupTermEntriesByDictionary,
@@ -73,8 +75,8 @@ import {
     orderedKanjiSourceIds,
 } from './source-sections';
 import { StudySourceController } from './study-sources';
-import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
-import { installUchisenCarousel, loadUchisenImages } from './uchisen';
+import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
+import { installUchisenCarousel, loadUchisenData } from './uchisen';
 import { renderWordPills } from './word-pills';
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanTermEntry } from './yomitan';
 
@@ -83,6 +85,17 @@ const log = Logger.scope('NewTabRuntime');
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
 };
+
+interface NewTabLookupDisplayOptions {
+    navigation?: CardNavigationMode;
+    previousNavigationEntry?: PopupNavigationEntry;
+    reuseActivePopover?: boolean;
+}
+
+interface NewTabKanjiLookupOptions {
+    navigation?: CardNavigationMode;
+    reuseActivePopover?: boolean;
+}
 
 export function bootNewTabRuntime(): void {
     const app = new NewTabRuntime();
@@ -93,7 +106,7 @@ export function bootNewTabRuntime(): void {
     window.addEventListener('pagehide', () => app.destroy(), { once: true });
 }
 
-class NewTabRuntime {
+export class NewTabRuntime {
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private activeDialog?: HTMLElement;
     private activeBackdrop?: HTMLElement;
@@ -116,6 +129,9 @@ class NewTabRuntime {
         getSettings: () => this.settings,
         onStateChange: () => this.repositionLookupPopover(),
     });
+    private navigation = new PopupNavigationController(() => Boolean(
+        this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
+    ));
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
@@ -128,7 +144,7 @@ class NewTabRuntime {
     private lookupPopoverRenderer = new CardPopoverRenderer({
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
-        renderWordHistory: () => '',
+        renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
         renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery) => renderWordPills({
             card,
             jpdbUrl,
@@ -145,6 +161,8 @@ class NewTabRuntime {
     private activeLookupPopover?: HTMLElement;
     private activeLookupBackdrop?: HTMLElement;
     private activeLookupAnchor?: HTMLElement;
+    private activeLookupHandlerController?: AbortController;
+    private lookupRenderRequest = 0;
     private externalRefreshController?: AbortController;
     private dictionaryStyles = new DictionaryStyleController({
         loadCss: () => this.settings.localDictionariesEnabled
@@ -317,40 +335,81 @@ class NewTabRuntime {
         form.focus();
     }
 
+    private nextLookupRenderRequest(): number {
+        this.lookupRenderRequest += 1;
+        return this.lookupRenderRequest;
+    }
+
+    private isCurrentLookupRender(popover: HTMLElement, requestId: number): boolean {
+        return requestId === this.lookupRenderRequest
+            && popover.isConnected
+            && this.activeLookupPopover === popover;
+    }
+
+    private lookupRenderSurface(reuseActivePopover: boolean): { popover: HTMLElement; reused: boolean } {
+        const active = this.activeLookupPopover;
+        if (reuseActivePopover && active?.isConnected) return { popover: active, reused: true };
+        return { popover: createReaderPopover(APP_NAME, this.settings), reused: false };
+    }
+
+    private activateLookupRenderSurface(popover: HTMLElement, anchor: HTMLElement | undefined, reused: boolean): void {
+        if (!reused) {
+            this.mountLookupPopover(popover, anchor);
+            return;
+        }
+        this.activeLookupAnchor = anchor;
+        this.dictionarySourceState.installTracking(popover);
+        this.repositionLookupPopover();
+    }
+
     private dismiss(): void {
         this.activeDialog?.remove();
         this.activeBackdrop?.remove();
         this.activeLookupPopover?.remove();
         this.activeLookupBackdrop?.remove();
+        this.activeLookupHandlerController?.abort();
         this.activeDialog = undefined;
         this.activeBackdrop = undefined;
         this.activeLookupPopover = undefined;
         this.activeLookupBackdrop = undefined;
         this.activeLookupAnchor = undefined;
+        this.activeLookupHandlerController = undefined;
+        this.navigation.clearWord();
+        this.navigation.clearKanji();
         this.restoreSettingsPreviewState();
     }
 
-    private async lookupText(text: string, reading = text, anchor?: HTMLElement): Promise<void> {
+    private async lookupText(text: string, reading = text, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): Promise<void> {
         const term = text.trim();
         if (!HAS_JAPANESE.test(term)) return;
         const sentence = anchor?.dataset.sentence || term;
+        const previousNavigationEntry = options.previousNavigationEntry
+            ?? this.lookupPreviousNavigationEntry(options.navigation);
         const card = await this.lookupCard(term, reading);
-        await this.showLookupCard(card, sentence, anchor);
+        await this.showLookupCard(card, sentence, anchor, {
+            ...options,
+            previousNavigationEntry,
+        });
     }
 
-    private async showLookupCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement): Promise<void> {
+    private async showLookupCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): Promise<void> {
+        const requestId = this.nextLookupRenderRequest();
+        const navigation = options.navigation ?? 'reset';
+        this.navigation.updateWord(card, sentence, 'modal', navigation, options.previousNavigationEntry);
+        this.navigation.clearKanji();
         const renderData = this.cardRenderData.load(card);
         const initialEntries = await renderData.localEntries.catch(() => []);
-        const popover = createReaderPopover(APP_NAME, this.settings);
+        if (requestId !== this.lookupRenderRequest) return;
+        const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
         clearNestedParseState(popover);
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData(initialEntries, fallbackAnkiLookup)));
-        this.mountLookupPopover(popover, anchor);
+        this.activateLookupRenderSurface(popover, anchor, reused);
         this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
         this.installLookupPopoverHandlers(popover, card, sentence, anchor);
         this.installLookupPopoverSources(popover, card, sentence);
         void renderData.all.then(data => {
-            if (this.activeLookupPopover !== popover || !popover.isConnected) return;
+            if (!this.isCurrentLookupRender(popover, requestId)) return;
             clearNestedParseState(popover);
             setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', { ...data, loading: false }));
             this.dictionarySourceState.installTracking(popover);
@@ -361,38 +420,32 @@ class NewTabRuntime {
         void this.parseNewTabContent(popover);
     }
 
-    private async showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {
+    private lookupPreviousNavigationEntry(navigation: CardNavigationMode | undefined): PopupNavigationEntry | undefined {
+        return navigation === 'push-current' ? this.navigation.activeKanjiEntry() : undefined;
+    }
+
+    private async showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement, options: NewTabKanjiLookupOptions = {}): Promise<void> {
         if (!isKanjiCharacter(kanji)) return;
-        const popover = createReaderPopover(APP_NAME, this.settings);
+        const requestId = this.nextLookupRenderRequest();
+        const navigation = options.navigation ?? 'reset';
+        this.navigation.updateKanji(card, kanji, sentence, navigation);
+        const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
         clearNestedParseState(popover);
         setInnerHtml(popover, this.renderKanjiLookupShell(card, kanji));
-        this.mountLookupPopover(popover, anchor);
+        this.activateLookupRenderSurface(popover, anchor, reused);
         this.installKanjiLookupHandlers(popover, card, kanji, sentence);
         installKanjiDoodle(popover, () => this.settings.interfaceLanguage);
-        void this.renderKanjiLookupDetails(popover, card, kanji);
+        void this.renderKanjiLookupDetails(popover, card, kanji, requestId);
     }
 
     private renderKanjiLookupShell(card: JPDBCard, kanji: string): string {
         const language = this.settings.interfaceLanguage;
         const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
-        const sourceMounts = orderedKanjiSourceIds(this.settings).map(sourceId => {
-            const sourceStateKey = kanjiSourceStateKey(sourceId);
-            if (sourceId === KANJI_STROKE_SOURCE_ID) {
-                return renderKanjiPractice(null, kanji, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey);
-            }
-            if (sourceId === KANJI_JPDB_SOURCE_ID) return '<div data-kanji-jpdb-mount></div>';
-            if (sourceId === KANJI_RTK_SOURCE_ID) return '<div data-kanji-rtk-mount></div>';
-            if (sourceId === KANJI_ORIGINS_SOURCE_ID) return '<div data-kanji-origin-mount></div>';
-            if (sourceId === KANJI_UCHISEN_SOURCE_ID) return '<div data-kanji-uchisen-mount></div>';
-            if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return '<div data-kanji-definitions-mount></div>';
-            const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
-            return dictionaryName
-                ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`
-                : '';
-        }).join('');
+        const sourceMounts = this.renderKanjiLookupSourceMounts(card, kanji, language);
         return `
             <div class="jpdb-reader-popover-body">
                 <div class="jpdb-reader-sheet-handle"></div>
+                ${renderModalNavigation(this.navigation.kanjiModalBack(card, language))}
                 <div class="jpdb-reader-header">
                     <div class="jpdb-reader-heading">
                         <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
@@ -418,7 +471,81 @@ class NewTabRuntime {
         `;
     }
 
+    private renderKanjiLookupSourceMounts(card: JPDBCard, kanji: string, language: ReaderSettings['interfaceLanguage']): string {
+        const reviewControls = this.renderKanjiLookupReviewControls(card);
+        const mounts: string[] = [];
+        let insertedReviewControls = false;
+        for (const sourceId of orderedKanjiSourceIds(this.settings)) {
+            const mount = this.renderKanjiLookupSourceMount(sourceId, kanji, language);
+            if (mount) mounts.push(mount);
+            if (sourceId === KANJI_STROKE_SOURCE_ID && reviewControls) {
+                mounts.push(reviewControls);
+                insertedReviewControls = true;
+            }
+        }
+        if (reviewControls && !insertedReviewControls) mounts.unshift(reviewControls);
+        return mounts.join('');
+    }
+
+    private renderKanjiLookupSourceMount(sourceId: string, kanji: string, language: ReaderSettings['interfaceLanguage']): string {
+        const sourceStateKey = kanjiSourceStateKey(sourceId);
+        if (sourceId === KANJI_STROKE_SOURCE_ID) {
+            return renderKanjiPractice(null, kanji, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey);
+        }
+        if (sourceId === KANJI_JPDB_SOURCE_ID) return '<div data-kanji-jpdb-mount></div>';
+        if (sourceId === KANJI_RTK_SOURCE_ID) return '<div data-kanji-rtk-mount></div>';
+        if (sourceId === KANJI_ORIGINS_SOURCE_ID) return '<div data-kanji-origin-mount></div>';
+        if (sourceId === KANJI_UCHISEN_SOURCE_ID) return '<div data-kanji-uchisen-mount></div>';
+        if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return '<div data-kanji-definitions-mount></div>';
+        const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
+        return dictionaryName
+            ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`
+            : '';
+    }
+
+    private renderKanjiLookupReviewControls(card: JPDBCard): string {
+        if (!this.newTab?.lookupGradeOptions(card).length) return '';
+        return `
+            <div class="jpdb-reader-kanji-review-card" role="group" aria-label="Grade current word">
+                ${renderReviewButtons(this.settings)}
+            </div>
+        `;
+    }
+
+    private resetLookupHandlers(): AbortSignal {
+        this.activeLookupHandlerController?.abort();
+        const controller = new AbortController();
+        this.activeLookupHandlerController = controller;
+        return controller.signal;
+    }
+
+    private async showPreviousLookupWord(anchor?: HTMLElement): Promise<void> {
+        const previous = this.navigation.popPreviousWord();
+        if (!previous) return;
+        if (previous.kind === 'kanji') {
+            await this.showKanjiLookupCard(previous.card, previous.kanji, previous.sentence, anchor, {
+                navigation: 'preserve',
+                reuseActivePopover: true,
+            });
+            return;
+        }
+        await this.showLookupCard(previous.card, previous.sentence, anchor, {
+            navigation: 'preserve',
+            reuseActivePopover: true,
+        });
+    }
+
+    private async showPreviousKanjiLookup(anchor?: HTMLElement): Promise<void> {
+        const previous = this.navigation.popPreviousKanji();
+        if (!previous) return;
+        await this.showKanjiLookupCard(previous.card, previous.kanji, previous.sentence, anchor, {
+            navigation: 'preserve',
+            reuseActivePopover: true,
+        });
+    }
+
     private installKanjiLookupHandlers(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string): void {
+        const signal = this.resetLookupHandlers();
         popover.addEventListener('click', event => {
             const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             if (!button || !popover.contains(button)) return;
@@ -426,23 +553,54 @@ class NewTabRuntime {
             if (!action) return;
             event.preventDefault();
             event.stopPropagation();
+            if (action === 'word-back') {
+                void this.showLookupCard(card, sentence, button, { navigation: 'preserve', reuseActivePopover: true });
+                return;
+            }
+            if (action === 'kanji-history-back') {
+                void this.showPreviousKanjiLookup(button);
+                return;
+            }
             if (action === 'kanji') {
-                void this.showKanjiLookupCard(card, button.dataset.kanji ?? kanji, sentence, button);
+                void this.showKanjiLookupCard(card, button.dataset.kanji ?? kanji, sentence, button, {
+                    navigation: 'push-current',
+                    reuseActivePopover: true,
+                });
                 return;
             }
             if (action === 'similar-word' || action === 'lookup') {
-                const expression = button.dataset.expression ?? button.dataset.lookup ?? '';
-                void this.lookupText(expression, expression, button);
+                const expression = button.dataset.expression ?? button.dataset.lookup ?? button.dataset.term ?? '';
+                const reading = button.dataset.reading ?? expression;
+                void this.lookupText(expression, reading, button, { navigation: 'push-current', reuseActivePopover: true });
                 return;
             }
             if (action === 'jpdb-kanji-action') {
                 const actionId = button.dataset.kanjiActionId ?? '';
                 if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button);
+                return;
             }
-        });
+            if (action === 'grade') {
+                const grade = button.dataset.grade as JPDBGrade | undefined;
+                if (grade) void this.gradeCurrentCardFromKanjiLookup(button, grade);
+            }
+        }, { signal });
     }
 
-    private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string): Promise<void> {
+    private async gradeCurrentCardFromKanjiLookup(button: HTMLButtonElement, grade: JPDBGrade): Promise<void> {
+        if (!this.newTab || button.disabled) return;
+        button.disabled = true;
+        try {
+            await this.newTab.gradeFromLookup(grade);
+            this.dismissLookupPopover();
+        } catch (error) {
+            log.warn('New tab kanji lookup grade failed', { grade }, error);
+            this.toast('Could not submit grade.');
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
         let jpdbInfo: JpdbKanjiInfo | null = null;
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
@@ -456,10 +614,12 @@ class NewTabRuntime {
         const kanjiVGInfoPromise = needsKanjiVG ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null);
 
         const renderKeyword = () => {
+            if (!this.isCurrentLookupRender(popover, requestId)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
             if (mount?.isConnected) setInnerHtml(mount, renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
         };
         const renderRtk = () => {
+            if (!this.isCurrentLookupRender(popover, requestId)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-rtk-mount]');
             if (!mount?.isConnected) return;
             const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
@@ -473,6 +633,7 @@ class NewTabRuntime {
         };
 
         const renderDefinitions = () => {
+            if (!this.isCurrentLookupRender(popover, requestId)) return;
             popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]').forEach(mount => {
                 const dictionaryName = mount.dataset.kanjiDictionary;
                 const sourceId = mount.dataset.kanjiSourceId ?? KANJI_DICTIONARIES_SOURCE_ID;
@@ -488,6 +649,7 @@ class NewTabRuntime {
         };
 
         const renderOrigins = () => {
+            if (!this.isCurrentLookupRender(popover, requestId)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-origin-mount]');
             if (!mount?.isConnected || !this.settings.kanjiOriginsEnabled) return;
             const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
@@ -505,7 +667,7 @@ class NewTabRuntime {
         };
 
         const renderKanjiVG = () => {
-            if (!kanjiVGInfo || !popover.isConnected) return;
+            if (!kanjiVGInfo || !this.isCurrentLookupRender(popover, requestId)) return;
             const stage = popover.querySelector<HTMLElement>(`.jpdb-reader-doodle-stage[data-kanji="${CSS.escape(kanji)}"]`);
             const ghost = stage?.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
             const help = stage?.closest('.jpdb-reader-kanjivg')?.querySelector<HTMLElement>('.jpdb-reader-help');
@@ -517,7 +679,7 @@ class NewTabRuntime {
         await Promise.all([
             jpdbInfoPromise.then(info => {
                 jpdbInfo = info;
-                if (!popover.isConnected) return;
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
@@ -532,33 +694,33 @@ class NewTabRuntime {
             }),
             kanjiEntriesPromise.then(entries => {
                 kanjiEntries = entries;
-                if (!popover.isConnected) return;
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
                 renderDefinitions();
                 renderRtk();
             }),
             rtkInfoPromise.then(info => {
                 rtkInfo = info;
-                if (!popover.isConnected) return;
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
                 renderRtk();
             }),
             kanjiVGInfoPromise.then(info => {
                 kanjiVGInfo = info;
-                if (!popover.isConnected) return;
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKanjiVG();
             }),
-            this.renderUchisenInto(popover, kanji),
+            this.renderUchisenInto(popover, kanji, requestId),
         ]);
-        if (!popover.isConnected) return;
+        if (!this.isCurrentLookupRender(popover, requestId)) return;
         renderOrigins();
         void this.parseNewTabContent(popover);
         this.repositionLookupPopover();
     }
 
-    private async renderUchisenInto(popover: HTMLElement, kanji: string): Promise<void> {
+    private async renderUchisenInto(popover: HTMLElement, kanji: string, requestId: number): Promise<void> {
         const mount = popover.querySelector<HTMLElement>('[data-kanji-uchisen-mount]');
-        if (!mount?.isConnected || !this.settings.uchisenEnabled) return;
+        if (!mount?.isConnected || !this.settings.uchisenEnabled || !this.isCurrentLookupRender(popover, requestId)) return;
         const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
         const sourceAttributes = () => this.dictionarySourceState.attributes(sourceStateKey, this.dictionarySourceState.isOpen(sourceStateKey));
         setInnerHtml(mount, `
@@ -567,18 +729,19 @@ class NewTabRuntime {
                 <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">Loading mnemonic images...</div></div>
             </details>
         `);
-        const images = await loadUchisenImages(kanji, this.settings.corsProxyUrl).catch(() => []);
-        if (!popover.isConnected || !mount.isConnected) return;
-        if (!images.length) {
+        const data = await loadUchisenData(kanji, this.settings.corsProxyUrl).catch(() => ({ images: [], componentGroups: [] }));
+        if (!this.isCurrentLookupRender(popover, requestId) || !mount.isConnected) return;
+        if (!data.images.length) {
             mount.remove();
             return;
         }
-        await installUchisenCarousel(mount, kanji, images, {
+        await installUchisenCarousel(mount, kanji, data.images, {
             proxyUrl: this.settings.corsProxyUrl,
             sourceAttributes: sourceAttributes(),
             detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
             summaryClass: 'jpdb-reader-local-title',
             bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
+            componentGroups: data.componentGroups,
         });
     }
 
@@ -586,7 +749,10 @@ class NewTabRuntime {
         try {
             await this.jpdbKanji.performAction(actionId);
             this.toast('JPDB kanji updated.');
-            await this.showKanjiLookupCard(card, kanji, sentence, anchor);
+            await this.showKanjiLookupCard(card, kanji, sentence, anchor, {
+                navigation: 'preserve',
+                reuseActivePopover: true,
+            });
         } catch (error) {
             log.warn('JPDB kanji action failed', { kanji }, error);
             this.toast('Could not update JPDB kanji. Check JPDB kanji reviews are enabled.');
@@ -594,13 +760,14 @@ class NewTabRuntime {
     }
 
     private installLookupPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
+        const signal = this.resetLookupHandlers();
         popover.addEventListener('click', event => {
             const kanjiButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action="kanji"]');
             if (kanjiButton) {
                 event.preventDefault();
                 event.stopPropagation();
                 const kanji = kanjiButton.dataset.kanji?.trim();
-                if (kanji) void this.showKanjiLookupCard(card, kanji, sentence, kanjiButton);
+                if (kanji) void this.showKanjiLookupCard(card, kanji, sentence, kanjiButton, { reuseActivePopover: true });
                 return;
             }
 
@@ -608,6 +775,10 @@ class NewTabRuntime {
             if (!button) return;
             event.preventDefault();
             event.stopPropagation();
+            if (button.dataset.action === 'word-history-back') {
+                void this.showPreviousLookupWord(button);
+                return;
+            }
             if (button.dataset.action === 'mining-collapse') {
                 this.toggleMiningControls(button);
                 return;
@@ -617,7 +788,7 @@ class NewTabRuntime {
             }
             if (button.dataset.action === 'add' && this.openDeckPickerForAdd(button, card, sentence)) return;
             void this.handleCardAction(button, card, sentence, anchor);
-        });
+        }, { signal });
     }
 
     private toggleMiningControls(button: HTMLButtonElement): void {
@@ -702,7 +873,10 @@ class NewTabRuntime {
         const done = log.time('newTabCardAction', { action, term: card.spelling });
         try {
             const shouldRefresh = await this.cardActions.perform(action, button, card, sentence);
-            if (shouldRefresh) await this.showLookupCard(card, sentence, anchor);
+            if (shouldRefresh) await this.showLookupCard(card, sentence, anchor, {
+                navigation: 'preserve',
+                reuseActivePopover: true,
+            });
             log.info('New tab card action completed', { action, term: card.spelling });
         } catch (error) {
             log.warn('New tab card action failed', { action, term: card.spelling }, error);
@@ -742,6 +916,8 @@ class NewTabRuntime {
     }
 
     private mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement): void {
+        this.activeLookupHandlerController?.abort();
+        this.activeLookupHandlerController = undefined;
         this.activeLookupPopover?.remove();
         this.activeLookupBackdrop?.remove();
         const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
@@ -761,9 +937,13 @@ class NewTabRuntime {
     private dismissLookupPopover(): void {
         this.activeLookupPopover?.remove();
         this.activeLookupBackdrop?.remove();
+        this.activeLookupHandlerController?.abort();
         this.activeLookupPopover = undefined;
         this.activeLookupBackdrop = undefined;
         this.activeLookupAnchor = undefined;
+        this.activeLookupHandlerController = undefined;
+        this.navigation.clearWord();
+        this.navigation.clearKanji();
     }
 
     private repositionLookupPopover(): void {
@@ -781,7 +961,6 @@ class NewTabRuntime {
             if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
                 return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo);
             }
-            if (sourceId === STUDY_TOOLS_SOURCE_ID) return this.studySources.renderToolsSource(sentence);
             if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.studySources.renderTranslationSource(sentence);
             if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.studySources.renderGrammarSource(sentence);
             if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();

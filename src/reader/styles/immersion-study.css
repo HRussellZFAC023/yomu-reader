@@ -30,6 +30,7 @@
   object-fit: contain;
 }
 .jpdb-reader-example-media {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,10 +41,13 @@
   border-radius: 0;
   background: transparent;
 }
+.jpdb-reader-example-card.has-image .jpdb-reader-example-media {
+  overflow: hidden;
+}
 .jpdb-reader-example-body {
   display: grid;
   align-content: start;
-  gap: 7px;
+  gap: 9px;
   min-width: 0;
 }
 .jpdb-reader-example-source {
@@ -80,15 +84,50 @@
   white-space: nowrap;
   overflow: hidden;
 }
-.jpdb-reader-example-inline-source {
-  justify-self: center;
-  max-width: min(100%, 38em);
+.jpdb-reader-example-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  margin: 3px 0 7px;
+}
+.jpdb-reader-example-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 7px;
+  row-gap: 2px;
+}
+.jpdb-reader-example-meta .jpdb-reader-example-source {
+  grid-column: 1 / -1;
+  flex: none;
+  max-width: 100%;
   color: var(--jpdb-reader-muted);
+  font-size: 10.5px;
+  font-weight: 850;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+.jpdb-reader-example-title {
+  min-width: 0;
+  color: var(--jpdb-reader-text);
   font-size: 11px;
-  font-weight: 800;
-  line-height: 1.3;
-  text-align: center;
-  overflow-wrap: anywhere;
+  font-weight: 780;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-example-count {
+  color: var(--jpdb-reader-faint);
+  font-size: 10.5px;
+  font-weight: 850;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 .jpdb-reader-example-sentence {
   justify-self: center;
@@ -96,16 +135,45 @@
   width: min(100%, 38em);
   color: var(--jpdb-reader-text);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.72;
   text-align: center;
   text-wrap: balance;
   overflow-wrap: anywhere;
   word-break: normal;
 }
+.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(8px, 5%, 18px);
+  z-index: 1;
+  width: min(calc(100% - 28px), 34em);
+  padding: 2px 6px;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.45;
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 95%),
+    0 0 5px rgb(0 0 0 / 90%),
+    0 0 9px rgb(0 0 0 / 78%);
+  pointer-events: auto;
+}
+.jpdb-reader-example-sentence:has(rt.jpdb-reader-furi) {
+  padding-top: 0.25em;
+  line-height: 1.95;
+}
+.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence:has(rt.jpdb-reader-furi) {
+  padding-top: 2px;
+  line-height: 1.75;
+}
 .jpdb-reader-example-sentence .jpdb-reader-word {
   display: inline;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 2;
 }
 .jpdb-reader-example-target {
   border-radius: 4px;
@@ -143,12 +211,22 @@ mark.jpdb-reader-example-target {
   ) !important;
   box-shadow: none !important;
 }
+.jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word.jpdb-reader-example-target,
+.jpdb-reader-highlight-pitch
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word.jpdb-reader-example-target {
+  color: #fff !important;
+  background: rgb(0 0 0 / 44%) !important;
+}
 .jpdb-reader-example-translation {
   justify-self: center;
   width: min(100%, 38em);
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.45;
   text-align: center;
   text-wrap: balance;
 }
@@ -175,6 +253,9 @@ mark.jpdb-reader-example-target {
   padding: 0;
   border: 0;
   background: transparent;
+}
+.jpdb-reader-example-toolbar .jpdb-reader-example-actions {
+  margin-left: auto;
 }
 .jpdb-reader-immersion > .jpdb-reader-example-actions {
   display: flex;
@@ -220,6 +301,15 @@ mark.jpdb-reader-example-target {
   .jpdb-reader-example-actions {
     justify-self: start;
   }
+  .jpdb-reader-example-toolbar {
+    flex-wrap: wrap;
+  }
+  .jpdb-reader-example-meta {
+    flex-basis: 100%;
+  }
+  .jpdb-reader-example-toolbar .jpdb-reader-example-actions {
+    margin-left: 0;
+  }
   .jpdb-reader-example-source {
     flex-basis: 100%;
   }
@@ -250,46 +340,6 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-study-translation-panel {
   gap: 12px;
-}
-.jpdb-reader-study-combined {
-  display: grid;
-  gap: 10px;
-}
-.jpdb-reader-study-part {
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding-top: 9px;
-}
-.jpdb-reader-study-part:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-.jpdb-reader-study-part-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 24px;
-  color: var(--jpdb-reader-text);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 850;
-  line-height: 1.2;
-  list-style: none;
-}
-.jpdb-reader-study-part-title::-webkit-details-marker {
-  display: none;
-}
-.jpdb-reader-study-part-title::after {
-  content: "+";
-  color: var(--jpdb-reader-muted);
-  font-size: 13px;
-  font-weight: 900;
-}
-.jpdb-reader-study-part[open] > .jpdb-reader-study-part-title::after {
-  content: "-";
-}
-.jpdb-reader-study-part > .jpdb-reader-study-panel {
-  margin-top: 8px;
 }
 .jpdb-reader-study-block {
   display: grid;

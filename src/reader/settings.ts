@@ -1,6 +1,6 @@
 import { Logger } from './logger';
 import { gmStorageGet, gmStorageSet } from './storage';
-import type { AnkiTemplateMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings, WordHighlightMode } from './types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings, WordHighlightMode } from './types';
 
 const STORAGE_KEY = 'jpdb-popup-reader-settings';
 const log = Logger.scope('Settings');
@@ -134,6 +134,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
+    audioAutoPlayMode: 'all',
     audioSources: DEFAULT_AUDIO_SOURCES,
     audioEnableDefaultSources: true,
     audioSourceUrl: DEFAULT_AUDIO_URL,
@@ -297,12 +298,13 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
     };
 }
 
-function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'audioSources' | 'audioSourceUrl'> {
+function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl'> {
     const hasSavedAudioSources = hasOwn(value, 'audioSources');
     const audioSources = hasSavedAudioSources || value?.audioSourceUrl
         ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
     return {
+        audioAutoPlayMode: normalizeAudioAutoPlayMode(value?.audioAutoPlayMode),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
     };
@@ -514,6 +516,10 @@ function normalizePopupMode(value: unknown): ReaderSettings['popupMode'] {
 
 function normalizePopoverHeightMode(value: unknown): ReaderSettings['popoverHeightMode'] {
     return value === 'fixed' || value === 'available' ? value : DEFAULT_SETTINGS.popoverHeightMode;
+}
+
+function normalizeAudioAutoPlayMode(value: unknown): AudioAutoPlayMode {
+    return value === 'all' || value === 'hover' || value === 'tap' ? value : DEFAULT_SETTINGS.audioAutoPlayMode;
 }
 
 function normalizeImmersionKitCategory(value: unknown): ImmersionKitCategory {

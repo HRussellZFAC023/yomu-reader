@@ -10,8 +10,11 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Fixed
 
+- Restored hosted new-tab kanji drill-down back navigation and kept the current lookup sheet height while moving through components.
 - Made mobile lookup sheets resize continuously by dragging the handle, remember the chosen height for the next popup, and close when the handle is tapped.
 - Added the same pull-to-resize affordance to the mobile Settings drawer, with an independent remembered height.
+- Kept Translation and Grammar as separate popup sources that follow the Dictionaries settings order and remember collapsed state across rerenders.
+- Removed duplicate Immersion Kit source labels and spaced parsed example captions so furigana, Japanese text, and translations do not overlap.
 
 ## [0.4.11] - 2026-05-16
 

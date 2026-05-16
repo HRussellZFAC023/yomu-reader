@@ -3,11 +3,27 @@ import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from './proxy-fetch';
 import { requestBlob as requestReaderBlob, requestText as requestReaderText } from './reader-http';
-import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
+import { gmStorageGet, gmStorageSet } from './storage';
 
 export interface UchisenImage {
     url: string;
     story: string;
+}
+
+export interface UchisenComponent {
+    name: string;
+    symbol: string;
+    url: string;
+}
+
+export interface UchisenComponentGroup {
+    title: string;
+    components: UchisenComponent[];
+}
+
+export interface UchisenData {
+    images: UchisenImage[];
+    componentGroups: UchisenComponentGroup[];
 }
 
 interface UchisenImageCandidate extends UchisenImage {
@@ -21,16 +37,31 @@ interface UchisenCarouselOptions {
     bodyClass?: string;
     proxyUrl?: string;
     summaryHtml?: (index: number, total: number) => string;
+    componentGroups?: UchisenComponentGroup[];
 }
 
-const UCHISEN_STAR_PREFIX = 'yomu-jpdb-uchisen-star:';
 const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
 const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
 const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
 
-export function parseUchisenImages(html: string): UchisenImage[] {
-    if (!html.trim()) return [];
+export function parseUchisenData(html: string): UchisenData {
+    if (!html.trim()) return { images: [], componentGroups: [] };
     const doc = new DOMParser().parseFromString(html, 'text/html');
+    return {
+        images: parseUchisenImagesFromDocument(doc),
+        componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+    };
+}
+
+export function parseUchisenImages(html: string): UchisenImage[] {
+    return parseUchisenData(html).images;
+}
+
+export function parseUchisenComponents(html: string): UchisenComponentGroup[] {
+    return parseUchisenData(html).componentGroups;
+}
+
+function parseUchisenImagesFromDocument(doc: Document): UchisenImage[] {
     const images: UchisenImageCandidate[] = [];
     const mainImage = mainUchisenImageUrl(doc);
     const mainStory = cleanText(doc.querySelector('#mnemonic_story')?.textContent ?? '');
@@ -49,6 +80,60 @@ export function parseUchisenImages(html: string): UchisenImage[] {
     });
 
     return orderedUchisenImages(images);
+}
+
+function parseUchisenComponentGroupsFromDocument(doc: Document): UchisenComponentGroup[] {
+    const root = doc.querySelector<HTMLElement>('.kanji_info_container .components') ?? doc.querySelector<HTMLElement>('.components');
+    if (!root) return [];
+    return Array.from(root.children)
+        .filter((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains('KP_primes'))
+        .map(uchisenComponentGroup)
+        .filter((group): group is UchisenComponentGroup => Boolean(group?.components.length))
+        .slice(0, 4);
+}
+
+function uchisenComponentGroup(group: HTMLElement): UchisenComponentGroup | null {
+    const components = Array.from(group.querySelectorAll<HTMLElement>('.name_combo'))
+        .map(uchisenComponent)
+        .filter((component): component is UchisenComponent => Boolean(component?.symbol || component?.name))
+        .slice(0, 8);
+    if (!components.length) return null;
+    return {
+        title: uchisenComponentGroupTitle(group),
+        components,
+    };
+}
+
+function uchisenComponentGroupTitle(group: HTMLElement): string {
+    if (group.querySelector('.prime_label')) return 'Kanji Primes';
+    if (group.querySelector('.compound_label')) return 'Compound Kanji';
+    return cleanText(group.querySelector('.prime_label, .compound_label')?.textContent ?? '') || 'Components';
+}
+
+function uchisenComponent(item: HTMLElement): UchisenComponent | null {
+    const link = item.querySelector<HTMLAnchorElement>('a[href]');
+    if (!link) return null;
+    const symbol = cleanText(link.querySelector<HTMLElement>('.component_symbol')?.textContent ?? '');
+    const name = uchisenComponentName(link, symbol);
+    return {
+        name,
+        symbol,
+        url: absoluteUchisenUrl(link.getAttribute('href') ?? ''),
+    };
+}
+
+function uchisenComponentName(link: HTMLAnchorElement, symbol: string): string {
+    const text = cleanText((link.textContent ?? '').replace(/\u00a0/g, ' '));
+    const withoutSymbol = symbol ? cleanText(text.replace(symbol, '')) : text;
+    return cleanText(withoutSymbol.replace(/[：:].*$/u, '')) || symbol;
+}
+
+function absoluteUchisenUrl(value: string): string {
+    try {
+        return new URL(value, 'https://uchisen.com').href;
+    } catch {
+        return value;
+    }
 }
 
 function orderedUchisenImages(images: UchisenImageCandidate[]): UchisenImage[] {
@@ -113,9 +198,13 @@ function isUchisenPaywallStory(story: string): boolean {
     return UCHISEN_PAYWALL_STORY_RE.test(cleanText(story));
 }
 
-export async function loadUchisenImages(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenImage[]> {
+export async function loadUchisenData(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenData> {
     const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000, proxyUrl);
-    return parseUchisenImages(html);
+    return parseUchisenData(html);
+}
+
+export async function loadUchisenImages(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenImage[]> {
+    return (await loadUchisenData(kanji, proxyUrl)).images;
 }
 
 export async function installUchisenCarousel(
@@ -125,12 +214,10 @@ export async function installUchisenCarousel(
     options: UchisenCarouselOptions = {},
 ): Promise<() => void> {
     const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
-    const starred = await gmStorageGet<string | null>(`${UCHISEN_STAR_PREFIX}${kanji}`, null);
-    let index = preferredUchisenIndex(storedIndex, starred, images);
+    let index = preferredUchisenIndex(storedIndex, images);
     if (!isValidUchisenIndex(index, images)) index = 0;
 
     const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
-    let currentStarred = starred;
     let currentImageUrl = '';
     const cleanup = () => {
         if (!currentImageUrl) return;
@@ -139,7 +226,6 @@ export async function installUchisenCarousel(
     };
     const render = () => {
         const item = images[index];
-        const isStarred = currentStarred === item.url;
         const detailsClass = options.detailsClass ?? 'jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source';
         const summaryClass = options.summaryClass ?? 'jpdb-reader-local-head';
         const bodyClass = options.bodyClass ?? 'jpdb-reader-local-glossary yomu-jpdb-uchisen-body';
@@ -157,9 +243,9 @@ export async function installUchisenCarousel(
                     <div class="yomu-jpdb-toolbar" role="toolbar" aria-label="Uchisen mnemonic images">
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">&lsaquo;</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">&rsaquo;</button>
-                        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="star" title="Favorite">${isStarred ? '&#9733;' : '&#9734;'}</button>
                         <a href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">Open</a>
                     </div>
+                    ${renderUchisenComponentGroups(options.componentGroups ?? [])}
                     <div class="yomu-jpdb-image-shell"><img alt="Uchisen mnemonic for ${escapeHtml(kanji)}" data-uchisen-image></div>
                     <div class="yomu-jpdb-story">${escapeHtml(item.story || 'No story available')}</div>
                 </div>
@@ -188,30 +274,42 @@ export async function installUchisenCarousel(
         if (!action) return;
         event.preventDefault();
         event.stopPropagation();
+        if (action !== 'previous' && action !== 'next') return;
         if (action === 'previous') index = (index - 1 + images.length) % images.length;
         if (action === 'next') index = (index + 1) % images.length;
-        if (action === 'star') {
-            const key = `${UCHISEN_STAR_PREFIX}${kanji}`;
-            if (currentStarred === images[index].url) {
-                currentStarred = null;
-                void gmStorageDelete(key);
-            } else {
-                currentStarred = images[index].url;
-                void gmStorageSet(key, currentStarred);
-            }
-        } else {
-            void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
-        }
+        void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
         render();
     });
     render();
     return cleanup;
 }
 
-function preferredUchisenIndex(storedIndex: number, starred: string | null, images: UchisenImage[]): number {
-    const starredIndex = starred ? images.findIndex(item => item.url === starred) : -1;
-    if (starredIndex >= 0) return starredIndex;
-    if (isValidUchisenIndex(storedIndex, images) && !isUchisenPaywallItem(images[storedIndex])) return storedIndex;
+function renderUchisenComponentGroups(groups: UchisenComponentGroup[]): string {
+    const visibleGroups = groups.filter(group => group.components.length);
+    if (!visibleGroups.length) return '';
+    return `<div class="yomu-jpdb-component-breakdown" aria-label="Uchisen component breakdown">
+        ${visibleGroups.map(group => `<div class="yomu-jpdb-component-group">
+            <span class="yomu-jpdb-component-group-label">${escapeHtml(group.title)}</span>
+            <div class="yomu-jpdb-component-list">
+                ${group.components.map(component => renderUchisenComponentChip(component)).join('')}
+            </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderUchisenComponentChip(component: UchisenComponent): string {
+    const label = [component.name, component.symbol].filter(Boolean).join(': ');
+    const content = `
+        ${component.symbol ? `<strong>${escapeHtml(component.symbol)}</strong>` : ''}
+        ${component.name ? `<span>${escapeHtml(component.name)}</span>` : ''}
+    `;
+    return component.url
+        ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml(component.url)}" target="_blank" rel="noopener" title="${escapeHtml(label)}">${content}</a>`
+        : `<span class="yomu-jpdb-component-chip" title="${escapeHtml(label)}">${content}</span>`;
+}
+
+function preferredUchisenIndex(storedIndex: number, images: UchisenImage[]): number {
+    if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
     const firstNonPaywall = images.findIndex(item => !isUchisenPaywallItem(item));
     return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
 }

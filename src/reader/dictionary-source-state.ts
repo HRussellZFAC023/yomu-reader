@@ -38,7 +38,6 @@ export class DictionarySourceStateController {
             event.stopPropagation();
         });
         popover.addEventListener('toggle', event => {
-            if (!event.isTrusted) return;
             const details = event.target instanceof HTMLDetailsElement ? event.target : null;
             if (!details?.dataset.sourceStateKey) return;
             if (details.dataset.immersionEmpty === 'true') {

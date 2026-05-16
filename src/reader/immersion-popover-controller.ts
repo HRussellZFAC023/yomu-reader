@@ -429,22 +429,23 @@ export class ImmersionPopoverController {
         const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading, searchQuery], 'jpdb-reader-example-target');
         const translation = renderExampleTranslation(example.translation, settings);
         const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery);
-        const image = renderExampleImageHtml(container, imageUrl);
+        const sentence = renderExampleSentenceHtml(sentenceHtml);
+        const image = renderExampleImageHtml(container, imageUrl, sentence);
         return `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${uiText(language, 'immersionKit')}</span>
-                <span class="jpdb-reader-local-dict">${escapeHtml(sourceLabel)} · ${index + 1}/${total}</span>
             </summary>
-            <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
-                ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>` : ''}
-                <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
+            <div class="jpdb-reader-example-toolbar">
+                <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
+                    <span class="jpdb-reader-example-title">${escapeHtml(sourceLabel)}</span>
+                    <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
+                </div>
+                ${renderExampleActionsHtml(hasAudio, language)}
             </div>
             <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
                 <div class="jpdb-reader-example-body">
-                    <div class="jpdb-reader-example-inline-source">${escapeHtml(sourceLabel)}</div>
                     ${image}
-                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
+                    ${image ? '' : sentence}
                     ${translation}
                 </div>
             </div>
@@ -776,10 +777,24 @@ function validImmersionExampleIndex(index: number, length: number): number {
     return Number.isFinite(index) && index >= 0 && index < length ? index : 0;
 }
 
-function renderExampleImageHtml(container: HTMLElement, imageUrl: string): string {
+function renderExampleImageHtml(container: HTMLElement, imageUrl: string, overlay = ''): string {
     if (!imageUrl) return '';
     const heldImage = heldExampleImage(container);
-    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async"></div>`;
+    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async">${overlay}</div>`;
+}
+
+function renderExampleSentenceHtml(sentenceHtml: string): string {
+    return `<div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>`;
+}
+
+function renderExampleActionsHtml(hasAudio: boolean, language: ReaderSettings['interfaceLanguage']): string {
+    return `
+        <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
+            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
+            ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>` : ''}
+            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
+        </div>
+    `;
 }
 
 function heldExampleMediaStyle(image: HeldExampleImage): string {

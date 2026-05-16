@@ -403,9 +403,9 @@ export function renderKanjiOrigins(
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
             <summary class="jpdb-reader-local-title">${uiText(language, 'originStructure')}</summary>
-            ${renderKanjiFactPills(facts)}
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ''}
+            ${renderKanjiFactPills(facts)}
         </details>
     `;
 }
@@ -1066,8 +1066,8 @@ function nestedEdgesByParent(edges: OriginEdgeGroup[], nodeById: Map<string, Ori
 function nestedZoneAnchor(parent: { x: number; y: number }, zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
     const xStep = 18;
     const yStep = 20;
-    const side = parent.x < 50 ? -1 : 1;
-    const offset = (index - (total - 1) / 2) * 7;
+    const side = nestedExpansionSide(parent.x);
+    const offset = (index - (total - 1) / 2) * 14;
     const base = nestedZoneAnchorBase(parent, zone, side, xStep, yStep);
     const withOffset = zone === 'top' || zone === 'upper' || zone === 'bottom' || zone === 'lower'
         ? { x: base.x + offset, y: base.y }
@@ -1076,6 +1076,12 @@ function nestedZoneAnchor(parent: { x: number; y: number }, zone: OriginComponen
         x: clampGraphValue(withOffset.x, 11, 89),
         y: clampGraphValue(withOffset.y, 12, 88),
     };
+}
+
+function nestedExpansionSide(parentX: number): -1 | 1 {
+    if (parentX <= 34) return 1;
+    if (parentX >= 66) return -1;
+    return parentX < 50 ? -1 : 1;
 }
 
 function nestedZoneAnchorBase(parent: { x: number; y: number }, zone: OriginComponentZone, side: number, xStep: number, yStep: number): { x: number; y: number } {
@@ -1109,7 +1115,7 @@ function spreadInboundComponents(nodes: OriginGraphNode[], currentId = ''): Arra
         usedByZone.set(zone, used + 1);
         const anchor = inboundZoneAnchor(zone, used, ordered.filter(item => inferInboundComponentZone(item, currentId) === zone).length);
         const fallback = spreadConstellation(ordered)[index] ?? { x: 30, y: 50 };
-        return { node, x: anchor?.x ?? fallback.x, y: anchor?.y ?? fallback.y };
+        return { node, x: anchor?.x ?? fallback.x, y: anchor?.y ?? fallback.y, pinned: zone !== 'center' };
     });
 }
 
