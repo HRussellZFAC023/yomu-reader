@@ -486,11 +486,11 @@
 }
 
 .jpdb-reader-newtab-controls button[data-grade="something"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-failed, #ff6b6b);
+  --jpdb-newtab-grade-accent: #f59e0b;
 }
 
 .jpdb-reader-newtab-controls button[data-grade="hard"] {
-  --jpdb-newtab-grade-accent: var(--jpdb-reader-state-due, #5fb3b3);
+  --jpdb-newtab-grade-accent: #ffd166;
 }
 
 .jpdb-reader-newtab-controls button[data-grade] {
@@ -1063,8 +1063,29 @@
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-summary {
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  min-height: 34px;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0;
+  gap: 6px !important;
+  text-align: center;
+}
+
+.jpdb-reader-newtab-immersion
+  .jpdb-reader-example-summary
+  .jpdb-reader-example-source {
+  flex: 0 0 auto;
+}
+
+.jpdb-reader-newtab-immersion
+  .jpdb-reader-example-summary
+  .jpdb-reader-local-dict {
+  flex: 0 1 auto;
+  margin-left: 0;
+  text-align: center;
+}
+
+.jpdb-reader-newtab-immersion .jpdb-reader-example-actions {
+  justify-self: center;
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
@@ -1152,7 +1173,28 @@
   }
 
   .jpdb-reader-newtab-prompt {
-    font-size: 2.45rem;
+    font-size: clamp(2.25rem, 12vw, 3.15rem);
+    line-height: 0.98;
+  }
+
+  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
+    .jpdb-reader-newtab-study {
+    grid-template-rows: auto auto auto auto;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
+    .jpdb-reader-newtab-answer {
+    min-height: 0;
+    gap: 5px;
+  }
+
+  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
+    .jpdb-reader-newtab-meaning {
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.34;
   }
 
   .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
@@ -1163,10 +1205,37 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .jpdb-reader-newtab-controls:has(button[data-grade]) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+  }
+
   .jpdb-reader-newtab-controls button {
     min-height: 42px;
     padding: 0 8px;
     font-size: 11px;
+  }
+
+  .jpdb-reader-newtab-controls:has(button[data-grade]) button {
+    min-height: 38px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .jpdb-reader-newtab-immersion {
+    gap: 7px;
+    margin-top: 4px;
+  }
+
+  .jpdb-reader-newtab-immersion .jpdb-reader-example-summary {
+    min-height: 22px;
+    font-size: 10px;
+  }
+
+  .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
   }
 
   .jpdb-reader-newtab-kanji-answer {

@@ -13,6 +13,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Routed public page/media requests through the shared CORS fallback stack, including hosted-page audio, Uchisen, JPDB public kanji/vocabulary pages, RTK, KanjiVG, pitch, and Immersion Kit media.
 - Made JPDB API deck cards load deterministically in the hosted new tab so the review total no longer changes randomly on refresh.
 - Tightened the new-tab kanji reveal layout so the reference and drawing panels align cleanly, and removed the repeated lower JPDB detail card stack.
+- Tightened iPhone word-review spacing so the prompt, answer, Immersion Kit media, and five grading buttons no longer overlap or wrap awkwardly.
 
 ## [0.4.10] - 2026-05-15
 
