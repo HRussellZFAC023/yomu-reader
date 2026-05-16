@@ -8,6 +8,7 @@ import { JpdbClient } from './jpdb';
 import { Logger, loggingSettingsSummary } from './logger';
 import { clearNewTabOfflineCache } from './new-tab-controller';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from './recommended-dictionaries';
+import { installSettingsDrawerHandle } from './popover-shell';
 import { mergeDictionaryPreferences, saveSettings } from './settings';
 import { exportStoredValues, importStoredValues } from './storage';
 import {
@@ -172,6 +173,7 @@ export class SettingsDialogController {
         this.bindLivePreview(form);
         this.bindEditorControls(form);
         this.dependencies.mountDialog(backdrop, form);
+        installSettingsDrawerHandle(form);
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);

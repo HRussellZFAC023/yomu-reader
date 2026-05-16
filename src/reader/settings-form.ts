@@ -58,6 +58,7 @@ export function renderHelpLinksPanel(): string {
 export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string): string {
     return `
             <div class="jpdb-reader-settings-head">
+                <div class="jpdb-reader-settings-drag-handle"></div>
                 <h2>${SETTINGS_TITLE}</h2>
             </div>
             ${renderSettingsTabs()}

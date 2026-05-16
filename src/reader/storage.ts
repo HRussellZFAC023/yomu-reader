@@ -13,6 +13,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-newtab-card-cache',
     'jpdb-reader-newtab-current-word',
     'jpdb-reader-newtab-ui',
+    'jpdb-reader-settings-drawer-height-ratio',
     'jpdb-reader-sheet-height-ratio',
     'jpdb-reader-transcript-panel-size',
     'yomu.grammarPreferences.v1',
