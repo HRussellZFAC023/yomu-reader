@@ -8,6 +8,22 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+## [0.4.14] - 2026-05-16
+
+### Added
+
+- Added hosted new-tab search as a first-class Word / Kanji / Search mode, with JPDB/local word results, kanji drilldown results, external lookup links, and autocomplete suggestions.
+
+### Changed
+
+- Renamed the homepage hero CTA to `Try Out` and removed the duplicate `See Features` hero pill while keeping the nav Features link.
+- Widened mobile sheet and mining-drawer drag targets so the handle bands are easier to grab on touch devices.
+- Spaced kanji origin graph nodes more aggressively to reduce overlap in crowded component maps.
+
+### Fixed
+
+- Kept the new-tab word answer layout from bunching or overlapping on small screens.
+
 ### Fixed
 
 - Restored hosted new-tab kanji drill-down back navigation and kept the current lookup sheet height while moving through components.
