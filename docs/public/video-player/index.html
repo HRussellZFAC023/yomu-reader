@@ -250,11 +250,15 @@
       object-fit: contain;
     }
 
+    .stage:not(.has-video) video {
+      visibility: hidden;
+    }
+
     .empty {
       width: auto;
       min-height: 0;
       position: absolute;
-      inset: 18px 18px 60px;
+      inset: 18px;
       display: grid;
       place-items: center;
       border: 2px dashed var(--line);
@@ -264,14 +268,21 @@
       text-align: center;
       text-shadow: 0 1px 2px rgba(0,0,0,.72);
       cursor: pointer;
-      padding: 0;
+      padding: 18px;
+    }
+
+    .empty > div {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      width: min(100%, 480px);
     }
 
     .empty strong {
       display: block;
       color: #f5f7f6;
-      font-size: 20px;
-      margin-bottom: 6px;
+      font-size: clamp(18px, 4.8vw, 24px);
+      line-height: 1.15;
     }
 
     .stage.has-video .empty {
@@ -279,12 +290,15 @@
     }
 
     .status {
+      display: block;
       min-width: 0;
       color: var(--muted);
       font-size: 13px;
+      line-height: 1.45;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .drop-active .stage {
@@ -293,24 +307,44 @@
 
     @media (max-width: 640px) {
       .app {
-        width: min(100vw - 18px, 620px);
+        width: min(100vw - 24px, 620px);
+        gap: 12px;
+        padding-top: max(12px, env(safe-area-inset-top));
       }
 
       .topbar {
-        align-items: flex-start;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px 10px;
       }
 
       .top-actions {
-        width: 100%;
+        display: contents;
+      }
+
+      .VPNavBarAppearance.appearance {
+        grid-column: 2;
+        grid-row: 1;
+        width: 42px;
+        min-width: 42px;
+        justify-self: end;
       }
 
       .file-button {
-        flex: 1 1 auto;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        width: 100%;
+        min-height: 48px;
       }
 
       .empty {
-        inset: 14px 14px 56px;
+        inset: 14px;
+        padding: 16px;
+      }
+
+      .status {
+        max-width: 30ch;
       }
     }
   </style>
@@ -345,7 +379,7 @@
       <button class="empty" type="button" data-empty-open>
         <div>
           <strong>Open or drop a video</strong>
-          <span class="status" data-status>Use the Yomu subtitle controls for tracks, lines, and mining.</span>
+          <span class="status" data-status>Use subtitle controls for tracks, lines, and mining after opening a video.</span>
         </div>
       </button>
     </section>

@@ -25,20 +25,26 @@ export class DictionarySourceStateController {
     }
 
     installTracking(popover: HTMLElement): void {
+        if (popover.dataset.jpdbReaderSourceTrackingInstalled === 'true') return;
+        popover.dataset.jpdbReaderSourceTrackingInstalled = 'true';
+
         popover.addEventListener('click', event => {
-            const summary = (event.target as HTMLElement).closest?.<HTMLElement>('summary.jpdb-reader-local-title');
+            const target = event.target instanceof Element ? event.target : null;
+            const summary = target?.closest<HTMLElement>('summary.jpdb-reader-local-title');
             const details = summary?.parentElement instanceof HTMLDetailsElement ? summary.parentElement : null;
             if (!summary || !details || !popover.contains(summary) || !details.dataset.sourceStateKey) return;
+            if (details.dataset.immersionEmpty !== 'true') return;
             event.preventDefault();
             event.stopPropagation();
-            if (details.dataset.immersionEmpty === 'true') return;
-            details.open = !details.open;
-            this.remember(details);
         });
         popover.addEventListener('toggle', event => {
             if (!event.isTrusted) return;
             const details = event.target instanceof HTMLDetailsElement ? event.target : null;
             if (!details?.dataset.sourceStateKey) return;
+            if (details.dataset.immersionEmpty === 'true') {
+                if (details.open) details.open = false;
+                return;
+            }
             this.remember(details);
         }, true);
     }

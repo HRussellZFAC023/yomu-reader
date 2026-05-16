@@ -28,6 +28,11 @@ export function clearNestedParseLoadingKey(root: HTMLElement, parseKey: string):
     if (root.dataset.jpdbReaderParseLoadingKey === parseKey) delete root.dataset.jpdbReaderParseLoadingKey;
 }
 
+export function clearNestedParseState(root: HTMLElement): void {
+    delete root.dataset.jpdbReaderParseKey;
+    delete root.dataset.jpdbReaderParseLoadingKey;
+}
+
 function nestedParseKey(targets: ScanTextTarget[]): string {
     return targets.map(target => target.text).join('\n\n');
 }

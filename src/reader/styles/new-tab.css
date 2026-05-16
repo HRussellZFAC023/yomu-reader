@@ -451,7 +451,13 @@
   line-height: 1.1;
   text-align: center;
   cursor: pointer;
-  transform: translateY(-0.01rem);
+  transform: none;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease,
+    transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
@@ -500,38 +506,50 @@
         --jpdb-newtab-grade-accent,
         var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
       )
-      72%,
+      54%,
     var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
   );
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-surface, #20242b) 86%,
+    var(--jpdb-reader-surface, #20242b) 94%,
     var(
         --jpdb-newtab-grade-accent,
         var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
       )
-      14%
+      6%
   );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--jpdb-newtab-grade-accent) 10%, transparent);
 }
 
-.jpdb-reader-newtab-controls button[data-grade]:hover,
 .jpdb-reader-newtab-controls button[data-grade]:focus-visible {
   border-color: var(--jpdb-newtab-grade-accent);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface, #20242b) 78%,
-    var(--jpdb-newtab-grade-accent) 22%
-  );
-  box-shadow: 0 8px 18px
-    color-mix(in srgb, var(--jpdb-newtab-grade-accent) 24%, transparent);
-  color: var(--jpdb-reader-text, #f2f4f8);
   outline: 2px solid
     color-mix(in srgb, var(--jpdb-newtab-grade-accent) 54%, transparent);
   outline-offset: 3px;
-  transform: translateY(-0.25rem);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-newtab-controls button[data-grade]:hover {
+    border-color: var(--jpdb-newtab-grade-accent);
+    background: color-mix(
+      in srgb,
+      var(--jpdb-reader-surface, #20242b) 82%,
+      var(--jpdb-newtab-grade-accent) 18%
+    );
+    box-shadow: 0 8px 18px
+      color-mix(in srgb, var(--jpdb-newtab-grade-accent) 18%, transparent);
+    color: var(--jpdb-reader-text, #f2f4f8);
+    transform: translateY(-0.12rem);
+  }
 }
 
 .jpdb-reader-newtab-controls button[data-grade]:active {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface, #20242b) 88%,
+    var(--jpdb-newtab-grade-accent) 12%
+  );
   transform: scale(0.98);
 }
 
@@ -767,13 +785,14 @@
 
 .jpdb-reader-newtab-kanji-details {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   width: min(760px, 100%);
   max-width: 100%;
   min-width: 0;
   justify-self: center;
   margin-inline: auto;
-  margin-top: 10px;
+  margin-top: 16px;
+  margin-bottom: 34px;
   text-align: left;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -797,28 +816,35 @@
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card {
   margin-top: 0;
-  padding-top: 14px;
-  overflow: hidden;
+  padding: 14px 0 0;
+  overflow: visible;
+  border: 0;
   border-top: 1px solid
     color-mix(
       in srgb,
-      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 72%,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 86%,
       transparent
     );
+  border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   overflow-wrap: anywhere;
+  cursor: pointer;
 }
 
 .jpdb-reader-newtab-kanji-details
   .jpdb-reader-source-card
   > summary.jpdb-reader-local-title {
   min-height: 28px;
-  padding: 0 0 8px;
+  padding: 0;
   color: var(--jpdb-reader-muted, #aab2c0);
   font-size: 11px;
   font-weight: 850;
@@ -829,13 +855,67 @@
 .jpdb-reader-newtab-kanji-details
   .jpdb-reader-source-card
   > summary.jpdb-reader-local-title::after {
+  flex: 0 0 auto;
   color: var(--jpdb-reader-faint, #6f7a89);
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local-entry {
   display: grid;
-  gap: 10px;
-  padding: 0;
+  gap: 12px;
+  padding: 10px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.jpdb-reader-newtab-kanji-details
+  .jpdb-reader-source-card:not([open])
+  .jpdb-reader-local-entry {
+  display: none;
+}
+
+.jpdb-reader-newtab-kanji-info-body {
+  gap: 14px;
+}
+
+.jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 18px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-glossary,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-terms,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-term,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-meanings,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-meaning,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-jpdb-extras,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-jpdb-extra,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-jpdb-examples-group,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-dictionary-source-list,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-dictionary-source {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-term,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-meaning,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-jpdb-example,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-local-glossary > div {
+  padding: 7px 0;
+  border-top: 1px solid
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 44%,
+      transparent
+    );
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local-glossary,
@@ -854,21 +934,40 @@
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-facts {
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 0 18px;
+  gap: 8px;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-facts span {
+  flex: 0 0 auto;
+  max-width: 190px;
   min-height: 0;
-  padding: 8px 0;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid
-    color-mix(
-      in srgb,
-      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 56%,
-      transparent
-    );
   border-radius: 0;
   background: transparent;
+}
+
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-facts strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--jpdb-reader-muted, #aab2c0);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts {
+    flex-wrap: wrap;
+    gap: 8px;
+    overflow: visible;
+  }
+
+  .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-facts span {
+    flex: 1 1 132px;
+    max-width: none;
+  }
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > span,
@@ -890,7 +989,7 @@
 .jpdb-reader-newtab-kanji-details .jpdb-reader-component-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  gap: 0 18px;
+  gap: 8px;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-component-card {
@@ -898,23 +997,22 @@
   justify-items: start;
   gap: 3px;
   min-height: 0;
-  padding: 8px 0;
-  border: 0;
-  border-bottom: 1px solid
+  padding: 9px 10px;
+  border: 1px solid
     color-mix(
       in srgb,
-      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 56%,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 80%,
       transparent
     );
-  border-radius: 0;
-  background: transparent;
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface-2, #282e37);
   color: var(--jpdb-reader-text, #f2f4f8);
   text-align: left;
 }
 
 .jpdb-reader-newtab-kanji-vocab {
   display: grid;
-  gap: 0;
+  gap: 7px;
 }
 
 .jpdb-reader-newtab-kanji-vocab > span,
@@ -922,13 +1020,16 @@
   justify-content: flex-start;
   width: 100%;
   min-height: 0;
-  padding: 8px 0;
-  border-bottom: 1px solid
+  padding: 6px 0;
+  border: 0;
+  border-top: 1px solid
     color-mix(
       in srgb,
-      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 56%,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12)) 48%,
       transparent
     );
+  border-radius: 0;
+  background: transparent;
   text-align: left;
 }
 
@@ -1052,6 +1153,16 @@
   color: var(--jpdb-reader-state-failed, #ff6b6b);
 }
 
+.jpdb-reader-newtab-origin-graph .jpdb-reader-origin-graph-wrap {
+  margin-top: 0;
+  height: min(260px, 44vw);
+  min-height: 210px;
+}
+
+.jpdb-reader-newtab-origin-graph .jpdb-reader-origin-graph-lines {
+  opacity: 0.88;
+}
+
 .jpdb-reader-newtab-immersion {
   margin-top: 8px;
   width: min(540px, 100%);
@@ -1131,15 +1242,10 @@
   text-decoration: none;
 }
 
-.jpdb-reader-theme-switch:hover,
 .jpdb-reader-theme-switch:focus-visible,
-.jpdb-reader-newtab-overflow:hover,
 .jpdb-reader-newtab-overflow:focus-visible,
-.jpdb-reader-newtab-mode button:hover,
 .jpdb-reader-newtab-mode button:focus-visible,
-.jpdb-reader-newtab-controls button:hover,
-.jpdb-reader-newtab-controls button:focus-visible,
-.jpdb-reader-newtab-doodle-actions button:hover,
+.jpdb-reader-newtab-controls button:not([data-grade]):focus-visible,
 .jpdb-reader-newtab-doodle-actions button:focus-visible {
   border-color: color-mix(
     in srgb,
@@ -1151,11 +1257,35 @@
   outline-offset: 3px;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-theme-switch:hover,
+  .jpdb-reader-newtab-overflow:hover,
+  .jpdb-reader-newtab-mode button:hover,
+  .jpdb-reader-newtab-controls button:not([data-grade]):hover,
+  .jpdb-reader-newtab-doodle-actions button:hover {
+    border-color: color-mix(
+      in srgb,
+      var(--jpdb-reader-accent, #5ea780) 60%,
+      var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
+    );
+  }
+}
+
 .jpdb-reader-newtab-brand .title:hover,
 .jpdb-reader-newtab-brand .title:focus-visible {
   outline: none;
   box-shadow: none;
   color: var(--jpdb-reader-text, #f2f4f8);
+}
+
+@media (pointer: coarse) and (min-width: 700px) {
+  .jpdb-reader-newtab-shell {
+    padding-top: max(84px, calc(env(safe-area-inset-top) + 72px));
+  }
+
+  .jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell {
+    padding-top: max(88px, calc(env(safe-area-inset-top) + 76px));
+  }
 }
 
 @media (max-width: 640px) {

@@ -468,11 +468,11 @@ function renderKanjiRadicalFrames(radicalFrames: string[]): string {
 function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const model = buildKanjiOriginGraphRenderModel(graph);
     if (!model) return '';
-    const { hasOutboundEdges, markerId, outboundMarkerId } = model;
+    const { hasSubcomponentEdges, markerId, outboundMarkerId, subcomponentMarkerId } = model;
     const lines = renderOriginGraphLines(model);
     const nodeButtons = renderOriginGraphNodeButtons(model);
     return `
-        <div class="jpdb-reader-origin-graph-wrap" aria-label="${uiText(language, 'originMapLabel')}">
+        <div class="jpdb-reader-origin-graph-wrap"${hasSubcomponentEdges ? ' data-origin-has-subcomponents="true"' : ''} aria-label="${uiText(language, 'originMapLabel')}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -481,16 +481,31 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
                     <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
                         <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
                     </marker>
+                    <marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
+                    </marker>
                 </defs>
                 ${lines}
             </svg>
-            ${hasOutboundEdges ? `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml(uiText(language, 'originShowOutbound'))}">
-                <input type="checkbox" data-origin-outbound-toggle checked>
-                <span>${escapeHtml(uiText(language, 'originShowOutbound'))}</span>
-            </label>` : ''}
+            ${renderOriginGraphToggles(model, language)}
             ${nodeButtons}
         </div>
     `;
+}
+
+function renderOriginGraphToggles(model: OriginGraphRenderModel, language: InterfaceLanguage): string {
+    const toggles = [
+        model.hasSubcomponentEdges ? renderOriginGraphToggle(uiText(language, 'originShowSubcomponents'), 'data-origin-subcomponent-toggle') : '',
+        model.hasOutboundEdges ? renderOriginGraphToggle(uiText(language, 'originShowOutbound'), 'data-origin-outbound-toggle') : '',
+    ].filter(Boolean);
+    return toggles.length ? `<div class="jpdb-reader-origin-graph-toggles">${toggles.join('')}</div>` : '';
+}
+
+function renderOriginGraphToggle(label: string, attribute: string): string {
+    return `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml(label)}">
+        <input type="checkbox" ${attribute} checked>
+        <span>${escapeHtml(label)}</span>
+    </label>`;
 }
 
 type OriginGraphNode = KanjiOriginGraph['nodes'][number];
@@ -559,9 +574,12 @@ interface OriginGraphRenderModel {
     positioned: PositionedOriginNode[];
     primaryIds: Set<string>;
     outboundIds: Set<string>;
+    subcomponentIds: Set<string>;
     markerId: string;
     outboundMarkerId: string;
+    subcomponentMarkerId: string;
     hasOutboundEdges: boolean;
+    hasSubcomponentEdges: boolean;
 }
 
 interface OriginNodeState extends PositionedOriginNode {
@@ -582,15 +600,18 @@ function buildKanjiOriginGraphRenderModel(graph: KanjiOriginGraph | null): Origi
 
     const roles = originGraphNodeRoles(visible.edgeGroups, base.current.id);
     const positioned = forceLayoutOriginGraph(visible.nodes, visible.edgeGroups, base.current.id);
+    const markerId = originGraphMarkerId(positioned);
     return {
         current: base.current,
         nodeById: base.nodeById,
         edgeGroups: visible.edgeGroups,
         positioned,
         ...roles,
-        markerId: originGraphMarkerId(positioned),
-        outboundMarkerId: `${originGraphMarkerId(positioned)}-outbound`,
+        markerId,
+        outboundMarkerId: `${markerId}-outbound`,
+        subcomponentMarkerId: `${markerId}-subcomponent`,
         hasOutboundEdges: visible.edgeGroups.some(edge => isOriginOutboundEdge(edge, base.current.id)),
+        hasSubcomponentEdges: visible.edgeGroups.some(isOriginSubcomponentEdge),
     };
 }
 
@@ -627,11 +648,12 @@ function originGraphCurrentNode(nodes: OriginGraphNode[]): OriginGraphNode {
 function selectedOriginGraphEdges(base: OriginGraphBase): OriginEdgeGroup[] {
     const groupedEdges = groupOriginEdges(base.edges);
     const primaryEdges = selectOriginEdgeGroups(
-        groupedEdges.filter(edge => !isOriginOutboundEdge(edge, base.current.id)),
+        groupedEdges.filter(edge => !isOriginOutboundEdge(edge, base.current.id) && !isOriginSubcomponentEdge(edge)),
         base.nodeById,
     );
     return [
         ...primaryEdges,
+        ...selectOriginSubcomponentEdgeGroups(groupedEdges, base.nodeById),
         ...selectOriginOutboundEdgeGroups(groupedEdges, base.nodeById, base.current.id),
     ];
 }
@@ -664,11 +686,12 @@ function connectedOriginNodeIds(currentId: string, edges: OriginEdgeGroup[]): Se
     return ids;
 }
 
-function originGraphNodeRoles(edgeGroups: OriginEdgeGroup[], currentId: string): Pick<OriginGraphRenderModel, 'primaryIds' | 'outboundIds'> {
+function originGraphNodeRoles(edgeGroups: OriginEdgeGroup[], currentId: string): Pick<OriginGraphRenderModel, 'primaryIds' | 'outboundIds' | 'subcomponentIds'> {
     const primaryIds = new Set([currentId]);
     const outboundIds = new Set<string>();
-    edgeGroups.forEach(edge => addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds));
-    return { primaryIds, outboundIds };
+    const subcomponentIds = new Set<string>();
+    edgeGroups.forEach(edge => addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds, subcomponentIds));
+    return { primaryIds, outboundIds, subcomponentIds };
 }
 
 function addOriginGraphNodeRole(
@@ -676,9 +699,15 @@ function addOriginGraphNodeRole(
     currentId: string,
     primaryIds: Set<string>,
     outboundIds: Set<string>,
+    subcomponentIds: Set<string>,
 ): void {
     if (isOriginOutboundEdge(edge, currentId)) {
         outboundIds.add(edge.to);
+        return;
+    }
+    if (isOriginSubcomponentEdge(edge)) {
+        subcomponentIds.add(edge.from);
+        if (edge.to !== currentId) subcomponentIds.add(edge.to);
         return;
     }
     primaryIds.add(edge.from);
@@ -708,9 +737,11 @@ function renderOriginGraphEdgeGroup(
     const edgePath = clippedOriginEdgePath(from, to, targetZone);
     const label = edge.labels.join(' / ');
     const outbound = isOriginOutboundEdge(edge, model.current.id);
+    const subcomponent = isOriginSubcomponentEdge(edge);
     const outboundAttrs = outbound ? ' data-origin-outbound="true"' : '';
-    const markerId = outbound ? model.outboundMarkerId : model.markerId;
-    return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}>
+    const subcomponentAttrs = subcomponent ? ' data-origin-subcomponent="true"' : '';
+    const markerId = outbound ? model.outboundMarkerId : subcomponent ? model.subcomponentMarkerId : model.markerId;
+    return `<g class="jpdb-reader-origin-edge-group${outbound ? ' outbound' : ''}${subcomponent ? ' subcomponent' : ''}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
         <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
     </g>`;
 }
@@ -723,7 +754,8 @@ function renderOriginGraphNodeButton(positioned: PositionedOriginNode, model: Or
     const { node, x, y, rx, ry } = positioned;
     const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
     const outboundOnly = node.id !== model.current.id && model.outboundIds.has(node.id) && !model.primaryIds.has(node.id);
-    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ''} style="${style}"`;
+    const subcomponentOnly = node.id !== model.current.id && model.subcomponentIds.has(node.id) && !model.primaryIds.has(node.id) && !model.outboundIds.has(node.id);
+    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ''}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ''} style="${style}"`;
     if (node.kind === 'related') return renderRelatedOriginGraphNode(node, attrs);
     return renderKanjiOriginGraphNode(node, attrs);
 }
@@ -753,7 +785,7 @@ function chooseOriginGraphNodes(nodes: OriginGraphNode[], edges: OriginEdgeGroup
             if (degreeDelta) return degreeDelta;
             return a.label.localeCompare(b.label, 'ja');
         });
-    return [current, ...ranked.slice(0, 12)];
+    return [current, ...ranked.slice(0, 18)];
 }
 
 function originNodePriority(id: string, edges: OriginEdgeGroup[], currentId: string): number {
@@ -784,8 +816,21 @@ function selectOriginOutboundEdgeGroups(groups: OriginEdgeGroup[], nodeById: Map
     });
 }
 
+function selectOriginSubcomponentEdgeGroups(groups: OriginEdgeGroup[], nodeById: Map<string, OriginGraphNode>): OriginEdgeGroup[] {
+    return groups.filter(edge => {
+        if (!isOriginSubcomponentEdge(edge)) return false;
+        const from = nodeById.get(edge.from);
+        const to = nodeById.get(edge.to);
+        return from && to && !isNoisyOriginNode(from) && !isNoisyOriginNode(to);
+    });
+}
+
 function isOriginOutboundEdge(edge: OriginEdgeGroup, currentId: string): boolean {
     return edge.from === currentId && edge.to !== currentId;
+}
+
+function isOriginSubcomponentEdge(edge: OriginEdgeGroup): boolean {
+    return edge.labels.includes('subcomponent');
 }
 
 function originEdgeTargetZone(edge: OriginEdgeGroup, currentId: string, nodeById: Map<string, OriginGraphNode>): GraphAnchorZone {
@@ -796,6 +841,10 @@ function originEdgeTargetZone(edge: OriginEdgeGroup, currentId: string, nodeById
     if (edge.from === currentId) {
         const target = nodeById.get(edge.to);
         return target ? inferOutboundComponentZone(currentId, target) : 'auto';
+    }
+    if (isOriginSubcomponentEdge(edge)) {
+        const source = nodeById.get(edge.from);
+        return source ? inferInboundComponentZone(source, edge.to) : 'auto';
     }
     return 'auto';
 }
@@ -891,15 +940,15 @@ function applyOriginEdgePulls(byId: Map<string, OriginNodeState>, edges: OriginE
     for (const edge of edges) {
         const source = byId.get(edge.from);
         const target = byId.get(edge.to);
-        if (source && target) pullOriginEdge(source, target, currentId, alpha);
+        if (source && target) pullOriginEdge(source, target, edge, currentId, alpha);
     }
 }
 
-function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, currentId: string, alpha: number): void {
+function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, edge: OriginEdgeGroup, currentId: string, alpha: number): void {
     const dx = target.x - source.x;
     const dy = target.y - source.y;
     const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const targetDistance = source.node.id === currentId || target.node.id === currentId ? 31 : 24;
+    const targetDistance = isOriginSubcomponentEdge(edge) ? 21 : source.node.id === currentId || target.node.id === currentId ? 31 : 24;
     const pull = ((distance - targetDistance) / distance) * 0.06 * alpha;
     source.vx += dx * pull;
     source.vy += dy * pull;
@@ -962,11 +1011,90 @@ function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], 
     } else {
         spreadInboundComponents(incoming, currentId).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
     }
-    others.forEach((node, index) => {
-        const t = (index + 1) / (others.length + 1);
+    spreadNestedComponents(nodes, edges, anchors);
+    const anchored = new Set(anchors.keys());
+    const remainingOthers = others.filter(node => !anchored.has(node.id));
+    remainingOthers.forEach((node, index) => {
+        const t = (index + 1) / (remainingOthers.length + 1);
         anchors.set(node.id, { x: 26 + t * 48, y: 78 + (index % 2) * 3 });
     });
     return anchors;
+}
+
+function spreadNestedComponents(
+    nodes: OriginGraphNode[],
+    edges: OriginEdgeGroup[],
+    anchors: Map<string, { x: number; y: number; pinned?: boolean }>,
+): void {
+    const nodeById = new Map(nodes.map(node => [node.id, node]));
+    const nestedByParent = nestedEdgesByParent(edges, nodeById);
+    for (let pass = 0; pass < nodes.length; pass++) {
+        let placed = false;
+        nestedByParent.forEach((parentEdges, parentId) => {
+            const parentAnchor = anchors.get(parentId);
+            if (!parentAnchor) return;
+            const sorted = [...parentEdges].sort((a, b) => {
+                const aNode = nodeById.get(a.from);
+                const bNode = nodeById.get(b.from);
+                return componentZoneSort(aNode ? inferInboundComponentZone(aNode, parentId) : 'center') - componentZoneSort(bNode ? inferInboundComponentZone(bNode, parentId) : 'center')
+                    || (aNode?.label ?? a.from).localeCompare(bNode?.label ?? b.from, 'ja');
+            });
+            sorted.forEach((edge, index) => {
+                if (anchors.has(edge.from)) return;
+                const node = nodeById.get(edge.from);
+                if (!node) return;
+                const zone = inferInboundComponentZone(node, parentId);
+                anchors.set(edge.from, nestedZoneAnchor(parentAnchor, zone, index, sorted.length));
+                placed = true;
+            });
+        });
+        if (!placed) return;
+    }
+}
+
+function nestedEdgesByParent(edges: OriginEdgeGroup[], nodeById: Map<string, OriginGraphNode>): Map<string, OriginEdgeGroup[]> {
+    const result = new Map<string, OriginEdgeGroup[]>();
+    edges.filter(isOriginSubcomponentEdge).forEach(edge => {
+        if (!nodeById.has(edge.from) || !nodeById.has(edge.to)) return;
+        const list = result.get(edge.to) ?? [];
+        list.push(edge);
+        result.set(edge.to, list);
+    });
+    return result;
+}
+
+function nestedZoneAnchor(parent: { x: number; y: number }, zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
+    const xStep = 18;
+    const yStep = 20;
+    const side = parent.x < 50 ? -1 : 1;
+    const offset = (index - (total - 1) / 2) * 7;
+    const base = nestedZoneAnchorBase(parent, zone, side, xStep, yStep);
+    const withOffset = zone === 'top' || zone === 'upper' || zone === 'bottom' || zone === 'lower'
+        ? { x: base.x + offset, y: base.y }
+        : { x: base.x, y: base.y + offset };
+    return {
+        x: clampGraphValue(withOffset.x, 11, 89),
+        y: clampGraphValue(withOffset.y, 12, 88),
+    };
+}
+
+function nestedZoneAnchorBase(parent: { x: number; y: number }, zone: OriginComponentZone, side: number, xStep: number, yStep: number): { x: number; y: number } {
+    switch (zone) {
+        case 'top':
+            return { x: parent.x, y: parent.y - yStep };
+        case 'upper':
+            return { x: parent.x + side * (xStep * 0.45), y: parent.y - yStep * 0.72 };
+        case 'left':
+            return { x: parent.x - xStep, y: parent.y };
+        case 'right':
+            return { x: parent.x + xStep, y: parent.y };
+        case 'lower':
+            return { x: parent.x + side * (xStep * 0.45), y: parent.y + yStep * 0.72 };
+        case 'bottom':
+            return { x: parent.x, y: parent.y + yStep };
+        case 'center':
+            return { x: parent.x + side * xStep, y: parent.y };
+    }
 }
 
 function spreadInboundComponents(nodes: OriginGraphNode[], currentId = ''): Array<{ node: OriginGraphNode; x: number; y: number; pinned?: boolean }> {
@@ -1241,9 +1369,9 @@ function renderRtkElementChip(chip: ReturnType<typeof buildRtkElementChips>[numb
 
 function renderRtkStories(info: RtkInfo, language: InterfaceLanguage): string {
     return [
-        info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : '',
-        info.heisigComment ? `<details><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : '',
-        info.koohiiStories.length ? `<details><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : '',
+        info.heisigStory ? `<details open><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : '',
+        info.heisigComment ? `<details open><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : '',
+        info.koohiiStories.length ? `<details open><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : '',
     ].join('');
 }
 

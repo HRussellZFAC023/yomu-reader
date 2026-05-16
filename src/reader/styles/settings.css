@@ -270,6 +270,16 @@
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 3px;
 }
+.jpdb-reader-settings label:has(input:disabled),
+.jpdb-reader-settings label:has(select:disabled),
+.jpdb-reader-settings label:has(textarea:disabled) {
+  opacity: 0.55;
+}
+.jpdb-reader-settings input:disabled,
+.jpdb-reader-settings select:disabled,
+.jpdb-reader-settings textarea:disabled {
+  cursor: not-allowed;
+}
 .jpdb-reader-settings input[type="file"][data-file] {
   display: none !important;
 }
@@ -466,13 +476,19 @@
   line-height: 1.45;
 }
 .jpdb-reader-help-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
+  min-width: 0;
 }
 .jpdb-reader-help-actions .jpdb-reader-btn {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 42px;
   padding-inline: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .jpdb-reader-help-support {
   display: grid;
@@ -849,7 +865,13 @@
   }
 
   .jpdb-reader-help-actions {
-    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 6px;
+  }
+
+  .jpdb-reader-help-actions .jpdb-reader-btn {
+    min-height: 40px;
+    padding-inline: 6px;
+    font-size: 11px;
   }
 
   .jpdb-reader-order-head {

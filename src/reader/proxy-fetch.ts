@@ -1,3 +1,5 @@
+import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
+
 export interface ProxyFetchOptions extends RequestInit {
     timeoutMs?: number;
     allowPublicProxies?: boolean;
@@ -76,10 +78,16 @@ function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, optio
         : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isPublicProxyMethod(options.method);
     const publicProxies = publicProxySafe ? BUILT_IN_PROXY_BUILDERS.map(builder => builder(targetUrl)) : [];
+    const directCandidate = direct ? { url: direct, kind: 'direct' as const } : null;
+    const proxyCandidates = ([
+        configured ? { url: configured, kind: 'configured-proxy' as const } : null,
+        ...publicProxies.map((url): FetchUrlCandidate => ({ url, kind: 'public-proxy' })),
+    ] as Array<FetchUrlCandidate | null>).filter((candidate): candidate is FetchUrlCandidate => Boolean(candidate));
+    const orderedCandidates: Array<FetchUrlCandidate | null> = shouldPreferProxyFirst(targetUrl, directCandidate, proxySafe)
+        ? [...proxyCandidates, directCandidate]
+        : [directCandidate, ...proxyCandidates];
     return uniqueFetchCandidates([
-        direct ? { url: direct, kind: 'direct' } : null,
-        configured ? { url: configured, kind: 'configured-proxy' } : null,
-        ...publicProxies.map(url => ({ url, kind: 'public-proxy' as const })),
+        ...orderedCandidates,
     ]);
 }
 
@@ -141,7 +149,44 @@ function isProxySafeRequest(targetUrl: string, options: ProxyFetchOptions): bool
     return !hasSensitiveRequestHeaders(options.headers)
         && !hasCredentialedRequest(options.credentials)
         && !isPrivateJpdbTarget(targetUrl, options)
+        && !isPrivateNetworkTarget(targetUrl)
         && !hasSensitiveUrlParams(targetUrl);
+}
+
+function shouldPreferProxyFirst(targetUrl: string, direct: FetchUrlCandidate | null, proxySafe: boolean): boolean {
+    return Boolean(direct)
+        && proxySafe
+        && (isHostedGithubPagesApp() || isAppleTouchBrowser())
+        && isCrossOriginHttpUrl(targetUrl);
+}
+
+function isHostedGithubPagesApp(): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        const current = new URL(location.href);
+        return current.origin === GITHUB_PAGES_ORIGIN
+            && current.pathname.replace(/\/index\.html$/, '/').startsWith(`/${APP_REPOSITORY_NAME}/`);
+    } catch {
+        return false;
+    }
+}
+
+function isAppleTouchBrowser(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const userAgent = navigator.userAgent ?? '';
+    const platform = navigator.platform ?? '';
+    return /iPad|iPhone|iPod/i.test(userAgent)
+        || (/Macintosh/i.test(userAgent) && /Mac/i.test(platform) && (navigator.maxTouchPoints ?? 0) > 1);
+}
+
+function isCrossOriginHttpUrl(targetUrl: string): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        const target = new URL(targetUrl, location.href);
+        return /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+    } catch {
+        return false;
+    }
 }
 
 function hasSensitiveRequestHeaders(headers: HeadersInit | undefined): boolean {
@@ -167,6 +212,32 @@ function isPrivateJpdbTarget(targetUrl: string, options: ProxyFetchOptions): boo
     } catch {
         return false;
     }
+}
+
+function isPrivateNetworkTarget(targetUrl: string): boolean {
+    try {
+        const url = new URL(targetUrl, location.href);
+        return isPrivateHostname(url.hostname);
+    } catch {
+        return false;
+    }
+}
+
+function isPrivateHostname(hostname: string): boolean {
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    const isIpv6 = host.includes(':');
+    return host === 'localhost'
+        || host.endsWith('.localhost')
+        || /^(?:0|10|127)\./.test(host)
+        || /^169\.254\./.test(host)
+        || /^192\.168\./.test(host)
+        || /^172\.(?:1[6-9]|2\d|3[0-1])\./.test(host)
+        || (isIpv6 && (
+            host === '::1'
+            || host.startsWith('fc')
+            || host.startsWith('fd')
+            || host.startsWith('fe80:')
+        ));
 }
 
 function hasSensitiveUrlParams(targetUrl: string): boolean {

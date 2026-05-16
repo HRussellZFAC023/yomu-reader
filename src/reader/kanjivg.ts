@@ -23,8 +23,11 @@ export interface KanjiVGPoint {
 export interface KanjiVGComponentPosition {
     component: string;
     original?: string;
+    parent?: string;
+    parentOriginal?: string;
     position: string;
     direct: boolean;
+    depth: number;
 }
 
 export class KanjiVGClient {
@@ -288,9 +291,10 @@ function sampleQuadratic(from: SvgPathPoint, c: SvgPathPoint, to: SvgPathPoint, 
 function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string): KanjiVGComponentPosition[] {
     const root = Array.from(sourceSvg.querySelectorAll('g'))
         .find(group => group.getAttribute('kvg:element') === kanji);
+    const viewBox = parseViewBox(sourceSvg.getAttribute('viewBox') || '0 0 109 109');
     const positions = new Map<string, KanjiVGComponentPosition>();
     const add = (entry: KanjiVGComponentPosition) => {
-        const key = `${entry.component}\u0000${entry.original ?? ''}\u0000${entry.position}`;
+        const key = `${entry.component}\u0000${entry.original ?? ''}\u0000${entry.parent ?? ''}\u0000${entry.position}`;
         const existing = positions.get(key);
         if (!existing || (!existing.direct && entry.direct)) positions.set(key, entry);
     };
@@ -298,15 +302,69 @@ function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string):
     Array.from(sourceSvg.querySelectorAll('g')).forEach(group => {
         const component = cleanComponent(group.getAttribute('kvg:element') ?? '');
         if (!component || component === kanji) return;
-        const position = cleanComponent(group.getAttribute('kvg:position') ?? inheritedKanjiVGPosition(group, root));
+        const parentGroup = nearestKanjiVGComponentParent(group, root);
+        const parent = cleanComponent(parentGroup?.getAttribute('kvg:element') ?? '');
+        const parentOriginal = cleanComponent(parentGroup?.getAttribute('kvg:original') ?? '');
+        const position = cleanComponent(group.getAttribute('kvg:position') ?? geometricKanjiVGPosition(group, parentGroup, viewBox) ?? inheritedKanjiVGPosition(group, root));
         if (!position) return;
         const original = cleanComponent(group.getAttribute('kvg:original') ?? '');
-        const direct = Boolean(root && group.parentNode === root);
-        add({ component, original: original || undefined, position, direct });
-        if (original && original !== component) add({ component: original, original: component, position, direct });
+        const direct = Boolean(root && parentGroup === root);
+        const parentAttrs = parent ? {
+            parent,
+            parentOriginal: parentOriginal || undefined,
+        } : {};
+        const depth = kanjiVGComponentDepth(group, root);
+        add({ component, original: original || undefined, ...parentAttrs, position, direct, depth });
+        if (original && original !== component) add({ component: original, original: component, ...parentAttrs, position, direct, depth });
     });
 
     return Array.from(positions.values());
+}
+
+function nearestKanjiVGComponentParent(group: Element, root: Element | undefined): Element | undefined {
+    let parent = group.parentElement;
+    while (parent) {
+        if (parent === root || cleanComponent(parent.getAttribute('kvg:element') ?? '')) return parent;
+        parent = parent.parentElement;
+    }
+    return undefined;
+}
+
+function kanjiVGComponentDepth(group: Element, root: Element | undefined): number {
+    let depth = 0;
+    let parent = group.parentElement;
+    while (parent && parent !== root) {
+        if (cleanComponent(parent.getAttribute('kvg:element') ?? '')) depth += 1;
+        parent = parent.parentElement;
+    }
+    return depth + 1;
+}
+
+function geometricKanjiVGPosition(group: Element, parent: Element | undefined, viewBox: { x: number; y: number; width: number; height: number }): string {
+    if (!parent) return '';
+    const groupBox = kanjiVGElementBox(group, viewBox);
+    const parentBox = kanjiVGElementBox(parent, viewBox);
+    if (!groupBox || !parentBox || groupBox.width <= 0 || groupBox.height <= 0 || parentBox.width <= 0 || parentBox.height <= 0) return '';
+    const dx = ((groupBox.x + groupBox.width / 2) - (parentBox.x + parentBox.width / 2)) / parentBox.width;
+    const dy = ((groupBox.y + groupBox.height / 2) - (parentBox.y + parentBox.height / 2)) / parentBox.height;
+    const threshold = 0.12;
+    if (Math.abs(dx) > Math.abs(dy) * 1.12 && Math.abs(dx) > threshold) return dx < 0 ? 'left' : 'right';
+    if (Math.abs(dy) > threshold) return dy < 0 ? 'top' : 'bottom';
+    return 'center';
+}
+
+function kanjiVGElementBox(element: Element, viewBox: { x: number; y: number; width: number; height: number }): { x: number; y: number; width: number; height: number } | null {
+    const points = Array.from(element.querySelectorAll('path'))
+        .flatMap(path => parseSvgPathPoints(path.getAttribute('d') ?? ''))
+        .filter(point => point.x >= viewBox.x - viewBox.width && point.y >= viewBox.y - viewBox.height);
+    if (!points.length) return null;
+    const xs = points.map(point => point.x);
+    const ys = points.map(point => point.y);
+    const left = Math.min(...xs);
+    const right = Math.max(...xs);
+    const top = Math.min(...ys);
+    const bottom = Math.max(...ys);
+    return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 function inheritedKanjiVGPosition(group: Element, root: Element | undefined): string {

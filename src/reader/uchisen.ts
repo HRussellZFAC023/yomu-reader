@@ -10,6 +10,10 @@ export interface UchisenImage {
     story: string;
 }
 
+interface UchisenImageCandidate extends UchisenImage {
+    paywall: boolean;
+}
+
 interface UchisenCarouselOptions {
     sourceAttributes?: string;
     detailsClass?: string;
@@ -21,26 +25,48 @@ interface UchisenCarouselOptions {
 
 const UCHISEN_STAR_PREFIX = 'yomu-jpdb-uchisen-star:';
 const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
+const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
+const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
 
 export function parseUchisenImages(html: string): UchisenImage[] {
     if (!html.trim()) return [];
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const images: UchisenImage[] = [];
+    const images: UchisenImageCandidate[] = [];
     const mainImage = mainUchisenImageUrl(doc);
     const mainStory = cleanText(doc.querySelector('#mnemonic_story')?.textContent ?? '');
-    if (mainImage) images.push({ url: canonicalUchisenUrl(mainImage), story: mainStory || 'No story available' });
+    if (mainImage) {
+        const url = canonicalUchisenUrl(mainImage);
+        images.push({
+            url,
+            story: mainStory || 'No story available',
+            paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory),
+        });
+    }
 
     doc.querySelectorAll<HTMLElement>('.mnemonic_card').forEach(card => {
         const image = uchisenCardImage(card, mainStory);
         if (image) images.push(image);
     });
 
+    return orderedUchisenImages(images);
+}
+
+function orderedUchisenImages(images: UchisenImageCandidate[]): UchisenImage[] {
     const seen = new Set<string>();
-    return images.filter(item => {
-        if (!item.url || seen.has(item.url)) return false;
-        seen.add(item.url);
+    const deduped = images.filter(item => {
+        const key = uchisenImageDedupeKey(item);
+        if (!item.url || seen.has(key)) return false;
+        seen.add(key);
         return true;
     });
+    return [
+        ...deduped.filter(item => !item.paywall),
+        ...deduped.filter(item => item.paywall),
+    ].map(({ url, story }) => ({ url, story }));
+}
+
+function uchisenImageDedupeKey(item: UchisenImageCandidate): string {
+    return item.paywall && isUchisenPaywallImage(item.url) ? 'paywall:enrollment' : `url:${item.url}`;
 }
 
 function mainUchisenImageUrl(doc: Document): string {
@@ -50,12 +76,15 @@ function mainUchisenImageUrl(doc: Document): string {
         || '';
 }
 
-function uchisenCardImage(card: HTMLElement, mainStory: string): UchisenImage | null {
+function uchisenCardImage(card: HTMLElement, mainStory: string): UchisenImageCandidate | null {
     const rawUrl = card.querySelector<HTMLInputElement>('input.image_url')?.value.trim() ?? '';
     if (!rawUrl) return null;
+    const url = canonicalUchisenUrl(rawUrl);
+    const story = uchisenCardStory(card, mainStory);
     return {
-        url: canonicalUchisenUrl(rawUrl),
-        story: uchisenCardStory(card, mainStory),
+        url,
+        story,
+        paywall: isUchisenPaywallCard(card, url, story),
     };
 }
 
@@ -63,6 +92,25 @@ function uchisenCardStory(card: HTMLElement, mainStory: string): string {
     const rawStory = card.querySelector<HTMLInputElement>('input.story')?.value ?? '';
     const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, ' '));
     return story || mainStory || 'No story available';
+}
+
+function isUchisenPaywallCard(card: HTMLElement, url: string, story: string): boolean {
+    const thumbnailUrl = card.querySelector<HTMLImageElement>('.mnemonic_card_thumbnail img')?.getAttribute('src') ?? '';
+    return isUchisenPaywallImage(url)
+        || isUchisenPaywallImage(thumbnailUrl)
+        || isUchisenPaywallStory(story);
+}
+
+function isUchisenPaywallImage(url: string): boolean {
+    try {
+        return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
+    } catch {
+        return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
+    }
+}
+
+function isUchisenPaywallStory(story: string): boolean {
+    return UCHISEN_PAYWALL_STORY_RE.test(cleanText(story));
 }
 
 export async function loadUchisenImages(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenImage[]> {
@@ -162,11 +210,18 @@ export async function installUchisenCarousel(
 
 function preferredUchisenIndex(storedIndex: number, starred: string | null, images: UchisenImage[]): number {
     const starredIndex = starred ? images.findIndex(item => item.url === starred) : -1;
-    return starredIndex >= 0 ? starredIndex : storedIndex;
+    if (starredIndex >= 0) return starredIndex;
+    if (isValidUchisenIndex(storedIndex, images) && !isUchisenPaywallItem(images[storedIndex])) return storedIndex;
+    const firstNonPaywall = images.findIndex(item => !isUchisenPaywallItem(item));
+    return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
 }
 
 function isValidUchisenIndex(index: number, images: UchisenImage[]): boolean {
-    return Number.isFinite(index) && index >= 0 && index < images.length;
+    return Number.isInteger(index) && index >= 0 && index < images.length;
+}
+
+function isUchisenPaywallItem(item: UchisenImage | undefined): boolean {
+    return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
 }
 
 function requestText(url: string, timeout: number, proxyUrl: string): Promise<string> {

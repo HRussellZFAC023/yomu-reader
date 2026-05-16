@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { nestedParseAlreadyScheduled, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
+import { clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
 
 describe('nested text parse plans', () => {
     afterEach(() => {
@@ -18,5 +18,17 @@ describe('nested text parse plans', () => {
         expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : true).toBe(false);
         if (root && plan) root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : false).toBe(true);
+    });
+
+    it('clears stale parse markers before replacing parseable content', () => {
+        document.body.innerHTML = '<section data-jpdb-reader-parse-key="今日はいい天気です。" data-jpdb-reader-parse-loading-key="今日はいい天気です。"><p class="jpdb-reader-parseable">今日はいい天気です。</p></section>';
+        const root = document.body.querySelector<HTMLElement>('section')!;
+        const plan = nestedTextParsePlan(root, 24)!;
+
+        clearNestedParseState(root);
+
+        expect(nestedParseAlreadyScheduled(root, plan.parseKey)).toBe(false);
+        expect(root.dataset.jpdbReaderParseKey).toBeUndefined();
+        expect(root.dataset.jpdbReaderParseLoadingKey).toBeUndefined();
     });
 });

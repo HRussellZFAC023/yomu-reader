@@ -1,3 +1,4 @@
+import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
@@ -11,6 +12,7 @@ interface AudioCandidate {
 
 interface AudioPlaybackOptions {
     isCurrent?: () => boolean;
+    userGesture?: boolean;
 }
 
 interface AudioPreloadOptions {
@@ -40,6 +42,7 @@ interface AudioPlaybackRequest {
     isCurrent: () => boolean;
     settings: ReaderSettings;
     sources: AudioSourceSetting[];
+    userGesture: boolean;
 }
 
 interface SoftChimeNote {
@@ -61,6 +64,7 @@ const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
 ];
+const SILENT_AUDIO_DATA_URL = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==';
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
@@ -82,10 +86,11 @@ export class AudioPlayer {
         this.ensureAudioEnabled(request.settings);
         if (!request.isCurrent()) return false;
         this.stopCurrent();
+        const reservedAudio = this.reserveGestureAudioElement(request);
         if (!request.sources.length) return await this.playNoAudioSources(card, request);
 
         const done = log.time('play', { term: card.spelling, sources: request.sources.map(source => source.type), viaBlob: true });
-        const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent);
+        const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
         done();
         return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
     }
@@ -97,7 +102,16 @@ export class AudioPlayer {
             isCurrent: options.isCurrent ?? (() => true),
             settings,
             sources: getOrderedAudioSources(settings),
+            userGesture: options.userGesture ?? false,
         };
+    }
+
+    private reserveGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
+        if (!shouldReserveGestureAudioElement(request)) return undefined;
+        const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
+        this.current = audio;
+        void audio.play().catch(() => undefined);
+        return audio;
     }
 
     private ensureAudioEnabled(settings: ReaderSettings): void {
@@ -128,11 +142,12 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
     ): Promise<AudioSourcePlayResult> {
         const errors: string[] = [];
         const triedUrls = new Set<string>();
         for (const source of sources) {
-            const result = await this.playSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors);
+            const result = await this.playSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
             if (result !== 'miss') return { state: result, errors };
         }
         return { state: 'miss', errors };
@@ -146,12 +161,13 @@ export class AudioPlayer {
         triedUrls: Set<string>,
         isCurrent: () => boolean,
         errors: string[],
+        reservedAudio?: HTMLAudioElement,
     ): Promise<AudioSourcePlayResult['state']> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) {
             return 'superseded';
         }
         try {
-            const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent);
+            const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent, reservedAudio);
             return this.audioSourceAttemptResult(played, requestId, isCurrent);
         } catch (error) {
             errors.push(error instanceof Error ? error.message : String(error));
@@ -230,13 +246,14 @@ export class AudioPlayer {
         requestId: number,
         triedUrls: Set<string>,
         isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         if (isTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const bagKey = getAudioBagKey(source, card);
-        return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey);
+        return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
 
     private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
@@ -253,10 +270,11 @@ export class AudioPlayer {
         triedUrls: Set<string>,
         isCurrent: () => boolean,
         bagKey: string,
+        reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
             if (!registerAudioAttempt(triedUrls, candidate)) continue;
-            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent)) return true;
+            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio)) return true;
         }
         return false;
     }
@@ -269,9 +287,10 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         try {
-            const audio = await this.createPlayableAudio(candidate, sourceType, settings);
+            const audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
             const played = await this.playPreparedAudio(audio, requestId, isCurrent);
             if (!played) return false;
@@ -282,11 +301,11 @@ export class AudioPlayer {
         }
     }
 
-    private createPlayableAudio(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings): Promise<HTMLAudioElement> | HTMLAudioElement {
-        const audioViaBlob = settings.audioViaBlob && !shouldPreferDirectAudioPlayback(sourceType);
+    private createPlayableAudio(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings, reservedAudio?: HTMLAudioElement): Promise<HTMLAudioElement> | HTMLAudioElement {
+        const audioViaBlob = settings.audioViaBlob && !shouldPreferDirectAudioPlayback(sourceType, settings);
         return audioViaBlob
-            ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob)
-            : this.createAudioElement(candidate.url);
+            ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio)
+            : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
     }
 
     private isPlaybackCurrent(requestId: number, isCurrent: () => boolean): boolean {
@@ -302,9 +321,12 @@ export class AudioPlayer {
         return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
     }
 
-    private preparePlayableAudio(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean): Promise<HTMLAudioElement> {
+    private preparePlayableAudio(candidate: AudioCandidate, timeoutMs: number, mode: AudioSelectionMode, audioViaBlob: boolean, reservedAudio?: HTMLAudioElement): Promise<HTMLAudioElement> {
         const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
         const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
+        if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob)
+            .then(audioUrl => this.createReadyAudio(audioUrl, reservedAudio));
+
         const now = Date.now();
         const cached = this.readyAudioCache.get(key);
         if (cached && cached.expiresAt > now) return cached.promise;
@@ -321,8 +343,8 @@ export class AudioPlayer {
         return promise;
     }
 
-    private async createReadyAudio(audioUrl: string): Promise<HTMLAudioElement> {
-        const audio = this.createAudioElement(audioUrl);
+    private async createReadyAudio(audioUrl: string, audio = this.createAudioElement(audioUrl)): Promise<HTMLAudioElement> {
+        if (audio.src !== audioUrl) audio.src = audioUrl;
         audio.load?.();
         return audio;
     }
@@ -591,12 +613,25 @@ function directAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] |
     return structuredAudioUrlsForValue(value, sourceUrl);
 }
 
-function shouldPreferDirectAudioPlayback(sourceType: AudioSourceType): boolean {
+function shouldPreferDirectAudioPlayback(sourceType: AudioSourceType, settings: ReaderSettings): boolean {
     if (!BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES.has(sourceType)) return false;
+    if (settings.corsProxyUrl.trim()) return false;
+    if (isHostedGithubPagesApp()) return false;
     if (typeof navigator === 'undefined') return false;
     const userAgent = navigator.userAgent ?? '';
     return /iPad|iPhone|iPod/i.test(userAgent)
         || (/Macintosh/i.test(userAgent) && /Mac/i.test(navigator.platform ?? '') && (navigator.maxTouchPoints ?? 0) > 1);
+}
+
+function isHostedGithubPagesApp(): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        const current = new URL(location.href);
+        return current.origin === GITHUB_PAGES_ORIGIN
+            && current.pathname.replace(/\/index\.html$/, '/').startsWith(`/${APP_REPOSITORY_NAME}/`);
+    } catch {
+        return false;
+    }
 }
 
 function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
@@ -667,6 +702,12 @@ function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] 
             .filter(type => !configuredTypes.has(type))
             .map(type => ({ type, url: '', voice: '', enabled: true })),
     ];
+}
+
+function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
+    return request.userGesture
+        && isAppleMobileBrowser()
+        && request.sources.some(source => !isTextToSpeechSource(source));
 }
 
 function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {

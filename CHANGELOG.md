@@ -8,13 +8,22 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+## [0.4.11] - 2026-05-16
+
 ### Fixed
 
 - Routed public page/media requests through the shared CORS fallback stack, including hosted-page audio, Uchisen, JPDB public kanji/vocabulary pages, RTK, KanjiVG, pitch, and Immersion Kit media.
+- Routed hosted JPDB API review/deck calls through the restricted Cloudflare Worker fallback on iPad and GitHub Pages, while keeping direct localhost calls available for development.
 - Made JPDB API deck cards load deterministically in the hosted new tab so the review total no longer changes randomly on refresh.
+- Matched new-tab kanji source ordering to Settings, with JPDB kanji first, RTK immediately after it, kanji facts/graph next, and every section open by default.
+- Flattened nested new-tab kanji detail cards while keeping useful component and similar-word cards, and centered Uchisen controls, image, and story text.
 - Tightened the new-tab kanji reveal layout so the reference and drawing panels align cleanly, and removed the repeated lower JPDB detail card stack.
+- Kept JPDB kanji fact items on one line when space allows.
+- Repaired prompt tapping in word mode so tapping the displayed word opens the dictionary popover instead of doing nothing.
+- Cleared stale parse markers across progressive popup renders so JPDB, Immersion Kit, and local sentences remain tokenized and clickable after details finish loading.
 - Tightened iPhone word-review spacing so the prompt, answer, Immersion Kit media, and five grading buttons no longer overlap or wrap awkwardly.
 - Reworked touch settings layout so phone and tablet use a bottom drawer, source rows do not overlap controls, and inactive tabs do not look selected after tapping.
+- Restored hosted mobile popup behavior: Add to Anki now uses the iOS/Android handoff without AnkiConnect preflights, popup sections collapse/expand normally, and bottom sheets recover their size after rotation.
 
 ## [0.4.10] - 2026-05-15
 

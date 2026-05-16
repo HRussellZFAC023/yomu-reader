@@ -58,7 +58,7 @@ export const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jpdb',
     label: 'JPDB',
     urlTemplate: 'https://jpdb.io/search?q={query}',
-    enabled: false,
+    enabled: true,
 };
 
 export const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
@@ -119,13 +119,13 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     jpdbKanjiEnabled: true,
     jpdbKanjiPriority: 10,
     uchisenEnabled: true,
-    uchisenPriority: 25,
+    uchisenPriority: 50,
     rtkEnabled: true,
     rtkPriority: 20,
     kanjivgEnabled: true,
     kanjivgPriority: 0,
     kanjiOriginsEnabled: true,
-    kanjiOriginsPriority: 50,
+    kanjiOriginsPriority: 30,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
     kanjiOriginRadicalImagesEnabled: true,
@@ -320,10 +320,13 @@ function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): Reade
 }
 
 function normalizeDictionaryLookupLinkSettings(value: Partial<ReaderSettings> | null): ReaderSettings['dictionaryLookupLinks'] {
-    return normalizeDictionaryLookupLinks(
+    const links = normalizeDictionaryLookupLinks(
         value?.dictionaryLookupLinks,
         !hasOwn(value, 'dictionaryLookupLinks') && Boolean(value?.apiKey?.trim()),
     );
+    return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
+        ? links.map(link => link.id === JPDB_LOOKUP_LINK.id ? { ...link, enabled: true } : link)
+        : links;
 }
 
 function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -915,8 +918,27 @@ export function normalizeDictionaryPreferences(value: unknown): DictionaryPrefer
 export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({
         ...link,
-        enabled: link.id === 'jpdb' ? mode === 'jpdb' : mode !== 'jpdb',
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' : link.enabled,
     }));
+}
+
+function isLegacyDefaultLookupLinkSet(value: unknown): boolean {
+    if (!Array.isArray(value) || value.length !== 3) return false;
+    const normalized = value.map(normalizeDictionaryLookupLink);
+    if (normalized.some(link => !link)) return false;
+    const links = normalized as DictionaryLookupLink[];
+    return links[0]?.id === 'jpdb'
+        && links[0].label === 'JPDB'
+        && links[0].urlTemplate === JPDB_LOOKUP_LINK.urlTemplate
+        && links[0].enabled === false
+        && links[1]?.id === 'jisho'
+        && links[1].label === 'Jisho'
+        && links[1].urlTemplate === JISHO_LOOKUP_LINK.urlTemplate
+        && links[1].enabled === true
+        && links[2]?.id === 'copy'
+        && links[2].label === 'Copy'
+        && links[2].action === 'copy'
+        && links[2].enabled === true;
 }
 
 export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = false): DictionaryLookupLink[] {
