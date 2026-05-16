@@ -28,6 +28,7 @@ export interface KanjiVGComponentPosition {
     position: string;
     direct: boolean;
     depth: number;
+    variant?: boolean;
 }
 
 export class KanjiVGClient {
@@ -296,7 +297,7 @@ function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string):
     const add = (entry: KanjiVGComponentPosition) => {
         const key = `${entry.component}\u0000${entry.original ?? ''}\u0000${entry.parent ?? ''}\u0000${entry.position}`;
         const existing = positions.get(key);
-        if (!existing || (!existing.direct && entry.direct)) positions.set(key, entry);
+        if (!existing || (!existing.direct && entry.direct) || (existing.variant && !entry.variant)) positions.set(key, entry);
     };
 
     Array.from(sourceSvg.querySelectorAll('g')).forEach(group => {
@@ -309,13 +310,15 @@ function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string):
         if (!position) return;
         const original = cleanComponent(group.getAttribute('kvg:original') ?? '');
         const direct = Boolean(root && parentGroup === root);
+        const variant = group.getAttribute('kvg:variant') === 'true';
         const parentAttrs = parent ? {
             parent,
             parentOriginal: parentOriginal || undefined,
         } : {};
         const depth = kanjiVGComponentDepth(group, root);
-        add({ component, original: original || undefined, ...parentAttrs, position, direct, depth });
-        if (original && original !== component) add({ component: original, original: component, ...parentAttrs, position, direct, depth });
+        const variantAttr = variant ? { variant } : {};
+        add({ component, original: original || undefined, ...parentAttrs, position, direct, depth, ...variantAttr });
+        if (original && original !== component) add({ component: original, original: component, ...parentAttrs, position, direct, depth, ...variantAttr });
     });
 
     return Array.from(positions.values());

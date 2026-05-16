@@ -1878,11 +1878,12 @@ export class ReaderApp {
         try {
             const localEntries = await this.dictionaryReferenceLocalEntries(query, normalizedReading, sourceDictionary);
             const preferredEntry = localEntries.find(entry => entry.dictionary === sourceDictionary) ?? localEntries[0];
+            const previousNavigationEntry = this.textLookupPreviousNavigationEntry(trigger, navigation);
             if (preferredEntry) {
-                await this.showCard(this.parser.localCardFromEntry(preferredEntry), query, anchor, { autoPlay: false, trigger, navigation, preservePosition });
+                await this.showCard(this.parser.localCardFromEntry(preferredEntry), query, anchor, { autoPlay: false, trigger, navigation, preservePosition, previousNavigationEntry });
                 return;
             }
-            await this.lookupText(query, query, { navigation, preservePosition });
+            await this.lookupText(query, query, { navigation, preservePosition, previousNavigationEntry });
         } finally {
             done();
         }
@@ -2660,6 +2661,7 @@ export class ReaderApp {
 
     private installKanjiCardActions(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
         popover.addEventListener('click', event => {
+            if (this.handleDictionaryLookupLink(event, anchor, 'modal')) return;
             const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             const action = actionButton?.dataset.action;
             if (!action) return;

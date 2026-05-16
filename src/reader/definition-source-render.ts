@@ -34,7 +34,7 @@ function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
 
 function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes): string {
     if (!hasJpdbVocabularyExtras(info)) return '';
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbExamples(info, sourceAttributes)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes)}${renderJpdbExamples(info, sourceAttributes)}</div>`;
 }
 
 function shouldPreferCardMeanings(card: JPDBCard): boolean {
@@ -49,7 +49,7 @@ function cardDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
 }
 
 function hasJpdbVocabularyExtras(info: JpdbVocabularyInfo | null): info is JpdbVocabularyInfo {
-    return Boolean(info && (info.compounds.length || info.examples.length));
+    return Boolean(info && (info.compounds.length || (info.usedInVocabulary?.length ?? 0) || info.examples.length));
 }
 
 function renderJpdbCompounds(info: JpdbVocabularyInfo): string {
@@ -79,11 +79,45 @@ function renderJpdbCompounds(info: JpdbVocabularyInfo): string {
     ` : '';
 }
 
+function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes): string {
+    const entries = info.usedInVocabulary ?? [];
+    return entries.length ? `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">Used in vocabulary</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">
+                ${entries.map(entry => `
+                    <li class="jpdb-reader-jpdb-used-in-item">
+                        <a
+                            class="gloss-link jpdb-reader-jpdb-used-in-link"
+                            href="#jpdb-reader-dictionary-lookup"
+                            data-dictionary-lookup="${escapeHtml(entry.term)}"
+                            data-dictionary-reading="${escapeHtml(entry.reading)}"
+                            data-dictionary="JPDB"
+                            data-external="false"
+                        >
+                            <span class="jpdb-reader-jpdb-compound-head">
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(entry.term)}</span>
+                                ${entry.reading && entry.reading !== entry.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml(entry.reading)}</span>` : ''}
+                            </span>
+                        </a>
+                        ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ''}
+                    </li>
+                `).join('')}
+                </ul>
+            </div>
+        </details>
+    ` : '';
+}
+
 function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes): string {
     return info.examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">JPDB examples</span>
+                <span class="jpdb-reader-example-source">Example sentences</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">

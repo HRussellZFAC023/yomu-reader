@@ -15,6 +15,8 @@ const SHEET_TAP_MOVEMENT_PX = 8;
 const SHEET_KEYBOARD_STEP_PX = 48;
 const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
 const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
+const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
 
 export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
     const popover = document.createElement('div');
@@ -629,6 +631,182 @@ export function installSettingsDrawerHandle(drawer: HTMLElement): void {
     window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
 }
 
+export function installMiningDrawerHandle(
+    root: HTMLElement,
+    setExpanded: (button: HTMLButtonElement, expanded: boolean) => void,
+): void {
+    if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === 'true') return;
+    root.dataset.jpdbReaderMiningDrawerHandleInstalled = 'true';
+
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let pointerId = 0;
+    let touchId = 0;
+    let dragging = false;
+    let moved = false;
+    let activeInput: 'pointer' | 'touch' | null = null;
+    let activeHandle: HTMLButtonElement | null = null;
+    let suppressNextHandleClick = false;
+
+    const getHandleFromEvent = (event: EventTarget | null): HTMLButtonElement | null => {
+        if (!(event instanceof Element)) return null;
+        const handle = event.closest<HTMLButtonElement>('.jpdb-reader-mining-drawer-handle');
+        if (!handle || !root.contains(handle)) return null;
+        return handle;
+    };
+    const cleanupPointerListeners = (): void => {
+        document.removeEventListener('pointermove', handlePointerMove, true);
+        document.removeEventListener('pointerup', handlePointerUp, true);
+        document.removeEventListener('pointercancel', handlePointerCancel, true);
+    };
+    const cleanupTouchListeners = (): void => {
+        document.removeEventListener('touchmove', handleTouchMove, true);
+        document.removeEventListener('touchend', handleTouchEnd, true);
+        document.removeEventListener('touchcancel', handleTouchCancel, true);
+    };
+    const setPointerCapture = (handle: HTMLElement, id: number): void => {
+        try {
+            handle.setPointerCapture?.(id);
+        } catch {
+        }
+    };
+    const releasePointerCapture = (handle: HTMLElement | null, id: number): void => {
+        try {
+            handle?.releasePointerCapture?.(id);
+        } catch {
+        }
+    };
+    const beginDrag = (handle: HTMLButtonElement, clientX: number, clientY: number, input: 'pointer' | 'touch'): boolean => {
+        if (dragging || activeInput) return false;
+        startX = clientX;
+        startY = clientY;
+        lastX = clientX;
+        lastY = clientY;
+        dragging = true;
+        moved = false;
+        activeInput = input;
+        activeHandle = handle;
+        handle.closest<HTMLElement>('.jpdb-reader-actions')?.classList.add('jpdb-reader-mining-drawer-dragging');
+        return true;
+    };
+    const updateDrag = (clientX: number, clientY: number): void => {
+        lastX = clientX;
+        lastY = clientY;
+        if (Math.hypot(lastX - startX, lastY - startY) > MINING_DRAWER_TAP_MOVEMENT_PX) moved = true;
+    };
+    const finish = (): void => {
+        if (!dragging) return;
+        const wasMoved = moved;
+        const handle = activeHandle;
+        dragging = false;
+        moved = false;
+        activeInput = null;
+        activeHandle = null;
+        cleanupPointerListeners();
+        cleanupTouchListeners();
+        releasePointerCapture(handle, pointerId);
+        handle?.closest<HTMLElement>('.jpdb-reader-actions')?.classList.remove('jpdb-reader-mining-drawer-dragging');
+        if (!wasMoved || !handle) return;
+        suppressNextHandleClick = true;
+        const expanded = miningDrawerDragExpandedState(handle, lastX - startX, lastY - startY);
+        if (expanded !== undefined) setExpanded(handle, expanded);
+    };
+    const cancelDrag = (): void => {
+        if (!dragging) return;
+        const handle = activeHandle;
+        dragging = false;
+        moved = false;
+        activeInput = null;
+        activeHandle = null;
+        cleanupPointerListeners();
+        cleanupTouchListeners();
+        releasePointerCapture(handle, pointerId);
+        handle?.closest<HTMLElement>('.jpdb-reader-actions')?.classList.remove('jpdb-reader-mining-drawer-dragging');
+    };
+    const handlePointerMove = (event: PointerEvent): void => {
+        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDrag(event.clientX, event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent): void => {
+        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDrag(event.clientX, event.clientY);
+        finish();
+    };
+    const handlePointerCancel = (event: PointerEvent): void => {
+        if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        cancelDrag();
+    };
+    const changedTouch = (event: TouchEvent): Touch | null => {
+        for (const touch of Array.from(event.changedTouches)) {
+            if (touch.identifier === touchId) return touch;
+        }
+        return null;
+    };
+    const firstChangedTouch = (event: TouchEvent): Touch | null => event.changedTouches.item(0);
+    const handleTouchMove = (event: TouchEvent): void => {
+        if (!dragging || activeInput !== 'touch') return;
+        const touch = changedTouch(event);
+        if (!touch) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDrag(touch.clientX, touch.clientY);
+    };
+    const handleTouchEnd = (event: TouchEvent): void => {
+        if (!dragging || activeInput !== 'touch') return;
+        const touch = changedTouch(event);
+        if (!touch) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDrag(touch.clientX, touch.clientY);
+        finish();
+    };
+    const handleTouchCancel = (event: TouchEvent): void => {
+        if (activeInput !== 'touch' || !changedTouch(event)) return;
+        cancelDrag();
+    };
+
+    root.addEventListener('click', event => {
+        if (!suppressNextHandleClick) return;
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
+        suppressNextHandleClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+    root.addEventListener('pointerdown', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle || activeInput) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!beginDrag(handle, event.clientX, event.clientY, 'pointer')) return;
+        pointerId = event.pointerId;
+        setPointerCapture(handle, event.pointerId);
+        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
+        document.addEventListener('pointerup', handlePointerUp, true);
+        document.addEventListener('pointercancel', handlePointerCancel, true);
+    });
+    root.addEventListener('touchstart', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle || activeInput) return;
+        const touch = firstChangedTouch(event);
+        if (!touch) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!beginDrag(handle, touch.clientX, touch.clientY, 'touch')) return;
+        touchId = touch.identifier;
+        document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
+        document.addEventListener('touchend', handleTouchEnd, true);
+        document.addEventListener('touchcancel', handleTouchCancel, true);
+    }, { capture: true, passive: false });
+}
+
 export function shouldUseSheet(settings: ReaderSettings): boolean {
     if (settings.popupMode === 'sheet') return true;
     if (settings.popupMode === 'popover') return false;
@@ -664,6 +842,35 @@ function clampSheetHeight(height: number, viewportHeight: number): number {
 function clampDrawerHeight(height: number, viewportHeight: number, minHeight: number): number {
     if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
     return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
+}
+
+function miningDrawerDragExpandedState(handle: HTMLElement, deltaX: number, deltaY: number): boolean | undefined {
+    const axis = miningDrawerDragAxis(handle);
+    if (axis === 'horizontal') {
+        if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return undefined;
+        return miningDrawerHorizontalOpenDirection(handle) === 'right' ? deltaX > 0 : deltaX < 0;
+    }
+    if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return undefined;
+    return deltaY < 0;
+}
+
+function miningDrawerDragAxis(handle: HTMLElement): 'vertical' | 'horizontal' {
+    const rect = handle.getBoundingClientRect();
+    if (rect.height > rect.width * 1.2) return 'horizontal';
+    const actions = handle.closest<HTMLElement>('.jpdb-reader-actions');
+    if (!actions) return 'vertical';
+    const actionsRect = actions.getBoundingClientRect();
+    return actionsRect.height > actionsRect.width * 1.2 ? 'horizontal' : 'vertical';
+}
+
+function miningDrawerHorizontalOpenDirection(handle: HTMLElement): 'left' | 'right' {
+    const actions = handle.closest<HTMLElement>('.jpdb-reader-actions');
+    if (!actions) return 'left';
+    const handleRect = handle.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    const handleCenter = handleRect.left + handleRect.width / 2;
+    const actionsCenter = actionsRect.left + actionsRect.width / 2;
+    return handleCenter < actionsCenter ? 'right' : 'left';
 }
 
 function readSheetHeightRatio(): number {

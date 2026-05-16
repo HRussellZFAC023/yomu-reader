@@ -16,6 +16,7 @@ export interface JpdbVocabularyExample {
 export interface JpdbVocabularyInfo {
     meanings: string[];
     compounds: JpdbVocabularyCompound[];
+    usedInVocabulary?: JpdbVocabularyCompound[];
     examples: JpdbVocabularyExample[];
 }
 
@@ -59,8 +60,11 @@ export function parseJpdbVocabularyHtml(html: string, spelling = '', reading = '
     if (!root) return null;
     const meanings = extractMeanings(root, doc, spelling, reading);
     const compounds = extractCompounds(root);
+    const usedInVocabulary = extractUsedInVocabulary(root);
     const examples = extractExamples(root);
-    return meanings.length || compounds.length || examples.length ? { meanings, compounds, examples } : null;
+    return meanings.length || compounds.length || usedInVocabulary.length || examples.length
+        ? { meanings, compounds, usedInVocabulary, examples }
+        : null;
 }
 
 function vocabularyLookupUrls(vid: number, spelling: string, reading: string): string[] {
@@ -198,6 +202,46 @@ function extractCompounds(root: ParentNode): JpdbVocabularyCompound[] {
         });
     });
     return entries.slice(0, 8);
+}
+
+function extractUsedInVocabulary(root: ParentNode): JpdbVocabularyCompound[] {
+    const entries: JpdbVocabularyCompound[] = [];
+    root.querySelectorAll<HTMLElement>('.subsection-used-in, .subsection-used-in-vocabulary').forEach(section => {
+        const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
+        if (label && !label.startsWith('used in')) return;
+        usedInRows(section).forEach(row => {
+            const link = vocabularyLink(row);
+            if (!link) return;
+            const identity = vocabularyIdentityFromUrl(link.href || link.getAttribute('href') || '');
+            const term = cleanText(identity?.expression ?? '') || cleanText(baseText(link)) || cleanText(link.textContent ?? '');
+            const reading = cleanText(identity?.reading ?? '') || cleanText(readingText(link)) || term;
+            if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term && entry.reading === reading)) return;
+            entries.push({
+                term,
+                reading,
+                meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .english, .meaning')?.textContent ?? ''),
+                url: link.getAttribute('href') ?? '',
+            });
+        });
+    });
+    return entries.slice(0, 8);
+}
+
+function usedInRows(section: HTMLElement): HTMLElement[] {
+    const rows = Array.from(section.querySelectorAll<HTMLElement>('.used-in, .subsection > div'));
+    const directLinks = Array.from(section.children)
+        .filter((child): child is HTMLElement => child instanceof HTMLElement && vocabularyLink(child) !== null);
+    return unique([...rows, ...directLinks]);
+}
+
+function vocabularyLink(root: HTMLElement): HTMLAnchorElement | null {
+    if (root instanceof HTMLAnchorElement && isVocabularyLink(root)) return root;
+    return Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'))
+        .find(isVocabularyLink) ?? null;
+}
+
+function isVocabularyLink(link: HTMLAnchorElement): boolean {
+    return vocabularyIdentityFromUrl(link.href || link.getAttribute('href') || '') !== null;
 }
 
 function extractExamples(root: ParentNode): JpdbVocabularyExample[] {

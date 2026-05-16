@@ -32,7 +32,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
-import { installSettingsDrawerHandle, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY } from '../../src/reader/popover-shell';
+import { installMiningDrawerHandle, installSettingsDrawerHandle, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderKanjiOrigins, renderPitch, renderRtkInfo, summarizeLearnerGlossary } from '../../src/reader/popup-render';
@@ -78,6 +78,7 @@ const READER_WORD_CSS = READER_CSS || readFileSync('src/reader/styles/reader-wor
 const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
+const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
 
@@ -591,6 +592,11 @@ describe('reader helpers', () => {
         expect(handle?.getAttribute('aria-expanded')).toBe('false');
     });
 
+    it('uses the accent color when the sheet handle is hovered', () => {
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('.jpdb-reader-sheet-handle:hover::before, .jpdb-reader-sheet-handle:focus-visible::before { background: var(--jpdb-reader-accent); }');
+    });
+
     it('resizes the mobile settings drawer from its top handle and stores the chosen height', () => {
         localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
         const drawer = document.createElement('form');
@@ -825,7 +831,6 @@ describe('reader helpers', () => {
     });
 
     it('opens and closes mining controls from the drawer bar by click or drag', () => {
-        const app = new ReaderApp();
         const popover = document.createElement('div');
         popover.innerHTML = `
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
@@ -836,38 +841,44 @@ describe('reader helpers', () => {
             </div>
         `;
         document.body.append(popover);
-        const internals = app as unknown as {
-            installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
-        };
-        internals.installCardPopoverHandlers(popover, card, undefined, undefined, 'modal');
 
         const actions = popover.querySelector<HTMLElement>('.jpdb-reader-actions')!;
         const handle = popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
         handle.setPointerCapture = vi.fn();
         handle.releasePointerCapture = vi.fn();
+        const setExpanded = (button: HTMLButtonElement, expanded: boolean): void => {
+            actions.classList.toggle('jpdb-reader-actions-mining-collapsed', !expanded);
+            button.setAttribute('aria-expanded', String(expanded));
+        };
+        installMiningDrawerHandle(popover, setExpanded);
+        handle.addEventListener('click', () => {
+            setExpanded(handle, actions.classList.contains('jpdb-reader-actions-mining-collapsed'));
+        });
 
         handle.click();
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
         expect(handle.getAttribute('aria-expanded')).toBe('true');
         expect(handle.textContent).toBe('');
 
-        const dragDownStart = Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 180, pointerId: 11 });
-        const dragDownMove = Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 226, pointerId: 11 });
-        const dragDownEnd = Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 226, pointerId: 11 });
+        const dragDownStart = Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 180, pointerId: 11, button: 0 });
+        const dragDownMove = Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 226, pointerId: 11 });
+        const dragDownEnd = Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 226, pointerId: 11 });
         handle.dispatchEvent(dragDownStart);
-        handle.dispatchEvent(dragDownMove);
-        handle.dispatchEvent(dragDownEnd);
+        document.dispatchEvent(dragDownMove);
+        document.dispatchEvent(dragDownEnd);
+        expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+
         handle.click();
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
         expect(handle.getAttribute('aria-expanded')).toBe('false');
 
-        const dragUpStart = Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 226, pointerId: 12 });
-        const dragUpMove = Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 178, pointerId: 12 });
-        const dragUpEnd = Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 178, pointerId: 12 });
+        const dragUpStart = Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 226, pointerId: 12, button: 0 });
+        const dragUpMove = Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 178, pointerId: 12 });
+        const dragUpEnd = Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 178, pointerId: 12 });
         handle.dispatchEvent(dragUpStart);
-        handle.dispatchEvent(dragUpMove);
-        handle.dispatchEvent(dragUpEnd);
-        handle.click();
+        document.dispatchEvent(dragUpMove);
+        document.dispatchEvent(dragUpEnd);
+
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
         expect(handle.getAttribute('aria-expanded')).toBe('true');
     });
@@ -2274,6 +2285,15 @@ describe('reader helpers', () => {
                 <h6 class="subsection-label">Monolingual examples</h6>
                 <div class="subsection"><div class="example"><span class="sentence">大統領は、中国の国家主席と話をする予定です。</span></div></div>
             </div>
+            <div class="subsection-used-in">
+                <h6 class="subsection-label">Used in vocabulary</h6>
+                <div class="subsection">
+                    <div class="used-in">
+                        <div class="jp"><a href="/vocabulary/4/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E7%BE%A9/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%8E#a"><ruby>国家<rt>こっか</rt></ruby>主義</a></div>
+                        <div class="en">nationalism</div>
+                    </div>
+                </div>
+            </div>
         `);
 
         const html = renderJpdbDefinitionSource({
@@ -2291,12 +2311,23 @@ describe('reader helpers', () => {
         expect(html).toContain('data-dictionary-lookup="国家"');
         expect(html).toContain('data-dictionary-reading="こっか"');
         expect(html).toContain('jpdb-reader-jpdb-compound-term jpdb-reader-parseable');
+        expect(info?.usedInVocabulary).toEqual([{
+            term: '国家主義',
+            reading: 'こっかしゅぎ',
+            meaning: 'nationalism',
+            url: '/vocabulary/4/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E7%BE%A9/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%8E#a',
+        }]);
+        expect(html).toContain('jpdb-reader-jpdb-used-in-group');
+        expect(html).toContain('Used in vocabulary');
+        expect(html).toContain('data-source-state-key="definition-source:__jpdb__:used-in-vocabulary"');
+        expect(html).toContain('data-dictionary-lookup="国家主義"');
         expect(html).toContain('jpdb-reader-example-count');
         expect(html).not.toContain('jpdb-reader-jpdb-compound-ruby');
         expect(html).toContain('大統領は、中国の国家主席と話をする予定です。');
         expect(html).not.toContain('data-source-state-key="definition-source:__jpdb_examples__"');
-        expect(html).toContain('JPDB examples');
+        expect(html).toContain('Example sentences');
         expect(html).toContain('jpdb-reader-jpdb-examples-group');
+        expect(html).toContain('jpdb-reader-example-sentence jpdb-reader-parseable');
     });
 
     it('renders public JPDB meanings for local cards without leaking local dictionary meanings into the JPDB source', () => {
@@ -3483,6 +3514,7 @@ describe('reader helpers', () => {
                 ankiEnabled: false,
                 localDictionariesEnabled: false,
                 localDictionaryShowKanji: false,
+                jpdbDefinitionsEnabled: false,
                 jpdbKanjiEnabled: false,
                 uchisenEnabled: false,
                 rtkEnabled: false,
@@ -3509,6 +3541,95 @@ describe('reader helpers', () => {
                 '<button type="button" data-action="similar-word" data-expression="漢語">漢語</button>',
             );
             document.querySelector<HTMLButtonElement>('[data-action="similar-word"]')?.click();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
+                expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.title).toBe('Back to kanji: 漢');
+            });
+
+            document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.click();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-reader-kanji-display')?.textContent).toBe('漢');
+                expect(document.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
+            });
+        } finally {
+            Object.defineProperty(window, 'requestAnimationFrame', {
+                configurable: true,
+                value: originalRequestAnimationFrame,
+            });
+            vi.unstubAllGlobals();
+            app.destroy();
+        }
+    });
+
+    it('returns from a kanji dictionary link back to the kanji page before the original word', async () => {
+        const app = new ReaderApp();
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        vi.stubGlobal('matchMedia', vi.fn(() => ({
+            matches: false,
+            media: '',
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })));
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (frame: FrameRequestCallback) => {
+                frame(0);
+                return 1;
+            },
+        });
+
+        try {
+            const originalWord = { ...card, spelling: '漢字', reading: 'かんじ' };
+            const linkedWord = { ...card, vid: 11, sid: 21, spelling: '漢語', reading: 'かんご' };
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+                parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jpdbMiningEnabled: false,
+                ankiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                jpdbKanjiEnabled: false,
+                uchisenEnabled: false,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: false,
+                similarKanjiWords: false,
+                showPitchAccent: false,
+                immersionKitEnabled: false,
+            };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+            internals.parseJapanese = vi.fn(async () => [[{
+                card: linkedWord,
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: '漢語',
+            }]]);
+
+            await internals.showKanjiCard(originalWord, '漢', '漢字です。');
+            document.querySelector('.jpdb-reader-popover')?.insertAdjacentHTML(
+                'beforeend',
+                '<a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="漢語" data-dictionary-reading="かんご" data-dictionary="JPDB">漢語</a>',
+            );
+            document.querySelector<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')?.click();
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
@@ -5802,6 +5923,70 @@ describe('reader helpers', () => {
         expect(html).toContain('class="jpdb-reader-origin-edge-group subcomponent"');
         expect(html).toContain('data-graph-node="口"');
         expect(html).toContain('data-target-zone="right"');
+    });
+
+    it('keeps direct components out of the KanjiVG subcomponent layer', () => {
+        const graph = buildKanjiOriginGraph('即', {
+            kanji: '即',
+            keyword: 'instant',
+            frequency: '',
+            type: '',
+            kanken: '',
+            heisig: '',
+            oldForms: [],
+            readings: [],
+            components: [{ kanji: '厶', keyword: 'private' }, { kanji: '日', keyword: 'sun' }],
+            usedInKanji: [],
+            mnemonic: '',
+            vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
+        }, null, [], null, {
+            kanji: '即',
+            svg: '<svg></svg>',
+            strokeCount: 7,
+            componentPositions: [
+                { component: '卩', position: 'right', direct: true, depth: 1 },
+                { component: '厶', parent: '卩', position: 'center', direct: false, depth: 2 },
+            ],
+        });
+
+        expect(graph.edges).toEqual(expect.arrayContaining([
+            { from: '厶', to: '即', label: 'JPDB component' },
+        ]));
+        expect(graph.edges).not.toEqual(expect.arrayContaining([
+            { from: '厶', to: '卩', label: 'subcomponent' },
+        ]));
+    });
+
+    it('does not treat nested KanjiVG variant wrappers as subcomponents', () => {
+        const info = parseKanjiVGSvg(`
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:kvg="http://kanjivg.tagaini.net" viewBox="0 0 109 109">
+                <g kvg:element="即">
+                    <g kvg:element="艮" kvg:position="left">
+                        <path d="M16,17 L45,18" />
+                    </g>
+                    <g kvg:element="卩" kvg:position="right">
+                        <g kvg:element="厶" kvg:variant="true" kvg:original="厶">
+                            <path d="M61,23 L87,21" />
+                        </g>
+                    </g>
+                </g>
+            </svg>
+        `, '即');
+        const graph = buildKanjiOriginGraph('即', null, null, [], null, info);
+
+        expect(info?.componentPositions).toEqual(expect.arrayContaining([
+            expect.objectContaining({ component: '厶', parent: '卩', direct: false, variant: true }),
+        ]));
+        expect(graph.edges).not.toEqual(expect.arrayContaining([
+            { from: '厶', to: '卩', label: 'subcomponent' },
+        ]));
+
+        const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
+        expect(html).not.toContain('data-origin-subcomponent-toggle');
+        expect(html).not.toContain('data-origin-subcomponent="true"');
     });
 
     it('keeps 友 components visually anchored and distinguishes outbound graph links', () => {

@@ -38,7 +38,7 @@ import {
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan } from './nested-text-parse';
 import { NewTabController } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
-import { createReaderBackdrop, createReaderPopover, installSheetHandle } from './popover-shell';
+import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSheetHandle } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -90,6 +90,7 @@ interface NewTabLookupDisplayOptions {
     navigation?: CardNavigationMode;
     previousNavigationEntry?: PopupNavigationEntry;
     reuseActivePopover?: boolean;
+    autoPlay?: boolean;
 }
 
 interface NewTabKanjiLookupOptions {
@@ -163,6 +164,8 @@ export class NewTabRuntime {
     private activeLookupAnchor?: HTMLElement;
     private activeLookupHandlerController?: AbortController;
     private lookupRenderRequest = 0;
+    private lastAutoAudioKey = '';
+    private lastAutoAudioAt = 0;
     private externalRefreshController?: AbortController;
     private dictionaryStyles = new DictionaryStyleController({
         loadCss: () => this.settings.localDictionariesEnabled
@@ -205,7 +208,7 @@ export class NewTabRuntime {
         dictionaries: this.dictionaries,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
         resolveMiningContext: (card, sentence) => this.resolveMiningContext(card, sentence),
-        showCard: (card, sentence, anchor) => this.showLookupCard(card, sentence, anchor),
+        showCard: (card, sentence, anchor, options) => this.showLookupCard(card, sentence, anchor, options),
         getActivePopoverAnchor: () => this.activeLookupAnchor?.isConnected ? this.activeLookupAnchor : undefined,
         getActivePopoverMode: () => 'modal',
         showSettings: panel => this.showSettings(panel),
@@ -408,6 +411,7 @@ export class NewTabRuntime {
         this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
         this.installLookupPopoverHandlers(popover, card, sentence, anchor);
         this.installLookupPopoverSources(popover, card, sentence);
+        this.maybeAutoPlayLookupCard(card, options);
         void renderData.all.then(data => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
             clearNestedParseState(popover);
@@ -532,6 +536,7 @@ export class NewTabRuntime {
         await this.showLookupCard(previous.card, previous.sentence, anchor, {
             navigation: 'preserve',
             reuseActivePopover: true,
+            autoPlay: false,
         });
     }
 
@@ -554,7 +559,7 @@ export class NewTabRuntime {
             event.preventDefault();
             event.stopPropagation();
             if (action === 'word-back') {
-                void this.showLookupCard(card, sentence, button, { navigation: 'preserve', reuseActivePopover: true });
+                void this.showLookupCard(card, sentence, button, { navigation: 'preserve', reuseActivePopover: true, autoPlay: false });
                 return;
             }
             if (action === 'kanji-history-back') {
@@ -761,6 +766,7 @@ export class NewTabRuntime {
 
     private installLookupPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {
         const signal = this.resetLookupHandlers();
+        installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => {
             const kanjiButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action="kanji"]');
             if (kanjiButton) {
@@ -876,6 +882,7 @@ export class NewTabRuntime {
             if (shouldRefresh) await this.showLookupCard(card, sentence, anchor, {
                 navigation: 'preserve',
                 reuseActivePopover: true,
+                autoPlay: false,
             });
             log.info('New tab card action completed', { action, term: card.spelling });
         } catch (error) {
@@ -885,6 +892,29 @@ export class NewTabRuntime {
             done();
             button.disabled = false;
         }
+    }
+
+    private maybeAutoPlayLookupCard(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
+        if (!this.shouldAutoPlayLookupCard(card, options)) return;
+        void this.audioActions.playTermAudio(card);
+    }
+
+    private shouldAutoPlayLookupCard(card: JPDBCard, options: NewTabLookupDisplayOptions): boolean {
+        if (options.autoPlay === false) return false;
+        if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
+        if (!this.shouldAutoPlayForTrigger('modal')) return false;
+        const key = `${card.vid}:${card.sid}`;
+        const now = Date.now();
+        if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+        this.lastAutoAudioKey = key;
+        this.lastAutoAudioAt = now;
+        return true;
+    }
+
+    private shouldAutoPlayForTrigger(trigger: 'modal' | 'hover'): boolean {
+        const mode = this.settings.audioAutoPlayMode;
+        if (mode === 'all') return true;
+        return mode === 'hover' ? trigger === 'hover' : trigger === 'modal';
     }
 
     private async resolveMiningContext(card: JPDBCard, sentence?: string): Promise<MiningContext> {

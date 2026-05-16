@@ -374,15 +374,21 @@ export function buildKanjiOriginGraph(
     const resolveKanjiVGId = (component: string, original?: string) => (
         nodes.has(component) ? component : original && nodes.has(original) ? original : component
     );
+    const hasDirectComponentEdge = (id: string | undefined) => Boolean(id && edges.some(edge => (
+        edge.from === id
+        && edge.to === kanji
+        && edge.label !== 'subcomponent'
+    )));
     const addSubcomponent = (component: NonNullable<KanjiVGInfo['componentPositions']>[number]) => {
-        if (!component.component || component.component === kanji) return;
+        if (!component.component || component.component === kanji || component.variant) return;
         const parent = component.parent && component.parent !== kanji
             ? resolveKanjiVGId(component.parent, component.parentOriginal)
             : kanji;
         if (!parent || parent === kanji) return;
+        const child = resolveKanjiVGId(component.component, component.original);
+        if (hasDirectComponentEdge(child) || hasDirectComponentEdge(component.component) || hasDirectComponentEdge(component.original)) return;
         const parentPosition = kanjiVGPositions.get(parent)?.position;
         const parentId = addComponentNode(parent, 'visual component', 'KanjiVG', parentPosition) ?? parent;
-        const child = resolveKanjiVGId(component.component, component.original);
         const childId = addComponentNode(child, 'visual subcomponent', 'KanjiVG', component.position) ?? child;
         addEdge(childId, parentId, 'subcomponent');
     };
