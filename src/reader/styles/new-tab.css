@@ -59,6 +59,10 @@
   padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
 }
 
+.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
 .jpdb-reader-newtab-topbar {
   min-height: 42px;
   display: grid;
@@ -250,6 +254,12 @@
   gap: clamp(8px, 1.8vh, 16px);
   cursor: pointer;
   user-select: none;
+}
+
+.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-study {
+  align-content: center;
+  gap: clamp(10px, 2vh, 18px);
+  padding-bottom: clamp(42px, 9vh, 96px);
 }
 
 .jpdb-reader-newtab-answer,
@@ -468,11 +478,18 @@
 }
 
 .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls {
-  width: min(240px, 100%);
+  width: min(320px, calc(100vw - 44px));
   grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-controls button {
+  min-height: 48px;
+  border-radius: 10px;
   background: var(--jpdb-reader-text, #f2f4f8);
   border-color: var(--jpdb-reader-text, #f2f4f8);
   color: var(--jpdb-reader-bg, #181b20);
@@ -1318,17 +1335,38 @@
     gap: 14px;
   }
 
+  .jpdb-reader-newtab-brand {
+    min-width: 92px;
+  }
+
+  .jpdb-reader-newtab-brand .title {
+    gap: 7px;
+    font-size: 15px;
+  }
+
   .jpdb-reader-newtab-mode {
-    grid-template-columns: repeat(2, minmax(62px, 1fr));
+    grid-template-columns: repeat(2, minmax(56px, 1fr));
   }
 
   .jpdb-reader-newtab-mode button {
-    padding: 0 10px;
+    padding: 0 8px;
   }
 
   .jpdb-reader-newtab-prompt {
-    font-size: clamp(2.25rem, 12vw, 3.15rem);
-    line-height: 0.98;
+    font-size: clamp(2rem, 10.6vw, 2.82rem);
+    line-height: 1.02;
+  }
+
+  .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-prompt {
+    font-size: clamp(2rem, 10vw, 2.7rem);
+  }
+
+  .jpdb-reader-newtab-reading {
+    font-size: clamp(1.1rem, 7vw, 1.65rem);
+  }
+
+  .jpdb-reader-newtab-meaning {
+    font-size: clamp(13px, 4.2vw, 15px);
   }
 
   .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
@@ -1357,6 +1395,9 @@
 
   .jpdb-reader-newtab-controls {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    box-shadow: 0 -8px 22px rgba(0, 0, 0, 0.16);
   }
 
   .jpdb-reader-newtab-controls:has(button[data-grade]) {
@@ -1366,7 +1407,7 @@
 
   .jpdb-reader-newtab-controls button {
     min-height: 42px;
-    padding: 0 8px;
+    padding: 0 6px;
     font-size: 11px;
   }
 
