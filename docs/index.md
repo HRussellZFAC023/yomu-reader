@@ -9,15 +9,12 @@ hero:
     alt: よむ app icon
   actions:
     - theme: brand
-      text: Try New Tab
+      text: Try Out
       link: /newtab/index.html
       target: _self
     - theme: alt
       text: Start Here
       link: /getting-started
-    - theme: alt
-      text: See Features
-      link: /features
     - theme: alt
       text: Video Player
       link: https://hrussellzfac023.github.io/yomu-reader/video-player/index.html

@@ -199,6 +199,7 @@ interface NewTabSearchResults {
     query: string;
     words: JPDBCard[];
     kanji: NewTabSearchKanjiResult[];
+    suggestions: NewTabSearchSuggestion[];
     hasLocalDictionaries: boolean;
 }
 
@@ -208,6 +209,12 @@ interface NewTabSearchKanjiResult {
     readings: string[];
     meanings: string[];
     words: JPDBCard[];
+}
+
+interface NewTabSearchSuggestion {
+    query: string;
+    reading: string;
+    meaning: string;
 }
 
 const log = Logger.scope('NewTab');
@@ -221,6 +228,7 @@ const NEW_TAB_SEARCH_DEBOUNCE_MS = 220;
 const NEW_TAB_SEARCH_WORD_LIMIT = 10;
 const NEW_TAB_SEARCH_KANJI_LIMIT = 6;
 const NEW_TAB_SEARCH_RELATED_WORD_LIMIT = 4;
+const NEW_TAB_SEARCH_SUGGESTION_LIMIT = 6;
 const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
 const NEW_TAB_HEADER_LABEL = 'yomu';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
@@ -468,16 +476,27 @@ export class NewTabController {
                                 type: 'search',
                                 dataset: { newtabSearchInput: true },
                                 placeholder: 'Search words or kanji',
-                                autocomplete: 'off',
+                                autocomplete: 'on',
                                 autocapitalize: 'none',
+                                autocorrect: 'off',
+                                inputmode: 'text',
                                 spellcheck: false,
                                 enterkeyhint: 'search',
                                 lang: 'ja',
                                 'aria-label': 'Search words or kanji',
+                                'aria-autocomplete': 'list',
+                                'aria-controls': 'jpdb-reader-newtab-autocomplete',
                             }),
                             el('button', { type: 'submit', dataset: { newtabAction: 'search-submit' } }, 'Search'),
                             el('button', { type: 'button', dataset: { newtabAction: 'search-clear' }, 'aria-label': 'Clear search' }, 'Clear'),
                         ),
+                        el('div', {
+                            id: 'jpdb-reader-newtab-autocomplete',
+                            class: 'jpdb-reader-newtab-search-suggestions',
+                            dataset: { newtabSearchAutocomplete: true },
+                            role: 'listbox',
+                            'aria-label': 'Search suggestions',
+                        }),
                         el('div', { class: 'jpdb-reader-newtab-search-results', dataset: { newtabSearchResults: true }, 'aria-live': 'polite' }),
                     ),
                 ),
@@ -598,6 +617,7 @@ export class NewTabController {
                 : null;
             if (!input || !root.contains(input)) return;
             this.searchQuery = input.value;
+            this.renderSearchAutocomplete(root, normalizeSearchQuery(this.searchQuery), this.localSearchSuggestions(this.searchQuery));
             this.scheduleSearch(root);
         }, { signal: controller.signal });
 
@@ -1977,6 +1997,7 @@ export class NewTabController {
 
         this.setSearchQuery(root, this.searchQuery);
         const query = normalizeSearchQuery(this.searchQuery);
+        this.renderSearchAutocomplete(root, query, this.localSearchSuggestions(query));
         const results = this.searchResultsMount(root);
         if (!query) {
             this.renderSearchIdle(root);
@@ -1991,6 +2012,7 @@ export class NewTabController {
         this.searchQuery = query;
         const input = this.searchInput(root);
         if (input && input.value !== query) input.value = query;
+        this.renderSearchAutocomplete(root, normalizeSearchQuery(query), this.localSearchSuggestions(query));
     }
 
     private searchInput(root: HTMLElement): HTMLInputElement | null {
@@ -2080,6 +2102,7 @@ export class NewTabController {
             query,
             words,
             kanji,
+            suggestions: this.searchSuggestions(query, words),
             hasLocalDictionaries: Boolean(summary?.dictionaries.length),
         };
     }
@@ -2101,6 +2124,34 @@ export class NewTabController {
         const localCards = [...directEntries, ...matchedEntries.map(match => match.entry)]
             .map(entry => ({ ...this.dependencies.parser.localCardFromEntry(entry), sentence: query }));
         return dedupeWords([...parsedCards, ...localCards]).slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
+    }
+
+    private searchSuggestions(query: string, resultCards: JPDBCard[]): NewTabSearchSuggestion[] {
+        return this.cardSearchSuggestions(query, [
+            ...resultCards,
+            ...this.allWords,
+        ]);
+    }
+
+    private localSearchSuggestions(rawQuery: string): NewTabSearchSuggestion[] {
+        const query = normalizeSearchQuery(rawQuery);
+        return query ? this.cardSearchSuggestions(query, this.allWords) : [];
+    }
+
+    private cardSearchSuggestions(query: string, cards: JPDBCard[]): NewTabSearchSuggestion[] {
+        const normalized = normalizeSearchQuery(query).toLocaleLowerCase();
+        if (!normalized) return [];
+        const suggestions: NewTabSearchSuggestion[] = [];
+        const seen = new Set<string>();
+        for (const card of cards) {
+            if (!cardMatchesSearchSuggestion(card, normalized)) continue;
+            const suggestion = searchSuggestionFromCard(card);
+            if (!suggestion.query || seen.has(suggestion.query)) continue;
+            suggestions.push(suggestion);
+            seen.add(suggestion.query);
+            if (suggestions.length >= NEW_TAB_SEARCH_SUGGESTION_LIMIT) break;
+        }
+        return suggestions;
     }
 
     private async searchKanjiCards(query: string): Promise<NewTabSearchKanjiResult[]> {
@@ -2131,24 +2182,33 @@ export class NewTabController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         delete results.dataset.searchQuery;
-        replaceChildrenWith(results,
-            el('div', { class: 'jpdb-reader-newtab-search-empty' },
-                el('div', { class: 'jpdb-reader-newtab-search-suggestions', role: 'list', 'aria-label': 'Example searches' },
-                    this.renderSearchSuggestion('読む'),
-                    this.renderSearchSuggestion('返'),
-                    this.renderSearchSuggestion('げんき'),
-                    this.renderSearchSuggestion('食べてた'),
-                ),
-            ),
-        );
+        this.renderSearchAutocomplete(root, '', []);
+        replaceChildrenWith(results, el('div', { class: 'jpdb-reader-newtab-search-empty' }));
     }
 
-    private renderSearchSuggestion(query: string): HTMLButtonElement {
+    private renderSearchSuggestion(suggestion: NewTabSearchSuggestion): HTMLButtonElement {
+        const detail = [suggestion.reading && suggestion.reading !== suggestion.query ? suggestion.reading : '', suggestion.meaning].filter(Boolean).join(' · ');
         return el('button', {
             type: 'button',
-            dataset: { newtabAction: 'search-suggestion', query },
+            role: 'option',
+            dataset: { newtabAction: 'search-suggestion', query: suggestion.query },
             lang: 'ja',
-        }, query);
+            'aria-label': detail ? `${suggestion.query}, ${detail}` : suggestion.query,
+        },
+        el('span', { class: 'jpdb-reader-newtab-search-suggestion-term' }, suggestion.query),
+        detail ? el('span', { class: 'jpdb-reader-newtab-search-suggestion-detail' }, detail) : null);
+    }
+
+    private renderSearchAutocomplete(root: HTMLElement, query: string, suggestions: NewTabSearchSuggestion[]): void {
+        const mount = root.querySelector<HTMLElement>('[data-newtab-search-autocomplete]');
+        if (!mount) return;
+        if (!query || !suggestions.length) {
+            mount.hidden = true;
+            mount.replaceChildren();
+            return;
+        }
+        mount.hidden = false;
+        replaceChildrenWith(mount, suggestions.map(suggestion => this.renderSearchSuggestion(suggestion)));
     }
 
     private renderSearchLoading(root: HTMLElement, query: string): void {
@@ -2166,6 +2226,7 @@ export class NewTabController {
         if (!mount) return;
         mount.dataset.searchQuery = results.query;
         const resultCount = results.words.length + results.kanji.length;
+        this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
             this.renderExternalSearchLinks(results.query),
             results.words.length ? this.renderSearchWordResults(results.words) : null,
@@ -2810,6 +2871,22 @@ function sentenceForCard(card: JPDBCard): string {
 
 function normalizeSearchQuery(value: string): string {
     return value.replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+function cardMatchesSearchSuggestion(card: JPDBCard, normalizedQuery: string): boolean {
+    return [
+        card.spelling,
+        card.reading,
+        firstCardMeaning(card),
+    ].some(value => value.toLocaleLowerCase().includes(normalizedQuery));
+}
+
+function searchSuggestionFromCard(card: JPDBCard): NewTabSearchSuggestion {
+    return {
+        query: card.spelling.trim(),
+        reading: card.reading.trim(),
+        meaning: firstCardMeaning(card),
+    };
 }
 
 function queryHasJapanese(value: string): boolean {

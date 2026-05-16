@@ -896,7 +896,7 @@ function createOriginNodeStates(nodes: OriginGraphNode[], anchors: Map<string, {
             anchorX: anchor.x,
             anchorY: anchor.y,
             anchorPinned: anchor.pinned === true,
-            collision: Math.max(rx * 1.35, ry) + 3.8,
+            collision: Math.max(rx * 1.35, ry) + 5.2,
         };
     });
 }
@@ -913,7 +913,7 @@ function repelOriginNodePair(a: OriginNodeState, b: OriginNodeState, aIndex: num
     const delta = originNodeDelta(a, b, aIndex, bIndex);
     const distanceSquared = Math.max(8, delta.dx * delta.dx + delta.dy * delta.dy);
     const distance = Math.sqrt(distanceSquared);
-    const repel = Math.min(0.55, (14 * alpha) / distanceSquared);
+    const repel = Math.min(0.68, (17 * alpha) / distanceSquared);
     a.vx -= delta.dx * repel;
     a.vy -= delta.dy * repel;
     b.vx += delta.dx * repel;
@@ -921,7 +921,7 @@ function repelOriginNodePair(a: OriginNodeState, b: OriginNodeState, aIndex: num
 
     const minimumDistance = a.collision + b.collision;
     if (distance >= minimumDistance) return;
-    const push = ((minimumDistance - distance) / distance) * 0.085 * alpha;
+    const push = ((minimumDistance - distance) / distance) * 0.14 * alpha;
     a.vx -= delta.dx * push;
     a.vy -= delta.dy * push;
     b.vx += delta.dx * push;
@@ -948,7 +948,7 @@ function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, edge: 
     const dx = target.x - source.x;
     const dy = target.y - source.y;
     const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const targetDistance = isOriginSubcomponentEdge(edge) ? 21 : source.node.id === currentId || target.node.id === currentId ? 31 : 24;
+    const targetDistance = isOriginSubcomponentEdge(edge) ? 21 : source.node.id === currentId || target.node.id === currentId ? 36 : 24;
     const pull = ((distance - targetDistance) / distance) * 0.06 * alpha;
     source.vx += dx * pull;
     source.vy += dy * pull;
@@ -967,7 +967,7 @@ function applyOriginAnchorPulls(states: OriginNodeState[], currentId: string, al
 function integrateOriginNodeStates(states: OriginNodeState[], currentId: string): void {
     for (const state of states) {
         integrateOriginNodeState(state, currentId);
-        state.x = clampGraphValue(state.x, 6 + state.rx, 94 - state.rx);
+        state.x = clampGraphValue(state.x, 9 + state.rx, 91 - state.rx);
         state.y = clampGraphValue(state.y, 7 + state.ry, 93 - state.ry);
     }
 }
@@ -1044,7 +1044,7 @@ function spreadNestedComponents(
                 const node = nodeById.get(edge.from);
                 if (!node) return;
                 const zone = inferInboundComponentZone(node, parentId);
-                anchors.set(edge.from, nestedZoneAnchor(parentAnchor, zone, index, sorted.length));
+                anchors.set(edge.from, { ...nestedZoneAnchor(parentAnchor, zone, index, sorted.length), pinned: true });
                 placed = true;
             });
         });
@@ -1167,7 +1167,14 @@ function inboundZoneAnchor(zone: OriginComponentZone, index: number, total: numb
 }
 
 function outboundZoneAnchor(zone: OriginComponentZone, index: number, total: number): { x: number; y: number } {
-    return zoneAnchor(OUTBOUND_ZONE_ANCHORS, zone, index, total, 9);
+    if (zone === 'center' && total > 2) {
+        const offset = (index - (total - 1) / 2) * 19;
+        return {
+            x: index % 2 === 0 ? 72 : 86,
+            y: 50 + offset,
+        };
+    }
+    return zoneAnchor(OUTBOUND_ZONE_ANCHORS, zone, index, total, total > 2 ? 20 : 14);
 }
 
 type ZoneAnchorSpec = { x: number; y: number; offsetAxis: 'x' | 'y' };
@@ -1189,7 +1196,7 @@ const OUTBOUND_ZONE_ANCHORS: Record<OriginComponentZone, ZoneAnchorSpec> = {
     right: { x: 72, y: 47, offsetAxis: 'y' },
     lower: { x: 79, y: 66, offsetAxis: 'x' },
     bottom: { x: 72, y: 77, offsetAxis: 'x' },
-    center: { x: 84, y: 50, offsetAxis: 'y' },
+    center: { x: 82, y: 50, offsetAxis: 'y' },
 };
 
 function zoneAnchor(

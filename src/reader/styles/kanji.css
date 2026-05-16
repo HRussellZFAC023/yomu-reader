@@ -346,7 +346,7 @@
   border-radius: 999px;
   background: var(--jpdb-reader-origin-graph-node-fill);
   color: var(--jpdb-reader-text, #f2f4f8);
-  font: 850 32px/1 "Hiragino Sans", "Yu Gothic", var(--jpdb-reader-font);
+  font: 850 35px/1 "Hiragino Sans", "Yu Gothic", var(--jpdb-reader-font);
   box-shadow: 0 9px 26px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 34%, transparent);
   cursor: grab;
   touch-action: none;
@@ -364,7 +364,7 @@
   border-color: var(--jpdb-reader-origin-graph-frame);
   background: var(--jpdb-reader-accent, #5ea780);
   color: var(--jpdb-reader-origin-graph-accent-text);
-  font-size: 34px;
+  font-size: 41px;
   box-shadow: 0 12px 32px
     color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 40%, transparent);
 }
@@ -374,7 +374,7 @@
 .jpdb-reader-origin-graph-node.related {
   background: var(--jpdb-reader-origin-graph-related-fill);
   color: var(--jpdb-reader-text, #f2f4f8);
-  font-size: 22px;
+  font-size: 24px;
 }
 .jpdb-reader-origin-graph-node:hover,
 .jpdb-reader-origin-graph-node:focus-visible {
@@ -730,7 +730,15 @@ html.jpdb-reader-doodle-active * {
   display: flex;
   justify-content: center;
   align-items: center;
-  pointer-events: none;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.jpdb-reader-actions-gutter:active,
+.jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter {
+  cursor: grabbing;
 }
 .jpdb-reader-mining-collapse {
   display: inline-flex;

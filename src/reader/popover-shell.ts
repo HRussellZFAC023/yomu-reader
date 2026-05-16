@@ -652,8 +652,12 @@ export function installMiningDrawerHandle(
 
     const getHandleFromEvent = (event: EventTarget | null): HTMLButtonElement | null => {
         if (!(event instanceof Element)) return null;
-        const handle = event.closest<HTMLButtonElement>('.jpdb-reader-mining-drawer-handle');
-        if (!handle || !root.contains(handle)) return null;
+        const target = event.closest<HTMLElement>('.jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter');
+        if (!target || !root.contains(target)) return null;
+        const handle = target.matches('.jpdb-reader-mining-drawer-handle')
+            ? target as HTMLButtonElement
+            : target.querySelector<HTMLButtonElement>('.jpdb-reader-mining-drawer-handle');
+        if (!handle) return null;
         return handle;
     };
     const cleanupPointerListeners = (): void => {
