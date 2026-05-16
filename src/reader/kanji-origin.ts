@@ -429,18 +429,40 @@ function kanjiVGComponentPositionMap(info: KanjiVGInfo | null): Map<string, { po
     info?.componentPositions?.forEach(component => {
         const position = normalizeKanjiVGPosition(component.position);
         if (!position) return;
-        const existing = positions.get(component.component);
-        if (!existing || (!existing.direct && component.direct)) {
-            positions.set(component.component, { position, direct: component.direct });
-        }
+        kanjiVGPositionKeys(component).forEach(key => {
+            const existing = positions.get(key);
+            if (!existing || (!existing.direct && component.direct)) {
+                positions.set(key, { position, direct: component.direct });
+            }
+        });
     });
     return positions;
+}
+
+function kanjiVGPositionKeys(component: NonNullable<KanjiVGInfo['componentPositions']>[number]): string[] {
+    const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
+    const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
+    return uniqueStrings([
+        component.component,
+        component.original,
+        ...componentAliases,
+        ...originalAliases,
+    ]);
+}
+
+function uniqueStrings(values: Array<string | undefined>): string[] {
+    return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
 function normalizeKanjiVGPosition(value: string): string {
     const normalized = value.toLowerCase().trim();
     return KANJIVG_POSITION_ALIASES.get(normalized) ?? normalized;
 }
+
+const KANJIVG_COMPONENT_ALIASES = new Map<string, string[]>([
+    ['⻖', ['阝', '阜']],
+    ['阜', ['⻖', '阝']],
+]);
 
 const KANJIVG_POSITION_ALIASES = new Map<string, string>([
     ['top', 'top'],

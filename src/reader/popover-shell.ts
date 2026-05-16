@@ -629,7 +629,7 @@ export function installSettingsDrawerHandle(drawer: HTMLElement): void {
     window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
 }
 
-function shouldUseSheet(settings: ReaderSettings): boolean {
+export function shouldUseSheet(settings: ReaderSettings): boolean {
     if (settings.popupMode === 'sheet') return true;
     if (settings.popupMode === 'popover') return false;
     return window.innerWidth <= 768 || matchMedia('(pointer: coarse)').matches;

@@ -9,7 +9,7 @@ import { CardActionController } from '../../src/reader/card-action-controller';
 import { CardPopoverRenderer } from '../../src/reader/card-popover-renderer';
 import { CardRenderDataLoader } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
-import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TOOLS_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
+import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
 import { renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
@@ -51,7 +51,7 @@ import { computeSubtitleDrawerLayout } from '../../src/reader/subtitle-layout';
 import { collectPageSubtitleSources } from '../../src/reader/subtitle-sources';
 import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitle-video-inset';
 import { getYouTubeCaptionTracks, loadYouTubeTrackCues } from '../../src/reader/subtitle-youtube';
-import { installUchisenCarousel, loadUchisenImages, parseUchisenImages } from '../../src/reader/uchisen';
+import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, parseUchisenImages } from '../../src/reader/uchisen';
 import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
@@ -674,6 +674,32 @@ describe('reader helpers', () => {
         expect(click.defaultPrevented).toBe(true);
     });
 
+    it('remembers collapsed source state for later renders', () => {
+        const onStateChange = vi.fn();
+        const popover = document.createElement('div');
+        popover.innerHTML = `
+            <details class="jpdb-reader-local jpdb-reader-source-card" data-source-state-key="definition-source:translation" data-source-initial-open="true" open>
+                <summary class="jpdb-reader-local-title">Translation</summary>
+                <p>Definition</p>
+            </details>
+        `;
+        const controller = new DictionarySourceStateController({
+            getSettings: () => DEFAULT_SETTINGS,
+            onStateChange,
+        });
+
+        controller.installTracking(popover);
+        const details = popover.querySelector<HTMLDetailsElement>('details')!;
+        details.open = false;
+        details.dispatchEvent(new Event('toggle', { bubbles: true }));
+
+        expect(onStateChange).toHaveBeenCalledTimes(1);
+        expect(controller.isOpen('definition-source:translation')).toBe(false);
+        const attributes = controller.attributes('definition-source:translation');
+        expect(attributes).toContain('data-source-initial-open="false"');
+        expect(attributes).not.toContain(' open');
+    });
+
     it('renders the mining drawer affordance as a bar instead of text', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -1059,6 +1085,8 @@ describe('reader helpers', () => {
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
         expect(DEFAULT_SETTINGS.audioFallbackChimeEnabled).toBe(true);
+        expect(DEFAULT_SETTINGS.autoPlayAudio).toBe(true);
+        expect(DEFAULT_SETTINGS.audioAutoPlayMode).toBe('all');
     });
 
     it('uses the configured popover height by default', () => {
@@ -1191,6 +1219,7 @@ describe('reader helpers', () => {
             popupMode: 'popover' as const,
             popoverHeightMode: 'fixed' as const,
             audioSelectionMode: 'random' as const,
+            audioAutoPlayMode: 'tap' as const,
             interfaceLanguage: 'ja' as const,
         };
         const data = new FormData();
@@ -1198,6 +1227,7 @@ describe('reader helpers', () => {
         data.set('popupMode', 'toast');
         data.set('popoverHeightMode', 'giant');
         data.set('audioSelectionMode', 'shuffle');
+        data.set('audioAutoPlayMode', 'gesture');
         data.set('interfaceLanguage', 'pirate');
         data.set('popoverWidth', '1200');
         data.set('popoverHeight', '12');
@@ -1208,6 +1238,7 @@ describe('reader helpers', () => {
         expect(settings.popupMode).toBe('popover');
         expect(settings.popoverHeightMode).toBe('fixed');
         expect(settings.audioSelectionMode).toBe('random');
+        expect(settings.audioAutoPlayMode).toBe('tap');
         expect(settings.interfaceLanguage).toBe('ja');
         expect(settings.popoverWidth).toBe(900);
         expect(settings.popoverHeight).toBe(220);
@@ -2185,8 +2216,8 @@ describe('reader helpers', () => {
         expect(isAllowedPublicProxyTarget('GET', new URL('https://[::1]/audio.mp3'))).toBe(false);
     });
 
-    it('combines translation and grammar source ordering while keeping individual toggles', () => {
-        const combinedIds = orderedDefinitionSourceIds({
+    it('orders translation and grammar as separate definition sources', () => {
+        const orderedIds = orderedDefinitionSourceIds({
             ...DEFAULT_SETTINGS,
             studyTranslationEnabled: true,
             studyGrammarEnabled: true,
@@ -2199,12 +2230,12 @@ describe('reader helpers', () => {
             studyGrammarEnabled: false,
         }, []);
 
-        expect(combinedIds).toContain(STUDY_TOOLS_SOURCE_ID);
-        expect(combinedIds).not.toContain(STUDY_TRANSLATION_SOURCE_ID);
-        expect(combinedIds).not.toContain(STUDY_GRAMMAR_SOURCE_ID);
+        expect(orderedIds).toContain(STUDY_TRANSLATION_SOURCE_ID);
+        expect(orderedIds).toContain(STUDY_GRAMMAR_SOURCE_ID);
+        expect(orderedIds.indexOf(STUDY_GRAMMAR_SOURCE_ID)).toBeLessThan(orderedIds.indexOf(STUDY_TRANSLATION_SOURCE_ID));
         expect(definitionSourceRows(DEFAULT_SETTINGS).map(row => row.id)).toEqual(expect.arrayContaining([STUDY_TRANSLATION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID]));
         expect(translationOnlyIds).toContain(STUDY_TRANSLATION_SOURCE_ID);
-        expect(translationOnlyIds).not.toContain(STUDY_TOOLS_SOURCE_ID);
+        expect(translationOnlyIds).not.toContain(STUDY_GRAMMAR_SOURCE_ID);
     });
 
     it('adds Uchisen to kanji source ordering', () => {
@@ -2527,7 +2558,9 @@ describe('reader helpers', () => {
 
         await controller.loadExamples(popover, compoundCard, controller.searchExamples(compoundCard, { relatedQueries: ['国家', '主席'] }));
 
-        expect(container.textContent).toContain('国家 · Show · 1/1');
+        expect(container.querySelector('.jpdb-reader-example-title')?.textContent).toBe('国家 · Show');
+        expect(container.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1/1');
+        expect(container.querySelector('.jpdb-reader-example-inline-source')).toBeNull();
         expect(container.textContent).toContain('国家のために働く。');
         expect(container.textContent).not.toContain('Current sentence');
         expect(container.querySelector('[data-immersion-action="audio"]')).not.toBeNull();
@@ -5470,7 +5503,48 @@ describe('reader helpers', () => {
         ]);
     });
 
-    it('does not restore an unstarred Uchisen paywall index when free cards exist', async () => {
+    it('parses Uchisen kanji prime and compound component groups', () => {
+        const groups = parseUchisenComponents(`
+            <div class="kanji_info_container">
+                <div class="components">
+                    <div class="KP_primes">
+                        <div class="prime_label prime_color"><span class="eng_transl">Kanji Primes</span></div>
+                        <div class="name_combo"><a href="/primes/dwarf">dwarf: &nbsp;<span class="component_symbol">⺍</span></a></div>
+                        <div class="name_combo"><a href="/primes/crown">crown: &nbsp;<span class="component_symbol">冖</span></a></div>
+                    </div>
+                    <div class="KP_primes">
+                        <div class="compound_label kanji_color"><span class="eng_transl">Compound Kanji</span></div>
+                        <div class="name_combo flex_end black_font"><a href="/kanji/子">Child: &nbsp;<span class="component_symbol">子</span></a></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mnemonic_studio_right">
+                <div class="components">
+                    <div class="KP_primes">
+                        <div class="name_combo"><a href="/primes/ignored">ignored: <span class="component_symbol">火</span></a></div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        expect(groups).toEqual([
+            {
+                title: 'Kanji Primes',
+                components: [
+                    { name: 'dwarf', symbol: '⺍', url: 'https://uchisen.com/primes/dwarf' },
+                    { name: 'crown', symbol: '冖', url: 'https://uchisen.com/primes/crown' },
+                ],
+            },
+            {
+                title: 'Compound Kanji',
+                components: [
+                    { name: 'Child', symbol: '子', url: 'https://uchisen.com/kanji/%E5%AD%90' },
+                ],
+            },
+        ]);
+    });
+
+    it('restores the last selected Uchisen index without a star control', async () => {
         const originalCreateObjectUrl = URL.createObjectURL;
         const originalRevokeObjectUrl = URL.revokeObjectURL;
         Object.defineProperty(URL, 'createObjectURL', {
@@ -5483,7 +5557,6 @@ describe('reader helpers', () => {
         });
         vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
         localStorage.setItem('yomu-jpdb-uchisen-index:具', JSON.stringify(1));
-        localStorage.removeItem('yomu-jpdb-uchisen-star:具');
         const mount = document.createElement('div');
         let cleanup: (() => void) | null = null;
 
@@ -5497,8 +5570,9 @@ describe('reader helpers', () => {
                 },
             ]);
 
-            expect(mount.querySelector('.yomu-jpdb-counter')?.textContent).toBe('1/2');
-            expect(mount.querySelector('.yomu-jpdb-story')?.textContent).toBe('Free mnemonic');
+            expect(mount.querySelector('[data-uchisen-action="star"]')).toBeNull();
+            expect(mount.querySelector('.yomu-jpdb-counter')?.textContent).toBe('2/2');
+            expect(mount.querySelector('.yomu-jpdb-story')?.textContent).toContain('Please subscribe');
         } finally {
             cleanup?.();
             mount.remove();
@@ -5613,6 +5687,77 @@ describe('reader helpers', () => {
         expect(html).toContain('data-target-zone="top"');
         expect(html).toContain('data-target-zone="bottom"');
         expect(html).not.toMatch(/class="jpdb-reader-origin-edge" d="[^"]*[QC]/);
+    });
+
+    it('carries KanjiVG radical variant positions onto JPDB component nodes', () => {
+        const info = parseKanjiVGSvg(`
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:kvg="http://kanjivg.tagaini.net" viewBox="0 0 109 109">
+                <g kvg:element="険">
+                    <g kvg:element="⻖" kvg:original="阜" kvg:position="left">
+                        <path d="M13,20 L32,17 L16,96" />
+                    </g>
+                    <g kvg:element="㑒" kvg:position="right">
+                        <path d="M62,11 L41,45 M62,16 L93,42" />
+                    </g>
+                </g>
+            </svg>
+        `, '険');
+        const graph = buildKanjiOriginGraph('険', {
+            kanji: '険',
+            keyword: 'risky and steep',
+            frequency: '',
+            type: '',
+            kanken: '',
+            heisig: '',
+            oldForms: [],
+            readings: [],
+            components: [{ kanji: '阝', keyword: 'mound' }, { kanji: '㑒', keyword: 'all together' }],
+            usedInKanji: [],
+            mnemonic: '',
+            vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
+        }, null, [], null, info);
+
+        expect(graph.nodes.find(node => node.id === '阝')?.position).toBe('left');
+
+        const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
+        expect(html).toContain('data-graph-node="阝"');
+        expect(html).toContain('data-from="阝" data-to="険" data-label="JPDB component" data-target-zone="left"');
+    });
+
+    it('keeps nested KanjiVG components inside edge-side parents instead of stacking on the edge', () => {
+        const graph = buildKanjiOriginGraph('憾', null, null, [], null, {
+            kanji: '憾',
+            svg: '<svg></svg>',
+            strokeCount: 16,
+            componentPositions: [
+                { component: '忄', original: '心', position: 'left', direct: true, depth: 1 },
+                { component: '感', position: 'right', direct: true, depth: 1 },
+                { component: '咸', parent: '感', position: 'top', direct: false, depth: 2 },
+                { component: '心', parent: '感', position: 'bottom', direct: false, depth: 2 },
+                { component: '口', parent: '咸', position: 'left', direct: false, depth: 3 },
+                { component: '戍', parent: '咸', position: 'center', direct: false, depth: 3 },
+            ],
+        });
+        const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
+        const position = (id: string) => {
+            const match = new RegExp(`data-graph-node="${id}"[^>]+style="left:([\\d.]+)%;top:([\\d.]+)%`, 'u').exec(html);
+            expect(match).not.toBeNull();
+            return { x: Number(match?.[1]), y: Number(match?.[2]) };
+        };
+
+        const leftRadical = position('忄');
+        const rightParent = position('感');
+        const innerChild = position('口');
+        const sibling = position('戍');
+
+        expect(leftRadical.x).toBeGreaterThan(16);
+        expect(leftRadical.x).toBeLessThan(36);
+        expect(rightParent.x).toBeGreaterThan(60);
+        expect(innerChild.x).toBeLessThan(rightParent.x);
+        expect(Math.abs(innerChild.y - sibling.y)).toBeGreaterThan(12);
     });
 
     it('adds nested KanjiVG subcomponents as a separate graph layer', () => {

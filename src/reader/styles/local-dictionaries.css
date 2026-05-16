@@ -4,6 +4,8 @@
   padding-top: 12px;
   display: grid;
   gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .jpdb-reader-definition-stack {
   display: grid;
@@ -148,6 +150,15 @@
   background: var(--jpdb-reader-surface);
   padding: 6px;
 }
+.jpdb-reader-source-card > .jpdb-reader-local-entry {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .jpdb-reader-kanji > .jpdb-reader-local-entry + .jpdb-reader-local-entry {
   margin-top: 6px;
 }
@@ -163,6 +174,17 @@
     var(--jpdb-reader-surface) 88%,
     var(--jpdb-reader-surface-2)
   );
+}
+.jpdb-reader-source-card .jpdb-reader-local-term {
+  padding: 7px 0 8px;
+  padding-right: 0;
+  border-top: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-border) 52%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+.jpdb-reader-source-card .jpdb-reader-local-term:first-child {
+  border-top: 0;
 }
 .jpdb-reader-local-head {
   display: flex;
@@ -261,6 +283,7 @@
   margin-top: 3px;
   color: var(--jpdb-reader-text);
   font-size: 13px;
+  line-height: 1.45;
   white-space: normal;
   display: grid;
   gap: 2px;

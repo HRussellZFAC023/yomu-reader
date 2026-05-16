@@ -213,10 +213,11 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
             <fieldset data-settings-panel="media" hidden>
                 <legend>Audio</legend>
                 ${checkbox('audioEnabled', 'Enable audio playback for terms', settings.audioEnabled)}
-                ${checkbox('autoPlayAudio', 'Auto-play search result audio', settings.autoPlayAudio)}
+                ${checkbox('autoPlayAudio', 'Auto-play when a word card opens', settings.autoPlayAudio)}
                 ${checkbox('audioEnableDefaultSources', 'Use built-in audio sources', settings.audioEnableDefaultSources)}
                 ${checkbox('audioFallbackChimeEnabled', 'Play a soft chime when no audio is available', settings.audioFallbackChimeEnabled)}
                 <div class="grid">
+                    ${select('audioAutoPlayMode', 'Auto-play trigger', settings.audioAutoPlayMode, [['all', 'Hover and tap/click'], ['hover', 'Hover only'], ['tap', 'Tap/click only']])}
                     ${select('audioSelectionMode', 'When a source has several clips', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(settings.audioTimeoutMs), 'number')}
                 </div>
@@ -867,6 +868,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['similarKanjiWordLimit', 'similarKanjiWordLimit'],
         ['audioEnabled', 'audioEnabled'],
         ['autoPlayAudio', 'autoPlayAudio'],
+        ['audioAutoPlayMode', 'audioAutoPlayMode'],
         ['audioEnableDefaultSources', 'audioEnableDefaultSources'],
         ['audioFallbackChimeEnabled', 'audioFallbackChimeEnabled'],
         ['audioSelectionMode', 'audioSelectionMode'],
@@ -1838,6 +1840,7 @@ function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettin
     return {
         audioEnabled: has('audioEnabled'),
         autoPlayAudio: has('autoPlayAudio'),
+        audioAutoPlayMode: readOption(get('audioAutoPlayMode'), ['all', 'hover', 'tap'] as const, current.audioAutoPlayMode),
         audioSources,
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,

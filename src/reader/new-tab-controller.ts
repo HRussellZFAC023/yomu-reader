@@ -49,7 +49,7 @@ import {
     kanjiDictionaryNameFromSourceId,
     orderedKanjiSourceIds,
 } from './source-sections';
-import { installUchisenCarousel, loadUchisenImages } from './uchisen';
+import { installUchisenCarousel, loadUchisenData } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanTermEntry } from './yomitan';
 
 export interface NewTabControllerDependencies {
@@ -141,7 +141,7 @@ function isPositiveJpdbCard(card: JPDBCard): boolean {
 }
 
 function newTabKanjiKeyword(card: JPDBCard, fullInfo: JpdbKanjiInfo | null, rtk: RtkInfo | null, localMeanings: string[]): string {
-    return fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || firstCardMeaning(card);
+    return fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || '';
 }
 
 function oldFormsFact(fullInfo: JpdbKanjiInfo | null): string {
@@ -332,6 +332,24 @@ export class NewTabController {
         this.visibleWords = [];
         this.visiblePoolSignature = '';
         await this.loadWordsInto(root, true);
+    }
+
+    lookupGradeOptions(card: JPDBCard): Array<[JPDBGrade, string]> {
+        return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings()) : [];
+    }
+
+    async gradeFromLookup(grade: JPDBGrade): Promise<void> {
+        await this.gradeCurrentCard(grade);
+    }
+
+    private isCurrentLookupGradeCard(card: JPDBCard): boolean {
+        const current = this.visibleWords[this.index];
+        return Boolean(
+            current
+            && this.state.revealAnswer
+            && cardKey(current) === cardKey(card)
+            && this.canReviewCard(current),
+        );
     }
 
     invalidateForFactoryReset(): void {
@@ -1051,7 +1069,7 @@ export class NewTabController {
         prompt.lang = this.state.revealAnswer ? 'ja' : 'en';
         prompt.dataset.newtabExpression = 'true';
         if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
-        else prompt.textContent = keyword || 'keyword';
+        else prompt.textContent = keyword || 'Loading...';
     }
 
     private kanjiPopoverButton(kanji: string): HTMLElement {
@@ -1182,24 +1200,28 @@ export class NewTabController {
     private renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement {
         const settings = this.dependencies.getSettings();
         const example = examples[index];
+        const hasAudio = Boolean(this.newTabImmersionAudioSource(example));
         return el('div', { class: 'jpdb-reader-newtab-immersion' },
-            this.renderNewTabImmersionHeader(example, index, examples.length),
-            this.renderNewTabImmersionActions(),
+            this.renderNewTabImmersionToolbar(example, index, examples.length, hasAudio),
             this.renderNewTabImmersionExampleBody(card, example, settings, index, examples.length),
         );
     }
 
-    private renderNewTabImmersionHeader(example: ImmersionKitExample, index: number, total: number): HTMLElement {
-        return el('div', { class: 'jpdb-reader-local-title jpdb-reader-example-summary' },
-            el('span', { class: 'jpdb-reader-example-source' }, 'Immersion Kit'),
-            el('span', { class: 'jpdb-reader-local-dict' }, `${example.sourceTitle} · ${index + 1}/${total}`),
+    private renderNewTabImmersionToolbar(example: ImmersionKitExample, index: number, total: number, hasAudio: boolean): HTMLElement {
+        return el('div', { class: 'jpdb-reader-example-toolbar' },
+            el('div', { class: 'jpdb-reader-example-meta' },
+                el('span', { class: 'jpdb-reader-example-source' }, 'Immersion Kit'),
+                el('span', { class: 'jpdb-reader-example-title' }, example.sourceTitle),
+                el('span', { class: 'jpdb-reader-example-count' }, `${index + 1}/${total}`),
+            ),
+            this.renderNewTabImmersionActions(hasAudio),
         );
     }
 
-    private renderNewTabImmersionActions(): HTMLElement {
+    private renderNewTabImmersionActions(hasAudio: boolean): HTMLElement {
         return el('div', { class: 'jpdb-reader-example-actions', role: 'group', 'aria-label': 'Immersion Kit example controls' },
             this.renderNewTabImmersionActionButton('previous', 'Previous example', '‹'),
-            this.renderNewTabImmersionAudioButton(),
+            hasAudio ? this.renderNewTabImmersionAudioButton() : null,
             this.renderNewTabImmersionActionButton('next', 'Next example', '›'),
         );
     }
@@ -1239,7 +1261,6 @@ export class NewTabController {
             },
         },
             el('div', { class: 'jpdb-reader-example-body' },
-                el('div', { class: 'jpdb-reader-example-inline-source' }, example.sourceTitle),
                 renderNewTabImmersionImage(imageUrl),
                 renderNewTabImmersionSentence(card, example),
                 renderNewTabImmersionTranslation(example, settings),
@@ -1360,9 +1381,7 @@ export class NewTabController {
     private kanjiKeyword(card: JPDBCard, kanji: string): string {
         return this.keywordCache.get(kanji)
             || card.kanjiKeyword
-            || firstCardMeaning(card).split(/[;；,，]/)[0]?.trim()
-            || card.reading
-            || kanji;
+            || '';
     }
 
     private async enrichKanjiCard(slots: NewTabStudySlots, card: JPDBCard, kanji: string): Promise<void> {
@@ -1429,18 +1448,19 @@ export class NewTabController {
         const mount = root.querySelector<HTMLElement>('[data-newtab-uchisen-mount]');
         if (!mount || !settings.uchisenEnabled) return;
         const sourceAttributes = newTabKanjiSourceAttrs(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
-        void loadUchisenImages(kanji, settings.corsProxyUrl).then(images => {
+        void loadUchisenData(kanji, settings.corsProxyUrl).then(data => {
             if (!mount.isConnected) return;
-            if (!images.length) {
+            if (!data.images.length) {
                 mount.remove();
                 return;
             }
-            void installUchisenCarousel(mount, kanji, images, {
+            void installUchisenCarousel(mount, kanji, data.images, {
                 sourceAttributes,
                 detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
                 summaryClass: 'jpdb-reader-local-title',
                 bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
                 proxyUrl: settings.corsProxyUrl,
+                componentGroups: data.componentGroups,
             });
         }).catch(() => {
             if (mount.isConnected) mount.remove();
@@ -1804,10 +1824,8 @@ export class NewTabController {
     }
 
     private gradeControlButtons(): HTMLElement[] {
-        const grades: Array<[JPDBGrade, string]> = this.dependencies.getSettings().twoButtonReviews
-            ? [['fail', 'Fail'], ['pass', 'Pass']]
-            : [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']];
-        return grades.map(([grade, label]) => el('button', { type: 'button', dataset: { newtabAction: 'grade', grade } }, label));
+        return newTabGradeOptions(this.dependencies.getSettings())
+            .map(([grade, label]) => el('button', { type: 'button', dataset: { newtabAction: 'grade', grade } }, label));
     }
 
     private renderInstallCta(root: HTMLElement): void {
@@ -2264,11 +2282,10 @@ function keywordCandidates(
     rtk: RtkInfo | null,
     source: ReaderSettings['newTabKanjiKeywordSource'],
 ): Array<string | undefined> {
-    const meaning = firstCardMeaning(card);
-    if (source === 'rtk') return [rtk?.keyword, meaning];
-    if (source === 'jpdb') return [jpdb?.keyword, meaning];
-    if (source === 'local') return [meaning, jpdb?.keyword, rtk?.keyword];
-    return [rtk?.keyword, jpdb?.keyword, meaning];
+    if (source === 'rtk') return [rtk?.keyword, card.kanjiKeyword];
+    if (source === 'jpdb') return [jpdb?.keyword, card.kanjiKeyword];
+    if (source === 'local') return [card.kanjiKeyword, jpdb?.keyword, rtk?.keyword];
+    return [rtk?.keyword, jpdb?.keyword, card.kanjiKeyword];
 }
 
 function firstTruthy(values: Array<string | undefined>): string {
@@ -2358,6 +2375,12 @@ function doodlePreviewBackground(canvas: HTMLCanvasElement): string {
 
 function passingNewTabGrade(grade: JPDBGrade): boolean {
     return grade === 'pass' || grade === 'easy' || grade === 'okay';
+}
+
+function newTabGradeOptions(settings: ReaderSettings): Array<[JPDBGrade, string]> {
+    return settings.twoButtonReviews
+        ? [['fail', 'Fail'], ['pass', 'Pass']]
+        : [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']];
 }
 
 function installOriginGraphDrag(root: HTMLElement): void {
