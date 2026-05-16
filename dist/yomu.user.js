@@ -25432,6 +25432,7 @@ ${spelling}`);
       });
       this.observer.observe(document.body, { childList: true, subtree: true });
       document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions());
+      document.addEventListener("pointerdown", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("fullscreenchange", () => {
         this.fullscreen = Boolean(document.fullscreenElement);
@@ -26198,6 +26199,7 @@ ${spelling}`);
     shouldAutoIdleControls() {
       const settings = this.options.getSettings();
       if (!this.hasAutoIdleMode(settings)) return false;
+      if (isCoarsePointerDevice()) return false;
       if (!this.canIdleSubtitleControls()) return false;
       return !this.video || this.videoIsLargeEnoughForIdleControls();
     }
@@ -27565,7 +27567,12 @@ ${spelling}`);
     return Boolean(video || cues.length);
   }
   function shouldKeepIdleControlClass(root, settings) {
+    if (isCoarsePointerDevice()) return false;
     return settings.subtitleControlsMode === "auto" && root.classList.contains("jpdb-subtitle-controls-idle");
+  }
+  function isCoarsePointerDevice() {
+    var _a2;
+    return ((_a2 = window.matchMedia) == null ? void 0 : _a2.call(window, "(pointer: coarse)").matches) ?? false;
   }
   function trackLanguageLabel(track) {
     return track.language ? track.language.toUpperCase() : "Detected";
