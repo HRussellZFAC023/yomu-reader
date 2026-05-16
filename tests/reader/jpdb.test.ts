@@ -6181,6 +6181,41 @@ describe('reader helpers', () => {
         expect(html).not.toContain('data-graph-node="讠"');
     });
 
+    it('spaces crowded outbound kanji graph nodes apart', () => {
+        const graph = {
+            nodes: [
+                { id: '川', label: '川', kind: 'current' as const, detail: 'river', source: 'test' },
+                { id: '訓', label: '訓', kind: 'component' as const, detail: 'instruction', source: 'test' },
+                { id: '州', label: '州', kind: 'component' as const, detail: 'state', source: 'test' },
+                { id: '順', label: '順', kind: 'component' as const, detail: 'order', source: 'test' },
+                { id: '馴', label: '馴', kind: 'component' as const, detail: 'tame', source: 'test' },
+            ],
+            edges: [
+                { from: '川', to: '訓', label: 'used in kanji' },
+                { from: '川', to: '州', label: 'used in kanji' },
+                { from: '川', to: '順', label: 'used in kanji' },
+                { from: '川', to: '馴', label: 'used in kanji' },
+            ],
+        };
+        const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
+        const positionByNode = new Map(
+            Array.from(html.matchAll(/data-graph-node="([^"]+)".*?data-x="([^"]+)".*?data-y="([^"]+)"/gs))
+                .map(match => [match[1], { x: Number(match[2]), y: Number(match[3]) }]),
+        );
+        const distance = (a: string, b: string): number => {
+            const first = positionByNode.get(a);
+            const second = positionByNode.get(b);
+            return first && second ? Math.hypot(second.x - first.x, second.y - first.y) : 0;
+        };
+
+        expect(positionByNode.get('訓')?.y).toBeLessThan(positionByNode.get('州')?.y ?? 0);
+        expect(positionByNode.get('州')?.y).toBeLessThan(positionByNode.get('順')?.y ?? 0);
+        expect(positionByNode.get('順')?.y).toBeLessThan(positionByNode.get('馴')?.y ?? 0);
+        expect(distance('訓', '州')).toBeGreaterThan(21);
+        expect(distance('州', '順')).toBeGreaterThan(21);
+        expect(distance('順', '馴')).toBeGreaterThan(21);
+    });
+
     it('normalizes Kanji Alive and Kanji Map data for compact kanji cards', () => {
         const info = parseKanjiMapInfo({
             kanjialiveData: {

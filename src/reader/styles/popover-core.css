@@ -54,11 +54,17 @@
 
 .jpdb-reader-sheet-handle {
   display: none;
-  width: min(144px, 42vw);
-  height: 36px;
-  border-radius: 999px;
-  background: transparent;
-  margin: -6px auto 8px;
+  position: relative;
+  width: calc(100% + 32px);
+  height: 46px;
+  border-bottom: 1px solid var(--jpdb-reader-border);
+  border-radius: 16px 16px 0 0;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface, #20242b) 72%,
+    transparent
+  );
+  margin: -14px -16px 10px;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -66,12 +72,14 @@
 }
 .jpdb-reader-sheet-handle::before {
   content: "";
-  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 46px;
   height: 5px;
   border-radius: 999px;
-  margin: 15px auto 0;
   background: var(--jpdb-reader-faint);
+  transform: translate(-50%, -50%);
 }
 .jpdb-reader-sheet-handle:active {
   cursor: grabbing;
