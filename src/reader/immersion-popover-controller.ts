@@ -442,6 +442,7 @@ export class ImmersionPopoverController {
             </div>
             <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
                 <div class="jpdb-reader-example-body">
+                    <div class="jpdb-reader-example-inline-source">${escapeHtml(sourceLabel)}</div>
                     ${image}
                     <div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>
                     ${translation}
@@ -578,6 +579,7 @@ export class ImmersionPopoverController {
         requestId: number,
         isCurrent: () => boolean,
     ): Promise<void> {
+        if (await this.playDirectExampleAudio(source, requestId, isCurrent)) return;
         const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs);
         if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
             this.clearAudioRequestIfCurrent(requestId, source.key);
@@ -586,6 +588,23 @@ export class ImmersionPopoverController {
 
         const audio = this.attachExampleAudio(src);
         await this.playAttachedExampleAudio(audio, isCurrent);
+    }
+
+    private async playDirectExampleAudio(
+        source: ExampleAudioSource,
+        requestId: number,
+        isCurrent: () => boolean,
+    ): Promise<boolean> {
+        const src = source.urls[0];
+        if (!src) return false;
+        try {
+            const audio = this.attachExampleAudio(src);
+            await this.playAttachedExampleAudio(audio, isCurrent);
+            return this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent);
+        } catch {
+            if (this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) this.clearAudio();
+            return false;
+        }
     }
 
     private async playAttachedExampleAudio(audio: HTMLAudioElement, isCurrent: () => boolean): Promise<void> {

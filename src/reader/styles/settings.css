@@ -551,19 +551,19 @@
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 50px minmax(160px, 1fr) minmax(150px, 0.9fr) max-content 42px;
+  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.no-remove,
 .jpdb-reader-dictionary-row.no-remove {
-  grid-template-columns: 50px minmax(160px, 1fr) minmax(150px, 0.9fr) max-content;
+  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 50px minmax(220px, 1fr) max-content 42px;
+  grid-template-columns: 50px minmax(0, 1fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.compact.no-remove,
 .jpdb-reader-dictionary-row.compact.no-remove {
-  grid-template-columns: 50px minmax(220px, 1fr) max-content;
+  grid-template-columns: 50px minmax(0, 1fr) max-content;
 }
 .jpdb-reader-order-head {
   padding: 0 10px;
@@ -735,22 +735,22 @@
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 46px minmax(130px, 0.95fr) minmax(180px, 1.1fr) max-content 42px;
+    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.no-remove,
   .jpdb-reader-dictionary-row.no-remove {
-    grid-template-columns: 46px minmax(130px, 0.95fr) minmax(180px, 1.1fr) max-content;
+    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
   }
 
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 46px minmax(220px, 1fr) max-content 42px;
+    grid-template-columns: 46px minmax(0, 1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.compact.no-remove,
   .jpdb-reader-dictionary-row.compact.no-remove {
-    grid-template-columns: 46px minmax(220px, 1fr) max-content;
+    grid-template-columns: 46px minmax(0, 1fr) max-content;
   }
 
   .jpdb-reader-recommended-item {
@@ -760,9 +760,16 @@
 
 @media (max-width: 699px) {
   .jpdb-reader-settings {
-    width: calc(100vw - 16px);
-    max-height: calc(100vh - 16px);
-    max-height: calc(100dvh - 16px);
+    inset: auto 0 0 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    transform: none;
+    width: 100%;
+    max-height: 88vh;
+    max-height: 88svh;
+    border-radius: 16px 16px 0 0;
   }
 
   .jpdb-reader-settings-head {
@@ -784,6 +791,7 @@
 
   .jpdb-reader-settings .grid,
   .jpdb-reader-settings-actions,
+  .jpdb-reader-template-preview-grid,
   .jpdb-reader-recommended-item {
     grid-template-columns: 1fr;
   }
@@ -842,12 +850,40 @@
     grid-row: 1;
   }
 
+  .jpdb-reader-audio-source-row .jpdb-reader-row-tools {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .jpdb-reader-audio-source-row .jpdb-reader-icon-mini {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+  }
+
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-tools {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .jpdb-reader-dictionary-row-help {
     grid-column: 1 / -1;
   }
 
   .jpdb-reader-settings .footer {
-    padding-inline: 14px;
+    justify-content: stretch;
+    gap: 12px;
+    padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .jpdb-reader-settings .footer .jpdb-reader-btn {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 .jpdb-reader-icon-mini[data-immersion-action="previous"],

@@ -13,8 +13,10 @@ import type { KanjiVGClient, KanjiVGInfo } from './kanjivg';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from './jpdb-review-bridge';
 import { Logger } from './logger';
 import {
+    buildRtkComponentSummaries,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
+    renderRtkInfo,
     speakerIcon,
 } from './popup-render';
 import { kanjiSourceStateKey, renderSimilarKanjiWordsContent } from './definition-source-render';
@@ -36,7 +38,8 @@ import type { ReaderParser } from './reader-parser';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import type { RtkClient, RtkInfo } from './rtk';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
-import { KANJI_ORIGINS_SOURCE_ID, KANJI_SIMILAR_WORDS_SOURCE_ID } from './source-sections';
+import { KANJI_ORIGINS_SOURCE_ID, KANJI_RTK_SOURCE_ID, KANJI_SIMILAR_WORDS_SOURCE_ID, KANJI_UCHISEN_SOURCE_ID } from './source-sections';
+import { installUchisenCarousel, loadUchisenImages } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanTermEntry } from './yomitan';
 
 export interface NewTabControllerDependencies {
@@ -181,6 +184,7 @@ const JPDB_DECK_SAMPLE_LIMIT = 6;
 const JPDB_WORDS_PER_DECK = 36;
 const NEW_TAB_WORD_LIMIT = 180;
 const NEW_TAB_NAVIGATION_DEDUPE_MS = 550;
+const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
 const NEW_TAB_HEADER_LABEL = 'yomu';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
@@ -481,7 +485,7 @@ export class NewTabController {
             if (action === 'mode') {
                 event.preventDefault();
                 const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode === 'kanji' ? 'kanji' : 'word';
-                this.setState({ mode, revealAnswer: false }, root, { preserveWord: false });
+                this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
                 return;
             }
             const study = target.closest<HTMLElement>('[data-newtab-study]');
@@ -569,7 +573,11 @@ export class NewTabController {
         const kanji = actionTarget.dataset.kanji ?? '';
         if (!card || !kanji) return false;
         consumeNestedLookupEvent(event);
-        void this.dependencies.showKanjiCard?.(card, kanji, sentenceForCard(card), actionTarget);
+        if (this.dependencies.showKanjiCard) {
+            void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget);
+        } else {
+            void this.dependencies.lookupText?.(kanji, kanji, actionTarget);
+        }
         return true;
     }
 
@@ -807,19 +815,21 @@ export class NewTabController {
     }
 
     private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveWord: boolean }): void {
+        const preferredCardKey = options.preserveWord ? this.currentVisibleWordKey() : '';
         this.state = { ...this.state, ...patch };
         this.persistState();
         this.syncMode(root);
-        this.applyWords(root, options.preserveWord);
+        this.applyWords(root, options.preserveWord, preferredCardKey);
     }
 
     private applyExternalState(state: NewTabUiState): void {
         if (JSON.stringify(this.state) === JSON.stringify(state)) return;
+        const preferredCardKey = this.currentVisibleWordKey();
         this.state = state;
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
         if (!root) return;
         this.syncMode(root);
-        this.applyWords(root, true);
+        this.applyWords(root, true, preferredCardKey);
     }
 
     private persistState(): void {
@@ -827,7 +837,7 @@ export class NewTabController {
         this.stateChannel.publish(this.state);
     }
 
-    private applyWords(root: HTMLElement, preferStoredWord: boolean): void {
+    private applyWords(root: HTMLElement, preferStoredWord: boolean, preferredCardKey = ''): void {
         this.syncMode(root);
         if (this.shouldUseCachedDictionarySetup(this.dependencies.getSettings())) {
             this.renderDictionarySetup(root);
@@ -836,9 +846,10 @@ export class NewTabController {
         const baseWords = this.studyPoolForCurrentMode();
         const poolSignature = this.newTabPoolSignature(baseWords);
         const poolChanged = poolSignature !== this.visiblePoolSignature;
-        if (poolChanged) this.replaceVisibleWordPool(baseWords, poolSignature, this.preferredStoredWordKey(preferStoredWord));
+        const preferredKey = preferredCardKey || this.preferredStoredWordKey(preferStoredWord);
+        if (poolChanged) this.replaceVisibleWordPool(baseWords, poolSignature, preferredKey);
         if (!this.ensureVisibleWords(root)) return;
-        if (shouldResolveInitialWordIndex(poolChanged, preferStoredWord)) this.index = this.resolveInitialIndex(preferStoredWord);
+        if (preferredKey || shouldResolveInitialWordIndex(poolChanged, preferStoredWord)) this.index = this.resolveInitialIndex(preferStoredWord, preferredKey);
         this.index = Math.max(0, Math.min(this.index, this.visibleWords.length - 1));
         this.renderWord(root, this.visibleWords[this.index]);
     }
@@ -905,13 +916,18 @@ export class NewTabController {
         ].join('|');
     }
 
-    private resolveInitialIndex(preferStoredWord: boolean): number {
-        const preferredKey = this.preferredStoredWordKey(preferStoredWord);
+    private resolveInitialIndex(preferStoredWord: boolean, preferredCardKey = ''): number {
+        const preferredKey = preferredCardKey || this.preferredStoredWordKey(preferStoredWord);
         if (preferredKey) {
             const index = this.visibleWords.findIndex(card => cardKey(card) === preferredKey);
             if (index >= 0) return index;
         }
         return 0;
+    }
+
+    private currentVisibleWordKey(): string {
+        const current = this.visibleWords[this.index];
+        return current ? cardKey(current) : '';
     }
 
     private preferredStoredWordKey(preferStoredWord: boolean): string {
@@ -1146,7 +1162,7 @@ export class NewTabController {
         return el('div', { class: 'jpdb-reader-newtab-immersion' },
             this.renderNewTabImmersionHeader(example, index, examples.length),
             this.renderNewTabImmersionActions(),
-            this.renderNewTabImmersionExampleBody(card, example, settings),
+            this.renderNewTabImmersionExampleBody(card, example, settings, index, examples.length),
         );
     }
 
@@ -1185,10 +1201,22 @@ export class NewTabController {
         card: JPDBCard,
         example: ImmersionKitExample,
         settings: ReaderSettings,
+        index: number,
+        total: number,
     ): HTMLElement {
         const imageUrl = newTabImmersionImageUrl(example, settings, this.dependencies.immersionKit);
-        return el('div', { class: `jpdb-reader-example-card ${imageUrl ? 'has-image' : ''}` },
+        return el('div', {
+            class: `jpdb-reader-example-card ${imageUrl ? 'has-image' : ''}`,
+            dataset: {
+                immersionIndex: String(index),
+                immersionTotal: String(total),
+                immersionSentence: example.sentence,
+                immersionSourceTitle: example.sourceTitle,
+                immersionImageUrl: imageUrl,
+            },
+        },
             el('div', { class: 'jpdb-reader-example-body' },
+                el('div', { class: 'jpdb-reader-example-inline-source' }, example.sourceTitle),
                 renderNewTabImmersionImage(imageUrl),
                 renderNewTabImmersionSentence(card, example),
                 renderNewTabImmersionTranslation(example, settings),
@@ -1316,11 +1344,19 @@ export class NewTabController {
     private async enrichKanjiCard(slots: NewTabStudySlots, card: JPDBCard, kanji: string): Promise<void> {
         const key = cardKey(card);
         const details = await this.loadKanjiDetails(kanji);
-        if (cardKey(this.visibleWords[this.index]) !== key) return;
+        if (!this.canApplyKanjiEnrichment(slots, key)) return;
 
         this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
         this.applyEnrichedKanjiSvg(slots.answer, details.vg?.svg);
         this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
+    }
+
+    private canApplyKanjiEnrichment(slots: NewTabStudySlots, key: string): boolean {
+        if (this.state.mode !== 'kanji') return false;
+        if (cardKey(this.visibleWords[this.index]) !== key) return false;
+        const study = slots.prompt?.closest<HTMLElement>('[data-newtab-study]')
+            ?? slots.answer?.closest<HTMLElement>('[data-newtab-study]');
+        return !study || study.dataset.newtabCard === key;
     }
 
     private applyEnrichedKanjiKeyword(slots: NewTabStudySlots, card: JPDBCard, kanji: string, details: KanjiDetailBundle): void {
@@ -1360,7 +1396,31 @@ export class NewTabController {
     ): void {
         if (!this.state.revealAnswer || !slots.meaning) return;
         replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar));
+        this.renderNewTabUchisen(slots.meaning, kanji);
         void this.dependencies.parseContent?.(slots.meaning);
+    }
+
+    private renderNewTabUchisen(root: HTMLElement, kanji: string): void {
+        const settings = this.dependencies.getSettings();
+        const mount = root.querySelector<HTMLElement>('[data-newtab-uchisen-mount]');
+        if (!mount || !settings.uchisenEnabled) return;
+        const sourceAttributes = newTabKanjiSourceAttrs(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
+        void loadUchisenImages(kanji, settings.corsProxyUrl).then(images => {
+            if (!mount.isConnected) return;
+            if (!images.length) {
+                mount.remove();
+                return;
+            }
+            void installUchisenCarousel(mount, kanji, images, {
+                sourceAttributes,
+                detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
+                summaryClass: 'jpdb-reader-local-title',
+                bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
+                proxyUrl: settings.corsProxyUrl,
+            });
+        }).catch(() => {
+            if (mount.isConnected) mount.remove();
+        });
     }
 
     private renderKanjiDetails(
@@ -1379,6 +1439,7 @@ export class NewTabController {
         const readings = newTabKanjiReadings(fullInfo, localReadings);
         const originGraph = this.renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, settings);
         const facts = this.newTabKanjiFacts(card, fullInfo, rtk, localMeanings);
+        const rtkSection = this.renderNewTabRtkInfo(rtk, fullInfo, localEntries, settings);
         const wrap = el('div', { class: 'jpdb-reader-newtab-kanji-details' },
             el('div', { class: 'jpdb-reader-newtab-kanji-keywords' }),
             renderNewTabKanjiFactSection(card, facts),
@@ -1388,11 +1449,45 @@ export class NewTabController {
             renderNewTabKanjiVocabulary(fullInfo),
             renderNewTabKanjiMnemonic(fullInfo),
             originGraph,
+            rtkSection,
+            this.renderNewTabUchisenPlaceholder(settings),
             this.renderKanjiMiningControls(fullInfo),
         );
         const keywordMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-keywords');
         if (keywordMount) setInnerHtml(keywordMount, renderKanjiKeywordLine(fullInfo, rtk, localEntries));
         return wrap;
+    }
+
+    private renderNewTabRtkInfo(
+        rtk: RtkInfo | null,
+        fullInfo: JpdbKanjiInfo | null,
+        localEntries: YomitanKanjiEntry[],
+        settings: ReaderSettings,
+    ): HTMLElement | null {
+        if (!settings.rtkEnabled || !rtk) return null;
+        return htmlToFirstElement(renderRtkInfo(
+            rtk,
+            buildRtkComponentSummaries(rtk, fullInfo, localEntries),
+            settings.interfaceLanguage,
+            true,
+            kanjiSourceStateKey(KANJI_RTK_SOURCE_ID),
+        ));
+    }
+
+    private renderNewTabUchisenPlaceholder(settings: ReaderSettings): HTMLElement | null {
+        if (!settings.uchisenEnabled) return null;
+        return el('div', { dataset: { newtabUchisenMount: true } },
+            el('details', {
+                class: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
+                open: true,
+                dataset: {
+                    sourceStateKey: kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID),
+                    sourceInitialOpen: 'true',
+                },
+            },
+            el('summary', { class: 'jpdb-reader-local-title' }, 'Uchisen'),
+            el('div', { class: 'jpdb-reader-local-entry' }, el('div', { class: 'jpdb-reader-help' }, 'Loading mnemonic images...'))),
+        );
     }
 
     private renderNewTabKanjiOriginGraph(
@@ -2000,7 +2095,9 @@ function renderNewTabKanjiVocabulary(fullInfo: JpdbKanjiInfo | null): HTMLElemen
             type: 'button',
             dataset: { action: 'similar-word', expression: item.expression, reading: item.reading },
             title: `Look up ${item.expression}`,
-        }, el('strong', {}, item.expression), [item.reading, item.meaning].filter(Boolean).join(' · '))))
+        },
+        el('strong', {}, item.expression),
+        el('span', { class: 'jpdb-reader-newtab-kanji-vocab-detail' }, [item.reading, item.meaning].filter(Boolean).join(' · ')))))
         : null;
 }
 
@@ -2051,6 +2148,13 @@ function keywordCandidates(
 
 function firstTruthy(values: Array<string | undefined>): string {
     return values.find(Boolean) ?? '';
+}
+
+function htmlToFirstElement(html: string): HTMLElement | null {
+    if (!html.trim()) return null;
+    const template = document.createElement('template');
+    template.innerHTML = html.trim();
+    return template.content.firstElementChild as HTMLElement | null;
 }
 
 function isNewTabStudyInteractiveTarget(target: HTMLElement): boolean {
@@ -2145,13 +2249,13 @@ function installOriginGraphDrag(root: HTMLElement): void {
             return;
         }
         wrap.dataset.graphDragInstalled = 'true';
-        let active: { node: HTMLElement; pointerId: number; moved: boolean } | null = null;
+        let active: { node: HTMLElement; pointerId: number; startX: number; startY: number; moved: boolean } | null = null;
         let suppressClick = false;
         wrap.addEventListener('pointerdown', event => {
             if (event.pointerType === 'mouse' && event.button !== 0) return;
             const node = (event.target as HTMLElement).closest<HTMLElement>('.jpdb-reader-origin-graph-node');
             if (!node || !wrap.contains(node)) return;
-            active = { node, pointerId: event.pointerId, moved: false };
+            active = { node, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
             node.classList.add('dragging');
             node.setPointerCapture?.(event.pointerId);
         });
@@ -2159,6 +2263,7 @@ function installOriginGraphDrag(root: HTMLElement): void {
             if (!active || active.pointerId !== event.pointerId) return;
             const rect = wrap.getBoundingClientRect();
             if (!rect.width || !rect.height) return;
+            if (!active.moved && pointerDistance(active, event) < ORIGIN_GRAPH_DRAG_THRESHOLD_PX) return;
             event.preventDefault();
             active.moved = true;
             const x = clampGraphPercent(((event.clientX - rect.left) / rect.width) * 100);
@@ -2187,6 +2292,10 @@ function installOriginGraphDrag(root: HTMLElement): void {
         }, true);
         refreshOriginGraphEdgesAfterLayout(wrap);
     });
+}
+
+function pointerDistance(active: { startX: number; startY: number }, event: PointerEvent): number {
+    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
 }
 
 function refreshOriginGraphEdgesAfterLayout(wrap: HTMLElement): void {

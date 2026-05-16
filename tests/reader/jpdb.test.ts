@@ -77,6 +77,7 @@ const READER_WORD_CSS = READER_CSS || readFileSync('src/reader/styles/reader-wor
 const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
+const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
 
 async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
     const start = Date.now();
@@ -409,6 +410,42 @@ describe('reader helpers', () => {
         handle.dispatchEvent(up);
 
         expect(dismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps sheet popover drags active after the pointer leaves the handle', () => {
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
+        popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
+        document.body.append(popover);
+        const handle = popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle')!;
+        handle.setPointerCapture = vi.fn();
+        handle.releasePointerCapture = vi.fn();
+        const dismiss = vi.fn();
+
+        installSheetHandle(popover, dismiss);
+
+        handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientY: 220, pointerId: 12 }));
+        document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 136, pointerId: 12 }));
+        document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientY: 136, pointerId: 12 }));
+
+        expect(popover.classList.contains('jpdb-reader-sheet-expanded')).toBe(true);
+        expect(dismiss).not.toHaveBeenCalled();
+    });
+
+    it('restores sheet handle button state when popover content is re-rendered', async () => {
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
+        popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
+        document.body.append(popover);
+
+        installSheetHandle(popover, vi.fn());
+        popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div><p>updated</p>';
+        await Promise.resolve();
+
+        const handle = popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle');
+        expect(handle?.getAttribute('role')).toBe('button');
+        expect(handle?.getAttribute('tabindex')).toBe('0');
+        expect(handle?.getAttribute('aria-expanded')).toBe('false');
     });
 
     it('renders the mining drawer affordance as a bar instead of text', () => {
@@ -998,6 +1035,29 @@ describe('reader helpers', () => {
         }
     });
 
+    it('uses direct media playback for tapped term audio on iPad Safari', async () => {
+        const played: string[] = [];
+        const restoreBrowser = mockAppleMobileBrowser();
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioViaBlob: true,
+                audioEnableDefaultSources: false,
+                audioSources: [{ type: 'jpod101', url: '', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play({ ...card, spelling: '月光', reading: 'げっこう' })).resolves.toBe(true);
+
+            expect(played).toHaveLength(1);
+            expect(played[0]).toContain('https://assets.languagepod101.com/dictionary/japanese/audiomp3.php');
+            expect(played[0]).not.toContain('blob:');
+        } finally {
+            restoreMedia();
+            restoreBrowser();
+        }
+    });
+
     it('tries proxy fallbacks for cross-origin built-in audio before browser speech', async () => {
         const spoken: string[] = [];
         class FakeSpeechSynthesisUtterance {
@@ -1442,7 +1502,14 @@ describe('reader helpers', () => {
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="support"]')?.href).toContain('/support');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="issues"]')?.href).toContain('/issues');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="donate"]')?.href).toContain('paypal.me');
-        expect(form.querySelector<HTMLElement>('[data-help-link="discord"]')?.textContent).toContain('henry281199');
+        expect(form.querySelector<HTMLElement>('[data-help-support-copy]')?.textContent).toContain('GitHub issues');
+        expect(form.querySelector<HTMLButtonElement>('[data-help-link="discord"]')?.dataset.discordHandle).toBe('henry281199');
+    });
+
+    it('keeps subtitle CSS from overriding settings dictionary source layouts', () => {
+        expect(SUBTITLES_YOUTUBE_CSS).not.toContain('.jpdb-reader-settings');
+        expect(SUBTITLES_YOUTUBE_CSS).not.toContain('.jpdb-reader-dictionary-row');
+        expect(SUBTITLES_YOUTUBE_CSS).not.toContain('.jpdb-reader-audio-source-row');
     });
 
     it('reorders dictionary source rows with a desktop pointer drag', () => {
@@ -3972,6 +4039,20 @@ describe('reader helpers', () => {
         expect(html).not.toContain('target="_blank"');
     });
 
+    it('renders Yomitan JPDB kanji links as in-reader kanji actions', () => {
+        const html = glossaryToHtml({
+            tag: 'a',
+            href: '/kanji/%E8%AA%AD',
+            content: '読',
+        }, 'Jitendex', { internalSearchLinks: true });
+
+        expect(html).toContain('href="#jpdb-reader-kanji-lookup"');
+        expect(html).toContain('data-action="kanji"');
+        expect(html).toContain('data-kanji="読"');
+        expect(html).toContain('data-external="false"');
+        expect(html).not.toContain('target="_blank"');
+    });
+
     it('scopes imported Yomitan dictionary CSS to dictionary content', () => {
         const css = renderDictionaryScopedStyles([
             { title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, styles: 'ul[data-sc-content="glossary"] { padding-left: 1em; }' },
@@ -4168,6 +4249,49 @@ describe('reader helpers', () => {
         }
     });
 
+    it('uses AnkiMobile handoff on iPadOS desktop-mode Safari', async () => {
+        const originalUserAgent = navigator.userAgent;
+        const originalPlatform = navigator.platform;
+        const originalMaxTouchPoints = navigator.maxTouchPoints;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+            configurable: true,
+        });
+        Object.defineProperty(window.navigator, 'platform', { value: 'MacIntel', configurable: true });
+        Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });
+        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
+        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        vi.stubGlobal('location', locationStub);
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: true,
+                ankiDeck: 'Mobile Deck',
+                ankiModel: 'Yomu Japanese',
+            }));
+            await client.addCard({
+                ...card,
+                spelling: '月光',
+                reading: 'げっこう',
+                meanings: [{ glosses: ['moonlight'], partOfSpeech: [] }],
+            }, '月光が水面を照らした。');
+
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "月光"?');
+            expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
+        } finally {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            Object.defineProperty(window.navigator, 'platform', { value: originalPlatform, configurable: true });
+            Object.defineProperty(window.navigator, 'maxTouchPoints', { value: originalMaxTouchPoints, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('opens AnkiDroid ACTION_SEND intent handoff on Android without using AnkiConnect', async () => {
         const originalUserAgent = navigator.userAgent;
         Object.defineProperty(window.navigator, 'userAgent', {
@@ -4222,6 +4346,31 @@ describe('reader helpers', () => {
             expect(fetchMock).not.toHaveBeenCalled();
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('skips existing-card AnkiConnect lookups on iPadOS desktop-mode Safari', async () => {
+        const originalUserAgent = navigator.userAgent;
+        const originalPlatform = navigator.platform;
+        const originalMaxTouchPoints = navigator.maxTouchPoints;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+            configurable: true,
+        });
+        Object.defineProperty(window.navigator, 'platform', { value: 'MacIntel', configurable: true });
+        Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });
+        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true }));
+            await expect(client.findExistingCards(card)).resolves.toEqual({ state: 'not-in-deck', notes: [], primary: null });
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            Object.defineProperty(window.navigator, 'platform', { value: originalPlatform, configurable: true });
+            Object.defineProperty(window.navigator, 'maxTouchPoints', { value: originalMaxTouchPoints, configurable: true });
             vi.unstubAllGlobals();
         }
     });

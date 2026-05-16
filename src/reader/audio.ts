@@ -50,6 +50,7 @@ interface SoftChimeNote {
 }
 
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
+const BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES = new Set<AudioSourceType>(['jpod101', 'language-pod-101', 'jisho']);
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -235,7 +236,7 @@ export class AudioPlayer {
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const bagKey = getAudioBagKey(source, card);
-        return await this.playFromAudioCandidates(candidates, settings, requestId, triedUrls, isCurrent, bagKey);
+        return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey);
     }
 
     private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
@@ -246,6 +247,7 @@ export class AudioPlayer {
 
     private async playFromAudioCandidates(
         candidates: AudioCandidate[],
+        sourceType: AudioSourceType,
         settings: ReaderSettings,
         requestId: number,
         triedUrls: Set<string>,
@@ -254,13 +256,14 @@ export class AudioPlayer {
     ): Promise<boolean> {
         for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
             if (!registerAudioAttempt(triedUrls, candidate)) continue;
-            if (await this.playAudioCandidate(candidate, id, bagKey, settings, requestId, isCurrent)) return true;
+            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent)) return true;
         }
         return false;
     }
 
     private async playAudioCandidate(
         candidate: AudioCandidate,
+        sourceType: AudioSourceType,
         id: string,
         bagKey: string,
         settings: ReaderSettings,
@@ -268,7 +271,7 @@ export class AudioPlayer {
         isCurrent: () => boolean,
     ): Promise<boolean> {
         try {
-            const audio = await this.createPlayableAudio(candidate, settings);
+            const audio = await this.createPlayableAudio(candidate, sourceType, settings);
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
             const played = await this.playPreparedAudio(audio, requestId, isCurrent);
             if (!played) return false;
@@ -279,9 +282,10 @@ export class AudioPlayer {
         }
     }
 
-    private createPlayableAudio(candidate: AudioCandidate, settings: ReaderSettings): Promise<HTMLAudioElement> | HTMLAudioElement {
-        return settings.audioViaBlob
-            ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
+    private createPlayableAudio(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings): Promise<HTMLAudioElement> | HTMLAudioElement {
+        const audioViaBlob = settings.audioViaBlob && !shouldPreferDirectAudioPlayback(sourceType);
+        return audioViaBlob
+            ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob)
             : this.createAudioElement(candidate.url);
     }
 
@@ -585,6 +589,14 @@ function directAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] |
     if (!value) return [];
     if (typeof value === 'string') return findAudioUrlsInString(value, sourceUrl);
     return structuredAudioUrlsForValue(value, sourceUrl);
+}
+
+function shouldPreferDirectAudioPlayback(sourceType: AudioSourceType): boolean {
+    if (!BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES.has(sourceType)) return false;
+    if (typeof navigator === 'undefined') return false;
+    const userAgent = navigator.userAgent ?? '';
+    return /iPad|iPhone|iPod/i.test(userAgent)
+        || (/Macintosh/i.test(userAgent) && /Mac/i.test(navigator.platform ?? '') && (navigator.maxTouchPoints ?? 0) > 1);
 }
 
 function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
