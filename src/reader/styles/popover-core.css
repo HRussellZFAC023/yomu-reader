@@ -54,22 +54,23 @@
 
 .jpdb-reader-sheet-handle {
   display: none;
-  width: 72px;
-  height: 28px;
+  width: min(144px, 42vw);
+  height: 36px;
   border-radius: 999px;
   background: transparent;
-  margin: -4px auto 6px;
+  margin: -6px auto 8px;
   cursor: grab;
   touch-action: none;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 .jpdb-reader-sheet-handle::before {
   content: "";
   display: block;
-  width: 42px;
+  width: 46px;
   height: 5px;
   border-radius: 999px;
-  margin: 11px auto 0;
+  margin: 15px auto 0;
   background: var(--jpdb-reader-faint);
 }
 .jpdb-reader-sheet-handle:active {

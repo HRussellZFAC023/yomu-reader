@@ -1,4 +1,14 @@
 import type { ReaderSettings } from './types';
+import { gmStorageGetSync, gmStorageSetSync } from './storage';
+
+export const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
+
+const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+const MIN_SHEET_HEIGHT_PX = 180;
+const SHEET_DISMISS_OVERSHOOT_PX = 72;
+const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+const SHEET_TAP_MOVEMENT_PX = 8;
+const SHEET_KEYBOARD_STEP_PX = 48;
 
 export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
     const popover = document.createElement('div');
@@ -45,25 +55,42 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     if (popover.dataset.jpdbReaderSheetHandleInstalled === 'true') return;
     popover.dataset.jpdbReaderSheetHandleInstalled = 'true';
 
+    let viewportHeight = 0;
+    let sheetHeight = 0;
+    let startHeight = 0;
+    let rawDragHeight = 0;
+    const isFullHeight = (): boolean => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle: HTMLElement): void => {
         handle.setAttribute('role', 'button');
         handle.setAttribute('tabindex', '0');
-        handle.setAttribute('aria-label', 'Drag up to expand, drag down to collapse, or tap to expand');
-        handle.setAttribute('aria-expanded', String(popover.classList.contains('jpdb-reader-sheet-expanded')));
+        handle.setAttribute('aria-label', 'Drag to resize lookup sheet, or tap to close');
+        handle.setAttribute('aria-expanded', String(isFullHeight()));
+        handle.setAttribute('aria-valuemin', String(sheetMinHeight(viewportHeight)));
+        handle.setAttribute('aria-valuemax', String(viewportHeight));
+        handle.setAttribute('aria-valuenow', String(Math.round(sheetHeight)));
     };
     const syncHandleState = (): void => {
         popover.querySelectorAll<HTMLElement>('.jpdb-reader-sheet-handle').forEach(syncHandle);
     };
-    syncHandleState();
-    if (typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(syncHandleState);
-        observer.observe(popover, { childList: true, subtree: true });
-    }
 
+    const applySheetHeight = (height: number, persist = false): void => {
+        const nextHeight = clampSheetHeight(height, viewportHeight);
+        sheetHeight = nextHeight;
+        popover.style.setProperty('--jpdb-reader-sheet-height', `${Math.round(nextHeight)}px`);
+        popover.classList.toggle('jpdb-reader-sheet-expanded', isFullHeight());
+        syncHandleState();
+        if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
+    };
     const applyViewportSize = (): void => {
-        const viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
+        const previousViewportHeight = viewportHeight;
+        viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
         popover.style.setProperty('--jpdb-reader-sheet-viewport-height', `${viewportHeight}px`);
-        popover.style.setProperty('--jpdb-reader-sheet-collapsed-height', `${Math.round(viewportHeight * 0.7)}px`);
+        popover.style.setProperty('--jpdb-reader-sheet-collapsed-height', `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
+        popover.style.setProperty('--jpdb-reader-sheet-min-height', `${sheetMinHeight(viewportHeight)}px`);
+        const ratio = previousViewportHeight > 0 && sheetHeight > 0
+            ? sheetHeight / previousViewportHeight
+            : readSheetHeightRatio();
+        applySheetHeight(viewportHeight * ratio);
     };
     const clearSheetPositionStyles = (): void => {
         popover.style.removeProperty('left');
@@ -78,13 +105,20 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     const clearDragStyles = (): void => {
         popover.style.transform = '';
         popover.style.removeProperty('--jpdb-reader-sheet-drag-up');
+        popover.classList.remove('jpdb-reader-sheet-resizing');
     };
     const resetSheetLayout = (): void => {
-        applyViewportSize();
         clearSheetPositionStyles();
+        applyViewportSize();
         clearDragStyles();
     };
     resetSheetLayout();
+    syncHandleState();
+    let handleObserver: MutationObserver | undefined;
+    if (typeof MutationObserver !== 'undefined') {
+        handleObserver = new MutationObserver(syncHandleState);
+        handleObserver.observe(popover, { childList: true, subtree: true });
+    }
 
     const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => {
         if (!(event instanceof Element)) return null;
@@ -105,16 +139,9 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     let activeHandle: HTMLElement | null = null;
 
     const reset = () => {
-        popover.style.transition = 'transform .16s ease';
+        popover.style.transition = 'height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease';
         clearDragStyles();
         window.setTimeout(() => { popover.style.transition = ''; }, 180);
-    };
-    const setExpanded = (expanded: boolean) => {
-        popover.classList.toggle('jpdb-reader-sheet-expanded', expanded);
-        syncHandleState();
-    };
-    const toggleExpanded = () => {
-        setExpanded(!popover.classList.contains('jpdb-reader-sheet-expanded'));
     };
     const cleanupPointerListeners = () => {
         document.removeEventListener('pointermove', handlePointerMove, true);
@@ -140,41 +167,31 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
             // Document-level listeners keep the drag alive when capture is unavailable.
         }
     };
-    const finish = (toggleOnTap = false) => {
+    const finish = (closeOnTap = false) => {
         if (!dragging) return;
-        const delta = lastY - startY;
-        const wasExpanded = popover.classList.contains('jpdb-reader-sheet-expanded');
         const wasMoved = moved;
         const handle = activeHandle;
+        const finishHeight = rawDragHeight;
         dragging = false;
         moved = false;
         activeInput = null;
         activeHandle = null;
+        popover.classList.remove('jpdb-reader-sheet-resizing');
         cleanupPointerListeners();
         cleanupTouchListeners();
         releasePointerCapture(handle, pointerId);
 
-        if (!wasMoved && toggleOnTap) {
+        if (!wasMoved && closeOnTap) {
             suppressNextHandleClick = true;
-            toggleExpanded();
-            reset();
-            return;
-        }
-        if (wasMoved) suppressNextHandleClick = true;
-        if (delta <= -56) {
-            setExpanded(true);
-            reset();
-            return;
-        }
-        if (wasExpanded && delta >= 56) {
-            setExpanded(false);
-            reset();
-            return;
-        }
-        if (!wasExpanded && delta >= 110) {
             onDismiss();
             return;
         }
+        if (wasMoved) suppressNextHandleClick = true;
+        if (wasMoved && finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
+            onDismiss();
+            return;
+        }
+        if (wasMoved) applySheetHeight(finishHeight, true);
         reset();
     };
     const cancelDrag = () => {
@@ -190,25 +207,23 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     };
     const updateDrag = (clientY: number): void => {
         lastY = clientY;
-        const delta = lastY - startY;
-        if (Math.abs(delta) > 8) moved = true;
-        if (delta < 0 && !popover.classList.contains('jpdb-reader-sheet-expanded')) {
-            popover.style.transform = '';
-            popover.style.setProperty('--jpdb-reader-sheet-drag-up', `${Math.abs(delta)}px`);
-            return;
-        }
-        popover.style.removeProperty('--jpdb-reader-sheet-drag-up');
-        popover.style.transform = `translateY(${Math.max(0, delta)}px)`;
+        const delta = startY - lastY;
+        rawDragHeight = startHeight + delta;
+        if (Math.abs(lastY - startY) > SHEET_TAP_MOVEMENT_PX) moved = true;
+        applySheetHeight(rawDragHeight);
     };
     const beginDrag = (handle: HTMLElement, clientY: number, input: 'pointer' | 'touch'): boolean => {
         if (dragging || activeInput) return false;
         startY = clientY;
         lastY = clientY;
+        startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
+        rawDragHeight = startHeight;
         dragging = true;
         moved = false;
         activeInput = input;
         activeHandle = handle;
         popover.style.transition = '';
+        popover.classList.add('jpdb-reader-sheet-resizing');
         return true;
     };
     const handlePointerMove = (event: PointerEvent) => {
@@ -222,7 +237,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         event.preventDefault();
         event.stopPropagation();
         lastY = event.clientY;
-        finish();
+        finish(true);
     };
     const handlePointerCancel = (event: PointerEvent) => {
         if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
@@ -271,6 +286,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         cleanupPointerListeners();
         cleanupTouchListeners();
         viewportController.abort();
+        handleObserver?.disconnect();
         disposeObserver?.disconnect();
     };
     disposeObserver = new MutationObserver(() => {
@@ -289,7 +305,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
             suppressNextHandleClick = false;
             return;
         }
-        toggleExpanded();
+        onDismiss();
     });
     popover.addEventListener('pointerdown', event => {
         const handle = getHandleFromEvent(event.target);
@@ -324,7 +340,13 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             event.stopPropagation();
-            toggleExpanded();
+            onDismiss();
+        }
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            event.stopPropagation();
+            applySheetHeight(sheetHeight + (event.key === 'ArrowUp' ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
+            reset();
         }
         if (event.key === 'Escape') onDismiss();
     });
@@ -340,4 +362,30 @@ function shouldUseSheet(settings: ReaderSettings): boolean {
     if (settings.popupMode === 'sheet') return true;
     if (settings.popupMode === 'popover') return false;
     return window.innerWidth <= 768 || matchMedia('(pointer: coarse)').matches;
+}
+
+function sheetMinHeight(viewportHeight: number): number {
+    if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
+    return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
+}
+
+function restoredSheetHeight(viewportHeight: number): number {
+    return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
+}
+
+function clampSheetHeight(height: number, viewportHeight: number): number {
+    if (viewportHeight <= 0) return Math.max(MIN_SHEET_HEIGHT_PX, Math.round(height));
+    const minHeight = sheetMinHeight(viewportHeight);
+    return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
+}
+
+function readSheetHeightRatio(): number {
+    const value = gmStorageGetSync<number>(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+    return Number.isFinite(value) && value > 0 && value <= 1 ? value : DEFAULT_SHEET_HEIGHT_RATIO;
+}
+
+function storeSheetHeightRatio(height: number, viewportHeight: number): void {
+    if (viewportHeight <= 0) return;
+    const ratio = Math.max(0, Math.min(1, height / viewportHeight));
+    gmStorageSetSync(SHEET_HEIGHT_STORAGE_KEY, Number(ratio.toFixed(4)));
 }
