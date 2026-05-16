@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.12
+// @version      0.4.13
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -2565,7 +2565,7 @@
     return false;
   }
   function shouldSuppressRubyAtAncestor(element2) {
-    return DISPLAY_HEADING_RE.test(element2.tagName) || isClippedLineBox(element2);
+    return element2.hasAttribute("data-jpdb-reader-suppress-ruby") || DISPLAY_HEADING_RE.test(element2.tagName) || isClippedLineBox(element2);
   }
   function isClippedLineBox(element2) {
     const style = getComputedStyle(element2);
@@ -12270,7 +12270,7 @@ ${entry.reading}`;
                             data-external="false"
                         >
                             <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml$1(compound.term)}</span>
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB" data-jpdb-reader-suppress-ruby>${escapeHtml$1(compound.term)}</span>
                                 ${compound.reading && compound.reading !== compound.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml$1(compound.reading)}</span>` : ""}
                             </span>
                         </a>
@@ -12302,7 +12302,7 @@ ${entry.reading}`;
                             data-external="false"
                         >
                             <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml$1(entry.term)}</span>
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB" data-jpdb-reader-suppress-ruby>${escapeHtml$1(entry.term)}</span>
                                 ${entry.reading && entry.reading !== entry.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
                             </span>
                         </a>

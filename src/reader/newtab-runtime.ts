@@ -16,7 +16,7 @@ import {
     renderLocalDefinitionSourcesSection,
 } from './definition-source-render';
 import { DictionarySourceStateController } from './dictionary-source-state';
-import { appendToDocumentHead, escapeHtml, HAS_JAPANESE, setInnerHtml } from './dom';
+import { appendToDocumentHead, escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml } from './dom';
 import { DictionaryStyleController } from './dictionary-styles';
 import { ImmersionKitClient } from './immersion-kit';
 import { ImmersionPopoverController } from './immersion-popover-controller';
@@ -552,6 +552,9 @@ export class NewTabRuntime {
     private installKanjiLookupHandlers(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string): void {
         const signal = this.resetLookupHandlers();
         popover.addEventListener('click', event => {
+            if (this.handleLookupPopoverDictionaryLink(event, popover)) return;
+            if (this.handleLookupPopoverParsedWord(event, popover)) return;
+
             const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             if (!button || !popover.contains(button)) return;
             const action = button.dataset.action;
@@ -768,6 +771,9 @@ export class NewTabRuntime {
         const signal = this.resetLookupHandlers();
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => {
+            if (this.handleLookupPopoverDictionaryLink(event, popover)) return;
+            if (this.handleLookupPopoverParsedWord(event, popover)) return;
+
             const kanjiButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action="kanji"]');
             if (kanjiButton) {
                 event.preventDefault();
@@ -795,6 +801,36 @@ export class NewTabRuntime {
             if (button.dataset.action === 'add' && this.openDeckPickerForAdd(button, card, sentence)) return;
             void this.handleCardAction(button, card, sentence, anchor);
         }, { signal });
+    }
+
+    private handleLookupPopoverDictionaryLink(event: MouseEvent, popover: HTMLElement): boolean {
+        const link = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]');
+        if (!link || !popover.contains(link)) return false;
+        const query = link.dataset.dictionaryLookup?.trim() ?? '';
+        if (!HAS_JAPANESE.test(query)) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        void this.lookupText(link.dataset.dictionaryLookup ?? '', link.dataset.dictionaryReading || query, link, {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+        });
+        return true;
+    }
+
+    private handleLookupPopoverParsedWord(event: MouseEvent, popover: HTMLElement): boolean {
+        const word = (event.target as HTMLElement | null)?.closest<HTMLElement>('.jpdb-reader-word');
+        if (!word || !popover.contains(word)) return false;
+        const card = this.parser.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        if (!card) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        const sentence = word.dataset.sentence || readerWordSurfaceText(word) || card.spelling;
+        void this.showLookupCard(card, sentence, word, {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            previousNavigationEntry: this.lookupPreviousNavigationEntry('push-current'),
+        });
+        return true;
     }
 
     private toggleMiningControls(button: HTMLButtonElement): void {
