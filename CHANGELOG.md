@@ -21,6 +21,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Kept JPDB kanji fact items on one line when space allows.
 - Repaired prompt tapping in word mode so tapping the displayed word opens the dictionary popover instead of doing nothing.
 - Cleared stale parse markers across progressive popup renders so JPDB, Immersion Kit, and local sentences remain tokenized and clickable after details finish loading.
+- Made kanji taps inside the hosted new-tab popup open the full kanji panel with Settings-ordered sections instead of falling back to a plain one-character word lookup.
 - Tightened iPhone word-review spacing so the prompt, answer, Immersion Kit media, and five grading buttons no longer overlap or wrap awkwardly.
 - Reworked touch settings layout so phone and tablet use a bottom drawer, source rows do not overlap controls, and inactive tabs do not look selected after tapping.
 - Restored hosted mobile popup behavior: Add to Anki now uses the iOS/Android handoff without AnkiConnect preflights, popup sections collapse/expand normally, and bottom sheets recover their size after rotation.
