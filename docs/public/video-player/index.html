@@ -429,11 +429,14 @@
       function loadVideo(file) {
         if (!file) return;
         revokeObjectUrl();
-        objectUrl = URL.createObjectURL(file);
-        video.src = objectUrl;
-        video.load();
         stage.classList.add('has-video');
-        setStatus(file.name);
+        setStatus(`Opening ${file.name}...`);
+        objectUrl = URL.createObjectURL(file);
+        window.setTimeout(() => {
+          video.src = objectUrl;
+          video.load();
+          setStatus(file.name);
+        }, 0);
       }
 
       function handleFiles(files) {
@@ -446,7 +449,11 @@
         setStatus('Choose a browser-supported video file.');
       }
 
-      videoInput.addEventListener('change', () => handleFiles(videoInput.files || []));
+      videoInput.addEventListener('change', () => {
+        const files = Array.from(videoInput.files || []);
+        videoInput.value = '';
+        window.requestAnimationFrame(() => handleFiles(files));
+      });
       emptyOpen?.addEventListener('click', () => videoInput.click());
       themeToggle?.addEventListener('click', () => {
         const next = effectiveTheme() === 'dark' ? 'light' : 'dark';

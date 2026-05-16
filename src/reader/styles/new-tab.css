@@ -257,9 +257,20 @@
 }
 
 .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-study {
+  grid-template-rows: auto auto auto auto;
   align-content: center;
   gap: clamp(10px, 2vh, 18px);
   padding-bottom: clamp(42px, 9vh, 96px);
+}
+
+.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-answer {
+  min-height: 0;
+}
+
+.jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-reading {
+  max-width: min(620px, 100%);
+  font-size: clamp(20px, 3vw, 30px);
+  line-height: 1.16;
 }
 
 .jpdb-reader-newtab-answer,
@@ -1361,6 +1372,10 @@
     font-size: clamp(2rem, 10vw, 2.7rem);
   }
 
+  .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-reading {
+    font-size: clamp(18px, 5.4vw, 22px);
+  }
+
   .jpdb-reader-newtab-reading {
     font-size: clamp(1.1rem, 7vw, 1.65rem);
   }
@@ -1374,6 +1389,13 @@
     grid-template-rows: auto auto auto auto;
     gap: 12px;
     align-content: start;
+  }
+
+  .jpdb-reader-newtab-setup-mode.jpdb-reader-newtab-revealed:not(
+      .jpdb-reader-newtab-kanji-mode
+    )
+    .jpdb-reader-newtab-study {
+    align-content: center;
   }
 
   .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)

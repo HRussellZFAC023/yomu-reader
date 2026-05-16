@@ -371,6 +371,7 @@ export class SubtitlePlayerController {
         });
         this.observer.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions());
+        document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('fullscreenchange', () => {
             this.fullscreen = Boolean(document.fullscreenElement);
@@ -1233,6 +1234,7 @@ export class SubtitlePlayerController {
     private shouldAutoIdleControls(): boolean {
         const settings = this.options.getSettings();
         if (!this.hasAutoIdleMode(settings)) return false;
+        if (isCoarsePointerDevice()) return false;
         if (!this.canIdleSubtitleControls()) return false;
         return !this.video || this.videoIsLargeEnoughForIdleControls();
     }
@@ -2786,7 +2788,12 @@ function hasSubtitlePlaybackSurface(video: HTMLVideoElement | undefined, cues: S
 }
 
 function shouldKeepIdleControlClass(root: HTMLElement, settings: ReaderSettings): boolean {
+    if (isCoarsePointerDevice()) return false;
     return settings.subtitleControlsMode === 'auto' && root.classList.contains('jpdb-subtitle-controls-idle');
+}
+
+function isCoarsePointerDevice(): boolean {
+    return window.matchMedia?.('(pointer: coarse)').matches ?? false;
 }
 
 function trackLanguageLabel(track: SubtitleTrackOption): string {
