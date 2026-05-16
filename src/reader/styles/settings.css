@@ -79,14 +79,35 @@
   color: var(--jpdb-reader-accent-readable);
   background: var(--jpdb-reader-accent-soft);
 }
-.jpdb-reader-settings-tab:hover,
 .jpdb-reader-settings-tab:focus-visible {
   border-color: var(--jpdb-reader-accent);
-  box-shadow: 0 8px 18px
-    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
-  color: var(--jpdb-reader-accent-readable);
-  transform: translateY(-0.25rem);
-  outline: none;
+  outline: 2px solid var(--jpdb-reader-accent-soft);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-settings-tab:hover {
+    border-color: var(--jpdb-reader-accent);
+    box-shadow: 0 8px 18px
+      color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
+    color: var(--jpdb-reader-accent-readable);
+    transform: translateY(-0.16rem);
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  .jpdb-reader-settings-tab:hover {
+    border-color: var(--jpdb-reader-border);
+    background: var(--jpdb-reader-surface);
+    color: var(--jpdb-reader-muted);
+    box-shadow: none;
+    transform: none;
+  }
+
+  .jpdb-reader-settings-tab[aria-selected="true"],
+  .jpdb-reader-settings-tab[aria-selected="true"]:hover {
+    border-color: var(--jpdb-reader-accent);
+    color: var(--jpdb-reader-accent-readable);
+    background: var(--jpdb-reader-accent-soft);
+  }
 }
 .jpdb-reader-settings-tab:active {
   transform: scale(0.98);
@@ -706,7 +727,7 @@
   transform: scale(0.98);
 }
 
-@media (min-width: 700px) and (max-width: 1180px), (pointer: coarse) and (min-width: 700px) {
+@media (min-width: 700px) and (max-width: 1180px) and (hover: hover) and (pointer: fine) {
   .jpdb-reader-settings {
     width: min(860px, calc(100vw - 44px));
     max-height: min(820px, calc(100vh - 44px));
@@ -755,6 +776,37 @@
 
   .jpdb-reader-recommended-item {
     grid-template-columns: minmax(0, 1fr) minmax(112px, 140px);
+  }
+}
+
+@media (pointer: coarse) and (min-width: 700px) {
+  .jpdb-reader-settings {
+    inset: auto 0 0 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    transform: none;
+    width: 100%;
+    max-height: 88vh;
+    max-height: 88svh;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .jpdb-reader-settings-head {
+    padding: 20px 24px 0;
+  }
+
+  .jpdb-reader-settings-tabs {
+    padding: 0 24px 10px;
+  }
+
+  .jpdb-reader-settings-scroll {
+    padding: 0 24px 108px;
+  }
+
+  .jpdb-reader-settings .grid {
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   }
 }
 
@@ -808,8 +860,9 @@
   .jpdb-reader-dictionary-row.compact,
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 42px minmax(0, 1fr) max-content;
-    align-items: start;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    align-items: center;
+    gap: 8px;
   }
 
   .jpdb-reader-dictionary-row > .jpdb-reader-order-toggle,
@@ -822,7 +875,7 @@
   .jpdb-reader-dictionary-row > .jpdb-reader-field-display,
   .jpdb-reader-audio-source-choice,
   .jpdb-reader-lookup-link-row > input[name$=".label"] {
-    grid-column: 2;
+    grid-column: 2 / -1;
     grid-row: 1;
   }
 
@@ -836,25 +889,36 @@
   }
 
   .jpdb-reader-row-order-tools {
-    grid-column: 3;
-    grid-row: 1;
+    grid-column: 2;
+    grid-row: 3;
+    justify-content: flex-start;
+    min-width: 0;
   }
 
   .jpdb-reader-row-remove-tools {
     grid-column: 3;
-    grid-row: 2;
+    grid-row: 3;
     align-self: start;
-  }
-
-  .jpdb-reader-dictionary-row.compact > .jpdb-reader-row-remove-tools {
-    grid-row: 1;
+    justify-content: flex-end;
   }
 
   .jpdb-reader-audio-source-row .jpdb-reader-row-tools {
-    grid-column: 1 / -1;
+    grid-column: auto;
     justify-content: flex-start;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-width: 0;
+  }
+
+  .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
+    grid-column: 3;
+    grid-row: 3;
   }
 
   .jpdb-reader-audio-source-row .jpdb-reader-icon-mini {
@@ -867,7 +931,6 @@
   }
 
   .jpdb-reader-lookup-link-row .jpdb-reader-row-tools {
-    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 
