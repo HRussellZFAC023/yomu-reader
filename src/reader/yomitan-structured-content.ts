@@ -12,6 +12,10 @@ interface StructuredSearchReference {
     reading: string;
 }
 
+interface StructuredKanjiReference {
+    kanji: string;
+}
+
 interface StructuredImageMetrics {
     invAspectRatio: number;
     usedWidth: number;
@@ -321,16 +325,19 @@ interface StructuredLinkModel {
     href: string;
     external: boolean;
     searchReference: ReturnType<typeof parseStructuredSearchReference>;
+    kanjiReference: ReturnType<typeof parseStructuredKanjiReference>;
 }
 
 function structuredLinkModel(record: Record<string, unknown>, context: StructuredRenderContext): StructuredLinkModel {
     const rawHref = typeof record.href === 'string' ? record.href : '';
     const searchReference = structuredLinkSearchReference(rawHref, context);
-    const href = structuredLinkHref(rawHref, searchReference);
+    const kanjiReference = structuredLinkKanjiReference(rawHref, context);
+    const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
     return {
         href,
         external: isExternalStructuredHref(href),
         searchReference,
+        kanjiReference,
     };
 }
 
@@ -338,8 +345,18 @@ function structuredLinkSearchReference(rawHref: string, context: StructuredRende
     return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
 }
 
-function structuredLinkHref(rawHref: string, searchReference: StructuredSearchReference | null): string {
-    return searchReference ? '#jpdb-reader-dictionary-lookup' : normalizeStructuredHref(rawHref);
+function structuredLinkKanjiReference(rawHref: string, context: StructuredRenderContext): StructuredKanjiReference | null {
+    return context.internalSearchLinks ? parseStructuredKanjiReference(rawHref) : null;
+}
+
+function structuredLinkHref(
+    rawHref: string,
+    searchReference: StructuredSearchReference | null,
+    kanjiReference: StructuredKanjiReference | null,
+): string {
+    if (searchReference) return '#jpdb-reader-dictionary-lookup';
+    if (kanjiReference) return '#jpdb-reader-kanji-lookup';
+    return normalizeStructuredHref(rawHref);
 }
 
 function isExternalStructuredHref(href: string): boolean {
@@ -351,12 +368,17 @@ function structuredLinkAttrs(link: StructuredLinkModel, dictionary: string, lang
         ' class="gloss-link"',
         ` data-external="${link.external}"`,
         dictionaryAttribute(dictionary),
+        kanjiReferenceActionAttribute(link),
         searchReferenceQueryAttribute(link),
         searchReferenceReadingAttribute(link),
         hrefAttribute(link.href),
         externalLinkAttributes(link.external),
         langAttribute(lang),
     ].join('');
+}
+
+function kanjiReferenceActionAttribute(link: StructuredLinkModel): string {
+    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : '';
 }
 
 function dictionaryAttribute(dictionary: string): string {
@@ -502,6 +524,27 @@ function parseStructuredSearchReference(href: string): StructuredSearchReference
     if (!href.startsWith('?')) return null;
     const params = structuredSearchParams(href);
     return params ? structuredSearchReferenceFromParams(params) : null;
+}
+
+function parseStructuredKanjiReference(href: string): StructuredKanjiReference | null {
+    const match = /^(?:https:\/\/jpdb\.io)?\/kanji\/([^/?#]+)/i.exec(href.trim());
+    if (!match) return null;
+    const value = decodeStructuredPathSegment(match[1]);
+    const kanji = Array.from(value).find(isStructuredKanjiCharacter) ?? '';
+    return kanji ? { kanji } : null;
+}
+
+function decodeStructuredPathSegment(value: string): string {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
+}
+
+function isStructuredKanjiCharacter(value: string): boolean {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 0x3400 && code <= 0x9fff;
 }
 
 function structuredSearchParams(href: string): URLSearchParams | null {

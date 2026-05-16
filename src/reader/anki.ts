@@ -563,17 +563,27 @@ function safeAnkiImageName(card: JPDBCard): string {
 
 function isMobileUserAgent(): boolean {
     const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
-    return /iPad|iPhone|iPod|Android/i.test(userAgent);
+    return /iPad|iPhone|iPod|Android/i.test(userAgent) || isIpadOSDesktopUserAgent();
 }
 
 function isMobileAnkiHandoffEnvironment(): boolean {
     const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
     return /iPad|iPhone|iPod/i.test(userAgent)
+        || isIpadOSDesktopUserAgent()
         || (/Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent));
 }
 
 export function canUseMobileAnkiHandoff(settings: ReaderSettings): boolean {
     return settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
+}
+
+function isIpadOSDesktopUserAgent(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const maxTouchPoints = navigator.maxTouchPoints ?? 0;
+    const platform = navigator.platform ?? '';
+    return maxTouchPoints > 1
+        && /Mac/i.test(platform)
+        && /Macintosh/i.test(navigator.userAgent ?? '');
 }
 
 function openMobileAnkiHandoff(note: AnkiNote): boolean {

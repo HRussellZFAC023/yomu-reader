@@ -851,7 +851,8 @@ export class ReaderApp {
                 event.stopPropagation();
                 return;
             }
-            if (!this.settings.lookupOnClick) return;
+            const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
+            if (!this.settings.lookupOnClick && !insideReaderPopup) return;
 
             event.preventDefault();
             event.stopPropagation();

@@ -42,22 +42,28 @@ export function placePopoverAtViewportPosition(popover: HTMLElement, rect: DOMRe
 }
 
 export function installSheetHandle(popover: HTMLElement, onDismiss: () => void): void {
-    const getHandle = (): HTMLElement | null => popover.querySelector<HTMLElement>('.jpdb-reader-sheet-handle');
-    const syncHandleState = (): void => {
-        const handle = getHandle();
-        if (!handle) return;
+    const syncHandle = (handle: HTMLElement): void => {
         handle.setAttribute('role', 'button');
         handle.setAttribute('tabindex', '0');
         handle.setAttribute('aria-label', 'Drag up to expand, drag down to collapse, or tap to expand');
         handle.setAttribute('aria-expanded', String(popover.classList.contains('jpdb-reader-sheet-expanded')));
     };
+    const syncHandleState = (): void => {
+        popover.querySelectorAll<HTMLElement>('.jpdb-reader-sheet-handle').forEach(syncHandle);
+    };
     syncHandleState();
+    if (typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver(syncHandleState);
+        observer.observe(popover, { childList: true, subtree: true });
+    }
 
     const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => {
         if (!(event instanceof Element)) return null;
         const handle = event.closest('.jpdb-reader-sheet-handle');
         if (!handle) return null;
-        return popover.contains(handle) ? handle as HTMLElement : null;
+        if (!popover.contains(handle)) return null;
+        syncHandle(handle as HTMLElement);
+        return handle as HTMLElement;
     };
     let startY = 0;
     let lastY = 0;
@@ -79,6 +85,11 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     const toggleExpanded = () => {
         setExpanded(!popover.classList.contains('jpdb-reader-sheet-expanded'));
     };
+    const cleanupPointerListeners = () => {
+        document.removeEventListener('pointermove', handlePointerMove, true);
+        document.removeEventListener('pointerup', handlePointerUp, true);
+        document.removeEventListener('pointercancel', handlePointerCancel, true);
+    };
     const finish = () => {
         if (!dragging) return;
         const delta = lastY - startY;
@@ -86,6 +97,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         const handle = activeHandle;
         dragging = false;
         activeHandle = null;
+        cleanupPointerListeners();
         handle?.releasePointerCapture?.(pointerId);
 
         if (delta >= 110) {
@@ -104,32 +116,19 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         }
         reset();
     };
-
-    popover.addEventListener('click', event => {
-        const handle = getHandleFromEvent(event.target);
-        if (!handle) return;
-        event.preventDefault();
-        if (moved) {
-            moved = false;
-            return;
-        }
-        toggleExpanded();
-    });
-    popover.addEventListener('pointerdown', event => {
-        const handle = getHandleFromEvent(event.target);
-        if (!handle) return;
-        if (event.button !== undefined && event.button !== 0) return;
-        startY = event.clientY;
-        lastY = event.clientY;
-        pointerId = event.pointerId;
-        dragging = true;
-        moved = false;
-        activeHandle = handle;
-        popover.style.transition = '';
-        handle.setPointerCapture?.(event.pointerId);
-    });
-    popover.addEventListener('pointermove', event => {
+    const cancelDrag = () => {
         if (!dragging) return;
+        dragging = false;
+        moved = false;
+        cleanupPointerListeners();
+        activeHandle?.releasePointerCapture?.(pointerId);
+        activeHandle = null;
+        reset();
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+        if (!dragging || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
         lastY = event.clientY;
         const delta = lastY - startY;
         if (Math.abs(delta) > 8) moved = true;
@@ -140,20 +139,54 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         }
         popover.style.removeProperty('--jpdb-reader-sheet-drag-up');
         popover.style.transform = `translateY(${Math.max(0, delta)}px)`;
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+        if (!dragging || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        lastY = event.clientY;
+        finish();
+    };
+    const handlePointerCancel = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return;
+        cancelDrag();
+    };
+
+    popover.addEventListener('click', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (moved) {
+            moved = false;
+            return;
+        }
+        toggleExpanded();
     });
-    popover.addEventListener('pointerup', finish);
-    popover.addEventListener('pointercancel', () => {
-        dragging = false;
+    popover.addEventListener('pointerdown', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        startY = event.clientY;
+        lastY = event.clientY;
+        pointerId = event.pointerId;
+        dragging = true;
         moved = false;
-        activeHandle?.releasePointerCapture?.(pointerId);
-        activeHandle = null;
-        reset();
+        activeHandle = handle;
+        popover.style.transition = '';
+        handle.setPointerCapture?.(event.pointerId);
+        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
+        document.addEventListener('pointerup', handlePointerUp, true);
+        document.addEventListener('pointercancel', handlePointerCancel, true);
     });
     popover.addEventListener('keydown', event => {
         const handle = getHandleFromEvent(event.target);
         if (!handle) return;
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
+            event.stopPropagation();
             toggleExpanded();
         }
         if (event.key === 'Escape') onDismiss();

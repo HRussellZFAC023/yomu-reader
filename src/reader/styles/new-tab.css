@@ -381,6 +381,11 @@
   visibility: visible;
 }
 
+.jpdb-reader-newtab-answer:has(.jpdb-reader-newtab-kanji-answer) {
+  width: 100%;
+  max-width: 100%;
+}
+
 .jpdb-reader-newtab-reading {
   max-width: 100%;
   width: 100%;
@@ -542,6 +547,7 @@
   justify-items: center;
   gap: clamp(18px, 3vw, 28px);
   justify-self: center;
+  margin-inline: auto;
   margin-block: clamp(4px, 1.4vh, 14px) clamp(12px, 2.8vh, 28px);
 }
 
@@ -865,9 +871,9 @@
   background: transparent;
 }
 
-.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings span,
-.jpdb-reader-newtab-kanji-vocab span,
-.jpdb-reader-newtab-kanji-vocab button {
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > span,
+.jpdb-reader-newtab-kanji-vocab > span,
+.jpdb-reader-newtab-kanji-vocab > button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -911,8 +917,8 @@
   gap: 0;
 }
 
-.jpdb-reader-newtab-kanji-vocab span,
-.jpdb-reader-newtab-kanji-vocab button {
+.jpdb-reader-newtab-kanji-vocab > span,
+.jpdb-reader-newtab-kanji-vocab > button {
   justify-content: flex-start;
   width: 100%;
   min-height: 0;
@@ -926,8 +932,25 @@
   text-align: left;
 }
 
+.jpdb-reader-newtab-kanji-vocab > button {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 10px;
+  white-space: normal;
+}
+
 .jpdb-reader-newtab-kanji-vocab strong {
+  min-width: 0;
   color: var(--jpdb-reader-text, #f2f4f8);
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-kanji-vocab-detail {
+  min-width: 0;
+  color: var(--jpdb-reader-muted, #aab2c0);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .jpdb-reader-newtab-kanji-mnemonic {

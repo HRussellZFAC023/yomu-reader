@@ -1,4 +1,4 @@
-import { DOCS_BASE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DISCORD_HANDLE, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
@@ -43,12 +43,12 @@ export function renderHelpLinksPanel(): string {
             <div class="jpdb-reader-help-support">
                 <div>
                     <div class="jpdb-reader-help-title" data-help-support-title>Support よむ</div>
-                    <p data-help-support-copy>Report bugs on GitHub, message Discord henry281199, or donate if you want to help cover maintenance and testing costs.</p>
+                    <p data-help-support-copy>Report bugs on GitHub issues, use Discord for quick questions, or open the support page for donation and project links.</p>
                 </div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
-                    <a class="jpdb-reader-btn" href="https://paypal.me/HenryRussell163" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
-                    <span class="jpdb-reader-help-discord" data-help-link="discord">Discord: henry281199</span>
+                    <a class="jpdb-reader-btn" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
+                    <button class="jpdb-reader-btn jpdb-reader-help-discord" type="button" data-action="copy-discord-handle" data-help-link="discord" data-discord-handle="${DISCORD_HANDLE}">Discord: ${DISCORD_HANDLE}</button>
                 </div>
             </div>
         </div>
@@ -1015,10 +1015,15 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
     panel.querySelector<HTMLElement>('[data-help-links-title]')?.replaceChildren(text('helpLinksTitle'));
     panel.querySelector<HTMLElement>('[data-help-links-copy]')?.replaceChildren(text('helpLinksCopy'));
+    panel.querySelector<HTMLElement>('[data-help-support-title]')?.replaceChildren(text('helpSupportTitle'));
+    panel.querySelector<HTMLElement>('[data-help-support-copy]')?.replaceChildren(text('helpSupportCopy'));
     panel.querySelector<HTMLElement>('[data-help-link="video-player"]')?.replaceChildren(text('videoPlayer'));
     panel.querySelector<HTMLElement>('[data-help-link="new-tab"]')?.replaceChildren(text('newTabPage'));
     panel.querySelector<HTMLElement>('[data-help-link="docs"]')?.replaceChildren(text('docs'));
     panel.querySelector<HTMLElement>('[data-help-link="support"]')?.replaceChildren(text('help'));
+    panel.querySelector<HTMLElement>('[data-help-link="issues"]')?.replaceChildren(text('issues'));
+    panel.querySelector<HTMLElement>('[data-help-link="donate"]')?.replaceChildren(text('donate'));
+    panel.querySelector<HTMLElement>('[data-help-link="discord"]')?.replaceChildren(`Discord: ${DISCORD_HANDLE}`);
 }
 
 export function renderReviewShortcutInputs(settings: ReaderSettings): string {

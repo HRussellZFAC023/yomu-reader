@@ -2,7 +2,7 @@ import { AudioPlayer } from './audio';
 import { AnkiConnectClient, canUseMobileAnkiHandoff } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
-import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
+import { DISCORD_HANDLE, NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
 import { setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { Logger, loggingSettingsSummary } from './logger';
@@ -552,6 +552,12 @@ export class SettingsDialogController {
         if (action === 'copy-newtab-url') {
             await copyText(NEW_TAB_PAGE_URL);
             this.dependencies.toast('New tab address copied.');
+            return true;
+        }
+        if (action === 'copy-discord-handle') {
+            await copyText(DISCORD_HANDLE);
+            this.dependencies.toast('Discord handle copied.');
+            setStatus('Discord handle copied.');
             return true;
         }
         setStatus('');
