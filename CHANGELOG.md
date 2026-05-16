@@ -14,6 +14,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 - Made JPDB API deck cards load deterministically in the hosted new tab so the review total no longer changes randomly on refresh.
 - Tightened the new-tab kanji reveal layout so the reference and drawing panels align cleanly, and removed the repeated lower JPDB detail card stack.
 - Tightened iPhone word-review spacing so the prompt, answer, Immersion Kit media, and five grading buttons no longer overlap or wrap awkwardly.
+- Reworked touch settings layout so phone and tablet use a bottom drawer, source rows do not overlap controls, and inactive tabs do not look selected after tapping.
 
 ## [0.4.10] - 2026-05-15
 
