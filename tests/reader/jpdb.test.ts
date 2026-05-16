@@ -32,7 +32,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
-import { installSheetHandle } from '../../src/reader/popover-shell';
+import { installSheetHandle, SHEET_HEIGHT_STORAGE_KEY } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderKanjiOrigins, renderPitch, renderRtkInfo, summarizeLearnerGlossary } from '../../src/reader/popup-render';
@@ -408,7 +408,8 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-ocr-line .jpdb-reader-word { background: transparent !important; --jpdb-reader-word-underline: transparent; text-decoration: none !important;');
     });
 
-    it('expands sheet popovers when dragging the handle upward', () => {
+    it('resizes sheet popovers continuously when dragging the handle', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
         popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
@@ -426,18 +427,21 @@ describe('reader helpers', () => {
         handle.dispatchEvent(down);
         handle.dispatchEvent(move);
 
-        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-drag-up')).toBe('80px');
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('618px');
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-drag-up')).toBe('');
         expect(popover.style.transform).toBe('');
 
         handle.dispatchEvent(up);
 
-        expect(popover.classList.contains('jpdb-reader-sheet-expanded')).toBe(true);
-        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-drag-up')).toBe('');
-        expect(handle.getAttribute('aria-expanded')).toBe('true');
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('618px');
+        expect(handle.getAttribute('aria-valuenow')).toBe('618');
+        expect(localStorage.getItem(SHEET_HEIGHT_STORAGE_KEY)).toBe('0.8047');
         expect(dismiss).not.toHaveBeenCalled();
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
-    it('dismisses sheet popovers when dragging the handle downward', () => {
+    it('dismisses sheet popovers when tapping the handle', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
         popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
@@ -450,16 +454,15 @@ describe('reader helpers', () => {
         installSheetHandle(popover, dismiss);
 
         const down = Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 120, pointerId: 9 });
-        const move = Object.assign(new Event('pointermove', { bubbles: true }), { clientY: 248, pointerId: 9 });
-        const up = Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 248, pointerId: 9 });
+        const up = Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 120, pointerId: 9 });
         handle.dispatchEvent(down);
-        handle.dispatchEvent(move);
         handle.dispatchEvent(up);
 
         expect(dismiss).toHaveBeenCalledTimes(1);
     });
 
-    it('collapses expanded sheet popovers before dismissing on downward drags', () => {
+    it('resizes full-height sheet popovers downward without dismissing', () => {
+        localStorage.setItem(SHEET_HEIGHT_STORAGE_KEY, JSON.stringify(1));
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet jpdb-reader-sheet-expanded';
         popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
@@ -472,14 +475,17 @@ describe('reader helpers', () => {
         installSheetHandle(popover, dismiss);
 
         handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientY: 120, pointerId: 10 }));
-        document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 248, pointerId: 10 }));
-        document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientY: 248, pointerId: 10 }));
+        document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 320, pointerId: 10 }));
+        document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientY: 320, pointerId: 10 }));
 
         expect(popover.classList.contains('jpdb-reader-sheet-expanded')).toBe(false);
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('568px');
         expect(dismiss).not.toHaveBeenCalled();
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
-    it('expands sheet popovers through touch drag events on iPhone-style WebKit', () => {
+    it('resizes sheet popovers through touch drag events on iPhone-style WebKit', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
         popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
@@ -491,15 +497,17 @@ describe('reader helpers', () => {
 
         dispatchTouchEvent(handle, 'touchstart', 220, 3);
         dispatchTouchEvent(document, 'touchmove', 136, 3);
-        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-drag-up')).toBe('84px');
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('622px');
 
         dispatchTouchEvent(document, 'touchend', 136, 3);
 
-        expect(popover.classList.contains('jpdb-reader-sheet-expanded')).toBe(true);
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('622px');
         expect(dismiss).not.toHaveBeenCalled();
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
     it('resets sheet viewport sizing when the visual viewport changes', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
         const viewport = new EventTarget() as VisualViewport;
         Object.defineProperties(viewport, {
@@ -527,6 +535,7 @@ describe('reader helpers', () => {
             expect(popover.style.maxHeight).toBe('');
             expect(popover.style.getPropertyValue('--jpdb-reader-sheet-viewport-height')).toBe('640px');
             expect(popover.style.getPropertyValue('--jpdb-reader-sheet-collapsed-height')).toBe('448px');
+            expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('448px');
 
             popover.style.maxHeight = '220px';
             (viewport as unknown as { height: number }).height = 812;
@@ -535,13 +544,16 @@ describe('reader helpers', () => {
             expect(popover.style.maxHeight).toBe('');
             expect(popover.style.getPropertyValue('--jpdb-reader-sheet-viewport-height')).toBe('812px');
             expect(popover.style.getPropertyValue('--jpdb-reader-sheet-collapsed-height')).toBe('568px');
+            expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('568px');
         } finally {
             if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
             else delete (window as unknown as Record<string, unknown>).visualViewport;
+            localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         }
     });
 
     it('keeps sheet popover drags active after the pointer leaves the handle', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
         popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';
@@ -557,11 +569,13 @@ describe('reader helpers', () => {
         document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 136, pointerId: 12 }));
         document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientY: 136, pointerId: 12 }));
 
-        expect(popover.classList.contains('jpdb-reader-sheet-expanded')).toBe(true);
+        expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('622px');
         expect(dismiss).not.toHaveBeenCalled();
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
     it('restores sheet handle button state when popover content is re-rendered', async () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover jpdb-reader-sheet';
         popover.innerHTML = '<div class="jpdb-reader-sheet-handle"></div>';

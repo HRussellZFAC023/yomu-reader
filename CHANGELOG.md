@@ -8,6 +8,10 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+### Fixed
+
+- Made mobile lookup sheets resize continuously by dragging the handle, remember the chosen height for the next popup, and close when the handle is tapped.
+
 ## [0.4.11] - 2026-05-16
 
 ### Fixed
