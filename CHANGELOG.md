@@ -11,6 +11,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 ### Fixed
 
 - Made mobile lookup sheets resize continuously by dragging the handle, remember the chosen height for the next popup, and close when the handle is tapped.
+- Added the same pull-to-resize affordance to the mobile Settings drawer, with an independent remembered height.
 
 ## [0.4.11] - 2026-05-16
 

@@ -32,7 +32,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
-import { installSheetHandle, SHEET_HEIGHT_STORAGE_KEY } from '../../src/reader/popover-shell';
+import { installSettingsDrawerHandle, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderKanjiOrigins, renderPitch, renderRtkInfo, summarizeLearnerGlossary } from '../../src/reader/popup-render';
@@ -589,6 +589,45 @@ describe('reader helpers', () => {
         expect(handle?.getAttribute('role')).toBe('button');
         expect(handle?.getAttribute('tabindex')).toBe('0');
         expect(handle?.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('resizes the mobile settings drawer from its top handle and stores the chosen height', () => {
+        localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
+        const drawer = document.createElement('form');
+        drawer.className = 'jpdb-reader-settings';
+        drawer.innerHTML = `
+            <div class="jpdb-reader-settings-head">
+                <div class="jpdb-reader-settings-drag-handle"></div>
+                <h2>よむ Settings</h2>
+            </div>
+            <div class="jpdb-reader-settings-scroll"></div>
+            <div class="footer"></div>
+        `;
+        document.body.append(drawer);
+        const handle = drawer.querySelector<HTMLElement>('.jpdb-reader-settings-drag-handle')!;
+        handle.setPointerCapture = vi.fn();
+        handle.releasePointerCapture = vi.fn();
+
+        installSettingsDrawerHandle(drawer);
+
+        expect(drawer.style.getPropertyValue('--jpdb-reader-settings-drawer-height')).toBe('676px');
+        expect(handle.getAttribute('aria-valuenow')).toBe('676');
+
+        handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientY: 120, pointerId: 17 }));
+        document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 248, pointerId: 17 }));
+        document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientY: 248, pointerId: 17 }));
+
+        expect(drawer.style.getPropertyValue('--jpdb-reader-settings-drawer-height')).toBe('548px');
+        expect(handle.getAttribute('aria-valuenow')).toBe('548');
+        expect(localStorage.getItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY)).toBe('0.7135');
+        localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
+    });
+
+    it('renders a mobile settings drawer handle for resizing', () => {
+        const html = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        expect(html).toContain('jpdb-reader-settings-drag-handle');
+        expect(SETTINGS_CSS).toContain('--jpdb-reader-settings-drawer-height');
+        expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle');
     });
 
     it('leaves source summary clicks to native details toggling even when tracking is installed twice', () => {

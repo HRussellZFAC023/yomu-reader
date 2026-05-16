@@ -2,13 +2,19 @@ import type { ReaderSettings } from './types';
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
 
 export const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
+export const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 
 const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
 const MIN_SHEET_HEIGHT_PX = 180;
+const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
 const SHEET_DISMISS_OVERSHOOT_PX = 72;
 const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
 const SHEET_TAP_MOVEMENT_PX = 8;
 const SHEET_KEYBOARD_STEP_PX = 48;
+const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
+const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
 
 export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
     const popover = document.createElement('div');
@@ -144,11 +150,13 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
         window.setTimeout(() => { popover.style.transition = ''; }, 180);
     };
     const cleanupPointerListeners = () => {
+        if (typeof document === 'undefined') return;
         document.removeEventListener('pointermove', handlePointerMove, true);
         document.removeEventListener('pointerup', handlePointerUp, true);
         document.removeEventListener('pointercancel', handlePointerCancel, true);
     };
     const cleanupTouchListeners = () => {
+        if (typeof document === 'undefined') return;
         document.removeEventListener('touchmove', handleTouchMove, true);
         document.removeEventListener('touchend', handleTouchEnd, true);
         document.removeEventListener('touchcancel', handleTouchCancel, true);
@@ -358,6 +366,269 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
 }
 
+export function installSettingsDrawerHandle(drawer: HTMLElement): void {
+    if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === 'true') return;
+    drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = 'true';
+
+    let viewportHeight = 0;
+    let drawerHeight = 0;
+    let startHeight = 0;
+    let rawDragHeight = 0;
+    let startY = 0;
+    let lastY = 0;
+    let pointerId = 0;
+    let dragging = false;
+    let moved = false;
+    let activeInput: 'pointer' | 'touch' | null = null;
+    let touchId = 0;
+    let activeHandle: HTMLElement | null = null;
+    let suppressNextHandleClick = false;
+    const isFullHeight = (): boolean => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
+
+    const syncHandle = (handle: HTMLElement): void => {
+        handle.setAttribute('role', 'button');
+        handle.setAttribute('tabindex', '0');
+        handle.setAttribute('aria-label', 'Drag to resize Settings');
+        handle.setAttribute('aria-expanded', String(isFullHeight()));
+        handle.setAttribute('aria-valuemin', String(settingsDrawerMinHeight(viewportHeight)));
+        handle.setAttribute('aria-valuemax', String(viewportHeight));
+        handle.setAttribute('aria-valuenow', String(Math.round(drawerHeight)));
+    };
+    const syncHandleState = (): void => {
+        drawer.querySelectorAll<HTMLElement>('.jpdb-reader-settings-drag-handle').forEach(syncHandle);
+    };
+    const applyDrawerHeight = (height: number, persist = false): void => {
+        const nextHeight = clampDrawerHeight(height, viewportHeight, settingsDrawerMinHeight(viewportHeight));
+        drawerHeight = nextHeight;
+        drawer.style.setProperty('--jpdb-reader-settings-drawer-height', `${Math.round(nextHeight)}px`);
+        drawer.classList.toggle('jpdb-reader-settings-drawer-expanded', isFullHeight());
+        syncHandleState();
+        if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
+    };
+    const applyViewportSize = (): void => {
+        const previousViewportHeight = viewportHeight;
+        viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
+        drawer.style.setProperty('--jpdb-reader-settings-drawer-viewport-height', `${viewportHeight}px`);
+        drawer.style.setProperty('--jpdb-reader-settings-drawer-min-height', `${settingsDrawerMinHeight(viewportHeight)}px`);
+        const ratio = previousViewportHeight > 0 && drawerHeight > 0
+            ? drawerHeight / previousViewportHeight
+            : readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO);
+        applyDrawerHeight(viewportHeight * ratio);
+    };
+    const clearDragStyles = (): void => {
+        drawer.classList.remove('jpdb-reader-settings-drawer-resizing');
+    };
+    const reset = () => {
+        drawer.style.transition = 'height .16s ease, max-height .16s ease, border-radius .16s ease';
+        clearDragStyles();
+        window.setTimeout(() => { drawer.style.transition = ''; }, 180);
+    };
+    const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => {
+        if (!(event instanceof Element)) return null;
+        const handle = event.closest('.jpdb-reader-settings-drag-handle');
+        if (!handle || !drawer.contains(handle)) return null;
+        syncHandle(handle as HTMLElement);
+        return handle as HTMLElement;
+    };
+    const cleanupPointerListeners = () => {
+        if (typeof document === 'undefined') return;
+        document.removeEventListener('pointermove', handlePointerMove, true);
+        document.removeEventListener('pointerup', handlePointerUp, true);
+        document.removeEventListener('pointercancel', handlePointerCancel, true);
+    };
+    const cleanupTouchListeners = () => {
+        if (typeof document === 'undefined') return;
+        document.removeEventListener('touchmove', handleTouchMove, true);
+        document.removeEventListener('touchend', handleTouchEnd, true);
+        document.removeEventListener('touchcancel', handleTouchCancel, true);
+    };
+    const releasePointerCapture = (handle: HTMLElement | null, id: number): void => {
+        try {
+            handle?.releasePointerCapture?.(id);
+        } catch {
+        }
+    };
+    const setPointerCapture = (handle: HTMLElement, id: number): void => {
+        try {
+            handle.setPointerCapture?.(id);
+        } catch {
+        }
+    };
+    const updateDrag = (clientY: number): void => {
+        lastY = clientY;
+        const delta = startY - lastY;
+        rawDragHeight = startHeight + delta;
+        if (Math.abs(lastY - startY) > SETTINGS_DRAWER_TAP_MOVEMENT_PX) moved = true;
+        applyDrawerHeight(rawDragHeight);
+    };
+    const beginDrag = (handle: HTMLElement, clientY: number, input: 'pointer' | 'touch'): boolean => {
+        if (dragging || activeInput) return false;
+        startY = clientY;
+        lastY = clientY;
+        startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
+        rawDragHeight = startHeight;
+        dragging = true;
+        moved = false;
+        activeInput = input;
+        activeHandle = handle;
+        drawer.style.transition = '';
+        drawer.classList.add('jpdb-reader-settings-drawer-resizing');
+        return true;
+    };
+    const finish = () => {
+        if (!dragging) return;
+        const wasMoved = moved;
+        const handle = activeHandle;
+        const finishHeight = rawDragHeight;
+        dragging = false;
+        moved = false;
+        activeInput = null;
+        activeHandle = null;
+        cleanupPointerListeners();
+        cleanupTouchListeners();
+        releasePointerCapture(handle, pointerId);
+        if (wasMoved) {
+            suppressNextHandleClick = true;
+            applyDrawerHeight(finishHeight, true);
+        }
+        reset();
+    };
+    const cancelDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        moved = false;
+        activeInput = null;
+        cleanupPointerListeners();
+        cleanupTouchListeners();
+        releasePointerCapture(activeHandle, pointerId);
+        activeHandle = null;
+        reset();
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDrag(event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        lastY = event.clientY;
+        finish();
+    };
+    const handlePointerCancel = (event: PointerEvent) => {
+        if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        cancelDrag();
+    };
+    const changedTouch = (event: TouchEvent): Touch | null => {
+        for (const touch of Array.from(event.changedTouches)) {
+            if (touch.identifier === touchId) return touch;
+        }
+        return null;
+    };
+    const firstChangedTouch = (event: TouchEvent): Touch | null => event.changedTouches.item(0);
+    const handleTouchMove = (event: TouchEvent) => {
+        if (!dragging || activeInput !== 'touch') return;
+        const touch = changedTouch(event);
+        if (!touch) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDrag(touch.clientY);
+    };
+    const handleTouchEnd = (event: TouchEvent) => {
+        if (!dragging || activeInput !== 'touch') return;
+        const touch = changedTouch(event);
+        if (!touch) return;
+        event.preventDefault();
+        event.stopPropagation();
+        lastY = touch.clientY;
+        finish();
+    };
+    const handleTouchCancel = (event: TouchEvent) => {
+        if (activeInput !== 'touch' || !changedTouch(event)) return;
+        cancelDrag();
+    };
+    const handleViewportChange = () => {
+        if (dragging) cancelDrag();
+        drawer.style.transition = '';
+        applyViewportSize();
+        clearDragStyles();
+        syncHandleState();
+    };
+
+    applyViewportSize();
+    syncHandleState();
+
+    const viewportController = new AbortController();
+    let disposed = false;
+    let disposeObserver: MutationObserver | undefined;
+    const dispose = (): void => {
+        if (disposed) return;
+        disposed = true;
+        cleanupPointerListeners();
+        cleanupTouchListeners();
+        viewportController.abort();
+        disposeObserver?.disconnect();
+    };
+    disposeObserver = new MutationObserver(() => {
+        if (!drawer.isConnected) dispose();
+    });
+    if (document.documentElement) {
+        disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    drawer.addEventListener('click', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (suppressNextHandleClick) suppressNextHandleClick = false;
+    });
+    drawer.addEventListener('pointerdown', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle || activeInput) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!beginDrag(handle, event.clientY, 'pointer')) return;
+        pointerId = event.pointerId;
+        setPointerCapture(handle, event.pointerId);
+        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
+        document.addEventListener('pointerup', handlePointerUp, true);
+        document.addEventListener('pointercancel', handlePointerCancel, true);
+    });
+    drawer.addEventListener('touchstart', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle || activeInput) return;
+        const touch = firstChangedTouch(event);
+        if (!touch) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!beginDrag(handle, touch.clientY, 'touch')) return;
+        touchId = touch.identifier;
+        document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
+        document.addEventListener('touchend', handleTouchEnd, true);
+        document.addEventListener('touchcancel', handleTouchCancel, true);
+    }, { capture: true, passive: false });
+    drawer.addEventListener('keydown', event => {
+        const handle = getHandleFromEvent(event.target);
+        if (!handle) return;
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            event.stopPropagation();
+            applyDrawerHeight(drawerHeight + (event.key === 'ArrowUp' ? SETTINGS_DRAWER_KEYBOARD_STEP_PX : -SETTINGS_DRAWER_KEYBOARD_STEP_PX), true);
+            reset();
+        }
+    });
+
+    const viewportListenerOptions: AddEventListenerOptions = { passive: true, signal: viewportController.signal };
+    window.addEventListener('resize', handleViewportChange, viewportListenerOptions);
+    window.addEventListener('orientationchange', handleViewportChange, viewportListenerOptions);
+    window.visualViewport?.addEventListener?.('resize', handleViewportChange, viewportListenerOptions);
+    window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
+}
+
 function shouldUseSheet(settings: ReaderSettings): boolean {
     if (settings.popupMode === 'sheet') return true;
     if (settings.popupMode === 'popover') return false;
@@ -369,23 +640,47 @@ function sheetMinHeight(viewportHeight: number): number {
     return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
 }
 
+function settingsDrawerMinHeight(viewportHeight: number): number {
+    if (viewportHeight <= 0) return MIN_SETTINGS_DRAWER_HEIGHT_PX;
+    return Math.min(viewportHeight, MIN_SETTINGS_DRAWER_HEIGHT_PX, Math.max(220, Math.round(viewportHeight * 0.38)));
+}
+
 function restoredSheetHeight(viewportHeight: number): number {
     return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
 }
 
+function restoredSettingsDrawerHeight(viewportHeight: number): number {
+    return clampDrawerHeight(
+        viewportHeight * readHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO),
+        viewportHeight,
+        settingsDrawerMinHeight(viewportHeight),
+    );
+}
+
 function clampSheetHeight(height: number, viewportHeight: number): number {
-    if (viewportHeight <= 0) return Math.max(MIN_SHEET_HEIGHT_PX, Math.round(height));
-    const minHeight = sheetMinHeight(viewportHeight);
+    return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
+}
+
+function clampDrawerHeight(height: number, viewportHeight: number, minHeight: number): number {
+    if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
     return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
 }
 
 function readSheetHeightRatio(): number {
-    const value = gmStorageGetSync<number>(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
-    return Number.isFinite(value) && value > 0 && value <= 1 ? value : DEFAULT_SHEET_HEIGHT_RATIO;
+    return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
 }
 
 function storeSheetHeightRatio(height: number, viewportHeight: number): void {
+    storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
+}
+
+function readHeightRatio(storageKey: string, fallback: number): number {
+    const value = gmStorageGetSync<number>(storageKey, fallback);
+    return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
+}
+
+function storeHeightRatio(storageKey: string, height: number, viewportHeight: number): void {
     if (viewportHeight <= 0) return;
     const ratio = Math.max(0, Math.min(1, height / viewportHeight));
-    gmStorageSetSync(SHEET_HEIGHT_STORAGE_KEY, Number(ratio.toFixed(4)));
+    gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
 }
