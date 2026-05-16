@@ -100,9 +100,9 @@ function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: stri
                 <div data-jpdb-decks>
                     ${renderDeckControls(settings, [], Boolean(settings.apiKey.trim()))}
                 </div>
-                ${checkbox('jpdbMiningEnabled', 'Enable JPDB mining actions', settings.jpdbMiningEnabled)}
-                ${checkbox('addToForq', 'Also add mined cards to forq', settings.addToForq)}
-                ${checkbox('enableReviews', 'Enable review actions', settings.enableReviews)}
+                ${checkbox('jpdbMiningEnabled', 'Allow JPDB review/deck changes', settings.jpdbMiningEnabled)}
+                ${checkbox('addToForq', 'Also copy JPDB adds to forq', settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
+                ${checkbox('enableReviews', 'Show review buttons', settings.enableReviews)}
                 <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                     ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                 </div>
@@ -370,7 +370,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                 <legend>Anki</legend>
                 <div class="grid">
                     ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
-                    ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB', settings.ankiMineWithJpdb)}
+                    ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB', settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
                     ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
                     ${checkbox('ankiMobileHandoff', 'Use mobile Anki handoff when AnkiConnect is unavailable', settings.ankiMobileHandoff)}
                     ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}
@@ -1518,6 +1518,16 @@ export function syncReviewSettingsVisibility(form: HTMLFormElement): void {
     form.querySelectorAll<HTMLElement>('[data-review-config]').forEach(node => { node.hidden = !reviewsEnabled; });
     form.querySelectorAll<HTMLElement>('[data-review-scale="five"]').forEach(node => { node.hidden = !reviewsEnabled || passFail; });
     form.querySelectorAll<HTMLElement>('[data-review-scale="pass-fail"]').forEach(node => { node.hidden = !reviewsEnabled || !passFail; });
+}
+
+export function syncJpdbMiningDependentSettings(form: HTMLFormElement): void {
+    const jpdbDeckActionsEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')?.checked ?? true;
+    for (const name of ['addToForq', 'ankiMineWithJpdb']) {
+        const input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+        if (!input) continue;
+        input.disabled = !jpdbDeckActionsEnabled;
+        if (!jpdbDeckActionsEnabled) input.checked = false;
+    }
 }
 
 export function syncSubtitlePreview(form: HTMLFormElement): void {

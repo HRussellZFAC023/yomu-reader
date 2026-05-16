@@ -358,6 +358,12 @@
         text-decoration: none;
       }
 
+      @media (pointer: coarse) and (min-width: 700px) {
+        .jpdb-reader-newtab-shell {
+          padding-top: max(84px, calc(env(safe-area-inset-top) + 72px));
+        }
+      }
+
       @media (max-width: 640px) {
         .jpdb-reader-newtab-shell {
           width: min(100vw - 18px, 560px);

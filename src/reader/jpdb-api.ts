@@ -9,7 +9,10 @@ const log = Logger.scope('JpdbApi');
 export class JpdbApiClient {
     private retryAfter = 0;
 
-    constructor(private getApiKey: () => string) {}
+    constructor(
+        private getApiKey: () => string,
+        private getProxyUrl: () => string = () => '',
+    ) {}
 
     request<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
         return this.requestByUrl(`${API_BASE}/${endpoint}`, body);
@@ -21,7 +24,7 @@ export class JpdbApiClient {
         this.assertCanRequest(token, endpoint);
 
         const done = log.time('request', { endpoint, hasBody: Boolean(body) });
-        const response = await postJson(url, token, body);
+        const response = await postJson(url, token, body, this.getProxyUrl());
         done();
         this.assertSuccessfulResponse(response, endpoint);
         return parseJpdbApiResponse<T>(response, endpoint, options.response);
@@ -82,7 +85,7 @@ interface JsonPostResponse {
     text: string;
 }
 
-function postJson(url: string, token: string, body?: Record<string, unknown>): Promise<JsonPostResponse> {
+function postJson(url: string, token: string, body?: Record<string, unknown>, proxyUrl = ''): Promise<JsonPostResponse> {
     const data = body ? JSON.stringify(body) : undefined;
     const headers = {
         'Content-Type': 'application/json',
@@ -93,15 +96,89 @@ function postJson(url: string, token: string, body?: Record<string, unknown>): P
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return postJsonWithUserscriptRequest(userscriptRequest, url, headers, data);
 
-    return fetch(url, {
-        method: 'POST',
-        headers,
-        body: data,
-    }).then(async response => ({
-        status: response.status,
-        ok: response.ok,
-        text: await response.text(),
-    }));
+    return postJsonWithFetch(url, headers, data, proxyUrl);
+}
+
+async function postJsonWithFetch(
+    url: string,
+    headers: Record<string, string>,
+    data: string | undefined,
+    proxyUrl: string,
+): Promise<JsonPostResponse> {
+    let lastError: unknown;
+    for (const candidate of jpdbApiFetchCandidates(url, proxyUrl)) {
+        try {
+            const response = await fetch(candidate, {
+                method: 'POST',
+                headers,
+                body: data,
+            });
+            if (!response.ok && candidate !== url) {
+                lastError = new Error(`JPDB proxy request failed (${response.status}).`);
+                continue;
+            }
+            return {
+                status: response.status,
+                ok: response.ok,
+                text: await response.text(),
+            };
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('JPDB request failed.');
+}
+
+function jpdbApiFetchCandidates(url: string, proxyUrl: string): string[] {
+    const configuredProxy = configuredProxyFetchUrl(url, proxyUrl);
+    const shouldPreferProxy = Boolean(configuredProxy) && shouldPreferConfiguredProxyForJpdbApi(url);
+    const candidates = shouldPreferProxy ? [configuredProxy, url] : [url, configuredProxy];
+    return [...new Set(candidates.filter((candidate): candidate is string => Boolean(candidate)))];
+}
+
+function configuredProxyFetchUrl(targetUrl: string, configuredProxyUrl: string): string | null {
+    const proxy = configuredProxyUrl.trim();
+    if (!proxy) return null;
+    try {
+        const url = new URL(proxy);
+        url.searchParams.set('url', targetUrl);
+        return url.href;
+    } catch {
+        return null;
+    }
+}
+
+function shouldPreferConfiguredProxyForJpdbApi(url: string): boolean {
+    if (!isJpdbApiUrl(url)) return false;
+    return isHostedGithubPagesApp() || isAppleTouchBrowser();
+}
+
+function isJpdbApiUrl(url: string): boolean {
+    try {
+        const target = new URL(url);
+        return target.hostname === 'jpdb.io' && target.pathname.startsWith('/api/v1/');
+    } catch {
+        return false;
+    }
+}
+
+function isHostedGithubPagesApp(): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        const current = new URL(location.href);
+        return current.origin === 'https://hrussellzfac023.github.io'
+            && current.pathname.replace(/\/index\.html$/, '/').startsWith('/yomu-reader/');
+    } catch {
+        return false;
+    }
+}
+
+function isAppleTouchBrowser(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const userAgent = navigator.userAgent ?? '';
+    const platform = navigator.platform ?? '';
+    return /iPad|iPhone|iPod/i.test(userAgent)
+        || (/Macintosh/i.test(userAgent) && /Mac/i.test(platform) && (navigator.maxTouchPoints ?? 0) > 1);
 }
 
 function postJsonWithUserscriptRequest(

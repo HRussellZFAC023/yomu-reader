@@ -471,7 +471,7 @@ export class ImmersionPopoverController {
                 }
                 const currentSrc = imageElement.currentSrc || imageElement.src;
                 const requestId = ++imageRequestId;
-                this.options.client.fetchBlobUrl(fallbackUrl, this.options.getSettings().audioTimeoutMs)
+                this.options.client.fetchBlobUrl(fallbackUrl, this.options.getSettings().audioTimeoutMs, this.options.getSettings().corsProxyUrl)
                     .then(displayUrl => {
                         if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
                         if (!holdUntilReady || currentSrc === displayUrl) {
@@ -580,7 +580,7 @@ export class ImmersionPopoverController {
         isCurrent: () => boolean,
     ): Promise<void> {
         if (await this.playDirectExampleAudio(source, requestId, isCurrent)) return;
-        const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs);
+        const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs, this.options.getSettings().corsProxyUrl);
         if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
             this.clearAudioRequestIfCurrent(requestId, source.key);
             return;

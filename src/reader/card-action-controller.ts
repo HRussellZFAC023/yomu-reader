@@ -1,4 +1,4 @@
-import { AnkiConnectClient, type AnkiLookupResult } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff, type AnkiLookupResult } from './anki';
 import { copyText } from './browser-ui';
 import { normalizeCardStates } from './card-state';
 import { JpdbClient } from './jpdb';
@@ -27,7 +27,7 @@ interface CardActionControllerOptions {
     getActivePopoverAnchor: () => HTMLElement | undefined;
     getActivePopoverMode: () => 'modal' | 'hover' | undefined;
     showSettings: (panel?: string) => void;
-    playAudio: (card: JPDBCard) => Promise<void>;
+    playAudio: (card: JPDBCard, options?: { userGesture?: boolean }) => Promise<void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
     detectGrammarHints: (sentence: string) => Promise<GrammarHint[]>;
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
@@ -47,11 +47,11 @@ export class CardActionController {
     constructor(private options: CardActionControllerOptions) {}
 
     async perform(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<boolean> {
-        const studyAction = await this.performStudyAction(action, button, sentence);
-        if (studyAction !== undefined) return studyAction;
+        const studyAction = this.performStudyAction(action, button, sentence);
+        if (studyAction !== undefined) return await studyAction;
 
-        const readerAction = await this.performReaderAction(action, card);
-        if (readerAction !== undefined) return readerAction;
+        const readerAction = this.performReaderAction(action, card);
+        if (readerAction !== undefined) return await readerAction;
 
         const miningAction = await this.performMiningAction(action, button, card, sentence);
         if (miningAction !== undefined) return miningAction;
@@ -59,7 +59,7 @@ export class CardActionController {
         return Boolean(action);
     }
 
-    private async performStudyAction(action: string | undefined, button: HTMLButtonElement, sentence?: string): Promise<boolean | undefined> {
+    private performStudyAction(action: string | undefined, button: HTMLButtonElement, sentence?: string): boolean | Promise<boolean> | undefined {
         if (!action) return undefined;
         return this.studyActionHandler(action, button, sentence)?.();
     }
@@ -98,7 +98,7 @@ export class CardActionController {
         return false;
     }
 
-    private async performReaderAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
+    private performReaderAction(action: string | undefined, card: JPDBCard): Promise<boolean> | undefined {
         if (!action) return undefined;
         const handlers: Record<string, () => Promise<boolean>> = {
             'copy-word': () => this.copyWord(card),
@@ -116,7 +116,7 @@ export class CardActionController {
     }
 
     private async playCardAudio(card: JPDBCard): Promise<boolean> {
-        await this.options.playAudio(card);
+        await this.options.playAudio(card, { userGesture: true });
         return false;
     }
 
@@ -166,8 +166,16 @@ export class CardActionController {
     }
 
     private assertJpdbActionAllowed(card: JPDBCard, message: string): void {
-        if (!this.options.getSettings().jpdbMiningEnabled) throw new Error('JPDB mining actions are disabled in settings.');
+        if (!this.options.getSettings().jpdbMiningEnabled) throw new Error('JPDB actions are disabled in settings.');
         if (!this.options.getSettings().apiKey.trim()) throw new Error(message);
+        if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
+    }
+
+    private assertJpdbReviewAllowed(card: JPDBCard, message: string): void {
+        const settings = this.options.getSettings();
+        if (!settings.enableReviews) throw new Error('Review actions are disabled in settings.');
+        if (!settings.jpdbMiningEnabled) throw new Error('JPDB actions are disabled in settings.');
+        if (!settings.apiKey.trim()) throw new Error(message);
         if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
 
@@ -206,9 +214,10 @@ export class CardActionController {
     }
 
     async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { ankiCardId?: number; deckId?: string } = {}): Promise<void> {
+        if (!this.options.getSettings().enableReviews) throw new Error('Review actions are disabled in settings.');
         if (options.ankiCardId) return this.options.anki.answerCard(options.ankiCardId, grade);
 
-        this.assertJpdbActionAllowed(card, 'Add a JPDB API key to review JPDB cards.');
+        this.assertJpdbReviewAllowed(card, 'Add a JPDB API key to review JPDB cards.');
         const states = normalizeCardStates(card.cardState);
         assertReviewableJpdbCardState(states);
         const wasNotInDeck = states.includes('not-in-deck');
@@ -222,10 +231,19 @@ export class CardActionController {
     }
 
     private async addToAnki(card: JPDBCard, sentence?: string, deckName?: string): Promise<void> {
+        const settings = this.options.getSettings();
+        if (canUseMobileAnkiHandoff(settings)) {
+            await this.options.anki.addCard(card, sentence || card.sentence || '', {
+                deckName,
+                dictionaryPreferences: settings.dictionaryPreferences,
+            });
+            this.options.toast('Sent to Anki.');
+            return;
+        }
+
         const existing: AnkiLookupResult = await this.options.anki.findExistingCards(card);
         if (existing.primary) return this.showExistingAnkiCard(card, sentence);
 
-        const settings = this.options.getSettings();
         const dictionaryContext = await this.loadAnkiDictionaryContext(card, settings);
         const context = await this.options.resolveMiningContext(card, sentence);
         await this.options.anki.addCard(card, miningSentenceForAnki(context.sentence, sentence), {

@@ -145,7 +145,7 @@ export class ImmersionKitClient {
         if (inflight) return inflight;
 
         const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-        const promise = requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs)
+        const promise = requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
             .then(data => {
                 const examples = filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings));
 
@@ -220,7 +220,7 @@ export class ImmersionKitClient {
                 for (const example of examples.slice(0, 1)) {
                     const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
                     if (imageUrls.length) {
-                        void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs)
+                        void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl)
                             .then(url => {
                                 const image = new Image();
                                 image.decoding = 'async';
@@ -232,7 +232,7 @@ export class ImmersionKitClient {
 
                     const soundUrls = this.mediaUrls(example, 'sound');
                     if (soundUrls.length) {
-                        void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs)
+                        void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs, settings.corsProxyUrl)
                             .then(() => undefined)
                             .catch(() => undefined);
                     }
@@ -241,18 +241,18 @@ export class ImmersionKitClient {
             .catch(() => undefined);
     }
 
-    async fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string> {
+    async fetchBlobUrl(url: string | string[], timeoutMs: number, proxyUrl = ''): Promise<string> {
         const urls = urlCandidates(url);
         const key = urls.join('\u0001');
         return this.mediaBlobUrlCache.getOrCreate(key, async () => {
-            const blob = await requestFirstBlob(url, timeoutMs);
+            const blob = await requestFirstBlob(url, timeoutMs, proxyUrl);
             const blobUrl = await createPageMediaUrl(blob);
             return blobUrl;
         });
     }
 
-    async fetchDataUrl(url: string | string[], timeoutMs: number): Promise<string> {
-        const blob = await requestFirstBlob(url, timeoutMs);
+    async fetchDataUrl(url: string | string[], timeoutMs: number, proxyUrl = ''): Promise<string> {
+        const blob = await requestFirstBlob(url, timeoutMs, proxyUrl);
         return blobToDataUrl(blob);
     }
 }
@@ -455,11 +455,11 @@ function normalizeForSurfaceMatch(value: string): string {
     return value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 }
 
-async function requestJson(url: string | string[], timeoutMs: number): Promise<unknown> {
+async function requestJson(url: string | string[], timeoutMs: number, proxyUrl = ''): Promise<unknown> {
     let lastError: unknown;
     for (const candidate of urlCandidates(url)) {
         try {
-            return await requestJsonCandidate(candidate, timeoutMs);
+            return await requestJsonCandidate(candidate, timeoutMs, proxyUrl);
         } catch (error) {
             lastError = error;
         }
@@ -475,8 +475,9 @@ function requestError(error: unknown, fallback: string): Error {
     return error instanceof Error ? error : new Error(fallback);
 }
 
-function requestJsonCandidate(url: string, timeoutMs: number): Promise<unknown> {
+function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = ''): Promise<unknown> {
     return requestReaderJson(url, {
+        proxyUrl,
         timeoutMs,
         allowDirectCrossOrigin: true,
         failureLabel: 'Immersion Kit request',
@@ -489,8 +490,9 @@ function requestJsonCandidate(url: string, timeoutMs: number): Promise<unknown> 
     });
 }
 
-function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
+function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blob> {
     return requestReaderBlob(url, {
+        proxyUrl,
         timeoutMs,
         failureLabel: 'Media request',
         timeoutLabel: 'Media request timed out.',
@@ -500,12 +502,12 @@ function requestBlob(url: string, timeoutMs: number): Promise<Blob> {
     });
 }
 
-async function requestFirstBlob(urls: string | string[], timeoutMs: number): Promise<Blob> {
+async function requestFirstBlob(urls: string | string[], timeoutMs: number, proxyUrl = ''): Promise<Blob> {
     const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
     let lastError: unknown;
     for (const url of candidates) {
         try {
-            return await requestBlob(url, timeoutMs);
+            return await requestBlob(url, timeoutMs, proxyUrl);
         } catch (error) {
             lastError = error;
         }

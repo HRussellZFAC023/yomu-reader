@@ -18,7 +18,7 @@ export class ReaderAudioActions {
 
     constructor(private readonly dependencies: ReaderAudioActionsDependencies) {}
 
-    async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number } = {}): Promise<void> {
+    async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
         const isCurrent = options.hoverLookupGeneration === undefined
             ? undefined
             : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration;
@@ -27,7 +27,7 @@ export class ReaderAudioActions {
         this.setLoading(loadingPopover, loadingRequest);
         try {
             this.dependencies.stopImmersionAudio();
-            const played = await this.dependencies.audio.play(card, { isCurrent });
+            const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
             if (!played) return;
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);

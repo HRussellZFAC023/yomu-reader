@@ -340,19 +340,26 @@ export function buildKanjiOriginGraph(
         source: 'current lookup',
     });
 
-    const addComponent = (id: string, detail: string, label: string, source: string, position?: string) => {
-        if (!id || id === kanji) return;
+    const addEdge = (from: string | undefined, to: string | undefined, label: string) => {
+        if (!from || !to || from === to) return;
+        if (!edges.some(edge => edge.from === from && edge.to === to && edge.label === label)) {
+            edges.push({ from, to, label });
+        }
+    };
+    const addComponentNode = (id: string, detail: string, source: string, position?: string): string | null => {
+        if (!id || id === kanji) return null;
         const existing = nodes.get(id);
-        const resolvedPosition = position || kanjiVGPositions.get(id)?.position;
         if (!existing) {
-            nodes.set(id, { id, label: id, kind: 'component', detail, source, position: resolvedPosition });
+            nodes.set(id, { id, label: id, kind: 'component', detail, source, position });
         } else {
             if (!existing.detail && detail) existing.detail = detail;
-            if (!existing.position && resolvedPosition) existing.position = resolvedPosition;
+            if (!existing.position && position) existing.position = position;
         }
-        if (!edges.some(edge => edge.from === id && edge.to === kanji && edge.label === label)) {
-            edges.push({ from: id, to: kanji, label });
-        }
+        return id;
+    };
+    const addComponent = (id: string, detail: string, label: string, source: string, position?: string) => {
+        const resolvedPosition = position || kanjiVGPositions.get(id)?.position;
+        addEdge(addComponentNode(id, detail, source, resolvedPosition) ?? undefined, kanji, label);
     };
     const addUsedInKanji = (id: string, detail: string, source: string) => {
         if (!id || id === kanji) return;
@@ -362,9 +369,22 @@ export function buildKanjiOriginGraph(
         } else if (!existing.detail && detail) {
             existing.detail = detail;
         }
-        if (!edges.some(edge => edge.from === kanji && edge.to === id && edge.label === 'used in kanji')) {
-            edges.push({ from: kanji, to: id, label: 'used in kanji' });
-        }
+        addEdge(kanji, id, 'used in kanji');
+    };
+    const resolveKanjiVGId = (component: string, original?: string) => (
+        nodes.has(component) ? component : original && nodes.has(original) ? original : component
+    );
+    const addSubcomponent = (component: NonNullable<KanjiVGInfo['componentPositions']>[number]) => {
+        if (!component.component || component.component === kanji) return;
+        const parent = component.parent && component.parent !== kanji
+            ? resolveKanjiVGId(component.parent, component.parentOriginal)
+            : kanji;
+        if (!parent || parent === kanji) return;
+        const parentPosition = kanjiVGPositions.get(parent)?.position;
+        const parentId = addComponentNode(parent, 'visual component', 'KanjiVG', parentPosition) ?? parent;
+        const child = resolveKanjiVGId(component.component, component.original);
+        const childId = addComponentNode(child, 'visual subcomponent', 'KanjiVG', component.position) ?? child;
+        addEdge(childId, parentId, 'subcomponent');
     };
 
     sourceInfo?.kanjiMap?.radical?.symbol && addComponent(
@@ -386,6 +406,10 @@ export function buildKanjiOriginGraph(
                 : component.original && nodes.has(component.original) ? component.original : component.component;
             addComponent(id, 'visual component', 'KanjiVG component', 'KanjiVG', component.position);
         });
+    kanjiVGInfo?.componentPositions
+        ?.filter(component => !component.direct)
+        .sort((a, b) => a.depth - b.depth)
+        .forEach(addSubcomponent);
 
     splitRtkElements(rtkInfo?.elements ?? '')
         .filter(element => !Array.from(element).some(character => character === kanji))
@@ -396,7 +420,7 @@ export function buildKanjiOriginGraph(
             edges.push({ from: id, to: kanji, label: 'memory cue' });
         });
 
-    const graph = { nodes: Array.from(nodes.values()).slice(0, 14), edges: edges.slice(0, 18) };
+    const graph = { nodes: Array.from(nodes.values()).slice(0, 24), edges: edges.slice(0, 36) };
     return graph;
 }
 

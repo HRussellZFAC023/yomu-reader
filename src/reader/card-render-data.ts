@@ -1,4 +1,4 @@
-import type { AnkiConnectClient, AnkiLookupResult } from './anki';
+import { canUseMobileAnkiHandoff, type AnkiConnectClient, type AnkiLookupResult } from './anki';
 import { cardKey } from './card-utils';
 import type { JpdbClient } from './jpdb';
 import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
@@ -134,7 +134,7 @@ export class CardRenderDataLoader {
 
     private loadAnkiLookup(card: JPDBCard, timeoutMs: number): Promise<AnkiLookupResult> {
         const fallback: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
-        if (!this.settings().ankiEnabled) return Promise.resolve(fallback);
+        if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve(fallback);
         return this.withFallback(card, timeoutMs, 'Anki existing cards', this.dependencies.anki.findExistingCards(card).catch(error => {
             log.warn('Anki lookup failed while rendering card', { term: card.spelling }, error);
             return fallback;
@@ -151,7 +151,7 @@ export class CardRenderDataLoader {
     }
 
     private loadAnkiDecks(card: JPDBCard, timeoutMs: number): Promise<string[]> {
-        if (!this.settings().ankiEnabled) return Promise.resolve([]);
+        if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve([]);
         return this.withFallback(card, timeoutMs, 'Anki deck list', this.dependencies.anki.deckNames().catch(error => {
             log.warn('Anki deck list failed while rendering card', { term: card.spelling }, error);
             return [];

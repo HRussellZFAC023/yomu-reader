@@ -1,10 +1,11 @@
 const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST']);
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const CACHEABLE_GET_HOSTS = new Set(['jpdb.io', 'jisho.org', 'commons.wikimedia.org', 'uchisen.com', 'ik.imagekit.io']);
-const CORS_HEADERS = 'accept, content-type, range';
+const CORS_HEADERS = 'accept, authorization, content-type, range';
 const MAX_REDIRECTS = 4;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CREDENTIAL_REQUEST_HEADERS = ['authorization', 'cookie', 'proxy-authorization', 'x-api-key'];
+const ALLOWED_AUTH_ORIGIN_RE = /^https:\/\/hrussellzfac023\.github\.io$|^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -21,21 +22,23 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === 'OPTIONS') return preflight(request);
     if (!ALLOWED_METHODS.has(request.method)) return corsText(request, 'Method not allowed.', 405);
-    if (hasCredentialRequestHeaders(request)) return corsText(request, 'Credential-bearing requests are not allowed.', 400);
 
     const target = targetUrl(request);
     if (!target) return corsText(request, 'Missing url parameter.', 400);
+    if (hasCredentialRequestHeaders(request) && !isAllowedJpdbApiRequest(request, target)) {
+      return corsText(request, 'Credential-bearing requests are not allowed.', 400);
+    }
     if (!isAllowedTarget(request, target, env)) return corsText(request, 'Target is not allowed.', 403);
 
     const cache = (caches as unknown as WorkerCaches).default;
     const cacheKey = new Request(cacheKeyUrl(request, target), { method: 'GET' });
     if (request.method === 'GET' && CACHEABLE_GET_HOSTS.has(target.hostname)) {
       const cached = await cache.match(cacheKey);
-      if (cached) return withCors(request, cached);
+      if (cached) return withCors(request, cached, target);
     }
 
     const upstream = await fetchAllowedTarget(request, target, env);
-    const response = withCors(request, upstream);
+    const response = withCors(request, upstream, target);
     if (request.method === 'GET' && upstream.ok && CACHEABLE_GET_HOSTS.has(target.hostname)) {
       ctx.waitUntil(cache.put(cacheKey, response.clone()));
     }
@@ -70,6 +73,7 @@ export function isAllowedPublicProxyTarget(method: string, target: URL, _env: En
 }
 
 function isAllowedPublicProxyRequest(request: Request, target: URL): boolean {
+  if (isAllowedJpdbApiTarget(request.method, target)) return isAllowedJpdbApiRequest(request, target);
   if (request.method !== 'POST') return true;
   if (!isAllowedPostTarget(target)) return false;
   const contentType = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? '';
@@ -126,8 +130,26 @@ function isPrivateHostname(hostname: string): boolean {
 }
 
 function isAllowedPostTarget(target: URL): boolean {
-  return target.hostname === 'www.japanesepod101.com'
+  return isAllowedJpdbApiTarget('POST', target)
+    || target.hostname === 'www.japanesepod101.com'
     && target.pathname === '/learningcenter/reference/dictionary_post';
+}
+
+function isAllowedJpdbApiTarget(method: string, target: URL): boolean {
+  return method.toUpperCase() === 'POST'
+    && target.hostname === 'jpdb.io'
+    && target.pathname.startsWith('/api/v1/');
+}
+
+function isAllowedJpdbApiRequest(request: Request, target: URL): boolean {
+  if (!isAllowedJpdbApiTarget(request.method, target)) return false;
+  const contentType = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? '';
+  const authorization = request.headers.get('authorization') ?? '';
+  return contentType === 'application/json'
+    && /^Bearer\s+\S+/i.test(authorization)
+    && !request.headers.has('cookie')
+    && !request.headers.has('proxy-authorization')
+    && !request.headers.has('x-api-key');
 }
 
 function isPublicJpdbPath(pathname: string): boolean {
@@ -157,7 +179,7 @@ function isPublicMediaPath(pathname: string): boolean {
 }
 
 async function fetchAllowedTarget(request: Request, target: URL, env: Env, redirects = 0): Promise<Response> {
-  const upstream = await fetch(target.href, upstreamInit(request));
+  const upstream = await fetch(target.href, upstreamInit(request, target));
   if (!shouldFollowRedirect(request, upstream)) return upstream;
   if (redirects >= MAX_REDIRECTS) return new Response('Too many redirects.', { status: 508 });
 
@@ -168,10 +190,11 @@ async function fetchAllowedTarget(request: Request, target: URL, env: Env, redir
   return fetchAllowedTarget(new Request(request, { method: 'GET', body: null }), next, env, redirects + 1);
 }
 
-function upstreamInit(request: Request): RequestInit {
+function upstreamInit(request: Request, target: URL): RequestInit {
+  const isJpdbApi = isAllowedJpdbApiTarget(request.method, target);
   const headers = new Headers(request.headers);
   headers.delete('cookie');
-  headers.delete('authorization');
+  if (!isJpdbApi) headers.delete('authorization');
   headers.delete('proxy-authorization');
   headers.delete('x-api-key');
   headers.delete('origin');
@@ -219,12 +242,16 @@ function corsText(request: Request, text: string, status: number): Response {
   return new Response(text, { status, headers: corsHeaders(request) });
 }
 
-function withCors(request: Request, response: Response): Response {
+function withCors(request: Request, response: Response, target: URL): Response {
   const headers = new Headers(response.headers);
   const cors = corsHeaders(request);
   cors.forEach((value, key) => headers.set(key, value));
   headers.delete('set-cookie');
-  if (!headers.has('cache-control')) headers.set('cache-control', 'public, max-age=1800');
+  if (isAllowedJpdbApiTarget(request.method, target)) {
+    headers.set('cache-control', 'no-store');
+  } else if (!headers.has('cache-control')) {
+    headers.set('cache-control', 'public, max-age=1800');
+  }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -240,5 +267,12 @@ function corsHeaders(request: Request): Headers {
 }
 
 function allowedOrigin(_request: Request): string {
-  return '*';
+  if (!hasCredentialRequestHeaders(_request) && !preflightRequestsCredentialHeaders(_request)) return '*';
+  const origin = _request.headers.get('origin') ?? '';
+  return origin && ALLOWED_AUTH_ORIGIN_RE.test(origin) ? origin : 'null';
+}
+
+function preflightRequestsCredentialHeaders(request: Request): boolean {
+  const headers = request.headers.get('access-control-request-headers') ?? '';
+  return CREDENTIAL_REQUEST_HEADERS.some(header => headers.toLowerCase().split(',').map(value => value.trim()).includes(header));
 }

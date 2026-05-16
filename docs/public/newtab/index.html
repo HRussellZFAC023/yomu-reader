@@ -358,6 +358,12 @@
         text-decoration: none;
       }
 
+      @media (pointer: coarse) and (min-width: 700px) {
+        .jpdb-reader-newtab-shell {
+          padding-top: max(84px, calc(env(safe-area-inset-top) + 72px));
+        }
+      }
+
       @media (max-width: 640px) {
         .jpdb-reader-newtab-shell {
           width: min(100vw - 18px, 560px);
@@ -386,7 +392,7 @@
 
   <body>
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
-    <script src="./app.js?v=fb0457a9e044"></script>
+    <script src="./app.js?v=49565829395c"></script>
   </body>
 
 </html>

@@ -39,8 +39,8 @@ export class JpdbClient {
     private parseCache = new LruCache<string, JPDBToken[][]>(PARSE_CACHE_SIZE);
     private parseInFlight = new Map<string, Promise<JPDBToken[][]>>();
 
-    constructor(getApiKey: () => string) {
-        this.api = new JpdbApiClient(getApiKey);
+    constructor(getApiKey: () => string, getProxyUrl: () => string = () => '') {
+        this.api = new JpdbApiClient(getApiKey, getProxyUrl);
     }
 
     async parse(paragraphs: string[]): Promise<JPDBToken[][]> {

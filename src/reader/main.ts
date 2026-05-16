@@ -52,7 +52,7 @@ import {
     type MiningContext,
 } from './mining-context';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, nestedParseAlreadyScheduled, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 import { ImageOcrController } from './ocr';
@@ -351,7 +351,7 @@ export class ReaderApp {
         });
         void saveSettings(this.settings);
     };
-    private jpdb = new JpdbClient(() => this.settings.apiKey.trim());
+    private jpdb = new JpdbClient(() => this.settings.apiKey.trim(), () => this.settings.corsProxyUrl);
     private jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
@@ -420,7 +420,7 @@ export class ReaderApp {
         getActivePopoverAnchor: () => this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined,
         getActivePopoverMode: () => this.activePopoverMode,
         showSettings: panel => this.showSettings(panel),
-        playAudio: card => this.audioActions.playTermAudio(card),
+        playAudio: (card, options) => this.audioActions.playTermAudio(card, options),
         playSentenceAudio: sentence => this.audioActions.playSentenceAudio(sentence),
         detectGrammarHints: sentence => this.studySources.detectGrammarHints(sentence),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
@@ -977,7 +977,7 @@ export class ReaderApp {
             }
             if (this.lastCard && this.activePopover && matchesShortcut(event, this.settings.shortcuts.playAudio)) {
                 event.preventDefault();
-                void this.audioActions.playTermAudio(this.lastCard);
+                void this.audioActions.playTermAudio(this.lastCard, { userGesture: true });
                 return;
             }
             const grade = this.shortcutGrade(event);
@@ -2376,6 +2376,7 @@ export class ReaderApp {
         if (mounted.instantLocalEntries !== null) return;
         void renderData.localEntries.then(localEntries => {
             if (renderState.fullRenderCompleted || !this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+            clearNestedParseState(popover);
             setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, loadingCardRenderData(localEntries, this.lastAnkiLookup ?? fallbackAnkiLookup)));
             this.repositionActivePopover();
             void this.parsePopoverJapanese(popover);
@@ -2391,6 +2392,7 @@ export class ReaderApp {
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
         this.applyAnkiLookupToRenderedWords(card, data.ankiLookup);
+        clearNestedParseState(popover);
         setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
 
         this.repositionActivePopover();
@@ -3161,7 +3163,7 @@ export class ReaderApp {
             }),
             imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined,
             videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined,
-            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs),
+            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl),
         });
         return context;
     }

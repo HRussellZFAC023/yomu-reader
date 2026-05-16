@@ -143,6 +143,7 @@ export class AnkiConnectClient {
     }
 
     async deckNames(): Promise<string[]> {
+        if (canUseMobileAnkiHandoff(this.getSettings())) return [];
         const decks = await this.invoke<string[]>('deckNames');
         return decks;
     }

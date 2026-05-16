@@ -29,6 +29,7 @@ import {
     renderSettingsForm,
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
+    syncJpdbMiningDependentSettings,
     syncReviewSettingsVisibility,
     syncSubtitlePreview,
     updateAudioSourceEditor,
@@ -285,6 +286,8 @@ export class SettingsDialogController {
         }
         form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
         form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
+        form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')?.addEventListener('change', () => syncJpdbMiningDependentSettings(form));
+        syncJpdbMiningDependentSettings(form);
         form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.addEventListener('change', () => void this.refreshDeckControls(form));
         form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
         installShortcutCapture(form);
@@ -442,7 +445,7 @@ export class SettingsDialogController {
         button?.setAttribute('disabled', 'true');
         try {
             this.dependencies.toast('Playing よむ...');
-            await this.dependencies.audio.play(createAudioPreviewCard());
+            await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
             log.info('Audio settings preview started');
         } catch (error) {
             log.warn('Audio settings preview failed', error);

@@ -790,9 +790,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     bottom: 0 !important;
     width: 100%;
     max-height: min(calc(70vh + var(--jpdb-reader-sheet-drag-up, 0px)), 100vh);
-    max-height: min(calc(70svh + var(--jpdb-reader-sheet-drag-up, 0px)), 100svh);
+    max-height: min(calc(var(--jpdb-reader-sheet-collapsed-height, 70dvh) + var(--jpdb-reader-sheet-drag-up, 0px)), var(--jpdb-reader-sheet-viewport-height, 100dvh));
     border-radius: 16px 16px 0 0;
     padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) {
     display: grid;
@@ -802,15 +804,19 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
     padding: 14px 16px;
+    -webkit-overflow-scrolling: touch;
   }
   .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
     padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
   }
+  .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
+    padding-top: 37px;
+  }
   .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
     height: 100vh;
     max-height: 100vh;
-    height: 100svh;
-    max-height: 100svh;
+    height: var(--jpdb-reader-sheet-viewport-height, 100dvh);
+    max-height: var(--jpdb-reader-sheet-viewport-height, 100dvh);
     border-radius: 0;
     padding-top: max(8px, env(safe-area-inset-top));
   }
