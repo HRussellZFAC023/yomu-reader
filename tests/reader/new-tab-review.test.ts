@@ -1128,6 +1128,52 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('dives into hosted popup related vocabulary links and parsed example words', () => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({ spelling: '甘言', reading: 'かんげん', sentence: '甘言です。' });
+        const related = newTabTestCard({ vid: 77, sid: 88, spelling: '甘言蜜語', reading: 'かんげんみつご', sentence: '甘言蜜語だ。' });
+        const lookupText = vi.fn(async () => undefined);
+        const showLookupCard = vi.fn(async () => undefined);
+        const internals = runtime as unknown as {
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            lookupText: typeof lookupText;
+            showLookupCard: typeof showLookupCard;
+            installLookupPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement): void;
+        };
+        internals.lookupText = lookupText;
+        internals.showLookupCard = showLookupCard;
+        internals.parser.cacheCards([related]);
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="国家" data-dictionary-reading="こっか" data-dictionary="JPDB">
+                <span class="jpdb-reader-word" data-vid="11" data-sid="12" tabindex="0">国家</span>
+            </a>
+            <div class="jpdb-reader-example-sentence">
+                <span class="jpdb-reader-word" data-vid="${related.vid}" data-sid="${related.sid}" data-sentence="甘言蜜語だ。" tabindex="0">甘言蜜語</span>
+            </div>
+        `;
+        document.body.append(popover);
+
+        try {
+            internals.installLookupPopoverHandlers(popover, card, card.sentence);
+            popover.querySelector<HTMLElement>('a .jpdb-reader-word')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            popover.querySelector<HTMLElement>('.jpdb-reader-example-sentence .jpdb-reader-word')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(lookupText).toHaveBeenCalledWith('国家', 'こっか', popover.querySelector('a'), expect.objectContaining({
+                navigation: 'push-current',
+                reuseActivePopover: true,
+            }));
+            expect(showLookupCard).toHaveBeenCalledWith(related, '甘言蜜語だ。', popover.querySelector('.jpdb-reader-example-sentence .jpdb-reader-word'), expect.objectContaining({
+                navigation: 'push-current',
+                reuseActivePopover: true,
+            }));
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('autoplays term audio when a hosted new-tab dictionary word opens', async () => {
         const runtime = new NewTabRuntime();
         const card = newTabTestCard({ spelling: '月光', reading: 'げっこう', sentence: '月光を見る。' });

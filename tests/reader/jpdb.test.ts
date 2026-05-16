@@ -2311,6 +2311,7 @@ describe('reader helpers', () => {
         expect(html).toContain('data-dictionary-lookup="国家"');
         expect(html).toContain('data-dictionary-reading="こっか"');
         expect(html).toContain('jpdb-reader-jpdb-compound-term jpdb-reader-parseable');
+        expect(html).toContain('data-jpdb-reader-suppress-ruby');
         expect(info?.usedInVocabulary).toEqual([{
             term: '国家主義',
             reading: 'こっかしゅぎ',
@@ -6752,6 +6753,34 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         expect(document.querySelector('.jpdb-reader-word.jpdb-known')?.textContent).toBe('新卒');
+        expect(document.querySelectorAll('rt')).toHaveLength(0);
+    });
+
+    it('parses compact related vocabulary for status colors without adding furigana', () => {
+        document.body.innerHTML = `
+            <div data-jpdb-reader-root="true" class="jpdb-reader-word-text-status">
+                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-jpdb-reader-suppress-ruby>甘言</span>
+            </div>
+        `;
+        const root = document.querySelector<HTMLElement>('.jpdb-reader-parseable')!;
+        const targets = collectFragmentTextTargetsIn(root, 10, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 });
+        expect(targets.map(target => target.text)).toEqual(['甘言']);
+        expect(targets[0]?.suppressRuby).toBe(true);
+
+        applyTokensToScanTarget(targets[0], [{
+            card: { ...card, spelling: '甘言', reading: 'かんげん', cardState: ['known'] },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'かんげん', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '甘言',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('jpdb-known')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(readerWordSurfaceText(word)).toBe('甘言');
         expect(document.querySelectorAll('rt')).toHaveLength(0);
     });
 

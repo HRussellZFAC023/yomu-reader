@@ -67,7 +67,7 @@ function renderJpdbCompounds(info: JpdbVocabularyInfo): string {
                             data-external="false"
                         >
                             <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(compound.term)}</span>
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB" data-jpdb-reader-suppress-ruby>${escapeHtml(compound.term)}</span>
                                 ${compound.reading && compound.reading !== compound.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml(compound.reading)}</span>` : ''}
                             </span>
                         </a>
@@ -100,7 +100,7 @@ function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: 
                             data-external="false"
                         >
                             <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(entry.term)}</span>
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB" data-jpdb-reader-suppress-ruby>${escapeHtml(entry.term)}</span>
                                 ${entry.reading && entry.reading !== entry.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml(entry.reading)}</span>` : ''}
                             </span>
                         </a>

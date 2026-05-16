@@ -1319,7 +1319,9 @@ function shouldSuppressInjectedRuby(element: HTMLElement): boolean {
 }
 
 function shouldSuppressRubyAtAncestor(element: HTMLElement): boolean {
-    return DISPLAY_HEADING_RE.test(element.tagName) || isClippedLineBox(element);
+    return element.hasAttribute('data-jpdb-reader-suppress-ruby')
+        || DISPLAY_HEADING_RE.test(element.tagName)
+        || isClippedLineBox(element);
 }
 
 function isClippedLineBox(element: HTMLElement): boolean {
