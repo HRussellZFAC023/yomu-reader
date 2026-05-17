@@ -44,25 +44,33 @@ export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: R
 
 async function loadNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit: number): Promise<JPDBCard[]> {
     const query = newTabAnkiQuery(settings);
-    const sampledCardIds = sampleAnkiIds(await client.invoke<number[]>('findCards', { query }), Math.max(1, limit * 4));
-    if (!sampledCardIds.length) return [];
+    const candidateCardIds = ankiCandidateIds(await client.invoke<number[]>('findCards', { query }), Math.max(1, limit * 8));
+    if (!candidateCardIds.length) return [];
 
-    const dueCards = await loadDueNewTabAnkiCards(client, sampledCardIds);
+    const dueCards = await loadDueNewTabAnkiCards(client, candidateCardIds);
     if (!dueCards.length) return [];
 
     const noteIds = unique(dueCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
     const notes = await client.invoke<AnkiNoteInfo[]>('notesInfo', { notes: noteIds });
+    const notesById = notesByNoteId(notes);
     const cardsByNote = cardsByNoteId(dueCards);
-    return notes
-        .map(note => ankiNoteToCard(note, cardsByNote.get(note.noteId) ?? []))
+    return noteIds
+        .map(noteId => {
+            const note = notesById.get(noteId);
+            return note ? ankiNoteToCard(note, cardsByNote.get(noteId) ?? []) : null;
+        })
         .filter((card): card is JPDBCard => card !== null)
         .slice(0, Math.max(1, limit));
 }
 
-async function loadDueNewTabAnkiCards(client: AnkiConnectClient, sampledCardIds: number[]): Promise<AnkiCardInfo[]> {
-    const dueFlags = await client.invoke<boolean[]>('areDue', { cards: sampledCardIds }).catch(() => sampledCardIds.map(() => true));
-    const cards = await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: sampledCardIds }).catch((): AnkiCardInfo[] => []);
-    return cards.filter((cardInfo, index) => isReviewableAnkiCard(cardInfo, dueFlags[index]));
+async function loadDueNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[]): Promise<AnkiCardInfo[]> {
+    const dueFlags = await client.invoke<boolean[]>('areDue', { cards: candidateCardIds }).catch(() => candidateCardIds.map(() => true));
+    const dueByCardId = new Map(candidateCardIds.map((cardId, index) => [Number(cardId), dueFlags[index]]));
+    const cards = await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: candidateCardIds }).catch((): AnkiCardInfo[] => []);
+    return orderAnkiReviewCards(
+        cards.filter(cardInfo => isReviewableAnkiCard(cardInfo, dueByCardId.get(Number(cardInfo.cardId)))),
+        candidateCardIds,
+    );
 }
 
 function newTabAnkiQuery(settings: ReaderSettings): string {
@@ -78,15 +86,9 @@ function quoteAnkiSearch(term: string): string {
     return `"${term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-function sampleAnkiIds(ids: number[], limit: number): number[] {
+function ankiCandidateIds(ids: number[], limit: number): number[] {
     const uniqueIds = unique(ids).filter(id => Number.isFinite(Number(id)));
-    if (uniqueIds.length <= limit) return uniqueIds.reverse();
-    const sampled = uniqueIds.slice();
-    for (let index = sampled.length - 1; index > 0; index--) {
-        const swap = Math.floor(Math.random() * (index + 1));
-        [sampled[index], sampled[swap]] = [sampled[swap], sampled[index]];
-    }
-    return sampled.slice(0, limit);
+    return uniqueIds.slice(0, limit);
 }
 
 function isReviewableAnkiCard(cardInfo: AnkiCardInfo, dueFlag: boolean | undefined): boolean {
@@ -103,6 +105,33 @@ function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]> {
         cardsByNote.set(noteId, [...(cardsByNote.get(noteId) ?? []), cardInfo]);
     }
     return cardsByNote;
+}
+
+function notesByNoteId(notes: AnkiNoteInfo[]): Map<number, AnkiNoteInfo> {
+    return new Map(notes.map(note => [Number(note.noteId), note]));
+}
+
+function orderAnkiReviewCards(cards: AnkiCardInfo[], requestedIds: number[]): AnkiCardInfo[] {
+    const requestOrder = new Map(requestedIds.map((cardId, index) => [Number(cardId), index]));
+    return [...cards].sort((a, b) =>
+        ankiReviewQueueRank(a) - ankiReviewQueueRank(b)
+        || ankiDueValue(a) - ankiDueValue(b)
+        || (requestOrder.get(Number(a.cardId)) ?? Number.MAX_SAFE_INTEGER) - (requestOrder.get(Number(b.cardId)) ?? Number.MAX_SAFE_INTEGER)
+        || Number(a.cardId) - Number(b.cardId),
+    );
+}
+
+function ankiReviewQueueRank(card: AnkiCardInfo): number {
+    if (card.type === 3 || card.queue === 3) return 0;
+    if (card.queue === 1 || card.type === 1) return 1;
+    if (card.queue === 2) return 2;
+    if (card.queue === 0 || card.type === 0) return 3;
+    return 4;
+}
+
+function ankiDueValue(card: AnkiCardInfo): number {
+    const due = Number(card.due);
+    return Number.isFinite(due) ? due : Number.POSITIVE_INFINITY;
 }
 
 function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[]): JPDBCard | null {

@@ -1,5 +1,8 @@
 import { escapeHtml } from './dom';
+import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { ReaderSettings } from './types';
+
+const STORAGE_KEY = 'jpdb-reader-source-open-state';
 
 export interface DictionarySourceStateDependencies {
     getSettings: () => ReaderSettings;
@@ -7,12 +10,13 @@ export interface DictionarySourceStateDependencies {
 }
 
 export class DictionarySourceStateController {
-    private openOverrides = new Map<string, boolean>();
+    private openOverrides = loadOpenOverrides();
 
     constructor(private readonly dependencies: DictionarySourceStateDependencies) {}
 
     clear(): void {
         this.openOverrides.clear();
+        gmStorageDeleteSync(STORAGE_KEY);
     }
 
     isOpen(sourceStateKey: string, initiallyExpanded = this.dependencies.getSettings().dictionarySourcesInitiallyExpanded): boolean {
@@ -56,6 +60,17 @@ export class DictionarySourceStateController {
         const initialOpen = details.dataset.sourceInitialOpen === 'true';
         if (rememberedOpen === undefined && details.open === initialOpen) return;
         this.openOverrides.set(sourceStateKey, details.open);
+        saveOpenOverrides(this.openOverrides);
         this.dependencies.onStateChange();
     }
+}
+
+function loadOpenOverrides(): Map<string, boolean> {
+    const stored = gmStorageGetSync<Record<string, unknown>>(STORAGE_KEY, {});
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return new Map();
+    return new Map(Object.entries(stored).filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean'));
+}
+
+function saveOpenOverrides(openOverrides: Map<string, boolean>): void {
+    gmStorageSetSync(STORAGE_KEY, Object.fromEntries(openOverrides));
 }

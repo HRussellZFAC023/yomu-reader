@@ -562,6 +562,9 @@ mark.jpdb-reader-example-target {
   display: grid;
   gap: 4px;
 }
+.jpdb-reader-grammar-more[open] {
+  row-gap: 6px;
+}
 .jpdb-reader-grammar-more > summary {
   width: max-content;
   color: var(--jpdb-reader-muted);
@@ -579,6 +582,21 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-grammar-more[open] > summary::after {
   content: "-";
+}
+.jpdb-reader-grammar-examples {
+  display: grid;
+  row-gap: 6px;
+  margin-top: 4px;
+}
+.jpdb-reader-grammar-examples > span {
+  color: var(--jpdb-reader-text);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+.jpdb-reader-grammar-example {
+  display: grid;
+  row-gap: 2px;
 }
 @media (max-width: 420px) {
   .jpdb-reader-study-item {

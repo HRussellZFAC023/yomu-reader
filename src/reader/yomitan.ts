@@ -28,9 +28,16 @@ import type {
 } from './yomitan-types';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
+const TERM_SEARCH_INDEX_BATCH_SIZE = 5000;
+const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
+const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
+const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
+const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12000;
+const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
 const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
 const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
@@ -45,6 +52,20 @@ interface TermMatchCandidatePosition {
 }
 
 type TermMatchCandidates = Map<string, TermMatchCandidatePosition[]>;
+
+interface TermSearchCandidate {
+    entry: YomitanTermEntry;
+    rank: number;
+}
+
+interface YomitanTermSearchEntry extends YomitanTermEntry {
+    token: string;
+}
+
+interface GlossaryCursorSearchOptions {
+    maxRows?: number;
+    maxMs?: number;
+}
 
 export type {
     DictionarySummary,
@@ -69,12 +90,16 @@ interface ReaderDictionaryExport {
 }
 
 type YomitanZipIndex = { title?: string; format?: number; version?: number; revision?: string };
+interface RandomTopTermOptions {
+    fallbackToRandom?: boolean;
+}
 
 export class YomitanDictionaryStore {
     private dbPromise?: Promise<IDBDatabase>;
     private dictionaryInfoPromise?: Promise<YomitanDictionaryInfo[]>;
     private summaryPromise?: Promise<DictionarySummary>;
     private dictionaryStyleCssCache = new Map<string, string>();
+    private termSearchIndexPromise?: Promise<void>;
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
@@ -89,6 +114,20 @@ export class YomitanDictionaryStore {
         } finally {
             done();
         }
+    }
+
+    prepareTermSearchIndex(): Promise<void> {
+        if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
+        const promise = this.db()
+            .then(db => this.ensureTermSearchIndex(db))
+            .catch(error => {
+                log.warn('Term search index preparation failed', { error });
+            })
+            .finally(() => {
+                if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = undefined;
+            });
+        this.termSearchIndexPromise = promise;
+        return this.termSearchIndexPromise;
     }
 
     async lookup(expression: string, reading: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
@@ -129,6 +168,36 @@ export class YomitanDictionaryStore {
         }
     }
 
+    async searchTerms(query: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+        const normalizedQuery = normalizeTermSearchQuery(query);
+        const done = log.time('Term search', { query: normalizedQuery, limit, dictionaries: preferences.length });
+        if (!normalizedQuery) {
+            done();
+            return [];
+        }
+
+        try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const [indexedEntries, glossaryCandidates] = await Promise.all([
+                this.getIndexedTermSearchEntries(db, normalizedQuery, Math.max(limit * 12, 120)),
+                shouldSearchTermGlossaries(normalizedQuery)
+                    ? this.getGlossaryTermSearchCandidates(db, normalizedQuery, Math.max(limit * 80, 800), rank)
+                    : Promise.resolve([]),
+            ]);
+            const candidates = [
+                ...indexedEntries.map(entry => ({ entry, rank: indexedTermSearchRank(entry, normalizedQuery) })),
+                ...glossaryCandidates,
+            ];
+            return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
+        } catch (error) {
+            log.warn('Term search failed', { query: normalizedQuery, error });
+            throw error;
+        } finally {
+            done();
+        }
+    }
+
     async lookupKanji(text: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanKanjiEntry[]> {
         const done = log.time('Kanji lookup', { length: text.length, limit, dictionaries: preferences.length });
         try {
@@ -146,6 +215,21 @@ export class YomitanDictionaryStore {
             return results;
         } catch (error) {
             log.warn('Kanji lookup failed', { length: text.length, error });
+            throw error;
+        } finally {
+            done();
+        }
+    }
+
+    async listKanjiCharacters(limit: number, preferences: DictionaryPreference[] = []): Promise<string[]> {
+        const done = log.time('Kanji character list', { limit, dictionaries: preferences.length });
+        try {
+            if (limit <= 0) return [];
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            return await this.getKanjiCharacters(db, limit, rank);
+        } catch (error) {
+            log.warn('Kanji character list failed', { error });
             throw error;
         } finally {
             done();
@@ -380,14 +464,14 @@ export class YomitanDictionaryStore {
         }
     }
 
-    async listRandomTopTerms(limit: number, maxRank: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+    async listRandomTopTerms(limit: number, maxRank: number, preferences: DictionaryPreference[] = [], options: RandomTopTermOptions = {}): Promise<YomitanTermEntry[]> {
         const done = log.time('Random top term listing', { limit, maxRank, dictionaries: preferences.length });
         try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
             const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
             const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences);
-            if (this.shouldFallbackToRandomTerms(topTerms, results)) {
+            if (options.fallbackToRandom !== false && this.shouldFallbackToRandomTerms(topTerms, results)) {
                 return await this.listRandomTerms(limit, preferences);
             }
             return results;
@@ -407,7 +491,7 @@ export class YomitanDictionaryStore {
         preferences: DictionaryPreference[],
     ): Promise<YomitanTermEntry[]> {
         return topTerms.size
-            ? await this.entriesForRandomExpressions(topTerms, limit, preferences)
+            ? await this.entriesForRandomExpressions(db, topTerms, limit, preferences)
             : await this.listRandomCommonTerms(db, limit, rank);
     }
 
@@ -440,14 +524,58 @@ export class YomitanDictionaryStore {
         return expressions;
     }
 
-    private async entriesForRandomExpressions(expressions: Map<string, number>, limit: number, preferences: DictionaryPreference[]): Promise<YomitanTermEntry[]> {
+    private async entriesForRandomExpressions(db: IDBDatabase, expressions: Map<string, number>, limit: number, preferences: DictionaryPreference[]): Promise<YomitanTermEntry[]> {
         const sampled = reservoirSample([...expressions.keys()], limit);
-        const results: YomitanTermEntry[] = [];
-        for (const expression of sampled) {
-            const entries = await this.lookup(expression, '', 1, preferences);
-            if (entries[0]) results.push({ ...entries[0], jpdbFrequency: expressions.get(expression) });
-        }
-        return results;
+        const rank = dictionaryRank(preferences);
+        const entriesByExpression = await this.getEntriesForExpressions(db, sampled, TOP_TERM_EXPRESSION_ENTRY_LIMIT);
+        return sampled.flatMap(expression => {
+            const entry = bestTermLookupEntry(entriesByExpression.get(expression) ?? [], expression, rank);
+            return entry ? [{ ...entry, jpdbFrequency: expressions.get(expression) }] : [];
+        });
+    }
+
+    private async getEntriesForExpressions(db: IDBDatabase, expressions: string[], limit: number): Promise<Map<string, YomitanTermEntry[]>> {
+        if (!expressions.length) return new Map();
+        return new Promise((resolve, reject) => {
+            const results = new Map<string, YomitanTermEntry[]>();
+            const tx = db.transaction('terms', 'readonly');
+            const index = tx.objectStore('terms').index('expression');
+            let pending = expressions.length;
+            const finish = () => {
+                if (--pending <= 0) resolve(results);
+            };
+            const fail = (error: unknown) => reject(error ?? new Error('Could not load top dictionary terms.'));
+
+            for (const expression of expressions) {
+                const range = IDBKeyRange.only(expression);
+                if (typeof index.getAll === 'function') {
+                    const request = index.getAll(range, limit);
+                    request.onsuccess = () => {
+                        results.set(expression, request.result as YomitanTermEntry[]);
+                        finish();
+                    };
+                    request.onerror = () => fail(request.error);
+                    continue;
+                }
+
+                const entries: YomitanTermEntry[] = [];
+                let count = 0;
+                const request = index.openCursor(range);
+                request.onsuccess = () => {
+                    const cursor = request.result;
+                    if (!cursor || count >= limit) {
+                        results.set(expression, entries);
+                        finish();
+                        return;
+                    }
+                    entries.push(cursor.value as YomitanTermEntry);
+                    count++;
+                    cursor.continue();
+                };
+                request.onerror = () => fail(request.error);
+            }
+            tx.onerror = () => fail(tx.error);
+        });
     }
 
     private async listRandomCommonTerms(db: IDBDatabase, limit: number, rank: Map<string, DictionaryPreference>): Promise<YomitanTermEntry[]> {
@@ -745,7 +873,7 @@ export class YomitanDictionaryStore {
         try {
             const db = await this.db();
             await new Promise<void>((resolve, reject) => {
-                const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo']);
+                const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo', 'termSearch']);
                 const tx = db.transaction(stores, 'readwrite');
                 for (const store of stores) tx.objectStore(store).clear();
                 tx.oncomplete = () => resolve();
@@ -839,7 +967,7 @@ export class YomitanDictionaryStore {
         const done = log.time('Dictionary delete', { dictionary });
         try {
             const db = await this.db();
-            const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta']);
+            const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'termSearch']);
             await Promise.all(stores.map(store => deleteByDictionary(db, store, dictionary)));
             await new Promise<void>((resolve, reject) => {
                 const tx = db.transaction('dictionaryInfo', 'readwrite');
@@ -871,9 +999,16 @@ export class YomitanDictionaryStore {
 
     private addStoreChunk<T>(db: IDBDatabase, storeName: StoreName, entries: T[], put: boolean): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const tx = db.transaction(storeName, 'readwrite');
+            const stores = storeName === 'terms' && hasStore(db, 'termSearch') ? ['terms', 'termSearch'] as const : [storeName] as const;
+            const tx = db.transaction(stores, 'readwrite');
             const store = tx.objectStore(storeName);
-            for (const entry of entries) put ? store.put(entry) : store.add(entry);
+            const termSearchStore = storeName === 'terms' && hasStore(db, 'termSearch') ? tx.objectStore('termSearch') : null;
+            for (const entry of entries) {
+                put ? store.put(entry) : store.add(entry);
+                if (termSearchStore) {
+                    for (const row of termSearchEntries(entry as YomitanTermEntry)) termSearchStore.add(row);
+                }
+            }
             tx.oncomplete = () => {
                 this.invalidateCaches();
                 resolve();
@@ -953,6 +1088,138 @@ export class YomitanDictionaryStore {
         });
     }
 
+    private async getIndexedTermSearchEntries(db: IDBDatabase, query: string, limit: number): Promise<YomitanTermEntry[]> {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('terms', 'readonly');
+            const store = tx.objectStore('terms');
+            const entries: YomitanTermEntry[] = [];
+            const queries = [
+                { indexName: 'expression', exact: true },
+                { indexName: 'reading', exact: true },
+                { indexName: 'expression', exact: false },
+                { indexName: 'reading', exact: false },
+            ];
+            let pending = queries.length;
+            const finish = () => {
+                if (--pending <= 0) resolve(entries);
+            };
+            const fail = (error: unknown) => reject(error ?? new Error('Could not search local dictionary terms.'));
+
+            for (const item of queries) {
+                const index = store.index(item.indexName);
+                const range = item.exact ? IDBKeyRange.only(query) : termSearchPrefixRange(query);
+                const request = index.openCursor(range);
+                let count = 0;
+                request.onsuccess = () => {
+                    const cursor = request.result;
+                    if (!cursor || count >= limit) {
+                        finish();
+                        return;
+                    }
+                    entries.push(cursor.value as YomitanTermEntry);
+                    count++;
+                    cursor.continue();
+                };
+                request.onerror = () => fail(request.error);
+            }
+            tx.onerror = () => fail(tx.error);
+        });
+    }
+
+    private async getGlossaryTermSearchCandidates(
+        db: IDBDatabase,
+        query: string,
+        candidateLimit: number,
+        rank: Map<string, DictionaryPreference>,
+    ): Promise<TermSearchCandidate[]> {
+        if (hasStore(db, 'termSearch')) {
+            const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank);
+            if (indexed.length) return indexed;
+            const building = Boolean(this.termSearchIndexPromise);
+            const indexedCount = await this.countStore(db, 'termSearch');
+            if (indexedCount > 0 && !building) return indexed;
+            if (!building) {
+                void this.prepareTermSearchIndex();
+            }
+            return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, {
+                maxRows: TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
+                maxMs: TERM_SEARCH_LEGACY_FALLBACK_MAX_MS,
+            });
+        }
+        return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank);
+    }
+
+    private async getGlossaryTermCursorSearchCandidates(
+        db: IDBDatabase,
+        query: string,
+        candidateLimit: number,
+        rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions = {},
+    ): Promise<TermSearchCandidate[]> {
+        return new Promise((resolve, reject) => {
+            const candidates: TermSearchCandidate[] = [];
+            const startedAt = performance.now();
+            let visited = 0;
+            const request = db.transaction('terms', 'readonly').objectStore('terms').openCursor();
+            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary glossaries.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    resolve(candidates);
+                    return;
+                }
+                if ((options.maxRows && visited >= options.maxRows)
+                    || (options.maxMs && performance.now() - startedAt >= options.maxMs)) {
+                    resolve(candidates);
+                    return;
+                }
+                visited++;
+                const entry = cursor.value as YomitanTermEntry;
+                if (dictionaryEnabled(entry.dictionary, rank)) {
+                    const searchRank = glossaryTermSearchRank(entry.glossary, query);
+                    if (searchRank < Number.POSITIVE_INFINITY) {
+                        candidates.push({ entry, rank: searchRank });
+                        trimTermSearchCandidates(candidates, candidateLimit, query, rank);
+                    }
+                }
+                cursor.continue();
+            };
+        });
+    }
+
+    private async getGlossaryTermSearchIndexCandidates(
+        db: IDBDatabase,
+        query: string,
+        candidateLimit: number,
+        rank: Map<string, DictionaryPreference>,
+    ): Promise<TermSearchCandidate[]> {
+        const token = termSearchIndexToken(query);
+        if (!token) return [];
+        return new Promise((resolve, reject) => {
+            const candidates: TermSearchCandidate[] = [];
+            const request = db.transaction('termSearch', 'readonly')
+                .objectStore('termSearch')
+                .index('token')
+                .openCursor(termSearchPrefixRange(token));
+            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary glossary index.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor || candidates.length >= candidateLimit) {
+                    resolve(candidates);
+                    return;
+                }
+                const entry = cursor.value as YomitanTermSearchEntry;
+                if (dictionaryEnabled(entry.dictionary, rank)) {
+                    const searchRank = glossaryTermSearchRank(entry.glossary, query);
+                    if (searchRank < Number.POSITIVE_INFINITY) {
+                        candidates.push({ entry: termEntryFromSearchEntry(entry), rank: searchRank });
+                    }
+                }
+                cursor.continue();
+            };
+        });
+    }
+
     private async getAllDictionaryInfo(db: IDBDatabase): Promise<YomitanDictionaryInfo[]> {
         this.dictionaryInfoPromise ??= this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo')
             .then(items => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title)))
@@ -977,6 +1244,107 @@ export class YomitanDictionaryStore {
                 cursor.continue();
             };
             request.onerror = () => reject(request.error);
+        });
+    }
+
+    private async getKanjiCharacters(db: IDBDatabase, limit: number, rank: Map<string, DictionaryPreference>): Promise<string[]> {
+        return new Promise((resolve, reject) => {
+            const characters: string[] = [];
+            const seen = new Set<string>();
+            const request = db.transaction('kanji', 'readonly').objectStore('kanji').openCursor();
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor || characters.length >= limit) {
+                    resolve(characters);
+                    return;
+                }
+                const entry = cursor.value as YomitanKanjiEntry;
+                if (dictionaryEnabled(entry.dictionary, rank) && isKanji(entry.character) && !seen.has(entry.character)) {
+                    seen.add(entry.character);
+                    characters.push(entry.character);
+                }
+                cursor.continue();
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    private async ensureTermSearchIndex(db: IDBDatabase): Promise<void> {
+        if (!hasStore(db, 'termSearch')) return;
+        const [terms, indexed] = await Promise.all([
+            this.countStore(db, 'terms'),
+            this.countStore(db, 'termSearch'),
+        ]);
+        if (!terms || indexed) return;
+        await this.rebuildTermSearchIndex(db);
+    }
+
+    private async rebuildTermSearchIndex(db: IDBDatabase): Promise<void> {
+        const done = log.time('Term search index rebuild');
+        try {
+            await this.clearTermSearchIndex(db);
+            let indexedTerms = 0;
+            let lastKey: IDBValidKey | undefined;
+            for (;;) {
+                const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
+                if (!chunk.terms.length) break;
+                await this.addTermSearchIndexChunk(db, chunk.terms);
+                indexedTerms += chunk.terms.length;
+                if (chunk.done) break;
+                lastKey = chunk.lastKey;
+            }
+            log.info('Term search index rebuilt', { terms: indexedTerms });
+        } finally {
+            done();
+        }
+    }
+
+    private getTermSearchIndexSourceChunk(
+        db: IDBDatabase,
+        afterKey: IDBValidKey | undefined,
+        limit: number,
+    ): Promise<{ terms: YomitanTermEntry[]; lastKey: IDBValidKey | undefined; done: boolean }> {
+        return new Promise((resolve, reject) => {
+            const terms: YomitanTermEntry[] = [];
+            let lastKey: IDBValidKey | undefined = afterKey;
+            const range = afterKey == null ? undefined : IDBKeyRange.lowerBound(afterKey, true);
+            const request = db.transaction('terms', 'readonly').objectStore('terms').openCursor(range);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    resolve({ terms, lastKey, done: true });
+                    return;
+                }
+                terms.push(cursor.value as YomitanTermEntry);
+                lastKey = cursor.key;
+                if (terms.length >= limit) {
+                    resolve({ terms, lastKey, done: false });
+                    return;
+                }
+                cursor.continue();
+            };
+        });
+    }
+
+    private clearTermSearchIndex(db: IDBDatabase): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('termSearch', 'readwrite');
+            tx.objectStore('termSearch').clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    private addTermSearchIndexChunk(db: IDBDatabase, terms: YomitanTermEntry[]): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('termSearch', 'readwrite');
+            const store = tx.objectStore('termSearch');
+            for (const term of terms) {
+                for (const row of termSearchEntries(term)) store.add(row);
+            }
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
         });
     }
 
@@ -1019,6 +1387,9 @@ export class YomitanDictionaryStore {
                 if (!db.objectStoreNames.contains('dictionaryInfo')) {
                     db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
                 }
+                const termSearch = ensureStore(db, tx, 'termSearch');
+                ensureIndex(termSearch, 'token', 'token');
+                ensureIndex(termSearch, 'dictionary', 'dictionary');
             };
             request.onsuccess = () => {
                 const db = request.result;
@@ -1357,6 +1728,195 @@ function termLookupDedupKey(entry: YomitanTermEntry): string {
     return entry.sequence !== undefined
         ? `${entry.dictionary}\nsequence:${entry.sequence}\n${glossaryKey}`
         : `${entry.dictionary}\n${entry.expression}\n${entry.reading}\n${glossaryKey}`;
+}
+
+function bestTermLookupEntry(
+    entries: YomitanTermEntry[],
+    expression: string,
+    rank: Map<string, DictionaryPreference>,
+): YomitanTermEntry | null {
+    const seen = new Set<string>();
+    for (const entry of [...entries].sort((a, b) => compareTermLookupEntries(a, b, expression, rank))) {
+        if (!dictionaryEnabled(entry.dictionary, rank)) continue;
+        const key = termLookupDedupKey(entry);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        return entry;
+    }
+    return null;
+}
+
+function compareTermLookupEntries(
+    a: YomitanTermEntry,
+    b: YomitanTermEntry,
+    expression: string,
+    rank: Map<string, DictionaryPreference>,
+): number {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+        || Number(b.expression === expression) - Number(a.expression === expression)
+        || (b.score ?? 0) - (a.score ?? 0);
+}
+
+function normalizeTermSearchQuery(value: string): string {
+    return value.replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+function shouldSearchTermGlossaries(query: string): boolean {
+    return !JAPANESE_RE.test(query);
+}
+
+function termSearchIndexToken(query: string): string {
+    return glossaryWords(normalizeGlossarySearchText(query)).find(word => word.length >= TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH) ?? '';
+}
+
+function termSearchPrefixRange(query: string): IDBKeyRange {
+    return IDBKeyRange.bound(query, `${query}\uffff`, false, false);
+}
+
+function rankedTermSearchResults(
+    candidates: TermSearchCandidate[],
+    query: string,
+    limit: number,
+    rank: Map<string, DictionaryPreference>,
+): YomitanTermEntry[] {
+    const seen = new Set<string>();
+    return candidates
+        .filter(candidate => dictionaryEnabled(candidate.entry.dictionary, rank))
+        .sort((a, b) =>
+            a.rank - b.rank
+            || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank)
+            || (b.entry.score ?? 0) - (a.entry.score ?? 0)
+            || Number(b.entry.expression === query) - Number(a.entry.expression === query)
+            || a.entry.expression.length - b.entry.expression.length,
+        )
+        .filter(candidate => {
+            const key = termLookupDedupKey(candidate.entry);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .map(candidate => candidate.entry)
+        .slice(0, limit);
+}
+
+function indexedTermSearchRank(entry: YomitanTermEntry, query: string): number {
+    if (entry.expression === query) return 0;
+    if (entry.reading === query) return 4;
+    if (entry.expression.startsWith(query)) return 10;
+    if (entry.reading.startsWith(query)) return 12;
+    if (entry.expression.includes(query)) return 24;
+    if (entry.reading.includes(query)) return 26;
+    return 60;
+}
+
+function glossaryTermSearchRank(glossary: unknown[], query: string): number {
+    const normalizedQuery = normalizeGlossarySearchText(query);
+    if (!normalizedQuery) return Number.POSITIVE_INFINITY;
+    const text = normalizeGlossarySearchText(glossarySearchText(glossary));
+    if (!text) return Number.POSITIVE_INFINITY;
+    if (text === normalizedQuery) return 30;
+    if (glossaryHasExactWord(text, normalizedQuery)) return 34;
+    if (glossaryHasWordPrefix(text, normalizedQuery)) return 44;
+    if (text.includes(normalizedQuery)) return 68;
+    return Number.POSITIVE_INFINITY;
+}
+
+function normalizeGlossarySearchText(value: string): string {
+    return value
+        .normalize('NFKC')
+        .toLocaleLowerCase()
+        .replace(/[^\p{L}\p{N}\s'-]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function glossaryHasExactWord(text: string, query: string): boolean {
+    return glossaryWords(text).some(word => word === query);
+}
+
+function glossaryHasWordPrefix(text: string, query: string): boolean {
+    return glossaryWords(text).some(word => word.startsWith(query));
+}
+
+function glossaryWords(text: string): string[] {
+    return text.split(/\s+/u).filter(Boolean);
+}
+
+function termSearchEntries(entry: YomitanTermEntry): YomitanTermSearchEntry[] {
+    const { id: _id, ...entryWithoutId } = entry;
+    return glossarySearchTokens(entry.glossary).map(token => ({
+        ...entryWithoutId,
+        token,
+    }));
+}
+
+function termEntryFromSearchEntry(entry: YomitanTermSearchEntry): YomitanTermEntry {
+    const { id: _id, token: _token, ...term } = entry;
+    return term;
+}
+
+function glossarySearchTokens(glossary: unknown[]): string[] {
+    return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossarySearchText(glossary))).flatMap(glossaryWordSearchTokens))
+        .slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
+}
+
+function glossaryWordSearchTokens(word: string): string[] {
+    const tokens: string[] = [];
+    const variants = uniqueSearchTokens([
+        word,
+        word.endsWith("'s") ? word.slice(0, -2) : '',
+        word.endsWith('s') ? word.slice(0, -1) : '',
+    ]);
+    for (const variant of variants) {
+        tokens.push(variant);
+        for (let start = 1; start <= variant.length - TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH; start++) {
+            tokens.push(variant.slice(start));
+        }
+    }
+    return tokens;
+}
+
+function uniqueSearchTokens(tokens: string[]): string[] {
+    const seen = new Set<string>();
+    return tokens.filter(token => {
+        if (token.length < TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH || seen.has(token)) return false;
+        seen.add(token);
+        return true;
+    });
+}
+
+function glossarySearchText(value: unknown): string {
+    if (value == null) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) return value.map(glossarySearchText).filter(Boolean).join(' ');
+    if (!isRecord(value)) return '';
+    if (typeof value.text === 'string') return value.text;
+    if ('content' in value) return glossarySearchText(value.content);
+    return ['description', 'alt', 'title']
+        .map(key => glossarySearchText(value[key]))
+        .filter(Boolean)
+        .join(' ');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function trimTermSearchCandidates(
+    candidates: TermSearchCandidate[],
+    candidateLimit: number,
+    query: string,
+    rank: Map<string, DictionaryPreference>,
+): void {
+    if (candidates.length <= candidateLimit * 2) return;
+    candidates.sort((a, b) =>
+        a.rank - b.rank
+        || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank)
+        || (b.entry.score ?? 0) - (a.entry.score ?? 0)
+        || Number(b.entry.expression === query) - Number(a.entry.expression === query)
+        || a.entry.expression.length - b.entry.expression.length,
+    );
+    candidates.length = candidateLimit;
 }
 
 function normalizeDexieKanjiRow(row: unknown): YomitanKanjiEntry | null {
@@ -1699,6 +2259,10 @@ function ensureStore(db: IDBDatabase, tx: IDBTransaction, name: StoreName): IDBO
     return db.objectStoreNames.contains(name)
         ? tx.objectStore(name)
         : db.createObjectStore(name, { keyPath: 'id', autoIncrement: true });
+}
+
+function hasStore(db: IDBDatabase, name: StoreName): boolean {
+    return db.objectStoreNames.contains(name);
 }
 
 function ensureIndex(store: IDBObjectStore, name: string, keyPath: string): void {

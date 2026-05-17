@@ -19,6 +19,8 @@ const metadataPath = '/yomu.meta.js';
 const installPath = '/yomu.user.js';
 const runtimePath = '/__yomu-dev-runtime.js';
 const versionPath = '/__yomu-dev-version.json';
+const jpdbAudioProxyPath = '/__yomu-jpdb-audio/';
+const jpdbAudioAccessHeader = "please don't steal these files";
 const autoReload = process.env.YOMU_DEV_AUTO_RELOAD === '1';
 const loggingEnabled = isEnabledEnv(process.env.YOMU_ENABLE_LOGS);
 const pageInjectionEnabled = isEnabledEnv(process.env.YOMU_DEV_PAGE_INJECTION);
@@ -29,18 +31,26 @@ const buildFreshnessSkewMs = 2_000;
 
 let closing = false;
 let firstBuildReadyPromise;
-const builder = spawn(process.execPath, [viteBin, 'build', '--watch', '--mode', 'development'], {
+const builders = [
+    spawnViteBuilder(['build', '--watch', '--mode', 'development']),
+    spawnViteBuilder(['build', '--watch', '--mode', 'development', '--config', 'vite.newtab.config.ts']),
+];
+
+function spawnViteBuilder(args) {
+    const builder = spawn(process.execPath, [viteBin, ...args], {
     cwd: root,
     env: {
         ...process.env,
         VITE_YOMU_ENABLE_LOGS: loggingEnabled ? '1' : '',
     },
     stdio: ['ignore', 'inherit', 'inherit'],
-});
+    });
 
-builder.on('exit', code => {
-    if (!closing) process.exit(code ?? 1);
-});
+    builder.on('exit', code => {
+        if (!closing) process.exit(code ?? 1);
+    });
+    return builder;
+}
 
 const server = createServer(handleRequest);
 
@@ -54,6 +64,10 @@ async function handleRequest(req, res) {
 }
 
 async function routeRequest(url, res) {
+    if (url.pathname.startsWith(jpdbAudioProxyPath)) {
+        await serveJpdbAudio(url, res);
+        return;
+    }
     const handler = fixedRouteHandler(url.pathname);
     if (handler) {
         await handler(res);
@@ -70,6 +84,7 @@ const FIXED_ROUTES = new Map([
     [metadataPath, serveMetadata],
     [runtimePath, serveRuntime],
     [versionPath, serveVersion],
+    ['/favicon.ico', serveFavicon],
     ['/', serveIndex],
 ]);
 
@@ -180,6 +195,37 @@ async function serveVersion(res) {
     sendNoStore(res, 200, JSON.stringify({ version, mtimeMs, autoReload }), 'application/json; charset=utf-8');
 }
 
+async function serveFavicon(res) {
+    send(res, 200, await readFile(path.join(publicDir, 'yomu-icon.svg')), 'image/svg+xml; charset=utf-8');
+}
+
+async function serveJpdbAudio(url, res) {
+    const audioPath = decodeURIComponent(url.pathname.slice(jpdbAudioProxyPath.length));
+    if (!isSafeJpdbAudioPath(audioPath)) {
+        sendNoStore(res, 400, 'Invalid JPDB audio path.');
+        return;
+    }
+
+    const headers = { 'X-Access': jpdbAudioAccessHeader };
+    if (url.searchParams.get('force_caf') === '1') headers['X-ForceCAF'] = '1';
+    const upstream = await fetch(`https://jpdb.io/static/v/${encodeJpdbAudioPath(audioPath)}`, { headers });
+    if (!upstream.ok) {
+        sendNoStore(res, upstream.status, await upstream.text().catch(() => 'JPDB audio request failed.'));
+        return;
+    }
+    sendNoStore(res, 200, Buffer.from(await upstream.arrayBuffer()), 'application/octet-stream');
+}
+
+function isSafeJpdbAudioPath(value) {
+    return /^[A-Za-z0-9_./-]+$/.test(value)
+        && !value.includes('..')
+        && !value.startsWith('/');
+}
+
+function encodeJpdbAudioPath(value) {
+    return value.split('/').map(encodeURIComponent).join('/');
+}
+
 function packageVersion(code) {
     return code.match(/^\/\/ @version\s+([^\s]+).*$/m)?.[1] || '0.0.0';
 }
@@ -275,9 +321,9 @@ function devBootstrap() {
     const page = pageWindow();
     const bridgeKey = '__yomu_dev_bridge_' + randomId();
     const mountedKey = '__monkeyWindow-yomu-dev-' + randomId();
-    page.__YOMU_DEV_VERSION__ = currentVersion;
-    if (loggingEnabled) page.__YOMU_ENABLE_LOGS__ = true;
-    page[bridgeKey] = userscriptApiBridge();
+    mountPageValue(page, '__YOMU_DEV_VERSION__', currentVersion);
+    if (loggingEnabled) mountPageValue(page, '__YOMU_ENABLE_LOGS__', true);
+    mountPageValue(page, bridgeKey, userscriptApiBridge());
     try {
       const script = GM_addElement('script', {
         textContent: wrappedRuntimeSource(source, bridgeKey, mountedKey),
@@ -349,9 +395,21 @@ function devBootstrap() {
 
   function pageWindow() {
     try {
-      if (typeof unsafeWindow === 'object' && unsafeWindow) return unsafeWindow;
+      if (typeof unsafeWindow === 'object' && unsafeWindow) return unsafeWindow.wrappedJSObject || unsafeWindow;
     } catch {}
     return window;
+  }
+
+  function mountPageValue(page, key, value) {
+    try {
+      page[key] = value;
+      return;
+    } catch {}
+    if (typeof cloneInto === 'function') {
+      page[key] = cloneInto(value, page, { cloneFunctions: true });
+      return;
+    }
+    throw new Error('Unable to mount userscript bridge into the page context.');
   }
 
   function isEvalCspError(error) {
@@ -513,6 +571,6 @@ function isEnabledEnv(value) {
 function shutdown(code) {
     closing = true;
     server.close(() => {});
-    builder.kill('SIGTERM');
+    for (const builder of builders) builder.kill('SIGTERM');
     setTimeout(() => process.exit(code), 100).unref();
 }

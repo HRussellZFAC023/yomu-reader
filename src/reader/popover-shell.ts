@@ -368,6 +368,52 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
 }
 
+export function installSheetCloseButton(popover: HTMLElement, onDismiss: () => void, label = 'Close drawer'): void {
+    if (popover.dataset.jpdbReaderSheetCloseInstalled === 'true') return;
+    popover.dataset.jpdbReaderSheetCloseInstalled = 'true';
+
+    const close = (event: Event): void => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDismiss();
+    };
+    const createButton = (): HTMLButtonElement => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'jpdb-reader-sheet-close';
+        button.dataset.jpdbReaderSheetClose = 'true';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+        button.addEventListener('click', close);
+        return button;
+    };
+    const ensureButton = (): void => {
+        if (!popover.isConnected) return;
+        if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
+        popover.append(createButton());
+    };
+
+    ensureButton();
+    let disposed = false;
+    let contentObserver: MutationObserver | undefined;
+    let disposeObserver: MutationObserver | undefined;
+    const dispose = (): void => {
+        if (disposed) return;
+        disposed = true;
+        contentObserver?.disconnect();
+        disposeObserver?.disconnect();
+    };
+    contentObserver = new MutationObserver(ensureButton);
+    contentObserver.observe(popover, { childList: true });
+    disposeObserver = new MutationObserver(() => {
+        if (!popover.isConnected) dispose();
+    });
+    if (document.documentElement) {
+        disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+}
+
 export function installSettingsDrawerHandle(drawer: HTMLElement): void {
     if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === 'true') return;
     drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = 'true';
@@ -388,10 +434,10 @@ export function installSettingsDrawerHandle(drawer: HTMLElement): void {
     const isFullHeight = (): boolean => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
 
     const syncHandle = (handle: HTMLElement): void => {
-        handle.setAttribute('role', 'button');
+        handle.setAttribute('role', 'separator');
         handle.setAttribute('tabindex', '0');
-        handle.setAttribute('aria-label', 'Drag to resize Settings');
-        handle.setAttribute('aria-expanded', String(isFullHeight()));
+        handle.setAttribute('aria-label', 'Resize Settings');
+        handle.setAttribute('aria-orientation', 'horizontal');
         handle.setAttribute('aria-valuemin', String(settingsDrawerMinHeight(viewportHeight)));
         handle.setAttribute('aria-valuemax', String(viewportHeight));
         handle.setAttribute('aria-valuenow', String(Math.round(drawerHeight)));

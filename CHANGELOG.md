@@ -8,6 +8,20 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+### Added
+
+- Replaced the Help-panel Help link with a Factory Reset action that clears settings, API keys, preferences, cached cards, local dictionary storage, and other よむ local data before reloading defaults.
+- Hardened Factory Reset so settings storage is cleared even if dictionary database cleanup is blocked, including userscript managers that expose modern `GM.*` storage APIs.
+- Added capped JPDB "used in vocabulary" and public example rows to popup JPDB definitions, including compact buttons for JPDB-provided example audio.
+- Added Anki card front controls for hiding the reading, sentence, or image on word-first cards.
+- Added Immersion Kit audio to Anki-mined notes when the selected Immersion Kit example is used as the card context.
+
+### Changed
+
+- Made `/newtab` keep JPDB and Anki SRS queue order, alternate JPDB/Anki cards in Auto mode, and only fall back to random dictionary words after both review queues are empty.
+- Made the hosted new tab paint cached cards immediately while JPDB, Anki, or dictionary sources refresh in the background, and sped up deck/dictionary refresh work so a card appears sooner after reload.
+- Moved existing Anki note actions into the Anki preview, simplified the header, removed the default Status row from Yomu Anki cards, and refreshed Anki lookup state immediately after adding a note.
+
 ## [0.4.14] - 2026-05-16
 
 ### Added

@@ -38,6 +38,7 @@ describe('local Japanese grammar hints', () => {
         const [hint] = detectGrammarHints('データに基づいて判断します。');
         const html = renderGrammarHints([hint], 'データに基づいて判断します。', { knownRuleIds: [], showKnown: false });
         expect(html).toContain('Example');
+        expect(html).toContain('jpdb-reader-grammar-example jpdb-reader-parseable');
         expect(html).toContain('データに基づいて判断します。');
         expect(html).toContain('based on data');
     });

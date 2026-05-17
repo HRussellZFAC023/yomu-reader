@@ -23,6 +23,14 @@ export interface KanjiOriginNode {
     detail: string;
     source: string;
     position?: string;
+    geometry?: KanjiOriginNodeGeometry;
+}
+
+export interface KanjiOriginNodeGeometry {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
 }
 
 export interface KanjiOriginEdge {
@@ -346,20 +354,23 @@ export function buildKanjiOriginGraph(
             edges.push({ from, to, label });
         }
     };
-    const addComponentNode = (id: string, detail: string, source: string, position?: string): string | null => {
+    const addComponentNode = (id: string, detail: string, source: string, position?: string, geometry?: KanjiOriginNodeGeometry): string | null => {
         if (!id || id === kanji) return null;
         const existing = nodes.get(id);
         if (!existing) {
-            nodes.set(id, { id, label: id, kind: 'component', detail, source, position });
+            nodes.set(id, { id, label: id, kind: 'component', detail, source, position, geometry });
         } else {
             if (!existing.detail && detail) existing.detail = detail;
             if (!existing.position && position) existing.position = position;
+            if (!existing.geometry && geometry) existing.geometry = geometry;
         }
         return id;
     };
-    const addComponent = (id: string, detail: string, label: string, source: string, position?: string) => {
-        const resolvedPosition = position || kanjiVGPositions.get(id)?.position;
-        addEdge(addComponentNode(id, detail, source, resolvedPosition) ?? undefined, kanji, label);
+    const addComponent = (id: string, detail: string, label: string, source: string, position?: string, geometry?: KanjiOriginNodeGeometry) => {
+        const kanjiVGPosition = kanjiVGPositions.get(id);
+        const resolvedPosition = position || kanjiVGPosition?.position;
+        const resolvedGeometry = geometry ?? kanjiVGPosition?.geometry;
+        addEdge(addComponentNode(id, detail, source, resolvedPosition, resolvedGeometry) ?? undefined, kanji, label);
     };
     const addUsedInKanji = (id: string, detail: string, source: string) => {
         if (!id || id === kanji) return;
@@ -387,9 +398,9 @@ export function buildKanjiOriginGraph(
         if (!parent || parent === kanji) return;
         const child = resolveKanjiVGId(component.component, component.original);
         if (hasDirectComponentEdge(child) || hasDirectComponentEdge(component.component) || hasDirectComponentEdge(component.original)) return;
-        const parentPosition = kanjiVGPositions.get(parent)?.position;
-        const parentId = addComponentNode(parent, 'visual component', 'KanjiVG', parentPosition) ?? parent;
-        const childId = addComponentNode(child, 'visual subcomponent', 'KanjiVG', component.position) ?? child;
+        const parentPosition = kanjiVGPositions.get(parent);
+        const parentId = addComponentNode(parent, 'visual component', 'KanjiVG', parentPosition?.position, parentPosition?.geometry) ?? parent;
+        const childId = addComponentNode(child, 'visual subcomponent', 'KanjiVG', component.position, kanjiVGComponentGeometry(component)) ?? child;
         addEdge(childId, parentId, 'subcomponent');
     };
 
@@ -410,7 +421,7 @@ export function buildKanjiOriginGraph(
             const id = nodes.has(component.component)
                 ? component.component
                 : component.original && nodes.has(component.original) ? component.original : component.component;
-            addComponent(id, 'visual component', 'KanjiVG component', 'KanjiVG', component.position);
+            addComponent(id, 'visual component', 'KanjiVG component', 'KanjiVG', component.position, kanjiVGComponentGeometry(component));
         });
     kanjiVGInfo?.componentPositions
         ?.filter(component => !component.direct)
@@ -430,19 +441,33 @@ export function buildKanjiOriginGraph(
     return graph;
 }
 
-function kanjiVGComponentPositionMap(info: KanjiVGInfo | null): Map<string, { position: string; direct: boolean }> {
-    const positions = new Map<string, { position: string; direct: boolean }>();
+function kanjiVGComponentPositionMap(info: KanjiVGInfo | null): Map<string, { position: string; direct: boolean; geometry?: KanjiOriginNodeGeometry }> {
+    const positions = new Map<string, { position: string; direct: boolean; geometry?: KanjiOriginNodeGeometry }>();
     info?.componentPositions?.forEach(component => {
         const position = normalizeKanjiVGPosition(component.position);
         if (!position) return;
+        const geometry = kanjiVGComponentGeometry(component);
         kanjiVGPositionKeys(component).forEach(key => {
             const existing = positions.get(key);
             if (!existing || (!existing.direct && component.direct)) {
-                positions.set(key, { position, direct: component.direct });
+                positions.set(key, { position, direct: component.direct, geometry });
+            } else if (!existing.geometry && geometry) {
+                positions.set(key, { ...existing, geometry });
             }
         });
     });
     return positions;
+}
+
+function kanjiVGComponentGeometry(component: NonNullable<KanjiVGInfo['componentPositions']>[number]): KanjiOriginNodeGeometry | undefined {
+    return component.center
+        ? {
+            x: component.center.x,
+            y: component.center.y,
+            width: component.bounds?.width,
+            height: component.bounds?.height,
+        }
+        : undefined;
 }
 
 function kanjiVGPositionKeys(component: NonNullable<KanjiVGInfo['componentPositions']>[number]): string[] {

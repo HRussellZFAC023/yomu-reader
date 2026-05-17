@@ -310,6 +310,7 @@ export class ImmersionPopoverController {
             reading: card.reading,
             enabled: settings.immersionKitEnabled,
             limit: settings.immersionKitLimit,
+            limitEnabled: settings.immersionKitLimitEnabled,
             min: settings.immersionKitMinLength,
             max: settings.immersionKitMaxLength,
             category: settings.immersionKitCategory,
@@ -383,12 +384,13 @@ export class ImmersionPopoverController {
         const example = examples[index];
         const settings = this.options.getSettings();
         const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
-        const hasAudio = this.mediaUrls(example, 'sound').length > 0;
+        const audioUrls = this.mediaUrls(example, 'sound');
+        const hasAudio = audioUrls.length > 0;
         const imageUrl = imageUrls[0] ?? '';
 
-        this.rememberExampleMiningContext(card, example, index, examples.length, imageUrl, promoteMiningContext);
+        this.rememberExampleMiningContext(card, example, index, examples.length, imageUrl, audioUrls, promoteMiningContext);
         delete container.dataset.immersionEmpty;
-        setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, hasAudio));
+        setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, audioUrls, hasAudio));
         this.loadRenderedExampleImages(container, imageUrls, isCurrent);
         this.options.repositionPopover();
         if (playAudio) void this.playExampleAudio(example, true);
@@ -401,9 +403,10 @@ export class ImmersionPopoverController {
         index: number,
         total: number,
         imageUrl: string,
+        audioUrls: string[],
         promoteMiningContext: boolean,
     ): void {
-        const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl));
+        const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
         if (storedContext) {
             this.contextByCardKey.set(cardKey(card), storedContext);
             this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
@@ -423,6 +426,7 @@ export class ImmersionPopoverController {
         searchQuery: string,
         settings: ReaderSettings,
         imageUrl: string,
+        audioUrls: string[],
         hasAudio: boolean,
     ): string {
         const language = settings.interfaceLanguage;
@@ -442,7 +446,7 @@ export class ImmersionPopoverController {
                 </div>
                 ${renderExampleActionsHtml(hasAudio, language)}
             </div>
-            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}">
+            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}" data-immersion-audio-urls="${escapeHtml(JSON.stringify(audioUrls))}">
                 <div class="jpdb-reader-example-body">
                     ${image}
                     ${image ? '' : sentence}
@@ -467,6 +471,7 @@ export class ImmersionPopoverController {
                 if (!isCurrent() || !imageElement.isConnected) return;
                 const fallbackUrl = imageUrls[imageCandidateIndex++];
                 if (!fallbackUrl) {
+                    if (imageElement.complete && imageElement.naturalWidth > 0) return;
                     this.hideBrokenExampleImage(container, imageElement);
                     return;
                 }
@@ -512,7 +517,13 @@ export class ImmersionPopoverController {
 
     private hideBrokenExampleImage(container: HTMLElement, imageElement: HTMLImageElement): void {
         if (!imageElement.isConnected) return;
-        imageElement.closest('.jpdb-reader-example-media')?.remove();
+        const media = imageElement.closest('.jpdb-reader-example-media');
+        const sentence = media?.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
+        if (sentence) {
+            sentence.classList.remove('jpdb-subtitle-primary');
+            media?.after(sentence);
+        }
+        media?.remove();
         if (imageElement.isConnected) imageElement.remove();
         container.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
         this.options.repositionPopover();
@@ -780,7 +791,7 @@ function validImmersionExampleIndex(index: number, length: number): number {
 function renderExampleImageHtml(container: HTMLElement, imageUrl: string, overlay = ''): string {
     if (!imageUrl) return '';
     const heldImage = heldExampleImage(container);
-    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async">${overlay}</div>`;
+    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage) || ` src="${escapeHtml(imageUrl)}"`} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
 }
 
 function renderExampleSentenceHtml(sentenceHtml: string): string {
@@ -837,9 +848,9 @@ function renderExampleTranslation(translation: string, settings: ReaderSettings)
     if (!settings.immersionKitShowTranslation || !translation) return '';
     const escaped = escapeHtml(translation);
     if (!settings.immersionKitRevealTranslationOnClick) {
-        return `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escaped}</div>`;
+        return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
     }
-    return `<div class="jpdb-reader-example-translation jpdb-reader-parseable" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">${escaped}</div>`;
+    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">${escaped}</div>`;
 }
 
 function setTranslationBlurAttributes(element: HTMLElement, blurred: boolean, key: 'immersionTranslationBlurred'): void {

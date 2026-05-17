@@ -163,6 +163,46 @@
 :is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
 }
+.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  background: var(--jpdb-reader-source-status-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  background: var(--jpdb-reader-source-jpdb-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  background: var(--jpdb-reader-source-anki-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  background: var(--jpdb-reader-source-pitch-soft, transparent) !important;
+}
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
+  text-decoration-line: underline !important;
+}
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  text-decoration-line: underline !important;
+}
+.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);
+  text-decoration-line: underline !important;
+}
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
+  text-decoration-line: underline !important;
+}
+.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  color: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+}
+.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  color: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+}
+.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  color: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+}
+.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  color: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+}
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
   opacity: 1;
@@ -211,6 +251,66 @@
 }
 .jpdb-reader-subtitle-preview .jpdb-subtitle-primary {
   display: inline;
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word {
+  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--subtitle-color));
+  --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
+  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--subtitle-color));
+  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);
+  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--subtitle-color));
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-due {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-atamadaka {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-nakadaka {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-odaka {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);
+}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word {
+  color: var(--jpdb-reader-source-status-color, var(--subtitle-color)) !important;
+}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word {
+  color: var(--jpdb-reader-source-jpdb-color, var(--subtitle-color)) !important;
+}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word {
+  color: var(--jpdb-reader-source-pitch-color, var(--subtitle-color)) !important;
+}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
 .jpdb-subtitle-rail {
   position: absolute;
@@ -783,44 +883,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
 
 @media (max-width: 768px), (pointer: coarse) {
-  .jpdb-reader-popover.jpdb-reader-sheet {
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    bottom: 0 !important;
-    width: 100%;
-    height: var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));
-    min-height: var(--jpdb-reader-sheet-min-height, 180px);
-    max-height: var(--jpdb-reader-sheet-viewport-height, 100dvh);
-    border-radius: 16px 16px 0 0;
-    padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-  .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-resizing {
-    user-select: none;
-  }
-  .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    overflow: hidden;
-    padding: 0;
-  }
-  .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
-    padding: 14px 16px;
-    -webkit-overflow-scrolling: touch;
-  }
-  .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
-    padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
-  }
-  .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
-    padding-top: 37px;
-  }
-  .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
-    border-radius: 0;
-    padding-top: max(8px, env(safe-area-inset-top));
-  }
-  .jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
   .jpdb-reader-onboarding {
     inset: auto 0 0 0;

@@ -24,6 +24,7 @@ const PEN_MIN_DISTANCE = 0.0008;
 const POINTER_MIN_DISTANCE = 0.0035;
 const ACTIVE_DOODLE_CLASS = 'jpdb-reader-doodle-active';
 const NATIVE_GESTURE_SUPPRESS_MS = 900;
+export const KANJI_DOODLE_CLEAR_EVENT = 'yomu:kanji-doodle-clear';
 
 export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => InterfaceLanguage, options: KanjiDoodleOptions = {}): void {
     const root = popover as KanjiDoodleRoot;
@@ -231,6 +232,14 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         options.onChange?.(strokes.map(stroke => [...stroke]));
     };
 
+    const clearDoodle = (): void => {
+        strokes = [];
+        points = [];
+        redraw();
+        options.onClear?.();
+        options.onChange?.([]);
+    };
+
     canvas.addEventListener('pointerdown', start, { passive: false, signal });
     canvas.addEventListener('lostpointercapture', finishAfterLostCapture, { signal });
     document.addEventListener('pointermove', move, { passive: false, signal });
@@ -246,6 +255,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     window.addEventListener('contextmenu', suppressNativeGestureIfActive, { capture: true, signal });
     window.addEventListener('selectstart', suppressNativeGestureIfActive, { capture: true, signal });
     window.addEventListener('dragstart', suppressNativeGestureIfActive, { capture: true, signal });
+    popover.addEventListener(KANJI_DOODLE_CLEAR_EVENT, clearDoodle, { signal });
     for (const target of [stage, canvas, clear, trace]) {
         if (!target) continue;
         target.addEventListener('contextmenu', suppressNativeCanvasGesture, { signal });
@@ -255,11 +265,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     clear?.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
-        strokes = [];
-        points = [];
-        redraw();
-        options.onClear?.();
-        options.onChange?.([]);
+        clearDoodle();
     }, { signal });
     trace?.addEventListener('click', event => {
         event.preventDefault();

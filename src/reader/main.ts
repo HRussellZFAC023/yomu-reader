@@ -11,7 +11,7 @@ import { normalizeCardStates } from './card-state';
 import { APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
-import { FactoryResetCoordinator } from './factory-reset-coordinator';
+import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
 import {
     HAS_JAPANESE,
     appendToDocumentHead,
@@ -21,6 +21,7 @@ import {
     getSelectionSentence,
     getSelectionText,
     nearestReadableSentenceForElement,
+    readerWordSurfaceText,
     renderTokensToHtml,
     setInnerHtml,
     unwrapReaderWords,
@@ -44,7 +45,7 @@ import { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import { initJpdbReviewPageBridge } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from './kanji-origin';
-import { installKanjiDoodle } from './kanji-doodle';
+import { installKanjiPracticeDoodle } from './kanji-practice-grader';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import {
@@ -57,6 +58,7 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContai
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { uiText } from './i18n';
 import { OnboardingController } from './onboarding';
+import { installOriginGraphInteractions } from './origin-graph-interactions';
 import { ImageOcrController } from './ocr';
 import {
     caretTextPositionFromPoint,
@@ -66,7 +68,7 @@ import {
     type ActivePointerTextLookup,
     type PointerTextLookup,
 } from './pointer-text-lookup';
-import { createReaderBackdrop, createReaderPopover, installSheetHandle, placePopoverAtViewportPosition, popoverMaxHeightSetting, shouldUseSheet } from './popover-shell';
+import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, shouldUseSheet } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -105,6 +107,7 @@ import {
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
+    kanjiSourceLabel,
     orderedDefinitionSourceIds,
     orderedKanjiSourceIds,
 } from './source-sections';
@@ -424,9 +427,11 @@ export class ReaderApp {
         showSettings: panel => this.showSettings(panel),
         playAudio: (card, options) => this.audioActions.playTermAudio(card, options),
         playSentenceAudio: sentence => this.audioActions.playSentenceAudio(sentence),
+        playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
         detectGrammarHints: sentence => this.studySources.detectGrammarHints(sentence),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         toast: message => this.toast(message),
+        invalidateCardData: () => this.cardRenderData.clear(),
     });
     private immersionPopover = new ImmersionPopoverController({
         getSettings: () => this.settings,
@@ -486,7 +491,8 @@ export class ReaderApp {
     private factoryReset = new FactoryResetCoordinator({
         isDestroyed: () => this.isDestroyed,
         invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-        resetDictionaryDatabase: () => this.dictionaries.resetDatabase(),
+        resetDictionaryDatabase: () => this.dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
+            .then(() => ({ deleted: true })),
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
@@ -503,14 +509,16 @@ export class ReaderApp {
         mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
         dismiss: () => this.dismiss(),
         toast: message => this.toast(message),
-        applyTheme: () => this.applyTheme(),
+        applyTheme: settings => this.applyTheme(settings),
         applyAccentColor: color => this.applyAccentColor(color),
         applyWordColors: settings => this.applyWordColors(settings),
+        lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor }),
         installFab: () => this.installFab(),
         refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
         scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),
         refreshNewTabIfCurrent: () => undefined,
         clearDictionarySourceOpenOverrides: () => this.dictionarySourceState.clear(),
+        resetAllData: () => this.factoryReset.resetAllData(),
         beginSettingsPreview: (accent, language, theme) => {
             this.settingsPreviewOriginalAccent = accent;
             this.settingsPreviewOriginalLanguage = language;
@@ -548,6 +556,7 @@ export class ReaderApp {
     private activePopoverAnchor?: HTMLElement;
     private activePopoverAnchorRect?: DOMRect;
     private activePopoverPositionLocked = false;
+    private activePopoverLockedPosition?: { left: number; top: number };
     private activePopoverResizeObserver?: ResizeObserver;
     private lastPointerPosition?: { x: number; y: number };
     private hoverPopoverPointerPosition?: { x: number; y: number };
@@ -589,6 +598,7 @@ export class ReaderApp {
         if (options?.isDemo) this.enableDemoMode();
         const shouldShowWelcome = options?.showWelcome ?? !this.isDemo;
         this.settings = applyUrlBootstrapSettings(this.settings);
+        configureLogger({ forceEnabled: this.settings.enableLogging });
         this.pageHasJapaneseText = documentHasJapaneseText();
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
         return shouldShowWelcome;
@@ -638,7 +648,7 @@ export class ReaderApp {
                 this.settings.showFloatingButton = !this.settings.showFloatingButton;
                 void saveSettings(this.settings).then(() => this.installFab());
             });
-            GM_registerMenuCommand(`${APP_NAME} reset all`, () => void this.factoryReset.resetAllData());
+            GM_registerMenuCommand(`${APP_NAME} Factory Reset`, () => void this.factoryReset.resetAllData());
         }
     }
 
@@ -678,8 +688,8 @@ export class ReaderApp {
         }
     }
 
-    private applyTheme(): void {
-        applyReaderTheme(this.settings);
+    private applyTheme(settings = this.settings): void {
+        applyReaderTheme(settings);
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
@@ -832,8 +842,11 @@ export class ReaderApp {
     private bindEvents(): void {
         document.addEventListener('click', event => {
             if (this.isDestroyed) return;
-            if ((event.target as HTMLElement).closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
-            const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+            const target = event.target as HTMLElement;
+            if (target.closest?.('[data-jpdb-reader-root] [data-action="kanji"][data-kanji]')) return;
+            if (target.closest?.('[data-settings-preview-lookup]')) return;
+            const word = target.closest?.('.jpdb-reader-word') as HTMLElement | null;
+            if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
             if (!word) {
                 if (!this.settings.lookupOnClick) return;
                 const candidate = this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target);
@@ -2073,11 +2086,12 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry } = {}): Promise<void> {
+        const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const card = this.cardForRenderedWord(word);
         if (!card) {
+            await this.handleMissingRenderedWordCard(word, options, insideReaderPopup);
             return;
         }
-        const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
         if (context.hoverLookupKey && this.isActiveHoverLookup(context.hoverLookupKey)) {
@@ -2099,11 +2113,36 @@ export class ReaderApp {
     private cardForRenderedWord(word: HTMLElement): JPDBCard | undefined {
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
-        const card = this.getCachedCard(vid, sid);
-        if (card) return card;
+        return this.getCachedCard(vid, sid);
+    }
+
+    private async handleMissingRenderedWordCard(
+        word: HTMLElement,
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        insideReaderPopup: boolean,
+    ): Promise<void> {
+        const vid = Number(word.dataset.vid);
+        const sid = Number(word.dataset.sid);
+        if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options)) return;
         log.warn('Clicked word missing from cache; scheduling page reparse', { vid, sid });
         this.scheduleVisiblePageReparse();
-        return undefined;
+    }
+
+    private async lookupUncachedPopupWord(
+        word: HTMLElement,
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+    ): Promise<boolean> {
+        const expression = normalizedLookupText(readerWordSurfaceText(word));
+        if (!isLookupableJapaneseText(expression)) return false;
+        const trigger = this.renderedWordTrigger(options.trigger, true);
+        const navigation = options.navigation ?? renderedWordNavigationMode(true, trigger);
+        await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
+            anchor: renderedWordAnchor(word, true, this.activePopoverAnchor),
+            navigation,
+            preservePosition: true,
+            previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, true, trigger, navigation),
+        });
+        return true;
     }
 
     private rememberRenderedWordMiningContext(word: HTMLElement, card: JPDBCard, insideReaderPopup: boolean): void {
@@ -2180,11 +2219,13 @@ export class ReaderApp {
     private renderTokenListHtml(tokens: JPDBToken[], selected: string): string {
         return `
             <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-pos">Selection</div>
-            <div class="jpdb-reader-meanings">
-                ${tokens.map(token => this.renderTokenListButton(token)).join('')}
+            <div class="jpdb-reader-popover-body">
+                <div class="jpdb-reader-pos">Selection</div>
+                <div class="jpdb-reader-meanings">
+                    ${tokens.map(token => this.renderTokenListButton(token)).join('')}
+                </div>
+                <div class="jpdb-reader-help">Parsed from: ${escapeHtml(selected)}</div>
             </div>
-            <div class="jpdb-reader-help">Parsed from: ${escapeHtml(selected)}</div>
         `;
     }
 
@@ -2620,31 +2661,33 @@ export class ReaderApp {
     private renderKanjiCardShell(popover: HTMLElement, card: JPDBCard, kanji: string, kanjiCharacters: string[], jpdbUrl: string, language: InterfaceLanguage): void {
         setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
-            ${renderModalNavigation({
-                ...this.navigation.kanjiModalBack(card, language),
-                controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language),
-            })}
-            <div class="jpdb-reader-header">
-                <div class="jpdb-reader-heading">
-                    <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
-                        <div class="jpdb-reader-kanji-display">${escapeHtml(kanji)}</div>
-                        <div data-kanji-keyword-mount><div class="jpdb-reader-help">Loading kanji details...</div></div>
-                        ${renderWordPills({
-                            card,
-                            jpdbUrl,
-                            settings: this.settings,
-                            metaEntries: [],
-                            overrideQuery: kanji,
-                            isJpdbBackedCard: value => this.isJpdbBackedCard(value),
-                            dictionaryLabel: name => this.dictionaryLabel(name),
-                        })}
+            <div class="jpdb-reader-popover-body">
+                ${renderModalNavigation({
+                    ...this.navigation.kanjiModalBack(card, language),
+                    controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language),
+                })}
+                <div class="jpdb-reader-header">
+                    <div class="jpdb-reader-heading">
+                        <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
+                            <div class="jpdb-reader-kanji-display">${escapeHtml(kanji)}</div>
+                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">Loading kanji details...</div></div>
+                            ${renderWordPills({
+                                card,
+                                jpdbUrl,
+                                settings: this.settings,
+                                metaEntries: [],
+                                overrideQuery: kanji,
+                                isJpdbBackedCard: value => this.isJpdbBackedCard(value),
+                                dictionaryLabel: name => this.dictionaryLabel(name),
+                            })}
+                        </div>
                     </div>
-                    <div data-kanji-mining-mount hidden></div>
+                </div>
+                <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${this.renderKanjiSourceMounts(kanji, language)}
                 </div>
             </div>
-            <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
-                ${this.renderKanjiSourceMounts(card, kanji, language)}
-            </div>
+            ${this.renderKanjiActionBar(card)}
         `);
     }
 
@@ -2660,6 +2703,7 @@ export class ReaderApp {
     }
 
     private installKanjiCardActions(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
+        installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => {
             if (this.handleDictionaryLookupLink(event, anchor, 'modal')) return;
             const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
@@ -2676,6 +2720,10 @@ export class ReaderApp {
                 void this.performJpdbKanjiAction(actionId, card, kanji, sentence, anchor);
                 return;
             }
+            if (action === 'mining-collapse') {
+                this.toggleMiningControls(actionButton);
+                return;
+            }
             if (action === 'grade') {
                 void this.handleCardAction(actionButton, card, sentence);
                 return;
@@ -2689,7 +2737,6 @@ export class ReaderApp {
     }
 
     private startKanjiProgressiveRender(popover: HTMLElement, detailsPromises: KanjiDetailPromises, card: JPDBCard, kanji: string, language: InterfaceLanguage): void {
-        installKanjiDoodle(popover, () => this.settings.interfaceLanguage);
         if (this.settings.similarKanjiWords) {
             void this.renderSimilarKanjiWordsProgressively(popover, detailsPromises.jpdbInfo, kanji, card);
         }
@@ -2714,26 +2761,19 @@ export class ReaderApp {
         }
     }
 
-    private renderKanjiSourceMounts(card: JPDBCard, kanji: string, language: InterfaceLanguage): string {
-        const reviewControls = this.renderKanjiReviewControls(card);
+    private renderKanjiSourceMounts(kanji: string, language: InterfaceLanguage): string {
         const mounts: string[] = [];
-        let insertedReviewControls = false;
         for (const sourceId of orderedKanjiSourceIds(this.settings)) {
             const mount = this.renderKanjiSourceMount(sourceId, kanji, language);
             if (mount) mounts.push(mount);
-            if (sourceId === KANJI_STROKE_SOURCE_ID && reviewControls) {
-                mounts.push(reviewControls);
-                insertedReviewControls = true;
-            }
         }
-        if (reviewControls && !insertedReviewControls) mounts.unshift(reviewControls);
         return mounts.join('');
     }
 
     private renderKanjiSourceMount(sourceId: string, kanji: string, language: InterfaceLanguage): string {
         if (sourceId === KANJI_STROKE_SOURCE_ID) {
             const sourceStateKey = kanjiSourceStateKey(KANJI_STROKE_SOURCE_ID);
-            return renderKanjiPractice(null, kanji, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey);
+            return renderKanjiPractice(null, kanji, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(sourceId));
         }
         if (sourceId === KANJI_JPDB_SOURCE_ID) return '<div data-kanji-jpdb-mount></div>';
         if (sourceId === KANJI_RTK_SOURCE_ID) return '<div data-kanji-rtk-mount></div>';
@@ -2749,13 +2789,27 @@ export class ReaderApp {
                 sourceStateKey,
                 this.dictionarySourceState.isOpen(sourceStateKey),
                 (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+                this.kanjiSourceTitle(sourceId),
             );
         }
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return '<div data-kanji-origin-mount></div>';
         return '';
     }
 
-    private renderKanjiReviewControls(card: JPDBCard): string {
+    private renderKanjiActionBar(card: JPDBCard): string {
+        const reviewButtons = this.renderKanjiReviewButtons(card);
+        return `
+            <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? 'true' : 'false'}"${reviewButtons ? '' : ' hidden'}>
+                <div class="jpdb-reader-actions-gutter" hidden>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                </div>
+                <div data-kanji-mining-mount hidden></div>
+                ${reviewButtons}
+            </div>
+        `;
+    }
+
+    private renderKanjiReviewButtons(card: JPDBCard): string {
         if (!this.settings.enableReviews) return '';
         const states = normalizeCardStates(card.cardState);
         if (states.includes('blacklisted') || states.includes('never-forget')) return '';
@@ -2764,11 +2818,24 @@ export class ReaderApp {
         const canReviewWithAnki = Boolean(ankiNote?.primaryCardId);
         const canReviewWithJpdb = this.isJpdbBackedCard(card) && Boolean(this.settings.apiKey.trim()) && this.settings.jpdbMiningEnabled;
         if (!canReviewWithAnki && !canReviewWithJpdb) return '';
-        return `
-            <div class="jpdb-reader-kanji-review-card" role="group" aria-label="Grade current word">
-                ${renderReviewButtons(this.settings, ankiNote)}
-            </div>
-        `;
+        return renderReviewButtons(this.settings, ankiNote);
+    }
+
+    private updateKanjiMiningControls(popover: HTMLElement, controls: string): void {
+        const actions = popover.querySelector<HTMLElement>('[data-kanji-actions]');
+        const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
+        if (!actions || !miningMount) return;
+        const hasControls = Boolean(controls);
+        const hasReview = actions.dataset.kanjiHasReview === 'true';
+        actions.hidden = !hasControls && !hasReview;
+        actions.classList.toggle('jpdb-reader-actions-has-mining', hasControls);
+        actions.classList.toggle('jpdb-reader-actions-mining-collapsed', hasControls);
+        const gutter = actions.querySelector<HTMLElement>('.jpdb-reader-actions-gutter');
+        if (gutter) gutter.hidden = !hasControls;
+        const collapseButton = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
+        if (collapseButton && hasControls) this.setMiningControlsExpanded(collapseButton, false);
+        miningMount.hidden = !hasControls;
+        setInnerHtml(miningMount, controls);
     }
 
     private async renderKanjiDetailsInto(
@@ -2781,6 +2848,7 @@ export class ReaderApp {
         let kanjiEntries: YomitanKanjiEntry[] = [];
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
+        const practiceDoodle = installKanjiPracticeDoodle(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo);
         const keywordMount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
         const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
         const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
@@ -2804,14 +2872,10 @@ export class ReaderApp {
             jpdbInfo = info;
             if (!popover.isConnected) return;
             renderKeyword();
-            if (miningMount?.isConnected) {
-                const controls = renderJpdbKanjiMiningControls(jpdbInfo, language);
-                miningMount.hidden = !controls;
-                setInnerHtml(miningMount, controls);
-            }
+            if (miningMount?.isConnected) this.updateKanjiMiningControls(popover, renderJpdbKanjiMiningControls(jpdbInfo, language));
             if (jpdbMount?.isConnected) {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-                setInnerHtml(jpdbMount, renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey));
+                setInnerHtml(jpdbMount, renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)));
             }
             renderRtk();
         });
@@ -2830,7 +2894,7 @@ export class ReaderApp {
                     (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
                     name => this.dictionaryLabel(name),
                     sourceId,
-                    dictionaryName ? this.dictionaryLabel(dictionaryName) : 'Kanji dictionaries',
+                    dictionaryName ? this.dictionaryLabel(dictionaryName) : this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID),
                 ));
             }
             renderRtk();
@@ -2844,6 +2908,7 @@ export class ReaderApp {
         const kanjiVGInfoPromise = detailsPromises.kanjiVGInfo.then(info => {
             kanjiVGInfo = info;
             if (!popover.isConnected) return;
+            practiceDoodle.reassess();
         });
 
         await Promise.all([jpdbInfoPromise, kanjiEntriesPromise, rtkInfoPromise, kanjiVGInfoPromise]);
@@ -2871,7 +2936,7 @@ export class ReaderApp {
             </details>
         `);
         const data = await loadUchisenData(kanji).catch(() => {
-            return { images: [], componentGroups: [] };
+            return { images: [], componentGroups: [], kanjiKeyword: null };
         });
         if (!popover.isConnected || !mount.isConnected) return;
         if (!data.images.length) {
@@ -2884,6 +2949,7 @@ export class ReaderApp {
             summaryClass: 'jpdb-reader-local-title',
             bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
             componentGroups: data.componentGroups,
+            kanjiKeyword: data.kanjiKeyword,
         });
         this.repositionActivePopover();
     }
@@ -2966,6 +3032,7 @@ export class ReaderApp {
             sourceStateKey,
             this.dictionarySourceState.isOpen(sourceStateKey),
             (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+            this.kanjiSourceTitle(KANJI_SIMILAR_WORDS_SOURCE_ID),
         ));
         this.dictionarySourceState.installTracking(popover);
         return stack.querySelector<HTMLDetailsElement>('[data-kanji-similar-words]');
@@ -3034,7 +3101,13 @@ export class ReaderApp {
             this.settings.interfaceLanguage,
             this.dictionarySourceState.isOpen(sourceStateKey),
             sourceStateKey,
+            jpdbInfo ? new Set([
+                jpdbInfo.type ? 'Type' : null,
+                jpdbInfo.frequency ? 'Frequency' : null,
+            ].filter(Boolean) as string[]) : undefined,
+            this.kanjiSourceTitle(KANJI_ORIGINS_SOURCE_ID),
         ));
+        installOriginGraphInteractions(mount);
     }
 
     private kanjiOriginGraph(
@@ -3108,7 +3181,7 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
-        const plan = nestedTextParsePlan(popover, 24);
+        const plan = nestedTextParsePlan(popover, 120);
         if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
         await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
     }
@@ -3183,6 +3256,10 @@ export class ReaderApp {
         return this.settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
     }
 
+    private kanjiSourceTitle(sourceId: string): string {
+        return kanjiSourceLabel(this.settings, sourceId);
+    }
+
     private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
         if (!ankiLookup.primary) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
@@ -3235,6 +3312,7 @@ export class ReaderApp {
             imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined,
             videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined,
             fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl),
+            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl),
         });
         return context;
     }
@@ -3280,7 +3358,7 @@ export class ReaderApp {
     }
 
     private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
-        const useBackdrop = state.mode !== 'hover';
+        const useBackdrop = Boolean(state.backdrop);
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (state.backdrop) document.body.append(state.backdrop, popover);
         else document.body.append(popover);
@@ -3297,22 +3375,37 @@ export class ReaderApp {
         this.activeHoverLookupKey = state.mode === 'hover' ? options.hoverLookupKey ?? '' : '';
         this.activePointerTextLookup = state.mode === 'hover' ? options.pointerTextLookup : undefined;
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
+        popover.classList.toggle('jpdb-reader-sheet-sticky', this.isStickyMountedSheet(popover, state));
     }
 
     private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
             this.activePopoverResizeObserver.observe(popover);
+            this.installPopoverBodyStabilizers(popover);
             if (state.previousPopoverRect) {
-                placePopoverAtViewportPosition(popover, state.previousPopoverRect, popoverMaxHeightSetting(this.settings));
+                this.lockActivePopoverPosition(state.previousPopoverRect);
+                this.placeActivePopoverWithoutMoving(popover, state.previousPopoverRect);
                 this.syncActivePopoverFixedHeight();
             }
-            else this.repositionActivePopover();
-            this.activePopoverPositionLocked = state.mode !== 'hover';
+            else {
+                this.activePopoverPositionLocked = false;
+                this.repositionActivePopover();
+                this.lockActivePopoverPosition(popover.getBoundingClientRect());
+            }
             requestAnimationFrame(() => this.repositionActivePopover());
         } else {
             installSheetHandle(popover, () => this.dismiss());
+            if (this.isStickyMountedSheet(popover, state)) {
+                installSheetCloseButton(popover, () => this.dismiss(), uiText(this.settings.interfaceLanguage, 'closeDrawer'));
+            }
         }
+    }
+
+    private isStickyMountedSheet(popover: HTMLElement, state: PopoverMountState): boolean {
+        return state.mode === 'modal'
+            && this.settings.stickyBottomSheet
+            && popover.classList.contains('jpdb-reader-sheet');
     }
 
     private finishMountedPopoverLifecycle(popover: HTMLElement, mode: 'modal' | 'hover'): void {
@@ -3327,9 +3420,15 @@ export class ReaderApp {
     private repositionActivePopover(): void {
         const popover = this.repositionableActivePopover();
         if (!popover) return;
+        const scrollBody = this.popoverScrollBody(popover);
+        const scrollTop = scrollBody.scrollTop;
         this.prepareActivePopoverForPositioning(popover);
-        if (this.repositionLockedActivePopoverIfNeeded(popover)) return;
+        if (this.repositionLockedActivePopoverIfNeeded(popover)) {
+            this.restorePopoverScrollTop(scrollBody, scrollTop);
+            return;
+        }
         this.repositionUnlockedActivePopover(popover);
+        this.restorePopoverScrollTop(scrollBody, scrollTop);
     }
 
     private prepareActivePopoverForPositioning(popover: HTMLElement): void {
@@ -3363,8 +3462,28 @@ export class ReaderApp {
     }
 
     private repositionLockedActivePopover(popover: HTMLElement): void {
-        placePopoverAtViewportPosition(popover, popover.getBoundingClientRect(), popoverMaxHeightSetting(this.settings));
+        if (!this.activePopoverLockedPosition) this.lockActivePopoverPosition(popover.getBoundingClientRect());
+        this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? popover.getBoundingClientRect());
         this.syncActivePopoverFixedHeight();
+    }
+
+    private lockActivePopoverPosition(rect: Pick<DOMRect, 'left' | 'top'>): void {
+        this.activePopoverPositionLocked = true;
+        this.activePopoverLockedPosition = { left: rect.left, top: rect.top };
+    }
+
+    private placeActivePopoverWithoutMoving(popover: HTMLElement, rect: Pick<DOMRect, 'left' | 'top'>): void {
+        const maxHeight = this.activePopoverMaxHeightAtTop(rect.top);
+        popover.style.left = `${rect.left}px`;
+        popover.style.top = `${rect.top}px`;
+        popover.style.maxHeight = `${maxHeight}px`;
+    }
+
+    private activePopoverMaxHeightAtTop(top: number): number {
+        const margin = 8;
+        const availableHeight = Math.max(0, window.innerHeight - top - margin);
+        const configuredMaxHeight = popoverMaxHeightSetting(this.settings);
+        return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
     }
 
     private refreshActivePopoverAnchorRect(): void {
@@ -3393,6 +3512,36 @@ export class ReaderApp {
         }
         const maxHeight = Number.parseFloat(popover.style.maxHeight);
         if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
+    }
+
+    private installPopoverBodyStabilizers(popover: HTMLElement): void {
+        if (popover.dataset.jpdbReaderBodyStabilizers === 'true') return;
+        popover.dataset.jpdbReaderBodyStabilizers = 'true';
+        popover.addEventListener('click', event => {
+            const target = event.target instanceof HTMLElement ? event.target : null;
+            const summary = target?.closest<HTMLElement>('summary');
+            if (!summary || !popover.contains(summary)) return;
+            this.stabilizePopoverBodyAround(popover, summary);
+        }, true);
+    }
+
+    private stabilizePopoverBodyAround(popover: HTMLElement, anchor: HTMLElement): void {
+        const scrollBody = this.popoverScrollBody(popover);
+        const scrollTop = scrollBody.scrollTop;
+        const anchorTop = anchor.getBoundingClientRect().top;
+        requestAnimationFrame(() => {
+            if (!popover.isConnected || !anchor.isConnected) return;
+            const delta = anchor.getBoundingClientRect().top - anchorTop;
+            if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
+        });
+    }
+
+    private popoverScrollBody(popover: HTMLElement): HTMLElement {
+        return popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
+    }
+
+    private restorePopoverScrollTop(scrollBody: HTMLElement, scrollTop: number): void {
+        if (scrollBody.scrollTop !== scrollTop) scrollBody.scrollTop = scrollTop;
     }
 
     private installHoverPopoverLifecycle(popover: HTMLElement): void {
@@ -3480,8 +3629,8 @@ export class ReaderApp {
         }
         if (this.settingsPreviewOriginalTheme !== undefined) {
             this.settings.theme = this.settingsPreviewOriginalTheme;
-            this.applyTheme();
         }
+        this.applyTheme();
         this.clearSettingsPreviewOriginals();
     }
 
@@ -3508,6 +3657,7 @@ export class ReaderApp {
         this.activeBackdrop = undefined;
         this.activePopoverResizeObserver = undefined;
         this.activePopoverPositionLocked = false;
+        this.activePopoverLockedPosition = undefined;
         this.activePopoverAnchorRect = undefined;
         this.activePopoverMode = undefined;
         this.activePopoverAnchor = undefined;

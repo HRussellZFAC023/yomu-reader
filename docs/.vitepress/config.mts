@@ -12,7 +12,7 @@ export default defineConfig({
     cleanUrls: true,
     lastUpdated: true,
     head: [
-        ['link', { rel: 'icon', href: `${base}yomu-icon.svg` }],
+        ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}yomu-icon.svg` }],
         ['meta', { name: 'theme-color', content: '#5ea780' }],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:title', content: 'よむ - Free Japanese popup reader' }],

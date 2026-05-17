@@ -48,8 +48,8 @@ export function graphEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry, ta
         return graphAutoEdgePath(from, to);
     }
 
-    const target = graphFixedAnchorPoint(to, normalizedTargetZone, -0.35);
-    const source = graphAutoBoundaryPoint(from, target, -0.2);
+    const target = graphFixedAnchorPoint(to, normalizedTargetZone);
+    const source = graphAutoBoundaryPoint(from, target);
     return {
         d: `M${formatGraphCoordinate(source.x)} ${formatGraphCoordinate(source.y)} L${formatGraphCoordinate(target.x)} ${formatGraphCoordinate(target.y)}`,
         points: [
@@ -62,8 +62,8 @@ export function graphEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry, ta
 function graphAutoEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry): GraphEdgePath {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const sourceOffset = graphEllipseOffset(dx, dy, graphEdgeRadius(from.rx, -0.2), graphEdgeRadius(from.ry, -0.2));
-    const targetOffset = graphEllipseOffset(dx, dy, graphEdgeRadius(to.rx, -0.35), graphEdgeRadius(to.ry, -0.35));
+    const sourceOffset = graphEllipseOffset(dx, dy, from.rx, from.ry);
+    const targetOffset = graphEllipseOffset(dx, dy, to.rx, to.ry);
     const x1 = from.x + dx * sourceOffset;
     const y1 = from.y + dy * sourceOffset;
     const x2 = to.x - dx * targetOffset;
@@ -77,32 +77,28 @@ function graphAutoEdgePath(from: GraphNodeGeometry, to: GraphNodeGeometry): Grap
     };
 }
 
-function graphAutoBoundaryPoint(from: GraphNodeGeometry, to: { x: number; y: number }, padding: number): { x: number; y: number } {
+function graphAutoBoundaryPoint(from: GraphNodeGeometry, to: { x: number; y: number }): { x: number; y: number } {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const offset = graphEllipseOffset(dx, dy, graphEdgeRadius(from.rx, padding), graphEdgeRadius(from.ry, padding));
+    const offset = graphEllipseOffset(dx, dy, from.rx, from.ry);
     return {
         x: from.x + dx * offset,
         y: from.y + dy * offset,
     };
 }
 
-function graphFixedAnchorPoint(node: GraphNodeGeometry, zone: Exclude<NormalizedGraphAnchorZone, 'auto' | 'center'>, padding: number): { x: number; y: number } {
+function graphFixedAnchorPoint(node: GraphNodeGeometry, zone: Exclude<NormalizedGraphAnchorZone, 'auto' | 'center'>): { x: number; y: number } {
     switch (zone) {
         case 'top':
-            return { x: node.x, y: node.y - node.ry - padding };
+            return { x: node.x, y: node.y - node.ry };
         case 'left':
-            return { x: node.x - node.rx - padding, y: node.y };
+            return { x: node.x - node.rx, y: node.y };
         case 'right':
-            return { x: node.x + node.rx + padding, y: node.y };
+            return { x: node.x + node.rx, y: node.y };
         case 'bottom':
-            return { x: node.x, y: node.y + node.ry + padding };
+            return { x: node.x, y: node.y + node.ry };
     }
     return { x: node.x, y: node.y };
-}
-
-function graphEdgeRadius(radius: number, padding: number): number {
-    return Math.max(0.5, radius + padding);
 }
 
 function normalizeGraphAnchorZone(zone: GraphAnchorZone): NormalizedGraphAnchorZone {

@@ -147,7 +147,10 @@ export class ImmersionKitClient {
         const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
         const promise = requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
             .then(data => {
-                const examples = filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings));
+                const examples = applySearchExampleLimit(
+                    filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings)),
+                    settings,
+                );
 
                 const result = examples;
                 this.cache.set(cacheKey, result);
@@ -165,6 +168,7 @@ export class ImmersionKitClient {
         return JSON.stringify({
             query,
             limit: SEARCH_EXAMPLE_LIMIT,
+            userLimit: settings.immersionKitLimitEnabled ? settings.immersionKitLimit : 0,
             min: this.minimumSentenceLength(settings),
             max: settings.immersionKitMaxLength,
             category: settings.immersionKitCategory,
@@ -278,6 +282,12 @@ function filterSearchExamples(data: unknown, query: string, settings: ReaderSett
         .filter((example): example is ImmersionKitExample => Boolean(example))
         .filter(example => isSearchExampleInRange(example, settings, minLength))
         .filter(example => isSearchExampleSurfaceMatch(example, query));
+}
+
+function applySearchExampleLimit(examples: ImmersionKitExample[], settings: ReaderSettings): ImmersionKitExample[] {
+    return settings.immersionKitLimitEnabled
+        ? examples.slice(0, Math.max(1, settings.immersionKitLimit))
+        : examples;
 }
 
 function isSearchExampleInRange(example: ImmersionKitExample, settings: ReaderSettings, minLength: number): boolean {
@@ -480,6 +490,7 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = ''): Pr
         proxyUrl,
         timeoutMs,
         allowDirectCrossOrigin: true,
+        preferFetch: shouldPreferFetchForImmersionKitRequests(),
         failureLabel: 'Immersion Kit request',
         timeoutLabel: 'Immersion Kit request timed out.',
     }).catch(error => {
@@ -494,6 +505,8 @@ function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blo
     return requestReaderBlob(url, {
         proxyUrl,
         timeoutMs,
+        allowDirectCrossOrigin: true,
+        preferFetch: shouldPreferFetchForImmersionKitRequests(),
         failureLabel: 'Media request',
         timeoutLabel: 'Media request timed out.',
     }).then(blob => {
@@ -516,7 +529,7 @@ async function requestFirstBlob(urls: string | string[], timeoutMs: number, prox
 }
 
 function prioritizeMediaCandidates(urls: string[]): string[] {
-    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
+    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(a)) - Number(isObjectStoreMediaUrl(b)));
 }
 
 function isObjectStoreMediaUrl(url: string): boolean {
@@ -537,6 +550,11 @@ const ERROR_DOCUMENT_TYPE_MARKERS = ['xml', 'html', 'json'];
 
 function isMediaBlobType(type: string): boolean {
     return ['image/', 'audio/', 'video/'].some(prefix => type.startsWith(prefix));
+}
+
+function shouldPreferFetchForImmersionKitRequests(): boolean {
+    return typeof window !== 'undefined'
+        && (window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab';
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

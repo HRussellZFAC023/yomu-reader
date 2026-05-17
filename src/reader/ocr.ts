@@ -49,16 +49,35 @@ interface OcrControllerOptions {
 }
 
 const MAX_CACHE_ITEMS = 36;
+const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
+const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
+const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
+const LENS_PLATFORM_WEB = 3;
+const LENS_SURFACE_CHROMIUM = 4;
+const LENS_AUTO_FILTER = 7;
+const LENS_WRITING_TOP_TO_BOTTOM = 2;
 const log = Logger.scope('OCR');
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
+    'google-lens': recognizeViaGoogleLens,
+    'cloud-vision': recognizeViaCloudVision,
     'local-service': recognizeViaLocalService,
 };
 const OCR_PROVIDER_CONFIGURED: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => boolean>> = {
-    'local-service': settings => Boolean(settings.ocrEndpointUrl.trim()),
+    'google-lens': () => true,
+    'cloud-vision': settings => Boolean(settings.ocrCloudVisionApiKey.trim()),
+    'local-service': () => true,
 };
 const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => string | null>> = {
+    'google-lens': () => 'google-lens',
+    'cloud-vision': settings => settings.ocrCloudVisionApiKey.trim() ? 'cloud-vision' : null,
     'local-service': localServiceProviderLabel,
 };
+
+interface ProtoField {
+    field: number;
+    wire: number;
+    value: bigint | number | string | Uint8Array;
+}
 
 function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
     return state.autoSkipped && !userRequested;
@@ -679,6 +698,8 @@ function captureImageElement(image: HTMLImageElement): string | undefined {
 export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHeight = 1): OcrResult | null {
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
+    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+    if (cloudVision) return cloudVision;
     const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
     const lines = collectGenericOcrLines(record, width, height);
     return japaneseOcrResult(width, height, lines);
@@ -862,8 +883,37 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
         ocr_adapter_name: engine,
         detection_only: false,
     });
-    const response = await requestJson(settings.ocrEndpointUrl.trim(), body, settings.audioTimeoutMs);
+    const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
+}
+
+async function recognizeViaCloudVision(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    const apiKey = settings.ocrCloudVisionApiKey.trim();
+    if (!apiKey) return null;
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const body = JSON.stringify({
+        requests: [{
+            image: { content: payload.base64 },
+            features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
+            imageContext: { languageHints: [(settings.ocrLanguage || 'ja-JP').slice(0, 2)] },
+        }],
+    });
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
+    const response = await requestJson(url, body, settings.audioTimeoutMs);
+    return normalizeOcrResult(response, payload.width, payload.height);
+}
+
+async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
+    try {
+        const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+        return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
+    } catch (error) {
+        log.warn('Google Lens protobuf endpoint failed; trying upload fallback', error);
+        return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
+    }
 }
 
 function ocrRecognizer(settings: ReaderSettings): OcrRecognizer | null {
@@ -888,6 +938,13 @@ async function imageToBlobPayload(image: HTMLImageElement, maxPixels: number, ty
         const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
         return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
     }
+}
+
+async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: number, timeout: number): Promise<OcrResult | null> {
+    const data = new FormData();
+    data.append('encoded_image', blob, 'image.jpg');
+    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout);
+    return parseGoogleLensUploadHtml(response, width, height);
 }
 
 async function imageToCanvas(image: HTMLImageElement, maxPixels: number): Promise<HTMLCanvasElement> {
@@ -945,6 +1002,186 @@ function drawableCanvasContext(canvas: HTMLCanvasElement): CanvasRenderingContex
 
 function assertCanvasReadable(canvas: HTMLCanvasElement): void {
     canvas.getContext('2d')?.getImageData(0, 0, 1, 1);
+}
+
+function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
+    const [language = 'ja', region = 'US'] = (locale || 'ja-JP').split(/[-_]/);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const requestId = protoMessage(
+        protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1000000))),
+        protoVarintField(2, 1),
+        protoVarintField(3, 1),
+        protoBytesField(4, randomBytes(16)),
+    );
+    const localeContext = protoMessage(
+        protoStringField(1, language || 'ja'),
+        protoStringField(2, region || 'US'),
+        protoStringField(3, timeZone),
+    );
+    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+    const clientContext = protoMessage(
+        protoVarintField(1, LENS_PLATFORM_WEB),
+        protoVarintField(2, LENS_SURFACE_CHROMIUM),
+        protoMessageField(4, localeContext),
+        protoMessageField(17, clientFilters),
+    );
+    const requestContext = protoMessage(
+        protoMessageField(3, requestId),
+        protoMessageField(4, clientContext),
+    );
+    const imageData = protoMessage(
+        protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+        protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height))),
+    );
+    return protoMessage(protoMessageField(1, protoMessage(
+        protoMessageField(1, requestContext),
+        protoMessageField(3, imageData),
+    )));
+}
+
+function parseGoogleLensResponse(bytes: Uint8Array, width: number, height: number): OcrResult | null {
+    const root = decodeProtoMessage(bytes);
+    const objectsResponse = protoFirstMessage(root, 2);
+    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    const layout = text ? protoFirstMessage(text, 1) : null;
+    if (!layout) return null;
+
+    const lines: OcrLine[] = [];
+    for (const paragraph of protoMessages(layout, 1)) {
+        const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+        const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+        for (const line of protoMessages(paragraph, 2)) {
+            const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+            const words = protoMessages(line, 1).map(word => ({
+                text: protoString(word, 2),
+                separator: protoString(word, 3),
+                box: protoBox(protoFirstMessage(word, 4), width, height),
+            })).filter(word => word.text);
+            const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+            const rawText = orderedWords
+                .map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? ' ' : '')))
+                .join('');
+            const textValue = cleanOcrText(rawText);
+            if (!textValue || !HAS_JAPANESE.test(textValue)) continue;
+
+            const box = lineBox ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item))) ?? paragraphBox;
+            if (!box) continue;
+            lines.push({
+                text: textValue,
+                box,
+                vertical: paragraphVertical || (box.height > box.width * 1.25 && textValue.length > 1),
+            });
+        }
+    }
+    return lines.length ? { width, height, lines } : null;
+}
+
+function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
+    const match = html.match(/AF_initDataCallback\((\{key:\s*['"]ds:1['"][\s\S]*?\})\);/);
+    if (!match) return null;
+    try {
+        const callback = Function(`"use strict";return (${match[1]});`)() as { data?: unknown[] };
+        const blocks = (((callback.data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
+        const lines: OcrLine[] = [];
+        for (const block of blocks) {
+            const blockData = block as unknown[];
+            const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
+            const lineItems = rawLines?.[0] as unknown[] | undefined;
+            if (!Array.isArray(lineItems)) continue;
+            for (const item of lineItems) {
+                const lineData = item as unknown[];
+                const words = Array.isArray(lineData[0]) ? lineData[0] as unknown[] : [];
+                const boxData = Array.isArray(lineData[1]) ? lineData[1] as number[] : [];
+                const text = cleanOcrText(words.map(word => {
+                    const wordData = word as unknown[];
+                    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
+                }).join(''));
+                const box = boxData.length >= 4 ? clampBox({
+                    top: Number(boxData[0]) * height,
+                    left: Number(boxData[1]) * width,
+                    width: Number(boxData[2]) * width,
+                    height: Number(boxData[3]) * height,
+                }, width, height) : null;
+                if (text && box && HAS_JAPANESE.test(text)) {
+                    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+                }
+            }
+        }
+        return lines.length ? { width, height, lines } : null;
+    } catch {
+        return null;
+    }
+}
+
+function normalizeCloudVisionResponse(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): OcrResult | null {
+    const responses = Array.isArray(record.responses) ? record.responses : ('fullTextAnnotation' in record ? [record] : []);
+    const lines: OcrLine[] = [];
+    let width = fallbackWidth;
+    let height = fallbackHeight;
+    for (const response of responses) {
+        const annotation = (response as Record<string, unknown>)?.fullTextAnnotation as Record<string, unknown> | undefined;
+        const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+        for (const page of pages) {
+            const pageRecord = page as Record<string, unknown>;
+            width = numberFrom(pageRecord.width) || width;
+            height = numberFrom(pageRecord.height) || height;
+            const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
+            for (const block of blocks) {
+                const paragraphs = Array.isArray((block as Record<string, unknown>).paragraphs) ? (block as Record<string, unknown>).paragraphs as unknown[] : [];
+                for (const paragraph of paragraphs) {
+                    pushCloudVisionParagraphLines(paragraph as Record<string, unknown>, lines, width, height);
+                }
+            }
+        }
+        const annotations = Array.isArray((response as Record<string, unknown>)?.textAnnotations) ? (response as Record<string, unknown>).textAnnotations as unknown[] : [];
+        if (!lines.length && annotations.length > 1) {
+            for (const annotationItem of annotations.slice(1)) {
+                const item = annotationItem as Record<string, unknown>;
+                const text = cleanOcrText(item.description);
+                const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
+                if (text && box && HAS_JAPANESE.test(text)) lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+            }
+        }
+    }
+    return lines.length ? { width, height, lines } : null;
+}
+
+function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
+    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+    let text = '';
+    let boxes: OcrRect[] = [];
+    const pushLine = () => {
+        const value = cleanOcrText(text);
+        const box = unionBoxes(boxes);
+        if (value && box && HAS_JAPANESE.test(value)) {
+            lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
+        }
+        text = '';
+        boxes = [];
+    };
+
+    for (const word of words) {
+        const symbols = Array.isArray((word as Record<string, unknown>).symbols) ? (word as Record<string, unknown>).symbols as unknown[] : [];
+        for (const symbol of symbols) {
+            const symbolRecord = symbol as Record<string, unknown>;
+            text += String(symbolRecord.text ?? '');
+            const box = normalizeCloudVisionVertices((symbolRecord.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
+            if (box) boxes.push(box);
+            const breakType = ((symbolRecord.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
+            if (breakType === 'SPACE' || breakType === 'SURE_SPACE' || breakType === 'UNKNOWN') text += ' ';
+            if (breakType === 'LINE_BREAK' || breakType === 'EOL_SURE_SPACE' || breakType === 'HYPHEN') pushLine();
+        }
+    }
+    pushLine();
+}
+
+function normalizeCloudVisionVertices(value: unknown, width: number, height: number): OcrRect | null {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const xs = value.map(vertex => numberFrom((vertex as Record<string, unknown>)?.x) ?? 0);
+    const ys = value.map(vertex => numberFrom((vertex as Record<string, unknown>)?.y) ?? 0);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
@@ -1311,7 +1548,9 @@ function intersectionArea(a: DOMRect, b: DOMRect): number {
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (settings.ocrProvider === 'off') return false;
     if (readFallbackOcrResult(image, false)) return true;
-    return settings.ocrProvider === 'local-service' && Boolean(settings.ocrEndpointUrl.trim());
+    if (settings.ocrProvider === 'local-service') return true;
+    if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
+    return settings.ocrProvider === 'google-lens';
 }
 
 function hasFallbackOcrMetadata(image: HTMLImageElement): boolean {
@@ -1336,6 +1575,141 @@ function imageCacheKey(image: HTMLImageElement): string {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
 }
 
+function protoMessage(...parts: Uint8Array[]): Uint8Array {
+    return concatBytes(parts);
+}
+
+function protoMessageField(field: number, value: Uint8Array): Uint8Array {
+    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+}
+
+function protoBytesField(field: number, value: Uint8Array): Uint8Array {
+    return protoMessageField(field, value);
+}
+
+function protoStringField(field: number, value: string): Uint8Array {
+    return protoBytesField(field, new TextEncoder().encode(value));
+}
+
+function protoVarintField(field: number, value: number | bigint): Uint8Array {
+    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+}
+
+function protoTag(field: number, wire: number): Uint8Array {
+    return encodeVarint((field << 3) | wire);
+}
+
+function encodeVarint(value: number | bigint): Uint8Array {
+    let item = BigInt(value);
+    const bytes: number[] = [];
+    do {
+        let byte = Number(item & 0x7fn);
+        item >>= 7n;
+        if (item) byte |= 0x80;
+        bytes.push(byte);
+    } while (item);
+    return new Uint8Array(bytes);
+}
+
+function decodeProtoMessage(bytes: Uint8Array): ProtoField[] {
+    const fields: ProtoField[] = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+        const [tag, nextOffset] = readVarint(bytes, offset);
+        offset = nextOffset;
+        const field = Number(tag >> 3n);
+        const wire = Number(tag & 7n);
+        if (!field) break;
+        if (wire === 0) {
+            const [value, afterValue] = readVarint(bytes, offset);
+            offset = afterValue;
+            fields.push({ field, wire, value });
+        } else if (wire === 1) {
+            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+            offset += 8;
+        } else if (wire === 2) {
+            const [length, afterLength] = readVarint(bytes, offset);
+            offset = afterLength;
+            const end = offset + Number(length);
+            fields.push({ field, wire, value: bytes.slice(offset, end) });
+            offset = end;
+        } else if (wire === 5) {
+            fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+            offset += 4;
+        } else {
+            break;
+        }
+    }
+    return fields;
+}
+
+function readVarint(bytes: Uint8Array, offset: number): [bigint, number] {
+    let shift = 0n;
+    let result = 0n;
+    while (offset < bytes.length) {
+        const byte = bytes[offset++];
+        result |= BigInt(byte & 0x7f) << shift;
+        if (!(byte & 0x80)) return [result, offset];
+        shift += 7n;
+    }
+    return [result, offset];
+}
+
+function protoMessages(fields: ProtoField[], field: number): ProtoField[][] {
+    return fields
+        .filter(item => item.field === field && item.wire === 2 && item.value instanceof Uint8Array)
+        .map(item => decodeProtoMessage(item.value as Uint8Array));
+}
+
+function protoFirstMessage(fields: ProtoField[], field: number): ProtoField[] | null {
+    return protoMessages(fields, field)[0] ?? null;
+}
+
+function protoString(fields: ProtoField[], field: number): string {
+    const item = fields.find(value => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+    return item ? new TextDecoder().decode(item.value as Uint8Array) : '';
+}
+
+function protoNumber(fields: ProtoField[], field: number): number {
+    const item = fields.find(value => value.field === field);
+    if (!item) return 0;
+    return typeof item.value === 'bigint' ? Number(item.value) : typeof item.value === 'number' ? item.value : 0;
+}
+
+function protoBox(geometry: ProtoField[] | null, width: number, height: number): OcrRect | null {
+    const box = geometry ? protoFirstMessage(geometry, 1) : null;
+    if (!box) return null;
+    const centerX = protoNumber(box, 1);
+    const centerY = protoNumber(box, 2);
+    const boxWidth = protoNumber(box, 3);
+    const boxHeight = protoNumber(box, 4);
+    if (!boxWidth || !boxHeight) return null;
+    const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
+    return clampBox({
+        left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
+        top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
+        width: normalized ? boxWidth * width : boxWidth,
+        height: normalized ? boxHeight * height : boxHeight,
+    }, width, height);
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+    const length = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const part of parts) {
+        result.set(part, offset);
+        offset += part.length;
+    }
+    return result;
+}
+
+function randomBytes(length: number): Uint8Array {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
+}
+
 function requestJson(url: string, data: string, timeout: number): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
@@ -1357,6 +1731,61 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
     }
     return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: data })
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+}
+
+function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
+    const body = new Uint8Array(data);
+    const headers = {
+        'content-type': 'application/x-protobuf',
+        'x-goog-api-key': GOOGLE_LENS_API_KEY,
+        accept: '*/*',
+        'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
+    };
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+        return new Promise((resolve, reject) => {
+            userscriptRequest({
+                method: 'POST',
+                url,
+                headers,
+                data: body.buffer,
+                responseType: 'arraybuffer',
+                timeout,
+                onload: response => response.status >= 200 && response.status < 300
+                    ? resolve(response.response as ArrayBuffer)
+                    : reject(new Error(`Google Lens returned ${response.status}.`)),
+                onerror: reject,
+                ontimeout: () => reject(new Error('Google Lens timed out.')),
+            });
+        });
+    }
+    return fetch(url, {
+        method: 'POST',
+        headers,
+        body: body.buffer,
+    }).then(response => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+}
+
+function requestTextForm(url: string, data: FormData, timeout: number): Promise<string> {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+        return new Promise((resolve, reject) => {
+            userscriptRequest({
+                method: 'POST',
+                url,
+                data,
+                responseType: 'text',
+                timeout,
+                onload: response => response.status >= 200 && response.status < 300
+                    ? resolve(String(response.responseText ?? response.response ?? ''))
+                    : reject(new Error(`Google Lens upload returned ${response.status}.`)),
+                onerror: reject,
+                ontimeout: () => reject(new Error('Google Lens upload timed out.')),
+            });
+        });
+    }
+    return fetch(url, { method: 'POST', body: data })
+        .then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
 }
 
 function requestBlob(url: string): Promise<Blob> {
@@ -1447,11 +1876,15 @@ function configuredOcrProviderLabel(settings: ReaderSettings): string | null {
 }
 
 function localServiceProviderLabel(settings: ReaderSettings): string | null {
-    return settings.ocrEndpointUrl.trim() ? `local-service:${ocrEngineLabel(settings)}` : null;
+    return `local-service:${ocrEngineLabel(settings)}`;
 }
 
 function ocrEngineLabel(settings: ReaderSettings): string {
     return settings.ocrEngine || 'auto';
+}
+
+function localOcrEndpointUrl(settings: ReaderSettings): string {
+    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
 }
 
 function safeHost(value: string): string {

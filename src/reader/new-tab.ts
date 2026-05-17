@@ -223,7 +223,7 @@ function normalizeNewTabRevealAnswer(value: unknown): boolean {
 
 export function loadNewTabUiState(): NewTabUiState {
     try {
-        return normalizeNewTabUiState(gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null));
+        return frontFacingNewTabUiState(normalizeNewTabUiState(gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null)));
     } catch {
         return { ...DEFAULT_NEW_TAB_UI_STATE };
     }
@@ -239,7 +239,7 @@ export function hasSavedNewTabUiState(): boolean {
 
 export function saveNewTabUiState(state: NewTabUiState): void {
     try {
-        gmStorageSetSync(STATE_STORAGE_KEY, normalizeNewTabUiState(state));
+        gmStorageSetSync(STATE_STORAGE_KEY, frontFacingNewTabUiState(normalizeNewTabUiState(state)));
     } catch {
         // Storage may be blocked in hardened browser contexts; the page still works in memory.
     }
@@ -334,6 +334,10 @@ function stateRank(card: JPDBCard): number {
 
 function frequencyValue(card: JPDBCard): number {
     return typeof card.frequencyRank === 'number' && Number.isFinite(card.frequencyRank) ? card.frequencyRank : Number.POSITIVE_INFINITY;
+}
+
+function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {
+    return { ...state, revealAnswer: false };
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

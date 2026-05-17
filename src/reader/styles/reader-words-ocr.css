@@ -143,15 +143,18 @@
 .jpdb-reader-word-text-jpdb { --jpdb-reader-word-color: var(--jpdb-reader-source-jpdb-color, currentColor); }
 .jpdb-reader-word-text-anki { --jpdb-reader-word-color: var(--jpdb-reader-source-anki-color, currentColor); }
 .jpdb-reader-word-text-pitch { --jpdb-reader-word-color: var(--jpdb-reader-source-pitch-color, currentColor); }
-:is(.jpdb-reader-word-highlight-status, .jpdb-reader-word-highlight-jpdb, .jpdb-reader-word-highlight-anki, .jpdb-reader-word-highlight-pitch) .jpdb-reader-word {
-  background: var(--jpdb-reader-word-highlight, transparent) !important;
-}
-:is(.jpdb-reader-word-underline-status, .jpdb-reader-word-underline-jpdb, .jpdb-reader-word-underline-anki, .jpdb-reader-word-underline-pitch) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration, transparent);
-}
-:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
-  color: var(--jpdb-reader-word-color, currentColor) !important;
-}
+.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
+.jpdb-reader-word-highlight-jpdb .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
+.jpdb-reader-word-highlight-anki .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
+.jpdb-reader-word-highlight-pitch .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
+.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }
+.jpdb-reader-word-underline-jpdb .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); }
+.jpdb-reader-word-underline-anki .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); }
+.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }
+.jpdb-reader-word-text-status .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, currentColor) !important; }
+.jpdb-reader-word-text-jpdb .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; }
+.jpdb-reader-word-text-anki .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, currentColor) !important; }
+.jpdb-reader-word-text-pitch .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, currentColor) !important; }
 :is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
   opacity: 1 !important;
 }

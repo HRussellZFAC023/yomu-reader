@@ -10,6 +10,18 @@ export interface KanjiStrokeAssessment {
     message: string;
 }
 
+export interface KanjiShapeCandidate {
+    kanji: string;
+    strokeShapes: KanjiVGStrokeShape[];
+}
+
+export interface KanjiShapeMatch {
+    kanji: string;
+    score: number;
+    expectedStrokes: number;
+    actualStrokes: number;
+}
+
 type StrokePoint = { x: number; y: number };
 type StrokePattern = StrokePoint[][];
 
@@ -34,6 +46,17 @@ export function assessKanjiStrokes(strokes: DoodleStroke[], expectedStrokes: num
     const passed = actualStrokes === expected && score >= 68 && shapePassed;
     const message = assessmentMessage(passed, actualStrokes, expected, shapeScore);
     return { passed, score, expectedStrokes: expected, actualStrokes, shapeScore: shapeScore ?? undefined, message };
+}
+
+export function rankKanjiStrokeCandidates(strokes: DoodleStroke[], candidates: KanjiShapeCandidate[], limit = 8): KanjiShapeMatch[] {
+    const writtenStrokes = strokes.filter(stroke => stroke.length > 1);
+    if (!writtenStrokes.length) return [];
+    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    return candidates
+        .map(candidate => kanjiShapeMatch(candidate, written, writtenStrokes.length))
+        .filter((match): match is KanjiShapeMatch => Boolean(match))
+        .sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji))
+        .slice(0, limit);
 }
 
 function totalDistance(strokes: DoodleStroke[]): number {
@@ -79,6 +102,95 @@ function assessStrokeShape(strokes: DoodleStroke[], referenceStrokes: KanjiVGStr
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const worst = Math.min(...scores);
     return average * 0.72 + worst * 0.28;
+}
+
+function kanjiShapeMatch(candidate: KanjiShapeCandidate, written: StrokePattern, actualStrokes: number): KanjiShapeMatch | null {
+    const referenceStrokes = candidate.strokeShapes.filter(stroke => stroke.length > 1);
+    if (!referenceStrokes.length) return null;
+    const expectedStrokes = referenceStrokes.length;
+    const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
+    const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
+    if (strokeDelta > allowedDelta) return null;
+
+    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    if (!reference.length) return null;
+    const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
+    const skeletonScore = wholeSkeletonScore(written, reference);
+    const occupancyScore = strokeOccupancyScore(written, reference);
+    const countScore = Math.max(0, 1 - strokeDelta / Math.max(actualStrokes, expectedStrokes, 1));
+    const score = skeletonScore * 0.44 + strokeShapeScore * 0.34 + occupancyScore * 0.12 + countScore * 0.10;
+    if (score < 0.38) return null;
+    return { kanji: candidate.kanji, score, expectedStrokes, actualStrokes };
+}
+
+function unorderedStrokeShapeScore(written: StrokePattern, reference: StrokePattern): number {
+    const pairScores: Array<{ writtenIndex: number; referenceIndex: number; score: number }> = [];
+    written.forEach((stroke, writtenIndex) => {
+        reference.forEach((referenceStroke, referenceIndex) => {
+            pairScores.push({
+                writtenIndex,
+                referenceIndex,
+                score: reversibleStrokeCorrespondenceScore(stroke, referenceStroke),
+            });
+        });
+    });
+    pairScores.sort((a, b) => b.score - a.score);
+
+    const usedWritten = new Set<number>();
+    const usedReference = new Set<number>();
+    const scores: number[] = [];
+    for (const pair of pairScores) {
+        if (usedWritten.has(pair.writtenIndex) || usedReference.has(pair.referenceIndex)) continue;
+        usedWritten.add(pair.writtenIndex);
+        usedReference.add(pair.referenceIndex);
+        scores.push(pair.score);
+        if (scores.length >= Math.min(written.length, reference.length)) break;
+    }
+    if (!scores.length) return 0;
+
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const worst = Math.min(...scores);
+    const coverage = scores.length / Math.max(written.length, reference.length);
+    return average * 0.64 + worst * 0.18 + coverage * 0.18;
+}
+
+function wholeSkeletonScore(written: StrokePattern, reference: StrokePattern): number {
+    const writtenPoints = written.flat();
+    const referencePoints = reference.flat();
+    if (!writtenPoints.length || !referencePoints.length) return 0;
+    const distance = (averageNearestDistance(writtenPoints, referencePoints) + averageNearestDistance(referencePoints, writtenPoints)) / 2;
+    return clamp(1 - distance / 54, 0, 1);
+}
+
+function averageNearestDistance(points: StrokePoint[], targets: StrokePoint[]): number {
+    return points.reduce((sum, point) => sum + nearestDistance(point, targets), 0) / points.length;
+}
+
+function nearestDistance(point: StrokePoint, targets: StrokePoint[]): number {
+    let best = Number.POSITIVE_INFINITY;
+    for (const target of targets) best = Math.min(best, manhattan(point, target));
+    return best;
+}
+
+function strokeOccupancyScore(written: StrokePattern, reference: StrokePattern): number {
+    const writtenCells = occupancyCells(written.flat(), 5);
+    const referenceCells = occupancyCells(reference.flat(), 5);
+    if (!writtenCells.size || !referenceCells.size) return 0;
+    let overlap = 0;
+    writtenCells.forEach(cell => {
+        if (referenceCells.has(cell)) overlap++;
+    });
+    return overlap / Math.max(writtenCells.size, referenceCells.size);
+}
+
+function occupancyCells(points: StrokePoint[], cellCount: number): Set<string> {
+    const cells = new Set<string>();
+    points.forEach(point => {
+        const x = Math.max(0, Math.min(cellCount - 1, Math.floor((point.x / NORMALIZED_SIZE) * cellCount)));
+        const y = Math.max(0, Math.min(cellCount - 1, Math.floor((point.y / NORMALIZED_SIZE) * cellCount)));
+        cells.add(`${x}:${y}`);
+    });
+    return cells;
 }
 
 function toPattern(strokes: Array<Array<{ x: number; y: number }>>): StrokePattern {
@@ -158,6 +270,13 @@ function strokeCorrespondenceScore(stroke: StrokePoint[], reference: StrokePoint
     const direction = directionDistance(stroke, reference) * 128;
     const distance = whole * 0.58 + endpoints * 0.32 + direction * 0.10;
     return clamp(1 - distance / 96, 0, 1);
+}
+
+function reversibleStrokeCorrespondenceScore(stroke: StrokePoint[], reference: StrokePoint[]): number {
+    return Math.max(
+        strokeCorrespondenceScore(stroke, reference),
+        strokeCorrespondenceScore([...stroke].reverse(), reference),
+    );
 }
 
 function wholeWholeDistance(pattern1: StrokePoint[], pattern2: StrokePoint[]): number {

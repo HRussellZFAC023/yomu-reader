@@ -21,13 +21,14 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
-- Optional Anki mining through AnkiConnect on desktop and mobile Anki handoff on iPhone, iPad, and Android, with a よむ note type created automatically where the bridge supports it.
+- Optional Anki mining through AnkiConnect on desktop and mobile Anki handoff on iPhone, iPad, and Android, with a customizable よむ note type created automatically where the bridge supports it.
 - Yomitan dictionary imports: JMdict download from Settings, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
-- Furigana and word-color modes for all parsed text: automatic, difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
+- Furigana and word-color modes for all parsed text: difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
+- Bounded JPDB public-page extras in the JPDB source, including related "used in vocabulary" rows and example sentences with JPDB-provided audio buttons when available.
 - Immersion Kit example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example.
-- Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, browser text-to-speech, and custom URLs.
+- Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, JPDB word audio, browser text-to-speech, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR from embedded page metadata or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style results.
 - ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
@@ -62,7 +63,7 @@ Self-hosted audio files: https://nyaa.si/view/1957972
 
 Guide: https://yomitan.wiki/advanced/#audio
 
-The default sources are JapanesePod101, LanguagePod101, Jisho.org, and browser text-to-speech. Add a custom URL only if you already use a local audio server.
+The default sources are JapanesePod101, LanguagePod101, Jisho.org, JPDB word audio, and browser text-to-speech. Add a custom URL only if you already use a local audio server.
 
 ## Mining
 
@@ -70,9 +71,9 @@ JPDB mining is the default path. The JPDB pill in a popup opens the matching JPD
 
 Kanji details are modular. The **Kanji facts and origins map** setting adds compact facts such as type, JLPT, school grade, stroke count, frequency, Kanken, RTK frame, old forms, and radical data when those values are available from JPDB, KanjiVG, RTK, imported local dictionaries, or optional public kanji sources. The 2D map stays lightweight and uses per-kanji components instead of bundling a large etymology dataset. The Kanji Alive / Kanji Map, component graph, and radical-image sections can each be turned off. Source research and follow-up decisions live in [`docs/kanji-source-research.md`](docs/kanji-source-research.md).
 
-Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes JPDB meaning/status, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, and optional context images. If a term already exists anywhere in your Anki collection, よむ hides **Add to Anki**, shows a compact **Edit in Anki** action, colors matching words with the Anki state, and sends popup review grades to Anki when a matching card is available. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
+Anki mining is optional. Enable it in settings, open Anki with the AnkiConnect add-on installed, then use **Add to Anki** from a popup. The default よむ note type includes the word, reading, meaning, imported dictionary definitions, local kanji dictionary cards, pitch and frequency metadata, the source sentence, page link, JPDB link, optional context images, and Immersion Kit audio when that example is used as context. Settings can hide the reading, sentence, or image from the word-first card front. If a term already exists anywhere in your Anki collection, よむ hides **Add to Anki**, shows **Edit in Anki** inside the Anki preview, colors matching words with the Anki state, and sends popup review grades to Anki when a matching card is available. If both JPDB and Anki are enabled, JPDB actions keep mining to JPDB; the setting **Also add to Anki when adding to JPDB** mirrors those cards into Anki.
 
-Context selection is metadata-first: よむ remembers the last useful sentence/source for a term without storing image blobs in localStorage. Immersion Kit mining uses the exact example currently selected in the popup, including its sentence and thumbnail. Subtitle and video cards can include a best-effort still image from the active video, and OCR/image cards can include the source image when browser security allows it. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin media source the way a full browser extension can.
+Context selection is metadata-first: よむ remembers the last useful sentence/source for a term without storing media blobs in localStorage. Immersion Kit mining uses the exact example currently selected in the popup, including its sentence, thumbnail, and audio clip when available. Subtitle and video cards can include a best-effort still image from the active video, and OCR/image cards can include the source image when browser security allows it. This is intentionally modest because a userscript cannot reliably capture every protected or cross-origin media source the way a full browser extension can.
 
 Anki mobile note: AnkiConnect is an Anki desktop add-on, so desktop mining still works best with Anki reachable at a local or LAN/Tailscale URL. On iPad, よむ can hand a note to AnkiMobile through the `anki://x-callback-url/addnote` flow. On Android, よむ uses the browser intent path for AnkiDroid where the browser permits it.
 
@@ -216,13 +217,13 @@ npm run publish:greasyfork
 - OCR engine coverage mirrors YomiNinja response shapes where it can in a userscript: native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
 - iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, the hosted video player, and the new-tab study page. Desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
-- Support links live in settings: open GitHub issues for bugs/feature requests, copy Discord `henry281199` for chat, or donate via PayPal. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but support still helps soften that cost and keep the project moving. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
+- Support links live in settings: open GitHub issues for bugs/feature requests, join the Discord server for chat, donate via PayPal, or use Factory Reset to clear よむ settings, API keys, cached data, and imported dictionaries back to defaults. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but support still helps soften that cost and keep the project moving. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
 
 ## Support
 
 - Documentation: https://hrussellzfac023.github.io/yomu-reader/
 - Issues and source: https://github.com/HRussellZFAC023/yomu-reader/issues
-- Discord: `henry281199`
+- Discord: https://discord.gg/WvDt57uk5
 - Donate: https://paypal.me/HenryRussell163
 
 Donation note: よむ has already cost more in AI/API tokens than donations are likely to repay, so every bit of support helps. Feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ.

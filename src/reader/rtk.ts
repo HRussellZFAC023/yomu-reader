@@ -120,23 +120,56 @@ function rtkFrameNumber(keywordElement: Element | null): string {
 }
 
 export function parseRtkSearchIndex(script: string): Map<string, string> {
+    const searchEntries = rtkSearchIndexEntries(script);
     const entries = new Map<string, string>();
     const collisions = new Set<string>();
-    const entryRe = /"kanji"\s*:\s*"([^"]+)"[\s\S]*?"keyword"\s*:\s*"([^"]+)"/g;
+    const canonicalKeys = new Set<string>();
+    searchEntries.forEach(entry => {
+        rtkIndexKeys(entry.keyword).forEach(key => {
+            canonicalKeys.add(key);
+            addRtkKeywordIndexEntry(entries, collisions, key, entry.kanji);
+        });
+    });
+    addRtkElementAliasEntries(entries, collisions, canonicalKeys, searchEntries);
+    return entries;
+}
+
+interface RtkSearchIndexEntry {
+    kanji: string;
+    keyword: string;
+    elements: string;
+}
+
+function rtkSearchIndexEntries(script: string): RtkSearchIndexEntry[] {
+    const entries: RtkSearchIndexEntry[] = [];
+    const entryRe = /\{[\s\S]*?\}/g;
     let match: RegExpExecArray | null;
     while ((match = entryRe.exec(script))) {
-        const entry = rtkSearchIndexEntry(match);
-        if (!entry) continue;
-        addRtkKeywordIndexEntry(entries, collisions, rtkElementKey(entry.keyword), entry.kanji);
-        addRtkKeywordIndexEntry(entries, collisions, compactRtkElementKey(entry.keyword), entry.kanji);
+        const entry = rtkSearchIndexEntry(match[0]);
+        if (entry) entries.push(entry);
     }
     return entries;
 }
 
-function rtkSearchIndexEntry(match: RegExpExecArray): { kanji: string; keyword: string } | null {
-    const kanji = firstKanjiCharacter(match[1]);
-    const keyword = match[2] ?? '';
-    return kanji && keyword ? { kanji, keyword } : null;
+function rtkSearchIndexEntry(rawEntry: string): RtkSearchIndexEntry | null {
+    const kanji = firstKanjiCharacter(rtkSearchIndexField(rawEntry, 'kanji'));
+    const keyword = rtkSearchIndexField(rawEntry, 'keyword');
+    if (!kanji || !keyword) return null;
+    return {
+        kanji,
+        keyword,
+        elements: rtkSearchIndexField(rawEntry, 'elements'),
+    };
+}
+
+function rtkSearchIndexField(rawEntry: string, field: string): string {
+    const match = rawEntry.match(new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`));
+    if (!match?.[1]) return '';
+    try {
+        return JSON.parse(`"${match[1]}"`) as string;
+    } catch {
+        return match[1];
+    }
 }
 
 function firstKanjiCharacter(value: string | undefined): string {
@@ -156,6 +189,83 @@ function addRtkKeywordIndexEntry(entries: Map<string, string>, collisions: Set<s
         return;
     }
     entries.set(key, kanji);
+}
+
+function addRtkElementAliasEntries(entries: Map<string, string>, collisions: Set<string>, canonicalKeys: Set<string>, searchEntries: RtkSearchIndexEntry[]): void {
+    const introduced = new Map<string, string>();
+    const introducedCollisions = new Set<string>();
+    searchEntries.forEach(entry => {
+        rtkIndexKeys(entry.keyword).forEach(key => addRtkKeywordIndexEntry(introduced, introducedCollisions, key, entry.kanji));
+        const elements = splitRtkElements(entry.elements);
+        addLeadingRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, entry, elements);
+        addGroupedRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, elements);
+    });
+}
+
+function addLeadingRtkElementAliases(
+    entries: Map<string, string>,
+    collisions: Set<string>,
+    canonicalKeys: Set<string>,
+    introduced: Map<string, string>,
+    introducedCollisions: Set<string>,
+    entry: RtkSearchIndexEntry,
+    elements: string[],
+): void {
+    const keywordKeys = rtkIndexKeys(entry.keyword);
+    const keywordIndex = elements.findIndex(element => rtkIndexKeys(element).some(key => keywordKeys.includes(key)));
+    if (keywordIndex <= 0) return;
+    elements.slice(0, keywordIndex).forEach(element => {
+        addRtkElementAliasEntry(entries, collisions, canonicalKeys, introduced, introducedCollisions, element, entry.kanji);
+    });
+}
+
+function addGroupedRtkElementAliases(
+    entries: Map<string, string>,
+    collisions: Set<string>,
+    canonicalKeys: Set<string>,
+    introduced: Map<string, string>,
+    introducedCollisions: Set<string>,
+    elements: string[],
+): void {
+    let owner = '';
+    elements.forEach(element => {
+        const introducedOwner = rtkIntroducedElementOwner(introduced, element);
+        if (introducedOwner) {
+            owner = introducedOwner;
+            return;
+        }
+        if (owner) addRtkElementAliasEntry(entries, collisions, canonicalKeys, introduced, introducedCollisions, element, owner);
+    });
+}
+
+function addRtkElementAliasEntry(
+    entries: Map<string, string>,
+    collisions: Set<string>,
+    canonicalKeys: Set<string>,
+    introduced: Map<string, string>,
+    introducedCollisions: Set<string>,
+    element: string,
+    kanji: string,
+): void {
+    if (rtkElementFallbackGlyph(element)) return;
+    rtkIndexKeys(element)
+        .filter(key => !canonicalKeys.has(key))
+        .forEach(key => {
+            addRtkKeywordIndexEntry(entries, collisions, key, kanji);
+            addRtkKeywordIndexEntry(introduced, introducedCollisions, key, kanji);
+        });
+}
+
+function rtkIntroducedElementOwner(introduced: Map<string, string>, element: string): string {
+    for (const key of rtkIndexKeys(element)) {
+        const owner = introduced.get(key);
+        if (owner) return owner;
+    }
+    return '';
+}
+
+function rtkIndexKeys(value: string): string[] {
+    return [...new Set([rtkElementKey(value), compactRtkElementKey(value)].filter(Boolean))];
 }
 
 function compactRtkElementKey(value: string): string {

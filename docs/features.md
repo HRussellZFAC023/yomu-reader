@@ -6,9 +6,9 @@
 
 Tap, select, or hover Japanese text to open a popup. The popup can show JPDB definitions, imported local dictionary entries, pitch and frequency data, audio, example sentences, kanji details, and optional mining actions.
 
-JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, and optional context images.
+JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
 
-Furigana and word colors are separate controls. You can keep the automatic behavior, show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by JPDB/Anki state, color them by pitch accent, or turn highlight coloring off.
+Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by JPDB/Anki state, color them by pitch accent, or turn highlight coloring off.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
@@ -65,7 +65,9 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 ## Immersion Kit Examples
 
-Immersion Kit examples can appear directly inside word popups. On desktop, the first example can play its audio once when you hover the card; it will not keep replaying unless you press the speaker button. Example sentences are tappable too, so you can jump from one unknown word to the next without leaving the flow.
+JPDB definition sources can also show a small capped set of public JPDB "used in vocabulary" rows and example sentences. When JPDB exposes audio for an example, the example keeps a compact speaker button inside the same popup section.
+
+Immersion Kit examples can appear directly inside word popups. On desktop, the first example can play its audio once when you hover the card; it will not keep replaying unless you press the speaker button. When you mine that example to Anki, よむ keeps the selected sentence, thumbnail, and audio clip together. Example sentences are tappable too, so you can jump from one unknown word to the next without leaving the flow.
 
 You can choose example categories, length limits, image visibility, translation visibility, playback speed, and whether that one-time hover audio is enabled. On iPhone and iPad, use the speaker button because touch screens do not have hover and Safari limits autoplay.
 
@@ -93,7 +95,7 @@ On iPhone and iPad, this is often the easiest daily-review surface because it av
 
 ## Help And Support In Settings
 
-The Help tab includes GitHub issues, Discord, and donation links so users do not need to search the repository when something goes wrong.
+The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">

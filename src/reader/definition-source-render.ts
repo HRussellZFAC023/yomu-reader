@@ -3,7 +3,7 @@ import { uiText } from './i18n';
 import { JPDB_DEFINITION_SOURCE_ID } from './constants';
 import { KANJI_DICTIONARIES_SOURCE_ID } from './source-sections';
 import { bestFrequencyEntries, dictionaryPreferencePriority, hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from './local-dictionary-display';
-import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, summarizeLearnerGlossary, type LearnerTermGroup } from './popup-render';
+import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, speakerIcon, summarizeLearnerGlossary, type LearnerTermGroup } from './popup-render';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 import type { JpdbKanjiVocabulary } from './jpdb-kanji';
@@ -100,8 +100,7 @@ function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: 
                             data-external="false"
                         >
                             <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB" data-jpdb-reader-suppress-ruby>${escapeHtml(entry.term)}</span>
-                                ${entry.reading && entry.reading !== entry.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml(entry.reading)}</span>` : ''}
+                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(entry.term)}</span>
                             </span>
                         </a>
                         ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ''}
@@ -124,13 +123,33 @@ function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAt
                 <ul class="jpdb-reader-jpdb-examples">
                 ${info.examples.map(example => `
                     <li class="jpdb-reader-jpdb-example">
-                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
-                        ${example.translation ? `<div class="jpdb-reader-example-translation jpdb-reader-parseable">${escapeHtml(example.translation)}</div>` : ''}
+                        <div class="jpdb-reader-jpdb-example-row${example.audioIds?.length ? ' has-audio' : ''}">
+                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence)}
+                            <div class="jpdb-reader-jpdb-example-text">
+                                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
+                                ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
+                            </div>
+                        </div>
                     </li>
                 `).join('')}
                 </ul>
             </div>
         </details>
+    ` : '';
+}
+
+function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: string): string {
+    const audio = audioIds?.join(',') ?? '';
+    return audio ? `
+        <button
+            class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio"
+            type="button"
+            data-action="jpdb-example-audio"
+            data-jpdb-audio="${escapeHtml(audio)}"
+            data-jpdb-example-sentence="${escapeHtml(sentence)}"
+            title="Play JPDB example audio"
+            aria-label="Play JPDB example audio"
+        >${speakerIcon()}</button>
     ` : '';
 }
 
@@ -201,11 +220,12 @@ export function renderSimilarKanjiWordsShell(
     sourceStateKey: string,
     sourceOpen: boolean,
     sourceAttributes: SourceAttributes,
+    title = `Words using ${kanji}`,
 ): string {
     const help = uiText(language, sourceOpen ? 'loadingSimilarWords' : 'openToLoadSimilarWords');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words ${sourceAttributes(sourceStateKey)}>
-            <summary class="jpdb-reader-local-title">Words using ${escapeHtml(kanji)}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             <div data-kanji-similar-mount>
                 <div class="jpdb-reader-help">${help}</div>
             </div>
@@ -347,7 +367,7 @@ function renderLocalTermFrequency(group: LearnerTermGroup): string {
 function renderLocalGlossaryEntries(dictionary: string, entries: YomitanTermEntry[], options: { showIndex?: boolean } = {}): string {
     const showIndex = options.showIndex ?? entries.length > 1;
     const entryHtml = entries.map((entry, index) => {
-        const content = entry.glossary.slice(0, 4)
+        const content = localGlossaryItemsForRender(entry.glossary)
             .map(item => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true }))
             .filter(html => html.replace(/<[^>]+>/g, '').trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html))
             .map(html => `<div>${html}</div>`)
@@ -366,6 +386,15 @@ function renderLocalGlossaryEntries(dictionary: string, entries: YomitanTermEntr
             ${entryHtml}
         </div>
     `;
+}
+
+function localGlossaryItemsForRender(glossary: unknown[]): unknown[] {
+    const items = new Set<unknown>();
+    glossary.slice(0, 4).forEach(item => items.add(item));
+    glossary
+        .filter(item => hasRichStructuredGlossary(item) || HAS_JAPANESE.test(glossaryToText(item)))
+        .forEach(item => items.add(item));
+    return Array.from(items);
 }
 
 function hasAdditionalLocalDictionaryText(entry: YomitanTermEntry): boolean {

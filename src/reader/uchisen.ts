@@ -1,6 +1,7 @@
 import { escapeHtml, setInnerHtml } from './dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
+import { externalLinkIcon } from './popup-render';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from './proxy-fetch';
 import { requestBlob as requestReaderBlob, requestText as requestReaderText } from './reader-http';
 import { gmStorageGet, gmStorageSet } from './storage';
@@ -21,9 +22,16 @@ export interface UchisenComponentGroup {
     components: UchisenComponent[];
 }
 
+export interface UchisenKanjiKeyword {
+    kanji: string;
+    keyword: string;
+    url: string;
+}
+
 export interface UchisenData {
     images: UchisenImage[];
     componentGroups: UchisenComponentGroup[];
+    kanjiKeyword: UchisenKanjiKeyword | null;
 }
 
 interface UchisenImageCandidate extends UchisenImage {
@@ -38,6 +46,7 @@ interface UchisenCarouselOptions {
     proxyUrl?: string;
     summaryHtml?: (index: number, total: number) => string;
     componentGroups?: UchisenComponentGroup[];
+    kanjiKeyword?: UchisenKanjiKeyword | null;
 }
 
 const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
@@ -45,11 +54,12 @@ const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
 const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
 
 export function parseUchisenData(html: string): UchisenData {
-    if (!html.trim()) return { images: [], componentGroups: [] };
+    if (!html.trim()) return { images: [], componentGroups: [], kanjiKeyword: null };
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return {
         images: parseUchisenImagesFromDocument(doc),
         componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+        kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
     };
 }
 
@@ -59,6 +69,10 @@ export function parseUchisenImages(html: string): UchisenImage[] {
 
 export function parseUchisenComponents(html: string): UchisenComponentGroup[] {
     return parseUchisenData(html).componentGroups;
+}
+
+export function parseUchisenKanjiKeyword(html: string): UchisenKanjiKeyword | null {
+    return parseUchisenData(html).kanjiKeyword;
 }
 
 function parseUchisenImagesFromDocument(doc: Document): UchisenImage[] {
@@ -90,6 +104,34 @@ function parseUchisenComponentGroupsFromDocument(doc: Document): UchisenComponen
         .map(uchisenComponentGroup)
         .filter((group): group is UchisenComponentGroup => Boolean(group?.components.length))
         .slice(0, 4);
+}
+
+function parseUchisenKanjiKeywordFromDocument(doc: Document): UchisenKanjiKeyword | null {
+    const candidates = [
+        doc.querySelector<HTMLElement>('#kanji_keyword_container > span')?.textContent,
+        doc.querySelector<HTMLElement>('#kanji_keyword_container')?.textContent,
+        doc.querySelector<HTMLElement>('.kanji_name > span')?.textContent,
+        doc.querySelector<HTMLElement>('.mnemonic_studio_right h2.kanji_info')?.textContent,
+    ];
+
+    for (const candidate of candidates) {
+        const keyword = uchisenKanjiKeyword(candidate ?? '');
+        if (keyword) return keyword;
+    }
+    return null;
+}
+
+function uchisenKanjiKeyword(value: string): UchisenKanjiKeyword | null {
+    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText(value));
+    if (!match) return null;
+    const kanji = cleanText(match[1].replace(/[「」]/g, ''));
+    const keyword = cleanText(match[2]);
+    if (!kanji || !keyword) return null;
+    return {
+        kanji,
+        keyword,
+        url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`,
+    };
 }
 
 function uchisenComponentGroup(group: HTMLElement): UchisenComponentGroup | null {
@@ -231,21 +273,25 @@ export async function installUchisenCarousel(
         const bodyClass = options.bodyClass ?? 'jpdb-reader-local-glossary yomu-jpdb-uchisen-body';
         const sourceAttributes = options.sourceAttributes ?? 'open';
         const summaryHtml = options.summaryHtml?.(index + 1, images.length) ?? `
-                    <span>Uchisen</span>
-                    <span class="yomu-jpdb-counter">${index + 1}/${images.length}</span>
+                    <span class="yomu-jpdb-uchisen-summary-main">
+                        <span>Uchisen</span>
+                        <span class="yomu-jpdb-counter">${index + 1}/${images.length}</span>
+                    </span>
                 `;
         const bodyMeta = options.summaryHtml ? `<div class="yomu-jpdb-source-meta">${index + 1}/${images.length}</div>` : '';
         setInnerHtml(container, `
             <details class="${detailsClass}" ${sourceAttributes}>
-                <summary class="${summaryClass}">${summaryHtml}</summary>
-                <div class="${bodyClass}">
-                    ${bodyMeta}
-                    <div class="yomu-jpdb-toolbar" role="toolbar" aria-label="Uchisen mnemonic images">
+                <summary class="${summaryClass}">
+                    ${summaryHtml}
+                    <span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="Uchisen mnemonic images">
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">&lsaquo;</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">&rsaquo;</button>
-                        <a href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">Open</a>
-                    </div>
-                    ${renderUchisenComponentGroups(options.componentGroups ?? [])}
+                    </span>
+                    <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">View on Uchisen ${externalLinkIcon()}</a>
+                </summary>
+                <div class="${bodyClass}">
+                    ${bodyMeta}
+                    ${renderUchisenComponentGroups(options.kanjiKeyword, options.componentGroups ?? [])}
                     <div class="yomu-jpdb-image-shell"><img alt="Uchisen mnemonic for ${escapeHtml(kanji)}" data-uchisen-image></div>
                     <div class="yomu-jpdb-story">${escapeHtml(item.story || 'No story available')}</div>
                 </div>
@@ -284,8 +330,15 @@ export async function installUchisenCarousel(
     return cleanup;
 }
 
-function renderUchisenComponentGroups(groups: UchisenComponentGroup[]): string {
-    const visibleGroups = groups.filter(group => group.components.length);
+function renderUchisenComponentGroups(
+    kanjiKeyword: UchisenKanjiKeyword | null | undefined,
+    groups: UchisenComponentGroup[],
+): string {
+    const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
+    const visibleGroups = [
+        ...(keywordGroup ? [keywordGroup] : []),
+        ...groups.filter(group => group.components.length),
+    ];
     if (!visibleGroups.length) return '';
     return `<div class="yomu-jpdb-component-breakdown" aria-label="Uchisen component breakdown">
         ${visibleGroups.map(group => `<div class="yomu-jpdb-component-group">
@@ -295,6 +348,18 @@ function renderUchisenComponentGroups(groups: UchisenComponentGroup[]): string {
             </div>
         </div>`).join('')}
     </div>`;
+}
+
+function uchisenKanjiKeywordGroup(keyword: UchisenKanjiKeyword | null | undefined): UchisenComponentGroup | null {
+    if (!keyword || (!keyword.kanji && !keyword.keyword)) return null;
+    return {
+        title: 'Kanji Keyword',
+        components: [{
+            name: keyword.keyword,
+            symbol: keyword.kanji,
+            url: keyword.url,
+        }],
+    };
 }
 
 function renderUchisenComponentChip(component: UchisenComponent): string {

@@ -29,6 +29,20 @@ export interface KanjiVGComponentPosition {
     direct: boolean;
     depth: number;
     variant?: boolean;
+    center?: KanjiVGComponentCenter;
+    bounds?: KanjiVGComponentBounds;
+}
+
+export interface KanjiVGComponentCenter {
+    x: number;
+    y: number;
+}
+
+export interface KanjiVGComponentBounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
 export class KanjiVGClient {
@@ -308,6 +322,16 @@ function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string):
         const parentOriginal = cleanComponent(parentGroup?.getAttribute('kvg:original') ?? '');
         const position = cleanComponent(group.getAttribute('kvg:position') ?? geometricKanjiVGPosition(group, parentGroup, viewBox) ?? inheritedKanjiVGPosition(group, root));
         if (!position) return;
+        const bounds = normalizedKanjiVGElementBounds(group, viewBox);
+        const geometryAttrs = bounds
+            ? {
+                bounds,
+                center: {
+                    x: roundKanjiVGGeometry(bounds.x + bounds.width / 2),
+                    y: roundKanjiVGGeometry(bounds.y + bounds.height / 2),
+                },
+            }
+            : {};
         const original = cleanComponent(group.getAttribute('kvg:original') ?? '');
         const direct = Boolean(root && parentGroup === root);
         const variant = group.getAttribute('kvg:variant') === 'true';
@@ -317,8 +341,8 @@ function readKanjiVGComponentPositions(sourceSvg: SVGSVGElement, kanji: string):
         } : {};
         const depth = kanjiVGComponentDepth(group, root);
         const variantAttr = variant ? { variant } : {};
-        add({ component, original: original || undefined, ...parentAttrs, position, direct, depth, ...variantAttr });
-        if (original && original !== component) add({ component: original, original: component, ...parentAttrs, position, direct, depth, ...variantAttr });
+        add({ component, original: original || undefined, ...parentAttrs, position, direct, depth, ...variantAttr, ...geometryAttrs });
+        if (original && original !== component) add({ component: original, original: component, ...parentAttrs, position, direct, depth, ...variantAttr, ...geometryAttrs });
     });
 
     return Array.from(positions.values());
@@ -368,6 +392,30 @@ function kanjiVGElementBox(element: Element, viewBox: { x: number; y: number; wi
     const top = Math.min(...ys);
     const bottom = Math.max(...ys);
     return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function normalizedKanjiVGElementBounds(element: Element, viewBox: { x: number; y: number; width: number; height: number }): KanjiVGComponentBounds | null {
+    const box = kanjiVGElementBox(element, viewBox);
+    if (!box || box.width <= 0 || box.height <= 0) return null;
+    const left = clampUnit((box.x - viewBox.x) / viewBox.width);
+    const top = clampUnit((box.y - viewBox.y) / viewBox.height);
+    const right = clampUnit((box.x + box.width - viewBox.x) / viewBox.width);
+    const bottom = clampUnit((box.y + box.height - viewBox.y) / viewBox.height);
+    if (right <= left || bottom <= top) return null;
+    return {
+        x: roundKanjiVGGeometry(left),
+        y: roundKanjiVGGeometry(top),
+        width: roundKanjiVGGeometry(right - left),
+        height: roundKanjiVGGeometry(bottom - top),
+    };
+}
+
+function clampUnit(value: number): number {
+    return Math.max(0, Math.min(1, value));
+}
+
+function roundKanjiVGGeometry(value: number): number {
+    return Number(value.toFixed(4));
 }
 
 function inheritedKanjiVGPosition(group: Element, root: Element | undefined): string {

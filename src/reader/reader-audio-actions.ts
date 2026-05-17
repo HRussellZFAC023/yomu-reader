@@ -19,6 +19,10 @@ export class ReaderAudioActions {
     constructor(private readonly dependencies: ReaderAudioActionsDependencies) {}
 
     async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) {
+            this.dependencies.toast('Audio playback is disabled.');
+            return;
+        }
         const isCurrent = options.hoverLookupGeneration === undefined
             ? undefined
             : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration;
@@ -45,6 +49,16 @@ export class ReaderAudioActions {
         )?.voice.trim() ?? '';
         this.dependencies.stopImmersionAudio();
         await this.dependencies.audio.playJapaneseText(text, voice);
+    }
+
+    async playJpdbExampleAudio(audioIds: string | string[], fallbackSentence?: string): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) {
+            this.dependencies.toast('Audio playback is disabled.');
+            return;
+        }
+        this.dependencies.stopImmersionAudio();
+        const played = await this.dependencies.audio.playJpdbAudio(audioIds, { userGesture: true });
+        if (!played && fallbackSentence) await this.playSentenceAudio(fallbackSentence);
     }
 
     private setLoading(popover: HTMLElement | undefined, requestId: number): void {

@@ -27,6 +27,7 @@ export interface MiningContextResolutionOptions {
     imageDataUrl?: string;
     videoImageDataUrl?: string;
     fetchImageDataUrl?: (imageUrl: string, timeoutMs: number) => Promise<string | undefined>;
+    fetchAudioDataUrl?: (audioUrls: string[], timeoutMs: number) => Promise<string | undefined>;
 }
 
 export interface StoredMiningContext {
@@ -36,6 +37,7 @@ export interface StoredMiningContext {
     sourceTitle: string;
     sourceUrl: string;
     imageUrl?: string;
+    audioUrls?: string[];
     immersionIndex?: number;
     immersionTotal?: number;
     updatedAt: number;
@@ -43,6 +45,7 @@ export interface StoredMiningContext {
 
 export interface MiningContext extends StoredMiningContext {
     imageDataUrl?: string;
+    audioDataUrl?: string;
 }
 
 export function normalizeMiningSentence(sentence?: string): string {
@@ -67,6 +70,7 @@ export function createStoredMiningContext(term: string, context: MiningContextDr
         sourceTitle: context.sourceTitle.trim(),
         sourceUrl: context.sourceUrl.trim(),
         imageUrl: optionalText(context.imageUrl),
+        audioUrls: optionalTextArray(context.audioUrls),
         immersionIndex: optionalNumber(context.immersionIndex),
         immersionTotal: optionalNumber(context.immersionTotal),
         updatedAt,
@@ -81,6 +85,7 @@ export function createFallbackMiningContext(term: string, context: MiningContext
         sourceTitle: context.sourceTitle.trim(),
         sourceUrl: context.sourceUrl.trim(),
         imageUrl: optionalText(context.imageUrl),
+        audioUrls: optionalTextArray(context.audioUrls),
         immersionIndex: optionalNumber(context.immersionIndex),
         immersionTotal: optionalNumber(context.immersionTotal),
         updatedAt,
@@ -97,6 +102,7 @@ export async function resolveMiningContext({
     imageDataUrl,
     videoImageDataUrl,
     fetchImageDataUrl,
+    fetchAudioDataUrl,
 }: MiningContextResolutionOptions): Promise<MiningContext> {
     const done = log.time('Resolve mining context', {
         term,
@@ -118,6 +124,7 @@ export async function resolveMiningContext({
             activeContext,
             storedContext,
             fetchImageDataUrl,
+            fetchAudioDataUrl,
         });
         return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
     } finally {
@@ -135,12 +142,15 @@ function resolveDirectImageMiningContext(term: string, sentence: string, imageDa
     return null;
 }
 
-async function resolveStoredImmersionMiningContext(options: Pick<MiningContextResolutionOptions, 'term' | 'settings' | 'activeContext' | 'storedContext' | 'fetchImageDataUrl'>): Promise<MiningContext | null> {
-    const { term, settings, activeContext, storedContext, fetchImageDataUrl } = options;
+async function resolveStoredImmersionMiningContext(options: Pick<MiningContextResolutionOptions, 'term' | 'settings' | 'activeContext' | 'storedContext' | 'fetchImageDataUrl' | 'fetchAudioDataUrl'>): Promise<MiningContext | null> {
+    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl } = options;
     const chosen = activeContext?.term === term ? activeContext : storedContext ?? undefined;
     if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
-    const fetchedImageDataUrl = await fetchMiningContextImage(chosen, settings, fetchImageDataUrl);
-    return { ...chosen, imageDataUrl: fetchedImageDataUrl };
+    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
+        fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
+        fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl),
+    ]);
+    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
 }
 
 function fetchMiningContextImage(
@@ -150,6 +160,17 @@ function fetchMiningContextImage(
 ): Promise<string | undefined> {
     if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(undefined);
     return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
+        return undefined;
+    });
+}
+
+function fetchMiningContextAudio(
+    context: StoredMiningContext,
+    settings: ReaderSettings,
+    fetchAudioDataUrl: MiningContextResolutionOptions['fetchAudioDataUrl'],
+): Promise<string | undefined> {
+    if (!context.audioUrls?.length || !fetchAudioDataUrl) return Promise.resolve(undefined);
+    return fetchAudioDataUrl(context.audioUrls, settings.audioTimeoutMs).catch(() => {
         return undefined;
     });
 }
@@ -205,6 +226,7 @@ export function immersionContextFromExample(
     index: number,
     total: number,
     imageUrl: string,
+    audioUrls: string[] = [],
 ): MiningContextDraft {
     return {
         sentence: example.sentence,
@@ -212,6 +234,7 @@ export function immersionContextFromExample(
         sourceTitle: example.sourceTitle || 'Immersion Kit',
         sourceUrl: immersionKitUrl(term, index),
         imageUrl: imageUrl || undefined,
+        audioUrls: optionalTextArray(audioUrls),
         immersionIndex: index,
         immersionTotal: total,
     };
@@ -224,6 +247,7 @@ export function immersionContextFromElement(sentence: string, element: HTMLEleme
         sourceTitle: element.dataset.immersionSourceTitle || 'Immersion Kit',
         sourceUrl,
         imageUrl: optionalText(element.dataset.immersionImageUrl),
+        audioUrls: immersionAudioUrlsFromElement(element),
         immersionIndex: optionalNumber(Number(element.dataset.immersionIndex ?? 0)),
         immersionTotal: optionalNumber(Number(element.dataset.immersionTotal ?? 0)),
     };
@@ -280,6 +304,7 @@ function parseStoredMiningContext(value: unknown, expectedTerm: string, now = Da
         sourceTitle: text(record.sourceTitle),
         sourceUrl: text(record.sourceUrl),
         imageUrl: optionalText(record.imageUrl),
+        audioUrls: optionalTextArray(record.audioUrls),
         immersionIndex: optionalNumber(record.immersionIndex),
         immersionTotal: optionalNumber(record.immersionTotal),
     }, updatedAt);
@@ -319,6 +344,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function optionalText(value: unknown): string | undefined {
     const normalized = text(value);
     return normalized || undefined;
+}
+
+function optionalTextArray(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const values = uniqueTexts(value);
+    return values.length ? values : undefined;
+}
+
+function immersionAudioUrlsFromElement(element: HTMLElement): string[] | undefined {
+    const parsed = parseTextArray(element.dataset.immersionAudioUrls);
+    return optionalTextArray(parsed ?? [element.dataset.immersionAudioUrl]);
+}
+
+function parseTextArray(value: unknown): unknown[] | null {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function uniqueTexts(values: unknown[]): string[] {
+    return Array.from(new Set(values.map(text).filter(Boolean)));
 }
 
 function optionalNumber(value: unknown): number | undefined {

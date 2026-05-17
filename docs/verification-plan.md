@@ -155,7 +155,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ### Audio
 
-- [ ] Defaults are JapanesePod101, LanguagePod101, Jisho, and browser text-to-speech; no custom URL
+- [ ] Defaults are JapanesePod101, LanguagePod101, Jisho, JPDB word audio, and browser text-to-speech; no custom URL
   row is preselected by default.
 - [ ] Users can add N sources, reorder them, enable/disable each, and choose source types.
 - [ ] Custom URL supports `{term}`, `{reading}`, and `{language}`.

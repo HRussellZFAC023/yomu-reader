@@ -287,6 +287,9 @@
   white-space: normal;
   display: grid;
   gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   --font-size-no-units: 13;
   --line-height: 1.45;
   --list-padding1: 1.1em;
@@ -379,6 +382,8 @@
 }
 .jpdb-reader-local-glossary .structured-content {
   display: inline;
+  min-width: 0;
+  max-width: 100%;
   white-space: normal;
   line-height: var(--line-height);
 }
@@ -414,7 +419,15 @@
     .gloss-sc-li,
     .gloss-sc-details
   ) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   white-space: normal;
+}
+.jpdb-reader-local-glossary [data-sc-class="extra-box"] {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .jpdb-reader-local-glossary .gloss-sc-ul,
 .jpdb-reader-local-glossary .gloss-sc-ol {
@@ -592,16 +605,98 @@
   font-size: 11px;
   line-height: 1.35;
 }
-.jpdb-reader-anki-card-preview div {
+.jpdb-reader-anki-field,
+.jpdb-reader-anki-context {
   display: grid;
   gap: 2px;
 }
-.jpdb-reader-anki-card-preview strong {
+.jpdb-reader-anki-field > strong,
+.jpdb-reader-anki-context > strong,
+.jpdb-reader-anki-rendered-side > strong {
   color: var(--jpdb-reader-text);
   font-size: 11px;
   text-transform: uppercase;
 }
-.jpdb-reader-anki-card-preview span,
-.jpdb-reader-anki-card-preview small {
+.jpdb-reader-anki-field > span,
+.jpdb-reader-anki-context > span,
+.jpdb-reader-anki-context > small {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.jpdb-reader-anki-rendered-card,
+.jpdb-reader-anki-fields {
+  display: grid;
+  gap: 8px;
+}
+.jpdb-reader-anki-rendered-side {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.jpdb-reader-anki-rendered-side-body {
+  max-height: 220px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  contain: content;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.14);
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.jpdb-reader-anki-rendered-side-body * {
+  max-width: 100%;
+}
+.jpdb-reader-anki-rendered-side-body img,
+.jpdb-reader-anki-rendered-side-body video,
+.jpdb-reader-anki-rendered-side-body audio {
+  max-width: 100%;
+  height: auto;
+}
+.jpdb-reader-anki-sound {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 2px 6px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  color: var(--jpdb-reader-text);
+  background: rgba(94, 167, 128, 0.16);
+  font-size: 10px;
+  font-weight: 700;
+}
+.jpdb-reader-anki-note-actions {
+  display: grid;
+  gap: 8px;
+}
+.jpdb-reader-anki-note-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.jpdb-reader-anki-audio-merge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.jpdb-reader-anki-audio-merge span {
+  color: var(--jpdb-reader-text);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.jpdb-reader-anki-audio-merge select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--jpdb-reader-text);
+  background: var(--jpdb-reader-bg);
+  font: inherit;
 }

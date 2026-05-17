@@ -23,8 +23,101 @@
   width: min(520px, calc(100vw - 16px));
   max-height: min(580px, calc(100vh - 16px));
   overflow: auto;
+  overflow-anchor: none;
   padding: 14px;
   container-type: inline-size;
+  scrollbar-gutter: stable;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet {
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  bottom: 0 !important;
+  width: 100%;
+  height: var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));
+  min-height: var(--jpdb-reader-sheet-min-height, 180px);
+  max-height: var(--jpdb-reader-sheet-viewport-height, 100dvh);
+  border-radius: 16px 16px 0 0;
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-resizing {
+  user-select: none;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: 0;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
+  padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
+  padding-top: 37px;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
+  border-radius: 0;
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+.jpdb-reader-sheet .jpdb-reader-sheet-handle {
+  display: block;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet > .jpdb-reader-sheet-handle {
+  width: 100%;
+  margin: 0;
+}
+
+.jpdb-reader-sheet-close {
+  position: absolute;
+  top: 8px;
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 88%, transparent);
+  color: var(--jpdb-reader-text);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jpdb-reader-sheet-close:hover,
+.jpdb-reader-sheet-close:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  outline: none;
+}
+
+.jpdb-reader-sheet-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
 }
 
 :root.jpdb-reader-theme-dark .jpdb-reader-popover,
@@ -594,10 +687,34 @@ button.jpdb-reader-action-pill {
   list-style: none;
 }
 .jpdb-reader-jpdb-example {
-  padding-left: 10px;
-  border-left: 2px solid var(--jpdb-reader-border);
+  padding: 2px 0;
   color: var(--jpdb-reader-text);
   line-height: 1.3;
+}
+.jpdb-reader-jpdb-example-row.has-audio {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+.jpdb-reader-jpdb-example-text {
+  min-width: 0;
+}
+button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini {
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, transparent);
+}
+button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.6;
 }
 .jpdb-reader-jpdb-compounds li,
 .jpdb-reader-jpdb-used-in li {
@@ -635,6 +752,29 @@ button.jpdb-reader-action-pill {
   line-height: 1.1;
   font-weight: 850;
   white-space: nowrap;
+}
+.jpdb-reader-jpdb-used-in-term {
+  font-size: 14.5px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+.jpdb-reader-jpdb-used-in-source-item {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start !important;
+  gap: 2px !important;
+}
+.jpdb-reader-jpdb-used-in-source-link {
+  display: block;
+}
+.jpdb-reader-jpdb-used-in-source-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.25;
 }
 .jpdb-reader-jpdb-compound-reading,
 .jpdb-reader-jpdb-compounds small,

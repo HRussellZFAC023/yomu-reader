@@ -369,11 +369,11 @@ function sourceStateAttribute(sourceStateKey: string | undefined, initiallyExpan
     return sourceStateKey ? `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"` : '';
 }
 
-export function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
+export function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'strokePractice')): string {
     const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml(kanji)}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
-            <summary class="jpdb-reader-local-title">${uiText(language, 'strokePractice')}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(language, 'practiceDrawing')} ${kanji}`)}"></canvas>
@@ -383,6 +383,7 @@ export function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, lan
                 <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${uiText(language, 'hideTrace')}</button>
                 <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${uiText(language, 'clear')}</button>
             </div>
+            <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
         </details>
     `;
 }
@@ -395,6 +396,8 @@ export function renderKanjiOrigins(
     language: InterfaceLanguage,
     initiallyExpanded = settings.dictionarySourcesInitiallyExpanded,
     sourceStateKey?: string,
+    excludeFactLabels?: Iterable<string>,
+    title = uiText(language, 'originStructure'),
 ): string {
     if (!hasKanjiOriginContent(facts, graph, sourceInfo)) {
         return '';
@@ -402,10 +405,10 @@ export function renderKanjiOrigins(
     const map = sourceInfo?.kanjiMap;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
-            <summary class="jpdb-reader-local-title">${uiText(language, 'originStructure')}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ''}
-            ${renderKanjiFactPills(facts)}
+            ${renderKanjiFactPills(facts, excludeFactLabels)}
         </details>
     `;
 }
@@ -414,10 +417,13 @@ function hasKanjiOriginContent(facts: KanjiFact[], graph: KanjiOriginGraph | nul
     return Boolean(facts.length || (graph && graph.nodes.length > 1) || sourceInfo?.kanjiMap);
 }
 
-function renderKanjiFactPills(facts: KanjiFact[]): string {
+function renderKanjiFactPills(facts: KanjiFact[], excludeFactLabels?: Iterable<string>): string {
     if (!facts.length) return '';
+    const excludedFacts = excludeFactLabels ? new Set(excludeFactLabels) : null;
+    const visibleFacts = excludedFacts ? facts.filter(fact => !excludedFacts.has(fact.label)) : facts;
+    if (!visibleFacts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
+        ${visibleFacts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
     </div>`;
 }
 
@@ -475,13 +481,13 @@ function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: Interf
         <div class="jpdb-reader-origin-graph-wrap"${hasSubcomponentEdges ? ' data-origin-has-subcomponents="true"' : ''} aria-label="${uiText(language, 'originMapLabel')}">
             <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
-                    <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
+                    <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
                         <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
                     </marker>
-                    <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
+                    <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
                         <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
                     </marker>
-                    <marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="5.35" refY="3" orient="auto" markerUnits="strokeWidth">
+                    <marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
                         <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
                     </marker>
                 </defs>
@@ -589,6 +595,13 @@ interface OriginNodeState extends PositionedOriginNode {
     anchorY: number;
     anchorPinned: boolean;
     collision: number;
+}
+
+interface OriginGeometryReference {
+    x: number;
+    y: number;
+    rx: number;
+    ry: number;
 }
 
 function buildKanjiOriginGraphRenderModel(graph: KanjiOriginGraph | null): OriginGraphRenderModel | null {
@@ -755,9 +768,14 @@ function renderOriginGraphNodeButton(positioned: PositionedOriginNode, model: Or
     const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
     const outboundOnly = node.id !== model.current.id && model.outboundIds.has(node.id) && !model.primaryIds.has(node.id);
     const subcomponentOnly = node.id !== model.current.id && model.subcomponentIds.has(node.id) && !model.primaryIds.has(node.id) && !model.outboundIds.has(node.id);
-    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ''}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ''} style="${style}"`;
+    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-label-length="${originGraphLabelLengthAttribute(node.label)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ''}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ''} style="${style}"`;
     if (node.kind === 'related') return renderRelatedOriginGraphNode(node, attrs);
     return renderKanjiOriginGraphNode(node, attrs);
+}
+
+function originGraphLabelLengthAttribute(label: string): string {
+    const length = Array.from(label).length;
+    return length > 2 ? 'many' : String(length || 1);
 }
 
 function renderRelatedOriginGraphNode(node: OriginGraphNode, attrs: string): string {
@@ -873,6 +891,7 @@ function forceLayoutOriginGraph(nodes: OriginGraphNode[], edges: OriginEdgeGroup
         const alpha = Math.pow(1 - iteration / 240, 1.45);
         applyOriginNodeRepulsion(states, alpha);
         applyOriginEdgePulls(byId, edges, currentId, alpha);
+        applyOriginEdgeNodeAvoidance(states, byId, edges, alpha);
         applyOriginAnchorPulls(states, currentId, alpha);
         integrateOriginNodeStates(states, currentId);
     }
@@ -956,6 +975,49 @@ function pullOriginEdge(source: OriginNodeState, target: OriginNodeState, edge: 
     target.vy -= dy * pull;
 }
 
+function applyOriginEdgeNodeAvoidance(states: OriginNodeState[], byId: Map<string, OriginNodeState>, edges: OriginEdgeGroup[], alpha: number): void {
+    for (const edge of edges) {
+        const source = byId.get(edge.from);
+        const target = byId.get(edge.to);
+        if (!source || !target) continue;
+        for (const state of states) {
+            if (state === source || state === target) continue;
+            pushOriginNodeAwayFromEdge(state, source, target, alpha);
+        }
+    }
+}
+
+function pushOriginNodeAwayFromEdge(node: OriginNodeState, source: OriginNodeState, target: OriginNodeState, alpha: number): void {
+    const closest = closestOriginEdgePoint(node.x, node.y, source.x, source.y, target.x, target.y);
+    const dx = node.x - closest.x;
+    const dy = node.y - closest.y;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
+    const clearance = Math.max(node.rx, node.ry) * 0.72 + 2.2;
+    if (distance >= clearance) return;
+    const fallback = originEdgeNormal(source, target);
+    const ux = distance > 0.01 ? dx / distance : fallback.x;
+    const uy = distance > 0.01 ? dy / distance : fallback.y;
+    const push = (clearance - distance) * 0.045 * alpha;
+    node.vx += ux * push;
+    node.vy += uy * push;
+}
+
+function closestOriginEdgePoint(px: number, py: number, x1: number, y1: number, x2: number, y2: number): { x: number; y: number } {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 0.001) return { x: x1, y: y1 };
+    const t = clampGraphValue(((px - x1) * dx + (py - y1) * dy) / lengthSquared, 0, 1);
+    return { x: x1 + dx * t, y: y1 + dy * t };
+}
+
+function originEdgeNormal(source: OriginNodeState, target: OriginNodeState): { x: number; y: number } {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const length = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: -dy / length, y: dx / length };
+}
+
 function applyOriginAnchorPulls(states: OriginNodeState[], currentId: string, alpha: number): void {
     for (const state of states) {
         const anchorStrength = state.node.id === currentId ? 0.32 : state.anchorPinned ? 0.38 : 0.16;
@@ -1000,16 +1062,17 @@ function originGraphAnchors(nodes: OriginGraphNode[], edges: OriginEdgeGroup[], 
     const anchors = new Map<string, { x: number; y: number; pinned?: boolean }>();
     const current = nodes.find(node => node.id === currentId);
     if (current) anchors.set(current.id, { x: 50, y: 50 });
+    const currentReference = current ? originNodeGeometryReference(current, { x: 50, y: 50 }) : undefined;
     const incoming = nodes.filter(node => node.id !== currentId && edges.some(edge => edge.from === node.id && edge.to === currentId));
     const outgoing = nodes.filter(node => node.id !== currentId && edges.some(edge => edge.from === currentId && edge.to === node.id));
     const attached = new Set([...incoming, ...outgoing].map(node => node.id));
     const others = nodes.filter(node => node.id !== currentId && !attached.has(node.id));
 
     if (outgoing.length) {
-        spreadInboundComponents(incoming, currentId).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
+        spreadInboundComponents(incoming, currentId, currentReference).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
         spreadOutboundComponents(outgoing, currentId).forEach(({ node, x, y }) => anchors.set(node.id, { x, y }));
     } else {
-        spreadInboundComponents(incoming, currentId).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
+        spreadInboundComponents(incoming, currentId, currentReference).forEach(({ node, x, y, pinned }) => anchors.set(node.id, { x, y, pinned }));
     }
     spreadNestedComponents(nodes, edges, anchors);
     const anchored = new Set(anchors.keys());
@@ -1043,6 +1106,13 @@ function spreadNestedComponents(
                 if (anchors.has(edge.from)) return;
                 const node = nodeById.get(edge.from);
                 if (!node) return;
+                const parentNode = nodeById.get(parentId);
+                const geometryAnchor = originNodeGeometryAnchor(node, parentNode ? originNodeGeometryReference(parentNode, parentAnchor) : undefined);
+                if (geometryAnchor) {
+                    anchors.set(edge.from, { ...geometryAnchor, pinned: true });
+                    placed = true;
+                    return;
+                }
                 const zone = inferInboundComponentZone(node, parentId);
                 anchors.set(edge.from, { ...nestedZoneAnchor(parentAnchor, zone, index, sorted.length), pinned: true });
                 placed = true;
@@ -1103,11 +1173,17 @@ function nestedZoneAnchorBase(parent: { x: number; y: number }, zone: OriginComp
     }
 }
 
-function spreadInboundComponents(nodes: OriginGraphNode[], currentId = ''): Array<{ node: OriginGraphNode; x: number; y: number; pinned?: boolean }> {
+function spreadInboundComponents(
+    nodes: OriginGraphNode[],
+    currentId = '',
+    currentReference?: OriginGeometryReference,
+): Array<{ node: OriginGraphNode; x: number; y: number; pinned?: boolean }> {
     if (!nodes.length) return [];
     const ordered = [...nodes].sort((a, b) => componentZoneSort(inferInboundComponentZone(a, currentId)) - componentZoneSort(inferInboundComponentZone(b, currentId)) || a.label.localeCompare(b.label, 'ja'));
     const usedByZone = new Map<OriginComponentZone, number>();
     return ordered.map((node, index) => {
+        const geometryAnchor = originNodeGeometryAnchor(node, currentReference);
+        if (geometryAnchor) return { node, ...geometryAnchor, pinned: true };
         const override = inboundPlacementOverride(currentId, node);
         if (override) return { node, x: override.x, y: override.y, pinned: true };
         const zone = inferInboundComponentZone(node, currentId);
@@ -1130,6 +1206,69 @@ function spreadOutboundComponents(nodes: OriginGraphNode[], currentId: string): 
         const anchor = outboundZoneAnchor(zone, used, ordered.filter(item => inferOutboundComponentZone(currentId, item) === zone).length);
         return { node, x: anchor.x, y: anchor.y };
     });
+}
+
+function originNodeGeometryAnchor(node: OriginGraphNode, reference?: OriginGeometryReference): { x: number; y: number } | undefined {
+    const geometry = node.geometry;
+    if (!geometry || !Number.isFinite(geometry.x) || !Number.isFinite(geometry.y)) return undefined;
+    const x = 14 + clampGraphValue(geometry.x, 0, 1) * 72;
+    const y = 14 + clampGraphValue(geometry.y, 0, 1) * 72;
+    const anchor = {
+        x: clampGraphValue(x, 12, 88),
+        y: clampGraphValue(y, 12, 88),
+    };
+    return reference ? separateOriginGeometryAnchor(node, anchor, reference) : anchor;
+}
+
+function separateOriginGeometryAnchor(
+    node: OriginGraphNode,
+    anchor: { x: number; y: number },
+    reference: OriginGeometryReference,
+): { x: number; y: number } {
+    const radii = originNodeRadii(node);
+    const dx = anchor.x - reference.x;
+    const dy = anchor.y - reference.y;
+    const distance = Math.hypot(dx, dy);
+    const direction = distance > 0.01
+        ? { x: dx / distance, y: dy / distance }
+        : originComponentZoneDirection(inferInboundComponentZone(node));
+    const requiredDistance = originEllipseRadius(reference.rx, reference.ry, direction)
+        + originEllipseRadius(radii.rx, radii.ry, direction)
+        + 4.5;
+    if (distance >= requiredDistance) return anchor;
+    return {
+        x: clampGraphValue(reference.x + direction.x * requiredDistance, 9 + radii.rx, 91 - radii.rx),
+        y: clampGraphValue(reference.y + direction.y * requiredDistance, 7 + radii.ry, 93 - radii.ry),
+    };
+}
+
+function originNodeGeometryReference(node: OriginGraphNode, point: { x: number; y: number }): OriginGeometryReference {
+    const radii = originNodeRadii(node);
+    return { ...point, rx: radii.rx, ry: radii.ry };
+}
+
+function originEllipseRadius(rx: number, ry: number, direction: { x: number; y: number }): number {
+    const denominator = Math.sqrt((direction.x * direction.x) / (rx * rx) + (direction.y * direction.y) / (ry * ry));
+    return denominator > 0 ? 1 / denominator : Math.max(rx, ry);
+}
+
+function originComponentZoneDirection(zone: OriginComponentZone): { x: number; y: number } {
+    switch (zone) {
+        case 'top':
+            return { x: 0, y: -1 };
+        case 'upper':
+            return { x: 0.447, y: -0.894 };
+        case 'left':
+            return { x: -1, y: 0 };
+        case 'right':
+            return { x: 1, y: 0 };
+        case 'lower':
+            return { x: 0.447, y: 0.894 };
+        case 'bottom':
+            return { x: 0, y: 1 };
+        case 'center':
+            return { x: -1, y: 0 };
+    }
 }
 
 function inferInboundComponentZone(node: OriginGraphNode, currentId = ''): OriginComponentZone {
@@ -1236,9 +1375,9 @@ function spreadConstellation(nodes: OriginGraphNode[]): Array<{ node: OriginGrap
 
 function originNodeRadii(node: OriginGraphNode): { rx: number; ry: number } {
     const length = Array.from(node.label).length;
-    if (node.kind === 'current') return { rx: 8.2, ry: 14.2 };
-    if (node.kind === 'related') return { rx: Math.min(13, 7.2 + length * 1.2), ry: 12.8 };
-    return { rx: Math.min(10.4, 7.4 + Math.max(0, length - 1) * 1.15), ry: 13 };
+    if (node.kind === 'current') return { rx: 7.6, ry: 12.9 };
+    if (node.kind === 'related') return { rx: Math.min(13.6, 8.3 + length * 1.2), ry: 14.2 };
+    return { rx: Math.min(11.5, 8.4 + Math.max(0, length - 1) * 1.15), ry: 14.2 };
 }
 
 function clippedOriginEdgePath(from: PositionedOriginNode, to: PositionedOriginNode, targetZone: GraphAnchorZone): ReturnType<typeof graphEdgePath> {
@@ -1261,7 +1400,7 @@ function hashOriginGraphId(value: string): string {
     return Math.abs(hash).toString(36);
 }
 
-export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
+export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'readingsComponents')): string {
     if (!info) return '';
     const facts = [
         ['Name', info.keyword],
@@ -1277,7 +1416,7 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
     const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title">${uiText(language, 'readingsComponents')}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
                 ${readingsSection}
@@ -1295,7 +1434,7 @@ function expandedAttribute(initiallyExpanded: boolean): string {
 function renderJpdbKanjiFactSection(facts: string[][]): string {
     if (!facts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(([label, value]) => `<span><small>${escapeHtml(label)}</small>${escapeHtml(value)}</span>`).join('')}
+        ${facts.map(([label, value]) => `<span title="JPDB"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`).join('')}
     </div>`;
 }
 
@@ -1309,7 +1448,7 @@ function renderJpdbKanjiReadings(info: JpdbKanjiInfo): string {
 function renderJpdbKanjiComponents(info: JpdbKanjiInfo, language: InterfaceLanguage): string {
     if (!info.components.length) return '';
     return `<div class="jpdb-reader-component-grid">
-        ${info.components.map(component => `<button class="jpdb-reader-component-card" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
+        ${info.components.map(component => `<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${component.kanji}`)}">
             <strong>${escapeHtml(component.kanji)}</strong>
             <span>${escapeHtml(component.keyword)}</span>
         </button>`).join('')}
@@ -1324,8 +1463,8 @@ export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, langua
     const actions = visibleJpdbKanjiActions(info);
     if (!actions.length) return '';
     return `
-        <div class="jpdb-reader-kanji-mining" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-            <div class="jpdb-reader-row jpdb-reader-kanji-mining-row" style="--cols: ${actions.length}">
+        <div class="jpdb-reader-mining-details jpdb-reader-kanji-mining" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+            <div class="jpdb-reader-row jpdb-reader-mining-action-row jpdb-reader-kanji-mining-row" style="--cols: ${actions.length}">
                 ${actions.map(action => `<button
                     class="jpdb-reader-btn ${escapeHtml(jpdbKanjiActionClass(action))}"
                     type="button"
@@ -1382,9 +1521,9 @@ function renderRtkElementChip(chip: ReturnType<typeof buildRtkElementChips>[numb
 
 function renderRtkStories(info: RtkInfo, language: InterfaceLanguage): string {
     return [
-        info.heisigStory ? `<details open><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : '',
+        info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : '',
         info.heisigComment ? `<details open><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : '',
-        info.koohiiStories.length ? `<details open><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : '',
+        info.koohiiStories.length ? `<details><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : '',
     ].join('');
 }
 

@@ -2,10 +2,10 @@ import { AudioPlayer } from './audio';
 import { AnkiConnectClient, canUseMobileAnkiHandoff } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
-import { DISCORD_HANDLE, NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
+import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
 import { setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
-import { Logger, loggingSettingsSummary } from './logger';
+import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import { clearNewTabOfflineCache } from './new-tab-controller';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from './recommended-dictionaries';
 import { installSettingsDrawerHandle } from './popover-shell';
@@ -58,14 +58,16 @@ interface SettingsDialogDependencies {
     mountDialog: (backdrop: HTMLElement, form: HTMLFormElement) => void;
     dismiss: () => void;
     toast: (message: string) => void;
-    applyTheme: () => void;
+    applyTheme: (settings?: ReaderSettings) => void;
     applyAccentColor: (color: string) => void;
     applyWordColors: (settings?: ReaderSettings) => void;
+    lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void | Promise<void>;
     installFab: () => void;
     refreshDictionaryStyles: () => Promise<void>;
     scheduleDictionaryRescan: () => void;
     refreshNewTabIfCurrent: () => void;
     clearDictionarySourceOpenOverrides: () => void;
+    resetAllData: () => void | Promise<void>;
     beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
     clearSettingsPreview: () => void;
 }
@@ -206,6 +208,7 @@ export class SettingsDialogController {
             event.preventDefault();
             const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
             this.settings = readFormSettings(new FormData(form), this.settings);
+            configureLogger({ forceEnabled: this.settings.enableLogging });
             if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
                 this.dependencies.clearDictionarySourceOpenOverrides();
             }
@@ -234,6 +237,7 @@ export class SettingsDialogController {
     }
 
     private bindLivePreview(form: HTMLFormElement): void {
+        const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
         form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('input', event => {
             this.dependencies.applyAccentColor((event.currentTarget as HTMLInputElement).value);
         });
@@ -248,7 +252,7 @@ export class SettingsDialogController {
             const next = current === 'dark' ? 'light' : 'dark';
             if (input) input.value = next;
             this.settings.theme = next;
-            this.dependencies.applyTheme();
+            applyThemePreview();
             this.syncThemeSwitch(form);
         });
         syncSubtitlePreview(form);
@@ -257,6 +261,7 @@ export class SettingsDialogController {
         });
         form.addEventListener('change', event => {
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
+            if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
         });
         const syncImmersionTranslationReveal = () => {
             const translations = form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]');
@@ -267,6 +272,23 @@ export class SettingsDialogController {
         };
         form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]')?.addEventListener('change', syncImmersionTranslationReveal);
         syncImmersionTranslationReveal();
+        const syncImmersionEnabled = (source: HTMLInputElement) => {
+            form.querySelectorAll<HTMLInputElement>('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach(input => {
+                if (input !== source) input.checked = source.checked;
+            });
+        };
+        form.querySelectorAll<HTMLInputElement>('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach(input => {
+            input.addEventListener('change', () => syncImmersionEnabled(input));
+        });
+        const syncImmersionLimit = () => {
+            const enabled = form.querySelector<HTMLInputElement>('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
+            const limit = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]');
+            if (limit) limit.disabled = !enabled;
+        };
+        form.querySelectorAll<HTMLInputElement>('input[name="immersionKitLimitEnabled"]').forEach(input => {
+            input.addEventListener('change', syncImmersionLimit);
+        });
+        syncImmersionLimit();
         form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
@@ -278,6 +300,7 @@ export class SettingsDialogController {
         form.querySelector<HTMLSelectElement>('select[name="ocrProvider"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             form.querySelectorAll<HTMLElement>('[data-local-ocr]').forEach(node => { node.hidden = value !== 'local-service'; });
+            form.querySelectorAll<HTMLElement>('[data-cloud-ocr]').forEach(node => { node.hidden = value !== 'cloud-vision'; });
         });
     }
 
@@ -295,6 +318,7 @@ export class SettingsDialogController {
         installShortcutCapture(form);
         installSourceRowDrag(form);
         form.addEventListener('click', event => {
+            if (this.handleSettingsPreviewLookup(event)) return;
             const control = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
             const action = control?.dataset.action;
             if (!action || action === 'cancel') return;
@@ -302,6 +326,22 @@ export class SettingsDialogController {
             event.stopPropagation();
             void this.handleSettingsAction(form, action, control);
         });
+        form.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            if (this.handleSettingsPreviewLookup(event)) event.preventDefault();
+        });
+    }
+
+    private handleSettingsPreviewLookup(event: Event): boolean {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        const word = target?.closest<HTMLElement>('[data-settings-preview-lookup]');
+        if (!word || !this.dependencies.lookupText) return false;
+        const expression = word.dataset.settingsPreviewLookup?.trim() || word.textContent?.trim() || '';
+        if (!expression) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        void this.dependencies.lookupText(expression, word.dataset.sentence || expression, word);
+        return true;
     }
 
     private handleSettingsFormChange(form: HTMLFormElement, event: Event): void {
@@ -335,6 +375,23 @@ export class SettingsDialogController {
     private isSubtitleControl(target: EventTarget | null): boolean {
         const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
         return name.startsWith('subtitle');
+    }
+
+    private isColorSourceControl(target: EventTarget | null): boolean {
+        const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
+        return [
+            'wordHighlightColorSource',
+            'wordUnderlineColorSource',
+            'wordTextColorSource',
+            'subtitleHighlightColorSource',
+            'subtitleUnderlineColorSource',
+            'subtitleTextColorSource',
+        ].includes(name);
+    }
+
+    private isReaderDisplayControl(target: EventTarget | null): boolean {
+        const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
+        return name === 'wordHighlightMode' || name === 'furiganaMode' || name === 'theme';
     }
 
     private async refreshDeckControls(form: HTMLFormElement): Promise<void> {
@@ -409,7 +466,7 @@ export class SettingsDialogController {
 
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         if (await this.handleSettingsConnectionAction(form, action, control)) return true;
-        return await this.handleSettingsSupportAction(action, setStatus);
+        return await this.handleSettingsSupportAction(action, control, setStatus);
     }
 
     private handleSettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {
@@ -553,16 +610,20 @@ export class SettingsDialogController {
         return error instanceof Error ? error.message : uiText(language, 'ankiUnreachable');
     }
 
-    private async handleSettingsSupportAction(action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
+    private async handleSettingsSupportAction(action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         if (action === 'copy-newtab-url') {
             await copyText(NEW_TAB_PAGE_URL);
             this.dependencies.toast('New tab address copied.');
             return true;
         }
-        if (action === 'copy-discord-handle') {
-            await copyText(DISCORD_HANDLE);
-            this.dependencies.toast('Discord handle copied.');
-            setStatus('Discord handle copied.');
+        if (action === 'factory-reset') {
+            const button = settingsActionButton(control);
+            button?.setAttribute('disabled', 'true');
+            try {
+                await this.dependencies.resetAllData();
+            } finally {
+                button?.removeAttribute('disabled');
+            }
             return true;
         }
         setStatus('');
