@@ -309,6 +309,8 @@ export class ImmersionPopoverController {
             spelling: card.spelling,
             reading: card.reading,
             enabled: settings.immersionKitEnabled,
+            source: settings.immersionKitExampleSource,
+            nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
             limit: settings.immersionKitLimit,
             limitEnabled: settings.immersionKitLimitEnabled,
             min: settings.immersionKitMinLength,
@@ -437,7 +439,7 @@ export class ImmersionPopoverController {
         const image = renderExampleImageHtml(container, imageUrl, sentence);
         return `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${uiText(language, 'immersionKit')}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml(immersionExampleProviderLabel(example))}</span>
             </summary>
             <div class="jpdb-reader-example-toolbar">
                 <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
@@ -630,8 +632,8 @@ export class ImmersionPopoverController {
 
     private handleExampleAudioError(example: ImmersionKitExample, quiet: boolean, requestId: number, error: unknown): void {
         if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
-        log.warn('Immersion Kit audio failed', { sourceTitle: example.sourceTitle, quiet }, error);
-        if (!quiet) this.options.toast(error instanceof Error ? error.message : 'Immersion Kit audio failed.');
+        log.warn('Immersion example audio failed', { provider: immersionExampleProviderLabel(example), sourceTitle: example.sourceTitle, quiet }, error);
+        if (!quiet) this.options.toast(error instanceof Error ? error.message : 'Example audio failed.');
     }
 
     private shouldClearAudioAfterExampleError(requestId: number): boolean {
@@ -642,7 +644,7 @@ export class ImmersionPopoverController {
         const urls = this.mediaUrls(example, 'sound');
         const key = urls[0] ?? '';
         if (key) return { urls, key };
-        if (!quiet) this.options.toast('No Immersion Kit audio for this example.');
+        if (!quiet) this.options.toast(`No ${immersionExampleProviderLabel(example)} audio for this example.`);
         return null;
     }
 
@@ -701,6 +703,10 @@ function immersionExampleSourceLabel(card: JPDBCard, example: ImmersionKitExampl
     return queryKey(searchQuery) !== queryKey(card.spelling)
         ? `${searchQuery} · ${example.sourceTitle}`
         : example.sourceTitle;
+}
+
+function immersionExampleProviderLabel(example: ImmersionKitExample): string {
+    return example.provider === 'nadeshiko' ? 'Nadeshiko' : 'Immersion Kit';
 }
 
 function accurateImmersionExamples(query: string, examples: ImmersionKitExample[]): ImmersionKitExample[] {

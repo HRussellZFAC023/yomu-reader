@@ -10,6 +10,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Added
 
+- Added an Audio setting for whether JPDB/browser text-to-speech is fallback-only or participates in the configured source order/random pool.
 - Replaced the Help-panel Help link with a Factory Reset action that clears settings, API keys, preferences, cached cards, local dictionary storage, and other よむ local data before reloading defaults.
 - Hardened Factory Reset so settings storage is cleared even if dictionary database cleanup is blocked, including userscript managers that expose modern `GM.*` storage APIs.
 - Added capped JPDB "used in vocabulary" and public example rows to popup JPDB definitions, including compact buttons for JPDB-provided example audio.
@@ -20,7 +21,15 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 - Made `/newtab` keep JPDB and Anki SRS queue order, alternate JPDB/Anki cards in Auto mode, and only fall back to random dictionary words after both review queues are empty.
 - Made the hosted new tab paint cached cards immediately while JPDB, Anki, or dictionary sources refresh in the background, and sped up deck/dictionary refresh work so a card appears sooner after reload.
+- Moved the shared cross-origin proxy URL control into Audio settings so proxy-dependent audio sources are easier to diagnose.
 - Moved existing Anki note actions into the Anki preview, simplified the header, removed the default Status row from Yomu Anki cards, and refreshed Anki lookup state immediately after adding a note.
+
+### Fixed
+
+- Restored LanguagePod101 lookups through the configured/public proxy path in browser-fetch contexts.
+- Made Escape close the Settings dialog even when focus is inside a normal settings field.
+- Made hosted new-tab bottom-sheet lookups modeless so sentence-mining taps can update the open drawer, and hid the sticky bottom-sheet option when Popover mode is forced.
+- Restored JPDB-status word highlights and pitch underlines across hosted new-tab prompt sentences and Immersion Kit example cards.
 
 ## [0.4.14] - 2026-05-16
 

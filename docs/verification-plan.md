@@ -44,6 +44,9 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - JPDB Immersion Kit Examples is the concrete JPDB-side Immersion Kit userscript precedent copied and
   adapted for the JPDB add-on flow. See https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples and
   https://greasyfork.org/en/scripts/507408-jpdb-immersion-kit-examples.
+- JPDB Nadeshiko Examples is the concrete JPDB-side Nadeshiko userscript reference for API shape,
+  key storage expectations, and example media behavior. See
+  https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples and https://nadeshiko.co/.
 - The Kanji Map sets the graph/source-attribution expectation for compact kanji exploration. See
   https://thekanjimap.com/ and https://github.com/gabor-kovacs/the-kanji-map.
 - NihongoTube is a reference-only anchor for Japanese-only YouTube filtering and page controls. See

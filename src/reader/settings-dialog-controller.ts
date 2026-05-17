@@ -9,8 +9,8 @@ import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import { clearNewTabOfflineCache } from './new-tab-controller';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from './recommended-dictionaries';
 import { installSettingsDrawerHandle } from './popover-shell';
-import { mergeDictionaryPreferences, saveSettings } from './settings';
-import { exportStoredValues, importStoredValues } from './storage';
+import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './settings';
+import { exportManagedStoredValues, importStoredValues } from './storage';
 import {
     activateSettingsPanel,
     dateStamp,
@@ -32,6 +32,7 @@ import {
     syncBrowserTtsVoiceOptions,
     syncJpdbMiningDependentSettings,
     syncReviewSettingsVisibility,
+    syncStickyBottomSheetAvailability,
     syncSubtitlePreview,
     updateAudioSourceEditor,
     updateDictionaryLookupLinkEditor,
@@ -219,6 +220,12 @@ export class SettingsDialogController {
                 });
         });
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dependencies.dismiss());
+        form.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || event.isComposing) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.dependencies.dismiss();
+        });
     }
 
     private async afterSettingsSaved(): Promise<void> {
@@ -263,6 +270,8 @@ export class SettingsDialogController {
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
             if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
         });
+        form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
+        syncStickyBottomSheetAvailability(form);
         const syncImmersionTranslationReveal = () => {
             const translations = form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]');
             const reveal = form.querySelector<HTMLInputElement>('input[name="immersionKitRevealTranslationOnClick"]');
@@ -280,6 +289,15 @@ export class SettingsDialogController {
         form.querySelectorAll<HTMLInputElement>('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach(input => {
             input.addEventListener('change', () => syncImmersionEnabled(input));
         });
+        const syncNadeshikoKeyField = () => {
+            const source = form.querySelector<HTMLSelectElement>('select[name="immersionKitExampleSource"]')?.value;
+            const usesNadeshiko = source === 'nadeshiko' || source === 'combined';
+            form.querySelectorAll<HTMLElement>('[data-nadeshiko-api-key-field]').forEach(field => {
+                field.hidden = !usesNadeshiko;
+            });
+        };
+        form.querySelector<HTMLSelectElement>('select[name="immersionKitExampleSource"]')?.addEventListener('change', syncNadeshikoKeyField);
+        syncNadeshikoKeyField();
         const syncImmersionLimit = () => {
             const enabled = form.querySelector<HTMLInputElement>('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
             const limit = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]');
@@ -391,7 +409,7 @@ export class SettingsDialogController {
 
     private isReaderDisplayControl(target: EventTarget | null): boolean {
         const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
-        return name === 'wordHighlightMode' || name === 'furiganaMode' || name === 'theme';
+        return name === 'furiganaMode' || name === 'theme';
     }
 
     private async refreshDeckControls(form: HTMLFormElement): Promise<void> {
@@ -545,24 +563,28 @@ export class SettingsDialogController {
             return true;
         }
         if (action === 'export-reader-settings') {
+            const dictionaries = await this.exportReaderDictionaryBackup();
             downloadBlob(new Blob([JSON.stringify({
                 formatName: 'yomu-reader-settings',
-                formatVersion: 2,
+                formatVersion: 3,
                 exportedAt: new Date().toISOString(),
                 settings: this.settings,
-                storage: await exportStoredValues([
-                    'yomu-mining-context:',
-                    'yomu-jpdb-uchisen-star:',
-                    'yomu-jpdb-uchisen-index:',
-                    'jpdb-reader-newtab-ui',
-                    'jpdb-reader-transcript-panel-size',
-                ]),
+                storage: await exportManagedStoredValues(),
+                ...(dictionaries ? { dictionaries } : {}),
             }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
             setStatus('Settings exported.');
             log.info('Settings exported');
             return true;
         }
         return false;
+    }
+
+    private async exportReaderDictionaryBackup(): Promise<unknown | undefined> {
+        const summary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
+        if (!summary.dictionaries.length) return undefined;
+        const blob = await this.dependencies.dictionaries.exportJson();
+        const json = JSON.parse(await blob.text()) as unknown;
+        return readerDictionaryExportHasData(json) ? json : undefined;
     }
 
     private async handleSettingsConnectionAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
@@ -581,7 +603,7 @@ export class SettingsDialogController {
         setAnkiStatus(uiText(language, 'ankiTesting'), 'pending');
         try {
             if (canUseMobileAnkiHandoff(this.settings)) {
-                setAnkiStatus('Mobile Anki handoff is ready. AnkiConnect is only needed for desktop bridge features on this device.', 'success');
+                setAnkiStatus(uiText(language, 'mobileAnkiReady'), 'success');
                 return true;
             }
             const connected = await this.dependencies.anki.isConnected();
@@ -602,8 +624,10 @@ export class SettingsDialogController {
     }
 
     private ankiReadyMessage(language: InterfaceLanguage): string {
-        void language;
-        return `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+        return formatUiTemplate(uiText(language, 'ankiConnectedReady'), {
+            deck: this.settings.ankiDeck,
+            model: this.settings.ankiModel,
+        });
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {
@@ -644,7 +668,7 @@ export class SettingsDialogController {
         this.dependencies.scheduleDictionaryRescan();
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
-        setStatus(`Removed ${dictionary}.`);
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoved'), { dictionary }));
         log.info('Dictionary removed', { dictionary });
     }
 
@@ -653,7 +677,11 @@ export class SettingsDialogController {
         if (!file) return;
         const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
         await this.persistDictionaryImport(summary);
-        setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? '' : 's'}.`);
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportComplete'), {
+            records: summary.entries.toLocaleString(),
+            sources: summary.dictionaries.length.toLocaleString(),
+            plural: summary.dictionaries.length === 1 ? '' : 's',
+        }));
         log.info('Dictionary file imported', summary);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
@@ -667,7 +695,10 @@ export class SettingsDialogController {
         const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
         if (!summary) return;
         await this.persistDictionaryImport(summary);
-        setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRecordsImported'), {
+            dictionary: dictionary.name,
+            records: summary.entries.toLocaleString(),
+        }));
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
         log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
@@ -699,10 +730,10 @@ export class SettingsDialogController {
         setStatus: SettingsStatusSetter,
         error: unknown,
     ): null {
-        const message = error instanceof Error ? error.message : 'Dictionary download failed.';
+        const message = error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'dictionaryDownloadFailed');
         control?.removeAttribute('disabled');
         if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
-        setStatus(`${message} Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.`);
+        setStatus(`${message} ${uiText(this.settings.interfaceLanguage, 'dictionaryManualDownloadHint')}`);
         log.warn('Dictionary auto-download unavailable', { dictionary: dictionary.name, message });
         return null;
     }
@@ -721,6 +752,9 @@ export class SettingsDialogController {
             'needs the userscript',
             'user script request',
             'userscript request',
+            'ブロック',
+            'リクエストブリッジ',
+            'ユーザースクリプト',
         ];
         return Boolean(downloadUrl.startsWith('http://') || downloadUrl.startsWith('https://'))
             && manualDownloadHints.some(hint => message.includes(hint));
@@ -732,12 +766,13 @@ export class SettingsDialogController {
         const json = JSON.parse(await file.text()) as unknown;
         const readerSettings = getReaderSettingsExport(json);
         this.settings = readerSettings
-            ? { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }
+            ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } })
             : importedYomitanSettings(json, this.settings);
         const restoredValues = await importStoredValues(getReaderStorageExport(json));
+        const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
         await this.mergeImportedDictionaryPreferences();
         await saveSettings(this.settings);
-        setStatus(restoredValues ? `Settings imported. Restored ${restoredValues} stored choices.` : 'Settings imported.');
+        setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
         this.dependencies.applyTheme();
         void this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
@@ -746,6 +781,16 @@ export class SettingsDialogController {
         this.dependencies.clearSettingsPreview();
         log.info('Settings imported', loggingSettingsSummary(this.settings));
         this.open();
+    }
+
+    private async importReaderDictionaryBackup(json: unknown, setStatus: SettingsStatusSetter): Promise<ImportSummary | null> {
+        const dictionaryExport = getReaderDictionaryExport(json);
+        if (!readerDictionaryExportHasData(dictionaryExport)) return null;
+        setStatus(uiText(this.settings.interfaceLanguage, 'importingBundledDictionaries'));
+        const file = new File([JSON.stringify(dictionaryExport)], 'yomu-dictionaries-from-settings.json', { type: 'application/json' });
+        const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
+        await this.persistDictionaryImport(summary);
+        return summary;
     }
 
     private async mergeImportedDictionaryPreferences(): Promise<void> {
@@ -776,14 +821,68 @@ function getReaderStorageExport(value: unknown): unknown {
         : null;
 }
 
+function getReaderDictionaryExport(value: unknown): unknown {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as { formatName?: string; dictionaries?: unknown; dictionaryData?: unknown };
+    if (record.formatName !== 'yomu-reader-settings' && record.formatName !== 'jpdb-popup-reader-settings') return null;
+    return isReaderDictionaryExport(record.dictionaries) ? record.dictionaries : record.dictionaryData;
+}
+
+function readerDictionaryExportHasData(value: unknown): boolean {
+    if (!isReaderDictionaryExport(value)) return false;
+    const record = value as {
+        dictionaries?: unknown[];
+        terms?: unknown[];
+        kanji?: unknown[];
+        termMeta?: unknown[];
+        kanjiMeta?: unknown[];
+    };
+    return arrayHasItems(record.dictionaries)
+        || arrayHasItems(record.terms)
+        || arrayHasItems(record.kanji)
+        || arrayHasItems(record.termMeta)
+        || arrayHasItems(record.kanjiMeta);
+}
+
+function isReaderDictionaryExport(value: unknown): boolean {
+    return Boolean(value && typeof value === 'object' && (value as { formatName?: unknown }).formatName === 'yomu-yomitan-dictionaries');
+}
+
+function arrayHasItems(value: unknown): value is unknown[] {
+    return Array.isArray(value) && value.length > 0;
+}
+
+function importSettingsStatus(restoredValues: number, dictionarySummary: ImportSummary | null, language: InterfaceLanguage): string {
+    const details: string[] = [];
+    if (restoredValues) {
+        details.push(formatUiTemplate(uiText(language, 'restoredStoredChoices'), {
+            count: restoredValues.toLocaleString(),
+            plural: restoredValues === 1 ? '' : 's',
+        }));
+    }
+    if (dictionarySummary) {
+        details.push(formatUiTemplate(uiText(language, 'importedDictionaryRecordCount'), {
+            count: dictionarySummary.entries.toLocaleString(),
+            plural: dictionarySummary.entries === 1 ? '' : 's',
+        }));
+    }
+    return details.length
+        ? formatUiTemplate(uiText(language, 'settingsImportedWithDetails'), { details: details.join('; ') })
+        : uiText(language, 'settingsImported');
+}
+
+function formatUiTemplate(template: string, values: Record<string, string>): string {
+    return template.replace(/\{([a-z]+)\}/gi, (_, key: string) => values[key] ?? '');
+}
+
 function importedYomitanSettings(json: unknown, current: ReaderSettings): ReaderSettings {
-    const imported = parseYomitanSettingsExport(json);
-    return {
+    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
+    return normalizeReaderSettings({
         ...current,
         ...imported.settings,
         shortcuts: {
             ...current.shortcuts,
             ...(imported.settings.shortcuts ?? {}),
         },
-    };
+    });
 }

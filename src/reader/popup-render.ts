@@ -1,6 +1,6 @@
 import { HAS_JAPANESE, escapeHtml } from './dom';
 import { uiText } from './i18n';
-import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
+import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import { graphEdgePath, type GraphAnchorZone } from './kanji-graph-geometry';
 import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from './kanji-origin';
 import type { KanjiVGInfo } from './kanjivg';
@@ -277,7 +277,7 @@ function looksLikeGrammarTag(text: string): boolean {
     return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text);
 }
 
-export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[]): string {
+export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage = 'en'): string {
     const keywords = new Map<string, { text: string; sources: string[] }>();
     const addKeyword = (text: string | undefined, source: string) => {
         const normalized = text?.trim();
@@ -289,11 +289,11 @@ export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: 
     };
     addKeyword(jpdbInfo?.keyword, 'JPDB');
     addKeyword(rtkInfo?.keyword, 'RTK');
-    entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).forEach(keyword => addKeyword(keyword, 'dict'));
+    entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).forEach(keyword => addKeyword(keyword, uiText(language, 'dict')));
     const chips = Array.from(keywords.values()).slice(0, 6)
         .map(keyword => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml(keyword.sources.join(' · '))}"><small>${escapeHtml(keyword.sources.join('/'))}</small><span>${escapeHtml(keyword.text)}</span></span>`)
         .join('');
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiDetailsUnavailable'))}</div>`;
 }
 
 interface RtkElementChip {
@@ -408,7 +408,7 @@ export function renderKanjiOrigins(
             <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ''}
-            ${renderKanjiFactPills(facts, excludeFactLabels)}
+            ${renderKanjiFactPills(facts, language, excludeFactLabels)}
         </details>
     `;
 }
@@ -417,14 +417,33 @@ function hasKanjiOriginContent(facts: KanjiFact[], graph: KanjiOriginGraph | nul
     return Boolean(facts.length || (graph && graph.nodes.length > 1) || sourceInfo?.kanjiMap);
 }
 
-function renderKanjiFactPills(facts: KanjiFact[], excludeFactLabels?: Iterable<string>): string {
+function renderKanjiFactPills(facts: KanjiFact[], language: InterfaceLanguage, excludeFactLabels?: Iterable<string>): string {
     if (!facts.length) return '';
     const excludedFacts = excludeFactLabels ? new Set(excludeFactLabels) : null;
     const visibleFacts = excludedFacts ? facts.filter(fact => !excludedFacts.has(fact.label)) : facts;
     if (!visibleFacts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
-        ${visibleFacts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(fact.label)}</strong>${escapeHtml(fact.value)}</span>`).join('')}
+        ${visibleFacts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(kanjiFactLabel(fact.label, language))}</strong>${escapeHtml(fact.value)}</span>`).join('')}
     </div>`;
+}
+
+function kanjiFactLabel(label: string, language: InterfaceLanguage): string {
+    switch (label) {
+        case 'Meaning':
+            return uiText(language, 'factMeaning');
+        case 'Type':
+            return uiText(language, 'factType');
+        case 'Frequency':
+            return uiText(language, 'factFrequency');
+        case 'Grade':
+            return uiText(language, 'factGrade');
+        case 'Strokes':
+            return uiText(language, 'strokes');
+        case 'Radical':
+            return uiText(language, 'radical');
+        default:
+            return label;
+    }
 }
 
 function renderKanjiOriginDetail(map: KanjiSourceInfo['kanjiMap'] | undefined, settings: ReaderSettings, language: InterfaceLanguage): string {
@@ -1403,12 +1422,12 @@ function hashOriginGraphId(value: string): string {
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'readingsComponents')): string {
     if (!info) return '';
     const facts = [
-        ['Name', info.keyword],
-        ['Type', info.type],
-        ['Frequency', info.frequency],
-        ['Kanken', info.kanken],
+        [uiText(language, 'factKeyword'), info.keyword],
+        [uiText(language, 'factType'), info.type],
+        [uiText(language, 'factFrequency'), info.frequency],
+        [language === 'ja' ? '漢検' : 'Kanken', info.kanken],
         ['Heisig', info.heisig],
-        ['Old forms', info.oldForms.join(', ')],
+        [uiText(language, 'factOldForms'), info.oldForms.join(', ')],
     ].filter(([, value]) => Boolean(value?.trim()));
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
@@ -1470,10 +1489,29 @@ export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, langua
                     type="button"
                     data-action="jpdb-kanji-action"
                     data-kanji-action-id="${escapeHtml(action.id)}"
-                    title="${escapeHtml(action.label)}">${escapeHtml(action.label)}</button>`).join('')}
+                    title="${escapeHtml(jpdbKanjiActionLabel(action, language))}">${escapeHtml(jpdbKanjiActionLabel(action, language))}</button>`).join('')}
             </div>
         </div>
     `;
+}
+
+function jpdbKanjiActionLabel(action: JpdbKanjiAction, language: InterfaceLanguage): string {
+    switch (action.role) {
+        case 'mine':
+            return uiText(language, 'jpdbKanjiActionMine');
+        case 'known':
+            return uiText(language, 'jpdbKanjiActionKnown');
+        case 'neverforget':
+            return uiText(language, 'jpdbKanjiActionNeverForget');
+        case 'forget':
+            return uiText(language, 'jpdbKanjiActionForget');
+        case 'blacklist':
+            return uiText(language, 'jpdbKanjiActionBlacklist');
+        case 'review':
+            return uiText(language, 'jpdbKanjiActionReview');
+        default:
+            return action.label;
+    }
 }
 
 export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSummary[], language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {

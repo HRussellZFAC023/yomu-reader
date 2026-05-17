@@ -35,6 +35,7 @@
     "docs:build": "vitepress build docs",
     "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
     "qa:live": "node scripts/jpdb-live-smoke.mjs",
+    "size:bundle": "node scripts/bundle-size-report.mjs",
     "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
   },
   "dependencies": {

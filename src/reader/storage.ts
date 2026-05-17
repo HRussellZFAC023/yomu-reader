@@ -21,10 +21,12 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-sheet-height-ratio',
     'jpdb-reader-transcript-panel-size',
     'yomu.grammarPreferences.v1',
-    'yomu.hanabiraGrammarIndex.v1',
     'yomu:enable-logs',
     FACTORY_RESET_SIGNAL_KEY,
 ];
+const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
+    FACTORY_RESET_SIGNAL_KEY,
+]);
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };
 type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
@@ -141,15 +143,20 @@ export function gmStorageDeleteSync(key: string): void {
 }
 
 export async function exportStoredValues(prefixes: string[]): Promise<Record<string, unknown>> {
-    const keys = await storageKeys(prefixes);
+    const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
     const entries = await Promise.all(keys.map(async key => [key, await gmStorageGet<unknown>(key, undefined)] as const));
     return Object.fromEntries(entries.filter(([, value]) => value !== undefined));
+}
+
+export async function exportManagedStoredValues(): Promise<Record<string, unknown>> {
+    return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
 }
 
 export async function importStoredValues(values: unknown): Promise<number> {
     let count = 0;
     for (const [key, value] of managedStoredValueEntries(values)) {
         await gmStorageSet(key, value);
+        localStorageSet(key, value);
         count++;
     }
     return count;
@@ -157,7 +164,7 @@ export async function importStoredValues(values: unknown): Promise<number> {
 
 function managedStoredValueEntries(values: unknown): Array<[string, unknown]> {
     return isStorageImportRecord(values)
-        ? Object.entries(values).filter(([key]) => isManagedStorageKey(key))
+        ? Object.entries(values).filter(([key]) => isBackupStorageKey(key))
         : [];
 }
 
@@ -502,6 +509,10 @@ function createFactoryResetId(): string {
 
 function isManagedStorageKey(key: string): boolean {
     return MANAGED_STORAGE_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
+}
+
+function isBackupStorageKey(key: string): boolean {
+    return isManagedStorageKey(key) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
 }
 
 function debugStorageError(message: string, key: string, error: unknown): void {

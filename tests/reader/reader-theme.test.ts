@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { applyReaderTheme } from '../../src/reader/reader-theme';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
+
+const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 
 describe('reader theme', () => {
     afterEach(() => {
         document.documentElement.className = '';
         document.documentElement.removeAttribute('style');
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
     });
 
     it('applies concrete default color channels', () => {
@@ -59,5 +62,84 @@ describe('reader theme', () => {
         expect(root.style.getPropertyValue('--jpdb-reader-pitch-unknown-soft')).toBe('transparent');
         expect(applied.wordColorSources.highlight).toBe('pitch');
         expect(applied.subtitleColorSources.highlight).toBe('anki');
+    });
+
+    it('lets color channels drive theme classes instead of legacy word highlight mode', () => {
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'off',
+            wordTextColorSource: 'status',
+        };
+
+        document.documentElement.classList.add('jpdb-reader-highlight-pitch');
+        const applied = applyReaderTheme(settings);
+        const root = document.documentElement;
+
+        expect(root.classList.contains('jpdb-reader-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-text-status')).toBe(true);
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'off', text: 'status' });
+    });
+
+    it('migrates legacy automatic channel sources using wordHighlightMode only at load time', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            wordHighlightMode: 'status',
+            wordHighlightColorSource: 'auto',
+            wordUnderlineColorSource: 'anki',
+            wordTextColorSource: 'auto',
+            subtitleHighlightColorSource: 'auto',
+            subtitleUnderlineColorSource: 'pitch',
+            subtitleTextColorSource: 'auto',
+        }));
+
+        const settings = await loadSettings();
+
+        expect(settings.wordHighlightColorSource).toBe('status');
+        expect(settings.wordUnderlineColorSource).toBe('anki');
+        expect(settings.wordTextColorSource).toBe('status');
+        expect(settings.subtitleHighlightColorSource).toBe('jpdb');
+        expect(settings.subtitleUnderlineColorSource).toBe('pitch');
+        expect(settings.subtitleTextColorSource).toBe('jpdb');
+        expect(Object.prototype.hasOwnProperty.call(settings, 'wordHighlightMode')).toBe(false);
+    });
+
+    it('migrates the historical automatic default channel tuple to current concrete defaults', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            wordHighlightMode: 'auto',
+            wordHighlightColorSource: 'auto',
+            wordUnderlineColorSource: 'auto',
+            wordTextColorSource: 'off',
+            subtitleHighlightColorSource: 'off',
+            subtitleUnderlineColorSource: 'pitch',
+            subtitleTextColorSource: 'auto',
+        }));
+
+        const settings = await loadSettings();
+
+        expect(settings.wordHighlightColorSource).toBe('jpdb');
+        expect(settings.wordUnderlineColorSource).toBe('pitch');
+        expect(settings.wordTextColorSource).toBe('off');
+        expect(settings.subtitleHighlightColorSource).toBe('jpdb');
+        expect(settings.subtitleUnderlineColorSource).toBe('pitch');
+        expect(settings.subtitleTextColorSource).toBe('jpdb');
+        expect(Object.prototype.hasOwnProperty.call(settings, 'wordHighlightMode')).toBe(false);
+    });
+
+    it('strips legacy wordHighlightMode when saving settings', async () => {
+        await saveSettings({
+            ...DEFAULT_SETTINGS,
+            wordHighlightMode: 'off',
+            wordHighlightColorSource: 'pitch',
+        } as ReaderSettings & { wordHighlightMode: 'off' });
+
+        const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
+
+        expect(stored.wordHighlightMode).toBeUndefined();
+        expect(stored.wordHighlightColorSource).toBe('pitch');
     });
 });

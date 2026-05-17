@@ -1,19 +1,21 @@
 import { escapeHtml, setInnerHtml } from './dom';
+import { uiText } from './i18n';
 import { Logger } from './logger';
 import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence, type GrammarHint } from './study-tools';
+import type { InterfaceLanguage } from './types';
 
 const log = Logger.scope('StudyRender');
 
-export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[]): Promise<void> {
+export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en'): Promise<void> {
     const panel = button.closest('.jpdb-reader-study-tools')?.querySelector<HTMLElement>('[data-study-panel]');
     if (!panel || !sentence) return;
     panel.hidden = false;
-    panel.textContent = studyToolPendingText(action);
+    panel.textContent = studyToolPendingText(action, language);
     const done = log.time('studyTool', { action, sentenceLength: sentence.length });
     if (action === 'study-translate') {
         try {
-            const translated = await translateJapaneseSentence(sentence);
-            setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">Meaning</div><div class="jpdb-reader-study-translation">${escapeHtml(translated)}</div></div>`);
+            const translated = await translateJapaneseSentence(sentence, language);
+            setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'meaning'))}</div><div class="jpdb-reader-study-translation">${escapeHtml(translated)}</div></div>`);
             return;
         } finally {
             done();
@@ -26,38 +28,38 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
         done();
         return;
     }
-    setInnerHtml(panel, renderGrammarHints(hints, sentence));
+    setInnerHtml(panel, renderGrammarHints(hints, sentence, undefined, language));
     done();
 }
 
-function studyToolPendingText(action: string): string {
-    return action === 'study-translate' ? 'Translating...' : 'Finding grammar...';
+function studyToolPendingText(action: string, language: InterfaceLanguage): string {
+    return action === 'study-translate' ? uiText(language, 'translating') : uiText(language, 'findingGrammar');
 }
 
 function resolvedGrammarHints(sentence: string, grammarHints: GrammarHint[] | undefined): GrammarHint[] {
     return grammarHints ?? detectGrammarHints(sentence);
 }
 
-export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string): boolean {
+export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string, language: InterfaceLanguage = 'en'): boolean {
     if (!sentence) return false;
     if (button.dataset.action === 'study-grammar-toggle-known') {
         const ruleId = button.dataset.grammarRuleId;
         if (!ruleId) return false;
         setGrammarRuleKnown(ruleId, button.dataset.grammarKnown !== 'true');
-        rerenderGrammarPanel(button, sentence);
+        rerenderGrammarPanel(button, sentence, language);
         return true;
     }
     if (button.dataset.action === 'study-grammar-toggle-known-visibility') {
         setKnownGrammarVisible(button.getAttribute('aria-pressed') !== 'true');
-        rerenderGrammarPanel(button, sentence);
+        rerenderGrammarPanel(button, sentence, language);
         return true;
     }
     return false;
 }
 
-function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string): void {
+function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage): void {
     const panel = button.closest<HTMLElement>('.jpdb-reader-study-panel');
     if (!panel) return;
     const hints = detectGrammarHints(sentence);
-    setInnerHtml(panel, renderGrammarHints(hints, sentence));
+    setInnerHtml(panel, renderGrammarHints(hints, sentence, undefined, language));
 }

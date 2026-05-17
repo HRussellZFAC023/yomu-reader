@@ -17,7 +17,7 @@ Use the browser QA audit for regression coverage:
 npm run qa
 ```
 
-The audit uses deterministic local network responses for repeatable regression runs. Use `.env` for local-only API keys; it is ignored by Git. `npm run qa:live` is the narrow live JPDB key smoke test. Any script that needs live JPDB or third-party data must load `.env` through `scripts/qa-env.mjs` before reading env vars.
+The audit uses deterministic local network responses for repeatable regression runs. Use `.env` for local-only API keys; it is ignored by Git. This workspace has a local Nadeshiko key stored as `NADESHIKO_API_KEY` in `.env` for live example-source QA. `npm run qa:live` is the narrow live JPDB key smoke test. Any script that needs live JPDB or third-party data must load `.env` through `scripts/qa-env.mjs` before reading env vars.
 
 For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fixture pages are only for deterministic behavior assertions and must be labelled as fixtures; visual QA should use the Browser plugin against the actual app or target page, such as `http://127.0.0.1:5174/newtab/`, and interact with visible controls like a user.
 

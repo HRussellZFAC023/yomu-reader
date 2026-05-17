@@ -1,4 +1,5 @@
 import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
+import { uiText } from './i18n';
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
@@ -31,6 +32,7 @@ interface AudioRequestOptions {
     headers?: Record<string, string>;
     data?: string;
     proxyUrl?: string;
+    language?: ReaderSettings['interfaceLanguage'];
     allowDirectCrossOrigin?: boolean;
     preferFetch?: boolean;
 }
@@ -130,7 +132,7 @@ export class AudioPlayer {
     }
 
     private ensureAudioEnabled(settings: ReaderSettings): void {
-        if (!settings.audioEnabled) throw new Error('Audio playback is disabled.');
+        if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, 'audioPlaybackDisabledToast'));
     }
 
     private async playNoAudioSources(card: JPDBCard, request: AudioPlaybackRequest): Promise<boolean> {
@@ -161,6 +163,11 @@ export class AudioPlayer {
     ): Promise<AudioSourcePlayResult> {
         const errors: string[] = [];
         const triedUrls = new Set<string>();
+        if (settings.audioTtsMode === 'source-order') {
+            const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+            return { state: result, errors };
+        }
+
         const realAudioSources = sources.filter(source => !isTtsFallbackSource(source));
         const realAudioResult = await this.playOrderedSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
@@ -225,9 +232,7 @@ export class AudioPlayer {
         const settings = this.getSettings();
         if (!settings.audioEnabled) return;
         const { sourceLimit, candidateLimit } = audioPreloadLimits(options);
-        const sources = getOrderedAudioSources(settings)
-            .filter(source => !isTtsFallbackSource(source))
-            .slice(0, sourceLimit);
+        const sources = preloadableAudioSources(getOrderedAudioSources(settings), settings).slice(0, sourceLimit);
         if (!sources.length) return;
 
         for (const source of sources) {
@@ -253,9 +258,10 @@ export class AudioPlayer {
     }
 
     async playJapaneseText(text: string, voiceName = ''): Promise<void> {
+        const settings = this.getSettings();
         const requestId = ++this.playRequestId;
         const trimmed = text.trim();
-        if (!trimmed) throw new Error('No text to read aloud.');
+        if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, 'noTextToRead'));
 
         this.stopCurrent();
         await this.playTextToSpeech(trimmed, voiceName);
@@ -266,7 +272,7 @@ export class AudioPlayer {
         const settings = this.getSettings();
         this.ensureAudioEnabled(settings);
         const ids = normalizeJpdbAudioIds(audioIds);
-        if (!ids.length) throw new Error('No JPDB audio is available for this example.');
+        if (!ids.length) throw new Error(uiText(settings.interfaceLanguage, 'jpdbExampleAudioUnavailable'));
 
         const requestId = ++this.playRequestId;
         this.stopCurrent();
@@ -287,6 +293,15 @@ export class AudioPlayer {
         return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
 
+    async playMediaUrl(audioUrl: string): Promise<boolean> {
+        const settings = this.getSettings();
+        this.ensureAudioEnabled(settings);
+        const requestId = ++this.playRequestId;
+        this.stopCurrent();
+        const audio = await this.createReadyAudio(audioUrl);
+        return await this.playPreparedAudio(audio, requestId, () => true);
+    }
+
     private reserveJpdbGestureAudioElement(userGesture = false): HTMLAudioElement | undefined {
         if (!userGesture || !isAppleMobileBrowser()) return undefined;
         const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
@@ -301,9 +316,10 @@ export class AudioPlayer {
             const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
                 headers: request.headers,
                 proxyUrl: settings.corsProxyUrl,
+                language: settings.interfaceLanguage,
                 preferFetch: false,
             });
-            if (!(response instanceof Blob)) throw new Error('JPDB audio did not return a playable file.');
+            if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
             return createPageMediaUrl(await decodeJpdbAudioBlob(response, request.encoded));
         });
     }
@@ -330,7 +346,7 @@ export class AudioPlayer {
         isCurrent: () => boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
-        if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
+        if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -338,7 +354,7 @@ export class AudioPlayer {
         return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
 
-    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
         return this.isPlaybackCurrent(requestId, isCurrent);
@@ -490,24 +506,26 @@ export class AudioPlayer {
     }
 
     private async fetchAudioAsBlobUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
-        const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl: this.getSettings().corsProxyUrl });
-        if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode);
+        const settings = this.getSettings();
+        const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl: settings.corsProxyUrl, language: settings.interfaceLanguage });
+        if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode, settings);
 
-        if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
-        await assertPlayableAudioBlob(response, url, sourceUrl);
+        if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'audioSourceReturnedNoAudio'));
+        await assertPlayableAudioBlob(response, url, sourceUrl, settings.interfaceLanguage);
         const blobUrl = await createPageMediaUrl(response);
         return blobUrl;
     }
 
-    private async fetchNestedAudioBlobUrl(response: Blob, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
+    private async fetchNestedAudioBlobUrl(response: Blob, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode, settings: ReaderSettings): Promise<string> {
         const json = JSON.parse(await response.text()) as unknown;
         const nestedUrl = findAudioUrl(json, sourceUrl, mode);
-        if (!nestedUrl) throw new Error('Audio JSON did not include a playable URL.');
+        if (!nestedUrl) throw new Error(uiText(settings.interfaceLanguage, 'audioJsonMissingPlayableUrl'));
         return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
     }
 
     private playTextToSpeech(text: string, voiceName: string): Promise<void> {
-        if (!('speechSynthesis' in window)) throw new Error('Text-to-speech is not available in this browser.');
+        const settings = this.getSettings();
+        if (!('speechSynthesis' in window)) throw new Error(uiText(settings.interfaceLanguage, 'textToSpeechUnavailable'));
         return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ja-JP';
@@ -516,7 +534,7 @@ export class AudioPlayer {
                 ?? voices.find(voice => voice.lang.toLowerCase().startsWith('ja'))
                 ?? null;
             utterance.onend = () => resolve();
-            utterance.onerror = () => reject(new Error('Text-to-speech failed.'));
+            utterance.onerror = () => reject(new Error(uiText(settings.interfaceLanguage, 'textToSpeechFailed')));
             this.utterance = utterance;
             speechSynthesis.speak(utterance);
         });
@@ -722,49 +740,61 @@ async function resolveAnkiWordAudioFromSource(
     const shuffled = new ShuffledAudioDeck();
     for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, shuffled)) {
         if (!registerAudioAttempt(triedUrls, candidate)) continue;
-        const audio = await ankiAudioMediaFromCandidate(candidate, settings).catch(() => null);
+        const audio = await ankiAudioMediaFromCandidate(candidate, source.type, settings).catch(() => null);
         if (audio) return audio;
     }
     return null;
 }
 
-async function ankiAudioMediaFromCandidate(candidate: AudioCandidate, settings: ReaderSettings): Promise<AnkiWordAudioMedia | null> {
+async function ankiAudioMediaFromCandidate(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings): Promise<AnkiWordAudioMedia | null> {
     if (candidate.url.startsWith('data:audio/')) return { dataUrl: candidate.url };
     if (candidate.jpdbAudioId) return { dataUrl: await jpdbAudioDataUrl(candidate.jpdbAudioId, settings) };
-    const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl)
-        .catch(() => '');
-    if (dataUrl) return { dataUrl };
+    try {
+        const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl, settings.interfaceLanguage);
+        if (dataUrl) return { dataUrl };
+    } catch (error) {
+        if (!canUseAnkiRemoteAudioFallback(candidate, sourceType, error)) return null;
+    }
     return /^https?:\/\//i.test(candidate.url) ? { url: candidate.url } : null;
 }
 
+function canUseAnkiRemoteAudioFallback(candidate: AudioCandidate, sourceType: AudioSourceType, error: unknown): boolean {
+    if (!/^https?:\/\//i.test(candidate.url)) return false;
+    if (sourceType === 'jpod101' || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl)) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    if (/instead of audio|no audio|failed \(\d{3}\)/i.test(message)) return false;
+    return true;
+}
+
 async function jpdbAudioDataUrl(audioId: string, settings: ReaderSettings): Promise<string> {
-    const request = jpdbAudioRequest(audioId);
+    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
     const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
         headers: request.headers,
         proxyUrl: settings.corsProxyUrl,
+        language: settings.interfaceLanguage,
         preferFetch: false,
     });
-    if (!(response instanceof Blob)) throw new Error('JPDB audio did not return a playable file.');
-    return blobToDataUrl(await decodeJpdbAudioBlob(response, request.encoded));
+    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
+    return blobToDataUrl(await decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage), settings.interfaceLanguage);
 }
 
-async function fetchAudioDataUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode, proxyUrl: string): Promise<string> {
-    const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl });
+async function fetchAudioDataUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode, proxyUrl: string, language: ReaderSettings['interfaceLanguage']): Promise<string> {
+    const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl, language });
     if (isJsonAudioResponse(response)) {
         const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
-        if (!nestedUrl) throw new Error('Audio JSON did not include a playable URL.');
-        return fetchAudioDataUrl(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl);
+        if (!nestedUrl) throw new Error(uiText(language, 'audioJsonMissingPlayableUrl'));
+        return fetchAudioDataUrl(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
     }
-    if (!(response instanceof Blob)) throw new Error('Audio source did not return audio.');
-    await assertPlayableAudioBlob(response, url, sourceUrl);
-    return blobToDataUrl(response);
+    if (!(response instanceof Blob)) throw new Error(uiText(language, 'audioSourceReturnedNoAudio'));
+    await assertPlayableAudioBlob(response, url, sourceUrl, language);
+    return blobToDataUrl(response, language);
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
+function blobToDataUrl(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read audio.'));
+        reader.onerror = () => reject(reader.error ?? new Error(uiText(language, 'couldNotReadAudio')));
         reader.readAsDataURL(blob);
     });
 }
@@ -804,7 +834,10 @@ function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string
 function findAudioUrlsInString(value: string, sourceUrl?: string): string[] {
     if (value.startsWith('data:audio/')) return [value];
     if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
-    return [];
+    return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi))
+        .map(match => match[0])
+        .filter(isLikelyAudioUrl)
+        .map(url => normalizeAudioUrl(url, sourceUrl)));
 }
 
 function findAudioUrlsInRecord(record: Record<string, unknown>, sourceUrl?: string): string[] {
@@ -847,13 +880,18 @@ function isJsonAudioResponse(response: unknown): response is Blob {
     return response instanceof Blob && response.type.includes('json');
 }
 
-async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: string): Promise<void> {
+async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: string, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<void> {
     if (isErrorDocumentAudioBlob(response) || (!isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl))) {
-        throw new Error(`Audio request returned ${response.type || 'an unknown content type'} instead of audio.`);
+        throw new Error(formatNonAudioResponseMessage(language, response.type));
     }
     if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
-        throw new Error('JapanesePod101 has no audio for this term.');
+        throw new Error(uiText(language, 'japanesePod101NoAudio'));
     }
+}
+
+function formatNonAudioResponseMessage(language: ReaderSettings['interfaceLanguage'], contentType: string): string {
+    const label = contentType || (language === 'ja' ? '不明なコンテンツ種別' : 'an unknown content type');
+    return `${uiText(language, 'audioRequestReturnedNonAudio')}: ${label}.`;
 }
 
 function isErrorDocumentAudioBlob(blob: Blob): boolean {
@@ -882,6 +920,12 @@ function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolea
     return request.userGesture
         && isAppleMobileBrowser()
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
+}
+
+function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {
+    return settings.audioTtsMode === 'source-order'
+        ? sources.filter(source => !isBrowserTextToSpeechSource(source))
+        : sources.filter(source => !isTtsFallbackSource(source));
 }
 
 function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
@@ -1169,7 +1213,7 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = '
     if (typeof response !== 'string') return [];
 
     const audioHtml = findHtmlElementById(response, 'audio', `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, 'audio');
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
+    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : findAudioUrls(response, url).slice(0, 1);
 }
 
 async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
@@ -1194,7 +1238,7 @@ function languagePod101RequestOptions(card: JPDBCard): AudioRequestOptions {
 }
 
 function languagePod101RequestBody(card: JPDBCard): string {
-    const searchQuery = card.reading.trim() || card.spelling;
+    const searchQuery = card.spelling.trim() || card.reading;
     return new URLSearchParams({
         post: 'dictionary_reference',
         match_type: 'exact',
@@ -1216,8 +1260,8 @@ export function normalizeJpdbAudioIds(value: string | string[]): string[] {
         .filter(isValidJpdbAudioId));
 }
 
-export function jpdbAudioRequest(audioId: string): JpdbAudioRequest {
-    if (!isValidJpdbAudioId(audioId)) throw new Error('Invalid JPDB audio id.');
+export function jpdbAudioRequest(audioId: string, language: ReaderSettings['interfaceLanguage'] = 'en'): JpdbAudioRequest {
+    if (!isValidJpdbAudioId(audioId)) throw new Error(uiText(language, 'invalidJpdbAudioId'));
     if (audioId.startsWith('/static/user/')) {
         return { url: new URL(audioId, 'https://jpdb.io').toString(), encoded: false };
     }
@@ -1236,23 +1280,23 @@ export function jpdbAudioRequest(audioId: string): JpdbAudioRequest {
     };
 }
 
-export async function decodeJpdbAudioBlob(response: Blob, encoded: boolean): Promise<Blob> {
-    const bytes = new Uint8Array(await blobArrayBuffer(response));
+export async function decodeJpdbAudioBlob(response: Blob, encoded: boolean, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<Blob> {
+    const bytes = new Uint8Array(await blobArrayBuffer(response, language));
     const decoded = encoded ? decodeJpdbAudioBytes(bytes) : bytes;
     const sniffedType = jpdbAudioMimeTypeForBytes(decoded);
     if (!sniffedType) {
         if (!encoded && isAudioBlobType(response.type)) return new Blob([blobPart(decoded)], { type: response.type });
-        throw new Error('JPDB audio response was not a playable audio file.');
+        throw new Error(uiText(language, 'jpdbAudioResponseNotPlayable'));
     }
     return new Blob([blobPart(decoded)], { type: sniffedType });
 }
 
-function blobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+function blobArrayBuffer(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<ArrayBuffer> {
     if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read audio blob.'));
+        reader.onerror = () => reject(reader.error ?? new Error(uiText(language, 'couldNotReadAudioBlob')));
         reader.readAsArrayBuffer(blob);
     });
 }
@@ -1381,6 +1425,7 @@ function commonsImageInfoUrls(info: string, title: string, term: string, source:
 }
 
 function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
+    const language = options.language ?? 'en';
     const requestOptions = {
         method: options.method ?? 'GET',
         headers: options.headers,
@@ -1389,8 +1434,8 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
         allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
         preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
         timeoutMs,
-        failureLabel: 'Audio request',
-        timeoutLabel: 'Audio request timed out.',
+        failureLabel: uiText(language, 'audioRequest'),
+        timeoutLabel: uiText(language, 'audioRequestTimedOut'),
     };
     return responseType === 'blob'
         ? requestBlob(responseUrl, requestOptions)

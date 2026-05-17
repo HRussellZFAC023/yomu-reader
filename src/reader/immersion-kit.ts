@@ -7,10 +7,12 @@ import type { ReaderSettings } from './types';
 const API_BASE = 'https://apiv2express.immersionkit.com';
 const LEGACY_API_BASE = 'https://apiv2.immersionkit.com';
 const API_BASES = [API_BASE, LEGACY_API_BASE];
+const NADESHIKO_API_BASE = 'https://api.nadeshiko.co/v1';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const MEDIA_CANDIDATE_LIMIT = 4;
 const SEARCH_EXAMPLE_LIMIT = 250;
+const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
 const DEFAULT_EXAMPLE_SORT = 'sentence_length:asc';
 const log = Logger.scope('ImmersionKit');
@@ -116,6 +118,7 @@ const IMMERSION_KIT_TITLES: Record<string, string> = {
 
 export interface ImmersionKitExample {
     id: string;
+    provider?: 'immersion-kit' | 'nadeshiko';
     sentence: string;
     sentenceWithFurigana: string;
     translation: string;
@@ -126,6 +129,8 @@ export interface ImmersionKitExample {
     imageFile: string;
     soundUrl: string;
     imageUrl: string;
+    publicId?: string;
+    mediaPublicId?: string;
 }
 
 export class ImmersionKitClient {
@@ -136,7 +141,7 @@ export class ImmersionKitClient {
 
     async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
         const query = term.trim();
-        if (!canSearchImmersionKit(query, settings)) return [];
+        if (!canSearchImmersionExamples(query, settings)) return [];
 
         const cacheKey = this.searchCacheKey(query, settings);
         const cached = this.cache.get(cacheKey);
@@ -144,15 +149,10 @@ export class ImmersionKitClient {
         const inflight = this.inflight.get(cacheKey);
         if (inflight) return inflight;
 
-        const done = log.time('search', { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-        const promise = requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
-            .then(data => {
-                const examples = applySearchExampleLimit(
-                    filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings)),
-                    settings,
-                );
-
-                const result = examples;
+        const done = log.time('search', { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+        const promise = this.searchEnabledSources(query, settings)
+            .then(examples => {
+                const result = applySearchExampleLimit(examples, settings);
                 this.cache.set(cacheKey, result);
                 return result;
             })
@@ -164,15 +164,72 @@ export class ImmersionKitClient {
         return promise;
     }
 
+    private async searchEnabledSources(query: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
+        const sources = enabledImmersionExampleSources(settings);
+        const resultSets = await Promise.all(sources.map(source =>
+            source === 'nadeshiko'
+                ? this.searchNadeshiko(query, settings).catch(error => {
+                    log.warn('Nadeshiko examples failed', { query }, error);
+                    return [];
+                })
+                : this.searchImmersionKit(query, settings).catch(error => {
+                    log.warn('Immersion Kit examples failed', { query }, error);
+                    return [];
+                }),
+        ));
+        return settings.immersionKitExampleSource === 'combined'
+            ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings))
+            : resultSets.flat();
+    }
+
+    private searchImmersionKit(query: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
+        return requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
+            .then(data => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit'));
+    }
+
+    private searchNadeshiko(query: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
+        const apiKey = settings.nadeshikoApiKey.trim();
+        if (!apiKey) return Promise.resolve([]);
+        return requestReaderJson(`${NADESHIKO_API_BASE}/search`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
+            timeoutMs: settings.audioTimeoutMs,
+            allowDirectCrossOrigin: true,
+            allowPublicProxies: false,
+            allowConfiguredProxy: false,
+            preferFetch: shouldPreferFetchForImmersionKitRequests(),
+            failureLabel: 'Nadeshiko request',
+            timeoutLabel: 'Nadeshiko request timed out.',
+        }).then(data => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
+    }
+
     private searchCacheKey(query: string, settings: ReaderSettings): string {
         return JSON.stringify({
             query,
+            source: settings.immersionKitExampleSource,
+            nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
             limit: SEARCH_EXAMPLE_LIMIT,
             userLimit: settings.immersionKitLimitEnabled ? settings.immersionKitLimit : 0,
             min: this.minimumSentenceLength(settings),
             max: settings.immersionKitMaxLength,
             category: settings.immersionKitCategory,
             sort: this.effectiveSort(settings),
+            exact: settings.immersionKitExactMatch,
+        });
+    }
+
+    private combinedShuffleSeed(query: string, settings: ReaderSettings): string {
+        return JSON.stringify({
+            query,
+            source: settings.immersionKitExampleSource,
+            key: sensitiveFingerprint(settings.nadeshikoApiKey),
+            min: this.minimumSentenceLength(settings),
+            max: settings.immersionKitMaxLength,
+            category: settings.immersionKitCategory,
             exact: settings.immersionKitExactMatch,
         });
     }
@@ -216,7 +273,7 @@ export class ImmersionKitClient {
 
     preload(term: string, settings: ReaderSettings): void {
         const query = term.trim();
-        if (!canSearchImmersionKit(query, settings) || this.preloadKeys.has(query)) return;
+        if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
         this.preloadKeys.add(query);
 
         void this.search(query, settings)
@@ -261,8 +318,14 @@ export class ImmersionKitClient {
     }
 }
 
-function canSearchImmersionKit(query: string, settings: ReaderSettings): boolean {
+function canSearchImmersionExamples(query: string, settings: ReaderSettings): boolean {
     return Boolean(query && settings.immersionKitEnabled);
+}
+
+function enabledImmersionExampleSources(settings: ReaderSettings): Array<'immersion-kit' | 'nadeshiko'> {
+    if (settings.immersionKitExampleSource === 'nadeshiko') return ['nadeshiko'];
+    if (settings.immersionKitExampleSource === 'combined') return ['immersion-kit', 'nadeshiko'];
+    return ['immersion-kit'];
 }
 
 function collectExamples(value: unknown): unknown[] {
@@ -276,9 +339,26 @@ function firstArrayField(record: Record<string, unknown>, keys: string[]): unkno
     return keys.map(key => record[key]).find(Array.isArray) ?? [];
 }
 
-function filterSearchExamples(data: unknown, query: string, settings: ReaderSettings, minLength: number): ImmersionKitExample[] {
+function filterSearchExamples(
+    data: unknown,
+    query: string,
+    settings: ReaderSettings,
+    minLength: number,
+    provider: 'immersion-kit' | 'nadeshiko' = 'immersion-kit',
+): ImmersionKitExample[] {
     return collectExamples(data)
-        .map(normalizeExample)
+        .map(value => normalizeExample(value, provider))
+        .filter((example): example is ImmersionKitExample => Boolean(example))
+        .filter(example => isSearchExampleInRange(example, settings, minLength))
+        .filter(example => isSearchExampleSurfaceMatch(example, query));
+}
+
+function filterNadeshikoExamples(data: unknown, query: string, settings: ReaderSettings, minLength: number): ImmersionKitExample[] {
+    const response = nadeshikoResponseRecord(data);
+    if (!response) return [];
+    const media = nadeshikoMediaMap(response);
+    return nadeshikoSegments(response)
+        .map(value => normalizeNadeshikoExample(value, media))
         .filter((example): example is ImmersionKitExample => Boolean(example))
         .filter(example => isSearchExampleInRange(example, settings, minLength))
         .filter(example => isSearchExampleSurfaceMatch(example, query));
@@ -299,11 +379,11 @@ function isSearchExampleSurfaceMatch(example: ImmersionKitExample, query: string
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
 }
 
-function normalizeExample(value: unknown): ImmersionKitExample | null {
-    return isRecord(value) ? normalizeExampleRecord(value) : null;
+function normalizeExample(value: unknown, provider: 'immersion-kit' | 'nadeshiko' = 'immersion-kit'): ImmersionKitExample | null {
+    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
 }
 
-function normalizeExampleRecord(record: Record<string, unknown>): ImmersionKitExample | null {
+function normalizeExampleRecord(record: Record<string, unknown>, provider: 'immersion-kit' | 'nadeshiko' = 'immersion-kit'): ImmersionKitExample | null {
     const id = text(record.id);
     const sentence = firstText(record, ['sentence', 'text']);
     if (!sentence) return null;
@@ -316,6 +396,7 @@ function normalizeExampleRecord(record: Record<string, unknown>): ImmersionKitEx
 
     return {
         id,
+        provider,
         sentence,
         sentenceWithFurigana: firstText(record, ['sentence_with_furigana', 'sentenceWithFurigana']),
         translation: firstText(record, ['translation', 'translation_en', 'english']),
@@ -327,6 +408,75 @@ function normalizeExampleRecord(record: Record<string, unknown>): ImmersionKitEx
         soundUrl: absoluteMediaUrl(firstText(record, ['sound_url', 'audio_url', 'soundUrl', 'audioUrl'])),
         imageUrl: absoluteMediaUrl(firstText(record, ['image_url', 'imageUrl'])),
     };
+}
+
+function nadeshikoSearchPayload(query: string, settings: ReaderSettings, minLength: number): unknown {
+    const maxLength = settings.immersionKitMaxLength || 1000;
+    return {
+        query: { search: query },
+        take: NADESHIKO_SEARCH_LIMIT,
+        filters: {
+            segmentLengthChars: {
+                min: minLength,
+                max: Math.max(minLength, maxLength),
+            },
+        },
+    };
+}
+
+function nadeshikoResponseRecord(data: unknown): Record<string, unknown> | null {
+    if (Array.isArray(data)) return { segments: data };
+    return isRecord(data) ? data : null;
+}
+
+function nadeshikoSegments(response: Record<string, unknown>): unknown[] {
+    return firstArrayField(response, ['segments', 'examples', 'results', 'data']);
+}
+
+function nadeshikoMediaMap(response: Record<string, unknown>): Record<string, unknown> {
+    const includes = response.includes;
+    const media = isRecord(includes) ? includes.media : undefined;
+    return isRecord(media) ? media : {};
+}
+
+function normalizeNadeshikoExample(value: unknown, mediaById: Record<string, unknown>): ImmersionKitExample | null {
+    if (!isRecord(value)) return null;
+    const sentence = nestedText(value, 'textJa', ['content', 'text'])
+        || firstText(value, ['sentence', 'text', 'textJa']);
+    if (!sentence) return null;
+
+    const publicId = firstText(value, ['publicId', 'public_id', 'id']);
+    const mediaPublicId = firstText(value, ['mediaPublicId', 'media_public_id', 'mediaId']);
+    const media: Record<string, unknown> = isRecord(mediaById[mediaPublicId]) ? mediaById[mediaPublicId] as Record<string, unknown> : {};
+    const urls: Record<string, unknown> = isRecord(value.urls) ? value.urls : {};
+    const sourceTitle = firstText(media, ['nameRomaji', 'name_romaji', 'titleRomaji', 'title_romaji', 'name', 'title', 'nameJa'])
+        || firstText(value, ['mediaName', 'sourceTitle', 'source', 'title'])
+        || 'Nadeshiko';
+
+    return {
+        id: `nadeshiko_${publicId || mediaPublicId || hashString(sentence).toString(36)}`,
+        provider: 'nadeshiko',
+        sentence,
+        sentenceWithFurigana: firstText(value, ['furi_sentence', 'sentenceWithFurigana', 'sentence_with_furigana']),
+        translation: nestedText(value, 'textEn', ['content', 'text'])
+            || firstText(value, ['translation', 'translation_en', 'english']),
+        sourceTitle,
+        titleSlug: slugFromTitle(sourceTitle),
+        category: firstText(media, ['type', 'category']) || firstText(value, ['category']) || 'anime',
+        soundFile: '',
+        imageFile: '',
+        soundUrl: absoluteMediaUrl(firstText(urls, ['audioUrl', 'soundUrl', 'audio_url', 'sound_url'])
+            || firstText(value, ['audioUrl', 'soundUrl', 'audio_url', 'sound_url'])),
+        imageUrl: absoluteMediaUrl(firstText(urls, ['imageUrl', 'image_url'])
+            || firstText(value, ['imageUrl', 'image_url'])),
+        publicId,
+        mediaPublicId,
+    };
+}
+
+function nestedText(record: Record<string, unknown>, key: string, fields: string[]): string {
+    const value = record[key];
+    return isRecord(value) ? firstText(value, fields) : '';
 }
 
 function directMediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
@@ -401,6 +551,10 @@ function titleFromSlug(slug: string): string {
         .join(' ');
 }
 
+function slugFromTitle(title: string): string {
+    return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi, '_').replace(/^_+|_+$/g, '');
+}
+
 function mediaTitleCandidates(example: ImmersionKitExample, file: string): string[] {
     const slug = example.titleSlug || titleSlugFromId(example.id);
     return uniqueStrings([
@@ -434,6 +588,54 @@ function uniqueStrings(values: string[]): string[] {
         result.push(value);
     }
     return result;
+}
+
+function deterministicShuffle<T>(values: T[], seed: string): T[] {
+    const result = [...values];
+    let state = hashString(seed) || 1;
+    for (let index = result.length - 1; index > 0; index--) {
+        state = nextRandomState(state);
+        const swapIndex = state % (index + 1);
+        [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+}
+
+function deterministicMergedExamples(
+    sources: Array<'immersion-kit' | 'nadeshiko'>,
+    resultSets: ImmersionKitExample[][],
+    seed: string,
+): ImmersionKitExample[] {
+    const groups = deterministicShuffle(sources.map((source, index) => ({
+        source,
+        examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source}`),
+    })), `${seed}:providers`).filter(group => group.examples.length);
+    const result: ImmersionKitExample[] = [];
+    while (groups.some(group => group.examples.length)) {
+        for (const group of groups) {
+            const example = group.examples.shift();
+            if (example) result.push(example);
+        }
+    }
+    return result;
+}
+
+function nextRandomState(value: number): number {
+    return (Math.imul(value, 1664525) + 1013904223) >>> 0;
+}
+
+function sensitiveFingerprint(value: string): string {
+    const trimmed = value.trim();
+    return trimmed ? hashString(trimmed).toString(36) : '';
+}
+
+function hashString(value: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
 }
 
 function absoluteMediaUrl(value: string): string {

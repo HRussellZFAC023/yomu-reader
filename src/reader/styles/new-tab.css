@@ -742,9 +742,9 @@
 }
 
 .jpdb-reader-newtab-prompt .jpdb-reader-word {
-  background: transparent !important;
   color: inherit;
-  text-decoration-color: transparent !important;
+  text-decoration-thickness: 0.08em !important;
+  text-underline-offset: 0.08em !important;
 }
 
 .jpdb-reader-newtab-front {
@@ -828,13 +828,7 @@
 .jpdb-reader-newtab-sentence .jpdb-reader-word {
   padding: 0 0.08em;
   border-radius: 0.1em;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 16%,
-    transparent
-  ) !important;
   color: inherit;
-  text-decoration-color: var(--jpdb-reader-accent, #5ea780) !important;
   text-underline-offset: 0.08em;
 }
 
@@ -1865,15 +1859,8 @@
   .jpdb-reader-example-sentence
   .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--subtitle-color, #fff);
-  --jpdb-reader-word-underline: var(
-    --jpdb-reader-subtitle-decoration,
-    transparent
-  );
   display: inline;
   cursor: pointer;
-  background: var(--jpdb-reader-subtitle-highlight, transparent) !important;
-  color: inherit !important;
-  text-decoration-color: var(--jpdb-reader-word-underline) !important;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
@@ -1882,14 +1869,6 @@
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence
   .jpdb-reader-word {
-  color: var(
-    --jpdb-reader-status-color,
-    var(
-    --jpdb-reader-subtitle-text,
-    var(--subtitle-color, #fff)
-    )
-  ) !important;
-  background: var(--jpdb-reader-status-soft, transparent) !important;
   text-shadow:
     0 1px 2px var(--subtitle-outline, #000),
     0 0 3px var(--subtitle-outline, #000),
@@ -1907,12 +1886,6 @@
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-target {
   border-radius: 4px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 22%,
-    transparent
-  );
-  color: var(--jpdb-reader-text, #f2f4f8);
   box-shadow: none;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -1925,11 +1898,8 @@
 .jpdb-reader-newtab-immersion
   .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 22%,
-    transparent
-  ) !important;
+  box-shadow: inset 0 -0.12em 0
+    color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 56%, transparent);
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-translation {

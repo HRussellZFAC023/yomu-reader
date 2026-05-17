@@ -5,6 +5,8 @@ import {
     renderKaraokeTextParts,
     type SubtitleCue,
 } from './subtitle-cues';
+import { uiText } from './i18n';
+import type { InterfaceLanguage } from './types';
 
 export interface SubtitlePrimaryRenderInput {
     cue?: SubtitleCue;
@@ -85,9 +87,10 @@ function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActi
     return karaokeActive ? { text: input.text, html: '' } : undefined;
 }
 
-export function renderSubtitleSecondary(text: string, nativeBlurred: boolean): string {
+export function renderSubtitleSecondary(text: string, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): string {
     const blurClass = nativeBlurred ? 'jpdb-subtitle-secondary-blurred' : 'jpdb-subtitle-secondary-clear';
-    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="Toggle native subtitle blur" aria-label="Toggle native subtitle blur">${escapeWithBreaks(text)}</button>`;
+    const label = uiText(language, 'toggleNativeSubtitleBlur');
+    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}">${escapeWithBreaks(text)}</button>`;
 }
 
 export function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {

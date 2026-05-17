@@ -1,6 +1,7 @@
 import { escapeHtml } from './dom';
 import type { AnkiWordAudioMedia } from './audio';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
+import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
@@ -145,6 +146,7 @@ export interface AnkiCardContext {
     dictionaryPreferences?: DictionaryPreference[];
     sourceUrl?: string;
     sourceTitle?: string;
+    interfaceLanguage?: ReaderSettings['interfaceLanguage'];
 }
 
 interface AnkiFieldContext {
@@ -154,6 +156,7 @@ interface AnkiFieldContext {
     dictionaryPreferences: DictionaryPreference[];
     sourceUrl: string;
     sourceTitle: string;
+    interfaceLanguage: ReaderSettings['interfaceLanguage'];
 }
 
 interface ParsedAnkiImageDataUrl {
@@ -299,11 +302,19 @@ export class AnkiConnectClient {
         await this.invoke<unknown>('guiBrowse', { query: `nid:${noteId}` });
     }
 
+    async mediaFileDataUrl(filename: string): Promise<string> {
+        const cleanFilename = filename.trim();
+        if (!cleanFilename) throw new Error(this.text('ankiAudioFileNotFound'));
+        const data = await this.invoke<string | false>('retrieveMediaFile', { filename: cleanFilename });
+        if (!data) throw new Error(this.text('ankiAudioFileNotFound'));
+        return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
+    }
+
     async mergeYomuData(noteId: number, card: JPDBCard, sentence = '', options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode } = {}): Promise<AnkiMergeYomuResult> {
         const settings = this.getSettings();
-        if (canUseMobileAnkiHandoff(settings)) throw new Error('Merging existing Anki notes needs AnkiConnect on desktop.');
+        if (canUseMobileAnkiHandoff(settings)) throw new Error(this.text('ankiMergeNeedsDesktop'));
         const [note] = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [noteId] });
-        if (!note) throw new Error('Anki note not found.');
+        if (!note) throw new Error(this.text('ankiNoteNotFound'));
 
         const merge = this.buildYomuNoteMerge(note, card, sentence, options);
         if (!merge.updatedFields.length && !merge.audioAdded && !merge.imageAdded) {
@@ -382,6 +393,7 @@ export class AnkiConnectClient {
             sourceUrl: options.sourceUrl ?? safeLocationHref(),
             sourceTitle: options.sourceTitle ?? safeDocumentTitle(),
             dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences,
+            interfaceLanguage: options.interfaceLanguage ?? settings.interfaceLanguage,
         };
     }
 
@@ -409,7 +421,7 @@ export class AnkiConnectClient {
     private openMobileHandoffIfPreferred(settings: ReaderSettings, note: AnkiNote, card: JPDBCard): boolean {
         if (!canUseMobileAnkiHandoff(settings)) return false;
         log.info('Opening mobile Anki handoff', { term: card.spelling });
-        if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
+        if (!openMobileAnkiHandoff(note)) throw new Error(this.text('ankiHandoffCancelled'));
         return true;
     }
 
@@ -444,7 +456,7 @@ export class AnkiConnectClient {
     private addCardWithFallback(error: unknown, settings: ReaderSettings, note: AnkiNote, card: JPDBCard): null {
         if (!settings.ankiMobileHandoff || !isMobileUserAgent()) throw error;
         log.warn('AnkiConnect add failed; trying mobile handoff', { term: card.spelling }, error);
-        if (!openMobileAnkiHandoff(note)) throw new Error('Anki handoff cancelled.');
+        if (!openMobileAnkiHandoff(note)) throw new Error(this.text('ankiHandoffCancelled'));
         return null;
     }
 
@@ -499,12 +511,27 @@ export class AnkiConnectClient {
         const settings = this.getSettings();
         const url = settings.ankiConnectUrl || 'http://127.0.0.1:8765';
         const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-        const response = await postJson<AnkiResponse<T>>(url, body);
+        const response = await postJson<AnkiResponse<T>>(url, body).catch(error => {
+            throw this.localizedConnectError(error);
+        });
         if (response.error) {
             log.warn('AnkiConnect action returned error', { action, error: response.error });
-            throw new Error(response.error);
+            throw new Error(resolveUiLanguage(settings.interfaceLanguage) === 'ja' ? this.text('ankiConnectActionFailed') : response.error);
         }
         return response.result;
+    }
+
+    private text(key: Parameters<typeof uiText>[1]): string {
+        return uiText(this.getSettings().interfaceLanguage, key);
+    }
+
+    private localizedConnectError(error: unknown): Error {
+        const language = this.getSettings().interfaceLanguage;
+        if (resolveUiLanguage(language) !== 'ja') return error instanceof Error ? error : new Error(this.text('ankiConnectRequestFailed'));
+        if (error instanceof Error && /timed out/i.test(error.message)) return new Error(this.text('ankiConnectTimedOut'));
+        const status = error instanceof Error ? error.message.match(/\((\d{3})\)/)?.[1] : '';
+        const suffix = status ? `（${status}）` : '';
+        return new Error(`${this.text('ankiConnectRequestFailed')}${suffix}`);
     }
 }
 
@@ -602,11 +629,11 @@ export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: Anki
         PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
         Image: '',
         Audio: '',
-        JPDB: renderJpdbLink(jpdbUrl),
-        Status: renderCardStatus(card),
+        JPDB: renderJpdbLink(jpdbUrl, fieldContext.interfaceLanguage),
+        Status: renderCardStatus(card, fieldContext.interfaceLanguage),
         Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
         DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
-        Kanji: renderKanjiDefinitions(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences),
+        Kanji: renderKanjiDefinitions(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences, fieldContext.interfaceLanguage),
         Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle),
     };
 }
@@ -619,8 +646,8 @@ function renderPartOfSpeech(partOfSpeech: string[]): string {
     return escapeHtml(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
 }
 
-function renderJpdbLink(jpdbUrl: string): string {
-    return jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : '';
+function renderJpdbLink(jpdbUrl: string, language: ReaderSettings['interfaceLanguage']): string {
+    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml(uiText(language, 'openOnJpdb'))}</a>` : '';
 }
 
 function ankiFieldContext(context: AnkiCardContext): AnkiFieldContext {
@@ -631,6 +658,7 @@ function ankiFieldContext(context: AnkiCardContext): AnkiFieldContext {
         dictionaryPreferences: fallbackArray(context.dictionaryPreferences),
         sourceUrl: fallbackString(context.sourceUrl),
         sourceTitle: fallbackString(context.sourceTitle),
+        interfaceLanguage: context.interfaceLanguage ?? 'en',
     };
 }
 
@@ -648,8 +676,8 @@ function jpdbVocabularyUrl(card: JPDBCard): string {
         : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
 }
 
-function renderCardStatus(card: JPDBCard): string {
-    if (card.source === 'local') return '<span class="yomu-chip">local dictionary</span>';
+function renderCardStatus(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
+    if (card.source === 'local') return `<span class="yomu-chip">${escapeHtml(uiText(language, 'ankiLocalDictionaryStatus'))}</span>`;
     if (card.source === 'anki') return '<span class="yomu-chip">Anki</span>';
     return card.cardState.map(state => `<span class="yomu-chip">${escapeHtml(state)}</span>`).join(' ');
 }
@@ -845,6 +873,17 @@ function audioUrlExtension(url: string): string {
         // Fall through to the common Immersion Kit format.
     }
     return '.mp3';
+}
+
+function ankiMediaMimeType(filename: string): string {
+    const extension = filename.split('.').pop()?.toLowerCase() ?? '';
+    if (extension === 'mp3') return 'audio/mpeg';
+    if (extension === 'wav') return 'audio/wav';
+    if (extension === 'ogg' || extension === 'oga' || extension === 'opus') return 'audio/ogg';
+    if (extension === 'webm') return 'audio/webm';
+    if (extension === 'm4a' || extension === 'mp4' || extension === 'aac') return 'audio/mp4';
+    if (extension === 'flac') return 'audio/flac';
+    return 'audio/mpeg';
 }
 
 function safeAnkiMediaName(card: JPDBCard): string {
@@ -1126,6 +1165,7 @@ function ankiEaseFromGrade(grade: JPDBGrade): number {
 }
 
 function yomuCardTemplates(settings: ReaderSettings): Record<string, { Front: string; Back: string }> {
+    const language = settings.interfaceLanguage;
     const recognitionFront = `
 <main class="yomu-card yomu-front">
     <div class="yomu-expression">{{Expression}}</div>
@@ -1137,7 +1177,7 @@ function yomuCardTemplates(settings: ReaderSettings): Record<string, { Front: st
 <main class="yomu-card yomu-front">
     {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
     ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ''}
-    <div class="yomu-prompt">Recall the highlighted word.</div>
+    <div class="yomu-prompt">${escapeHtml(uiText(language, 'ankiPromptRecallWord'))}</div>
 </main>`;
     const back = `
 {{FrontSide}}
@@ -1147,19 +1187,19 @@ function yomuCardTemplates(settings: ReaderSettings): Record<string, { Front: st
         {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
         {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
     </section>
-    {{#Meaning}}<section class="yomu-section"><h2>Meaning</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
-    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>Dictionaries</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
-    {{#Kanji}}<section class="yomu-section"><h2>Kanji</h2>{{Kanji}}</section>{{/Kanji}}
+    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml(uiText(language, 'ankiMeaningHeading'))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml(uiText(language, 'dictionaries'))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
+    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml(uiText(language, 'kanji'))}</h2>{{Kanji}}</section>{{/Kanji}}
     <section class="yomu-section yomu-meta">
-        {{#Frequency}}<div><strong>Frequency</strong>{{Frequency}}</div>{{/Frequency}}
-        {{#Pitch}}<div><strong>Pitch</strong>{{Pitch}}</div>{{/Pitch}}
-        {{#PartOfSpeech}}<div><strong>Part of speech</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#JPDB}}<div><strong>Links</strong><span>{{JPDB}}</span></div>{{/JPDB}}
-        {{#Source}}<div><strong>Source</strong><span>{{Source}}</span></div>{{/Source}}
+        {{#Frequency}}<div><strong>${escapeHtml(uiText(language, 'factFrequency'))}</strong>{{Frequency}}</div>{{/Frequency}}
+        {{#Pitch}}<div><strong>${escapeHtml(uiText(language, 'ankiPitchHeading'))}</strong>{{Pitch}}</div>{{/Pitch}}
+        {{#PartOfSpeech}}<div><strong>${escapeHtml(uiText(language, 'ankiPartOfSpeechHeading'))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
+        {{#JPDB}}<div><strong>${escapeHtml(uiText(language, 'ankiLinksHeading'))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
+        {{#Source}}<div><strong>${escapeHtml(uiText(language, 'ankiSourceHeading'))}</strong><span>{{Source}}</span></div>{{/Source}}
     </section>
 </main>`;
     return {
-        [settings.ankiTemplateMode === 'context' ? 'Context' : 'Recognition']: {
+        [settings.ankiTemplateMode === 'context' ? uiText(language, 'ankiTemplateContext') : uiText(language, 'ankiTemplateRecognition')]: {
             Front: settings.ankiTemplateMode === 'context' ? contextFront : recognitionFront,
             Back: back,
         },
@@ -1279,7 +1319,7 @@ function renderDictionaryDefinitions(entries: YomitanTermEntry[], preferences: D
     `).join('');
 }
 
-function renderKanjiDefinitions(entries: YomitanKanjiEntry[], preferences: DictionaryPreference[]): string {
+function renderKanjiDefinitions(entries: YomitanKanjiEntry[], preferences: DictionaryPreference[], language: ReaderSettings['interfaceLanguage']): string {
     const byCharacter = new Map<string, YomitanKanjiEntry[]>();
     for (const entry of entries) {
         const group = byCharacter.get(entry.character) ?? [];
@@ -1294,8 +1334,8 @@ function renderKanjiDefinitions(entries: YomitanKanjiEntry[], preferences: Dicti
             </div>
             ${items.slice(0, 3).map(item => `
                 <div>
-                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">On ${escapeHtml(item.onyomi.join('、'))}</span>` : ''}
-                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> Kun ${escapeHtml(item.kunyomi.join('、'))}</span>` : ''}
+                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml(uiText(language, 'onReading'))} ${escapeHtml(item.onyomi.join('、'))}</span>` : ''}
+                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml(uiText(language, 'kunReading'))} ${escapeHtml(item.kunyomi.join('、'))}</span>` : ''}
                     <div>${item.meanings.slice(0, 8).map(meaning => escapeHtml(meaning)).join('; ')}</div>
                     ${item.tags.length ? `<span class="yomu-tags">${escapeHtml(item.tags.join(' · '))}</span>` : ''}
                 </div>

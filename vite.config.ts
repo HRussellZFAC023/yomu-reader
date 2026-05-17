@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => ({
                     'jpdb.io',
                     'apiv2express.immersionkit.com',
                     'apiv2.immersionkit.com',
+                    'api.nadeshiko.co',
+                    'cdn.nadeshiko.co',
                     'us-southeast-1.linodeobjects.com',
                     'raw.githubusercontent.com',
                     'en.wiktionary.org',
