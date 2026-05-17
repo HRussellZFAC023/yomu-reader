@@ -6241,9 +6241,9 @@ describe('reader helpers', () => {
         expect(potentialHints.filter(hint => hint.name === 'と')).toHaveLength(0);
     });
 
-    it('hides known grammar rules while keeping a review toggle available', () => {
+    it('hides known grammar rules while keeping a review toggle available', async () => {
         const hints = detectGrammarHints('毎日読んでいるので、もっと読みたい。');
-        const html = renderGrammarHints(hints, '毎日読んでいるので、もっと読みたい。', {
+        const html = await renderGrammarHints(hints, '毎日読んでいるので、もっと読みたい。', {
             knownRuleIds: ['aspect-te-iru'],
             showKnown: false,
         });

@@ -40,11 +40,10 @@ export class StudySourceController {
     renderGrammarSource(sentence?: string): string {
         const settings = this.settings();
         if (!sentence || !settings.studyGrammarEnabled) return '';
-        const hints = detectLocalGrammarHints(sentence);
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
                 <summary class="jpdb-reader-local-title">${escapeHtml(uiText(settings.interfaceLanguage, 'grammar'))}</summary>
-                ${this.renderGrammarPanel(sentence, hints)}
+                ${this.renderGrammarPanel()}
             </details>
         `;
     }
@@ -78,11 +77,11 @@ export class StudySourceController {
         `;
     }
 
-    private renderGrammarPanel(sentence: string, hints = detectLocalGrammarHints(sentence)): string {
+    private renderGrammarPanel(): string {
         const language = this.settings().interfaceLanguage;
         return `
             <div class="jpdb-reader-study-panel" data-study-grammar-panel>
-                ${hints.length ? renderGrammarHints(hints, sentence, undefined, language) : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'findingGrammar'))}</div>`}
+                <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'findingGrammar'))}</div>
             </div>
         `;
     }
@@ -116,7 +115,7 @@ export class StudySourceController {
                 container.remove();
                 return;
             }
-            setInnerHtml(panel, renderGrammarHints(hints, sentence, undefined, this.settings().interfaceLanguage));
+            setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, this.settings().interfaceLanguage));
             delete popover.dataset.jpdbReaderParseKey;
             delete popover.dataset.jpdbReaderParseLoadingKey;
             void this.dependencies.parsePopoverJapanese(popover);

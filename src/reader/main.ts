@@ -496,40 +496,7 @@ export class ReaderApp {
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
-    private settingsDialog = new SettingsDialogController({
-        getSettings: () => this.settings,
-        setSettings: settings => { this.settings = settings; },
-        jpdb: this.jpdb,
-        dictionaries: this.dictionaries,
-        anki: this.anki,
-        audio: this.audio,
-        subtitles: this.subtitles,
-        ocr: this.ocr,
-        createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
-        mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
-        dismiss: () => this.dismiss(),
-        toast: message => this.toast(message),
-        applyTheme: settings => this.applyTheme(settings),
-        applyAccentColor: color => this.applyAccentColor(color),
-        applyWordColors: settings => this.applyWordColors(settings),
-        lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor }),
-        installFab: () => this.installFab(),
-        refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
-        scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),
-        refreshNewTabIfCurrent: () => undefined,
-        clearDictionarySourceOpenOverrides: () => this.dictionarySourceState.clear(),
-        resetAllData: () => this.factoryReset.resetAllData(),
-        beginSettingsPreview: (accent, language, theme) => {
-            this.settingsPreviewOriginalAccent = accent;
-            this.settingsPreviewOriginalLanguage = language;
-            this.settingsPreviewOriginalTheme = theme;
-        },
-        clearSettingsPreview: () => {
-            this.settingsPreviewOriginalAccent = undefined;
-            this.settingsPreviewOriginalLanguage = undefined;
-            this.settingsPreviewOriginalTheme = undefined;
-        },
-    });
+    private settingsDialog?: SettingsDialogController;
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
     private lastCard?: JPDBCard;
@@ -3336,7 +3303,45 @@ export class ReaderApp {
     }
 
     private showSettings(panel?: string): void {
-        this.settingsDialog.open(panel);
+        this.getSettingsDialog().open(panel);
+    }
+
+    private getSettingsDialog(): SettingsDialogController {
+        this.settingsDialog ??= new SettingsDialogController({
+            getSettings: () => this.settings,
+            setSettings: settings => { this.settings = settings; },
+            jpdb: this.jpdb,
+            dictionaries: this.dictionaries,
+            anki: this.anki,
+            audio: this.audio,
+            subtitles: this.subtitles,
+            ocr: this.ocr,
+            createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
+            mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
+            dismiss: () => this.dismiss(),
+            toast: message => this.toast(message),
+            applyTheme: settings => this.applyTheme(settings),
+            applyAccentColor: color => this.applyAccentColor(color),
+            applyWordColors: settings => this.applyWordColors(settings),
+            lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor }),
+            installFab: () => this.installFab(),
+            refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
+            scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),
+            refreshNewTabIfCurrent: () => undefined,
+            clearDictionarySourceOpenOverrides: () => this.dictionarySourceState.clear(),
+            resetAllData: () => this.factoryReset.resetAllData(),
+            beginSettingsPreview: (accent, language, theme) => {
+                this.settingsPreviewOriginalAccent = accent;
+                this.settingsPreviewOriginalLanguage = language;
+                this.settingsPreviewOriginalTheme = theme;
+            },
+            clearSettingsPreview: () => {
+                this.settingsPreviewOriginalAccent = undefined;
+                this.settingsPreviewOriginalLanguage = undefined;
+                this.settingsPreviewOriginalTheme = undefined;
+            },
+        });
+        return this.settingsDialog;
     }
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {

@@ -56,7 +56,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ### Current release state
 
-- [x] Built userscript size is under the Greasy Fork budget: `dist/yomu.user.js` is 1198.0 KiB raw, below the 2,000,000 byte hard limit in ADR 0002.
+- [x] Built userscript size is under the Greasy Fork budget: `dist/yomu.user.js` is 1874.3 KiB raw, below the 2,000,000 byte hard limit in ADR 0002.
+- [x] Greasy Fork artifact is readable/non-minified: JavaScript minification and CSS minification are disabled, embedded CSS is formatted after build, and `npm run verify` rejects minified-looking output.
 - [x] Extension packages are generated with `npm run build:extension` from the same userscript and the real `/newtab` bundle.
 - [x] Compiler-generated review drafts are present under `dist/extension/review/`, including Chrome Web Store, Mozilla AMO, Safari App Store, Firefox Android, package validation, release artifacts, and troubleshooting notes.
 - [x] Compiler-generated audit evidence is present under `dist/extension/audit/`, including `compiler-audit.json` and `package-validation.json`.
@@ -75,7 +76,7 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] JPDB API keys and local audio URLs used in testing are never committed or bundled.
 - [ ] Production build works on pages with strict CSP/Trusted Types, especially YouTube.
 - [ ] GreasyFork copy is current: summary, description, support links, privacy notes,
-  and update instructions.
+  update instructions, and a final readable/non-minified source check against Greasy Fork's code rules.
 - [ ] GitHub Actions run typecheck, unit tests, build, userscript verification, docs build, docs deployment, and release asset publishing.
 - [ ] Store screenshots follow `docs/screenshot-capture.md`: Playwright only, real contexts only,
   no generated images, no fixtures, and no fake data.
